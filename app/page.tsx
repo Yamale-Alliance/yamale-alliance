@@ -1,100 +1,143 @@
-import Image from "next/image";
+import Link from "next/link";
+import { BookOpen, FileCheck, Search, Scale } from "lucide-react";
 
 export default function Home() {
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="min-h-screen">
+      {/* Hero */}
+      <section className="mx-auto max-w-5xl px-4 py-20 text-center sm:py-28">
+        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
+          African law,{" "}
+          <span className="text-primary">accessible and verifiable</span>
+        </h1>
+        <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
+          Yamalé Legal Platform is your trusted source for African national and
+          regional law, AfCFTA compliance tools, and AI-powered legal research
+          grounded in verified sources.
+        </p>
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+          <Link
+            href="/signup"
+            className="rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            Get started
+          </Link>
+          <Link
+            href="/login"
+            className="rounded-lg border border-border bg-background px-6 py-3 text-sm font-medium hover:bg-accent"
           >
-            Read our docs
-          </a>
+            Sign in
+          </Link>
+          <Link
+            href="/pricing"
+            className="rounded-lg px-6 py-3 text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            Pricing
+          </Link>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+      </section>
+
+      {/* Features */}
+      <section className="border-t border-border bg-muted/30">
+        <div className="mx-auto max-w-5xl px-4 py-16 sm:py-24">
+          <h2 className="text-center text-2xl font-semibold tracking-tight">
+            What Yamalé offers
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-center text-muted-foreground">
+            One platform for legal reference, compliance, and research across
+            Africa.
+          </p>
+          <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            <Link
+              href="/library"
+              className="rounded-xl border border-border bg-card p-6 transition-colors hover:bg-accent/50"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                <BookOpen className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="mt-4 font-semibold">Legal Library</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Browse African legal materials by jurisdiction and domain.
+              </p>
+            </Link>
+            <Link
+              href="/afcfta"
+              className="rounded-xl border border-border bg-card p-6 transition-colors hover:bg-accent/50"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                <FileCheck className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="mt-4 font-semibold">AfCFTA Compliance</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Step-by-step tools for cross-border trade and investment.
+              </p>
+            </Link>
+            <Link
+              href="/ai-research"
+              className="rounded-xl border border-border bg-card p-6 transition-colors hover:bg-accent/50"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                <Search className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="mt-4 font-semibold">AI Legal Research</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Natural-language queries with citations to verified sources.
+              </p>
+            </Link>
+            <Link
+              href="/lawyers"
+              className="rounded-xl border border-border bg-card p-6 transition-colors hover:bg-accent/50"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                <Scale className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="mt-4 font-semibold">Find a Lawyer</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Connect with verified legal professionals when you need advice.
+              </p>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="mx-auto max-w-5xl px-4 py-16 sm:py-24">
+        <div className="rounded-2xl border border-border bg-card p-8 text-center sm:p-12">
+          <h2 className="text-xl font-semibold sm:text-2xl">
+            Ready to get started?
+          </h2>
+          <p className="mt-3 text-muted-foreground">
+            Create an account to access the legal library, AfCFTA tools, and
+            AI-powered research.
+          </p>
+          <div className="mt-6">
+            <Link
+              href="/signup"
+              className="inline-flex rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
+            >
+              Sign up free
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-border py-8">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-6 px-4 text-sm text-muted-foreground">
+          <Link href="/pricing" className="hover:text-foreground">
+            Pricing
+          </Link>
+          <Link href="/library" className="hover:text-foreground">
+            Library
+          </Link>
+          <Link href="/afcfta" className="hover:text-foreground">
+            AfCFTA
+          </Link>
+          <Link href="/ai-research" className="hover:text-foreground">
+            AI Research
+          </Link>
+          <span>© Yamalé Legal Platform</span>
+        </div>
       </footer>
     </div>
   );
