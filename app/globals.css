@@ -3,29 +3,31 @@
 @tailwind utilities;
 
 :root {
+  /* Light theme using brand palette */
   --background: #ffffff;
-  --foreground: #171717;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
+  --foreground: #221913;
+  --muted: #e3ba65;
+  --muted-foreground: #603b1c;
   --card: #ffffff;
-  --card-foreground: #171717;
-  --border: #e4e4e7;
-  --primary: #18181b;
-  --primary-foreground: #fafafa;
-  --accent: #f4f4f5;
+  --card-foreground: #221913;
+  --border: #e3ba65;
+  --primary: #c18c43;
+  --primary-foreground: #221913;
+  --accent: #603b1c;
 }
 
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-  --muted: #27272a;
-  --muted-foreground: #a1a1aa;
-  --card: #18181b;
-  --card-foreground: #ededed;
-  --border: #27272a;
-  --primary: #fafafa;
-  --primary-foreground: #18181b;
-  --accent: #27272a;
+  /* Dark theme using brand palette */
+  --background: #221913;
+  --foreground: #e3ba65;
+  --muted: #603b1c;
+  --muted-foreground: #e3ba65;
+  --card: #221913;
+  --card-foreground: #e3ba65;
+  --border: #9a632a;
+  --primary: #e3ba65;
+  --primary-foreground: #221913;
+  --accent: #c18c43;
 }
 
 body {
