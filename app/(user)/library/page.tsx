@@ -14,32 +14,45 @@ type Law = {
   status: LawStatus;
 };
 
+// Categories from Database of Laws spreadsheet (Yamalé)
+const CATEGORIES = [
+  "Corporate Law",
+  "Tax Law",
+  "Labor/Employment Law",
+  "Intellectual Property Law",
+  "Data Protection and Privacy Law",
+  "International Trade Laws",
+  "Anti-Bribery and Corruption Law",
+  "Dispute Resolution",
+  "Environmental",
+] as const;
+
 const MOCK_LAWS: Law[] = [
-  { id: "1", name: "Companies Act", country: "Ghana", category: "Commercial Law", year: 2019, status: "In force" },
-  { id: "2", name: "Labour Act", country: "Ghana", category: "Labour Law", year: 2003, status: "In force" },
-  { id: "3", name: "Companies and Allied Matters Act", country: "Nigeria", category: "Commercial Law", year: 2020, status: "In force" },
-  { id: "4", name: "1999 Constitution (Amendment)", country: "Nigeria", category: "Constitution", year: 2018, status: "Amended" },
-  { id: "5", name: "Employment Act", country: "Kenya", category: "Labour Law", year: 2007, status: "In force" },
-  { id: "6", name: "Companies Act", country: "Kenya", category: "Commercial Law", year: 2015, status: "In force" },
-  { id: "7", name: "Constitution of Kenya", country: "Kenya", category: "Constitution", year: 2010, status: "Amended" },
-  { id: "8", name: "Companies Act", country: "South Africa", category: "Commercial Law", year: 2008, status: "In force" },
-  { id: "9", name: "Labour Relations Act", country: "South Africa", category: "Labour Law", year: 1995, status: "Amended" },
-  { id: "10", name: "Income Tax Act", country: "South Africa", category: "Tax", year: 1962, status: "Amended" },
-  { id: "11", name: "Code des Obligations Civiles et Commerciales", country: "Senegal", category: "Commercial Law", year: 2010, status: "In force" },
-  { id: "12", name: "Code du Travail", country: "Senegal", category: "Labour Law", year: 1997, status: "In force" },
-  { id: "13", name: "Environmental Management Act", country: "Tanzania", category: "Environment", year: 2004, status: "In force" },
-  { id: "14", name: "Companies Act", country: "Tanzania", category: "Commercial Law", year: 2002, status: "Repealed" },
-  { id: "15", name: "Investment Code", country: "Rwanda", category: "Commercial Law", year: 2021, status: "In force" },
-  { id: "16", name: "Labour Code", country: "Côte d'Ivoire", category: "Labour Law", year: 2015, status: "In force" },
-  { id: "17", name: "OHADA Uniform Act on Commercial Companies", country: "Regional (OHADA)", category: "Commercial Law", year: 2014, status: "In force" },
-  { id: "18", name: "Data Protection Act", country: "Ghana", category: "Privacy & Data", year: 2012, status: "In force" },
-  { id: "19", name: "Cybercrimes Act", country: "Nigeria", category: "Criminal Law", year: 2015, status: "In force" },
-  { id: "20", name: "Mining Act", country: "Zambia", category: "Natural Resources", year: 2015, status: "Amended" },
+  { id: "1", name: "Companies Act", country: "Ghana", category: "Corporate Law", year: 2019, status: "In force" },
+  { id: "2", name: "Labour Act", country: "Ghana", category: "Labor/Employment Law", year: 2003, status: "In force" },
+  { id: "3", name: "Companies and Allied Matters Act", country: "Nigeria", category: "Corporate Law", year: 2020, status: "In force" },
+  { id: "4", name: "1999 Constitution (Amendment)", country: "Nigeria", category: "Corporate Law", year: 2018, status: "Amended" },
+  { id: "5", name: "Employment Act", country: "Kenya", category: "Labor/Employment Law", year: 2007, status: "In force" },
+  { id: "6", name: "Companies Act", country: "Kenya", category: "Corporate Law", year: 2015, status: "In force" },
+  { id: "7", name: "Constitution of Kenya", country: "Kenya", category: "Corporate Law", year: 2010, status: "Amended" },
+  { id: "8", name: "Companies Act", country: "South Africa", category: "Corporate Law", year: 2008, status: "In force" },
+  { id: "9", name: "Labour Relations Act", country: "South Africa", category: "Labor/Employment Law", year: 1995, status: "Amended" },
+  { id: "10", name: "Income Tax Act", country: "South Africa", category: "Tax Law", year: 1962, status: "Amended" },
+  { id: "11", name: "Code des Obligations Civiles et Commerciales", country: "Senegal", category: "Corporate Law", year: 2010, status: "In force" },
+  { id: "12", name: "Code du Travail", country: "Senegal", category: "Labor/Employment Law", year: 1997, status: "In force" },
+  { id: "13", name: "Environmental Management Act", country: "Tanzania", category: "Environmental", year: 2004, status: "In force" },
+  { id: "14", name: "Companies Act", country: "Tanzania", category: "Corporate Law", year: 2002, status: "Repealed" },
+  { id: "15", name: "Investment Code", country: "Rwanda", category: "Corporate Law", year: 2021, status: "In force" },
+  { id: "16", name: "Labour Code", country: "Côte d'Ivoire", category: "Labor/Employment Law", year: 2015, status: "In force" },
+  { id: "17", name: "OHADA Uniform Act on Commercial Companies", country: "Regional (OHADA)", category: "Corporate Law", year: 2014, status: "In force" },
+  { id: "18", name: "Data Protection Act", country: "Ghana", category: "Data Protection and Privacy Law", year: 2012, status: "In force" },
+  { id: "19", name: "Anti-Corruption and Economic Crimes Act", country: "Nigeria", category: "Anti-Bribery and Corruption Law", year: 2003, status: "In force" },
+  { id: "20", name: "Arbitration Act", country: "Zambia", category: "Dispute Resolution", year: 2000, status: "In force" },
+  { id: "21", name: "Copyright Act", country: "Kenya", category: "Intellectual Property Law", year: 2001, status: "Amended" },
+  { id: "22", name: "ECOWAS Revised Treaty", country: "Regional (ECOWAS)", category: "International Trade Laws", year: 1993, status: "In force" },
 ];
 
 const COUNTRIES = [...new Set(MOCK_LAWS.map((l) => l.country))].sort();
-const CATEGORIES = [...new Set(MOCK_LAWS.map((l) => l.category))].sort();
-const YEARS = [...new Set(MOCK_LAWS.map((l) => l.year))].sort((a, b) => b - a);
 const STATUSES: LawStatus[] = ["In force", "Amended", "Repealed"];
 
 function StatusBadge({ status }: { status: LawStatus }) {
@@ -61,7 +74,6 @@ export default function LibraryPage() {
   const [search, setSearch] = useState("");
   const [country, setCountry] = useState("");
   const [category, setCategory] = useState("");
-  const [year, setYear] = useState("");
   const [status, setStatus] = useState("");
 
   const filteredLaws = useMemo(() => {
@@ -73,11 +85,10 @@ export default function LibraryPage() {
         law.category.toLowerCase().includes(search.toLowerCase());
       const matchCountry = !country || law.country === country;
       const matchCategory = !category || law.category === category;
-      const matchYear = !year || law.year === Number(year);
       const matchStatus = !status || law.status === status;
-      return matchSearch && matchCountry && matchCategory && matchYear && matchStatus;
+      return matchSearch && matchCountry && matchCategory && matchStatus;
     });
-  }, [search, country, category, year, status]);
+  }, [search, country, category, status]);
 
   return (
     <div className="min-h-screen">
@@ -129,18 +140,6 @@ export default function LibraryPage() {
               ))}
             </select>
             <select
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-              className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="">All years</option>
-              {YEARS.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-            <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
               className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
@@ -152,13 +151,12 @@ export default function LibraryPage() {
                 </option>
               ))}
             </select>
-            {(country || category || year || status) && (
+            {(country || category || status) && (
               <button
                 type="button"
                 onClick={() => {
                   setCountry("");
                   setCategory("");
-                  setYear("");
                   setStatus("");
                 }}
                 className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -186,8 +184,6 @@ export default function LibraryPage() {
                 <span>{law.country}</span>
                 <span>·</span>
                 <span>{law.category}</span>
-                <span>·</span>
-                <span>{law.year}</span>
               </div>
               <div className="mt-3">
                 <StatusBadge status={law.status} />

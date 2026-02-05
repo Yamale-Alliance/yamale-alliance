@@ -31,6 +31,42 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Quick Deploy
+
+1. **Push your code to GitHub/GitLab/Bitbucket**
+2. **Import project in Vercel**: Go to [vercel.com/new](https://vercel.com/new)
+3. **Connect your repository**
+4. **Configure environment variables** (see below)
+5. **Deploy**
+
+### Environment Variables
+
+Set these in your Vercel project settings (Settings → Environment Variables):
+
+**Required:**
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` - Your Clerk publishable key
+- `CLERK_SECRET_KEY` - Your Clerk secret key
+
+**Optional (for password protection):**
+- `ENABLE_BASIC_AUTH` - Set to `"true"` to enable basic HTTP authentication
+- `BASIC_AUTH_USERNAME` - Username for basic auth (default: `yamale`)
+- `BASIC_AUTH_PASSWORD` - Password for basic auth (default: `demo2024`)
+
+### Password Protection (Basic Auth)
+
+To password-protect your staging/demo site:
+
+1. In Vercel, go to your project → Settings → Environment Variables
+2. Add:
+   - `ENABLE_BASIC_AUTH` = `true`
+   - `BASIC_AUTH_USERNAME` = your desired username
+   - `BASIC_AUTH_PASSWORD` = your desired password
+3. Redeploy
+
+Visitors will be prompted for username/password before accessing the site.
+
+### Build Settings
+
+The project includes `vercel.json` with optimized build settings. Vercel will automatically detect Next.js and use the correct build command.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

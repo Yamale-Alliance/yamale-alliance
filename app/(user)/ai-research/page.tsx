@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
-import { Send, MessageSquare } from "lucide-react";
+import { Send, MessageSquare, Lock } from "lucide-react";
 
 type Tier = "free" | "pro" | "plus";
 
 const TIER_LIMITS: Record<Tier, number | null> = {
-  free: 5,
+  free: 0, // Free plan does not get AI search
   pro: 50,
   plus: null, // unlimited
 };
@@ -63,7 +64,7 @@ export default function AIResearchPage() {
   const limit = TIER_LIMITS[tier];
   const used = messages.filter((m) => m.role === "user").length;
   const remaining = limit === null ? null : Math.max(0, limit - used);
-  const atLimit = limit !== null && remaining <= 0;
+  const atLimit = limit !== null && (remaining ?? 0) <= 0;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -105,6 +106,41 @@ export default function AIResearchPage() {
     sendMessage(input);
   };
 
+  // Free plan: show upgrade prompt instead of AI search
+  if (tier === "free") {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <div className="border-b border-border bg-card/50 px-4 py-6">
+          <div className="mx-auto max-w-3xl">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              AI-Powered Legal Research
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Natural-language queries grounded in verified African legal sources.
+            </p>
+          </div>
+        </div>
+        <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center px-4 py-12 text-center">
+          <div className="rounded-full bg-muted p-6">
+            <Lock className="h-12 w-12 text-muted-foreground" />
+          </div>
+          <h2 className="mt-6 text-xl font-semibold">
+            Upgrade to use AI Legal Research
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            AI search is available on Basic, Pro, and Team plans. Upgrade your plan to ask questions and get answers grounded in verified African legal sources.
+          </p>
+          <Link
+            href="/pricing"
+            className="mt-6 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
+          >
+            View plans and upgrade
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       {/* Header with tier & usage */}
@@ -131,7 +167,7 @@ export default function AIResearchPage() {
                     <div
                       className="h-full rounded-full bg-primary transition-all duration-300"
                       style={{
-                        width: `${Math.min(100, (used / limit) * 100)}%`,
+                        width: `${Math.min(100, limit > 0 ? (used / limit) * 100 : 0)}%`,
                       }}
                     />
                   </div>

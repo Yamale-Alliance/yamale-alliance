@@ -30,16 +30,26 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const form: Record<string, string> = {};
-  for (const key of FORM_KEYS) {
-    const v = formData.get(key);
-    form[key] = typeof v === "string" ? v.trim() : "";
-  }
+  const form = {
+    specialty: typeof formData.get("specialty") === "string" ? formData.get("specialty") as string : "",
+    experience: typeof formData.get("experience") === "string" ? formData.get("experience") as string : "",
+    location: typeof formData.get("location") === "string" ? formData.get("location") as string : "",
+    barNumber: typeof formData.get("barNumber") === "string" ? formData.get("barNumber") as string : "",
+    bio: typeof formData.get("bio") === "string" ? formData.get("bio") as string : "",
+  };
+  form.specialty = form.specialty.trim();
+  form.experience = form.experience.trim();
+  form.location = form.location.trim();
+  form.barNumber = form.barNumber.trim();
+  form.bio = form.bio.trim();
 
-  const documents: Record<string, string> = {};
-  for (const key of DOC_KEYS) {
-    documents[key] = getFileName(formData.get(key));
-  }
+  const documents = {
+    degree: getFileName(formData.get("degree")),
+    license: getFileName(formData.get("license")),
+    id: getFileName(formData.get("id")),
+    barCert: getFileName(formData.get("barCert")),
+    practiceCert: getFileName(formData.get("practiceCert")),
+  };
 
   const missingDocs = DOC_KEYS.filter((k) => !documents[k]);
   if (missingDocs.length > 0) {
@@ -49,6 +59,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  addSubmission(userId, form, documents as { degree: string; license: string; id: string; barCert: string; practiceCert: string });
+  addSubmission(userId, form, documents);
   return NextResponse.json({ success: true });
 }

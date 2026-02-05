@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, FileCheck, Search, Scale } from "lucide-react";
+import { BookOpen, FileCheck, Search, Scale, ShoppingBag } from "lucide-react";
 
 export default function Home() {
   return (
@@ -28,12 +28,6 @@ export default function Home() {
           >
             Sign in
           </Link>
-          <Link
-            href="/pricing"
-            className="rounded-lg px-6 py-3 text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
-            Pricing
-          </Link>
         </div>
       </section>
 
@@ -47,7 +41,7 @@ export default function Home() {
             One platform for legal reference, compliance, and research across
             Africa.
           </p>
-          <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
             <Link
               href="/library"
               className="rounded-xl border border-border bg-card p-6 transition-colors hover:bg-accent/50"
@@ -82,6 +76,18 @@ export default function Home() {
               <h3 className="mt-4 font-semibold">AI Legal Research</h3>
               <p className="mt-2 text-sm text-muted-foreground">
                 Natural-language queries with citations to verified sources.
+              </p>
+            </Link>
+            <Link
+              href="/marketplace"
+              className="rounded-xl border border-border bg-card p-6 transition-colors hover:bg-accent/50"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                <ShoppingBag className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="mt-4 font-semibold">Marketplace</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Books, courses, and templates for legal and compliance.
               </p>
             </Link>
             <Link
@@ -120,25 +126,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="border-t border-border py-8">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-6 px-4 text-sm text-muted-foreground">
-          <Link href="/pricing" className="hover:text-foreground">
-            Pricing
-          </Link>
-          <Link href="/library" className="hover:text-foreground">
-            Library
-          </Link>
-          <Link href="/afcfta" className="hover:text-foreground">
-            AfCFTA
-          </Link>
-          <Link href="/ai-research" className="hover:text-foreground">
-            AI Research
-          </Link>
-          <span>© Yamalé Legal Platform</span>
-        </div>
-      </footer>
     </div>
   );
 }
