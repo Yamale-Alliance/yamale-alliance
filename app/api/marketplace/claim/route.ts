@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import type { Database } from "@/lib/database.types";
+
+type MarketplaceItemRow = Database["public"]["Tables"]["marketplace_items"]["Row"];
 
 /** POST: claim a free marketplace item (no Stripe). */
 export async function POST(request: NextRequest) {
@@ -17,13 +20,14 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getSupabaseServer();
-    const { data: item, error: itemError } = await supabase
+    const { data, error: itemError } = await supabase
       .from("marketplace_items")
       .select("id, price_cents, published")
       .eq("id", itemId)
       .eq("published", true)
       .single();
 
+    const item = data as MarketplaceItemRow | null;
     if (itemError || !item) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
@@ -34,7 +38,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { error: upsertError } = await supabase.from("marketplace_purchases").upsert(
+    const { error: upsertError } = await (supabase.from("marketplace_purchases") as any).upsert(
       {
         user_id: userId,
         marketplace_item_id: itemId,
