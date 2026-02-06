@@ -19,20 +19,20 @@ import {
   Paperclip,
 } from "lucide-react";
 
-type Tier = "free" | "basic" | "pro" | "plus";
+type Tier = "free" | "basic" | "pro" | "team";
 
 const TIER_LIMITS: Record<Tier, number | null> = {
   free: 0,
   basic: 10,
   pro: 50,
-  plus: null,
+  team: null,
 };
 
 const TIER_LABELS: Record<Tier, string> = {
   free: "Free",
   basic: "Basic",
   pro: "Pro",
-  plus: "Plus",
+  team: "Team",
 };
 
 const EXAMPLE_QUESTIONS = [
@@ -72,8 +72,8 @@ function getTierFromUser(metadata: Record<string, unknown> | undefined): Tier {
     }
   }
 
-  if (t === "pro" || t === "plus") return t;
-  if (t === "team") return "plus";
+  if (t === "pro") return "pro";
+  if (t === "team" || t === "plus") return "team"; // plus legacy → Team
   if (t === "basic") return "basic";
   return "free";
 }
@@ -423,7 +423,7 @@ export default function AIResearchPage() {
           </div>
           <h1 className="mt-6 text-xl font-semibold">AI Legal Research</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Available on Basic, Pro, and Plus plans.
+            Available on Basic, Pro, and Team plans.
           </p>
           <Link
             href="/pricing"
