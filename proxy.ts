@@ -13,6 +13,8 @@ const isPublicRoute = createRouteMatcher([
   "/ai-research(.*)",
   "/marketplace(.*)",
   "/lawyers(.*)",
+  "/api/pricing", // public pricing data for pricing page
+  "/api/stripe/webhook", // Stripe webhooks (verified by signature)
 ]);
 
 // Basic HTTP Authentication
@@ -35,7 +37,14 @@ function checkBasicAuth(request: Request): boolean {
 
 export default clerkMiddleware(async (auth, request) => {
   // Basic HTTP Auth check (only if enabled via env var)
-  if (process.env.ENABLE_BASIC_AUTH === "true") {
+  // Skip basic auth for public laws API so Library works without sign-in (incl. on mobile)
+  const url = request.nextUrl ?? new URL(request.url);
+  const isPublicApi =
+    request.method === "GET" &&
+    (url.pathname === "/api/laws" ||
+      url.pathname.startsWith("/api/laws/") ||
+      url.pathname === "/api/pricing");
+  if (process.env.ENABLE_BASIC_AUTH === "true" && !isPublicApi) {
     if (!checkBasicAuth(request)) {
       return new NextResponse("Authentication required", {
         status: 401,
