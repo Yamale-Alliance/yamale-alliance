@@ -8,7 +8,10 @@ export type AuditAction =
   | "pricing.update"
   | "user.tier"
   | "admin.add"
-  | "admin.role";
+  | "admin.role"
+  | "marketplace_item.add"
+  | "marketplace_item.update"
+  | "marketplace_item.delete";
 
 export async function recordAuditLog(
   supabase: SupabaseClient<Database>,
