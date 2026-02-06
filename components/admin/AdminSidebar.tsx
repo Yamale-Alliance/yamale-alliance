@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   Shield,
   X,
+  Store,
 } from "lucide-react";
 
 const navItems = [
@@ -20,6 +21,7 @@ const navItems = [
   { href: "/admin-panel/users", label: "Users", icon: Users },
   { href: "/admin-panel/lawyers", label: "Lawyer Verification", icon: Briefcase },
   { href: "/admin-panel/laws", label: "Laws", icon: BookOpen },
+  { href: "/admin-panel/marketplace", label: "Marketplace", icon: Store },
   { href: "/admin-panel/pricing", label: "Pricing", icon: Scale },
   { href: "/admin-panel/content", label: "Content", icon: FileText },
   { href: "/admin-panel/settings", label: "Settings", icon: Settings },
