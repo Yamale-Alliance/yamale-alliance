@@ -101,10 +101,10 @@ export function Footer() {
             © {new Date().getFullYear()} Yamalé Legal Platform. All rights reserved.
           </p>
           <a
-            href="mailto:contact@yamale-legal.com"
+            href="mailto:it@yamalealliance.org"
             className="text-xs text-muted-foreground hover:text-primary hover:underline"
           >
-            contact@yamale-legal.com
+            it@yamalealliance.org
           </a>
         </div>
       </div>
