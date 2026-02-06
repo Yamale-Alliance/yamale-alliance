@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 
 type BillingInterval = "monthly" | "annual";
@@ -139,6 +141,8 @@ function ToggleSwitch({
 }
 
 export default function PricingPage() {
+  const { isLoaded, isSignedIn } = useUser();
+  const router = useRouter();
   const [billing, setBilling] = useState<BillingInterval>("annual");
   const [tiers, setTiers] = useState<Tier[]>(FALLBACK_TIERS);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
@@ -146,6 +150,16 @@ export default function PricingPage() {
 
   const handleCheckout = async (planId: string) => {
     if (planId === "free") return;
+    
+    // Check if user is signed in
+    if (!isLoaded) return; // Wait for auth to load
+    if (!isSignedIn) {
+      // Redirect to sign-in with return URL
+      const returnUrl = encodeURIComponent(`/pricing?plan=${planId}&interval=${billing}`);
+      router.push(`/sign-in?redirect_url=${returnUrl}`);
+      return;
+    }
+
     setCheckoutLoading(planId);
     try {
       const res = await fetch("/api/stripe/checkout", {
@@ -156,6 +170,12 @@ export default function PricingPage() {
       });
       const data = await res.json();
       if (!res.ok) {
+        // If 401, redirect to sign-in
+        if (res.status === 401) {
+          const returnUrl = encodeURIComponent(`/pricing?plan=${planId}&interval=${billing}`);
+          router.push(`/sign-in?redirect_url=${returnUrl}`);
+          return;
+        }
         alert(data.error || "Checkout failed");
         return;
       }
@@ -166,7 +186,17 @@ export default function PricingPage() {
       setCheckoutLoading(null);
     }
   };
+  
   const handleDayPassCheckout = async () => {
+    // Check if user is signed in
+    if (!isLoaded) return; // Wait for auth to load
+    if (!isSignedIn) {
+      // Redirect to sign-in with return URL
+      const returnUrl = encodeURIComponent("/pricing?day_pass=true");
+      router.push(`/sign-in?redirect_url=${returnUrl}`);
+      return;
+    }
+
     setCheckoutLoading("day-pass");
     try {
       const res = await fetch("/api/stripe/day-pass", {
@@ -176,6 +206,12 @@ export default function PricingPage() {
       });
       const data = await res.json();
       if (!res.ok) {
+        // If 401, redirect to sign-in
+        if (res.status === 401) {
+          const returnUrl = encodeURIComponent("/pricing?day_pass=true");
+          router.push(`/sign-in?redirect_url=${returnUrl}`);
+          return;
+        }
         alert(data.error || "Checkout failed");
         return;
       }
@@ -195,6 +231,39 @@ export default function PricingPage() {
       })
       .catch(() => {});
   }, []);
+
+  // Auto-trigger checkout if user returns from sign-in with plan selected
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const plan = params.get("plan");
+    const interval = params.get("interval") as BillingInterval | null;
+    const dayPass = params.get("day_pass");
+
+    if (plan && ["basic", "pro", "team"].includes(plan)) {
+      // Set billing interval if specified
+      if (interval === "monthly" || interval === "annual") {
+        setBilling(interval);
+      }
+      // Trigger checkout after a brief delay to ensure state is set
+      const timeoutId = setTimeout(() => {
+        handleCheckout(plan);
+      }, 100);
+      // Clean up URL
+      window.history.replaceState({}, "", "/pricing");
+      return () => clearTimeout(timeoutId);
+    } else if (dayPass === "true") {
+      // Trigger day pass checkout
+      const timeoutId = setTimeout(() => {
+        handleDayPassCheckout();
+      }, 100);
+      // Clean up URL
+      window.history.replaceState({}, "", "/pricing");
+      return () => clearTimeout(timeoutId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, isSignedIn]);
 
   return (
     <div className="min-h-screen bg-gray-50">

@@ -88,8 +88,7 @@ export default function ProfilePage() {
         lastName: lastName.trim() || null,
       });
       setStatus("Profile updated.");
-    } catch (err) {
-      console.error("Profile update error:", err);
+    } catch {
       setStatus("Could not update profile. Please try again.");
     } finally {
       setSaving(false);

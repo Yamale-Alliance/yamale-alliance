@@ -1,14 +1,25 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useUser } from "@clerk/nextjs";
 import { Loader2 } from "lucide-react";
-import { GuestHeader } from "./GuestHeader";
-import { UserHeader } from "./UserHeader";
-import { LawyerHeader } from "./LawyerHeader";
-import { AdminHeader } from "./AdminHeader";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { userNavLinks } from "./nav-config";
+
+// Dynamically import headers to reduce initial bundle size
+const GuestHeader = dynamic(() => import("./GuestHeader").then((m) => ({ default: m.GuestHeader })), {
+  loading: () => null,
+});
+const UserHeader = dynamic(() => import("./UserHeader").then((m) => ({ default: m.UserHeader })), {
+  loading: () => null,
+});
+const LawyerHeader = dynamic(() => import("./LawyerHeader").then((m) => ({ default: m.LawyerHeader })), {
+  loading: () => null,
+});
+const AdminHeader = dynamic(() => import("./AdminHeader").then((m) => ({ default: m.AdminHeader })), {
+  loading: () => null,
+});
 
 type UserRole = "user" | "lawyer" | "admin";
 
