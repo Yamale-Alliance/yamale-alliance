@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { auth } from "@clerk/nextjs/server";
+import type { Database } from "@/lib/database.types";
+
+type MarketplaceItemRow = Database["public"]["Tables"]["marketplace_items"]["Row"];
 
 /** GET: single marketplace item (public). Optionally include purchased=true if user owns it. */
 export async function GET(
@@ -14,12 +17,13 @@ export async function GET(
     }
 
     const supabase = getSupabaseServer();
-    const { data: item, error } = await supabase
+    const { data, error } = await supabase
       .from("marketplace_items")
       .select("id, type, title, author, description, price_cents, currency, image_url, published, sort_order, created_at")
       .eq("id", id)
       .single();
 
+    const item = data as MarketplaceItemRow | null;
     if (error || !item) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
