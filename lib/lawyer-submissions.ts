@@ -50,3 +50,13 @@ export function getPendingSubmissions(): LawyerSubmission[] {
 export function getAllSubmissions(): LawyerSubmission[] {
   return Array.from(submissions.values());
 }
+
+export function setSubmissionStatus(
+  userId: string,
+  status: "approved" | "rejected"
+): boolean {
+  const sub = submissions.get(userId);
+  if (!sub) return false;
+  sub.status = status;
+  return true;
+}
