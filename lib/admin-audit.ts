@@ -9,6 +9,7 @@ export type AuditAction =
   | "user.tier"
   | "admin.add"
   | "admin.role"
+  | "lawyer.removed"
   | "marketplace_item.add"
   | "marketplace_item.update"
   | "marketplace_item.delete";
