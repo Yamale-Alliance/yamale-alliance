@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
-import { Star, Lock, Mail, Phone } from "lucide-react";
+import { Lock, Mail, Phone, Loader2, ShieldCheck, Star } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 
 type Lawyer = {
@@ -10,38 +10,18 @@ type Lawyer = {
   name: string;
   specialty: string;
   country: string;
-  rating: number;
-  email: string;
-  phone: string;
+  email: string | null;
+  phone: string | null;
+  avatarUrl: string | null;
+  pronouns: string | null;
+  meanRating: number | null;
+  ratingCount: number;
 };
-
-const MOCK_LAWYERS: Lawyer[] = [
-  { id: "1", name: "Dr. Kofi Mensah", specialty: "Commercial Law", country: "Ghana", rating: 4.8, email: "k.mensah@legal-gh.com", phone: "+233 24 123 4567" },
-  { id: "2", name: "Amara Okonkwo", specialty: "Corporate & M&A", country: "Nigeria", rating: 4.6, email: "a.okonkwo@lagoslegal.ng", phone: "+234 801 234 5678" },
-  { id: "3", name: "Jane Wanjiku", specialty: "Labour & Employment", country: "Kenya", rating: 4.7, email: "j.wanjiku@nairobi-law.co.ke", phone: "+254 700 123 456" },
-  { id: "4", name: "Thabo Molefe", specialty: "Dispute Resolution", country: "South Africa", rating: 4.9, email: "t.molefe@johannesburglegal.co.za", phone: "+27 11 234 5678" },
-  { id: "5", name: "Fatou Diallo", specialty: "OHADA & Business", country: "Senegal", rating: 4.5, email: "f.diallo@cabinet-dakar.sn", phone: "+221 33 123 45 67" },
-  { id: "6", name: "Emmanuel Nkrumah", specialty: "AfCFTA & Trade", country: "Ghana", rating: 4.6, email: "e.nkrumah@tradelegal-gh.com", phone: "+233 20 987 6543" },
-  { id: "7", name: "Grace Mwangi", specialty: "Data Protection", country: "Kenya", rating: 4.4, email: "g.mwangi@techlaw.co.ke", phone: "+254 722 456 789" },
-  { id: "8", name: "Ibrahim Sow", specialty: "Mining & Natural Resources", country: "Mali", rating: 4.7, email: "i.sow@bamako-legal.ml", phone: "+223 20 12 34 56" },
-];
 
 type UnlockOption = "per_lawyer" | "day_pass";
 
 const PER_LAWYER_PRICE = 5;
 const DAY_PASS_PRICE = 25;
-
-function RatingStars({ rating }: { rating: number }) {
-  const full = Math.floor(rating);
-  return (
-    <span className="flex items-center gap-0.5 text-amber-500">
-      {Array.from({ length: 5 }, (_, i) => (
-        <Star key={i} className={`h-4 w-4 ${i < full ? "fill-current" : ""}`} />
-      ))}
-      <span className="ml-1 text-xs text-muted-foreground">{rating.toFixed(1)}</span>
-    </span>
-  );
-}
 
 function UnlockPaymentDialog({
   lawyer,
@@ -182,13 +162,25 @@ function UnlockPaymentDialog({
 }
 
 export default function LawyersPage() {
+  const [lawyers, setLawyers] = useState<Lawyer[]>([]);
+  const [lawyersLoading, setLawyersLoading] = useState(true);
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
   const [dayPassActive, setDayPassActive] = useState(false);
   const [paymentLawyer, setPaymentLawyer] = useState<Lawyer | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
 
   useEffect(() => {
-    fetch("/api/lawyers/unlocked")
+    fetch("/api/lawyers")
+      .then((res) => res.json())
+      .then((data: { lawyers?: Lawyer[] }) => {
+        setLawyers(Array.isArray(data.lawyers) ? data.lawyers : []);
+      })
+      .catch(() => setLawyers([]))
+      .finally(() => setLawyersLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/lawyers/unlocked", { credentials: "include" })
       .then((res) => res.json())
       .then((data: { lawyerIds?: string[]; dayPassActive?: boolean }) => {
         if (Array.isArray(data.lawyerIds)) {
@@ -237,73 +229,119 @@ export default function LawyersPage() {
 
       {/* Lawyer grid */}
       <div className="mx-auto max-w-6xl px-4 py-8">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {MOCK_LAWYERS.map((lawyer) => {
-            const isUnlocked = dayPassActive || unlockedIds.has(lawyer.id);
-            return (
-              <article
-                key={lawyer.id}
-                className="flex flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:bg-accent/30"
-              >
-                <h2 className="font-semibold text-foreground">{lawyer.name}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {lawyer.specialty} · {lawyer.country}
-                </p>
-                <div className="mt-2">
-                  <RatingStars rating={lawyer.rating} />
-                </div>
-                <div className="mt-4 space-y-2 border-t border-border pt-4">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    {isUnlocked ? (
-                      <a
-                        href={`mailto:${lawyer.email}`}
-                        className="text-foreground underline hover:opacity-80"
-                      >
-                        {lawyer.email}
-                      </a>
-                    ) : (
-                      <span className="text-muted-foreground">
-                        ••••••@••••.•••
-                      </span>
-                    )}
+        {lawyersLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : lawyers.length === 0 ? (
+          <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">
+            No verified lawyers in the directory yet. Check back later.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {lawyers.map((lawyer) => {
+              const isUnlocked = dayPassActive || unlockedIds.has(lawyer.id);
+              return (
+                <article
+                  key={lawyer.id}
+                  className="flex flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:bg-accent/30"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="h-12 w-12 shrink-0 rounded-full overflow-hidden border border-border bg-muted flex items-center justify-center">
+                      {lawyer.avatarUrl ? (
+                        <img src={lawyer.avatarUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-sm font-medium text-muted-foreground">
+                          {lawyer.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .filter(Boolean)
+                            .slice(0, 2)
+                            .join("")
+                            .toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h2 className="font-semibold text-foreground">{lawyer.name}</h2>
+                        {lawyer.pronouns && (
+                          <span className="text-xs text-muted-foreground">({lawyer.pronouns})</span>
+                        )}
+                        <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
+                          <ShieldCheck className="h-3 w-3" /> Verified
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {lawyer.specialty || "Legal practice"}
+                        {lawyer.country ? ` · ${lawyer.country}` : ""}
+                      </p>
+                      <div className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Star className="h-4 w-4 shrink-0 text-amber-500 fill-amber-500" />
+                        {lawyer.ratingCount === 0 ? (
+                          <span>No ratings yet</span>
+                        ) : (
+                          <span>
+                            <strong className="text-foreground">{lawyer.meanRating?.toFixed(1)}</strong>
+                            {" "}({lawyer.ratingCount} {lawyer.ratingCount === 1 ? "rating" : "ratings"})
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    {isUnlocked ? (
-                      <a
-                        href={`tel:${lawyer.phone}`}
-                        className="text-foreground underline hover:opacity-80"
-                      >
-                        {lawyer.phone}
-                      </a>
-                    ) : (
-                      <span className="text-muted-foreground">••••••••••••</span>
-                    )}
+                  <div className="mt-4 space-y-2 border-t border-border pt-4">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      {isUnlocked && lawyer.email ? (
+                        <a
+                          href={`mailto:${lawyer.email}`}
+                          className="text-foreground underline hover:opacity-80"
+                        >
+                          {lawyer.email}
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          ••••••@••••.•••
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      {isUnlocked && lawyer.phone ? (
+                        <a
+                          href={`tel:${lawyer.phone}`}
+                          className="text-foreground underline hover:opacity-80"
+                        >
+                          {lawyer.phone}
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground">••••••••••••</span>
+                      )}
+                    </div>
                   </div>
-                </div>
-                {!isUnlocked && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPaymentLawyer(lawyer);
-                      setPaymentOpen(true);
-                    }}
-                    className="mt-4 flex items-center justify-center gap-2 rounded-lg border border-primary bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20"
-                  >
-                    <Lock className="h-4 w-4" />
-                    Unlock contact
-                  </button>
-                )}
-                {isUnlocked && (
-                  <p className="mt-4 text-center text-xs text-green-600 dark:text-green-400">
-                    Contact unlocked
-                  </p>
-                )}
-              </article>
-            );
-          })}
-        </div>
+                  {!isUnlocked && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentLawyer(lawyer);
+                        setPaymentOpen(true);
+                      }}
+                      className="mt-4 flex items-center justify-center gap-2 rounded-lg border border-primary bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20"
+                    >
+                      <Lock className="h-4 w-4" />
+                      Unlock contact
+                    </button>
+                  )}
+                  {isUnlocked && (
+                    <p className="mt-4 text-center text-xs text-green-600 dark:text-green-400">
+                      Contact unlocked
+                    </p>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <UnlockPaymentDialog
