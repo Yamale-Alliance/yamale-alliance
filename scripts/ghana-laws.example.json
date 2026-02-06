@@ -1,0 +1,20 @@
+[
+  {
+    "title": "Companies Act, 2019 (Act 992)",
+    "category": "Corporate Law",
+    "source_url": "https://example.com/companies-act-992",
+    "source_name": "Ghana Gazette",
+    "year": 2019,
+    "status": "In force",
+    "content": null,
+    "content_plain": null
+  },
+  {
+    "title": "Data Protection Act, 2012 (Act 843)",
+    "category": "Data Protection and Privacy Law",
+    "source_url": "https://example.com/data-protection-act",
+    "source_name": "Ghana Gazette",
+    "year": 2012,
+    "status": "In force"
+  }
+]
