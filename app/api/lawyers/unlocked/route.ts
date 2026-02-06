@@ -11,7 +11,8 @@ export async function GET() {
     getUnlockedLawyerIds(userId),
     (async () => {
       try {
-        const user = await clerkClient().users.getUser(userId);
+        const clerk = await clerkClient();
+        const user = await clerk.users.getUser(userId);
         const expiresAt = (user.publicMetadata as Record<string, unknown>)?.day_pass_expires_at;
         if (typeof expiresAt !== "string") return false;
         return new Date(expiresAt) > new Date();
