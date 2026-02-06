@@ -166,6 +166,26 @@ export default function PricingPage() {
       setCheckoutLoading(null);
     }
   };
+  const handleDayPassCheckout = async () => {
+    setCheckoutLoading("day-pass");
+    try {
+      const res = await fetch("/api/stripe/day-pass", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Checkout failed");
+        return;
+      }
+      if (data.url) window.location.href = data.url;
+    } catch {
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setCheckoutLoading(null);
+    }
+  };
 
   useEffect(() => {
     fetch("/api/pricing")
@@ -522,10 +542,12 @@ export default function PricingPage() {
             </p>
             <button
               type="button"
-              className="bg-white px-8 py-4 rounded-lg font-bold text-lg shadow-xl hover:shadow-2xl transition hover:opacity-90"
+              onClick={handleDayPassCheckout}
+              disabled={checkoutLoading !== null}
+              className="bg-white px-8 py-4 rounded-lg font-bold text-lg shadow-xl hover:shadow-2xl transition hover:opacity-90 disabled:opacity-70"
               style={{ color: "#603b1c" }}
             >
-              Get Day Pass
+              {checkoutLoading === "day-pass" ? "Redirecting…" : "Get Day Pass"}
             </button>
             <p className="text-sm mt-4 opacity-90" style={{ color: "#e3ba65" }}>
               Perfect for one-time research or testing the platform
