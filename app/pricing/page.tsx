@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Check } from "lucide-react";
 
 type BillingInterval = "monthly" | "annual";
@@ -18,7 +18,7 @@ type Tier = {
   highlighted?: boolean;
 };
 
-const TIERS: Tier[] = [
+const FALLBACK_TIERS: Tier[] = [
   {
     id: "free",
     name: "Free",
@@ -140,7 +140,41 @@ function ToggleSwitch({
 
 export default function PricingPage() {
   const [billing, setBilling] = useState<BillingInterval>("annual");
+  const [tiers, setTiers] = useState<Tier[]>(FALLBACK_TIERS);
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const isAnnual = billing === "annual";
+
+  const handleCheckout = async (planId: string) => {
+    if (planId === "free") return;
+    setCheckoutLoading(planId);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ planId, interval: billing }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Checkout failed");
+        return;
+      }
+      if (data.url) window.location.href = data.url;
+    } catch {
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setCheckoutLoading(null);
+    }
+  };
+
+  useEffect(() => {
+    fetch("/api/pricing")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) setTiers(data);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -207,7 +241,7 @@ export default function PricingPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-6">
-          {TIERS.map((tier) => {
+          {tiers.map((tier) => {
             const price =
               tier.priceMonthly === 0
                 ? 0
@@ -265,7 +299,9 @@ export default function PricingPage() {
                   )}
                   <button
                     type="button"
-                    className={`w-full py-3 px-6 rounded-lg font-semibold transition-all duration-200 mt-auto ${
+                    onClick={() => handleCheckout(tier.id)}
+                    disabled={checkoutLoading !== null}
+                    className={`w-full py-3 px-6 rounded-lg font-semibold transition-all duration-200 mt-auto disabled:opacity-70 ${
                       tier.highlighted
                         ? "text-white hover:opacity-90 shadow-md"
                         : "border-2 hover:shadow-md"
@@ -293,7 +329,7 @@ export default function PricingPage() {
                       }
                     }}
                   >
-                    {tier.cta}
+                    {checkoutLoading === tier.id ? "Redirecting…" : tier.cta}
                   </button>
                 </div>
 
