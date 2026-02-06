@@ -1,7 +1,11 @@
 import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
 import { BookOpen, FileCheck, Search, Scale, ShoppingBag } from "lucide-react";
 
-export default function Home() {
+export default async function Home() {
+  const { userId } = await auth();
+  const isSignedIn = !!userId;
+
   return (
     <div className="min-h-screen">
       {/* Hero */}
@@ -16,18 +20,37 @@ export default function Home() {
           grounded in verified sources.
         </p>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-          <Link
-            href="/signup"
-            className="rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
-          >
-            Get started
-          </Link>
-          <Link
-            href="/login"
-            className="rounded-lg border border-border bg-background px-6 py-3 text-sm font-medium hover:bg-accent"
-          >
-            Sign in
-          </Link>
+          {isSignedIn ? (
+            <>
+              <Link
+                href="/profile"
+                className="rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
+              >
+                Profile
+              </Link>
+              <Link
+                href="/ai-research"
+                className="rounded-lg border border-border bg-background px-6 py-3 text-sm font-medium hover:bg-accent"
+              >
+                AI Legal Research
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/signup"
+                className="rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
+              >
+                Get started
+              </Link>
+              <Link
+                href="/login"
+                className="rounded-lg border border-border bg-background px-6 py-3 text-sm font-medium hover:bg-accent"
+              >
+                Sign in
+              </Link>
+            </>
+          )}
         </div>
       </section>
 
@@ -114,15 +137,32 @@ export default function Home() {
           </h2>
           <p className="mt-3 text-muted-foreground">
             Create an account to access the legal library, AfCFTA tools, and
-            AI-powered research.
+            AI-powered research. If you already have an account, head to your profile.
           </p>
-          <div className="mt-6">
-            <Link
-              href="/signup"
-              className="inline-flex rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
-            >
-              Sign up free
-            </Link>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            {isSignedIn ? (
+              <>
+                <Link
+                  href="/profile"
+                  className="inline-flex rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
+                >
+                  Go to profile
+                </Link>
+                <Link
+                  href="/dashboard"
+                  className="inline-flex rounded-lg border border-border bg-background px-6 py-3 text-sm font-medium hover:bg-accent"
+                >
+                  Open dashboard
+                </Link>
+              </>
+            ) : (
+              <Link
+                href="/signup"
+                className="inline-flex rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
+              >
+                Sign up free
+              </Link>
+            )}
           </div>
         </div>
       </section>
