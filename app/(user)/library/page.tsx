@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Search } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import Link from "next/link";
+import { Search, Loader2 } from "lucide-react";
 
 type LawStatus = "In force" | "Amended" | "Repealed";
 
@@ -10,49 +11,19 @@ type Law = {
   name: string;
   country: string;
   category: string;
-  year: number;
   status: LawStatus;
 };
 
-// Categories from Database of Laws spreadsheet (Yamalé)
-const CATEGORIES = [
-  "Corporate Law",
-  "Tax Law",
-  "Labor/Employment Law",
-  "Intellectual Property Law",
-  "Data Protection and Privacy Law",
-  "International Trade Laws",
-  "Anti-Bribery and Corruption Law",
-  "Dispute Resolution",
-  "Environmental",
-] as const;
+type ApiLaw = {
+  id: string;
+  title: string;
+  status: string;
+  country_id: string;
+  category_id: string;
+  countries: { name: string } | null;
+  categories: { name: string } | null;
+};
 
-const MOCK_LAWS: Law[] = [
-  { id: "1", name: "Companies Act", country: "Ghana", category: "Corporate Law", year: 2019, status: "In force" },
-  { id: "2", name: "Labour Act", country: "Ghana", category: "Labor/Employment Law", year: 2003, status: "In force" },
-  { id: "3", name: "Companies and Allied Matters Act", country: "Nigeria", category: "Corporate Law", year: 2020, status: "In force" },
-  { id: "4", name: "1999 Constitution (Amendment)", country: "Nigeria", category: "Corporate Law", year: 2018, status: "Amended" },
-  { id: "5", name: "Employment Act", country: "Kenya", category: "Labor/Employment Law", year: 2007, status: "In force" },
-  { id: "6", name: "Companies Act", country: "Kenya", category: "Corporate Law", year: 2015, status: "In force" },
-  { id: "7", name: "Constitution of Kenya", country: "Kenya", category: "Corporate Law", year: 2010, status: "Amended" },
-  { id: "8", name: "Companies Act", country: "South Africa", category: "Corporate Law", year: 2008, status: "In force" },
-  { id: "9", name: "Labour Relations Act", country: "South Africa", category: "Labor/Employment Law", year: 1995, status: "Amended" },
-  { id: "10", name: "Income Tax Act", country: "South Africa", category: "Tax Law", year: 1962, status: "Amended" },
-  { id: "11", name: "Code des Obligations Civiles et Commerciales", country: "Senegal", category: "Corporate Law", year: 2010, status: "In force" },
-  { id: "12", name: "Code du Travail", country: "Senegal", category: "Labor/Employment Law", year: 1997, status: "In force" },
-  { id: "13", name: "Environmental Management Act", country: "Tanzania", category: "Environmental", year: 2004, status: "In force" },
-  { id: "14", name: "Companies Act", country: "Tanzania", category: "Corporate Law", year: 2002, status: "Repealed" },
-  { id: "15", name: "Investment Code", country: "Rwanda", category: "Corporate Law", year: 2021, status: "In force" },
-  { id: "16", name: "Labour Code", country: "Côte d'Ivoire", category: "Labor/Employment Law", year: 2015, status: "In force" },
-  { id: "17", name: "OHADA Uniform Act on Commercial Companies", country: "Regional (OHADA)", category: "Corporate Law", year: 2014, status: "In force" },
-  { id: "18", name: "Data Protection Act", country: "Ghana", category: "Data Protection and Privacy Law", year: 2012, status: "In force" },
-  { id: "19", name: "Anti-Corruption and Economic Crimes Act", country: "Nigeria", category: "Anti-Bribery and Corruption Law", year: 2003, status: "In force" },
-  { id: "20", name: "Arbitration Act", country: "Zambia", category: "Dispute Resolution", year: 2000, status: "In force" },
-  { id: "21", name: "Copyright Act", country: "Kenya", category: "Intellectual Property Law", year: 2001, status: "Amended" },
-  { id: "22", name: "ECOWAS Revised Treaty", country: "Regional (ECOWAS)", category: "International Trade Laws", year: 1993, status: "In force" },
-];
-
-const COUNTRIES = [...new Set(MOCK_LAWS.map((l) => l.country))].sort();
 const STATUSES: LawStatus[] = ["In force", "Amended", "Repealed"];
 
 function StatusBadge({ status }: { status: LawStatus }) {
@@ -61,13 +32,24 @@ function StatusBadge({ status }: { status: LawStatus }) {
     Amended: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
     Repealed: "bg-red-500/15 text-red-700 dark:text-red-400",
   };
+  const label = STATUSES.includes(status as LawStatus) ? status : "In force";
   return (
     <span
-      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[status]}`}
+      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[label as LawStatus] ?? styles["In force"]}`}
     >
-      {status}
+      {label}
     </span>
   );
+}
+
+function mapApiLawToLaw(row: ApiLaw): Law {
+  return {
+    id: row.id,
+    name: row.title,
+    country: row.countries?.name ?? "",
+    category: row.categories?.name ?? "",
+    status: (STATUSES.includes(row.status as LawStatus) ? row.status : "In force") as LawStatus,
+  };
 }
 
 export default function LibraryPage() {
@@ -75,9 +57,33 @@ export default function LibraryPage() {
   const [country, setCountry] = useState("");
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState("");
+  const [laws, setLaws] = useState<Law[]>([]);
+  const [countries, setCountries] = useState<{ id: string; name: string }[]>([]);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const url = typeof window !== "undefined" ? `${window.location.origin}/api/laws` : "/api/laws";
+    fetch(url, { credentials: "include" })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data: { countries: { id: string; name: string }[]; categories: { id: string; name: string }[]; laws: ApiLaw[] }) => {
+        setCountries(data.countries ?? []);
+        setCategories(data.categories ?? []);
+        setLaws((data.laws ?? []).map(mapApiLawToLaw));
+      })
+      .catch((err: Error) => {
+        const msg = err.message?.startsWith("HTTP") ? `Could not load the legal library (${err.message}).` : "Could not load the legal library. Check your connection.";
+        setError(msg);
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   const filteredLaws = useMemo(() => {
-    return MOCK_LAWS.filter((law) => {
+    return laws.filter((law) => {
       const matchSearch =
         !search ||
         law.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -88,7 +94,9 @@ export default function LibraryPage() {
       const matchStatus = !status || law.status === status;
       return matchSearch && matchCountry && matchCategory && matchStatus;
     });
-  }, [search, country, category, status]);
+  }, [laws, search, country, category, status]);
+
+  const categoryNames = useMemo(() => [...new Set(laws.map((l) => l.category))].filter(Boolean).sort(), [laws]);
 
   return (
     <div className="min-h-screen">
@@ -101,7 +109,6 @@ export default function LibraryPage() {
             Browse legal content by jurisdiction and domain. No sign-in required.
           </p>
 
-          {/* Search bar */}
           <div className="relative mt-6">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -113,7 +120,6 @@ export default function LibraryPage() {
             />
           </div>
 
-          {/* Filters */}
           <div className="mt-4 flex flex-wrap gap-3">
             <select
               value={country}
@@ -121,9 +127,9 @@ export default function LibraryPage() {
               className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">All countries</option>
-              {COUNTRIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
+              {countries.map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.name}
                 </option>
               ))}
             </select>
@@ -133,11 +139,17 @@ export default function LibraryPage() {
               className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="">All categories</option>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
+              {categories.length > 0
+                ? categories.map((c) => (
+                    <option key={c.id} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))
+                : categoryNames.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
             </select>
             <select
               value={status}
@@ -168,33 +180,45 @@ export default function LibraryPage() {
         </div>
       </div>
 
-      {/* Results */}
       <div className="mx-auto max-w-6xl px-4 py-8">
-        <p className="mb-4 text-sm text-muted-foreground">
-          {filteredLaws.length} result{filteredLaws.length !== 1 ? "s" : ""}
-        </p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredLaws.map((law) => (
-            <article
-              key={law.id}
-              className="flex flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:bg-accent/30"
-            >
-              <h2 className="font-semibold text-foreground">{law.name}</h2>
-              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                <span>{law.country}</span>
-                <span>·</span>
-                <span>{law.category}</span>
-              </div>
-              <div className="mt-3">
-                <StatusBadge status={law.status} />
-              </div>
-            </article>
-          ))}
-        </div>
-        {filteredLaws.length === 0 && (
-          <p className="py-12 text-center text-muted-foreground">
-            No laws match your filters. Try adjusting your search or filters.
-          </p>
+        {loading && (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        )}
+        {error && (
+          <p className="py-12 text-center text-muted-foreground">{error}</p>
+        )}
+        {!loading && !error && (
+          <>
+            <p className="mb-4 text-sm text-muted-foreground">
+              {filteredLaws.length} result{filteredLaws.length !== 1 ? "s" : ""}
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredLaws.map((law) => (
+                <Link
+                  key={law.id}
+                  href={`/library/${law.id}`}
+                  className="flex flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:bg-accent/30 hover:border-primary/30"
+                >
+                  <h2 className="font-semibold text-foreground">{law.name}</h2>
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                    <span>{law.country}</span>
+                    <span>·</span>
+                    <span>{law.category}</span>
+                  </div>
+                  <div className="mt-3">
+                    <StatusBadge status={law.status} />
+                  </div>
+                </Link>
+              ))}
+            </div>
+            {filteredLaws.length === 0 && (
+              <p className="py-12 text-center text-muted-foreground">
+                No laws match your filters. Try adjusting your search or filters.
+              </p>
+            )}
+          </>
         )}
       </div>
     </div>
