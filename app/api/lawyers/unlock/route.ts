@@ -26,6 +26,6 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
-  recordUnlock(userId, lawyerId);
+  await recordUnlock(userId, lawyerId);
   return NextResponse.json({ success: true, lawyerId });
 }
