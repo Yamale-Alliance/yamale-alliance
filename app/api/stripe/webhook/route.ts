@@ -29,17 +29,32 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        const clerkUserId = session.client_reference_id ?? (session.metadata?.clerk_user_id as string | undefined);
+        const clerkUserId =
+          session.client_reference_id ??
+          (session.metadata?.clerk_user_id as string | undefined);
         const planId = session.metadata?.plan_id as string | undefined;
 
         if (clerkUserId && planId) {
           const clerk = await clerkClient();
           const user = await clerk.users.getUser(clerkUserId);
           const existing = (user.publicMetadata ?? {}) as Record<string, unknown>;
-          const tier = planId === "team" ? "plus" : planId;
-          await clerk.users.updateUserMetadata(clerkUserId, {
-            publicMetadata: { ...existing, tier },
-          });
+
+          if (planId === "day-pass") {
+            const now = new Date();
+            const expires = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+            await clerk.users.updateUserMetadata(clerkUserId, {
+              publicMetadata: {
+                ...existing,
+                day_pass_expires_at: expires.toISOString(),
+                day_pass_last_purchase_at: now.toISOString(),
+              },
+            });
+          } else {
+            const tier = planId === "team" ? "plus" : planId;
+            await clerk.users.updateUserMetadata(clerkUserId, {
+              publicMetadata: { ...existing, tier },
+            });
+          }
         }
         break;
       }
