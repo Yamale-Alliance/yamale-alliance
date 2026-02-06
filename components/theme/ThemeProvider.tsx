@@ -60,12 +60,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  if (!mounted) {
-    return <>{children}</>;
-  }
+  const value = mounted
+    ? { theme, setTheme, toggleTheme }
+    : { theme: "light" as Theme, setTheme: () => {}, toggleTheme: () => {} };
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );
