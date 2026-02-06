@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { Star, Lock, Mail, Phone } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 
@@ -52,9 +52,9 @@ function UnlockPaymentDialog({
   lawyer: Lawyer | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess: (lawyerId: string) => void;
+  onSuccess: (lawyerId?: string, dayPass?: boolean) => void;
 }) {
-  const { userId } = useAuth();
+  const { user, isLoaded, isSignedIn } = useUser();
   const [option, setOption] = useState<UnlockOption>("per_lawyer");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,25 +63,45 @@ function UnlockPaymentDialog({
 
   const handleConfirm = async () => {
     if (!lawyer) return;
-    if (!userId) {
+    if (!isLoaded || !isSignedIn || !user?.id) {
       setError("Sign in to unlock contact.");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/lawyers/unlock", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lawyerId: lawyer.id }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(data.error || "Failed to unlock");
-        return;
+      if (option === "day_pass") {
+        const res = await fetch("/api/stripe/day-pass", { method: "POST" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setError(data.error || "Failed to start checkout");
+          return;
+        }
+        if (data.url) {
+          onSuccess(undefined, true);
+          onOpenChange(false);
+          window.location.href = data.url;
+          return;
+        }
+      } else {
+        const res = await fetch("/api/stripe/lawyer-unlock", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lawyerId: lawyer.id }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setError(data.error || "Failed to start checkout");
+          return;
+        }
+        if (data.url) {
+          onSuccess(lawyer.id, false);
+          onOpenChange(false);
+          window.location.href = data.url;
+          return;
+        }
       }
-      onSuccess(lawyer.id);
-      onOpenChange(false);
+      setError("Checkout could not be started.");
     } catch {
       setError("Something went wrong. Try again.");
     } finally {
@@ -129,17 +149,8 @@ function UnlockPaymentDialog({
             <span className="text-2xl font-semibold">${price}</span>
           </div>
 
-          <div className="mt-4">
-            <label className="mb-1 block text-sm font-medium">Payment method</label>
-            <select className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-              <option>Card (Visa, Mastercard)</option>
-              <option>Mobile money (MTN, Airtel, Orange)</option>
-              <option>Bank transfer</option>
-            </select>
-          </div>
-
           <p className="mt-3 text-xs text-muted-foreground">
-            Payment integration coming soon. Unlock is recorded for demo.
+            You will be redirected to Stripe to pay securely. Day pass unlocks all lawyers for 24 hours from purchase.
           </p>
 
           {error && (
@@ -172,22 +183,28 @@ function UnlockPaymentDialog({
 
 export default function LawyersPage() {
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
+  const [dayPassActive, setDayPassActive] = useState(false);
   const [paymentLawyer, setPaymentLawyer] = useState<Lawyer | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/lawyers/unlocked")
       .then((res) => res.json())
-      .then((data: { lawyerIds?: string[] }) => {
+      .then((data: { lawyerIds?: string[]; dayPassActive?: boolean }) => {
         if (Array.isArray(data.lawyerIds)) {
           setUnlockedIds(new Set(data.lawyerIds));
         }
+        setDayPassActive(Boolean(data.dayPassActive));
       })
       .catch(() => {});
   }, []);
 
-  const handleUnlockSuccess = (lawyerId: string) => {
-    setUnlockedIds((prev) => new Set(prev).add(lawyerId));
+  const handleUnlockSuccess = (lawyerId?: string, dayPass?: boolean) => {
+    if (dayPass) {
+      setDayPassActive(true);
+    } else if (lawyerId) {
+      setUnlockedIds((prev) => new Set(prev).add(lawyerId));
+    }
   };
 
   return (
@@ -222,7 +239,7 @@ export default function LawyersPage() {
       <div className="mx-auto max-w-6xl px-4 py-8">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {MOCK_LAWYERS.map((lawyer) => {
-            const isUnlocked = unlockedIds.has(lawyer.id);
+            const isUnlocked = dayPassActive || unlockedIds.has(lawyer.id);
             return (
               <article
                 key={lawyer.id}
