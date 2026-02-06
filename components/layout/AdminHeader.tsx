@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import { Menu, X, Shield } from "lucide-react";
 import { useState } from "react";
@@ -9,6 +10,21 @@ import { userNavLinks } from "./nav-config";
 
 export function AdminHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+  const isOnAdmin = pathname?.startsWith("/admin-panel") ?? false;
+
+  const adminPanelLink = !isOnAdmin && (
+    <Link
+      href="/admin-panel"
+      className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+    >
+      <Shield className="h-4 w-4" />
+      Admin Panel
+      <span className="rounded bg-red-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
+        Admin
+      </span>
+    </Link>
+  );
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background">
@@ -28,16 +44,7 @@ export function AdminHeader() {
               {label}
             </Link>
           ))}
-          <Link
-            href="/admin-panel"
-            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <Shield className="h-4 w-4" />
-            Admin Panel
-            <span className="rounded bg-red-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
-              Admin
-            </span>
-          </Link>
+          {adminPanelLink}
         </nav>
 
         {/* Desktop right */}
@@ -92,17 +99,19 @@ export function AdminHeader() {
                   {label}
                 </Link>
               ))}
-              <Link
-                href="/admin-panel"
-                onClick={() => setMobileOpen(false)}
-                className="mt-2 flex items-center gap-2 rounded-lg border-t border-border px-4 py-3 text-sm font-medium text-foreground hover:bg-accent"
-              >
-                <Shield className="h-4 w-4" />
-                Admin Panel
-                <span className="rounded bg-red-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                  Admin
-                </span>
-              </Link>
+              {!isOnAdmin && (
+                <Link
+                  href="/admin-panel"
+                  onClick={() => setMobileOpen(false)}
+                  className="mt-2 flex items-center gap-2 rounded-lg border-t border-border px-4 py-3 text-sm font-medium text-foreground hover:bg-accent"
+                >
+                  <Shield className="h-4 w-4" />
+                  Admin Panel
+                  <span className="rounded bg-red-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                    Admin
+                  </span>
+                </Link>
+              )}
             </nav>
           </div>
         </>
