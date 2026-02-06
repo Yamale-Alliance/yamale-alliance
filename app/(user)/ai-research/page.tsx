@@ -72,6 +72,17 @@ function getMockResponse(_query: string): string {
 
 function getTierFromUser(metadata: Record<string, unknown> | undefined): Tier {
   const t = metadata?.tier ?? metadata?.subscriptionTier;
+
+  // Temporary 24-hour day pass upgrade
+  const dayPassExpiry = metadata?.day_pass_expires_at;
+  if (typeof dayPassExpiry === "string") {
+    const expiresAt = new Date(dayPassExpiry).getTime();
+    if (!Number.isNaN(expiresAt) && Date.now() < expiresAt) {
+      // Treat active day pass as Pro-level access
+      return "pro";
+    }
+  }
+
   if (t === "pro" || t === "plus") return t;
   if (t === "team") return "plus";
   if (t === "basic") return "basic";
@@ -139,6 +150,10 @@ export default function AIResearchPage() {
   useEffect(() => {
     if (!mounted.current) {
       setSessions(loadSessions());
+      // On mobile, start with sidebar closed so chat area has full width
+      if (typeof window !== "undefined" && window.innerWidth < 768) {
+        setSidebarOpen(false);
+      }
       mounted.current = true;
     }
   }, []);
@@ -146,6 +161,55 @@ export default function AIResearchPage() {
   useEffect(() => {
     saveSessions(sessions);
   }, [sessions]);
+
+  // Load sessions from backend for signed-in users
+  useEffect(() => {
+    if (!user) return;
+
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/ai/chats", {
+          credentials: "include",
+        });
+        if (!res.ok) return;
+        const json = (await res.json()) as { sessions?: ChatSession[] };
+        if (!cancelled && Array.isArray(json.sessions) && json.sessions.length > 0) {
+          setSessions(json.sessions);
+        }
+      } catch {
+        // ignore and rely on localStorage fallback
+      }
+    };
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  // Persist sessions to backend when they change (debounced) for signed-in users
+  useEffect(() => {
+    if (!user || sessions.length === 0) return;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      fetch("/api/ai/chats", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ sessions }),
+        signal: controller.signal,
+      }).catch(() => {
+        // ignore
+      });
+    }, 800);
+
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [sessions, user]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -311,8 +375,10 @@ export default function AIResearchPage() {
       >
         {/* Sidebar - ChatGPT style */}
         <aside
-          className={`flex h-full flex-col border-r border-border bg-card/50 transition-[width] duration-200 ${
-            sidebarOpen ? "w-64 shrink-0" : "w-0 shrink-0 overflow-hidden"
+          className={`fixed inset-y-0 left-0 z-20 flex h-full flex-col border-r border-border bg-card transition-transform duration-200 md:relative md:z-auto md:bg-card/50 md:transition-[width] ${
+            sidebarOpen
+              ? "translate-x-0 md:w-64 md:shrink-0"
+              : "-translate-x-full md:w-0 md:shrink-0 md:overflow-hidden"
           }`}
         >
           <div className="flex flex-col gap-2 p-2">
@@ -380,6 +446,15 @@ export default function AIResearchPage() {
             </div>
           </div>
         </aside>
+
+        {/* Mobile sidebar backdrop */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-10 bg-black/60 md:hidden"
+            aria-hidden
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
 
         {/* Main area */}
         <div className="flex min-w-0 flex-1 flex-col">
