@@ -197,6 +197,67 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["lawyer_unlocks"]["Insert"]>;
       };
+      ai_usage: {
+        Row: {
+          user_id: string;
+          month: string;
+          query_count: number;
+          input_tokens: number;
+          output_tokens: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          month: string;
+          query_count?: number;
+          input_tokens?: number;
+          output_tokens?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ai_usage"]["Insert"]>;
+      };
+      lawyer_profiles: {
+        Row: {
+          user_id: string;
+          email: string | null;
+          phone: string | null;
+          practice: string;
+          country: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          email?: string | null;
+          phone?: string | null;
+          practice: string;
+          country?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["lawyer_profiles"]["Insert"]>;
+      };
+      lawyer_documents: {
+        Row: {
+          id: string;
+          user_id: string;
+          document_type: string;
+          storage_path: string;
+          file_name: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          document_type: string;
+          storage_path: string;
+          file_name: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["lawyer_documents"]["Insert"]>;
+      };
     };
   };
 }
