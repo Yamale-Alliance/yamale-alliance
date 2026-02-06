@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { chunkLawContent } from "@/lib/embeddings/chunking";
+import {
+  getAiUsage,
+  getAiQueryLimitForTier,
+  incrementAiUsage,
+} from "@/lib/ai-usage";
 
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
@@ -210,6 +215,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Enforce plan limits: Basic 10, Pro 50, Team unlimited (monthly)
+    const clerk = await clerkClient();
+    const user = await clerk.users.getUser(userId);
+    const tier = ((user.publicMetadata?.tier ?? user.publicMetadata?.subscriptionTier) as string) ?? "free";
+    const limit = getAiQueryLimitForTier(tier);
+    if (limit !== null) {
+      const usage = await getAiUsage(userId);
+      if (usage.query_count >= limit) {
+        return NextResponse.json(
+          {
+            error: `AI query limit reached for your plan (${limit} per month). Upgrade to Pro or Team for more.`,
+          },
+          { status: 429 }
+        );
+      }
+    }
+
     if (!CLAUDE_API_KEY || CLAUDE_API_KEY === "sk-ant-api03-..." || CLAUDE_API_KEY.includes("...")) {
       return NextResponse.json(
         { 
@@ -383,6 +405,12 @@ Always remind users that your responses are indicative and not a substitute for 
 
     const data = await response.json();
     const assistantText = data.content?.[0]?.text || "I apologize, but I couldn't generate a response.";
+
+    // Record usage: queries and tokens (Anthropic returns usage.input_tokens, usage.output_tokens)
+    const usage = (data.usage as { input_tokens?: number; output_tokens?: number }) ?? {};
+    const inputTokens = typeof usage.input_tokens === "number" ? usage.input_tokens : 0;
+    const outputTokens = typeof usage.output_tokens === "number" ? usage.output_tokens : 0;
+    await incrementAiUsage(userId, inputTokens, outputTokens);
 
     // Build sources list from retrieved legal documents
     const sources = legalContext.length > 0
