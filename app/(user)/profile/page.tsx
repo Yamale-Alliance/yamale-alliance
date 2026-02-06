@@ -5,22 +5,20 @@ import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
 import { Loader2 } from "lucide-react";
 
-type Tier = "free" | "basic" | "pro" | "plus" | "team";
+type Tier = "free" | "basic" | "pro" | "team";
 
 const TIER_LABELS: Record<Tier, string> = {
   free: "Free",
   basic: "Basic",
   pro: "Pro",
-  plus: "Plus",
   team: "Team",
 };
 
 const TIER_DESCRIPTIONS: Record<Tier, string> = {
   free: "Browse the public library. AI research is locked.",
-  basic: "Includes limited AI Legal Research each month.",
-  pro: "Higher AI limits and access to advanced tools.",
-  plus: "Unlimited AI Legal Research for individual users.",
-  team: "Team or enterprise tier with Plus features.",
+  basic: "10 AI queries per month.",
+  pro: "50 AI queries per month.",
+  team: "Unlimited AI queries.",
 };
 
 export default function ProfilePage() {
