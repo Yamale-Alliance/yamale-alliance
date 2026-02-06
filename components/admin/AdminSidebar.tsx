@@ -13,12 +13,14 @@ import {
   Shield,
   X,
   Store,
+  Cpu,
 } from "lucide-react";
 
 const navItems = [
   { href: "/admin-panel", label: "Overview", icon: LayoutDashboard },
   { href: "/admin-panel/admins", label: "Admin Management", icon: Shield },
   { href: "/admin-panel/users", label: "Users", icon: Users },
+  { href: "/admin-panel/ai-usage", label: "AI Usage", icon: Cpu },
   { href: "/admin-panel/lawyers", label: "Lawyer Verification", icon: Briefcase },
   { href: "/admin-panel/laws", label: "Laws", icon: BookOpen },
   { href: "/admin-panel/marketplace", label: "Marketplace", icon: Store },
