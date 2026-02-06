@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { Users, Briefcase, BookOpen, Scale, ArrowRight, Shield } from "lucide-react";
+import { Users, Briefcase, BookOpen, Scale, ArrowRight, Shield, Cpu } from "lucide-react";
 
 const quickLinks = [
   { href: "/admin-panel/admins", label: "Admin management & version control", icon: Shield },
   { href: "/admin-panel/users", label: "Manage users & gift access", icon: Users },
+  { href: "/admin-panel/ai-usage", label: "AI usage (credits & tokens)", icon: Cpu },
   { href: "/admin-panel/lawyers", label: "Review lawyer applications", icon: Briefcase },
   { href: "/admin-panel/laws", label: "View and add laws", icon: BookOpen },
   { href: "/admin-panel/pricing", label: "Edit pricing plans", icon: Scale },
