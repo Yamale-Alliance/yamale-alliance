@@ -16,7 +16,6 @@ const TIER_OPTIONS = [
   { value: "free", label: "Free" },
   { value: "basic", label: "Basic (10 AI/mo)" },
   { value: "pro", label: "Pro (50 AI/mo)" },
-  { value: "plus", label: "Plus (unlimited AI)" },
   { value: "team", label: "Team (unlimited AI)" },
 ];
 
