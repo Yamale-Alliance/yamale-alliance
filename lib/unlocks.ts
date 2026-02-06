@@ -1,19 +1,27 @@
-/**
- * In-memory store for lawyer contact unlocks (user_id + lawyer_id).
- * Replace with database (e.g. Prisma) for production.
- */
-const unlocks = new Map<string, Set<string>>(); // userId -> Set of lawyerIds
+import { getSupabaseServer } from "@/lib/supabase/server";
 
-export function getUnlockedLawyerIds(userId: string): string[] {
-  const set = unlocks.get(userId);
-  return set ? Array.from(set) : [];
+export async function getUnlockedLawyerIds(userId: string): Promise<string[]> {
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase
+    .from("lawyer_unlocks")
+    .select("lawyer_id")
+    .eq("user_id", userId);
+  if (error) return [];
+  return (data ?? []).map((r) => r.lawyer_id);
 }
 
-export function recordUnlock(userId: string, lawyerId: string): void {
-  let set = unlocks.get(userId);
-  if (!set) {
-    set = new Set();
-    unlocks.set(userId, set);
-  }
-  set.add(lawyerId);
+export async function recordUnlock(
+  userId: string,
+  lawyerId: string,
+  stripeSessionId?: string | null
+): Promise<void> {
+  const supabase = getSupabaseServer();
+  await supabase.from("lawyer_unlocks").upsert(
+    {
+      user_id: userId,
+      lawyer_id: lawyerId,
+      stripe_session_id: stripeSessionId ?? null,
+    },
+    { onConflict: "user_id,lawyer_id" }
+  );
 }
