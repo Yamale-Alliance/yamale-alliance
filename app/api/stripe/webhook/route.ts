@@ -70,9 +70,8 @@ export async function POST(request: NextRequest) {
                 },
               });
             } else {
-              const tier = planId === "team" ? "plus" : planId;
               await clerk.users.updateUserMetadata(clerkUserId, {
-                publicMetadata: { ...existing, tier },
+                publicMetadata: { ...existing, tier: planId },
               });
             }
           }
