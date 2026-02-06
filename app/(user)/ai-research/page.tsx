@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useUser } from "@clerk/nextjs";
 import {
   Send,
@@ -40,14 +42,6 @@ const EXAMPLE_QUESTIONS = [
   "What are the rules of origin for manufactured goods under AfCFTA?",
 ];
 
-const MOCK_RESPONSES = [
-  "Under the Companies Act 2019 (Act 992) of Ghana, company registration requires submission of the company name, constitution, particulars of directors and secretary, and registered office address to the Registrar of Companies. The Registrar may require additional documents depending on company type. This summary is for general information only and does not constitute legal advice.",
-  "The Employment Act (Cap 226) of Kenya provides for minimum wage rates set by the Labour Minister. Rates vary by sector and region. As of the latest gazette, general minimum wage applies unless a sector-specific order exists. Always verify current rates with the Ministry of Labour. This is not legal advice.",
-  "AfCFTA rules of origin typically require that goods are wholly obtained or sufficiently processed in a state party. The Protocol on Rules of Origin and related guidelines specify product-specific rules and value-added thresholds. Certificate of origin must be completed using the agreed AfCFTA template. Verify with your customs authority.",
-  "Commercial dispute resolution in Nigeria may involve the courts (e.g. High Court, Federal High Court) or alternative mechanisms such as arbitration under the Arbitration and Conciliation Act. Choice of forum depends on the contract and nature of the dispute. Consult a qualified legal practitioner for your situation.",
-  "Legal requirements vary by jurisdiction and type of transaction. The platform provides indicative information grounded in African legal sources. For authoritative advice, consult a licensed legal professional in the relevant jurisdiction.",
-];
-
 type Message = {
   id: string;
   role: "user" | "assistant";
@@ -64,11 +58,6 @@ type ChatSession = {
 
 const STORAGE_KEY = "yamale-ai-chats";
 const MAX_SESSIONS = 50;
-
-function getMockResponse(_query: string): string {
-  const i = Math.floor(Math.random() * MOCK_RESPONSES.length);
-  return MOCK_RESPONSES[i];
-}
 
 function getTierFromUser(metadata: Record<string, unknown> | undefined): Tier {
   const t = metadata?.tier ?? metadata?.subscriptionTier;
@@ -280,7 +269,7 @@ export default function AIResearchPage() {
     setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  const sendMessage = (text: string) => {
+  const sendMessage = async (text: string) => {
     const trimmed = text.trim();
     const hasAttachments = attachedFiles.length > 0;
     const content = trimmed || (hasAttachments ? `[Attached: ${attachedFiles.map((f) => f.name).join(", ")}]` : "");
@@ -318,30 +307,111 @@ export default function AIResearchPage() {
       );
     }
     setInput("");
+    const filesToProcess = [...attachedFiles];
     setAttachedFiles([]);
     setIsLoading(true);
 
-    setTimeout(() => {
-      const assistantContent = getMockResponse(content);
+    try {
+      // Convert images to base64
+      const attachments: Array<{ type: string; data: string; name?: string }> = [];
+      for (const file of filesToProcess) {
+        if (file.type.startsWith("image/")) {
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = reader.result as string;
+              // Remove data:image/...;base64, prefix
+              const base64Data = result.split(",")[1];
+              resolve(base64Data);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          attachments.push({
+            type: file.type,
+            data: base64,
+            name: file.name,
+          });
+        }
+        // Note: For documents, we could extract text here, but Claude API v1 primarily supports images
+      }
+
+      // Build messages array for API (include conversation history)
+      const currentSessionMessages = currentId
+        ? sessions.find((s) => s.id === currentId)?.messages ?? []
+        : [];
+      const apiMessages = [
+        ...currentSessionMessages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
+        {
+          role: "user" as const,
+          content: trimmed || (hasAttachments ? `I've attached ${filesToProcess.length} file(s) for context.` : ""),
+        },
+      ];
+
+      // Call Claude API
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          messages: apiMessages,
+          attachments: attachments.length > 0 ? attachments : undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        const errorMsg = data.error || "Failed to get AI response";
+        const details = data.details;
+        // Include more details in error message if available
+        if (details?.error?.message) {
+          throw new Error(`${errorMsg}: ${details.error.message}`);
+        }
+        if (details?.message) {
+          throw new Error(`${errorMsg}: ${details.message}`);
+        }
+        throw new Error(errorMsg);
+      }
+
       const assistantMessage: Message = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
-        content: assistantContent,
-        sources: ["Platform legal corpus · Indicative summary"],
+        content: data.content || "I apologize, but I couldn't generate a response.",
+        sources: data.sources || ["Claude AI · African Legal Research"],
       };
+
       const id = sessionIdToUpdate;
       setSessions((prev) =>
         prev.map((s) =>
           s.id === id ? { ...s, messages: [...s.messages, assistantMessage], updatedAt: Date.now() } : s
         )
       );
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      const errorResponse: Message = {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: `I apologize, but I encountered an error: ${errorMessage}. Please try again or contact support if the issue persists.`,
+        sources: [],
+      };
+      const id = sessionIdToUpdate;
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === id ? { ...s, messages: [...s.messages, errorResponse], updatedAt: Date.now() } : s
+        )
+      );
+    } finally {
       setIsLoading(false);
-    }, 800);
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    sendMessage(input);
+    await sendMessage(input);
   };
 
   if (tier === "free") {
@@ -539,8 +609,8 @@ export default function AIResearchPage() {
                       <button
                         key={q}
                         type="button"
-                        onClick={() => sendMessage(q)}
-                        disabled={atLimit}
+                        onClick={() => sendMessage(q).catch(() => {})}
+                        disabled={atLimit || isLoading}
                         className="rounded-full border border-border bg-transparent px-4 py-2 text-sm text-foreground hover:bg-muted/50 disabled:opacity-50"
                       >
                         {q}
@@ -562,9 +632,31 @@ export default function AIResearchPage() {
                             : "bg-muted/60 text-foreground"
                         }`}
                       >
-                        <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                          {msg.content}
-                        </p>
+                        {msg.role === "assistant" ? (
+                          <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-semibold prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-strong:font-semibold prose-a:text-primary prose-a:underline hover:prose-a:opacity-90">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                a: ({ href, children, ...props }) => (
+                                  <a
+                                    href={href}
+                                    target={href?.startsWith("http") ? "_blank" : undefined}
+                                    rel={href?.startsWith("http") ? "noopener noreferrer" : undefined}
+                                    {...props}
+                                  >
+                                    {children}
+                                  </a>
+                                ),
+                              }}
+                            >
+                              {msg.content}
+                            </ReactMarkdown>
+                          </div>
+                        ) : (
+                          <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                            {msg.content}
+                          </p>
+                        )}
                         {msg.sources && msg.sources.length > 0 && (
                           <p className="mt-2 text-xs opacity-80">
                             {msg.sources.join(" · ")}
