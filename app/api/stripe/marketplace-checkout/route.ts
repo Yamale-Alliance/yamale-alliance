@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe";
+import type { Database } from "@/lib/database.types";
+
+type MarketplaceItemRow = Database["public"]["Tables"]["marketplace_items"]["Row"];
 
 /**
  * Create Stripe Checkout for a marketplace item.
@@ -21,13 +24,14 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getSupabaseServer();
-    const { data: item, error } = await supabase
+    const { data, error } = await supabase
       .from("marketplace_items")
       .select("id, title, description, price_cents, currency")
       .eq("id", itemId)
       .eq("published", true)
       .single();
 
+    const item = data as MarketplaceItemRow | null;
     if (error || !item) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
