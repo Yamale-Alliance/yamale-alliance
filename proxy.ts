@@ -13,6 +13,7 @@ const isPublicRoute = createRouteMatcher([
   "/ai-research(.*)",
   "/marketplace(.*)",
   "/lawyers(.*)",
+  "/api/laws(.*)", // public laws API for Library
   "/api/pricing", // public pricing data for pricing page
   "/api/stripe/webhook", // Stripe webhooks (verified by signature)
 ]);
