@@ -132,6 +132,71 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["admin_audit_log"]["Insert"]>;
       };
+      marketplace_items: {
+        Row: {
+          id: string;
+          type: string;
+          title: string;
+          author: string;
+          description: string | null;
+          price_cents: number;
+          currency: string;
+          image_url: string | null;
+          published: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          type: string;
+          title: string;
+          author?: string;
+          description?: string | null;
+          price_cents?: number;
+          currency?: string;
+          image_url?: string | null;
+          published?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["marketplace_items"]["Insert"]>;
+      };
+      marketplace_purchases: {
+        Row: {
+          id: string;
+          user_id: string;
+          marketplace_item_id: string;
+          stripe_session_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          marketplace_item_id: string;
+          stripe_session_id?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["marketplace_purchases"]["Insert"]>;
+      };
+      lawyer_unlocks: {
+        Row: {
+          id: string;
+          user_id: string;
+          lawyer_id: string;
+          stripe_session_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          lawyer_id: string;
+          stripe_session_id?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["lawyer_unlocks"]["Insert"]>;
+      };
     };
   };
 }
