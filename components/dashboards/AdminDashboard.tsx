@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { Users, Briefcase, FileText, Settings } from "lucide-react";
+import { Users, Briefcase, FileText, Settings, Scale, BookOpen } from "lucide-react";
 
 const adminLinks = [
   { href: "/admin-panel/users", label: "Users", icon: Users },
   { href: "/admin-panel/lawyers", label: "Lawyer Verification", icon: Briefcase },
+  { href: "/admin-panel/laws", label: "Laws", icon: BookOpen },
+  { href: "/admin-panel/pricing", label: "Pricing", icon: Scale },
   { href: "/admin-panel/content", label: "Content", icon: FileText },
   { href: "/admin-panel/settings", label: "Settings", icon: Settings },
 ];
