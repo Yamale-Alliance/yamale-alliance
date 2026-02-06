@@ -4,7 +4,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin";
 import { recordAuditLog } from "@/lib/admin-audit";
 
-const VALID_TIERS = ["free", "basic", "pro", "plus", "team"];
+const VALID_TIERS = ["free", "basic", "pro", "team"];
 
 export async function PATCH(
   request: NextRequest,
