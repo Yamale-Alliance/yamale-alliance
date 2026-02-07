@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | Yamalé Legal Platform",
@@ -10,9 +9,9 @@ export default function PrivacyPolicyPage() {
   return (
     <div className="min-h-screen">
       <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
-        <Link href="/" className="text-sm text-muted-foreground hover:text-primary hover:underline">
+        <a href="/" className="text-sm text-muted-foreground hover:text-primary hover:underline">
           ← Back to home
-        </Link>
+        </a>
         <h1 className="mt-6 text-3xl font-bold tracking-tight text-foreground">
           Privacy Policy
         </h1>
@@ -132,13 +131,13 @@ export default function PrivacyPolicyPage() {
         </div>
 
         <div className="mt-12 border-t border-border pt-6">
-          <Link href="/terms" className="text-sm text-primary hover:underline">
+          <a href="/terms" className="text-sm text-primary hover:underline">
             Terms of Service
-          </Link>
+          </a>
           <span className="mx-2 text-muted-foreground">·</span>
-          <Link href="/" className="text-sm text-primary hover:underline">
+          <a href="/" className="text-sm text-primary hover:underline">
             Home
-          </Link>
+          </a>
         </div>
       </div>
     </div>
