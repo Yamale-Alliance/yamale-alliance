@@ -3,7 +3,7 @@ import { Users, Briefcase, FileText, Settings, Scale, BookOpen } from "lucide-re
 
 const adminLinks = [
   { href: "/admin-panel/users", label: "Users", icon: Users },
-  { href: "/admin-panel/lawyers", label: "Lawyer Verification", icon: Briefcase },
+  { href: "/admin-panel/lawyers", label: "Lawyers", icon: Briefcase },
   { href: "/admin-panel/laws", label: "Laws", icon: BookOpen },
   { href: "/admin-panel/pricing", label: "Pricing", icon: Scale },
   { href: "/admin-panel/content", label: "Content", icon: FileText },
