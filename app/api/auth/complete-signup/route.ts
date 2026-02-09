@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     cookieStore.delete(ROLE_COOKIE);
 
     if (role === "lawyer") {
-      return NextResponse.redirect(new URL("/lawyer/onboarding", request.url));
+      return NextResponse.redirect(new URL("/", request.url));
     }
 
     return NextResponse.redirect(new URL("/", request.url));
