@@ -17,7 +17,11 @@ import {
   Download,
   X,
   Paperclip,
+  Zap,
+  Users,
+  Loader2,
 } from "lucide-react";
+import { canShareByEmail, canDownloadConversations } from "@/lib/plan-limits";
 
 type Tier = "free" | "basic" | "pro" | "team";
 
@@ -109,6 +113,12 @@ export default function AIResearchPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [shareOpen, setShareOpen] = useState(false);
+  const [aiUsage, setAiUsage] = useState<{
+    used: number;
+    limit: number | null;
+    remaining: number | null;
+    tier?: Tier;
+  } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mounted = useRef(false);
@@ -116,17 +126,17 @@ export default function AIResearchPage() {
   const acceptFileTypes =
     "image/*,.pdf,.doc,.docx,.txt,.md,.rtf,.odt,.csv,.xls,.xlsx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-  const tier: Tier =
+  const tierFromMetadata: Tier =
     user?.publicMetadata ? getTierFromUser(user.publicMetadata as Record<string, unknown>) : "free";
-  const limit = TIER_LIMITS[tier];
+  const tier = (aiUsage?.tier as Tier | undefined) ?? tierFromMetadata;
+  const limit = aiUsage?.limit ?? TIER_LIMITS[tier];
   const currentSession = sessions.find((s) => s.id === currentId);
   const messages = currentSession?.messages ?? [];
-  const used = sessions.reduce(
-    (acc, s) => acc + s.messages.filter((m) => m.role === "user").length,
-    0
-  );
-  const remaining = limit === null ? null : Math.max(0, limit - used);
+  const used = aiUsage?.used ?? 0;
+  const remaining = aiUsage?.remaining ?? (limit === null ? null : Math.max(0, limit - used));
   const atLimit = limit !== null && (remaining ?? 0) <= 0;
+  const [usageFetched, setUsageFetched] = useState(false);
+  const effectiveTierLoaded = !user || usageFetched;
 
   const filteredSessions = searchChats.trim()
     ? sessions.filter(
@@ -150,6 +160,36 @@ export default function AIResearchPage() {
   useEffect(() => {
     saveSessions(sessions);
   }, [sessions]);
+
+  const fetchAiUsage = useCallback(async () => {
+    if (!user) return;
+    try {
+      const res = await fetch("/api/ai/usage", { credentials: "include" });
+      const data = (await res.json()) as {
+        used?: number;
+        limit?: number | null;
+        remaining?: number | null;
+        tier?: string;
+      };
+      if (res.ok) {
+        setAiUsage({
+          used: data.used ?? 0,
+          limit: data.limit ?? null,
+          remaining: data.remaining ?? null,
+          tier: (data.tier as Tier) ?? undefined,
+        });
+      }
+    } catch {
+      // ignore
+    } finally {
+      setUsageFetched(true);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchAiUsage();
+  }, [user, fetchAiUsage]);
 
   // Load sessions from backend for signed-in users
   useEffect(() => {
@@ -390,6 +430,7 @@ export default function AIResearchPage() {
           s.id === id ? { ...s, messages: [...s.messages, assistantMessage], updatedAt: Date.now() } : s
         )
       );
+      fetchAiUsage();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Something went wrong. Please try again.";
       const errorResponse: Message = {
@@ -413,6 +454,22 @@ export default function AIResearchPage() {
     e.preventDefault();
     await sendMessage(input);
   };
+
+  if (!user) {
+    return (
+      <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4">
+        <p className="text-sm text-muted-foreground">Sign in to use AI Legal Research.</p>
+      </div>
+    );
+  }
+
+  if (!effectiveTierLoaded) {
+    return (
+      <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (tier === "free") {
     return (
@@ -460,6 +517,15 @@ export default function AIResearchPage() {
               <Pencil className="h-4 w-4" />
               New chat
             </button>
+            {tier === "team" && (
+              <Link
+                href="/ai-research/team"
+                className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted/80"
+              >
+                <Users className="h-4 w-4" />
+                Manage team
+              </Link>
+            )}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -509,10 +575,34 @@ export default function AIResearchPage() {
               )}
             </nav>
           </div>
-          <div className="border-t border-border p-3">
-            <div className="rounded-lg bg-muted/50 px-3 py-2 text-center text-xs font-medium text-muted-foreground">
+          <div className="border-t border-border p-3 space-y-2">
+            <div className="rounded-lg bg-muted/50 px-3 py-2.5">
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                  <Zap className="h-3.5 w-3.5 text-amber-500" />
+                  AI queries
+                </span>
+                {limit !== null ? (
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {used} / {limit}
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Unlimited</span>
+                )}
+              </div>
+              {limit !== null && (
+                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary/80 transition-all duration-300"
+                    style={{
+                      width: `${Math.min(100, (used / limit) * 100)}%`,
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+            <div className="text-center text-xs font-medium text-muted-foreground">
               {TIER_LABELS[tier]} plan
-              {limit !== null && <span className="ml-1">· {remaining} left</span>}
             </div>
           </div>
         </aside>
@@ -542,49 +632,53 @@ export default function AIResearchPage() {
             <div className="flex items-center gap-2">
               {messages.length > 0 && (
                 <>
-                  <div className="relative">
+                  {canShareByEmail(tier) && (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShareOpen((o) => !o)}
+                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                      >
+                        <Share2 className="h-4 w-4" />
+                        Share
+                      </button>
+                      {shareOpen && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            aria-hidden
+                            onClick={() => setShareOpen(false)}
+                          />
+                          <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-border bg-card py-1 shadow-lg">
+                            <button
+                              type="button"
+                              onClick={handleShareEmail}
+                              className="w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                            >
+                              Share by email
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCopyChat}
+                              className="w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                            >
+                              Copy chat
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {canDownloadConversations(tier) && (
                     <button
                       type="button"
-                      onClick={() => setShareOpen((o) => !o)}
+                      onClick={handleDownloadChat}
                       className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                     >
-                      <Share2 className="h-4 w-4" />
-                      Share
+                      <Download className="h-4 w-4" />
+                      Download
                     </button>
-                    {shareOpen && (
-                      <>
-                        <div
-                          className="fixed inset-0 z-40"
-                          aria-hidden
-                          onClick={() => setShareOpen(false)}
-                        />
-                        <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-border bg-card py-1 shadow-lg">
-                          <button
-                            type="button"
-                            onClick={handleShareEmail}
-                            className="w-full px-3 py-2 text-left text-sm hover:bg-muted"
-                          >
-                            Share by email
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleCopyChat}
-                            className="w-full px-3 py-2 text-left text-sm hover:bg-muted"
-                          >
-                            Copy chat
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleDownloadChat}
-                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download
-                  </button>
+                  )}
                 </>
               )}
               <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
@@ -742,8 +836,11 @@ export default function AIResearchPage() {
                 </div>
               </form>
               {atLimit && (
-                <p className="mt-2 text-center text-xs text-muted-foreground">
-                  Limit reached. <Link href="/pricing" className="underline">Upgrade</Link> for more.
+                <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-sm font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100">
+                  Limit reached.{" "}
+                  <Link href="/pricing" className="underline underline-offset-2 hover:no-underline">
+                    Upgrade for more
+                  </Link>
                 </p>
               )}
             </div>
