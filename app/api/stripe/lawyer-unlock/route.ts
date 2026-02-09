@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: `${origin}/lawyers?unlocked=1`,
+      success_url: `${origin}/lawyers?unlocked=1&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/lawyers?checkout=cancelled`,
       client_reference_id: userId,
       metadata: {

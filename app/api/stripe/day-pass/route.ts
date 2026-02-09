@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: `${origin}/dashboard?day_pass=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/pricing?checkout=cancelled`,
+      success_url: `${origin}/lawyers?day_pass=1&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/lawyers?checkout=cancelled`,
       client_reference_id: userId,
       metadata: {
         clerk_user_id: userId,

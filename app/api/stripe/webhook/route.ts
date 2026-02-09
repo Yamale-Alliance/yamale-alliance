@@ -52,8 +52,37 @@ export async function POST(request: NextRequest) {
             session.metadata.lawyer_id as string,
             session.id
           );
+        } else if (kind === "team_extra_seats" && clerkUserId && session.metadata?.seats) {
+          const seats = Number(session.metadata.seats);
+          if (seats > 0) {
+            const clerk = await clerkClient();
+            const user = await clerk.users.getUser(clerkUserId);
+            const existing = (user.publicMetadata ?? {}) as Record<string, unknown>;
+            const current = (existing.team_extra_seats as number) ?? 0;
+            await clerk.users.updateUserMetadata(clerkUserId, {
+              publicMetadata: { ...existing, team_extra_seats: current + seats },
+            });
+            console.log("Webhook: team_extra_seats +", seats, "for", clerkUserId);
+          }
         } else if (clerkUserId) {
-          const planId = session.metadata?.plan_id as string | undefined;
+          let planId = (session.metadata?.plan_id as string | undefined) ?? null;
+          if (!planId && session.subscription && typeof session.subscription === "string") {
+            try {
+              const sub = await stripe.subscriptions.retrieve(session.subscription, {
+                expand: ["items.data.price.product"],
+              });
+              planId = (sub.metadata?.plan_id as string) ?? null;
+              if (!planId && sub.items?.data?.[0]?.price?.product) {
+                const product = sub.items.data[0].price.product as Stripe.Product;
+                const name = (product.name ?? "").toLowerCase();
+                if (name.includes("basic")) planId = "basic";
+                else if (name.includes("pro")) planId = "pro";
+                else if (name.includes("team")) planId = "team";
+              }
+            } catch (e) {
+              console.error("Webhook: could not retrieve subscription for plan_id", e);
+            }
+          }
           if (planId) {
             const clerk = await clerkClient();
             const user = await clerk.users.getUser(clerkUserId);
@@ -69,11 +98,20 @@ export async function POST(request: NextRequest) {
                   day_pass_last_purchase_at: now.toISOString(),
                 },
               });
+              console.log("Webhook: day-pass granted for", clerkUserId);
             } else {
+              const nextMeta = { ...existing, tier: planId };
+              if (planId === "team") {
+                nextMeta.team_admin = true;
+                nextMeta.team_extra_seats = (existing.team_extra_seats as number) ?? 0;
+              }
               await clerk.users.updateUserMetadata(clerkUserId, {
-                publicMetadata: { ...existing, tier: planId },
+                publicMetadata: nextMeta,
               });
+              console.log("Webhook: tier set to", planId, "for", clerkUserId);
             }
+          } else {
+            console.warn("Webhook: checkout.session.completed had no plan_id for", clerkUserId, "session_id", session.id);
           }
         }
         break;
@@ -83,13 +121,44 @@ export async function POST(request: NextRequest) {
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
         const clerkUserId = sub.metadata?.clerk_user_id as string | undefined;
-        if (event.type === "customer.subscription.deleted" && clerkUserId) {
+        if (!clerkUserId) break;
+
+        if (event.type === "customer.subscription.deleted") {
           const clerk = await clerkClient();
           const user = await clerk.users.getUser(clerkUserId);
           const existing = (user.publicMetadata ?? {}) as Record<string, unknown>;
+          const { team_admin, team_extra_seats, ...rest } = existing;
           await clerk.users.updateUserMetadata(clerkUserId, {
-            publicMetadata: { ...existing, tier: "free" },
+            publicMetadata: { ...rest, tier: "free" },
           });
+          console.log("Webhook: tier set to free (subscription deleted) for", clerkUserId);
+        } else if (sub.status === "active") {
+          let planId = (sub.metadata?.plan_id as string) ?? null;
+          if (!planId) {
+            try {
+              const expanded = await stripe.subscriptions.retrieve(sub.id, {
+                expand: ["items.data.price.product"],
+              });
+              const product = expanded.items?.data?.[0]?.price?.product;
+              if (product && typeof product === "object" && "name" in product) {
+                const name = ((product as Stripe.Product).name ?? "").toLowerCase();
+                if (name.includes("basic")) planId = "basic";
+                else if (name.includes("pro")) planId = "pro";
+                else if (name.includes("team")) planId = "team";
+              }
+            } catch (e) {
+              console.error("Webhook: could not expand subscription for plan_id", e);
+            }
+          }
+          if (planId) {
+            const clerk = await clerkClient();
+            const user = await clerk.users.getUser(clerkUserId);
+            const existing = (user.publicMetadata ?? {}) as Record<string, unknown>;
+            await clerk.users.updateUserMetadata(clerkUserId, {
+              publicMetadata: { ...existing, tier: planId },
+            });
+            console.log("Webhook: tier set to", planId, "for", clerkUserId, "(subscription.updated)");
+          }
         }
         break;
       }
