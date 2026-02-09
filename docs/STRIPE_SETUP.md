@@ -44,3 +44,16 @@ Use test mode keys and prices while developing.
 - **Checkout**: User clicks a plan on `/pricing` → `POST /api/stripe/checkout` (requires sign-in) → redirect to Stripe Checkout → after payment, redirect to `/dashboard?checkout=success`.
 - **Webhook**: Stripe sends `checkout.session.completed` → app updates the user’s tier in Clerk `publicMetadata` (e.g. `tier: "basic"`). On `customer.subscription.deleted`, tier is set back to `"free"`.
 - **Billing portal**: `POST /api/stripe/portal` with `{ customerId: "cus_..." }` returns a URL to Stripe’s customer portal (manage payment method, cancel subscription). You need to store each user’s Stripe customer ID when they first complete checkout (e.g. from the webhook or from `checkout.session.completed`).
+
+## 5. Troubleshooting: “I paid but my plan didn’t update”
+
+1. **Webhook must be reachable**  
+   - Production: ensure the webhook endpoint URL is correct and uses HTTPS.  
+   - Local: run `stripe listen --forward-to localhost:3000/api/stripe/webhook` and use the CLI’s `whsec_...` as `STRIPE_WEBHOOK_SECRET`.
+
+2. **Check that the webhook ran**  
+   - Stripe Dashboard → Webhooks → your endpoint → view recent events. Confirm `checkout.session.completed` was sent and returned 2xx.  
+   - On Vercel (or your host), check function logs for lines like `Webhook: tier set to basic for user_...`. If you see `Webhook: checkout.session.completed had no plan_id`, the session didn’t have plan metadata; the code will also try to read the subscription and set the tier from there.
+
+3. **Refresh after payment**  
+   - The tier is updated asynchronously by the webhook. After returning to the dashboard, refresh the page (or open Profile) so the app reloads your Clerk session and shows the new plan.
