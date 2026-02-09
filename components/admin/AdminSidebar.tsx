@@ -21,7 +21,7 @@ const navItems = [
   { href: "/admin-panel/admins", label: "Admin Management", icon: Shield },
   { href: "/admin-panel/users", label: "Users", icon: Users },
   { href: "/admin-panel/ai-usage", label: "AI Usage", icon: Cpu },
-  { href: "/admin-panel/lawyers", label: "Lawyer Verification", icon: Briefcase },
+  { href: "/admin-panel/lawyers", label: "Lawyers", icon: Briefcase },
   { href: "/admin-panel/laws", label: "Laws", icon: BookOpen },
   { href: "/admin-panel/marketplace", label: "Marketplace", icon: Store },
   { href: "/admin-panel/pricing", label: "Pricing", icon: Scale },
