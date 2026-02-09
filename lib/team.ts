@@ -25,9 +25,10 @@ export async function getEffectiveTierForUser(userId: string): Promise<string> {
     .select("admin_user_id")
     .eq("member_user_id", userId)
     .maybeSingle();
-  if (!data) return tier;
+  const row = data as { admin_user_id: string } | null;
+  if (!row) return tier;
 
-  const admin = await clerk.users.getUser(data.admin_user_id);
+  const admin = await clerk.users.getUser(row.admin_user_id);
   const adminTier = ((admin.publicMetadata?.tier ?? admin.publicMetadata?.subscriptionTier) as string) ?? "free";
   return adminTier === "team" ? "team" : tier;
 }
