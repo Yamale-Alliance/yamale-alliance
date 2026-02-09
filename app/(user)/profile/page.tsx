@@ -16,9 +16,9 @@ const TIER_LABELS: Record<Tier, string> = {
 
 const TIER_DESCRIPTIONS: Record<Tier, string> = {
   free: "Browse the public library. AI research is locked.",
-  basic: "10 AI queries per month.",
-  pro: "50 AI queries per month.",
-  team: "Unlimited AI queries.",
+  basic: "5 doc downloads, 10 AI queries, 1 AfCFTA report per month. Unlimited saved docs.",
+  pro: "20 downloads, 50 AI queries, 5 AfCFTA reports, 3 lawyer contacts. Share & download chats.",
+  team: "5 seats, 250 downloads (50/user), unlimited AI & AfCFTA, 10 lawyer contacts.",
 };
 
 export default function ProfilePage() {
