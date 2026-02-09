@@ -16,7 +16,12 @@ export const guestNavLinks = [
   { href: "/pricing", label: "Pricing", icon: DollarSign },
 ] as const;
 
-export const userNavLinks = [
+export const userNavLinks: Array<{
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  teamOnly?: boolean;
+}> = [
   { href: "/", label: "Home", icon: Home },
   { href: "/library", label: "Library", icon: BookOpen },
   { href: "/afcfta", label: "AfCFTA", icon: FileCheck },
@@ -25,10 +30,11 @@ export const userNavLinks = [
   { href: "/lawyers", label: "Lawyers", icon: Users },
   { href: "/pricing", label: "Pricing", icon: DollarSign },
   { href: "/profile", label: "Profile", icon: User },
-] as const;
+];
 
 export type NavLinkItem = {
   href: string;
   label: string;
   icon: LucideIcon;
+  teamOnly?: boolean;
 };

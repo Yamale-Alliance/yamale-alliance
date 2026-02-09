@@ -1,14 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useUser } from "@clerk/nextjs";
 import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { userNavLinks } from "./nav-config";
 
 export function UserHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user } = useUser();
+  const tier = (user?.publicMetadata?.tier ?? user?.publicMetadata?.subscriptionTier ?? "free") as string;
+  const isTeam = tier === "team";
+  const links = useMemo(
+    () => userNavLinks.filter((l) => !l.teamOnly || isTeam),
+    [isTeam]
+  );
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background">
@@ -19,7 +26,7 @@ export function UserHeader() {
 
         {/* Desktop nav */}
         <nav className="hidden items-center gap-4 lg:flex">
-          {userNavLinks.map(({ href, label }) => (
+          {links.map(({ href, label }) => (
             <Link
               key={href}
               href={href}
@@ -72,7 +79,7 @@ export function UserHeader() {
               </button>
             </div>
             <nav className="flex flex-col gap-1 overflow-y-auto p-4">
-              {userNavLinks.map(({ href, label }) => (
+              {links.map(({ href, label }) => (
                 <Link
                   key={href}
                   href={href}
