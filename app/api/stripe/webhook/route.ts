@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
               });
               console.log("Webhook: day-pass granted for", clerkUserId);
             } else {
-              const nextMeta = { ...existing, tier: planId };
+              const nextMeta: Record<string, unknown> = { ...existing, tier: planId };
               if (planId === "team") {
                 nextMeta.team_admin = true;
                 nextMeta.team_extra_seats = (existing.team_extra_seats as number) ?? 0;
