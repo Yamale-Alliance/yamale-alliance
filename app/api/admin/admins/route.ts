@@ -4,7 +4,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin";
 import { recordAuditLog } from "@/lib/admin-audit";
 
-const ALLOWED_ROLES = ["admin", "user", "lawyer"];
+const ALLOWED_ROLES = ["admin", "user"];
 
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin();
