@@ -103,7 +103,7 @@ export default function AdminAdminsPage() {
           Add admin or set role
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Enter the email of an existing user to assign them a role (Admin, Lawyer, or User). They must have signed up first.
+          Enter the email of an existing user to assign them a role (Admin or User). Lawyers are managed separately in the Lawyers directory.
         </p>
         <form onSubmit={handleAddAdmin} className="mt-4 flex flex-wrap items-end gap-4">
           <div className="min-w-[200px]">
@@ -124,7 +124,6 @@ export default function AdminAdminsPage() {
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
               <option value="admin">Admin</option>
-              <option value="lawyer">Lawyer</option>
               <option value="user">User</option>
             </select>
           </div>
