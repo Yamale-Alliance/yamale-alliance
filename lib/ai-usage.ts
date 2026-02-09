@@ -3,17 +3,18 @@ import type { Database } from "@/lib/database.types";
 
 type AiUsageRow = Database["public"]["Tables"]["ai_usage"]["Row"];
 
-/** AI queries per month by plan: Basic 10, Pro 50, Team unlimited. Same for monthly and annual. */
-export const AI_QUERY_LIMITS: Record<string, number | null> = {
+import { getAiQueryLimit } from "@/lib/plan-limits";
+
+/** @deprecated Use getAiQueryLimit from @/lib/plan-limits */
+export const AI_QUERY_LIMITS = {
   free: 0,
   basic: 10,
   pro: 50,
   team: null,
-};
+} as Record<string, number | null>;
 
 export function getAiQueryLimitForTier(tier: string): number | null {
-  const t = (tier || "free").toLowerCase();
-  return t in AI_QUERY_LIMITS ? AI_QUERY_LIMITS[t] : 0;
+  return getAiQueryLimit(tier);
 }
 
 export function getCurrentMonthKey(): string {
