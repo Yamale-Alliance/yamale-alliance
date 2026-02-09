@@ -258,6 +258,67 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["lawyer_documents"]["Insert"]>;
       };
+      lawyers: {
+        Row: {
+          id: string;
+          name: string;
+          country: string | null;
+          expertise: string;
+          contacts: string | null;
+          email: string | null;
+          phone: string | null;
+          linkedin_url: string | null;
+          source: string;
+          approved: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          country?: string | null;
+          expertise: string;
+          contacts?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          linkedin_url?: string | null;
+          source?: string;
+          approved?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["lawyers"]["Insert"]>;
+      };
+      team_chat_messages: {
+        Row: {
+          id: string;
+          user_id: string;
+          user_name: string | null;
+          content: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          user_name?: string | null;
+          content: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["team_chat_messages"]["Insert"]>;
+      };
+      team_members: {
+        Row: {
+          admin_user_id: string;
+          member_user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          admin_user_id: string;
+          member_user_id: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["team_members"]["Insert"]>;
+      };
     };
   };
 }
