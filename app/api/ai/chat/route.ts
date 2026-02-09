@@ -215,10 +215,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Enforce plan limits: Basic 10, Pro 50, Team unlimited (monthly)
-    const clerk = await clerkClient();
-    const user = await clerk.users.getUser(userId);
-    const tier = ((user.publicMetadata?.tier ?? user.publicMetadata?.subscriptionTier) as string) ?? "free";
+    // Enforce plan limits: Basic 10, Pro 50, Team unlimited (incl. team members)
+    const { getEffectiveTierForUser } = await import("@/lib/team");
+    const tier = await getEffectiveTierForUser(userId);
     const limit = getAiQueryLimitForTier(tier);
     if (limit !== null) {
       const usage = await getAiUsage(userId);
