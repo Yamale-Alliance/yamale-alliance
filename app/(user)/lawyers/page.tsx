@@ -1,21 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useUser } from "@clerk/nextjs";
-import { Lock, Mail, Phone, Loader2, ShieldCheck, Star } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Lock, Loader2, ShieldCheck, Linkedin, Mail, Phone, Clock } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 
 type Lawyer = {
   id: string;
   name: string;
-  specialty: string;
   country: string;
-  email: string | null;
-  phone: string | null;
-  avatarUrl: string | null;
-  pronouns: string | null;
-  meanRating: number | null;
-  ratingCount: number;
+  expertise: string;
+  linkedinUrl: string | null;
 };
 
 type UnlockOption = "per_lawyer" | "day_pass";
@@ -98,7 +94,7 @@ function UnlockPaymentDialog({
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-6 shadow-xl">
           <Dialog.Title className="text-lg font-semibold">Unlock contact</Dialog.Title>
           <Dialog.Description className="mt-1 text-sm text-muted-foreground">
-            {lawyer.name} · {lawyer.specialty}
+            {lawyer.name} · {lawyer.expertise}
           </Dialog.Description>
 
           <div className="mt-4 space-y-3">
@@ -165,9 +161,53 @@ export default function LawyersPage() {
   const [lawyers, setLawyers] = useState<Lawyer[]>([]);
   const [lawyersLoading, setLawyersLoading] = useState(true);
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
+  const [contactsByLawyer, setContactsByLawyer] = useState<Record<string, { email: string | null; phone: string | null; contacts: string | null }>>({});
   const [dayPassActive, setDayPassActive] = useState(false);
+  const [dayPassExpiresAt, setDayPassExpiresAt] = useState<string | null>(null);
   const [paymentLawyer, setPaymentLawyer] = useState<Lawyer | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const searchParams = useSearchParams();
+  const confirmedSessionRef = useRef<string | null>(null);
+
+  const refetchUnlocked = () => {
+    fetch("/api/lawyers/unlocked", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data: {
+        lawyerIds?: string[];
+        dayPassActive?: boolean;
+        dayPassExpiresAt?: string | null;
+        contacts?: Record<string, { email: string | null; phone: string | null; contacts: string | null }>;
+      }) => {
+        if (Array.isArray(data.lawyerIds)) setUnlockedIds(new Set(data.lawyerIds));
+        setDayPassActive(Boolean(data.dayPassActive));
+        setDayPassExpiresAt(data.dayPassExpiresAt ?? null);
+        setContactsByLawyer((data.contacts ?? {}) as Record<string, { email: string | null; phone: string | null; contacts: string | null }>);
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    const sessionId = searchParams.get("session_id");
+    if (!sessionId || confirmingPayment || confirmedSessionRef.current === sessionId) return;
+    confirmedSessionRef.current = sessionId;
+    setConfirmingPayment(true);
+    fetch("/api/lawyers/confirm-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ session_id: sessionId }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.ok) {
+          refetchUnlocked();
+          window.history.replaceState({}, "", "/lawyers");
+        }
+      })
+      .catch(() => {})
+      .finally(() => setConfirmingPayment(false));
+  }, [searchParams]);
 
   useEffect(() => {
     fetch("/api/lawyers")
@@ -180,15 +220,7 @@ export default function LawyersPage() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/lawyers/unlocked", { credentials: "include" })
-      .then((res) => res.json())
-      .then((data: { lawyerIds?: string[]; dayPassActive?: boolean }) => {
-        if (Array.isArray(data.lawyerIds)) {
-          setUnlockedIds(new Set(data.lawyerIds));
-        }
-        setDayPassActive(Boolean(data.dayPassActive));
-      })
-      .catch(() => {});
+    refetchUnlocked();
   }, []);
 
   const handleUnlockSuccess = (lawyerId?: string, dayPass?: boolean) => {
@@ -197,6 +229,7 @@ export default function LawyersPage() {
     } else if (lawyerId) {
       setUnlockedIds((prev) => new Set(prev).add(lawyerId));
     }
+    if (lawyerId || dayPass) refetchUnlocked();
   };
 
   return (
@@ -204,13 +237,37 @@ export default function LawyersPage() {
       {/* Payment options banner */}
       <div className="border-b border-border bg-primary/10 px-4 py-4">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
-          <p className="text-sm font-medium text-foreground">
-            Unlock lawyer contact: <strong>$5</strong> per lawyer or{" "}
-            <strong>$25</strong> day pass (all lawyers, 24h)
-          </p>
-          <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-            Secure payment · Card or mobile money
-          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm font-medium text-foreground">
+              {dayPassActive ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/15 px-2.5 py-1 text-xs font-medium text-green-700 dark:text-green-400">
+                    <Clock className="h-3.5 w-3.5" /> Day pass active
+                  </span>
+                  {dayPassExpiresAt && (
+                    <span className="text-muted-foreground">
+                      — Expires {new Date(dayPassExpiresAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  Unlock lawyer contact: <strong>$5</strong> per lawyer or{" "}
+                  <strong>$25</strong> day pass (all lawyers, 24h)
+                </>
+              )}
+            </p>
+            {confirmingPayment && (
+              <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Confirming payment…
+              </span>
+            )}
+          </div>
+          {!dayPassActive && (
+            <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+              Secure payment · Card or mobile money
+            </span>
+          )}
         </div>
       </div>
 
@@ -221,8 +278,7 @@ export default function LawyersPage() {
             Find a Lawyer
           </h1>
           <p className="mt-1 text-muted-foreground">
-            Verified legal professionals across Africa. Unlock contact to get in
-            touch.
+            Legal professionals across Africa. Unlock contact to get in touch.
           </p>
         </div>
       </div>
@@ -247,77 +303,69 @@ export default function LawyersPage() {
                   className="flex flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:bg-accent/30"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="h-12 w-12 shrink-0 rounded-full overflow-hidden border border-border bg-muted flex items-center justify-center">
-                      {lawyer.avatarUrl ? (
-                        <img src={lawyer.avatarUrl} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <span className="text-sm font-medium text-muted-foreground">
-                          {lawyer.name
-                            .split(" ")
-                            .map((n) => n[0])
-                            .filter(Boolean)
-                            .slice(0, 2)
-                            .join("")
-                            .toUpperCase()}
-                        </span>
-                      )}
+                    <div className="h-12 w-12 shrink-0 rounded-full border border-border bg-muted flex items-center justify-center">
+                      <span className="text-sm font-medium text-muted-foreground">
+                        {lawyer.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .filter(Boolean)
+                          .slice(0, 2)
+                          .join("")
+                          .toUpperCase()}
+                      </span>
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h2 className="font-semibold text-foreground">{lawyer.name}</h2>
-                        {lawyer.pronouns && (
-                          <span className="text-xs text-muted-foreground">({lawyer.pronouns})</span>
-                        )}
                         <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
-                          <ShieldCheck className="h-3 w-3" /> Verified
+                          <ShieldCheck className="h-3 w-3" /> Listed
                         </span>
                       </div>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        {lawyer.specialty || "Legal practice"}
+                        {lawyer.expertise}
                         {lawyer.country ? ` · ${lawyer.country}` : ""}
                       </p>
-                      <div className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <Star className="h-4 w-4 shrink-0 text-amber-500 fill-amber-500" />
-                        {lawyer.ratingCount === 0 ? (
-                          <span>No ratings yet</span>
-                        ) : (
-                          <span>
-                            <strong className="text-foreground">{lawyer.meanRating?.toFixed(1)}</strong>
-                            {" "}({lawyer.ratingCount} {lawyer.ratingCount === 1 ? "rating" : "ratings"})
-                          </span>
-                        )}
-                      </div>
+                      {lawyer.linkedinUrl && (
+                        <a
+                          href={lawyer.linkedinUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1.5 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        >
+                          <Linkedin className="h-3.5 w-3.5" /> LinkedIn
+                        </a>
+                      )}
                     </div>
                   </div>
                   <div className="mt-4 space-y-2 border-t border-border pt-4">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      {isUnlocked && lawyer.email ? (
-                        <a
-                          href={`mailto:${lawyer.email}`}
-                          className="text-foreground underline hover:opacity-80"
-                        >
-                          {lawyer.email}
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground">
-                          ••••••@••••.•••
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      {isUnlocked && lawyer.phone ? (
-                        <a
-                          href={`tel:${lawyer.phone}`}
-                          className="text-foreground underline hover:opacity-80"
-                        >
-                          {lawyer.phone}
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground">••••••••••••</span>
-                      )}
-                    </div>
+                    {isUnlocked && contactsByLawyer[lawyer.id] ? (
+                      <>
+                        {contactsByLawyer[lawyer.id].email && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
+                            <a href={`mailto:${contactsByLawyer[lawyer.id].email}`} className="text-foreground underline hover:opacity-80">
+                              {contactsByLawyer[lawyer.id].email}
+                            </a>
+                          </div>
+                        )}
+                        {contactsByLawyer[lawyer.id].phone && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
+                            <a href={`tel:${contactsByLawyer[lawyer.id].phone}`} className="text-foreground underline hover:opacity-80">
+                              {contactsByLawyer[lawyer.id].phone}
+                            </a>
+                          </div>
+                        )}
+                        {contactsByLawyer[lawyer.id].contacts && (
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{contactsByLawyer[lawyer.id].contacts}</p>
+                        )}
+                        {!contactsByLawyer[lawyer.id].email && !contactsByLawyer[lawyer.id].phone && !contactsByLawyer[lawyer.id].contacts && (
+                          <span className="text-sm text-muted-foreground">No contact details</span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">Contact hidden. Unlock to view.</span>
+                    )}
                   </div>
                   {!isUnlocked && (
                     <button
