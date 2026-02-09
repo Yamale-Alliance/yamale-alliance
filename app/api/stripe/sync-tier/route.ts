@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     const clerk = await clerkClient();
     const user = await clerk.users.getUser(userId);
     const existing = (user.publicMetadata ?? {}) as Record<string, unknown>;
-    const nextMeta = { ...existing, tier: planId };
+    const nextMeta: Record<string, unknown> = { ...existing, tier: planId };
     if (planId === "team") {
       nextMeta.team_admin = true;
       nextMeta.team_extra_seats = (existing.team_extra_seats as number) ?? 0;
