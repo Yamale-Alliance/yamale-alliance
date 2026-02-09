@@ -14,9 +14,6 @@ const GuestHeader = dynamic(() => import("./GuestHeader").then((m) => ({ default
 const UserHeader = dynamic(() => import("./UserHeader").then((m) => ({ default: m.UserHeader })), {
   loading: () => null,
 });
-const LawyerHeader = dynamic(() => import("./LawyerHeader").then((m) => ({ default: m.LawyerHeader })), {
-  loading: () => null,
-});
 const AdminHeader = dynamic(() => import("./AdminHeader").then((m) => ({ default: m.AdminHeader })), {
   loading: () => null,
 });
@@ -66,10 +63,9 @@ export function Header() {
   const role = user.publicMetadata?.role as UserRole | undefined;
 
   switch (role) {
-    case "lawyer":
-      return <LawyerHeader />;
     case "admin":
       return <AdminHeader />;
+    case "lawyer":
     case "user":
     default:
       return <UserHeader />;
