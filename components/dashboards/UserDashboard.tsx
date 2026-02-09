@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { BookOpen, FileCheck, Search, Store } from "lucide-react";
+import { CheckoutSuccessBanner } from "./CheckoutSuccessBanner";
 
 const quickLinks = [
   { href: "/library", label: "Legal Library", icon: BookOpen },
@@ -11,6 +13,9 @@ const quickLinks = [
 export function UserDashboard() {
   return (
     <div className="p-6">
+      <Suspense fallback={null}>
+        <CheckoutSuccessBanner />
+      </Suspense>
       <h1 className="text-2xl font-semibold">Dashboard</h1>
       <p className="mt-2 text-muted-foreground">
         Welcome to Yamalé Legal Platform. Access African legal resources and
