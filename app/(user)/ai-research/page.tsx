@@ -251,7 +251,7 @@ export default function AIResearchPage() {
 
   const selectChat = useCallback((id: string) => {
     setCurrentId(id);
-    setSidebarOpen(false);
+    // Keep sidebar open; user can close it via X or menu if they want
   }, []);
 
   const deleteChat = useCallback((id: string, e: React.MouseEvent) => {
