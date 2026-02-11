@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { stripe } from "@/lib/stripe";
-import { recordUnlock } from "@/lib/unlocks";
+import { recordUnlock, recordSearchUnlock } from "@/lib/unlocks";
+import { getSupabaseServer } from "@/lib/supabase/server";
 
 /**
  * After Stripe redirect: confirm payment from session_id and record unlock or day pass.
@@ -42,6 +43,22 @@ export async function POST(request: NextRequest) {
       }
       await recordUnlock(userId, lawyerId, session.id);
       return NextResponse.json({ ok: true, kind: "lawyer_unlock", lawyerId });
+    }
+
+    if (kind === "lawyer_search_unlock") {
+      const supabase = getSupabaseServer();
+      const { data: row } = await (supabase.from("lawyer_search_purchases") as any)
+        .select("country, expertise")
+        .eq("stripe_session_id", sessionId)
+        .single();
+      let country = (row?.country ?? body.country ?? "all") as string;
+      let expertise = (row?.expertise ?? body.expertise ?? "") as string;
+      if (typeof country !== "string") country = "all";
+      if (typeof expertise !== "string") expertise = "";
+      if (expertise) {
+        await recordSearchUnlock(userId, country, expertise, session.id);
+      }
+      return NextResponse.json({ ok: true, kind: "lawyer_search_unlock", country, expertise });
     }
 
     if (kind === "day-pass" || planId === "day-pass") {
