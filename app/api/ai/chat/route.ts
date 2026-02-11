@@ -72,6 +72,7 @@ function extractQueryHints(query: string): { country?: string; category?: string
   const countryMap: Record<string, string> = {
     "ghana": "Ghana",
     "kenya": "Kenya",
+    "tunisia": "Tunisia",
     "nigeria": "Nigeria",
     "south africa": "South Africa",
     "tanzania": "Tanzania",
