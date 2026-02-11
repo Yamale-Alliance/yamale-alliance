@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { stripe, getStripeDayPassPriceId } from "@/lib/stripe";
+import { stripe } from "@/lib/stripe";
+
+const DAY_PASS_CENTS = 2500; // $25
+const DAY_PASS_CURRENCY = (process.env.STRIPE_CURRENCY || "usd").toLowerCase();
 
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Sign in required" }, { status: 401 });
-    }
-
-    const priceId = getStripeDayPassPriceId();
-    if (!priceId) {
-      return NextResponse.json(
-        { error: "Day pass price not configured. Set STRIPE_PRICE_DAY_PASS." },
-        { status: 500 },
-      );
     }
 
     const origin = request.headers.get("origin") || request.nextUrl.origin;
@@ -24,7 +19,14 @@ export async function POST(request: NextRequest) {
       payment_method_types: ["card"],
       line_items: [
         {
-          price: priceId,
+          price_data: {
+            currency: DAY_PASS_CURRENCY,
+            unit_amount: DAY_PASS_CENTS,
+            product_data: {
+              name: "24-hour day pass",
+              description: "Full Pro-level access for 24 hours",
+            },
+          },
           quantity: 1,
         },
       ],
