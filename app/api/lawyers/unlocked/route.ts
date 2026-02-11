@@ -1,9 +1,9 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { getUnlockedLawyerIds } from "@/lib/unlocks";
+import { getUnlockedLawyerIds, getUnlockedLawyerIdsFromSearchCriteria } from "@/lib/unlocks";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
-/** GET: list of unlocked lawyer ids + day pass status + contact details for unlocked lawyers. */
+/** GET: list of unlocked lawyer ids + day pass status + contact details. Unlocked = per-lawyer unlocks + lawyers matching user's search-unlock criteria (country + expertise). */
 export async function GET() {
   const { userId } = await auth();
   if (!userId) {
@@ -15,7 +15,11 @@ export async function GET() {
   const dayPassExpiresAt = typeof expiresAtRaw === "string" ? expiresAtRaw : null;
   const dayPassActive = dayPassExpiresAt ? new Date(dayPassExpiresAt) > new Date() : false;
 
-  const lawyerIds = await getUnlockedLawyerIds(userId);
+  const [perLawyerIds, criteriaIds] = await Promise.all([
+    getUnlockedLawyerIds(userId),
+    getUnlockedLawyerIdsFromSearchCriteria(userId),
+  ]);
+  const lawyerIds = Array.from(new Set([...perLawyerIds, ...criteriaIds]));
 
   const supabase = getSupabaseServer();
   const contacts: Record<string, { email: string | null; phone: string | null; contacts: string | null }> = {};
