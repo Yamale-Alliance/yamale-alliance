@@ -197,6 +197,42 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["lawyer_unlocks"]["Insert"]>;
       };
+      lawyer_search_purchases: {
+        Row: {
+          stripe_session_id: string;
+          user_id: string;
+          lawyer_ids: Json;
+          country: string | null;
+          expertise: string | null;
+          created_at: string;
+        };
+        Insert: {
+          stripe_session_id: string;
+          user_id: string;
+          lawyer_ids: Json;
+          country?: string | null;
+          expertise?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["lawyer_search_purchases"]["Insert"]>;
+      };
+      lawyer_search_unlocks: {
+        Row: {
+          user_id: string;
+          country: string;
+          expertise: string;
+          stripe_session_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          country: string;
+          expertise: string;
+          stripe_session_id?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["lawyer_search_unlocks"]["Insert"]>;
+      };
       ai_usage: {
         Row: {
           user_id: string;
@@ -268,6 +304,9 @@ export interface Database {
           email: string | null;
           phone: string | null;
           linkedin_url: string | null;
+          primary_language: string | null;
+          other_languages: string | null;
+          image_url: string | null;
           source: string;
           approved: boolean;
           created_at: string;
@@ -282,6 +321,9 @@ export interface Database {
           email?: string | null;
           phone?: string | null;
           linkedin_url?: string | null;
+          primary_language?: string | null;
+          other_languages?: string | null;
+          image_url?: string | null;
           source?: string;
           approved?: boolean;
           created_at?: string;
