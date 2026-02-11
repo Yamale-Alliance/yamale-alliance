@@ -12,6 +12,9 @@ type LawyerRow = {
   phone: string | null;
   contacts: string | null;
   linkedin_url: string | null;
+  primary_language: string | null;
+  other_languages: string | null;
+  image_url: string | null;
   source: string;
   approved: boolean;
   created_at: string;
@@ -30,7 +33,24 @@ export default function AdminLawyersPage() {
   const [formExpertise, setFormExpertise] = useState("");
   const [formEmail, setFormEmail] = useState("");
   const [formPhone, setFormPhone] = useState("");
+  const [formPrimaryLanguage, setFormPrimaryLanguage] = useState("");
+  const [formOtherLanguages, setFormOtherLanguages] = useState("");
   const [formLinkedin, setFormLinkedin] = useState("");
+  const [formImageUrl, setFormImageUrl] = useState("");
+  const [formImageUploading, setFormImageUploading] = useState(false);
+
+  const [editing, setEditing] = useState<LawyerRow | null>(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editCountry, setEditCountry] = useState("");
+  const [editExpertise, setEditExpertise] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editPrimaryLanguage, setEditPrimaryLanguage] = useState("");
+  const [editOtherLanguages, setEditOtherLanguages] = useState("");
+  const [editLinkedin, setEditLinkedin] = useState("");
+  const [editImageUrl, setEditImageUrl] = useState("");
+  const [editImageUploading, setEditImageUploading] = useState(false);
 
   const fetchLawyers = () => {
     setLoading(true);
@@ -70,7 +90,10 @@ export default function AdminLawyersPage() {
           expertise: formExpertise.trim(),
           email: formEmail.trim() || undefined,
           phone: formPhone.trim() || undefined,
+          primary_language: formPrimaryLanguage.trim() || undefined,
+          other_languages: formOtherLanguages.trim() || undefined,
           linkedin_url: formLinkedin.trim() || undefined,
+          image_url: formImageUrl.trim() || undefined,
         }),
       });
       const data = await res.json();
@@ -83,6 +106,8 @@ export default function AdminLawyersPage() {
       setFormExpertise("");
       setFormEmail("");
       setFormPhone("");
+      setFormPrimaryLanguage("");
+      setFormOtherLanguages("");
       setFormLinkedin("");
       setShowForm(false);
       fetchLawyers();
@@ -90,6 +115,64 @@ export default function AdminLawyersPage() {
       setError("Network error");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const openEdit = (lawyer: LawyerRow) => {
+    setEditing(lawyer);
+    setEditName(lawyer.name);
+    setEditCountry(lawyer.country ?? "");
+    setEditExpertise(lawyer.expertise);
+    setEditEmail(lawyer.email ?? "");
+    setEditPhone(lawyer.phone ?? "");
+    setEditPrimaryLanguage(lawyer.primary_language ?? "");
+    setEditOtherLanguages(lawyer.other_languages ?? "");
+    setEditLinkedin(lawyer.linkedin_url ?? "");
+    setEditImageUrl(lawyer.image_url ?? "");
+    setError(null);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editing) return;
+    if (!editName.trim() || !editExpertise.trim()) {
+      setError("Name and expertise are required.");
+      return;
+    }
+    if (!editEmail.trim() && !editPhone.trim()) {
+      setError("Email or phone is required.");
+      return;
+    }
+    setEditSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`${window.location.origin}/api/admin/lawyers/directory/${editing.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editName.trim(),
+          country: editCountry.trim() || undefined,
+          expertise: editExpertise.trim(),
+          email: editEmail.trim() || undefined,
+          phone: editPhone.trim() || undefined,
+          primary_language: editPrimaryLanguage.trim() || undefined,
+          other_languages: editOtherLanguages.trim() || undefined,
+          linkedin_url: editLinkedin.trim() || undefined,
+          image_url: editImageUrl.trim() || null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Failed to update lawyer");
+        return;
+      }
+      setLawyers((prev) => prev.map((l) => (l.id === editing.id ? (data as LawyerRow) : l)));
+      setEditing(null);
+    } catch {
+      setError("Network error");
+    } finally {
+      setEditSubmitting(false);
     }
   };
 
@@ -288,6 +371,34 @@ export default function AdminLawyersPage() {
                 placeholder="e.g. +233 00 000 0000"
               />
             </div>
+            <div>
+              <label htmlFor="admin-lawyer-primary-language" className="block text-sm font-medium text-foreground mb-1">
+                Primary language
+              </label>
+              <input
+                id="admin-lawyer-primary-language"
+                type="text"
+                value={formPrimaryLanguage}
+                onChange={(e) => setFormPrimaryLanguage(e.target.value)}
+                maxLength={100}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                placeholder="e.g. English"
+              />
+            </div>
+            <div>
+              <label htmlFor="admin-lawyer-other-languages" className="block text-sm font-medium text-foreground mb-1">
+                Other languages
+              </label>
+              <input
+                id="admin-lawyer-other-languages"
+                type="text"
+                value={formOtherLanguages}
+                onChange={(e) => setFormOtherLanguages(e.target.value)}
+                maxLength={500}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                placeholder="e.g. French, Swahili"
+              />
+            </div>
             <div className="sm:col-span-2">
               <label htmlFor="admin-lawyer-linkedin" className="block text-sm font-medium text-foreground mb-1">
                 LinkedIn URL <span className="text-muted-foreground">(optional)</span>
@@ -301,6 +412,55 @@ export default function AdminLawyersPage() {
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                 placeholder="https://linkedin.com/in/..."
               />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Photo <span className="text-muted-foreground">(optional)</span>
+              </label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  type="url"
+                  value={formImageUrl}
+                  onChange={(e) => setFormImageUrl(e.target.value)}
+                  maxLength={2048}
+                  className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                  placeholder="Image URL or upload below"
+                />
+                <label className="flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm cursor-pointer hover:bg-accent shrink-0">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    disabled={formImageUploading}
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      setFormImageUploading(true);
+                      try {
+                        const fd = new FormData();
+                        fd.set("file", f);
+                        const r = await fetch(`${window.location.origin}/api/admin/lawyers/upload-image`, {
+                          method: "POST",
+                          credentials: "include",
+                          body: fd,
+                        });
+                        const d = await r.json().catch(() => ({}));
+                        if (r.ok && d.url) setFormImageUrl(d.url);
+                        else setError(d.error ?? "Upload failed");
+                      } finally {
+                        setFormImageUploading(false);
+                        e.target.value = "";
+                      }
+                    }}
+                  />
+                  {formImageUploading ? "Uploading…" : "Upload image"}
+                </label>
+              </div>
+              {formImageUrl && (
+                <div className="mt-2">
+                  <img src={formImageUrl} alt="Preview" className="h-16 w-16 rounded-full object-cover border border-border" />
+                </div>
+              )}
             </div>
           </div>
           <div className="mt-4 flex gap-2">
@@ -322,6 +482,183 @@ export default function AdminLawyersPage() {
         </form>
       )}
 
+      {editing && (
+        <form onSubmit={handleEditSubmit} className="mt-6 rounded-xl border border-border bg-card p-6 shadow-sm">
+          <h2 className="text-lg font-medium mb-4">Edit lawyer</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="edit-lawyer-name" className="block text-sm font-medium text-foreground mb-1">
+                Name <span className="text-destructive">*</span>
+              </label>
+              <input
+                id="edit-lawyer-name"
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                required
+                maxLength={200}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label htmlFor="edit-lawyer-country" className="block text-sm font-medium text-foreground mb-1">
+                Country
+              </label>
+              <input
+                id="edit-lawyer-country"
+                type="text"
+                value={editCountry}
+                onChange={(e) => setEditCountry(e.target.value)}
+                maxLength={100}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="edit-lawyer-expertise" className="block text-sm font-medium text-foreground mb-1">
+                Expertise <span className="text-destructive">*</span>
+              </label>
+              <input
+                id="edit-lawyer-expertise"
+                type="text"
+                value={editExpertise}
+                onChange={(e) => setEditExpertise(e.target.value)}
+                required
+                maxLength={500}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label htmlFor="edit-lawyer-email" className="block text-sm font-medium text-foreground mb-1">
+                Email
+              </label>
+              <input
+                id="edit-lawyer-email"
+                type="email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                maxLength={255}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label htmlFor="edit-lawyer-phone" className="block text-sm font-medium text-foreground mb-1">
+                Phone
+              </label>
+              <input
+                id="edit-lawyer-phone"
+                type="tel"
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+                maxLength={50}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label htmlFor="edit-lawyer-primary-language" className="block text-sm font-medium text-foreground mb-1">
+                Primary language
+              </label>
+              <input
+                id="edit-lawyer-primary-language"
+                type="text"
+                value={editPrimaryLanguage}
+                onChange={(e) => setEditPrimaryLanguage(e.target.value)}
+                maxLength={100}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label htmlFor="edit-lawyer-other-languages" className="block text-sm font-medium text-foreground mb-1">
+                Other languages
+              </label>
+              <input
+                id="edit-lawyer-other-languages"
+                type="text"
+                value={editOtherLanguages}
+                onChange={(e) => setEditOtherLanguages(e.target.value)}
+                maxLength={500}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="edit-lawyer-linkedin" className="block text-sm font-medium text-foreground mb-1">
+                LinkedIn URL
+              </label>
+              <input
+                id="edit-lawyer-linkedin"
+                type="url"
+                value={editLinkedin}
+                onChange={(e) => setEditLinkedin(e.target.value)}
+                maxLength={500}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-foreground mb-1">Photo</label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  type="url"
+                  value={editImageUrl}
+                  onChange={(e) => setEditImageUrl(e.target.value)}
+                  maxLength={2048}
+                  className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                  placeholder="Image URL or upload"
+                />
+                <label className="flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm cursor-pointer hover:bg-accent shrink-0">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    disabled={editImageUploading}
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      setEditImageUploading(true);
+                      try {
+                        const fd = new FormData();
+                        fd.set("file", f);
+                        const r = await fetch(`${window.location.origin}/api/admin/lawyers/upload-image`, {
+                          method: "POST",
+                          credentials: "include",
+                          body: fd,
+                        });
+                        const d = await r.json().catch(() => ({}));
+                        if (r.ok && d.url) setEditImageUrl(d.url);
+                        else setError(d.error ?? "Upload failed");
+                      } finally {
+                        setEditImageUploading(false);
+                        e.target.value = "";
+                      }
+                    }}
+                  />
+                  {editImageUploading ? "Uploading…" : "Upload"}
+                </label>
+              </div>
+              {editImageUrl && (
+                <div className="mt-2">
+                  <img src={editImageUrl} alt="Preview" className="h-16 w-16 rounded-full object-cover border border-border" />
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setEditing(null)}
+              className="rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={editSubmitting}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {editSubmitting ? "Saving…" : "Save changes"}
+            </button>
+          </div>
+        </form>
+      )}
+
       {error && (
         <div className="mt-4 rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">
           {error}
@@ -338,9 +675,11 @@ export default function AdminLawyersPage() {
             <table className="w-full text-sm">
               <thead className="border-b border-border bg-muted/50">
                 <tr>
+                  <th className="text-left p-3 font-medium w-14">Photo</th>
                   <th className="text-left p-3 font-medium">Name</th>
                   <th className="text-left p-3 font-medium">Country</th>
                   <th className="text-left p-3 font-medium">Expertise</th>
+                  <th className="text-left p-3 font-medium">Languages</th>
                   <th className="text-left p-3 font-medium">Email</th>
                   <th className="text-left p-3 font-medium">Phone</th>
                   <th className="text-left p-3 font-medium">Source</th>
@@ -351,16 +690,30 @@ export default function AdminLawyersPage() {
               <tbody>
                 {lawyers.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                    <td colSpan={10} className="p-8 text-center text-muted-foreground">
                       No lawyers in the directory yet. Add one manually or share the form link: /lawyers/join
                     </td>
                   </tr>
                 ) : (
                   lawyers.map((l) => (
                     <tr key={l.id} className="border-b border-border hover:bg-muted/30">
+                      <td className="p-3">
+                        {l.image_url ? (
+                          <img src={l.image_url} alt="" className="h-10 w-10 rounded-full object-cover border border-border" />
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </td>
                       <td className="p-3 font-medium">{l.name}</td>
                       <td className="p-3 text-muted-foreground">{l.country ?? "—"}</td>
                       <td className="p-3 max-w-[200px] truncate" title={l.expertise}>{l.expertise}</td>
+                      <td className="p-3 max-w-[220px] truncate text-muted-foreground" title={
+                        [l.primary_language, l.other_languages].filter(Boolean).join(", ") || ""
+                      }>
+                        {l.primary_language || l.other_languages
+                          ? [l.primary_language, l.other_languages].filter(Boolean).join(", ")
+                          : "—"}
+                      </td>
                       <td className="p-3 max-w-[180px] truncate text-muted-foreground" title={l.email ?? ""}>
                         {l.email ?? "—"}
                       </td>
@@ -373,7 +726,15 @@ export default function AdminLawyersPage() {
                         </span>
                       </td>
                       <td className="p-3 text-muted-foreground">{formatDate(l.created_at)}</td>
-                      <td className="p-3">
+                      <td className="p-3 flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(l)}
+                          className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                          title="Edit lawyer"
+                        >
+                          Edit
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleRemove(l.id)}
