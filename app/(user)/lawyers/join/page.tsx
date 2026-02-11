@@ -11,6 +11,9 @@ export default function JoinLawyersPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [primaryLanguage, setPrimaryLanguage] = useState("");
+  const [otherLanguages, setOtherLanguages] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +41,10 @@ export default function JoinLawyersPage() {
           expertise: expertise.trim(),
           email: email.trim() || undefined,
           phone: phone.trim() || undefined,
+          primary_language: primaryLanguage.trim() || undefined,
+          other_languages: otherLanguages.trim() || undefined,
           linkedin_url: linkedinUrl.trim() || undefined,
+          image_url: imageUrl.trim() || undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -159,6 +165,34 @@ export default function JoinLawyersPage() {
           />
         </div>
         <div>
+          <label htmlFor="primary-language" className="block text-sm font-medium text-foreground">
+            Primary language
+          </label>
+          <input
+            id="primary-language"
+            type="text"
+            value={primaryLanguage}
+            onChange={(e) => setPrimaryLanguage(e.target.value)}
+            maxLength={100}
+            className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+            placeholder="e.g. English"
+          />
+        </div>
+        <div>
+          <label htmlFor="other-languages" className="block text-sm font-medium text-foreground">
+            Other languages
+          </label>
+          <input
+            id="other-languages"
+            type="text"
+            value={otherLanguages}
+            onChange={(e) => setOtherLanguages(e.target.value)}
+            maxLength={500}
+            className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+            placeholder="e.g. French, Swahili"
+          />
+        </div>
+        <div>
           <label htmlFor="linkedin" className="block text-sm font-medium text-foreground">
             LinkedIn profile <span className="text-muted-foreground">(optional)</span>
           </label>
@@ -170,6 +204,20 @@ export default function JoinLawyersPage() {
             maxLength={500}
             className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
             placeholder="https://linkedin.com/in/..."
+          />
+        </div>
+        <div>
+          <label htmlFor="image-url" className="block text-sm font-medium text-foreground">
+            Photo URL <span className="text-muted-foreground">(optional)</span>
+          </label>
+          <input
+            id="image-url"
+            type="url"
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+            maxLength={2048}
+            className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+            placeholder="https://... (link to your profile photo)"
           />
         </div>
         <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/30 p-4 hover:bg-muted/50">
