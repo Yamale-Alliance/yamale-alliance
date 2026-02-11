@@ -6,7 +6,7 @@ export async function GET() {
   try {
     const supabase = getSupabaseServer();
     const { data, error } = await (supabase.from("lawyers") as any)
-      .select("id, name, country, expertise, linkedin_url")
+      .select("id, name, country, expertise, linkedin_url, primary_language, other_languages, image_url")
       .eq("approved", true)
       .order("name");
 
@@ -14,13 +14,16 @@ export async function GET() {
       console.error("Lawyers GET error:", error);
       return NextResponse.json({ error: "Failed to list lawyers" }, { status: 500 });
     }
-    const rows = (data ?? []) as Array<{ id: string; name: string; country: string | null; expertise: string; linkedin_url: string | null }>;
+    const rows = (data ?? []) as Array<{ id: string; name: string; country: string | null; expertise: string; linkedin_url: string | null; primary_language: string | null; other_languages: string | null; image_url: string | null }>;
     const lawyers = rows.map((row) => ({
       id: row.id,
       name: row.name,
       country: row.country ?? "",
       expertise: row.expertise,
       linkedinUrl: row.linkedin_url ?? null,
+      primaryLanguage: row.primary_language,
+      otherLanguages: row.other_languages,
+      imageUrl: row.image_url ?? null,
     }));
     return NextResponse.json({ lawyers });
   } catch (err) {
@@ -38,7 +41,10 @@ export async function POST(request: NextRequest) {
     const expertise = typeof body.expertise === "string" ? body.expertise.trim() : "";
     const email = typeof body.email === "string" ? body.email.trim() || null : null;
     const phone = typeof body.phone === "string" ? body.phone.trim() || null : null;
+    const primaryLanguage = typeof body.primary_language === "string" ? body.primary_language.trim() || null : null;
+    const otherLanguages = typeof body.other_languages === "string" ? body.other_languages.trim() || null : null;
     const linkedinUrl = typeof body.linkedin_url === "string" ? body.linkedin_url.trim() || null : null;
+    const imageUrl = typeof body.image_url === "string" ? body.image_url.trim() || null : null;
 
     if (!name || name.length > 200) {
       return NextResponse.json({ error: "Name is required (max 200 characters)" }, { status: 400 });
@@ -55,8 +61,17 @@ export async function POST(request: NextRequest) {
     if (phone && phone.length > 50) {
       return NextResponse.json({ error: "Phone too long" }, { status: 400 });
     }
+    if (primaryLanguage && primaryLanguage.length > 100) {
+      return NextResponse.json({ error: "Primary language too long" }, { status: 400 });
+    }
+    if (otherLanguages && otherLanguages.length > 500) {
+      return NextResponse.json({ error: "Other languages too long" }, { status: 400 });
+    }
     if (linkedinUrl && linkedinUrl.length > 500) {
       return NextResponse.json({ error: "LinkedIn URL too long" }, { status: 400 });
+    }
+    if (imageUrl && imageUrl.length > 2048) {
+      return NextResponse.json({ error: "Image URL too long" }, { status: 400 });
     }
 
     const supabase = getSupabaseServer();
@@ -69,6 +84,9 @@ export async function POST(request: NextRequest) {
         phone,
         contacts: null,
         linkedin_url: linkedinUrl,
+        primary_language: primaryLanguage,
+        other_languages: otherLanguages,
+        image_url: imageUrl,
         source: "form",
         approved: true,
       })
