@@ -74,6 +74,7 @@ const COMPANIES_ACT_TABLE_HEADERS = [
 ];
 
 // Only major headings start a new section. Numbered provisions (356., 357.) stay in body so all content is shown.
+// Includes Arabic headings: المادة (Article), الفصل (Chapter), الباب (Part).
 function isSectionStart(line: string): boolean {
   const t = line.trim();
   if (!t) return false;
@@ -85,6 +86,10 @@ function isSectionStart(line: string): boolean {
   if (/^Article\s+\d+[.:]?\s*/i.test(t)) return true;
   // "Chapter 1", "Chapter 2."
   if (/^Chapter\s+\d+[.:]?\s*/i.test(t)) return true;
+  // Arabic: المادة 1، المادة ۲ (Article), الفصل (Chapter), الباب (Part)
+  if (/^\s*المادة\s*[\d٠-٩]+/u.test(t)) return true;
+  if (/^\s*الفصل\s*[\d٠-٩]*/u.test(t)) return true;
+  if (/^\s*الباب\s+/u.test(t) || /^\s*الباب\s*[\d٠-٩]/u.test(t)) return true;
   // Standalone topic headings: "Lien", "Definitions" – but skip OCR noise (very short or all-caps fragments)
   if (t.length <= 3) return false; // "SI", "An", "Vv" etc.
   if (/^[A-Z]{2,3}$/.test(t)) return false; // "SI", "AN"
@@ -104,6 +109,13 @@ function sectionTitle(firstLine: string): string {
   if (articleMatch) return articleMatch[1];
   const chapterMatch = t.match(/^(Chapter\s+\d+)[.:]?\s*(.*)$/i);
   if (chapterMatch) return chapterMatch[1];
+  // Arabic: المادة 1، الفصل ۲، الباب الأول
+  const arArticle = t.match(/^(\s*المادة\s*[\d٠-٩]+)[\s.:،]*/u);
+  if (arArticle) return arArticle[1].trim();
+  const arChapter = t.match(/^(\s*الفصل\s*[\d٠-٩]*)[\s.:،]*/u);
+  if (arChapter) return arChapter[1].trim() || t.slice(0, 50);
+  const arPart = t.match(/^(\s*الباب\s+[^\n]{0,60})/u);
+  if (arPart) return arPart[1].trim();
   return t;
 }
 
@@ -148,6 +160,12 @@ function splitIntoSections(text: string): Section[] {
       // Put any text after the heading on the same line into body (e.g. "Section 20. A forfeited share...")
       const sectionLike = /^(Section\s+\d+[.:]?\s*)(.*)$/i.exec(t) || /^(Article\s+\d+[.:]?\s*)(.*)$/i.exec(t) || /^(Chapter\s+\d+[.:]?\s*)(.*)$/i.exec(t);
       if (sectionLike && sectionLike[2].trim()) currentBody.push(sectionLike[2].trim());
+      else {
+        const arArticleLine = /^(\s*المادة\s*[\d٠-٩]+[\s.:،]*)(.+)$/u.exec(t);
+        const arChapterLine = /^(\s*الفصل\s*[\d٠-٩]*[\s.:،]*)(.+)$/u.exec(t);
+        if (arArticleLine && arArticleLine[2].trim()) currentBody.push(arArticleLine[2].trim());
+        else if (arChapterLine && arChapterLine[2].trim()) currentBody.push(arChapterLine[2].trim());
+      }
     } else {
       // Skip page markers and OCR junk (e.g. "|", ";", symbol-only lines)
       if (!isPageMarker(line) && !isJunkLine(line)) currentBody.push(line);
@@ -172,7 +190,22 @@ function splitIntoSections(text: string): Section[] {
     }));
   }
 
+  // If we have sections but all bodies are empty (e.g. Arabic OCR), show full text as one section
+  const totalBodyLen = sections.reduce((acc, s) => acc + (s.body?.length ?? 0), 0);
+  if (totalBodyLen === 0 && text.trim()) {
+    return [{ id: "sec-0", title: "النص الكامل / Full text", body: text.trim() }];
+  }
+
   return sections;
+}
+
+// Detect if content is primarily Arabic (for RTL display)
+function isPrimarilyArabic(text: string): boolean {
+  if (!text?.trim()) return false;
+  const sample = text.slice(0, 3000);
+  const arabic = (sample.match(/[\u0600-\u06FF]/g) || []).length;
+  const letters = (sample.match(/\p{L}/gu) || []).length;
+  return letters > 0 && arabic / letters >= 0.2;
 }
 
 export default function LawDetailPage({
@@ -273,6 +306,7 @@ export default function LawDetailPage({
   const rawContent = law.content_plain || law.content || "";
   const sections = splitIntoSections(rawContent);
   const hasContent = sections.length > 0;
+  const isRtl = isPrimarilyArabic(rawContent);
 
   return (
     <div className="min-h-screen">
@@ -347,7 +381,7 @@ export default function LawDetailPage({
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <ul className="max-h-[calc(100vh-3.5rem)] space-y-0.5 overflow-y-auto p-4">
+            <ul className={`max-h-[calc(100vh-3.5rem)] space-y-0.5 overflow-y-auto p-4 ${isRtl ? "text-right" : ""}`} dir={isRtl ? "rtl" : undefined}>
               {sections.map((sec) => (
                 <li key={sec.id}>
                   <button
@@ -357,7 +391,7 @@ export default function LawDetailPage({
                       document.getElementById(sec.id)?.scrollIntoView({ behavior: "smooth" });
                       setMobileContentsOpen(false);
                     }}
-                    className={`block w-full rounded px-3 py-2.5 text-left text-sm ${activeSection === sec.id ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
+                    className={`block w-full rounded px-3 py-2.5 text-sm ${isRtl ? "text-right" : "text-left"} ${activeSection === sec.id ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
                   >
                     {sec.title}
                   </button>
@@ -392,7 +426,7 @@ export default function LawDetailPage({
                     Contents
                   </p>
                 </div>
-                <ul className="max-h-[70vh] space-y-1 overflow-y-auto">
+                <ul className={`max-h-[70vh] space-y-1 overflow-y-auto ${isRtl ? "text-right" : ""}`} dir={isRtl ? "rtl" : undefined}>
                   {sections.map((sec) => (
                     <li key={sec.id}>
                       <button
@@ -401,7 +435,7 @@ export default function LawDetailPage({
                           setActiveSection(sec.id);
                           document.getElementById(sec.id)?.scrollIntoView({ behavior: "smooth" });
                         }}
-                        className={`block w-full rounded px-2 py-1.5 text-left text-sm ${activeSection === sec.id ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
+                        className={`block w-full rounded px-2 py-1.5 text-sm ${isRtl ? "text-right" : "text-left"} ${activeSection === sec.id ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
                       >
                         {sec.title}
                       </button>
@@ -440,11 +474,17 @@ export default function LawDetailPage({
                     key={sec.id}
                     id={sec.id}
                     className="scroll-mt-24 rounded-xl border border-border bg-card p-6"
+                    dir={isRtl ? "rtl" : undefined}
+                    lang={isRtl ? "ar" : undefined}
                   >
                     <h2 className="mb-4 text-lg font-semibold text-foreground">
                       {sec.title}
                     </h2>
-                    <div className="prose prose-sm max-w-none text-foreground dark:prose-invert">
+                    <div
+                      className={`prose prose-sm max-w-none text-foreground dark:prose-invert ${isRtl ? "text-right" : ""}`}
+                      dir={isRtl ? "rtl" : undefined}
+                      lang={isRtl ? "ar" : undefined}
+                    >
                       {parseBodyBlocks(sec.body).map((block, bi) =>
                         block.type === "table" ? (
                           <div key={bi} className="my-6 overflow-x-auto">
