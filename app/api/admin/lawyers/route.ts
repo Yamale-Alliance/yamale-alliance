@@ -10,7 +10,7 @@ export async function GET() {
   try {
     const supabase = getSupabaseServer();
     const { data, error } = await (supabase.from("lawyers") as any)
-      .select("id, name, country, expertise, email, phone, contacts, linkedin_url, source, approved, created_at")
+      .select("id, name, country, expertise, email, phone, contacts, linkedin_url, primary_language, other_languages, image_url, source, approved, created_at")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -36,7 +36,10 @@ export async function POST(request: NextRequest) {
     const expertise = typeof body.expertise === "string" ? body.expertise.trim() : "";
     const email = typeof body.email === "string" ? body.email.trim() || null : null;
     const phone = typeof body.phone === "string" ? body.phone.trim() || null : null;
+    const primaryLanguage = typeof body.primary_language === "string" ? body.primary_language.trim() || null : null;
+    const otherLanguages = typeof body.other_languages === "string" ? body.other_languages.trim() || null : null;
     const linkedinUrl = typeof body.linkedin_url === "string" ? body.linkedin_url.trim() || null : null;
+    const imageUrl = typeof body.image_url === "string" ? body.image_url.trim() || null : null;
 
     if (!name || name.length > 200) {
       return NextResponse.json({ error: "Name is required (max 200 characters)" }, { status: 400 });
@@ -53,8 +56,17 @@ export async function POST(request: NextRequest) {
     if (phone && phone.length > 50) {
       return NextResponse.json({ error: "Phone too long" }, { status: 400 });
     }
+    if (primaryLanguage && primaryLanguage.length > 100) {
+      return NextResponse.json({ error: "Primary language too long" }, { status: 400 });
+    }
+    if (otherLanguages && otherLanguages.length > 500) {
+      return NextResponse.json({ error: "Other languages too long" }, { status: 400 });
+    }
     if (linkedinUrl && linkedinUrl.length > 500) {
       return NextResponse.json({ error: "LinkedIn URL too long" }, { status: 400 });
+    }
+    if (imageUrl && imageUrl.length > 2048) {
+      return NextResponse.json({ error: "Image URL too long" }, { status: 400 });
     }
 
     const supabase = getSupabaseServer();
@@ -67,10 +79,13 @@ export async function POST(request: NextRequest) {
         phone,
         contacts: null,
         linkedin_url: linkedinUrl,
+        primary_language: primaryLanguage,
+        other_languages: otherLanguages,
+        image_url: imageUrl,
         source: "manual",
         approved: true,
       })
-      .select("id, name, country, expertise, created_at")
+      .select("id, name, country, expertise, created_at, primary_language, other_languages")
       .single();
 
     if (error) {
