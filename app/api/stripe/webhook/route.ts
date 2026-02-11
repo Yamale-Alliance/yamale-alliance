@@ -3,7 +3,7 @@ import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { clerkClient } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { recordUnlock } from "@/lib/unlocks";
+import { recordUnlock, recordSearchUnlock } from "@/lib/unlocks";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 if (!webhookSecret) {
@@ -52,6 +52,17 @@ export async function POST(request: NextRequest) {
             session.metadata.lawyer_id as string,
             session.id
           );
+        } else if (kind === "lawyer_search_unlock" && clerkUserId) {
+          const supabase = getSupabaseServer();
+          const { data: row } = await (supabase.from("lawyer_search_purchases") as any)
+            .select("country, expertise")
+            .eq("stripe_session_id", session.id)
+            .single();
+          const country = (row?.country ?? "all") as string;
+          const expertise = (row?.expertise ?? "") as string;
+          if (expertise) {
+            await recordSearchUnlock(clerkUserId, country, expertise, session.id);
+          }
         } else if (kind === "team_extra_seats" && clerkUserId && session.metadata?.seats) {
           const seats = Number(session.metadata.seats);
           if (seats > 0) {
