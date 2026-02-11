@@ -73,7 +73,7 @@ export function GuestHeader() {
             aria-hidden
             onClick={() => setMobileOpen(false)}
           />
-            <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-sm flex-col border-l border-border bg-background shadow-xl lg:hidden">
+            <div className="fixed right-0 top-0 z-50 flex h-full w-3/4 max-w-sm flex-col border-l border-border bg-background shadow-xl lg:hidden">
             <div className="flex h-14 items-center justify-between border-b border-border px-4">
               <span className="font-semibold">Menu</span>
               <button
