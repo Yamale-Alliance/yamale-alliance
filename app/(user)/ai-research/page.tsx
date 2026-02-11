@@ -502,12 +502,24 @@ export default function AIResearchPage() {
       >
         {/* Sidebar - ChatGPT style */}
         <aside
-          className={`fixed inset-y-0 left-0 z-20 flex h-full flex-col border-r border-border bg-card transition-transform duration-200 md:relative md:z-auto md:bg-card/50 md:transition-[width] ${
+          className={`absolute inset-y-0 left-0 z-20 flex h-full flex-col border-r border-border bg-card transition-transform duration-200 md:relative md:z-auto md:bg-card/50 md:transition-[width] ${
             sidebarOpen
-              ? "translate-x-0 md:w-64 md:shrink-0"
-              : "-translate-x-full md:w-0 md:shrink-0 md:overflow-hidden"
+              ? "translate-x-0 w-3/4 max-w-xs md:w-64 md:shrink-0"
+              : "-translate-x-full w-3/4 max-w-xs md:w-0 md:shrink-0 md:overflow-hidden"
           }`}
         >
+          {/* Mobile-only sidebar header with close button */}
+          <div className="flex items-center justify-between border-b border-border px-3 py-2 md:hidden">
+            <span className="text-sm font-semibold text-foreground">Your chats</span>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Close chat list"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
           <div className="flex flex-col gap-2 p-2">
             <button
               type="button"
