@@ -74,7 +74,7 @@ const COMPANIES_ACT_TABLE_HEADERS = [
 ];
 
 // Only major headings start a new section. Numbered provisions (356., 357.) stay in body so all content is shown.
-// Includes Arabic headings: المادة (Article), الفصل (Chapter), الباب (Part).
+// Includes Arabic: المادة (Article), الفصل (Chapter), الباب (Part). French: Article, Chapitre, Titre, Art.
 function isSectionStart(line: string): boolean {
   const t = line.trim();
   if (!t) return false;
@@ -82,10 +82,16 @@ function isSectionStart(line: string): boolean {
   if (/^Section\s+\d+[.:]?\s*/i.test(t)) return true;
   // "Part D: Administrative...", "Part E: General Provisions"
   if (/^Part\s+[A-Z][.:]?\s+/i.test(t)) return true;
-  // "Article 1", "Article 2."
+  // "Article 1", "Article 2." (English/French)
   if (/^Article\s+\d+[.:]?\s*/i.test(t)) return true;
-  // "Chapter 1", "Chapter 2."
+  // "Art. 1", "Art. 2" (French abbreviation)
+  if (/^Art\.\s*\d+[.:]?\s*/i.test(t)) return true;
+  // "Chapter 1", "Chapter 2." (English)
   if (/^Chapter\s+\d+[.:]?\s*/i.test(t)) return true;
+  // French: "Chapitre I", "Chapitre 1", "Chapitre II"
+  if (/^Chapitre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*/i.test(t)) return true;
+  // French: "Titre I", "Titre 1", "Titre II" (Title/Part)
+  if (/^Titre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*/i.test(t)) return true;
   // Arabic: المادة 1، المادة ۲ (Article), الفصل (Chapter), الباب (Part)
   if (/^\s*المادة\s*[\d٠-٩]+/u.test(t)) return true;
   if (/^\s*الفصل\s*[\d٠-٩]*/u.test(t)) return true;
@@ -107,8 +113,14 @@ function sectionTitle(firstLine: string): string {
   if (sectionMatch) return sectionMatch[1];
   const articleMatch = t.match(/^(Article\s+\d+)[.:]?\s*(.*)$/i);
   if (articleMatch) return articleMatch[1];
+  const artMatch = t.match(/^(Art\.\s*\d+)[.:]?\s*(.*)$/i);
+  if (artMatch) return artMatch[1];
   const chapterMatch = t.match(/^(Chapter\s+\d+)[.:]?\s*(.*)$/i);
   if (chapterMatch) return chapterMatch[1];
+  const chapitreMatch = t.match(/^(Chapitre\s+[\dIVXLCDMivxlcdm]+)[.:]?\s*(.*)$/i);
+  if (chapitreMatch) return chapitreMatch[1];
+  const titreMatch = t.match(/^(Titre\s+[\dIVXLCDMivxlcdm]+)[.:]?\s*(.*)$/i);
+  if (titreMatch) return titreMatch[1];
   // Arabic: المادة 1، الفصل ۲، الباب الأول
   const arArticle = t.match(/^(\s*المادة\s*[\d٠-٩]+)[\s.:،]*/u);
   if (arArticle) return arArticle[1].trim();
@@ -158,7 +170,13 @@ function splitIntoSections(text: string): Section[] {
       currentBody = [];
       const t = line.trim();
       // Put any text after the heading on the same line into body (e.g. "Section 20. A forfeited share...")
-      const sectionLike = /^(Section\s+\d+[.:]?\s*)(.*)$/i.exec(t) || /^(Article\s+\d+[.:]?\s*)(.*)$/i.exec(t) || /^(Chapter\s+\d+[.:]?\s*)(.*)$/i.exec(t);
+      const sectionLike =
+        /^(Section\s+\d+[.:]?\s*)(.*)$/i.exec(t) ||
+        /^(Article\s+\d+[.:]?\s*)(.*)$/i.exec(t) ||
+        /^(Art\.\s*\d+[.:]?\s*)(.*)$/i.exec(t) ||
+        /^(Chapter\s+\d+[.:]?\s*)(.*)$/i.exec(t) ||
+        /^(Chapitre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*)(.*)$/i.exec(t) ||
+        /^(Titre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*)(.*)$/i.exec(t);
       if (sectionLike && sectionLike[2].trim()) currentBody.push(sectionLike[2].trim());
       else {
         const arArticleLine = /^(\s*المادة\s*[\d٠-٩]+[\s.:،]*)(.+)$/u.exec(t);
