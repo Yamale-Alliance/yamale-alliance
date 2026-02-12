@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft } from "lucide-react";
+import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, Download, ExternalLink } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 
 type Item = {
@@ -17,6 +17,9 @@ type Item = {
   image_url: string | null;
   published: boolean;
   purchased?: boolean;
+  has_file?: boolean;
+  file_name?: string | null;
+  file_format?: string | null;
 };
 
 function TypeIcon({ type }: { type: string }) {
@@ -40,22 +43,83 @@ export default function MarketplaceItemPage() {
   const [item, setItem] = useState<Item | null>(null);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const checkoutStatus = searchParams?.get("checkout");
+  const sessionId = searchParams?.get("session_id") ?? null;
+  const confirmedSessionRef = useRef<string | null>(null);
 
+  const handleViewOrDownload = async (download: boolean) => {
+    if (!item?.id || !item.purchased || !item.has_file) return;
+    setDownloading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/marketplace/${item.id}/download`, { credentials: "include" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Could not get file");
+        setDownloading(false);
+        return;
+      }
+      const url = data.url;
+      if (url) {
+        if (download) {
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = data.file_name || item.file_name || "download";
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          a.click();
+        } else {
+          window.open(url, "_blank", "noopener,noreferrer");
+        }
+      }
+    } catch {
+      setError("Something went wrong");
+    }
+    setDownloading(false);
+  };
+
+  // On return from Stripe: confirm payment then refetch so "View/Download" appears
   useEffect(() => {
     if (!id) return;
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    fetch(`${origin}/api/marketplace/${id}`, { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => {
+
+    const run = async () => {
+      if (checkoutStatus === "success" && sessionId && confirmedSessionRef.current !== sessionId) {
+        confirmedSessionRef.current = sessionId;
+        try {
+          await fetch("/api/marketplace/confirm-payment", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: sessionId }),
+          });
+        } catch {
+          // ignore; webhook may still apply
+        }
+        // Clean URL so refresh doesn't re-trigger
+        if (typeof window !== "undefined" && window.history.replaceState) {
+          window.history.replaceState({}, "", `${window.location.pathname}?checkout=success`);
+        }
+      }
+
+      setLoading(true);
+      try {
+        const r = await fetch(`${origin}/api/marketplace/${id}`, { credentials: "include" });
+        const data = await r.json();
         if (data.item) setItem(data.item);
         else setError("Item not found");
-      })
-      .catch(() => setError("Failed to load"))
-      .finally(() => setLoading(false));
-  }, [id]);
+      } catch {
+        setError("Failed to load");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    run();
+  }, [id, checkoutStatus, sessionId]);
 
   const handlePurchase = async () => {
     if (!item || item.price_cents <= 0) return;
@@ -224,6 +288,38 @@ export default function MarketplaceItemPage() {
               </div>
             )}
           </div>
+          {owned && item.has_file && (
+            <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-6">
+              <button
+                type="button"
+                onClick={() => handleViewOrDownload(false)}
+                disabled={downloading}
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50"
+              >
+                {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
+                View
+              </button>
+              <button
+                type="button"
+                onClick={() => handleViewOrDownload(true)}
+                disabled={downloading}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Download
+              </button>
+              {item.file_format && (
+                <span className="self-center text-xs text-muted-foreground">
+                  {item.file_name ?? `.${item.file_format}`}
+                </span>
+              )}
+            </div>
+          )}
+          {owned && !item.has_file && (
+            <p className="mt-6 border-t border-border pt-6 text-sm text-muted-foreground">
+              No file is attached to this item. Contact support if you expected a download.
+            </p>
+          )}
         </section>
 
         {error && (
