@@ -367,6 +367,130 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["team_members"]["Insert"]>;
       };
+      law_bookmarks: {
+        Row: {
+          id: string;
+          user_id: string;
+          law_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          law_id: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["law_bookmarks"]["Insert"]>;
+      };
+      law_summaries: {
+        Row: {
+          id: string;
+          law_id: string;
+          summary_text: string;
+          generated_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          law_id: string;
+          summary_text: string;
+          generated_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["law_summaries"]["Insert"]>;
+      };
+      ai_query_templates: {
+        Row: {
+          id: string;
+          title: string;
+          description: string | null;
+          query_text: string;
+          category: string | null;
+          is_system: boolean;
+          created_by_user_id: string | null;
+          usage_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          description?: string | null;
+          query_text: string;
+          category?: string | null;
+          is_system?: boolean;
+          created_by_user_id?: string | null;
+          usage_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ai_query_templates"]["Insert"]>;
+      };
+      lawyer_reviews: {
+        Row: {
+          id: string;
+          lawyer_id: string;
+          user_id: string;
+          rating: number;
+          review_text: string | null;
+          is_verified: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          lawyer_id: string;
+          user_id: string;
+          rating: number;
+          review_text?: string | null;
+          is_verified?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["lawyer_reviews"]["Insert"]>;
+      };
+      marketplace_reviews: {
+        Row: {
+          id: string;
+          marketplace_item_id: string;
+          user_id: string;
+          rating: number;
+          review_text: string | null;
+          is_verified: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          marketplace_item_id: string;
+          user_id: string;
+          rating: number;
+          review_text?: string | null;
+          is_verified?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["marketplace_reviews"]["Insert"]>;
+      };
+      shopping_cart_items: {
+        Row: {
+          id: string;
+          user_id: string;
+          marketplace_item_id: string;
+          quantity: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          marketplace_item_id: string;
+          quantity?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["shopping_cart_items"]["Insert"]>;
+      };
     };
   };
 }
