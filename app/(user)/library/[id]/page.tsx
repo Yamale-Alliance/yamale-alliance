@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { ChevronLeft, FileText, Loader2, GripVertical, ArrowUp, ArrowDown, Menu, X } from "lucide-react";
+import Image from "next/image";
+import { ChevronLeft, FileText, Loader2, GripVertical, ArrowUp, ArrowDown, Menu, X, Bookmark, BookmarkCheck } from "lucide-react";
+import { useUser } from "@clerk/nextjs";
 
 type LawStatus = "In force" | "Amended" | "Repealed";
 
@@ -238,8 +240,13 @@ export default function LawDetailPage({
   const [resolvedId, setResolvedId] = useState<string | null>(null);
   const [contentsPosition, setContentsPosition] = useState<{ x: number; y: number } | null>(null);
   const [mobileContentsOpen, setMobileContentsOpen] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [bookmarkLoading, setBookmarkLoading] = useState(false);
+  const [summary, setSummary] = useState<{ summary_text: string; generated_at: string } | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number; clientX: number; clientY: number } | null>(null);
   const contentsRef = useRef<HTMLDivElement>(null);
+  const { isSignedIn, user } = useUser();
 
   const scrollToTop = useCallback(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -274,6 +281,78 @@ export default function LawDetailPage({
       window.removeEventListener("mouseup", onUp);
     };
   }, []);
+
+  // Check if user has team plan
+  const isTeamPlan = user?.publicMetadata?.tier === "team" || user?.publicMetadata?.subscriptionTier === "team";
+
+  // Check bookmark status
+  useEffect(() => {
+    if (!isSignedIn || !resolvedId) {
+      setIsBookmarked(false);
+      return;
+    }
+    fetch("/api/bookmarks")
+      .then((r) => r.json())
+      .then((data: { bookmarks?: Array<{ law_id: string }> }) => {
+        const bookmarks = data.bookmarks ?? [];
+        setIsBookmarked(bookmarks.some((b) => b.law_id === resolvedId));
+      })
+      .catch(() => setIsBookmarked(false));
+  }, [isSignedIn, resolvedId]);
+
+  // Fetch law summary (Team plan only)
+  useEffect(() => {
+    if (!isTeamPlan || !resolvedId) {
+      setSummary(null);
+      return;
+    }
+    setSummaryLoading(true);
+    fetch(`/api/laws/${resolvedId}/summary`)
+      .then((r) => r.json())
+      .then((data: { summary?: { summary_text: string; generated_at: string } | null }) => {
+        setSummary(data.summary ?? null);
+      })
+      .catch(() => setSummary(null))
+      .finally(() => setSummaryLoading(false));
+  }, [isTeamPlan, resolvedId]);
+
+  // Fetch law summary (Team plan only)
+  useEffect(() => {
+    if (!isTeamPlan || !resolvedId) {
+      setSummary(null);
+      return;
+    }
+    setSummaryLoading(true);
+    fetch(`/api/laws/${resolvedId}/summary`)
+      .then((r) => r.json())
+      .then((data: { summary?: { summary_text: string; generated_at: string } | null }) => {
+        setSummary(data.summary ?? null);
+      })
+      .catch(() => setSummary(null))
+      .finally(() => setSummaryLoading(false));
+  }, [isTeamPlan, resolvedId]);
+
+  const toggleBookmark = async () => {
+    if (!isSignedIn || !resolvedId) return;
+    setBookmarkLoading(true);
+    try {
+      if (isBookmarked) {
+        await fetch(`/api/bookmarks?law_id=${resolvedId}`, { method: "DELETE" });
+        setIsBookmarked(false);
+      } else {
+        await fetch("/api/bookmarks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ law_id: resolvedId }),
+        });
+        setIsBookmarked(true);
+      }
+    } catch {
+      // Error handling
+    } finally {
+      setBookmarkLoading(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -342,16 +421,33 @@ export default function LawDetailPage({
                 {law.title}
               </h1>
             </div>
-            {hasContent && sections.length > 1 && (
-              <button
-                type="button"
-                onClick={() => setMobileContentsOpen(true)}
-                className="lg:hidden shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="Open contents"
-              >
-                <Menu className="h-6 w-6" />
-              </button>
-            )}
+            <div className="flex items-center gap-2 shrink-0">
+              {isSignedIn && (
+                <button
+                  type="button"
+                  onClick={toggleBookmark}
+                  disabled={bookmarkLoading}
+                  className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+                  aria-label={isBookmarked ? "Remove bookmark" : "Add bookmark"}
+                >
+                  {isBookmarked ? (
+                    <BookmarkCheck className="h-5 w-5 fill-current" />
+                  ) : (
+                    <Bookmark className="h-5 w-5" />
+                  )}
+                </button>
+              )}
+              {hasContent && sections.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setMobileContentsOpen(true)}
+                  className="lg:hidden shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  aria-label="Open contents"
+                >
+                  <Menu className="h-6 w-6" />
+                </button>
+              )}
+            </div>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
             <span>{law.countries?.name ?? "—"}</span>
@@ -371,6 +467,26 @@ export default function LawDetailPage({
               </>
             )}
           </div>
+          {/* Law Summary (Team Plan Only) */}
+          {isTeamPlan && (
+            <div className="mt-4">
+              {summaryLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Loading summary...</span>
+                </div>
+              ) : summary ? (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+                  <h3 className="text-sm font-semibold text-foreground mb-2">AI Summary</h3>
+                  <p className="text-sm text-foreground/90 leading-relaxed">{summary.summary_text}</p>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+                  <p>No summary available for this law yet.</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
