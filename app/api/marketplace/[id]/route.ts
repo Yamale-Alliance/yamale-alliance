@@ -19,15 +19,15 @@ export async function GET(
     const supabase = getSupabaseServer();
     const { data, error } = await supabase
       .from("marketplace_items")
-      .select("id, type, title, author, description, price_cents, currency, image_url, published, sort_order, created_at")
+      .select("id, type, title, author, description, price_cents, currency, image_url, published, sort_order, file_path, file_name, file_format, created_at")
       .eq("id", id)
       .single();
 
-    const item = data as MarketplaceItemRow | null;
-    if (error || !item) {
+    const row = data as (MarketplaceItemRow & { file_path?: string | null }) | null;
+    if (error || !row) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
-    if (!item.published) {
+    if (!row.published) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
 
@@ -43,7 +43,10 @@ export async function GET(
       purchased = !!purchase;
     }
 
-    return NextResponse.json({ item: { ...item, purchased } });
+    const has_file = !!row.file_path;
+    const { file_path: _fp, ...rest } = row;
+    const item = { ...rest, purchased, has_file };
+    return NextResponse.json({ item });
   } catch (err) {
     console.error("Marketplace item API error:", err);
     return NextResponse.json({ error: "Failed to load item" }, { status: 500 });
