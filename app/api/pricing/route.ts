@@ -29,7 +29,7 @@ const PRICING_OVERRIDES: Record<string, Partial<PricingTier>> = {
     highlighted: false,
   },
   basic: {
-    description: "For students & professionals who need light research",
+    description: "",
     subtitle: "or $50/year (save $10)",
     features: [
       "Unlimited browsing of full texts of laws",
@@ -43,7 +43,7 @@ const PRICING_OVERRIDES: Record<string, Partial<PricingTier>> = {
     highlighted: false,
   },
   pro: {
-    description: "For active professionals who need regular research",
+    description: "",
     subtitle: "or $150/year (save $30)",
     features: [
       "Unlimited browsing of full texts of laws",
@@ -58,7 +58,7 @@ const PRICING_OVERRIDES: Record<string, Partial<PricingTier>> = {
     highlighted: true,
   },
   team: {
-    description: "For firms & organizations with multiple users",
+    description: "",
     subtitle: "or $400/year (save $80)",
     features: [
       "<strong>5 users included</strong>",
