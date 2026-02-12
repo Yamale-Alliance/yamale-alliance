@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
-import { Search, Star, Loader2 } from "lucide-react";
+import { Search, Star, Loader2, Lock } from "lucide-react";
 
 const BRAND = {
   dark: "#221913",
@@ -408,11 +408,18 @@ export default function LawyersPage() {
                   <div className="p-6">
                     <div className="flex items-start gap-4">
                       <div
-                        className="w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-bold flex-shrink-0 overflow-hidden"
-                        style={lawyer.imageUrl ? undefined : { background: `linear-gradient(to bottom right, ${BRAND.gradientEnd}, ${BRAND.gradientStart})` }}
+                        className="w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-bold flex-shrink-0 overflow-hidden relative"
+                        style={{ background: `linear-gradient(to bottom right, ${BRAND.gradientEnd}, ${BRAND.gradientStart})` }}
                       >
-                        {lawyer.imageUrl ? (
+                        {unlocked && lawyer.imageUrl ? (
                           <img src={lawyer.imageUrl} alt="" className="h-full w-full object-cover" />
+                        ) : !unlocked && lawyer.imageUrl ? (
+                          <>
+                            <img src={lawyer.imageUrl} alt="" className="h-full w-full object-cover blur-md scale-110" />
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-full">
+                              <Lock className="w-6 h-6 text-white/90" />
+                            </div>
+                          </>
                         ) : (
                           initials
                         )}
