@@ -47,6 +47,9 @@ export async function POST(request: NextRequest) {
       image_url = null,
       published = true,
       sort_order = 0,
+      file_path = null,
+      file_name = null,
+      file_format = null,
     } = body as {
       type?: string;
       title?: string;
@@ -57,6 +60,9 @@ export async function POST(request: NextRequest) {
       image_url?: string | null;
       published?: boolean;
       sort_order?: number;
+      file_path?: string | null;
+      file_name?: string | null;
+      file_format?: string | null;
     };
 
     if (!type || !VALID_TYPES.includes(type as (typeof VALID_TYPES)[number])) {
@@ -80,6 +86,9 @@ export async function POST(request: NextRequest) {
       image_url: typeof image_url === "string" && image_url ? image_url : null,
       published: !!published,
       sort_order: typeof sort_order === "number" ? sort_order : 0,
+      file_path: typeof file_path === "string" && file_path ? file_path : null,
+      file_name: typeof file_name === "string" && file_name ? file_name : null,
+      file_format: typeof file_format === "string" && file_format ? file_format : null,
     };
 
     const supabase = getSupabaseServer();
