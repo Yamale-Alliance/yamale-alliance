@@ -23,10 +23,10 @@ export default async function Home() {
           {isSignedIn ? (
             <>
               <Link
-                href="/profile"
+                href="/dashboard"
                 className="rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
               >
-                Profile
+                Open dashboard
               </Link>
               <Link
                 href="/ai-research"
@@ -137,24 +137,16 @@ export default async function Home() {
           </h2>
           <p className="mt-3 text-muted-foreground">
             Create an account to access the legal library, AfCFTA tools, and
-            AI-powered research. If you already have an account, head to your profile.
+            AI-powered research. If you already have an account, open your dashboard.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             {isSignedIn ? (
-              <>
-                <Link
-                  href="/profile"
-                  className="inline-flex rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
-                >
-                  Go to profile
-                </Link>
-                <Link
-                  href="/dashboard"
-                  className="inline-flex rounded-lg border border-border bg-background px-6 py-3 text-sm font-medium hover:bg-accent"
-                >
-                  Open dashboard
-                </Link>
-              </>
+              <Link
+                href="/dashboard"
+                className="inline-flex rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
+              >
+                Open dashboard
+              </Link>
             ) : (
               <Link
                 href="/signup"
