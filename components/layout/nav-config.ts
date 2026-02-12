@@ -6,7 +6,6 @@ import {
   Store,
   Users,
   DollarSign,
-  User,
   type LucideIcon,
 } from "lucide-react";
 
@@ -29,7 +28,6 @@ export const userNavLinks: Array<{
   { href: "/marketplace", label: "Marketplace", icon: Store },
   { href: "/lawyers", label: "Lawyers", icon: Users },
   { href: "/pricing", label: "Pricing", icon: DollarSign },
-  { href: "/profile", label: "Profile", icon: User },
 ];
 
 export type NavLinkItem = {
