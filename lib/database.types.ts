@@ -144,6 +144,9 @@ export interface Database {
           image_url: string | null;
           published: boolean;
           sort_order: number;
+          file_path: string | null;
+          file_name: string | null;
+          file_format: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -158,6 +161,9 @@ export interface Database {
           image_url?: string | null;
           published?: boolean;
           sort_order?: number;
+          file_path?: string | null;
+          file_name?: string | null;
+          file_format?: string | null;
           created_at?: string;
           updated_at?: string;
         };
