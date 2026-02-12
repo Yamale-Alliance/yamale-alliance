@@ -27,11 +27,10 @@ const FALLBACK_TIERS: Tier[] = [
     priceMonthly: 0,
     priceAnnualPerMonth: 0,
     priceAnnualTotal: 0,
-    description: "Explore and browse African law",
+    description: "Explore African law",
     features: [
-      "Unlimited browsing",
-      "View document summaries",
-      "Save up to 10 documents",
+      "Unlimited browsing of full texts of laws",
+      "Save up to 10 documents for easy access",
       "Browse lawyer directory",
       "Browse marketplace",
     ],
@@ -43,17 +42,18 @@ const FALLBACK_TIERS: Tier[] = [
     priceMonthly: 5,
     priceAnnualPerMonth: 4,
     priceAnnualTotal: 50,
-    description: "For students & professionals",
+    description: "For students & professionals who need light research",
     subtitle: "or $50/year (save $10)",
     features: [
-      "<strong>Read full documents</strong> online",
+      "Unlimited browsing of full texts of laws",
       "<strong>5 document downloads/month</strong>",
-      "<strong>10 AI queries/month</strong>",
-      "<strong>1 AfCFTA report/month</strong>",
-      "Unlimited saved documents",
+      "<strong>Basic level AI queries/month</strong> (limited)",
+      "<strong>1 AfCFTA report/month</strong> (view &amp; download)",
+      "Browse lawyer directory",
+      "Browse marketplace",
     ],
-    cta: "Start 10-Day Trial",
-    highlighted: true,
+    cta: "Choose Basic",
+    highlighted: false,
   },
   {
     id: "pro",
@@ -61,17 +61,19 @@ const FALLBACK_TIERS: Tier[] = [
     priceMonthly: 15,
     priceAnnualPerMonth: 12,
     priceAnnualTotal: 150,
-    description: "For active professionals",
+    description: "For active professionals who need regular research",
     subtitle: "or $150/year (save $30)",
     features: [
+      "Unlimited browsing of full texts of laws",
       "<strong>20 document downloads/month</strong>",
-      "<strong>50 AI queries/month</strong>",
-      "<strong>5 AfCFTA reports/month</strong>",
-      "<strong>3 lawyer contacts/month</strong>",
-      "Share documents via email",
-      "Download AI conversations",
+      "<strong>Pro level AI queries/month</strong> (limited)",
+      "<strong>5 AfCFTA reports/month</strong> (view &amp; download)",
+      "Browse lawyer directory",
+      "Browse marketplace",
+      "Download AI conversation",
     ],
-    cta: "Start 10-Day Trial",
+    cta: "Choose Pro",
+    highlighted: true,
   },
   {
     id: "team",
@@ -79,17 +81,19 @@ const FALLBACK_TIERS: Tier[] = [
     priceMonthly: 40,
     priceAnnualPerMonth: 33,
     priceAnnualTotal: 400,
-    description: "For firms & organizations",
+    description: "For firms & organizations with multiple users",
     subtitle: "or $400/year (save $80)",
     features: [
       "<strong>5 user seats included</strong>",
-      "<strong>250 downloads/month</strong> (50/user)",
-      "<strong>Unlimited AI queries</strong>",
-      "<strong>Unlimited AfCFTA reports</strong>",
-      "<strong>10 lawyer contacts/month</strong>",
-      "Additional seats: $6/month each",
+      "<strong>25 document downloads per user/month</strong>",
+      "<strong>Team level AI queries per user/month</strong> (limited)",
+      "<strong>2 AfCFTA reports per user/month</strong> (view &amp; download)",
+      "Browse lawyer directory",
+      "Browse marketplace",
+      "Download AI conversation",
+      "<strong>Additional user: $6/month each</strong>",
     ],
-    cta: "Start 10-Day Trial",
+    cta: "Choose Team",
   },
 ];
 
@@ -105,10 +109,6 @@ const FAQ_ITEMS = [
   {
     q: "What payment methods do you accept?",
     a: "We accept credit cards, debit cards, mobile money (M-Pesa, Orange Money, MTN, Airtel), and bank transfers for institutional accounts.",
-  },
-  {
-    q: "Is there a free trial?",
-    a: "Yes! All paid plans come with a 10-day free trial. No credit card required to start.",
   },
   {
     q: "What happens after I use my included amount?",
@@ -427,9 +427,7 @@ export default function PricingPage() {
                     className="text-sm font-semibold mb-4 mt-6"
                     style={{ color: "#603b1c" }}
                   >
-                    {tier.id === "free"
-                      ? "What's included:"
-                      : `Everything in ${tier.id === "basic" ? "Free" : tier.id === "pro" ? "Basic" : "Pro"}, plus:`}
+                    What's included:
                   </div>
                   <ul className="space-y-3 text-sm">
                     {tier.features.map((feature, i) => (
@@ -542,12 +540,12 @@ export default function PricingPage() {
                 </div>
 
                 <div className="text-center p-8 bg-gray-50 rounded-xl">
-                  <div className="text-5xl mb-4">👨‍⚖️</div>
+                  <div className="text-5xl mb-4">🔍</div>
                   <div
                     className="text-xl font-bold mb-3"
                     style={{ color: "#221913" }}
                   >
-                    Lawyer Contacts
+                    Lawyer Directory Search
                   </div>
                   <div
                     className="text-5xl font-bold mb-3"
@@ -555,9 +553,9 @@ export default function PricingPage() {
                   >
                     $5
                   </div>
-                  <div className="text-sm" style={{ color: "#603b1c" }}>per contact</div>
+                  <div className="text-sm" style={{ color: "#603b1c" }}>per search</div>
                   <div className="text-xs mt-2" style={{ color: "#9a632a" }}>
-                    Direct email & phone
+                    Unlocks direct email &amp; phone for matching lawyers
                   </div>
                 </div>
 

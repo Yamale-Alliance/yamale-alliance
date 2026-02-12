@@ -141,10 +141,8 @@ export default function AdminLawsPage() {
                   <tr key={law.id} className="border-b border-border hover:bg-muted/30">
                     <td className="p-3">
                       <Link
-                        href={`/library/${law.id}`}
+                        href={`/admin-panel/laws/${law.id}`}
                         className="font-medium text-primary hover:underline"
-                        target="_blank"
-                        rel="noopener noreferrer"
                       >
                         {law.title}
                       </Link>
