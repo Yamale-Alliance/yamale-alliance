@@ -5,6 +5,7 @@ import { UserButton, useUser } from "@clerk/nextjs";
 import { Menu, X } from "lucide-react";
 import { useState, useMemo } from "react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { CartDrawer } from "@/components/cart/CartDrawer";
 import { userNavLinks } from "./nav-config";
 
 export function UserHeader() {
@@ -45,6 +46,7 @@ export function UserHeader() {
 
         {/* Mobile: theme + user + hamburger */}
         <div className="flex items-center gap-1 lg:hidden">
+          <CartDrawer />
           <ThemeToggle />
           <UserButton afterSignOutUrl="/" />
           <button
