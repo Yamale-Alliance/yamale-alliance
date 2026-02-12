@@ -2,7 +2,15 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, BookOpen, GraduationCap, FileText, Check } from "lucide-react";
+import { Search, BookOpen, GraduationCap, FileText, Check, Loader2 } from "lucide-react";
+
+const BRAND = {
+  dark: "#221913",
+  medium: "#603b1c",
+  gradientStart: "#9a632a",
+  gradientEnd: "#c18c43",
+  accent: "#e3ba65",
+};
 
 type ProductCategory = "book" | "course" | "template" | "";
 
@@ -26,16 +34,16 @@ const CATEGORIES: { value: ProductCategory; label: string }[] = [
   { value: "template", label: "Templates" },
 ];
 
-function CategoryIcon({ type }: { type: string }) {
+function CategoryIcon({ type, className }: { type: string; className?: string }) {
   switch (type) {
     case "book":
-      return <BookOpen className="h-5 w-5" />;
+      return <BookOpen className={className ?? "h-5 w-5"} />;
     case "course":
-      return <GraduationCap className="h-5 w-5" />;
+      return <GraduationCap className={className ?? "h-5 w-5"} />;
     case "template":
-      return <FileText className="h-5 w-5" />;
+      return <FileText className={className ?? "h-5 w-5"} />;
     default:
-      return <FileText className="h-5 w-5" />;
+      return <FileText className={className ?? "h-5 w-5"} />;
   }
 }
 
@@ -64,95 +72,158 @@ export default function MarketplacePage() {
   });
 
   return (
-    <div className="min-h-screen">
-      <div className="border-b border-border bg-card/50 px-4 py-8">
-        <div className="mx-auto max-w-6xl">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Knowledge & Training Marketplace
+    <div className="min-h-screen bg-gray-50 dark:bg-background">
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2" style={{ color: BRAND.dark }}>
+            Knowledge &amp; Training Marketplace
           </h1>
-          <p className="mt-1 text-muted-foreground">
-            Legal publications, courses, and templates. Click an item for details and pricing.
+          <p className="text-muted-foreground">
+            Legal publications, courses, and templates for African legal professionals.
+          </p>
+        </div>
+
+        {/* Search & Filter Card */}
+        <div className="bg-white dark:bg-card rounded-lg shadow-md border border-border p-6 mb-6">
+          <h2 className="text-2xl font-bold mb-2" style={{ color: BRAND.dark }}>
+            Browse Resources
+          </h2>
+          <p className="text-muted-foreground text-sm mb-6">
+            Search by title or author and filter by category.
           </p>
 
-          <div className="relative mt-6">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="search"
-              placeholder="Search by title or author..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-input bg-background py-2.5 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            {CATEGORIES.map(({ value, label }) => (
-              <button
-                key={value || "all"}
-                type="button"
-                onClick={() => setCategory(value)}
-                className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
-                  category === value
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-input bg-background text-foreground hover:bg-accent"
-                }`}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: BRAND.medium }}>
+                Search
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="search"
+                  placeholder="Search by title or author..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full border border-input rounded-lg pl-10 pr-4 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2" style={{ color: BRAND.medium }}>
+                Category
+              </label>
+              <select
+                className="w-full border border-input rounded-lg px-4 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                value={category}
+                onChange={(e) => setCategory(e.target.value as ProductCategory)}
               >
-                {label}
-              </button>
-            ))}
+                {CATEGORIES.map(({ value, label }) => (
+                  <option key={value || "all"} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="mx-auto max-w-6xl px-4 py-8">
+        {/* Results */}
         {loading ? (
-          <p className="text-center text-muted-foreground">Loading…</p>
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
         ) : (
           <>
-            <p className="mb-4 text-sm text-muted-foreground">
-              {filtered.length} item{filtered.length !== 1 ? "s" : ""}
-            </p>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((product) => (
-                <Link
-                  key={product.id}
-                  href={`/marketplace/${product.id}`}
-                  className="flex flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:bg-accent/30"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="rounded-lg bg-muted p-2">
-                      <CategoryIcon type={product.type} />
-                    </div>
-                    <div className="flex flex-wrap items-center justify-end gap-1.5">
-                      {product.owned && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-medium text-primary">
-                          <Check className="h-3 w-3" aria-hidden /> Owned
-                        </span>
-                      )}
-                      <span className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground capitalize">
-                        {product.type}
-                      </span>
-                    </div>
-                  </div>
-                  <h2 className="mt-3 font-semibold text-foreground line-clamp-2">
-                    {product.title}
-                  </h2>
-                  {product.author && (
-                    <p className="mt-1 text-sm text-muted-foreground">{product.author}</p>
-                  )}
-                  <div className="mt-4 flex items-center justify-between gap-4">
-                    <span className="text-lg font-semibold">
-                      {product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(2)}`}
-                    </span>
-                    <span className="text-sm text-primary">View details →</span>
-                  </div>
-                </Link>
-              ))}
+            <div className="mb-4 text-muted-foreground">
+              Showing {filtered.length} item{filtered.length !== 1 ? "s" : ""}
             </div>
-            {filtered.length === 0 && (
-              <p className="py-12 text-center text-muted-foreground">
-                No items match your search. Try different filters.
-              </p>
+
+            {filtered.length === 0 ? (
+              <div className="bg-white dark:bg-card rounded-lg shadow border border-border p-12 text-center">
+                <div className="text-6xl mb-4">📚</div>
+                <h3 className="text-2xl font-bold mb-2" style={{ color: BRAND.medium }}>
+                  No items found
+                </h3>
+                <p className="text-muted-foreground mb-6">
+                  Try adjusting your search or filter to see more results.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setSearch(""); setCategory(""); }}
+                  className="px-6 py-2 rounded-lg font-semibold border-2"
+                  style={{ borderColor: BRAND.gradientEnd, color: BRAND.medium }}
+                >
+                  Clear Filters
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {filtered.map((product) => {
+                  const priceLabel = product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(2)}`;
+
+                  return (
+                    <Link
+                      key={product.id}
+                      href={`/marketplace/${product.id}`}
+                      className="bg-white dark:bg-card rounded-lg shadow border border-border hover:shadow-lg transition overflow-hidden block"
+                    >
+                      <div className="p-6">
+                        <div className="flex items-start gap-4">
+                          {/* Icon / Thumbnail */}
+                          <div
+                            className="w-20 h-20 rounded-full flex items-center justify-center text-white flex-shrink-0 overflow-hidden"
+                            style={{ background: `linear-gradient(to bottom right, ${BRAND.gradientEnd}, ${BRAND.gradientStart})` }}
+                          >
+                            {product.image_url ? (
+                              <img src={product.image_url} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              <CategoryIcon type={product.type} className="h-8 w-8" />
+                            )}
+                          </div>
+
+                          {/* Title / Author / Meta */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <h3 className="text-xl font-bold text-foreground line-clamp-1">{product.title}</h3>
+                              {product.owned && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 text-xs px-2.5 py-0.5 font-semibold">
+                                  <Check className="h-3 w-3" aria-hidden /> Owned
+                                </span>
+                              )}
+                              <span
+                                className="text-xs px-2 py-0.5 rounded-full font-medium capitalize"
+                                style={{ backgroundColor: "rgba(227, 186, 101, 0.2)", color: BRAND.medium }}
+                              >
+                                {product.type}
+                              </span>
+                            </div>
+                            {product.author && (
+                              <p className="text-muted-foreground text-sm">by {product.author}</p>
+                            )}
+                            {product.description && (
+                              <p className="text-muted-foreground text-sm mt-1 line-clamp-2">{product.description}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Price / CTA bar */}
+                        <div className="mt-4 flex items-center justify-between gap-4 pt-3 border-t border-border">
+                          <span className="text-lg font-bold" style={{ color: BRAND.medium }}>
+                            {priceLabel}
+                          </span>
+                          <span
+                            className="text-sm font-semibold"
+                            style={{ color: BRAND.gradientEnd }}
+                          >
+                            View details →
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
             )}
           </>
         )}
