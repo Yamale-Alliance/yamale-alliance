@@ -54,6 +54,9 @@ export async function PUT(
       image_url,
       published,
       sort_order,
+      file_path,
+      file_name,
+      file_format,
     } = body;
 
     const updates: Update = {};
@@ -71,6 +74,9 @@ export async function PUT(
     if (image_url !== undefined) updates.image_url = image_url || null;
     if (typeof published === "boolean") updates.published = published;
     if (typeof sort_order === "number") updates.sort_order = sort_order;
+    if (file_path !== undefined) updates.file_path = file_path || null;
+    if (file_name !== undefined) updates.file_name = file_name || null;
+    if (file_format !== undefined) updates.file_format = file_format || null;
     updates.updated_at = new Date().toISOString();
 
     const supabase = getSupabaseServer();
