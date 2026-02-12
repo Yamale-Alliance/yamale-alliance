@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, BookOpen, GraduationCap, FileText, Check, Loader2 } from "lucide-react";
+import Image from "next/image";
+import { Search, BookOpen, GraduationCap, FileText, Check, Loader2, ShoppingCart, Zap, X } from "lucide-react";
+import { useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 const BRAND = {
   dark: "#221913",
@@ -48,10 +51,15 @@ function CategoryIcon({ type, className }: { type: string; className?: string })
 }
 
 export default function MarketplacePage() {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<ProductCategory>("");
   const [items, setItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [addingToCart, setAddingToCart] = useState<string | null>(null);
+  const [cartCount, setCartCount] = useState(0);
+  const [cartItemIds, setCartItemIds] = useState<Set<string>>(new Set());
+  const { isSignedIn } = useUser();
 
   useEffect(() => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
@@ -62,6 +70,43 @@ export default function MarketplacePage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Fetch cart items
+  useEffect(() => {
+    if (!isSignedIn) {
+      setCartCount(0);
+      setCartItemIds(new Set());
+      return;
+    }
+    fetch("/api/cart", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data: { cart?: Array<{ marketplace_item_id: string; quantity: number }> }) => {
+        const cart = data.cart ?? [];
+        const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+        const itemIds = new Set(cart.map((item) => item.marketplace_item_id));
+        setCartCount(count);
+        setCartItemIds(itemIds);
+      })
+      .catch(() => {
+        setCartCount(0);
+        setCartItemIds(new Set());
+      });
+  }, [isSignedIn]);
+
+  // Refresh cart when items are added/removed
+  const refreshCart = () => {
+    if (!isSignedIn) return;
+    fetch("/api/cart", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data: { cart?: Array<{ marketplace_item_id: string; quantity: number }> }) => {
+        const cart = data.cart ?? [];
+        const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+        const itemIds = new Set(cart.map((item) => item.marketplace_item_id));
+        setCartCount(count);
+        setCartItemIds(itemIds);
+      })
+      .catch(() => {});
+  };
+
   const filtered = items.filter((p) => {
     const matchSearch =
       !search ||
@@ -71,17 +116,112 @@ export default function MarketplacePage() {
     return matchSearch && matchCategory;
   });
 
+  const handleAddToCart = async (productId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isSignedIn) {
+      window.location.href = `/sign-in?redirect_url=${encodeURIComponent("/marketplace")}`;
+      return;
+    }
+    setAddingToCart(productId);
+    try {
+      const res = await fetch("/api/cart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ marketplace_item_id: productId, quantity: 1 }),
+      });
+      if (res.ok) {
+        refreshCart();
+      } else {
+        const data = await res.json();
+        alert(data.error ?? "Failed to add to cart");
+      }
+    } catch {
+      alert("Something went wrong");
+    } finally {
+      setAddingToCart(null);
+    }
+  };
+
+  const handleRemoveFromCart = async (productId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isSignedIn) return;
+    setAddingToCart(productId);
+    try {
+      const res = await fetch(`/api/cart?item_id=${productId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (res.ok) {
+        refreshCart();
+      } else {
+        const data = await res.json();
+        alert(data.error ?? "Failed to remove from cart");
+      }
+    } catch {
+      alert("Something went wrong");
+    } finally {
+      setAddingToCart(null);
+    }
+  };
+
+  const handleBuyNow = async (productId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isSignedIn) {
+      window.location.href = `/sign-in?redirect_url=${encodeURIComponent("/marketplace")}`;
+      return;
+    }
+    // Direct checkout for single item
+    try {
+      const res = await fetch("/api/stripe/marketplace-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ itemId: productId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error ?? "Checkout failed");
+      }
+    } catch {
+      alert("Something went wrong");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-background">
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2" style={{ color: BRAND.dark }}>
-            Knowledge &amp; Training Marketplace
-          </h1>
-          <p className="text-muted-foreground">
-            Legal publications, courses, and templates for African legal professionals.
-          </p>
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <h1 className="text-3xl font-bold mb-2" style={{ color: BRAND.dark }}>
+                Knowledge &amp; Training Marketplace
+              </h1>
+              <p className="text-muted-foreground">
+                Legal publications, courses, and templates for African legal professionals.
+              </p>
+            </div>
+            {isSignedIn && (
+              <Link
+                href="/marketplace/cart"
+                className="relative flex items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium hover:bg-accent transition shrink-0"
+              >
+                <ShoppingCart className="h-5 w-5" />
+                <span>Cart</span>
+                {cartCount > 0 && (
+                  <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                    {cartCount > 9 ? "9+" : cartCount}
+                  </span>
+                )}
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Search & Filter Card */}
@@ -176,7 +316,7 @@ export default function MarketplacePage() {
                             style={{ background: `linear-gradient(to bottom right, ${BRAND.gradientEnd}, ${BRAND.gradientStart})` }}
                           >
                             {product.image_url ? (
-                              <img src={product.image_url} alt="" className="h-full w-full object-cover" />
+                              <Image src={product.image_url} alt="" width={80} height={80} className="h-full w-full object-cover" />
                             ) : (
                               <CategoryIcon type={product.type} className="h-8 w-8" />
                             )}
@@ -212,12 +352,59 @@ export default function MarketplacePage() {
                           <span className="text-lg font-bold" style={{ color: BRAND.medium }}>
                             {priceLabel}
                           </span>
-                          <span
-                            className="text-sm font-semibold"
-                            style={{ color: BRAND.gradientEnd }}
-                          >
-                            View details →
-                          </span>
+                          <div className="flex items-center gap-2">
+                            {isSignedIn && !product.owned && product.price_cents > 0 && (
+                              <>
+                                {cartItemIds.has(product.id) ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleRemoveFromCart(product.id, e)}
+                                    disabled={addingToCart === product.id}
+                                    className="rounded-lg px-3 py-1.5 text-xs font-medium border border-destructive/50 text-destructive hover:bg-destructive/10 disabled:opacity-50 flex items-center gap-1.5"
+                                    aria-label="Remove from cart"
+                                  >
+                                    {addingToCart === product.id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <X className="h-3 w-3" />
+                                    )}
+                                    Remove from Cart
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleAddToCart(product.id, e)}
+                                    disabled={addingToCart === product.id}
+                                    className="rounded-lg px-3 py-1.5 text-xs font-medium border border-border hover:bg-accent disabled:opacity-50 flex items-center gap-1.5"
+                                    aria-label="Add to cart"
+                                  >
+                                    {addingToCart === product.id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <ShoppingCart className="h-3 w-3" />
+                                    )}
+                                    Add to Cart
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleBuyNow(product.id, e)}
+                                  className="rounded-lg px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 flex items-center gap-1.5"
+                                  style={{ background: `linear-gradient(to right, ${BRAND.gradientStart}, ${BRAND.gradientEnd})` }}
+                                  aria-label="Buy now"
+                                >
+                                  <Zap className="h-3 w-3" />
+                                  Buy Now
+                                </button>
+                              </>
+                            )}
+                            <span
+                              className="text-sm font-semibold ml-auto"
+                              style={{ color: BRAND.gradientEnd }}
+                            >
+                              View details →
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </Link>
