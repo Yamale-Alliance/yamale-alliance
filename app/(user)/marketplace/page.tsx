@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, BookOpen, GraduationCap, FileText } from "lucide-react";
+import { Search, BookOpen, GraduationCap, FileText, Check } from "lucide-react";
 
 type ProductCategory = "book" | "course" | "template" | "";
 
@@ -16,6 +16,7 @@ type Product = {
   currency: string;
   image_url: string | null;
   sort_order: number;
+  owned?: boolean;
 };
 
 const CATEGORIES: { value: ProductCategory; label: string }[] = [
@@ -122,9 +123,16 @@ export default function MarketplacePage() {
                     <div className="rounded-lg bg-muted p-2">
                       <CategoryIcon type={product.type} />
                     </div>
-                    <span className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground capitalize">
-                      {product.type}
-                    </span>
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      {product.owned && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-medium text-primary">
+                          <Check className="h-3 w-3" aria-hidden /> Owned
+                        </span>
+                      )}
+                      <span className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground capitalize">
+                        {product.type}
+                      </span>
+                    </div>
                   </div>
                   <h2 className="mt-3 font-semibold text-foreground line-clamp-2">
                     {product.title}
