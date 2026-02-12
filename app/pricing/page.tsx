@@ -42,7 +42,7 @@ const FALLBACK_TIERS: Tier[] = [
     priceMonthly: 5,
     priceAnnualPerMonth: 4,
     priceAnnualTotal: 50,
-    description: "For students & professionals who need light research",
+    description: "",
     subtitle: "or $50/year (save $10)",
     features: [
       "Unlimited browsing of full texts of laws",
@@ -61,7 +61,7 @@ const FALLBACK_TIERS: Tier[] = [
     priceMonthly: 15,
     priceAnnualPerMonth: 12,
     priceAnnualTotal: 150,
-    description: "For active professionals who need regular research",
+    description: "",
     subtitle: "or $150/year (save $30)",
     features: [
       "Unlimited browsing of full texts of laws",
@@ -81,7 +81,7 @@ const FALLBACK_TIERS: Tier[] = [
     priceMonthly: 40,
     priceAnnualPerMonth: 33,
     priceAnnualTotal: 400,
-    description: "For firms & organizations with multiple users",
+    description: "",
     subtitle: "or $400/year (save $80)",
     features: [
       "<strong>5 user seats included</strong>",
@@ -380,7 +380,9 @@ export default function PricingPage() {
                     </span>
                     <span className="text-[#603b1c] ml-1">{period}</span>
                   </div>
-                  <p className="text-[#603b1c] mb-3 text-sm">{tier.description}</p>
+                  {tier.description && (
+                    <p className="text-[#603b1c] mb-3 text-sm">{tier.description}</p>
+                  )}
                   {annualNote && (
                     <p className="text-xs mb-4" style={{ color: "#9a632a" }}>
                       {annualNote}
