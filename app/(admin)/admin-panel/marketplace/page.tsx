@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Loader2, Plus, Pencil, Trash2, BookOpen, GraduationCap, FileText } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, BookOpen, GraduationCap, FileText, Upload, X } from "lucide-react";
 
 type MarketplaceItem = {
   id: string;
@@ -15,6 +15,9 @@ type MarketplaceItem = {
   image_url: string | null;
   published: boolean;
   sort_order: number;
+  file_path: string | null;
+  file_name: string | null;
+  file_format: string | null;
   created_at: string;
 };
 
@@ -35,6 +38,8 @@ function TypeIcon({ type }: { type: string }) {
   }
 }
 
+const ALLOWED_FILE_EXT = "pdf,epub,doc,docx,txt,md,rtf,odt,xls,xlsx,csv";
+
 export default function AdminMarketplacePage() {
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,8 +47,38 @@ export default function AdminMarketplacePage() {
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fileUploading, setFileUploading] = useState(false);
+  const [pendingFile, setPendingFile] = useState<{ path: string; file_name: string; file_format: string } | null>(null);
+  const [removeFile, setRemoveFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
+
+  const handleUploadFile = async (file: File, itemId?: string) => {
+    setFileUploading(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      if (itemId) form.append("itemId", itemId);
+      const res = await fetch(`${origin}/api/admin/marketplace/upload-file`, {
+        method: "POST",
+        credentials: "include",
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Upload failed");
+        setFileUploading(false);
+        return;
+      }
+      setPendingFile({ path: data.path, file_name: data.file_name, file_format: data.file_format });
+    } catch {
+      setError("Upload failed");
+    }
+    setFileUploading(false);
+  };
 
   const fetchItems = () => {
     setLoading(true);
@@ -82,6 +117,9 @@ export default function AdminMarketplacePage() {
           currency: "usd",
           published: (form.elements.namedItem("published") as HTMLInputElement)?.checked ?? true,
           sort_order: parseInt((form.elements.namedItem("sort_order") as HTMLInputElement)?.value ?? "0", 10),
+          file_path: pendingFile?.path ?? null,
+          file_name: pendingFile?.file_name ?? null,
+          file_format: pendingFile?.file_format ?? null,
         }),
       });
       const data = await res.json();
@@ -92,6 +130,7 @@ export default function AdminMarketplacePage() {
       }
       setItems((prev) => [...prev, data.item]);
       setAdding(false);
+      setPendingFile(null);
       form.reset();
     } catch {
       setError("Network error");
@@ -121,6 +160,9 @@ export default function AdminMarketplacePage() {
           price_cents: priceCents,
           published: (form.elements.namedItem("published") as HTMLInputElement)?.checked ?? editing.published,
           sort_order: parseInt((form.elements.namedItem("sort_order") as HTMLInputElement)?.value ?? "0", 10),
+          file_path: removeFile ? null : (pendingFile ? pendingFile.path : editing.file_path),
+          file_name: removeFile ? null : (pendingFile ? pendingFile.file_name : editing.file_name),
+          file_format: removeFile ? null : (pendingFile ? pendingFile.file_format : editing.file_format),
         }),
       });
       const data = await res.json();
@@ -131,6 +173,8 @@ export default function AdminMarketplacePage() {
       }
       setItems((prev) => prev.map((p) => (p.id === editing.id ? { ...p, ...data.item } : p)));
       setEditing(null);
+      setPendingFile(null);
+      setRemoveFile(false);
     } catch {
       setError("Network error");
     }
@@ -205,6 +249,41 @@ export default function AdminMarketplacePage() {
               <label className="mb-1 block text-sm font-medium">Description</label>
               <textarea name="description" rows={3} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="Short description for the product page" />
             </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium">File (PDF, EPUB, etc.)</label>
+              <p className="mb-2 text-xs text-muted-foreground">Optional. Purchasers can view and download.</p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={ALLOWED_FILE_EXT}
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleUploadFile(f);
+                  e.target.value = "";
+                }}
+              />
+              {pendingFile ? (
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <span className="truncate">{pendingFile.file_name}</span>
+                  <span className="text-muted-foreground">(.{pendingFile.file_format})</span>
+                  <button type="button" onClick={() => setPendingFile(null)} className="ml-auto rounded p-1 hover:bg-muted" aria-label="Remove">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={fileUploading}
+                  className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-3 py-2 text-sm text-muted-foreground hover:border-primary hover:text-foreground disabled:opacity-50"
+                >
+                  {fileUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  {fileUploading ? "Uploading…" : "Upload file"}
+                </button>
+              )}
+            </div>
             <div className="flex items-center gap-4 sm:col-span-2">
               <label className="flex items-center gap-2 text-sm">
                 <input name="published" type="checkbox" defaultChecked className="rounded border-input" />
@@ -250,6 +329,7 @@ export default function AdminMarketplacePage() {
                 <th className="pb-2 text-left font-medium">Title</th>
                 <th className="pb-2 text-left font-medium">Author</th>
                 <th className="pb-2 text-right font-medium">Price</th>
+                <th className="pb-2 text-center font-medium">File</th>
                 <th className="pb-2 text-center font-medium">Published</th>
                 <th className="pb-2 text-right font-medium">Actions</th>
               </tr>
@@ -268,11 +348,16 @@ export default function AdminMarketplacePage() {
                   <td className="py-3 text-right">
                     {item.price_cents === 0 ? "Free" : `$${(item.price_cents / 100).toFixed(2)}`}
                   </td>
+                  <td className="py-3 text-center">{item.file_path ? (item.file_format ? `.${item.file_format}` : "Yes") : "—"}</td>
                   <td className="py-3 text-center">{item.published ? "Yes" : "No"}</td>
                   <td className="py-3 text-right">
                     <button
                       type="button"
-                      onClick={() => setEditing(item)}
+                      onClick={() => {
+                        setEditing(item);
+                        setRemoveFile(false);
+                        setPendingFile(null);
+                      }}
                       className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                       aria-label="Edit"
                     >
@@ -325,6 +410,46 @@ export default function AdminMarketplacePage() {
               <div>
                 <label className="mb-1 block text-sm font-medium">Description</label>
                 <textarea name="description" rows={3} defaultValue={editing.description ?? ""} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">File (PDF, EPUB, etc.)</label>
+                {editing.file_path && !removeFile && !pendingFile ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <span className="truncate">{editing.file_name ?? "File attached"}</span>
+                    {editing.file_format && <span className="text-muted-foreground">(.{editing.file_format})</span>}
+                    <button type="button" onClick={() => setRemoveFile(true)} className="ml-auto rounded p-1 hover:bg-destructive/10 text-destructive text-xs">Remove file</button>
+                  </div>
+                ) : pendingFile ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <span className="truncate">{pendingFile.file_name}</span>
+                    <button type="button" onClick={() => setPendingFile(null)} className="ml-auto rounded p-1 hover:bg-muted" aria-label="Cancel"><X className="h-4 w-4" /></button>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      ref={editFileInputRef}
+                      type="file"
+                      accept={ALLOWED_FILE_EXT}
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleUploadFile(f, editing.id);
+                        e.target.value = "";
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => editFileInputRef.current?.click()}
+                      disabled={fileUploading}
+                      className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-3 py-2 text-sm text-muted-foreground hover:border-primary hover:text-foreground disabled:opacity-50"
+                    >
+                      {fileUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                      {fileUploading ? "Uploading…" : removeFile ? "Upload new file" : "Replace file"}
+                    </button>
+                  </>
+                )}
               </div>
               <div className="flex items-center gap-4">
                 <label className="flex items-center gap-2 text-sm">
