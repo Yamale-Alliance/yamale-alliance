@@ -20,6 +20,7 @@ import {
   Zap,
   Users,
   Loader2,
+  FileText,
 } from "lucide-react";
 import { canShareByEmail, canDownloadConversations } from "@/lib/plan-limits";
 
@@ -113,6 +114,9 @@ export default function AIResearchPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [shareOpen, setShareOpen] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [templates, setTemplates] = useState<Array<{ id: string; title: string; description: string | null; query_text: string; category: string | null }>>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
   const [aiUsage, setAiUsage] = useState<{
     used: number;
     limit: number | null;
@@ -190,6 +194,26 @@ export default function AIResearchPage() {
     if (!user) return;
     fetchAiUsage();
   }, [user, fetchAiUsage]);
+
+  // Fetch AI templates
+  useEffect(() => {
+    setTemplatesLoading(true);
+    fetch("/api/ai/templates")
+      .then((r) => r.json())
+      .then((data: { templates?: Array<{ id: string; title: string; description: string | null; query_text: string; category: string | null }> }) => {
+        setTemplates(data.templates ?? []);
+      })
+      .catch(() => setTemplates([]))
+      .finally(() => setTemplatesLoading(false));
+  }, []);
+
+  const useTemplate = (queryText: string) => {
+    setInput(queryText);
+    setTemplatesOpen(false);
+    if (!currentId) {
+      newChat();
+    }
+  };
 
   // Load sessions from backend for signed-in users
   useEffect(() => {
@@ -529,6 +553,14 @@ export default function AIResearchPage() {
               <Pencil className="h-4 w-4" />
               New chat
             </button>
+            <button
+              type="button"
+              onClick={() => setTemplatesOpen(!templatesOpen)}
+              className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted/80"
+            >
+              <FileText className="h-4 w-4" />
+              Templates
+            </button>
             {tier === "team" && (
               <Link
                 href="/ai-research/team"
@@ -537,6 +569,33 @@ export default function AIResearchPage() {
                 <Users className="h-4 w-4" />
                 Manage team
               </Link>
+            )}
+            {templatesOpen && (
+              <div className="rounded-lg border border-border bg-background p-2 max-h-64 overflow-y-auto">
+                {templatesLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                ) : templates.length === 0 ? (
+                  <p className="px-2 py-4 text-xs text-muted-foreground">No templates available.</p>
+                ) : (
+                  <div className="space-y-1">
+                    {templates.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => useTemplate(t.query_text)}
+                        className="w-full text-left rounded px-2 py-2 text-xs hover:bg-muted transition"
+                      >
+                        <div className="font-medium text-foreground">{t.title}</div>
+                        {t.description && (
+                          <div className="text-muted-foreground mt-0.5">{t.description}</div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
