@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { Loader2, Briefcase, Plus, Trash2, Download } from "lucide-react";
 
 type LawyerRow = {
@@ -699,7 +700,7 @@ export default function AdminLawyersPage() {
                     <tr key={l.id} className="border-b border-border hover:bg-muted/30">
                       <td className="p-3">
                         {l.image_url ? (
-                          <img src={l.image_url} alt="" className="h-10 w-10 rounded-full object-cover border border-border" />
+                          <Image src={l.image_url} alt="" width={40} height={40} className="h-10 w-10 rounded-full object-cover border border-border" />
                         ) : (
                           <span className="text-muted-foreground text-xs">—</span>
                         )}
