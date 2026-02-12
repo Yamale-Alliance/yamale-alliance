@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { Search, Star, Loader2, Lock } from "lucide-react";
 
 const BRAND = {
@@ -64,6 +65,7 @@ export default function LawyersPage() {
   const [loading, setLoading] = useState(true);
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
   const [contactsByLawyer, setContactsByLawyer] = useState<Record<string, { email: string | null; phone: string | null; contacts: string | null }>>({});
+  const [reviewsByLawyer, setReviewsByLawyer] = useState<Record<string, { averageRating: number; totalReviews: number }>>({});
   const [dayPassActive, setDayPassActive] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState("all");
   const [selectedCity, setSelectedCity] = useState("");
@@ -185,12 +187,37 @@ export default function LawyersPage() {
     new Set(lawyers.flatMap((l) => l.expertise.split(",").map((e) => e.trim()).filter(Boolean)))
   ).sort();
 
-  const filteredLawyers = lawyers.filter((lawyer) => {
-    if (selectedCountry !== "all" && lawyer.country !== selectedCountry) return false;
-    if (selectedCity.trim() && !lawyer.name.toLowerCase().includes(selectedCity.toLowerCase()) && !lawyer.expertise.toLowerCase().includes(selectedCity.toLowerCase())) return false;
-    if (selectedExpertise !== "all" && !lawyer.expertise.toLowerCase().includes(selectedExpertise.toLowerCase())) return false;
-    return true;
-  });
+  const filteredLawyers = useMemo(() => {
+    return lawyers.filter((lawyer) => {
+      if (selectedCountry !== "all" && lawyer.country !== selectedCountry) return false;
+      if (selectedCity.trim() && !lawyer.name.toLowerCase().includes(selectedCity.toLowerCase()) && !lawyer.expertise.toLowerCase().includes(selectedCity.toLowerCase())) return false;
+      if (selectedExpertise !== "all" && !lawyer.expertise.toLowerCase().includes(selectedExpertise.toLowerCase())) return false;
+      return true;
+    });
+  }, [lawyers, selectedCountry, selectedCity, selectedExpertise]);
+
+  // Fetch reviews for displayed lawyers
+  useEffect(() => {
+    if (filteredLawyers.length === 0) return;
+    Promise.all(
+      filteredLawyers.map((lawyer) =>
+        fetch(`/api/lawyers/${lawyer.id}/reviews`)
+          .then((r) => r.json())
+          .then((data: { averageRating?: number | null; totalReviews?: number }) => {
+            if (data.averageRating !== null && data.averageRating !== undefined) {
+              setReviewsByLawyer((prev) => ({
+                ...prev,
+                [lawyer.id]: {
+                  averageRating: data.averageRating ?? 0,
+                  totalReviews: data.totalReviews ?? 0,
+                },
+              }));
+            }
+          })
+          .catch(() => {})
+      )
+    );
+  }, [filteredLawyers]);
 
   const isUnlocked = (lawyerId: string) => dayPassActive || unlockedIds.has(lawyerId);
 
@@ -412,10 +439,10 @@ export default function LawyersPage() {
                         style={{ background: `linear-gradient(to bottom right, ${BRAND.gradientEnd}, ${BRAND.gradientStart})` }}
                       >
                         {unlocked && lawyer.imageUrl ? (
-                          <img src={lawyer.imageUrl} alt="" className="h-full w-full object-cover" />
+                          <Image src={lawyer.imageUrl} alt="" width={80} height={80} className="h-full w-full object-cover" />
                         ) : !unlocked && lawyer.imageUrl ? (
                           <>
-                            <img src={lawyer.imageUrl} alt="" className="h-full w-full object-cover blur-md scale-110" />
+                            <Image src={lawyer.imageUrl} alt="" width={80} height={80} className="h-full w-full object-cover blur-md scale-110" />
                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-full">
                               <Lock className="w-6 h-6 text-white/90" />
                             </div>
@@ -443,8 +470,21 @@ export default function LawyersPage() {
                         </div>
                         <div className="flex items-center gap-1 mt-2">
                           <Star className="w-5 h-5 text-yellow-500 fill-current" />
-                          <span className="font-bold text-foreground">—</span>
-                          <span className="text-sm text-muted-foreground">(No ratings yet)</span>
+                          {reviewsByLawyer[lawyer.id]?.totalReviews > 0 ? (
+                            <>
+                              <span className="font-bold text-foreground">
+                                {reviewsByLawyer[lawyer.id].averageRating.toFixed(1)}
+                              </span>
+                              <span className="text-sm text-muted-foreground">
+                                ({reviewsByLawyer[lawyer.id].totalReviews} review{reviewsByLawyer[lawyer.id].totalReviews !== 1 ? "s" : ""})
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-bold text-foreground">—</span>
+                              <span className="text-sm text-muted-foreground">(No ratings yet)</span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
