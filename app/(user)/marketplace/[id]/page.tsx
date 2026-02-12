@@ -3,8 +3,16 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, Download, ExternalLink } from "lucide-react";
+import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, Download, ExternalLink, Star, ShoppingCart, Zap, X } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
+
+const BRAND = {
+  dark: "#221913",
+  medium: "#603b1c",
+  gradientStart: "#9a632a",
+  gradientEnd: "#c18c43",
+  accent: "#e3ba65",
+};
 
 type Item = {
   id: string;
@@ -45,6 +53,9 @@ export default function MarketplaceItemPage() {
   const [purchasing, setPurchasing] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<{ averageRating: number | null; totalReviews: number }>({ averageRating: null, totalReviews: 0 });
+  const [addingToCart, setAddingToCart] = useState(false);
+  const [isInCart, setIsInCart] = useState(false);
 
   const checkoutStatus = searchParams?.get("checkout");
   const sessionId = searchParams?.get("session_id") ?? null;
@@ -121,6 +132,35 @@ export default function MarketplaceItemPage() {
     run();
   }, [id, checkoutStatus, sessionId]);
 
+  // Fetch reviews
+  useEffect(() => {
+    if (!id) return;
+    fetch(`/api/marketplace/${id}/reviews`)
+      .then((r) => r.json())
+      .then((data: { averageRating?: number | null; totalReviews?: number }) => {
+        setReviews({
+          averageRating: data.averageRating ?? null,
+          totalReviews: data.totalReviews ?? 0,
+        });
+      })
+      .catch(() => {});
+  }, [id]);
+
+  // Check if item is in cart
+  useEffect(() => {
+    if (!isSignedIn || !id) {
+      setIsInCart(false);
+      return;
+    }
+    fetch("/api/cart", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data: { cart?: Array<{ marketplace_item_id: string }> }) => {
+        const cart = data.cart ?? [];
+        setIsInCart(cart.some((item) => item.marketplace_item_id === id));
+      })
+      .catch(() => setIsInCart(false));
+  }, [isSignedIn, id]);
+
   const handlePurchase = async () => {
     if (!item || item.price_cents <= 0) return;
     if (!isLoaded) return;
@@ -148,6 +188,57 @@ export default function MarketplaceItemPage() {
       setError("Something went wrong");
     }
     setPurchasing(false);
+  };
+
+  const handleAddToCart = async () => {
+    if (!item || item.price_cents <= 0 || item.purchased) return;
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      router.push(`/sign-in?redirect_url=${encodeURIComponent(`/marketplace/${id}`)}`);
+      return;
+    }
+    setAddingToCart(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/cart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ marketplace_item_id: item.id, quantity: 1 }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error ?? "Failed to add to cart");
+      } else {
+        setIsInCart(true);
+      }
+    } catch {
+      setError("Something went wrong");
+    } finally {
+      setAddingToCart(false);
+    }
+  };
+
+  const handleRemoveFromCart = async () => {
+    if (!item || !isSignedIn) return;
+    setAddingToCart(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/cart?item_id=${item.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error ?? "Failed to remove from cart");
+      } else {
+        setIsInCart(false);
+      }
+    } catch {
+      setError("Something went wrong");
+    } finally {
+      setAddingToCart(false);
+    }
   };
 
   const handleGetFree = async () => {
@@ -226,6 +317,15 @@ export default function MarketplaceItemPage() {
               {item.author && (
                 <p className="mt-1 text-muted-foreground">by {item.author}</p>
               )}
+              {reviews.totalReviews > 0 && reviews.averageRating !== null && (
+                <div className="mt-2 flex items-center gap-1">
+                  <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                  <span className="text-sm font-medium">{reviews.averageRating.toFixed(1)}</span>
+                  <span className="text-sm text-muted-foreground">
+                    ({reviews.totalReviews} review{reviews.totalReviews !== 1 ? "s" : ""})
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -276,14 +376,57 @@ export default function MarketplaceItemPage() {
                     {purchasing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Get for free"}
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={handlePurchase}
-                    disabled={purchasing}
-                    className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                  >
-                    {purchasing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Purchase"}
-                  </button>
+                  <>
+                    {isInCart ? (
+                      <button
+                        type="button"
+                        onClick={handleRemoveFromCart}
+                        disabled={addingToCart}
+                        className="rounded-lg border border-destructive/50 text-destructive px-4 py-2.5 text-sm font-medium hover:bg-destructive/10 disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {addingToCart ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <X className="h-4 w-4" />
+                            Remove from Cart
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleAddToCart}
+                        disabled={addingToCart}
+                        className="rounded-lg border border-border px-4 py-2.5 text-sm font-medium hover:bg-accent disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {addingToCart ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <ShoppingCart className="h-4 w-4" />
+                            Add to Cart
+                          </>
+                        )}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handlePurchase}
+                      disabled={purchasing}
+                      className="rounded-lg px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+                      style={{ background: `linear-gradient(to right, ${BRAND.gradientStart}, ${BRAND.gradientEnd})` }}
+                    >
+                      {purchasing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Zap className="h-4 w-4" />
+                          Buy Now
+                        </>
+                      )}
+                    </button>
+                  </>
                 )}
               </div>
             )}
