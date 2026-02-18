@@ -673,19 +673,19 @@ export default function AdminLawyersPage() {
       ) : (
         <div className="mt-6 rounded-lg border border-border overflow-hidden bg-card">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[800px]">
               <thead className="border-b border-border bg-muted/50">
                 <tr>
                   <th className="text-left p-3 font-medium w-14">Photo</th>
                   <th className="text-left p-3 font-medium">Name</th>
                   <th className="text-left p-3 font-medium">Country</th>
-                  <th className="text-left p-3 font-medium">Expertise</th>
-                  <th className="text-left p-3 font-medium">Languages</th>
-                  <th className="text-left p-3 font-medium">Email</th>
-                  <th className="text-left p-3 font-medium">Phone</th>
-                  <th className="text-left p-3 font-medium">Source</th>
+                  <th className="text-left p-3 font-medium max-w-[160px]">Expertise</th>
+                  <th className="text-left p-3 font-medium max-w-[140px]">Languages</th>
+                  <th className="text-left p-3 font-medium max-w-[160px]">Email</th>
+                  <th className="text-left p-3 font-medium max-w-[120px]">Phone</th>
+                  <th className="text-left p-3 font-medium w-20">Source</th>
                   <th className="text-left p-3 font-medium">Added</th>
-                  <th className="text-left p-3 font-medium w-20">Actions</th>
+                  <th className="text-left p-3 font-medium w-[100px] min-w-[100px] sticky right-0 bg-muted/50 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)] z-10">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -697,7 +697,7 @@ export default function AdminLawyersPage() {
                   </tr>
                 ) : (
                   lawyers.map((l) => (
-                    <tr key={l.id} className="border-b border-border hover:bg-muted/30">
+                    <tr key={l.id} className="group border-b border-border hover:bg-muted/30">
                       <td className="p-3">
                         {l.image_url ? (
                           <Image src={l.image_url} alt="" width={40} height={40} className="h-10 w-10 rounded-full object-cover border border-border" />
@@ -707,18 +707,18 @@ export default function AdminLawyersPage() {
                       </td>
                       <td className="p-3 font-medium">{l.name}</td>
                       <td className="p-3 text-muted-foreground">{l.country ?? "—"}</td>
-                      <td className="p-3 max-w-[200px] truncate" title={l.expertise}>{l.expertise}</td>
-                      <td className="p-3 max-w-[220px] truncate text-muted-foreground" title={
+                      <td className="p-3 max-w-[160px] truncate" title={l.expertise}>{l.expertise}</td>
+                      <td className="p-3 max-w-[140px] truncate text-muted-foreground" title={
                         [l.primary_language, l.other_languages].filter(Boolean).join(", ") || ""
                       }>
                         {l.primary_language || l.other_languages
                           ? [l.primary_language, l.other_languages].filter(Boolean).join(", ")
                           : "—"}
                       </td>
-                      <td className="p-3 max-w-[180px] truncate text-muted-foreground" title={l.email ?? ""}>
+                      <td className="p-3 max-w-[160px] truncate text-muted-foreground" title={l.email ?? ""}>
                         {l.email ?? "—"}
                       </td>
-                      <td className="p-3 max-w-[140px] truncate text-muted-foreground" title={l.phone ?? ""}>
+                      <td className="p-3 max-w-[120px] truncate text-muted-foreground" title={l.phone ?? ""}>
                         {l.phone ?? "—"}
                       </td>
                       <td className="p-3">
@@ -727,11 +727,11 @@ export default function AdminLawyersPage() {
                         </span>
                       </td>
                       <td className="p-3 text-muted-foreground">{formatDate(l.created_at)}</td>
-                      <td className="p-3 flex items-center gap-2">
+                      <td className="p-3 sticky right-0 bg-card group-hover:bg-muted/30 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)] z-10 flex items-center gap-1 shrink-0 w-[100px] min-w-[100px]">
                         <button
                           type="button"
                           onClick={() => openEdit(l)}
-                          className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                          className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground text-xs font-medium"
                           title="Edit lawyer"
                         >
                           Edit
