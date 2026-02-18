@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { ClerkProvider } from "@clerk/nextjs";
 import localFont from "next/font/local";
-import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
+import { LayoutWithSettings, LayoutWithSettingsFallback } from "@/components/platform/LayoutWithSettings";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -51,11 +51,9 @@ export default function RootLayout({
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
           <ThemeProvider>
-            <div className="flex min-h-screen flex-col">
-              <Header />
-              <div className="flex-1">{children}</div>
-              <Footer />
-            </div>
+            <Suspense fallback={<LayoutWithSettingsFallback>{children}</LayoutWithSettingsFallback>}>
+              <LayoutWithSettings>{children}</LayoutWithSettings>
+            </Suspense>
           </ThemeProvider>
         </body>
       </html>
