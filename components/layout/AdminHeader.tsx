@@ -6,6 +6,7 @@ import { UserButton } from "@clerk/nextjs";
 import { Menu, X, Shield } from "lucide-react";
 import { useState } from "react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { PlatformLogo } from "@/components/platform/PlatformLogo";
 import { userNavLinks } from "./nav-config";
 
 export function AdminHeader() {
@@ -29,8 +30,8 @@ export function AdminHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background">
       <div className="flex h-14 items-center justify-between px-4">
-        <Link href="/" className="font-semibold">
-          Yamalé
+        <Link href="/" className="font-semibold flex items-center">
+          <PlatformLogo height={44} width={160} className="h-11" />
         </Link>
 
         {/* Desktop nav */}
