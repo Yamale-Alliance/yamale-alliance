@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Pencil, X } from "lucide-react";
+import { Loader2, Pencil, X, DollarSign, Sparkles } from "lucide-react";
 
 type Plan = {
   id: string;
@@ -82,47 +82,62 @@ export default function AdminPricingPage() {
 
   return (
     <div className="p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold">Pricing</h1>
-      <p className="mt-1 text-muted-foreground">
-        Edit plan names, prices, and features. Changes appear on the public pricing page.
-      </p>
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <DollarSign className="h-5 w-5" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Pricing</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Edit plan names, prices, and features. Changes appear on the public pricing page.
+          </p>
+        </div>
+      </div>
 
       {loading ? (
-        <div className="mt-8 flex justify-center">
+        <div className="mt-10 flex justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="mt-6 space-y-4">
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {plans.map((plan) => (
             <div
               key={plan.id}
-              className="rounded-lg border border-border bg-card p-4"
+              className={`relative flex flex-col rounded-2xl border bg-card p-5 shadow-sm transition-all hover:shadow-md ${
+                plan.highlighted
+                  ? "border-primary/50 bg-primary/[0.03] ring-1 ring-primary/20"
+                  : "border-border"
+              }`}
             >
-              <div className="flex items-center justify-between">
+              {plan.highlighted && (
+                <div className="absolute -top-2.5 right-4 flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground shadow-sm">
+                  <Sparkles className="h-3 w-3" />
+                  Popular
+                </div>
+              )}
+              <div className="flex items-start justify-between gap-2">
                 <div>
-                  <span className="font-medium">{plan.name}</span>
-                  <span className="ml-2 text-muted-foreground text-sm">({plan.slug})</span>
-                  {plan.highlighted && (
-                    <span className="ml-2 rounded bg-primary/20 px-1.5 py-0.5 text-xs font-medium text-primary">
-                      Highlighted
-                    </span>
-                  )}
+                  <h2 className="text-lg font-semibold tracking-tight text-foreground">{plan.name}</h2>
+                  <p className="mt-0.5 text-xs text-muted-foreground">({plan.slug})</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setEditing(plan)}
-                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:border-primary/30"
                 >
-                  <Pencil className="h-4 w-4" />
+                  <Pencil className="h-3.5 w-3.5" />
                   Edit
                 </button>
               </div>
-              <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-muted-foreground md:grid-cols-4">
-                <span>${plan.price_monthly}/mo</span>
-                <span>${plan.price_annual_per_month}/mo annual</span>
-                <span>${plan.price_annual_total}/yr</span>
-                <span>{plan.cta}</span>
+              <div className="mt-4 flex items-baseline gap-1">
+                <span className="text-2xl font-bold tracking-tight text-foreground">${plan.price_monthly}</span>
+                <span className="text-sm text-muted-foreground">/mo</span>
               </div>
+              <ul className="mt-4 space-y-1.5 text-xs text-muted-foreground">
+                <li>${plan.price_annual_per_month}/mo billed annually</li>
+                <li>${plan.price_annual_total}/yr total</li>
+                <li className="pt-1 font-medium text-foreground">{plan.cta}</li>
+              </ul>
             </div>
           ))}
         </div>
@@ -135,7 +150,7 @@ export default function AdminPricingPage() {
             aria-hidden
             onClick={() => setEditing(null)}
           />
-          <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-background p-6 shadow-xl">
+          <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Edit {editing.name}</h2>
               <button
