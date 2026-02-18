@@ -24,8 +24,8 @@ function HeaderNavSkeleton() {
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background">
       <div className="flex h-14 items-center justify-between px-4">
-        <Link href="/" className="font-semibold">
-          Yamalé
+        <Link href="/" className="font-semibold flex items-center">
+          <span>Yamalé</span>
         </Link>
         <nav className="hidden items-center gap-4 lg:flex">
           {userNavLinks.map(({ href, label }) => (
