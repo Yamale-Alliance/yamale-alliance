@@ -239,6 +239,44 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["lawyer_search_unlocks"]["Insert"]>;
       };
+      lawyer_search_unlock_grants: {
+        Row: {
+          id: string;
+          user_id: string;
+          lawyer_ids: Json;
+          expires_at: string;
+          stripe_session_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          lawyer_ids: Json;
+          expires_at: string;
+          stripe_session_id?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["lawyer_search_unlock_grants"]["Insert"]>;
+      };
+      platform_settings: {
+        Row: {
+          id: string;
+          logo_url: string | null;
+          favicon_url: string | null;
+          hero_image_url: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          logo_url?: string | null;
+          favicon_url?: string | null;
+          hero_image_url?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["platform_settings"]["Insert"]>;
+      };
       ai_usage: {
         Row: {
           user_id: string;
