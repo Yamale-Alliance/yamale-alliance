@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { getUnlockedLawyerIds, getUnlockedLawyerIdsFromSearchCriteria, getUnlockedLawyerIdsFromSearchGrants } from "@/lib/unlocks";
 
 /** GET: fetch reviews for a lawyer */
 export async function GET(
@@ -67,26 +68,16 @@ export async function POST(
       return NextResponse.json({ error: "rating must be between 1 and 5" }, { status: 400 });
     }
 
-    // Check if user has unlocked this lawyer (for verified review)
+    // Check if user has unlocked this lawyer (per-lawyer, legacy criteria, or 30-day search grant)
+    const [perLawyerIds, criteriaIds, grantIds] = await Promise.all([
+      getUnlockedLawyerIds(userId),
+      getUnlockedLawyerIdsFromSearchCriteria(userId),
+      getUnlockedLawyerIdsFromSearchGrants(userId),
+    ]);
+    const unlockedSet = new Set([...perLawyerIds, ...criteriaIds, ...grantIds]);
+    const isVerified = unlockedSet.has(id);
+
     const supabase = getSupabaseServer();
-    const { data: unlockData } = await supabase
-      .from("lawyer_unlocks")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("lawyer_id", id)
-      .maybeSingle();
-
-    const { data: searchUnlockData } = await supabase
-      .from("lawyer_search_unlocks")
-      .select("id")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    // Also check day pass
-    // Note: We'd need to check day pass expiry, but for simplicity, assume if they can review, they had access
-
-    const isVerified = Boolean(unlockData || searchUnlockData);
-
     const { data, error } = await (supabase.from("lawyer_reviews") as any).upsert(
       {
         lawyer_id: id,
