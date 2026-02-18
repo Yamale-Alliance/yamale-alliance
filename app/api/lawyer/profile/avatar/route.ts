@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 
-const BUCKET = "lawyer-avatars";
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 const MAX_MB = 2;
 
-/** POST: upload profile picture. Body: multipart form with file (image). */
+/** POST: upload profile picture. Body: multipart form with file (image). Stored in Cloudinary. */
 export async function POST(request: NextRequest) {
   const { userId } = await auth();
   if (!userId) {
@@ -33,59 +33,33 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `File must be under ${MAX_MB} MB` }, { status: 400 });
   }
 
-  const supabase = getSupabaseServer();
-  const ext = file.name.toLowerCase().endsWith(".webp")
-    ? ".webp"
-    : file.name.toLowerCase().endsWith(".png")
-      ? ".png"
-      : ".jpg";
-  const storagePath = `${userId}${ext}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
-
-  let uploadError: { message?: string } | null = null;
-  const { error: e1 } = await supabase.storage
-    .from(BUCKET)
-    .upload(storagePath, buffer, { contentType: file.type, upsert: true });
-  uploadError = e1;
-  if (uploadError && (uploadError.message?.includes("Bucket not found") || uploadError.message?.includes("404"))) {
-    try {
-      await supabase.storage.createBucket(BUCKET, { public: true });
-    } catch {
-      // ignore
+  try {
+    const publicId = `lawyer-avatar-${userId}`;
+    const { secure_url: avatarUrl } = await uploadToCloudinary(file, "lawyer-avatars", publicId);
+    const now = new Date().toISOString();
+    const supabase = getSupabaseServer();
+    const { data: updated, error: updateError } = await (supabase.from("lawyer_profiles") as any)
+      .update({ avatar_url: avatarUrl, updated_at: now })
+      .eq("user_id", userId)
+      .select("user_id");
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
-    const { error: e2 } = await supabase.storage
-      .from(BUCKET)
-      .upload(storagePath, buffer, { contentType: file.type, upsert: true });
-    uploadError = e2;
-  }
-  if (uploadError) {
-    console.error("Lawyer avatar upload error:", uploadError);
-    return NextResponse.json({ error: uploadError.message ?? "Upload failed" }, { status: 500 });
-  }
-
-  const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
-  const avatarUrl = urlData?.publicUrl ?? null;
-  if (!avatarUrl) {
-    return NextResponse.json({ error: "Failed to get image URL" }, { status: 500 });
-  }
-
-  const now = new Date().toISOString();
-  const { data: updated, error: updateError } = await (supabase.from("lawyer_profiles") as any)
-    .update({ avatar_url: avatarUrl, updated_at: now })
-    .eq("user_id", userId)
-    .select("user_id");
-  if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
-  }
-  if (!updated?.length) {
-    const { error: insertError } = await (supabase.from("lawyer_profiles") as any).upsert(
-      { user_id: userId, avatar_url: avatarUrl, practice: "", updated_at: now },
-      { onConflict: "user_id" }
+    if (!updated?.length) {
+      const { error: insertError } = await (supabase.from("lawyer_profiles") as any).upsert(
+        { user_id: userId, avatar_url: avatarUrl, practice: "", updated_at: now },
+        { onConflict: "user_id" }
+      );
+      if (insertError) {
+        return NextResponse.json({ error: insertError.message }, { status: 500 });
+      }
+    }
+    return NextResponse.json({ ok: true, avatarUrl });
+  } catch (err) {
+    console.error("Lawyer avatar upload error:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Upload failed" },
+      { status: 500 }
     );
-    if (insertError) {
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
-    }
   }
-
-  return NextResponse.json({ ok: true, avatarUrl });
 }
