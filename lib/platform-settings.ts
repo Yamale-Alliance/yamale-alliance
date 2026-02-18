@@ -46,9 +46,18 @@ export async function getPlatformSettings(): Promise<{ logoUrl: string | null; f
       .eq("id", "main")
       .single();
 
-    if (error && error.code !== "PGRST116") {
-      console.error("Platform settings error:", error);
-      return { logoUrl: null, faviconUrl: null, heroImageUrl: null };
+    // Handle errors: PGRST116 is "not found" (expected if no settings exist yet)
+    // Empty error object {} also indicates "not found" - treat as non-error
+    if (error) {
+      const isNotFound = error.code === "PGRST116" || 
+                         (typeof error === "object" && Object.keys(error).length === 0);
+      
+      if (!isNotFound) {
+        // Only log actual errors, not "not found" cases
+        console.error("Platform settings error:", error);
+        return { logoUrl: null, faviconUrl: null, heroImageUrl: null };
+      }
+      // If not found, continue with null values (default behavior)
     }
 
     const row = data as { logo_url?: string | null; favicon_url?: string | null; hero_image_url?: string | null } | null;
