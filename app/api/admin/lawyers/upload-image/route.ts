@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin";
-import { getSupabaseServer } from "@/lib/supabase/server";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 
-const BUCKET = "lawyer-avatars";
-const PREFIX = "directory/";
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 const MAX_MB = 2;
 
-/** POST: upload a lawyer directory photo. Admin only. Returns { url }. */
+/** POST: upload a lawyer directory photo. Admin only. Returns { url }. Stored in Cloudinary. */
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin();
   if (admin instanceof NextResponse) return admin;
@@ -32,40 +30,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `File must be under ${MAX_MB} MB` }, { status: 400 });
   }
 
-  const supabase = getSupabaseServer();
-  const ext = file.name.toLowerCase().endsWith(".webp")
-    ? ".webp"
-    : file.name.toLowerCase().endsWith(".png")
-      ? ".png"
-      : ".jpg";
-  const storagePath = `${PREFIX}${crypto.randomUUID()}${ext}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
-
-  let uploadError: { message?: string } | null = null;
-  const { error: e1 } = await supabase.storage
-    .from(BUCKET)
-    .upload(storagePath, buffer, { contentType: file.type, upsert: true });
-  uploadError = e1;
-  if (uploadError && (uploadError.message?.includes("Bucket not found") || uploadError.message?.includes("404"))) {
-    try {
-      await supabase.storage.createBucket(BUCKET, { public: true });
-    } catch {
-      // ignore
-    }
-    const { error: e2 } = await supabase.storage
-      .from(BUCKET)
-      .upload(storagePath, buffer, { contentType: file.type, upsert: true });
-    uploadError = e2;
+  try {
+    const { secure_url } = await uploadToCloudinary(file, "lawyer-directory");
+    return NextResponse.json({ url: secure_url });
+  } catch (err) {
+    console.error("Lawyer directory image upload error:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Upload failed" },
+      { status: 500 }
+    );
   }
-  if (uploadError) {
-    console.error("Lawyer directory image upload error:", uploadError);
-    return NextResponse.json({ error: uploadError.message ?? "Upload failed" }, { status: 500 });
-  }
-
-  const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
-  const url = urlData?.publicUrl ?? null;
-  if (!url) {
-    return NextResponse.json({ error: "Failed to get image URL" }, { status: 500 });
-  }
-  return NextResponse.json({ url });
 }
