@@ -236,150 +236,206 @@ export default function LawyersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-background">
+    <div className="min-h-screen bg-background">
       {confirmingPayment && (
         <div className="border-b border-border bg-primary/10 px-4 py-3">
-          <div className="max-w-7xl mx-auto flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="mx-auto flex max-w-7xl items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Confirming payment…
           </div>
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2" style={{ color: BRAND.dark }}>
-            Legal Professional Directory
-          </h1>
-          <p className="text-muted-foreground">Find verified lawyers across Africa</p>
+      {/* Hero */}
+      <section className="relative overflow-hidden border-b border-border/40 bg-gradient-to-b from-muted/25 via-background to-background">
+        <div
+          className="pointer-events-none absolute -top-40 left-1/2 h-[420px] w-[760px] -translate-x-1/2 rounded-full opacity-[0.22] blur-[110px] dark:opacity-30"
+          style={{ background: "radial-gradient(circle, var(--primary) 0%, transparent 70%)" }}
+        />
+        <div
+          className="pointer-events-none absolute -bottom-40 right-[-10%] h-80 w-80 rounded-full opacity-[0.16] blur-[90px] dark:opacity-25"
+          style={{ background: "radial-gradient(circle, var(--accent) 0%, transparent 70%)" }}
+        />
+        <div className="relative mx-auto max-w-7xl px-4 pt-10 pb-20 sm:px-6 lg:px-8 sm:pt-14">
+          <div className="max-w-2xl">
+            <p className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/90 backdrop-blur">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+              Verified African lawyers
+            </p>
+            <h1 className="heading mt-5 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-[2.5rem]">
+              Find counsel anywhere in Africa.
+            </h1>
+            <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+              Search by country and practice area to locate vetted lawyers and firms for cross-border work,
+              AfCFTA matters, and local transactions.
+            </p>
+          </div>
         </div>
+      </section>
 
-        {/* Search: what type of lawyer are you looking for? */}
-        <div className="bg-white dark:bg-card rounded-lg shadow-md border border-border p-6 mb-6">
-          <h2 className="text-2xl font-bold mb-2" style={{ color: BRAND.dark }}>
-            What type of lawyer are you looking for?
-          </h2>
-          <p className="text-muted-foreground text-sm mb-6">
-            Choose <strong>country</strong> and <strong>practice area</strong> (required), then search. One search costs ${SEARCH_PRICE} and unlocks the lawyers in this search. New lawyers added later require another payment.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: BRAND.medium }}>
-                Location (Country)
-              </label>
-              <select
-                className="w-full border border-input rounded-lg px-4 py-2 bg-background focus:outline-none focus:ring-2"
-                style={{ focusRingColor: BRAND.gradientEnd } as React.CSSProperties}
-                value={selectedCountry}
-                onChange={(e) => setSelectedCountry(e.target.value)}
-              >
-                <option value="all">All Countries</option>
-                {AFRICAN_COUNTRIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+      {/* Filters + results */}
+      <section className="-mt-10 pb-16">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          {/* Search filters card */}
+          <div className="mb-8 rounded-2xl border border-border/70 bg-card/95 p-5 shadow-lg shadow-primary/10 backdrop-blur-xl sm:p-6">
+            <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+              <div className="max-w-xl">
+                <h2 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
+                  What type of lawyer are you looking for?
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                  Choose <strong>country</strong> and <strong>practice area</strong> (required). One search costs ${SEARCH_PRICE} and
+                  unlocks contact details for all matching lawyers.
+                </p>
+              </div>
+              <div className="hidden text-xs text-muted-foreground md:block">
+                <span className="rounded-full bg-muted px-3 py-1 font-medium text-foreground">
+                  ${SEARCH_PRICE} per search
+                </span>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: BRAND.medium }}>
-                Search (name or expertise)
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Lagos, Corporate..."
-                className="w-full border border-input rounded-lg px-4 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-0"
-                value={selectedCity}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedCity(e.target.value)}
-              />
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 mb-4">
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground/90">
+                  Location (Country)
+                </label>
+                <select
+                  className="w-full rounded-xl border border-input bg-background/90 px-3 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-primary focus:ring-2 focus:ring-primary/40"
+                  value={selectedCountry}
+                  onChange={(e) => setSelectedCountry(e.target.value)}
+                >
+                  <option value="all">All countries</option>
+                  {AFRICAN_COUNTRIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground/90">
+                  Search (name or expertise)
+                </label>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="e.g. Lagos, corporate, arbitration…"
+                    className="w-full rounded-xl border border-input bg-background/90 px-10 py-2.5 text-sm shadow-sm outline-none ring-0 transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/40"
+                    value={selectedCity}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedCity(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground/90">
+                  Area of expertise <span className="text-destructive">*</span>
+                </label>
+                <select
+                  className="w-full rounded-xl border border-input bg-background/90 px-3 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-primary focus:ring-2 focus:ring-primary/40"
+                  value={selectedExpertise}
+                  onChange={(e) => setSelectedExpertise(e.target.value)}
+                >
+                  <option value="all">All practice areas</option>
+                  {expertiseList.map((e) => (
+                    <option key={e} value={e}>
+                      {e}
+                    </option>
+                  ))}
+                  {expertiseList.length === 0 &&
+                    EXPERTISE_OPTIONS.slice(1).map((e) => (
+                      <option key={e} value={e}>
+                        {e}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground/90">
+                  Language
+                </label>
+                <select
+                  className="w-full rounded-xl border border-input bg-background/90 px-3 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-primary focus:ring-2 focus:ring-primary/40"
+                  value={selectedLanguage}
+                  onChange={(e) => setSelectedLanguage(e.target.value)}
+                >
+                  {LANGUAGE_OPTIONS.map((lang) => (
+                    <option key={lang} value={lang === "All Languages" ? "all" : lang}>
+                      {lang}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: BRAND.medium }}>
-                Area of Expertise <span className="text-destructive">*</span>
-              </label>
-              <select
-                className="w-full border border-input rounded-lg px-4 py-2 bg-background focus:outline-none focus:ring-2"
-                value={selectedExpertise}
-                onChange={(e) => setSelectedExpertise(e.target.value)}
+            {expertiseRequired && (
+              <p className="mb-2 text-xs text-amber-700 dark:text-amber-400">
+                Please select a practice area. Country + practice area are required so your ${SEARCH_PRICE} unlock
+                applies to a specific search.
+              </p>
+            )}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <button
+                type="button"
+                onClick={runSearch}
+                disabled={expertiseRequired}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[rgba(154,99,42,0.95)] to-[rgba(193,140,67,0.95)] px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
-                <option value="all">All Practice Areas</option>
-                {expertiseList.map((e) => (
-                  <option key={e} value={e}>{e}</option>
-                ))}
-                {expertiseList.length === 0 && EXPERTISE_OPTIONS.slice(1).map((e) => (
-                  <option key={e} value={e}>{e}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: BRAND.medium }}>
-                Language
-              </label>
-              <select
-                className="w-full border border-input rounded-lg px-4 py-2 bg-background focus:outline-none focus:ring-2"
-                value={selectedLanguage}
-                onChange={(e) => setSelectedLanguage(e.target.value)}
+                <Search className="h-4 w-4" />
+                Search directory
+              </button>
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-border/70 bg-background/80 px-4 py-2 text-xs font-medium text-muted-foreground transition hover:border-primary/60 hover:bg-primary/5 hover:text-foreground sm:text-sm"
               >
-                {LANGUAGE_OPTIONS.map((lang) => (
-                  <option key={lang} value={lang === "All Languages" ? "all" : lang}>{lang}</option>
-                ))}
-              </select>
+                Clear filters
+              </button>
             </div>
           </div>
-          {expertiseRequired && (
-            <p className="text-sm text-amber-700 dark:text-amber-400 mb-2">
-              Please select a practice area to search. Country + practice area are required so your $5 unlock applies to a specific search.
-            </p>
+
+          {/* Before search: prompt user to enter criteria */}
+          {!hasSearched && (
+            <div className="rounded-2xl border border-dashed border-border/80 bg-card/90 p-8 text-center shadow-sm">
+              <p className="text-sm text-muted-foreground">
+                Select <strong>country</strong> and <strong>practice area</strong>, then click{" "}
+                <strong>Search directory</strong> to see matching lawyers.
+              </p>
+            </div>
           )}
-          <button
-            type="button"
-            onClick={runSearch}
-            disabled={expertiseRequired}
-            className="w-full text-white py-3 rounded-lg font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ background: `linear-gradient(to right, ${BRAND.gradientStart}, ${BRAND.gradientEnd})` }}
-          >
-            <Search className="w-5 h-5" />
-            Search
-          </button>
-        </div>
-
-        {/* Before search: prompt user to enter criteria */}
-        {!hasSearched && (
-          <div className="rounded-lg border border-border bg-card p-8 text-center">
-            <p className="text-muted-foreground">
-              Select <strong>country</strong> and <strong>practice area</strong> (required), then click <strong>Search</strong> to find lawyers.
-            </p>
-          </div>
-        )}
 
         {/* Pay $5 for this search — show when user has searched with a specific expertise, there are results, and at least one is locked */}
         {hasSearched && selectedExpertise !== "all" && filteredLawyers.length > 0 && (() => {
           const allUnlocked = filteredLawyers.every((l) => isUnlocked(l.id));
           if (allUnlocked) {
             return (
-              <div className="mb-6 rounded-lg border border-green-200 dark:border-green-500/30 bg-green-50 dark:bg-green-500/10 px-4 py-3 text-sm text-green-800 dark:text-green-200">
+              <div className="mb-6 rounded-xl border border-green-200 dark:border-green-500/30 bg-green-50 dark:bg-green-500/10 px-4 py-3 text-sm text-green-800 dark:text-green-200">
                 You have full access to all {filteredLawyers.length} lawyer{filteredLawyers.length !== 1 ? "s" : ""} in this search.
               </div>
             );
           }
           return (
-            <div className="mb-6 bg-white dark:bg-card rounded-lg shadow border border-border p-4 flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="font-semibold text-foreground">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border/80 bg-card/95 p-5 shadow-sm">
+              <div className="max-w-xl">
+                <p className="text-sm font-semibold text-foreground">
                   {filteredLawyers.length} lawyer{filteredLawyers.length !== 1 ? "s" : ""} match your criteria.
                 </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Pay ${SEARCH_PRICE} to unlock the {filteredLawyers.length} lawyer{filteredLawyers.length !== 1 ? "s" : ""} in this search ({selectedCountry === "all" ? "All countries" : selectedCountry} + {selectedExpertise}). Only lawyers shown here are included; new lawyers added later require another payment.
+                <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                  Pay ${SEARCH_PRICE} to unlock contact details for all{" "}
+                  {filteredLawyers.length} lawyer{filteredLawyers.length !== 1 ? "s" : ""} in this search (
+                  {selectedCountry === "all" ? "All countries" : selectedCountry} + {selectedExpertise}). New
+                  lawyers added later require another search.
                 </p>
               </div>
               <div className="flex flex-col items-end gap-2">
-                {searchPayError && <p className="text-sm text-red-600">{searchPayError}</p>}
+                {searchPayError && <p className="text-xs text-red-600 sm:text-sm">{searchPayError}</p>}
                 <button
                   type="button"
                   onClick={handlePayForSearch}
                   disabled={searchPayLoading}
-                  className="text-white px-6 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition disabled:opacity-60"
-                  style={{ background: `linear-gradient(to right, ${BRAND.gradientStart}, ${BRAND.gradientEnd})` }}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[rgba(154,99,42,0.95)] to-[rgba(193,140,67,0.95)] px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-105 disabled:opacity-60"
                 >
-                  {searchPayLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
-                  Pay ${SEARCH_PRICE} & see all {filteredLawyers.length} results
+                  {searchPayLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Pay ${SEARCH_PRICE} & unlock all
                 </button>
               </div>
             </div>
@@ -387,24 +443,27 @@ export default function LawyersPage() {
         })()}
 
         {hasSearched && (
-          <div className="mb-4 text-muted-foreground">
-            Showing {filteredLawyers.length} verified lawyer{filteredLawyers.length !== 1 ? "s" : ""}
+          <div className="mb-4 text-xs text-muted-foreground">
+            Showing{" "}
+            <span className="font-semibold text-foreground">
+              {filteredLawyers.length} verified lawyer{filteredLawyers.length !== 1 ? "s" : ""}
+            </span>
           </div>
         )}
 
         {loading ? (
-          <div className="flex justify-center py-12">
+          <div className="flex justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : !hasSearched ? null : filteredLawyers.length === 0 ? (
-          <div className="bg-white dark:bg-card rounded-lg shadow border border-border p-12 text-center">
-            <div className="text-6xl mb-4">🔍</div>
-            <h3 className="text-2xl font-bold mb-2" style={{ color: BRAND.medium }}>
+          <div className="rounded-2xl border border-dashed border-border/80 bg-card/90 p-12 text-center shadow-sm">
+            <div className="mb-4 text-5xl">🔍</div>
+            <h3 className="text-xl font-semibold text-foreground">
               {selectedCountry !== "all"
                 ? "No lawyers from this country yet"
                 : "No lawyers found"}
             </h3>
-            <p className="text-muted-foreground mb-6">
+            <p className="mt-2 text-sm text-muted-foreground">
               {selectedCountry !== "all"
                 ? `We don't have any lawyers from ${selectedCountry} in our directory yet. Try another country or check back later.`
                 : "Try adjusting your search filters to see more results."}
@@ -412,14 +471,13 @@ export default function LawyersPage() {
             <button
               type="button"
               onClick={clearFilters}
-              className="px-6 py-2 rounded-lg font-semibold border-2"
-              style={{ borderColor: BRAND.gradientEnd, color: BRAND.medium }}
+              className="mt-6 inline-flex items-center justify-center rounded-xl border border-primary/70 bg-primary/10 px-6 py-2.5 text-sm font-semibold text-foreground transition hover:border-primary hover:bg-primary/20"
             >
-              Clear Filters
+              Reset search
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             {filteredLawyers.map((lawyer) => {
               const unlocked = isUnlocked(lawyer.id);
               const contacts = contactsByLawyer[lawyer.id];
@@ -430,12 +488,13 @@ export default function LawyersPage() {
               return (
                 <div
                   key={lawyer.id}
-                  className="bg-white dark:bg-card rounded-lg shadow border border-border hover:shadow-lg transition overflow-hidden"
+                  className="group overflow-hidden rounded-2xl border border-border/70 bg-card/95 shadow-sm shadow-border/40 transition hover:-translate-y-1 hover:border-primary/70 hover:shadow-lg hover:shadow-primary/20"
                 >
-                  <div className="p-6">
+                  <div className="h-1 w-full bg-gradient-to-r from-[rgba(193,140,67,0.9)] via-[rgba(227,186,101,0.95)] to-[rgba(154,99,42,0.9)] opacity-80" />
+                  <div className="p-5">
                     <div className="flex items-start gap-4">
                       <div
-                        className="w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-bold flex-shrink-0 overflow-hidden relative"
+                        className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-full text-lg font-bold text-white shadow-sm shadow-primary/40"
                         style={{ background: `linear-gradient(to bottom right, ${BRAND.gradientEnd}, ${BRAND.gradientStart})` }}
                       >
                         {unlocked && lawyer.imageUrl ? (
@@ -451,28 +510,32 @@ export default function LawyersPage() {
                           initials
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 flex flex-wrap items-center gap-2">
                           {unlocked ? (
-                            <h3 className="text-xl font-bold text-foreground">{lawyer.name}</h3>
+                            <h3 className="truncate text-sm font-semibold text-foreground sm:text-base">
+                              {lawyer.name}
+                            </h3>
                           ) : (
-                            <h3 className="text-xl font-bold text-muted-foreground">{initialsDisplay}</h3>
+                            <h3 className="truncate text-sm font-semibold text-muted-foreground sm:text-base">
+                              {initialsDisplay}
+                            </h3>
                           )}
-                          <span className="bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-xs px-2 py-0.5 rounded-full font-semibold">
+                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
                             Verified
                           </span>
                         </div>
-                        <div className="text-muted-foreground">
-                          {unlocked ? lawyer.expertise : "Practice area • Details hidden until unlock"}
+                        <div className="text-xs text-muted-foreground sm:text-sm">
+                          {unlocked ? lawyer.expertise : "Practice area · details hidden until unlock"}
                         </div>
-                        <div className="text-sm text-muted-foreground mt-1">
+                        <div className="mt-1 text-xs text-muted-foreground">
                           📍 {lawyer.country}
                         </div>
                         <div className="flex items-center gap-1 mt-2">
-                          <Star className="w-5 h-5 text-yellow-500 fill-current" />
+                          <Star className="h-4 w-4 fill-current text-yellow-500" />
                           {reviewsByLawyer[lawyer.id]?.totalReviews > 0 ? (
                             <>
-                              <span className="font-bold text-foreground">
+                              <span className="text-sm font-semibold text-foreground">
                                 {reviewsByLawyer[lawyer.id].averageRating.toFixed(1)}
                               </span>
                               <span className="text-sm text-muted-foreground">
@@ -489,11 +552,11 @@ export default function LawyersPage() {
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-2 mb-3">
+                    <div className="mb-3 flex flex-wrap gap-2">
                       {expertiseTags.map((exp, i) => (
                         <span
                           key={i}
-                          className="text-xs px-3 py-1 rounded-full font-medium"
+                          className="rounded-full px-3 py-1 text-[11px] font-medium"
                           style={{ backgroundColor: "rgba(227, 186, 101, 0.2)", color: BRAND.medium }}
                         >
                           {exp}
@@ -501,20 +564,31 @@ export default function LawyersPage() {
                       ))}
                     </div>
 
-                    <div className="bg-muted/30 border-2 border-dashed rounded-lg p-4 mb-4" style={{ borderColor: unlocked ? "#10b981" : BRAND.gradientEnd }}>
+                    <div
+                      className="mb-4 rounded-xl border-2 border-dashed bg-muted/30 p-4"
+                      style={{ borderColor: unlocked ? "#10b981" : BRAND.gradientEnd }}
+                    >
                       <div className="flex items-center gap-3 mb-3">
                         <span className="text-2xl">{unlocked ? "🔓" : "🔒"}</span>
                         <div className="flex-1">
                           {unlocked ? (
-                            <>
-                              <div className="font-semibold text-green-700 dark:text-green-400">Contact Information Unlocked</div>
-                              <div className="text-sm text-muted-foreground">You have full access to contact details</div>
-                            </>
+                            <div>
+                              <div className="text-sm font-semibold text-green-700 dark:text-green-400">
+                                Contact information unlocked
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                You have full access to contact details.
+                              </div>
+                            </div>
                           ) : (
-                            <>
-                              <div className="font-semibold" style={{ color: BRAND.medium }}>Contact Information Locked</div>
-                              <div className="text-sm text-muted-foreground">Pay $5 for this search above to view all contact details</div>
-                            </>
+                            <div>
+                              <div className="text-sm font-semibold" style={{ color: BRAND.medium }}>
+                                Contact information locked
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Pay ${SEARCH_PRICE} for this search above to view contact details.
+                              </div>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -563,13 +637,13 @@ export default function LawyersPage() {
                     </div>
 
                     {unlocked ? (
-                      <div className="w-full px-6 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 bg-green-50 dark:bg-green-500/10 border-2 border-green-300 dark:border-green-500/50 text-green-700 dark:text-green-400">
+                      <div className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-green-300 bg-green-50 px-6 py-3 text-sm font-semibold text-green-700 dark:border-green-500/50 dark:bg-green-500/10 dark:text-green-400">
                         <span className="text-lg">✓</span>
                         Full Access Granted
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground text-center py-2">
-                        Unlock all results for this search with one $5 payment above.
+                      <p className="py-2 text-center text-xs text-muted-foreground sm:text-sm">
+                        Unlock all results for this search with a single ${SEARCH_PRICE} payment above.
                       </p>
                     )}
                   </div>
@@ -580,11 +654,14 @@ export default function LawyersPage() {
         )}
 
         {lawyers.length > 0 && (
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            <strong>$5 per search</strong> (country + practice area). Access to the lawyers in that search; new lawyers added later require another payment. Different country or practice area = new $5 search. Secure payment via Stripe.
+          <p className="mt-8 text-center text-xs text-muted-foreground sm:text-sm">
+            <strong>${SEARCH_PRICE} per search</strong> (country + practice area). Your payment unlocks contact details
+            for the lawyers in that search. Different country or practice area = a new search. Payments are processed
+            securely via Stripe.
           </p>
         )}
-      </div>
+        </div>
+      </section>
     </div>
   );
 }
