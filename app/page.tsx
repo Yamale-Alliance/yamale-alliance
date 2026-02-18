@@ -1,25 +1,50 @@
 import Link from "next/link";
+import Image from "next/image";
 import { auth } from "@clerk/nextjs/server";
 import { BookOpen, FileCheck, Search, Scale, ShoppingBag } from "lucide-react";
+import { PlatformLogo } from "@/components/platform/PlatformLogo";
+import { getPlatformSettings } from "@/lib/platform-settings";
+
+// Always fetch fresh so hero image is correct when navigating from admin (no stale RSC cache)
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const { userId } = await auth();
   const isSignedIn = !!userId;
+  const { heroImageUrl } = await getPlatformSettings();
 
   return (
     <div className="min-h-screen">
-      {/* Hero */}
-      <section className="mx-auto max-w-5xl px-4 py-20 text-center sm:py-28">
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
+      {/* Hero — compact so intro + CTAs fit without pushing header/profile down */}
+      <section className="mx-auto max-w-5xl px-4 py-10 text-center sm:py-14 md:py-16">
+        <div className="mb-6 flex justify-center sm:mb-8">
+          <Link href="/" className="inline-block">
+            {heroImageUrl ? (
+              <span className="relative block w-full max-w-[280px] sm:max-w-[360px] md:max-w-[400px]">
+                <Image
+                  src={heroImageUrl}
+                  alt="Yamale"
+                  width={400}
+                  height={225}
+                  className="h-auto w-full object-contain"
+                  priority
+                />
+              </span>
+            ) : (
+              <PlatformLogo height={80} width={260} className="h-16 w-auto max-w-[260px] sm:h-20 sm:max-w-[300px]" />
+            )}
+          </Link>
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl lg:text-[2.5rem]">
           African law,{" "}
           <span className="text-primary">accessible and verifiable</span>
         </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
+        <p className="mx-auto mt-4 max-w-2xl text-sm text-muted-foreground sm:text-base sm:mt-5">
           Yamalé Legal Platform is your trusted source for African national and
           regional law, AfCFTA compliance tools, and AI-powered legal research
           grounded in verified sources.
         </p>
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3 sm:mt-8 sm:gap-4">
           {isSignedIn ? (
             <>
               <Link
