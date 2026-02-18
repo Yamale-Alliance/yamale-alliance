@@ -259,7 +259,7 @@ export default function LawyersPage() {
             What type of lawyer are you looking for?
           </h2>
           <p className="text-muted-foreground text-sm mb-6">
-            Choose <strong>country</strong> and <strong>practice area</strong> (required), then search. One search costs ${SEARCH_PRICE} and unlocks that combination forever — including any lawyers added later.
+            Choose <strong>country</strong> and <strong>practice area</strong> (required), then search. One search costs ${SEARCH_PRICE} and unlocks the lawyers in this search. New lawyers added later require another payment.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             <div>
@@ -366,7 +366,7 @@ export default function LawyersPage() {
                   {filteredLawyers.length} lawyer{filteredLawyers.length !== 1 ? "s" : ""} match your criteria.
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Pay ${SEARCH_PRICE} once to unlock this search forever ({selectedCountry === "all" ? "All countries" : selectedCountry} + {selectedExpertise}). You&apos;ll keep access even when we add more lawyers matching this criteria.
+                  Pay ${SEARCH_PRICE} to unlock the {filteredLawyers.length} lawyer{filteredLawyers.length !== 1 ? "s" : ""} in this search ({selectedCountry === "all" ? "All countries" : selectedCountry} + {selectedExpertise}). Only lawyers shown here are included; new lawyers added later require another payment.
                 </p>
               </div>
               <div className="flex flex-col items-end gap-2">
@@ -581,7 +581,7 @@ export default function LawyersPage() {
 
         {lawyers.length > 0 && (
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            <strong>$5 per search</strong> (country + practice area). You keep access to that search forever, including new lawyers we add. Different country or practice area = new $5 search. Secure payment via Stripe.
+            <strong>$5 per search</strong> (country + practice area). Access to the lawyers in that search; new lawyers added later require another payment. Different country or practice area = new $5 search. Secure payment via Stripe.
           </p>
         )}
       </div>
