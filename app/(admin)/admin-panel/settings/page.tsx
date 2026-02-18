@@ -1,7 +1,13 @@
 import Link from "next/link";
-import { Scale, Cpu, Shield } from "lucide-react";
+import { Scale, Cpu, Shield, Palette } from "lucide-react";
 
 const settingsLinks = [
+  {
+    href: "/admin-panel/settings/branding",
+    label: "Branding & logo",
+    description: "Upload platform logo and favicon.",
+    icon: Palette,
+  },
   {
     href: "/admin-panel/pricing",
     label: "Pricing & plans",
