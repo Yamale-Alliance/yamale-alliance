@@ -14,9 +14,8 @@ export type PricingTier = {
   highlighted?: boolean;
 };
 
-// Hard-coded overrides to keep pricing copy/features in sync with product spec,
-// while still allowing prices to be stored in the database.
-const PRICING_OVERRIDES: Record<string, Partial<PricingTier>> = {
+// Fallbacks when the database has no custom copy (so admin-edited values always show on the public page).
+const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
   free: {
     description: "Explore African law",
     features: [
@@ -29,6 +28,7 @@ const PRICING_OVERRIDES: Record<string, Partial<PricingTier>> = {
     highlighted: false,
   },
   basic: {
+    name: "Basic",
     description: "",
     subtitle: "or $50/year (save $10)",
     features: [
@@ -43,6 +43,7 @@ const PRICING_OVERRIDES: Record<string, Partial<PricingTier>> = {
     highlighted: false,
   },
   pro: {
+    name: "Pro",
     description: "",
     subtitle: "or $150/year (save $30)",
     features: [
@@ -58,6 +59,7 @@ const PRICING_OVERRIDES: Record<string, Partial<PricingTier>> = {
     highlighted: true,
   },
   team: {
+    name: "Team",
     description: "",
     subtitle: "or $400/year (save $80)",
     features: [
@@ -98,21 +100,22 @@ export async function GET() {
       highlighted: boolean | null;
     };
     const tiers: PricingTier[] = ((data ?? []) as Row[]).map((row) => {
+      const fallback = PRICING_FALLBACKS[row.slug];
       const base: PricingTier = {
         id: row.slug,
-        name: row.name,
+        name: (row.name?.trim()) ? row.name : (fallback?.name ?? "Plan"),
         priceMonthly: row.price_monthly ?? 0,
         priceAnnualPerMonth: row.price_annual_per_month ?? 0,
         priceAnnualTotal: row.price_annual_total ?? 0,
-        description: row.description ?? "",
-        subtitle: row.subtitle ?? undefined,
-        features: Array.isArray(row.features) ? (row.features as string[]) : [],
-        cta: row.cta ?? "Get Started",
+        description: (row.description?.trim()) ? row.description : (fallback?.description ?? ""),
+        subtitle: (row.subtitle?.trim()) ? row.subtitle : (fallback?.subtitle ?? undefined),
+        features: Array.isArray(row.features) && (row.features as string[]).length > 0
+          ? (row.features as string[])
+          : (fallback?.features ?? []),
+        cta: (row.cta?.trim()) ? row.cta : (fallback?.cta ?? "Get Started"),
         highlighted: row.highlighted ?? false,
       };
-
-      const override = PRICING_OVERRIDES[row.slug];
-      return override ? { ...base, ...override } : base;
+      return base;
     });
 
     return NextResponse.json(tiers);
