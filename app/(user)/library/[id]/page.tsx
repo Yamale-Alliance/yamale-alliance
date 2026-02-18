@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { ChevronLeft, FileText, Loader2, GripVertical, ArrowUp, ArrowDown, Menu, X, Bookmark, BookmarkCheck } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 
@@ -247,6 +248,8 @@ export default function LawDetailPage({
   const dragStartRef = useRef<{ x: number; y: number; clientX: number; clientY: number } | null>(null);
   const contentsRef = useRef<HTMLDivElement>(null);
   const { isSignedIn, user } = useUser();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
 
   const scrollToTop = useCallback(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -285,13 +288,17 @@ export default function LawDetailPage({
   // Check if user has team plan
   const isTeamPlan = user?.publicMetadata?.tier === "team" || user?.publicMetadata?.subscriptionTier === "team";
 
-  // Check bookmark status
+  // Check bookmark status (fetch with credentials so auth cookie is sent)
   useEffect(() => {
-    if (!isSignedIn || !resolvedId) {
+    if (!resolvedId) {
       setIsBookmarked(false);
       return;
     }
-    fetch("/api/bookmarks")
+    if (!isSignedIn) {
+      setIsBookmarked(false);
+      return;
+    }
+    fetch("/api/bookmarks", { credentials: "include" })
       .then((r) => r.json())
       .then((data: { bookmarks?: Array<{ law_id: string }> }) => {
         const bookmarks = data.bookmarks ?? [];
@@ -374,6 +381,14 @@ export default function LawDetailPage({
         setLaw(data);
         const sections = splitIntoSections(data.content_plain || data.content || "");
         if (sections.length > 0) setActiveSection(sections[0].id);
+        try {
+          const key = "yamale-library-recently-opened";
+          if (typeof window !== "undefined") {
+            localStorage.setItem(key, JSON.stringify(resolvedId));
+          }
+        } catch {
+          // ignore
+        }
       })
       .catch(() => setError("Could not load this law."))
       .finally(() => setLoading(false));
@@ -391,7 +406,7 @@ export default function LawDetailPage({
       <div className="mx-auto max-w-2xl px-4 py-12 text-center">
         <p className="text-muted-foreground">{error ?? "Law not found."}</p>
         <Link
-          href="/library"
+          href={returnTo && returnTo.startsWith("/library") ? returnTo : "/library"}
           className="mt-4 inline-flex items-center gap-2 text-primary hover:underline"
         >
           <ChevronLeft className="h-4 w-4" /> Back to Library
@@ -412,7 +427,7 @@ export default function LawDetailPage({
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <Link
-                href="/library"
+                href={returnTo && returnTo.startsWith("/library") ? returnTo : "/library"}
                 className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
               >
                 <ChevronLeft className="h-4 w-4" /> Back to Library
@@ -422,21 +437,20 @@ export default function LawDetailPage({
               </h1>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {isSignedIn && (
-                <button
-                  type="button"
-                  onClick={toggleBookmark}
-                  disabled={bookmarkLoading}
-                  className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
-                  aria-label={isBookmarked ? "Remove bookmark" : "Add bookmark"}
-                >
-                  {isBookmarked ? (
-                    <BookmarkCheck className="h-5 w-5 fill-current" />
-                  ) : (
-                    <Bookmark className="h-5 w-5" />
-                  )}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={isSignedIn ? toggleBookmark : () => window.location.assign("/sign-in?redirect_url=" + encodeURIComponent(window.location.pathname))}
+                disabled={bookmarkLoading}
+                className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+                aria-label={isSignedIn ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Sign in to bookmark"}
+                title={isSignedIn ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Sign in to bookmark"}
+              >
+                {isSignedIn && isBookmarked ? (
+                  <BookmarkCheck className="h-5 w-5 fill-current text-primary" />
+                ) : (
+                  <Bookmark className="h-5 w-5" />
+                )}
+              </button>
               {hasContent && sections.length > 1 && (
                 <button
                   type="button"
