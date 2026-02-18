@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
             unit_amount: SEARCH_UNLOCK_CENTS,
             product_data: {
               name: "Lawyer search — full access",
-              description: `One-time $5: ${countryLabel} + ${expertise}. You keep access to all lawyers matching this search, including any added later.`,
+              description: `One-time $5: ${countryLabel} + ${expertise}. Access to the lawyers in this search. New lawyers added later require another payment.`,
             },
           },
           quantity: 1,
