@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
+import { Search, BookOpen, ArrowRight, Filter, X, Bookmark, Sparkles, Calendar, FileEdit, Eye } from "lucide-react";
 import type { LibraryCountry, LibraryCategory, LibraryLawRow } from "@/lib/library-data";
+
+const RECENTLY_ADDED_DAYS = 3;
+const RECENTLY_UPDATED_DAYS = 90;
+const RECENTLY_OPENED_KEY = "yamale-library-recently-opened";
 
 type LawStatus = "In force" | "Amended" | "Repealed";
 
@@ -13,9 +18,61 @@ type Law = {
   country: string;
   category: string;
   status: LawStatus;
+  created_at?: string;
+  updated_at?: string;
 };
 
 const STATUSES: LawStatus[] = ["In force", "Amended", "Repealed"];
+
+function isRecent(dateStr: string | undefined, days: number): boolean {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diff = (now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24);
+  return diff >= 0 && diff <= days;
+}
+
+function wasUpdatedAfterCreate(created_at?: string, updated_at?: string): boolean {
+  if (!created_at || !updated_at) return false;
+  return new Date(updated_at).getTime() > new Date(created_at).getTime() + 60 * 1000;
+}
+
+type LawFlairsProps = {
+  law: Law;
+  isBookmarked: boolean;
+  isRecentlyOpened: boolean;
+};
+
+function LawFlairs({ law, isBookmarked, isRecentlyOpened }: LawFlairsProps) {
+  const recentlyAdded = isRecent(law.created_at, RECENTLY_ADDED_DAYS);
+  const amended = law.status === "Amended";
+  const recentlyUpdated =
+    wasUpdatedAfterCreate(law.created_at, law.updated_at) && isRecent(law.updated_at, RECENTLY_UPDATED_DAYS);
+
+  const flairs: { label: string; icon: React.ReactNode; className: string }[] = [];
+  if (isBookmarked) flairs.push({ label: "Bookmarked", icon: <Bookmark className="h-3 w-3" />, className: "bg-primary/15 text-primary border-primary/30" });
+  if (isRecentlyOpened) flairs.push({ label: "Recently opened", icon: <Eye className="h-3 w-3" />, className: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30" });
+  if (recentlyAdded) flairs.push({ label: "Recently added", icon: <Sparkles className="h-3 w-3" />, className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" });
+  if (amended) flairs.push({ label: "Amended", icon: <FileEdit className="h-3 w-3" />, className: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30" });
+  if (recentlyUpdated) flairs.push({ label: "Updated", icon: <Calendar className="h-3 w-3" />, className: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/30" });
+
+  if (flairs.length === 0) return null;
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-1.5">
+      {flairs.map((f) => (
+        <span
+          key={f.label}
+          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${f.className}`}
+          title={f.label}
+        >
+          {f.icon}
+          {f.label}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 function StatusBadge({ status }: { status: LawStatus }) {
   const styles = {
@@ -40,29 +97,108 @@ function mapRowToLaw(row: LibraryLawRow): Law {
     country: row.countries?.name ?? "",
     category: row.categories?.name ?? "",
     status: (STATUSES.includes(row.status as LawStatus) ? row.status : "In force") as LawStatus,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
   };
+}
+
+function getRecentlyOpenedIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(RECENTLY_OPENED_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    const id = typeof parsed === "string" ? parsed : Array.isArray(parsed) ? parsed[0] : null;
+    return id ? new Set([id]) : new Set();
+  } catch {
+    return new Set();
+  }
 }
 
 type Props = {
   initialCountries: LibraryCountry[];
   initialCategories: LibraryCategory[];
   initialLaws: LibraryLawRow[];
+  initialCountry: string;
+  initialCategory: string;
+  initialStatus: string;
+  initialSearch: string;
 };
 
-export function LibraryView({ initialCountries, initialCategories, initialLaws }: Props) {
-  const [search, setSearch] = useState("");
-  const [country, setCountry] = useState("");
-  const [category, setCategory] = useState("");
-  const [status, setStatus] = useState("");
+export function LibraryView({
+  initialCountries,
+  initialCategories,
+  initialLaws,
+  initialCountry,
+  initialCategory,
+  initialStatus,
+  initialSearch,
+}: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [search, setSearch] = useState(initialSearch);
+  const [country, setCountry] = useState(initialCountry);
+  const [category, setCategory] = useState(initialCategory);
+  const [status, setStatus] = useState(initialStatus);
   const [laws, setLaws] = useState<Law[]>(() => initialLaws.map(mapRowToLaw));
   const [countries] = useState<LibraryCountry[]>(() => initialCountries);
   const [categories] = useState<LibraryCategory[]>(() => initialCategories);
   const [loadingLaws, setLoadingLaws] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
+  const [recentlyOpenedIds, setRecentlyOpenedIds] = useState<Set<string>>(() => new Set());
 
-  // Only call API when user has applied at least one filter. Initial load uses server data.
+  const hasFilters = !!(country || category || status || search.trim());
+
   useEffect(() => {
-    const hasFilters = !!(country || category || status || search.trim());
+    fetch("/api/bookmarks", { credentials: "include" })
+      .then((res) => res.ok ? res.json() : { bookmarks: [] })
+      .then((data: { bookmarks?: Array<{ law_id: string }> }) => {
+        const list = data.bookmarks ?? [];
+        setBookmarkedIds(new Set(list.map((b) => b.law_id)));
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    setRecentlyOpenedIds(getRecentlyOpenedIds());
+  }, []);
+
+  useEffect(() => {
+    const onFocus = () => {
+      setRecentlyOpenedIds(getRecentlyOpenedIds());
+      fetch("/api/bookmarks", { credentials: "include" })
+        .then((res) => res.ok ? res.json() : { bookmarks: [] })
+        .then((data: { bookmarks?: Array<{ law_id: string }> }) => {
+          const list = data.bookmarks ?? [];
+          setBookmarkedIds(new Set(list.map((b) => b.law_id)));
+        })
+        .catch(() => {});
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+
+  const updateUrl = useCallback(
+    (updates: { country?: string; category?: string; status?: string; q?: string }) => {
+      const params = new URLSearchParams();
+      const c = updates.country ?? country;
+      const cat = updates.category ?? category;
+      const s = updates.status ?? status;
+      const q = updates.q ?? search;
+      if (c) params.set("country", c);
+      if (cat) params.set("category", cat);
+      if (s) params.set("status", s);
+      if (q.trim()) params.set("q", q.trim());
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [country, category, status, search, pathname, router]
+  );
+
+  const hadInitialFilters = !!(initialCountry || initialCategory || initialStatus || initialSearch);
+
+  useEffect(() => {
     if (!hasFilters) {
       setLaws(initialLaws.map(mapRowToLaw));
       setError(null);
@@ -84,7 +220,7 @@ export function LibraryView({ initialCountries, initialCategories, initialLaws }
     const url = `/api/laws${query ? `?${query}` : ""}`;
 
     setError(null);
-    setLoadingLaws(true);
+    if (!hadInitialFilters) setLoadingLaws(true);
 
     fetch(url, { credentials: "include" })
       .then((res) => {
@@ -98,7 +234,32 @@ export function LibraryView({ initialCountries, initialCategories, initialLaws }
         setError(err.message?.startsWith("HTTP") ? "Could not load the legal library." : "Check your connection.");
       })
       .finally(() => setLoadingLaws(false));
-  }, [search, country, category, status, countries, categories, initialLaws]);
+  }, [search, country, category, status, countries, categories, initialLaws, hasFilters]);
+
+
+  const handleCountryChange = (v: string) => {
+    setCountry(v);
+    updateUrl({ country: v });
+  };
+  const handleCategoryChange = (v: string) => {
+    setCategory(v);
+    updateUrl({ category: v });
+  };
+  const handleStatusChange = (v: string) => {
+    setStatus(v);
+    updateUrl({ status: v });
+  };
+  const handleSearchChange = (v: string) => {
+    setSearch(v);
+    updateUrl({ q: v });
+  };
+  const clearFilters = () => {
+    setCountry("");
+    setCategory("");
+    setStatus("");
+    setSearch("");
+    router.replace(pathname, { scroll: false });
+  };
 
   const filteredLaws = useMemo(() => {
     return laws.filter((law) => {
@@ -118,99 +279,118 @@ export function LibraryView({ initialCountries, initialCategories, initialLaws }
 
   return (
     <div className="min-h-screen">
-      <div className="border-b border-border bg-card/50 px-4 py-8">
-        <div className="mx-auto max-w-6xl">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            African Legal Library
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            Browse legal content by jurisdiction and domain. No sign-in required.
-          </p>
-
-          <div className="relative mt-6">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="search"
-              placeholder="Search by name, country, or category..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-input bg-background py-2.5 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            />
+      {/* Header — gradient, modern filters */}
+      <div className="relative overflow-hidden border-b border-border/50 bg-gradient-to-b from-primary/5 to-transparent">
+        <div
+          className="absolute inset-0 -z-10 opacity-50 dark:opacity-30"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23c18c43' fill-opacity='0.06' fill-rule='evenodd'%3E%3Cpath d='M0 40L40 0H20L0 20m40 20V20L20 40'/%3E%3C/g%3E%3C/svg%3E")`,
+          }}
+        />
+        <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-primary">
+                <BookOpen className="h-5 w-5" />
+                Legal Library
+              </div>
+              <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+                African Legal Library
+              </h1>
+              <p className="mt-1 text-muted-foreground">
+                Browse by jurisdiction and domain. No sign-in required.
+              </p>
+            </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-3">
-            <select
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="">All countries</option>
-              {countries.map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="">All categories</option>
-              {categories.length > 0
-                ? categories.map((c) => (
-                    <option key={c.id} value={c.name}>
-                      {c.name}
-                    </option>
-                  ))
-                : categoryNames.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-            </select>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="">All statuses</option>
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-            {(country || category || status) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setCountry("");
-                  setCategory("");
-                  setStatus("");
-                }}
-                className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+          <div className="mt-6 space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="search"
+                placeholder="Search by name, country, or category..."
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="w-full rounded-xl border border-border/80 bg-background py-3 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground sm:text-sm">
+                <Filter className="h-4 w-4" />
+                Filters
+              </span>
+              <select
+                value={country}
+                onChange={(e) => handleCountryChange(e.target.value)}
+                className="rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
-                Clear filters
-              </button>
-            )}
+                <option value="">All countries</option>
+                {countries.map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={category}
+                onChange={(e) => handleCategoryChange(e.target.value)}
+                className="rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="">All categories</option>
+                {categories.length > 0
+                  ? categories.map((c) => (
+                      <option key={c.id} value={c.name}>
+                        {c.name}
+                      </option>
+                    ))
+                  : categoryNames.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+              </select>
+              <select
+                value={status}
+                onChange={(e) => handleStatusChange(e.target.value)}
+                className="rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              >
+                <option value="">All statuses</option>
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+              {hasFilters && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
+      {/* Results */}
       <div className="mx-auto max-w-6xl px-4 py-8">
         {loadingLaws && (
           <div className="space-y-4">
-            <div className="h-5 w-32 animate-pulse rounded bg-muted" />
+            <div className="h-5 w-28 animate-pulse rounded-lg bg-muted" />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <div
                   key={i}
-                  className="flex flex-col rounded-xl border border-border bg-card p-5"
+                  className="flex flex-col rounded-2xl border border-border/80 bg-card p-6"
                 >
-                  <div className="h-6 w-3/4 animate-pulse rounded bg-muted" />
-                  <div className="mt-2 h-4 w-1/2 animate-pulse rounded bg-muted" />
-                  <div className="mt-3 h-6 w-20 animate-pulse rounded-full bg-muted" />
+                  <div className="h-6 w-4/5 animate-pulse rounded bg-muted" />
+                  <div className="mt-3 h-4 w-1/2 animate-pulse rounded bg-muted" />
+                  <div className="mt-4 h-6 w-24 animate-pulse rounded-full bg-muted" />
                 </div>
               ))}
             </div>
@@ -221,24 +401,46 @@ export function LibraryView({ initialCountries, initialCategories, initialLaws }
         )}
         {!loadingLaws && !error && (
           <>
-            <p className="mb-4 text-sm text-muted-foreground">
+            <p className="mb-4 text-sm font-medium text-muted-foreground">
               {filteredLaws.length} result{filteredLaws.length !== 1 ? "s" : ""}
             </p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filteredLaws.map((law) => (
                 <Link
                   key={law.id}
-                  href={`/library/${law.id}`}
-                  className="flex flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:bg-accent/30 hover:border-primary/30"
+                  href={
+                    hasFilters
+                      ? `/library/${law.id}?returnTo=${encodeURIComponent(
+                          pathname +
+                            "?" +
+                            new URLSearchParams({
+                              ...(country && { country }),
+                              ...(category && { category }),
+                              ...(status && { status }),
+                              ...(search.trim() && { q: search.trim() }),
+                            }).toString()
+                        )}`
+                      : `/library/${law.id}`
+                  }
+                  className="group flex flex-col rounded-2xl border border-border/80 bg-card p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10"
                 >
-                  <h2 className="font-semibold text-foreground">{law.name}</h2>
+                  <h2 className="font-semibold text-foreground group-hover:text-primary">{law.name}</h2>
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
                     <span>{law.country}</span>
                     <span>·</span>
                     <span>{law.category}</span>
                   </div>
-                  <div className="mt-3">
+                  <LawFlairs
+                    law={law}
+                    isBookmarked={bookmarkedIds.has(law.id)}
+                    isRecentlyOpened={recentlyOpenedIds.has(law.id)}
+                  />
+                  <div className="mt-4 flex items-center gap-2">
                     <StatusBadge status={law.status} />
+                    <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-primary opacity-0 transition group-hover:opacity-100">
+                      View
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </span>
                   </div>
                 </Link>
               ))}
