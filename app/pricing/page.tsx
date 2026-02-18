@@ -126,13 +126,15 @@ function ToggleSwitch({
   const isAnnual = value === "annual";
   return (
     <div
-      className={`relative w-[60px] h-[30px] rounded-[15px] cursor-pointer transition-colors ${
-        isAnnual ? "bg-[#c18c43]" : "bg-gray-300"
+      className={`relative w-[64px] h-[34px] rounded-full cursor-pointer transition-all duration-300 shadow-lg ${
+        isAnnual
+          ? "bg-gradient-to-r from-[#9a632a] to-[#c18c43]"
+          : "bg-gray-300 dark:bg-gray-600"
       }`}
       onClick={() => onChange(isAnnual ? "monthly" : "annual")}
     >
       <div
-        className={`absolute top-[3px] left-[3px] w-6 h-6 bg-white rounded-full transition-transform shadow-sm ${
+        className={`absolute top-[3px] left-[3px] h-7 w-7 bg-white rounded-full transition-transform duration-300 shadow-md ${
           isAnnual ? "translate-x-[30px]" : ""
         }`}
       />
@@ -266,65 +268,64 @@ export default function PricingPage() {
   }, [isLoaded, isSignedIn]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Hero Section */}
-      <div
-        className="text-white py-20"
-        style={{
-          background: "linear-gradient(135deg, #221913 0%, #603b1c 100%)",
-        }}
-      >
-        <div className="max-w-6xl mx-auto px-6 text-center">
-          <h1 className="heading text-5xl font-bold mb-4">
+      <section className="relative overflow-hidden border-b border-border/40 bg-gradient-to-b from-[#221913] via-[#603b1c] to-[#221913]">
+        <div
+          className="pointer-events-none absolute -top-40 left-1/2 h-[500px] w-[800px] -translate-x-1/2 rounded-full opacity-[0.25] blur-[120px]"
+          style={{ background: "radial-gradient(circle, var(--primary) 0%, transparent 70%)" }}
+        />
+        <div
+          className="pointer-events-none absolute -bottom-40 right-[-10%] h-96 w-96 rounded-full opacity-[0.2] blur-[100px]"
+          style={{ background: "radial-gradient(circle, var(--accent) 0%, transparent 70%)" }}
+        />
+        <div className="relative max-w-6xl mx-auto px-6 py-20 text-center">
+          <p className="inline-flex items-center gap-2 rounded-full border border-[rgba(227,186,101,0.3)] bg-[rgba(227,186,101,0.1)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#e3ba65] backdrop-blur mb-6">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#e3ba65]" />
+            Flexible pricing for everyone
+          </p>
+          <h1 className="heading text-4xl font-bold mb-4 text-white sm:text-5xl lg:text-6xl">
             Simple, Transparent Pricing
           </h1>
-          <p className="text-xl mb-8 opacity-90">
+          <p className="text-lg mb-10 text-white/90 sm:text-xl">
             Choose your plan and pay as you go for extras
           </p>
 
           {/* Billing Toggle */}
           <div className="flex items-center justify-center gap-4">
             <span
-              className={`text-lg font-semibold transition-opacity ${
-                !isAnnual ? "opacity-100" : "opacity-70"
+              className={`text-base font-semibold transition-all sm:text-lg ${
+                !isAnnual ? "opacity-100 scale-105" : "opacity-70"
               }`}
-              style={{ color: !isAnnual ? "#e3ba65" : "white" }}
+              style={{ color: !isAnnual ? "#e3ba65" : "rgba(255,255,255,0.8)" }}
             >
               Monthly
             </span>
             <ToggleSwitch value={billing} onChange={setBilling} />
             <div className="flex items-center gap-2">
               <span
-                className={`text-lg font-semibold transition-opacity ${
-                  isAnnual ? "opacity-100" : "opacity-70"
+                className={`text-base font-semibold transition-all sm:text-lg ${
+                  isAnnual ? "opacity-100 scale-105" : "opacity-70"
                 }`}
-                style={{ color: isAnnual ? "#e3ba65" : "white" }}
+                style={{ color: isAnnual ? "#e3ba65" : "rgba(255,255,255,0.8)" }}
               >
                 Annual
               </span>
-              <span
-                className="text-white px-2 py-0.5 rounded text-[11px] font-semibold"
-                style={{
-                  background: "linear-gradient(135deg, #9a632a, #c18c43)",
-                }}
-              >
+              <span className="rounded-full border border-[rgba(227,186,101,0.4)] bg-[rgba(227,186,101,0.15)] px-3 py-1 text-[11px] font-bold text-[#e3ba65] backdrop-blur shadow-sm">
                 Save 17%
               </span>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Subscription Plans */}
-      <div className="max-w-7xl mx-auto px-6 -mt-10 pb-12">
-        <div className="bg-white rounded-2xl shadow-lg border border-[#e3ba65]/40 px-6 py-8 text-center mb-10">
-          <h2
-            className="heading text-4xl font-bold tracking-tight"
-            style={{ color: "#221913" }}
-          >
+      <section className="max-w-7xl mx-auto px-4 -mt-10 pb-16 sm:px-6 lg:px-8">
+        <div className="rounded-2xl border border-border/70 bg-card/95 shadow-lg shadow-primary/10 backdrop-blur-xl px-6 py-8 text-center mb-10">
+          <h2 className="heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Subscription Plans
           </h2>
-          <p className="mt-3 text-lg" style={{ color: "#603b1c" }}>
+          <p className="mt-3 text-base text-muted-foreground sm:text-lg">
             Full access to the platform with included usage
           </p>
         </div>
@@ -346,45 +347,38 @@ export default function PricingPage() {
             return (
               <div
                 key={tier.id}
-                className={`bg-white rounded-2xl shadow-lg border-2 relative transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl flex flex-col ${
+                className={`group relative flex flex-col rounded-2xl border-2 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
                   tier.highlighted
-                    ? "border-[#c18c43] shadow-xl ring-2 ring-[#c18c43]/20 pt-6"
-                    : "border-[#e3ba65]/50"
+                    ? "border-primary/60 bg-card/95 shadow-lg shadow-primary/20 ring-2 ring-primary/10 pt-6"
+                    : "border-border/70 bg-card/95 shadow-md backdrop-blur-sm"
                 }`}
               >
                 {tier.highlighted && (
-                  <div
-                    className="absolute -top-4 left-1/2 -translate-x-1/2 text-white px-6 py-2 rounded-full text-sm font-bold uppercase tracking-wider shadow-lg z-10 whitespace-nowrap"
-                    style={{
-                      background: "linear-gradient(135deg, #603b1c, #9a632a)",
-                    }}
-                  >
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10 whitespace-nowrap rounded-full border border-primary/40 bg-gradient-to-r from-[rgba(96,59,28,0.95)] to-[rgba(154,99,42,0.95)] px-5 py-1.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg">
                     Most Popular
                   </div>
                 )}
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[rgba(193,140,67,0.9)] via-[rgba(227,186,101,0.95)] to-[rgba(154,99,42,0.9)] opacity-70" />
 
-                <div className="p-8 flex-1 flex flex-col">
-                  <h3
-                    className="heading text-2xl font-bold mb-3"
-                    style={{ color: "#221913" }}
-                  >
+                <div className="p-6 sm:p-8 flex-1 flex flex-col pt-8">
+                  <h3 className="heading text-xl font-bold mb-3 text-foreground sm:text-2xl">
                     {tier.name}
                   </h3>
                   <div className="mb-4">
                     <span
-                      className={`text-5xl font-bold ${
-                        tier.highlighted ? "text-[#c18c43]" : "text-[#221913]"
+                      className={`text-4xl font-bold sm:text-5xl ${
+                        tier.highlighted ? "text-primary" : "text-foreground"
                       }`}
                     >
                       ${price}
                     </span>
-                    <span className="text-[#603b1c] ml-1">{period}</span>
+                    <span className="text-muted-foreground ml-1">{period}</span>
                   </div>
                   {tier.description && (
-                    <p className="text-[#603b1c] mb-3 text-sm">{tier.description}</p>
+                    <p className="text-muted-foreground mb-3 text-sm">{tier.description}</p>
                   )}
                   {annualNote && (
-                    <p className="text-xs mb-4" style={{ color: "#9a632a" }}>
+                    <p className="text-xs mb-4 text-primary/90 font-medium">
                       {annualNote}
                     </p>
                   )}
@@ -392,52 +386,27 @@ export default function PricingPage() {
                     type="button"
                     onClick={() => handleCheckout(tier.id)}
                     disabled={checkoutLoading !== null}
-                    className={`w-full py-3 px-6 rounded-lg font-semibold transition-all duration-200 mt-auto disabled:opacity-70 ${
+                    className={`w-full py-3 px-6 rounded-xl font-semibold transition-all duration-200 mt-auto disabled:opacity-70 ${
                       tier.highlighted
-                        ? "text-white hover:opacity-90 shadow-md"
-                        : "border-2 hover:shadow-md"
+                        ? "bg-gradient-to-r from-[rgba(154,99,42,0.95)] to-[rgba(193,140,67,0.95)] text-primary-foreground shadow-md shadow-primary/30 hover:brightness-105"
+                        : "border-2 border-primary/60 bg-primary/10 text-foreground hover:border-primary hover:bg-primary/20 hover:shadow-md"
                     }`}
-                    style={
-                      tier.highlighted
-                        ? {
-                            background:
-                              "linear-gradient(135deg, #9a632a, #c18c43)",
-                          }
-                        : {
-                            borderColor: "#c18c43",
-                            color: "#c18c43",
-                            backgroundColor: "transparent",
-                          }
-                    }
-                    onMouseEnter={(e) => {
-                      if (!tier.highlighted) {
-                        e.currentTarget.style.backgroundColor = "rgba(193, 140, 67, 0.1)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!tier.highlighted) {
-                        e.currentTarget.style.backgroundColor = "transparent";
-                      }
-                    }}
                   >
                     {checkoutLoading === tier.id ? "Redirecting…" : tier.cta}
                   </button>
                 </div>
 
-                <div className="px-8 pb-8 border-t border-[#e3ba65]/30">
-                  <div
-                    className="text-sm font-semibold mb-4 mt-6"
-                    style={{ color: "#603b1c" }}
-                  >
+                <div className="px-6 sm:px-8 pb-6 sm:pb-8 border-t border-border/70">
+                  <div className="text-sm font-semibold mb-4 mt-6 text-muted-foreground">
                     What's included:
                   </div>
-                  <ul className="space-y-3 text-sm">
+                  <ul className="space-y-2.5 text-sm">
                     {tier.features.map((feature, i) => (
                       <li key={i} className="flex items-start gap-3">
-                        <Check className="h-5 w-5 shrink-0 text-[#c18c43] mt-0.5" strokeWidth={3} />
+                        <Check className="h-5 w-5 shrink-0 text-primary mt-0.5" strokeWidth={3} />
                         <span
                           dangerouslySetInnerHTML={{ __html: feature }}
-                          className="text-[#221913] leading-relaxed"
+                          className="text-foreground leading-relaxed"
                         />
                       </li>
                     ))}
@@ -449,206 +418,168 @@ export default function PricingPage() {
         </div>
 
         {/* Institutional CTA */}
-        <div className="mt-8 bg-white rounded-2xl p-8 shadow-lg border-2" style={{ borderColor: "#e3ba65" }}>
+        <div className="mt-8 rounded-2xl border border-border/70 bg-card/95 p-6 shadow-lg shadow-primary/10 backdrop-blur-xl sm:p-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
-              <h3
-                className="heading text-2xl font-bold mb-2"
-                style={{ color: "#221913" }}
-              >
+              <h3 className="heading text-xl font-bold mb-2 text-foreground sm:text-2xl">
                 Institutional Plans
               </h3>
-              <p className="text-[#603b1c] mb-2">
+              <p className="text-muted-foreground mb-2">
                 For universities, governments, and large organizations
               </p>
-              <p className="text-sm" style={{ color: "#9a632a" }}>
+              <p className="text-sm text-primary/90 font-medium">
                 Starting at $1,000/year • Unlimited users • Custom training
               </p>
             </div>
             <button
               type="button"
-              className="px-8 py-4 rounded-lg font-bold text-lg whitespace-nowrap text-white hover:opacity-90 transition shadow-md"
-              style={{
-                background: "linear-gradient(135deg, #603b1c, #9a632a)",
-              }}
+              className="rounded-xl border border-primary/40 bg-gradient-to-r from-[rgba(96,59,28,0.95)] to-[rgba(154,99,42,0.95)] px-6 py-3 font-semibold text-sm text-primary-foreground shadow-md shadow-primary/30 transition hover:brightness-105 whitespace-nowrap sm:px-8 sm:py-4 sm:text-lg"
             >
               Contact Sales
             </button>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Pay-as-You-Go Section */}
-      <div className="bg-gray-100 py-20">
-        <div className="max-w-7xl mx-auto px-6">
+      <section className="border-t border-border/40 bg-gradient-to-b from-muted/20 via-background to-background py-16 sm:py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2
-              className="heading text-4xl font-bold mb-4"
-              style={{ color: "#221913" }}
-            >
+            <h2 className="heading text-3xl font-bold mb-4 text-foreground sm:text-4xl">
               Pay-as-You-Go Pricing
             </h2>
-          <p className="text-xl" style={{ color: "#603b1c" }}>
-            One simple price for everyone. Buy exactly what you need, when you
-            need it.
-          </p>
+            <p className="text-base text-muted-foreground sm:text-xl">
+              One simple price for everyone. Buy exactly what you need, when you need it.
+            </p>
           </div>
 
           {/* Flat Pay-as-You-Go Pricing */}
           <div className="mb-12">
-            <div
-              className="bg-white rounded-2xl p-10 shadow-lg border-2"
-              style={{ borderColor: "#c18c43" }}
-            >
-              <div className="grid md:grid-cols-4 gap-8">
-                <div className="text-center p-8 bg-gray-50 rounded-xl">
-                  <div className="text-5xl mb-4">📄</div>
-                  <div
-                    className="text-xl font-bold mb-3"
-                    style={{ color: "#221913" }}
-                  >
+            <div className="rounded-2xl border border-border/70 bg-card/95 p-6 shadow-lg shadow-primary/10 backdrop-blur-xl sm:p-10">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="group relative overflow-hidden rounded-xl border border-border/70 bg-background/80 p-6 text-center transition hover:border-primary/50 hover:shadow-md">
+                  <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[rgba(193,140,67,0.9)] via-[rgba(227,186,101,0.95)] to-[rgba(154,99,42,0.9)] opacity-70" />
+                  <div className="text-4xl mb-3 sm:text-5xl">📄</div>
+                  <div className="text-lg font-bold mb-2 text-foreground sm:text-xl">
                     Documents
                   </div>
-                  <div
-                    className="text-5xl font-bold mb-3"
-                    style={{ color: "#c18c43" }}
-                  >
+                  <div className="text-4xl font-bold mb-2 text-primary sm:text-5xl">
                     $3
                   </div>
-                  <div className="text-sm text-gray-600">per document</div>
-                  <div className="text-xs text-gray-500 mt-2">
+                  <div className="text-sm text-muted-foreground">per document</div>
+                  <div className="text-xs text-muted-foreground/80 mt-2">
                     Download & keep forever
                   </div>
                 </div>
 
-                <div className="text-center p-8 bg-gray-50 rounded-xl">
-                  <div className="text-5xl mb-4">🤖</div>
-                  <div
-                    className="text-xl font-bold mb-3"
-                    style={{ color: "#221913" }}
-                  >
+                <div className="group relative overflow-hidden rounded-xl border border-border/70 bg-background/80 p-6 text-center transition hover:border-primary/50 hover:shadow-md">
+                  <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[rgba(193,140,67,0.9)] via-[rgba(227,186,101,0.95)] to-[rgba(154,99,42,0.9)] opacity-70" />
+                  <div className="text-4xl mb-3 sm:text-5xl">🤖</div>
+                  <div className="text-lg font-bold mb-2 text-foreground sm:text-xl">
                     AI Queries
                   </div>
-                  <div
-                    className="text-5xl font-bold mb-3"
-                    style={{ color: "#c18c43" }}
-                  >
+                  <div className="text-4xl font-bold mb-2 text-primary sm:text-5xl">
                     $1
                   </div>
-                  <div className="text-sm" style={{ color: "#603b1c" }}>per query</div>
-                  <div className="text-xs mt-2" style={{ color: "#9a632a" }}>
+                  <div className="text-sm text-muted-foreground">per query</div>
+                  <div className="text-xs text-muted-foreground/80 mt-2">
                     Full answer with citations
                   </div>
                 </div>
 
-                <div className="text-center p-8 bg-gray-50 rounded-xl">
-                  <div className="text-5xl mb-4">🔍</div>
-                  <div
-                    className="text-xl font-bold mb-3"
-                    style={{ color: "#221913" }}
-                  >
+                <div className="group relative overflow-hidden rounded-xl border border-border/70 bg-background/80 p-6 text-center transition hover:border-primary/50 hover:shadow-md">
+                  <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[rgba(193,140,67,0.9)] via-[rgba(227,186,101,0.95)] to-[rgba(154,99,42,0.9)] opacity-70" />
+                  <div className="text-4xl mb-3 sm:text-5xl">🔍</div>
+                  <div className="text-lg font-bold mb-2 text-foreground sm:text-xl">
                     Lawyer Directory Search
                   </div>
-                  <div
-                    className="text-5xl font-bold mb-3"
-                    style={{ color: "#c18c43" }}
-                  >
+                  <div className="text-4xl font-bold mb-2 text-primary sm:text-5xl">
                     $5
                   </div>
-                  <div className="text-sm" style={{ color: "#603b1c" }}>per search</div>
-                  <div className="text-xs mt-2" style={{ color: "#9a632a" }}>
+                  <div className="text-sm text-muted-foreground">per search</div>
+                  <div className="text-xs text-muted-foreground/80 mt-2">
                     Unlocks direct email &amp; phone for matching lawyers
                   </div>
                 </div>
 
-                <div className="text-center p-8 bg-gray-50 rounded-xl">
-                  <div className="text-5xl mb-4">📊</div>
-                  <div
-                    className="text-xl font-bold mb-3"
-                    style={{ color: "#221913" }}
-                  >
+                <div className="group relative overflow-hidden rounded-xl border border-border/70 bg-background/80 p-6 text-center transition hover:border-primary/50 hover:shadow-md">
+                  <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[rgba(193,140,67,0.9)] via-[rgba(227,186,101,0.95)] to-[rgba(154,99,42,0.9)] opacity-70" />
+                  <div className="text-4xl mb-3 sm:text-5xl">📊</div>
+                  <div className="text-lg font-bold mb-2 text-foreground sm:text-xl">
                     AfCFTA Reports
                   </div>
-                  <div
-                    className="text-5xl font-bold mb-3"
-                    style={{ color: "#c18c43" }}
-                  >
+                  <div className="text-4xl font-bold mb-2 text-primary sm:text-5xl">
                     $15
                   </div>
-                  <div className="text-sm" style={{ color: "#603b1c" }}>per report</div>
-                  <div className="text-xs mt-2" style={{ color: "#9a632a" }}>
+                  <div className="text-sm text-muted-foreground">per report</div>
+                  <div className="text-xs text-muted-foreground/80 mt-2">
                     Full compliance analysis
                   </div>
                 </div>
               </div>
 
-              <div className="mt-8 text-center text-sm" style={{ color: "#603b1c" }}>
+              <div className="mt-8 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-center text-sm text-muted-foreground">
                 <p>
-                  💡 <strong>Tip:</strong> Subscribers get these items included
-                  in their monthly allowance. When you exceed your included
-                  amount, pay-as-you-go kicks in automatically.
+                  💡 <strong className="text-foreground">Tip:</strong> Subscribers get these items included
+                  in their monthly allowance. When you exceed your included amount, pay-as-you-go kicks in automatically.
                 </p>
               </div>
             </div>
           </div>
 
           {/* Day Pass */}
-          <div
-            className="rounded-2xl p-10 text-white text-center"
-            style={{
-              background: "linear-gradient(135deg, #221913 0%, #603b1c 50%, #9a632a 100%)",
-            }}
-          >
-            <h3 className="heading text-3xl font-bold mb-4">
-              24-Hour Day Pass
-            </h3>
-            <div className="text-5xl font-bold mb-4" style={{ color: "#e3ba65" }}>
-              $9.99
+          <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-[#221913] via-[#603b1c] to-[#9a632a] p-8 text-center shadow-xl sm:p-10">
+            <div
+              className="pointer-events-none absolute -top-20 right-[-10%] h-64 w-64 rounded-full opacity-20 blur-3xl"
+              style={{ background: "radial-gradient(circle, var(--accent) 0%, transparent 70%)" }}
+            />
+            <div className="relative">
+              <h3 className="heading text-2xl font-bold mb-4 text-white sm:text-3xl">
+                24-Hour Day Pass
+              </h3>
+              <div className="text-4xl font-bold mb-4 text-[#e3ba65] sm:text-5xl">
+                $9.99
+              </div>
+              <p className="text-base mb-6 max-w-2xl mx-auto text-[#e3ba65]/95 sm:text-xl">
+                Get full Pro-level access for 24 hours including 20 AI queries, 10 downloads, and 2 reports
+              </p>
+              <button
+                type="button"
+                onClick={handleDayPassCheckout}
+                disabled={checkoutLoading !== null}
+                className="rounded-xl border border-white/20 bg-white px-6 py-3 font-bold text-sm text-[#603b1c] shadow-xl transition hover:bg-white/95 hover:shadow-2xl disabled:opacity-70 sm:px-8 sm:py-4 sm:text-lg"
+              >
+                {checkoutLoading === "day-pass" ? "Redirecting…" : "Get Day Pass"}
+              </button>
+              <p className="text-xs mt-4 text-[#e3ba65]/90 sm:text-sm">
+                Perfect for one-time research or testing the platform
+              </p>
             </div>
-            <p className="text-xl mb-6 max-w-2xl mx-auto opacity-95" style={{ color: "#e3ba65" }}>
-              Get full Pro-level access for 24 hours including 20 AI queries, 10
-              downloads, and 2 reports
-            </p>
-            <button
-              type="button"
-              onClick={handleDayPassCheckout}
-              disabled={checkoutLoading !== null}
-              className="bg-white px-8 py-4 rounded-lg font-bold text-lg shadow-xl hover:shadow-2xl transition hover:opacity-90 disabled:opacity-70"
-              style={{ color: "#603b1c" }}
-            >
-              {checkoutLoading === "day-pass" ? "Redirecting…" : "Get Day Pass"}
-            </button>
-            <p className="text-sm mt-4 opacity-90" style={{ color: "#e3ba65" }}>
-              Perfect for one-time research or testing the platform
-            </p>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* FAQ */}
-      <div className="bg-gray-100 py-20">
-        <div className="max-w-4xl mx-auto px-6">
-          <h2
-            className="heading text-4xl font-bold text-center mb-12"
-            style={{ color: "#221913" }}
-          >
+      <section className="border-t border-border/40 bg-gradient-to-b from-background via-muted/10 to-background py-16 sm:py-20">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="heading text-3xl font-bold text-center mb-12 text-foreground sm:text-4xl">
             Frequently Asked Questions
           </h2>
-          <div className="space-y-6">
+          <div className="space-y-4">
             {FAQ_ITEMS.map((item, i) => (
-              <div key={i} className="bg-white rounded-xl p-6 shadow border border-[#e3ba65]/30">
-                <h3
-                  className="font-bold text-lg mb-2"
-                  style={{ color: "#603b1c" }}
-                >
+              <div
+                key={i}
+                className="rounded-xl border border-border/70 bg-card/95 p-5 shadow-sm backdrop-blur-sm transition hover:border-primary/50 hover:shadow-md sm:p-6"
+              >
+                <h3 className="font-bold text-base mb-2 text-muted-foreground sm:text-lg">
                   {item.q}
                 </h3>
-                <p style={{ color: "#221913" }}>{item.a}</p>
+                <p className="text-sm text-foreground sm:text-base">{item.a}</p>
               </div>
             ))}
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
