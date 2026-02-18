@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { stripe } from "@/lib/stripe";
-import { recordUnlock, recordSearchUnlock } from "@/lib/unlocks";
+import { recordUnlock, recordSearchUnlockGrant } from "@/lib/unlocks";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 /**
@@ -48,16 +48,18 @@ export async function POST(request: NextRequest) {
     if (kind === "lawyer_search_unlock") {
       const supabase = getSupabaseServer();
       const { data: row } = await (supabase.from("lawyer_search_purchases") as any)
-        .select("country, expertise")
+        .select("country, expertise, lawyer_ids")
         .eq("stripe_session_id", sessionId)
         .single();
-      let country = (row?.country ?? body.country ?? "all") as string;
-      let expertise = (row?.expertise ?? body.expertise ?? "") as string;
-      if (typeof country !== "string") country = "all";
-      if (typeof expertise !== "string") expertise = "";
-      if (expertise) {
-        await recordSearchUnlock(userId, country, expertise, session.id);
+      const lawyerIdsRaw = row?.lawyer_ids;
+      const lawyerIds = Array.isArray(lawyerIdsRaw)
+        ? (lawyerIdsRaw as string[]).filter((id: unknown) => typeof id === "string")
+        : [];
+      if (lawyerIds.length > 0) {
+        await recordSearchUnlockGrant(userId, lawyerIds, session.id);
       }
+      const country = (row?.country ?? body.country ?? "all") as string;
+      const expertise = (row?.expertise ?? body.expertise ?? "") as string;
       return NextResponse.json({ ok: true, kind: "lawyer_search_unlock", country, expertise });
     }
 
