@@ -50,10 +50,37 @@ export default function AdminMarketplacePage() {
   const [fileUploading, setFileUploading] = useState(false);
   const [pendingFile, setPendingFile] = useState<{ path: string; file_name: string; file_format: string } | null>(null);
   const [removeFile, setRemoveFile] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const editImageInputRef = useRef<HTMLInputElement>(null);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
+
+  const handleUploadImage = async (file: File) => {
+    setImageUploading(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(`${origin}/api/admin/marketplace/upload-image`, {
+        method: "POST",
+        credentials: "include",
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Image upload failed");
+        return;
+      }
+      if (data.url) setPendingImageUrl(data.url);
+    } catch {
+      setError("Image upload failed");
+    }
+    setImageUploading(false);
+  };
 
   const handleUploadFile = async (file: File, itemId?: string) => {
     setFileUploading(true);
@@ -131,6 +158,7 @@ export default function AdminMarketplacePage() {
       setItems((prev) => [...prev, data.item]);
       setAdding(false);
       setPendingFile(null);
+      setPendingImageUrl(null);
       form.reset();
     } catch {
       setError("Network error");
@@ -158,6 +186,7 @@ export default function AdminMarketplacePage() {
           author: (form.elements.namedItem("author") as HTMLInputElement)?.value?.trim() ?? editing.author,
           description: (form.elements.namedItem("description") as HTMLTextAreaElement)?.value?.trim() || null,
           price_cents: priceCents,
+          image_url: pendingImageUrl ?? editing.image_url ?? null,
           published: (form.elements.namedItem("published") as HTMLInputElement)?.checked ?? editing.published,
           sort_order: parseInt((form.elements.namedItem("sort_order") as HTMLInputElement)?.value ?? "0", 10),
           file_path: removeFile ? null : (pendingFile ? pendingFile.path : editing.file_path),
@@ -248,6 +277,40 @@ export default function AdminMarketplacePage() {
             <div className="sm:col-span-2">
               <label className="mb-1 block text-sm font-medium">Description</label>
               <textarea name="description" rows={3} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="Short description for the product page" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium">Cover image</label>
+              <p className="mb-2 text-xs text-muted-foreground">Optional. Stored in Cloudinary.</p>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleUploadImage(f);
+                  e.target.value = "";
+                }}
+              />
+              {pendingImageUrl ? (
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                  <img src={pendingImageUrl} alt="Cover" className="h-12 w-12 rounded object-cover" />
+                  <span className="truncate text-muted-foreground">Image uploaded</span>
+                  <button type="button" onClick={() => setPendingImageUrl(null)} className="ml-auto rounded p-1 hover:bg-muted" aria-label="Remove">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={imageUploading}
+                  className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-3 py-2 text-sm text-muted-foreground hover:border-primary hover:text-foreground disabled:opacity-50"
+                >
+                  {imageUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  {imageUploading ? "Uploading…" : "Upload cover image"}
+                </button>
+              )}
             </div>
             <div className="sm:col-span-2">
               <label className="mb-1 block text-sm font-medium">File (PDF, EPUB, etc.)</label>
@@ -357,6 +420,7 @@ export default function AdminMarketplacePage() {
                         setEditing(item);
                         setRemoveFile(false);
                         setPendingFile(null);
+                        setPendingImageUrl(item.image_url ?? null);
                       }}
                       className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                       aria-label="Edit"
@@ -410,6 +474,45 @@ export default function AdminMarketplacePage() {
               <div>
                 <label className="mb-1 block text-sm font-medium">Description</label>
                 <textarea name="description" rows={3} defaultValue={editing.description ?? ""} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">Cover image</label>
+                <input
+                  ref={editImageInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleUploadImage(f);
+                    e.target.value = "";
+                  }}
+                />
+                {(pendingImageUrl ?? editing.image_url) ? (
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                    <img src={pendingImageUrl ?? editing.image_url ?? ""} alt="Cover" className="h-12 w-12 rounded object-cover" />
+                    <span className="truncate text-muted-foreground">{(pendingImageUrl ? "New image" : "Current image")}</span>
+                    <button type="button" onClick={() => setPendingImageUrl(null)} className="ml-auto rounded p-1 hover:bg-muted text-xs">Remove</button>
+                    <button
+                      type="button"
+                      onClick={() => editImageInputRef.current?.click()}
+                      disabled={imageUploading}
+                      className="rounded border border-input px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
+                    >
+                      {imageUploading ? "Uploading…" : "Replace"}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => editImageInputRef.current?.click()}
+                    disabled={imageUploading}
+                    className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-3 py-2 text-sm text-muted-foreground hover:border-primary hover:text-foreground disabled:opacity-50"
+                  >
+                    {imageUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    {imageUploading ? "Uploading…" : "Upload cover image"}
+                  </button>
+                )}
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium">File (PDF, EPUB, etc.)</label>
