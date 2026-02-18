@@ -50,11 +50,13 @@
 - ✅ Add to cart button on marketplace items (listing and detail pages)
 - ⏳ TODO: Update Stripe webhook to handle cart purchases (needs testing)
 
-### 7. Offline Mode
-- ⏳ TODO: Service worker setup
-- ⏳ TODO: Cache strategy for laws, AI chats
-- ⏳ TODO: Offline indicator UI
-- ⏳ TODO: Background sync for actions
+### 7. Offline Mode ✅ COMPLETE
+- ✅ Service worker setup (`public/sw.js`)
+- ✅ Cache strategy for laws, AI chats (network-first with cache fallback)
+- ✅ Offline indicator UI (`components/offline/OfflineIndicator.tsx`)
+- ✅ Background sync for actions (IndexedDB queue + service worker sync)
+- ✅ Offline queue management (`lib/offline-queue.ts`)
+- ✅ Service worker registration hook (`lib/hooks/useServiceWorker.ts`)
 
 ### 8. Performance Optimization
 - ✅ Image optimization (converted img tags to next/image in lawyers page, library page, admin panel)
