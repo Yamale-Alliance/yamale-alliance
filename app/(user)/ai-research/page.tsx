@@ -498,11 +498,11 @@ export default function AIResearchPage() {
   if (tier === "free") {
     return (
       <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center bg-background px-4 py-12">
-        <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+        <div className="w-full max-w-md rounded-2xl border border-border/70 bg-card/95 p-8 text-center shadow-sm shadow-primary/10">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-muted/60">
             <Lock className="h-7 w-7 text-muted-foreground" />
           </div>
-          <h1 className="mt-6 text-xl font-semibold">AI Legal Research</h1>
+          <h1 className="mt-6 text-xl font-semibold tracking-tight">AI Legal Research</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Available on Basic, Pro, and Team plans.
           </p>
@@ -521,7 +521,7 @@ export default function AIResearchPage() {
     <>
       {/* Fixed full-viewport container below header - prevents footer from showing */}
       <div
-        className="fixed left-0 right-0 top-14 z-10 flex h-[calc(100vh-3.5rem)] bg-background"
+        className="fixed left-0 right-0 top-14 z-10 flex h-[calc(100vh-3.5rem)] bg-gradient-to-b from-muted/20 via-background to-background"
         style={{ height: "calc(100vh - 3.5rem)" }}
       >
         {/* Sidebar - ChatGPT style */}
@@ -690,7 +690,7 @@ export default function AIResearchPage() {
         {/* Main area */}
         <div className="flex min-w-0 flex-1 flex-col">
           {/* Top bar */}
-          <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border px-4 py-2">
+          <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border/70 bg-card/80 px-4 py-2 backdrop-blur">
             <button
               type="button"
               onClick={() => setSidebarOpen((o) => !o)}
@@ -699,7 +699,7 @@ export default function AIResearchPage() {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <h1 className="text-sm font-semibold text-foreground">AI Legal Research</h1>
+            <h1 className="text-sm font-semibold tracking-tight text-foreground">AI Legal Research</h1>
             <div className="flex items-center gap-2">
               {messages.length > 0 && (
                 <>
