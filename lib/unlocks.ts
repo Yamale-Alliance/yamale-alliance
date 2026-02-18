@@ -47,7 +47,7 @@ export async function recordUnlocks(
   }
 }
 
-/** Record a search unlock by criteria (country + expertise). User gets all lawyers matching this forever. */
+/** Record a search unlock by criteria (country + expertise). User gets all lawyers matching this forever. (Legacy; new flow uses recordSearchUnlockGrant.) */
 export async function recordSearchUnlock(
   userId: string,
   country: string,
@@ -66,7 +66,45 @@ export async function recordSearchUnlock(
   );
 }
 
-/** Get lawyer IDs unlocked by user's search-unlock criteria (country + expertise). */
+const SEARCH_GRANT_DAYS = 30;
+
+/** Record a search unlock grant: access to these lawyer IDs only, for 30 days. New lawyers require another payment. */
+export async function recordSearchUnlockGrant(
+  userId: string,
+  lawyerIds: string[],
+  stripeSessionId?: string | null
+): Promise<void> {
+  if (lawyerIds.length === 0) return;
+  const supabase = getSupabaseServer();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + SEARCH_GRANT_DAYS * 24 * 60 * 60 * 1000);
+  await (supabase.from("lawyer_search_unlock_grants") as any).insert({
+    user_id: userId,
+    lawyer_ids: lawyerIds,
+    expires_at: expiresAt.toISOString(),
+    stripe_session_id: stripeSessionId ?? null,
+  });
+}
+
+/** Get lawyer IDs unlocked by user's search grants (snapshot at payment time, 30-day access). */
+export async function getUnlockedLawyerIdsFromSearchGrants(userId: string): Promise<string[]> {
+  const supabase = getSupabaseServer();
+  const now = new Date().toISOString();
+  const { data: rows, error } = await supabase
+    .from("lawyer_search_unlock_grants")
+    .select("lawyer_ids")
+    .eq("user_id", userId)
+    .gt("expires_at", now);
+  if (error || !rows?.length) return [];
+  const ids: string[] = [];
+  for (const row of rows as Array<{ lawyer_ids: string[] }>) {
+    const arr = Array.isArray(row.lawyer_ids) ? row.lawyer_ids : [];
+    for (const id of arr) if (typeof id === "string") ids.push(id);
+  }
+  return Array.from(new Set(ids));
+}
+
+/** Get lawyer IDs unlocked by user's search-unlock criteria (country + expertise). (Legacy; prefer getUnlockedLawyerIdsFromSearchGrants.) */
 export async function getUnlockedLawyerIdsFromSearchCriteria(userId: string): Promise<string[]> {
   const supabase = getSupabaseServer();
   const { data: unlockRows, error: unlockError } = await supabase
