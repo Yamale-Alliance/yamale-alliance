@@ -12,6 +12,8 @@ export type LibraryLawRow = {
   category_id: string;
   countries: { name: string } | null;
   categories: { name: string } | null;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type LibraryData = {
@@ -40,7 +42,7 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
     (() => {
       let query = supabase
         .from("laws")
-        .select("id, title, source_url, source_name, year, status, country_id, category_id, countries(name), categories(name)")
+        .select("id, title, source_url, source_name, year, status, country_id, category_id, created_at, updated_at, countries(name), categories(name)")
         .order("title")
         .limit(LAWS_LIMIT);
       if (filters?.countryId) query = query.eq("country_id", filters.countryId);
