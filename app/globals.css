@@ -46,4 +46,49 @@ h1, h2, h3, h4, .heading {
   .text-balance {
     text-wrap: balance;
   }
+  .gradient-border {
+    position: relative;
+    background: var(--card);
+    border-radius: inherit;
+  }
+  .gradient-border::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    padding: 2px;
+    background: linear-gradient(135deg, var(--primary), var(--muted), var(--primary));
+    background-size: 200% 200%;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    z-index: -1;
+    opacity: 0.6;
+  }
+  .animate-gradient {
+    animation: gradient-shift 8s ease infinite;
+  }
+  .shine-hover {
+    position: relative;
+    overflow: hidden;
+  }
+  .shine-hover::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+    transition: left 0.6s ease;
+  }
+  .shine-hover:hover::after {
+    left: 100%;
+  }
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
