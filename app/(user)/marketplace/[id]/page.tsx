@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, Download, ExternalLink, Star, ShoppingCart, Zap, X } from "lucide-react";
+import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, Eye, Star, ShoppingCart, Zap, X } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
+import { FileViewer } from "@/components/marketplace/FileViewer";
 
 const BRAND = {
   dark: "#221913",
@@ -51,7 +52,8 @@ export default function MarketplaceItemPage() {
   const [item, setItem] = useState<Item | null>(null);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
-  const [downloading, setDownloading] = useState(false);
+  const [viewing, setViewing] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reviews, setReviews] = useState<{ averageRating: number | null; totalReviews: number }>({ averageRating: null, totalReviews: 0 });
   const [addingToCart, setAddingToCart] = useState(false);
@@ -61,35 +63,31 @@ export default function MarketplaceItemPage() {
   const sessionId = searchParams?.get("session_id") ?? null;
   const confirmedSessionRef = useRef<string | null>(null);
 
-  const handleViewOrDownload = async (download: boolean) => {
+  const handleView = async () => {
     if (!item?.id || !item.purchased || !item.has_file) return;
-    setDownloading(true);
+    setViewing(true);
     setError(null);
     try {
       const res = await fetch(`/api/marketplace/${item.id}/download`, { credentials: "include" });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Could not get file");
-        setDownloading(false);
+        setViewing(false);
         return;
       }
       const url = data.url;
       if (url) {
-        if (download) {
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = data.file_name || item.file_name || "download";
-          a.target = "_blank";
-          a.rel = "noopener noreferrer";
-          a.click();
-        } else {
-          window.open(url, "_blank", "noopener,noreferrer");
-        }
+        setViewerUrl(url);
       }
     } catch {
       setError("Something went wrong");
+      setViewing(false);
     }
-    setDownloading(false);
+  };
+
+  const handleCloseViewer = () => {
+    setViewerUrl(null);
+    setViewing(false);
   };
 
   // On return from Stripe: confirm payment then refetch so "View/Download" appears
@@ -432,27 +430,18 @@ export default function MarketplaceItemPage() {
             )}
           </div>
           {owned && item.has_file && (
-            <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-6">
+            <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-border pt-6">
               <button
                 type="button"
-                onClick={() => handleViewOrDownload(false)}
-                disabled={downloading}
-                className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50"
-              >
-                {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
-                View
-              </button>
-              <button
-                type="button"
-                onClick={() => handleViewOrDownload(true)}
-                disabled={downloading}
+                onClick={handleView}
+                disabled={viewing}
                 className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
               >
-                {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                Download
+                {viewing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+                View
               </button>
               {item.file_format && (
-                <span className="self-center text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   {item.file_name ?? `.${item.file_format}`}
                 </span>
               )}
@@ -469,6 +458,15 @@ export default function MarketplaceItemPage() {
           <p className="mt-4 text-sm text-destructive">{error}</p>
         )}
       </div>
+
+      {viewerUrl && item && (
+        <FileViewer
+          fileUrl={viewerUrl}
+          fileName={item.file_name ?? null}
+          fileFormat={item.file_format ?? null}
+          onClose={handleCloseViewer}
+        />
+      )}
     </div>
   );
 }
