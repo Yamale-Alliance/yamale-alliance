@@ -35,7 +35,7 @@ export default async function Home() {
           }}
         />
 
-        <div className="relative mx-auto max-w-5xl px-4 pt-16 pb-6 text-center sm:pt-20 sm:pb-8 md:pt-24 md:pb-10">
+        <div className="relative mx-auto max-w-5xl px-4 pt-24 pb-6 text-center sm:pt-32 sm:pb-8 md:pt-40 md:pb-10">
           <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl lg:text-[2.85rem] lg:leading-[1.12] lg:tracking-tighter">
             African law,{" "}
             <span className="bg-gradient-to-r from-primary via-amber-600 to-amber-500 bg-clip-text text-transparent dark:via-amber-400">
