@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
-import { BookOpen, FileCheck, Search, Scale, ShoppingBag, ArrowRight, Sparkles, CheckCircle2 } from "lucide-react";
+import { BookOpen, FileCheck, Search, Scale, ShoppingBag, ArrowRight, CheckCircle2 } from "lucide-react";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
 export default async function Home() {
   const { userId } = await auth();
@@ -36,16 +36,11 @@ export default async function Home() {
         />
 
         <div className="relative mx-auto max-w-5xl px-4 py-6 text-center sm:py-8 md:py-10">
-          <div className="mb-3 flex justify-center sm:mb-4">
+          <div className="mb-6 flex justify-center sm:mb-8">
             <Link href="/" className="inline-block transition-transform duration-300 hover:scale-[1.03]">
               <PlatformLogo height={96} width={320} className="h-20 w-auto max-w-[280px] sm:h-24 sm:max-w-[340px] md:h-28 md:max-w-[400px] drop-shadow-2xl" />
             </Link>
           </div>
-
-          <p className="mb-3 inline-flex items-center gap-2 rounded-full border-2 border-primary/40 bg-gradient-to-r from-primary/15 to-primary/5 px-4 py-2 text-xs font-bold uppercase tracking-wider text-primary shadow-lg shadow-primary/10 backdrop-blur-md sm:text-sm dark:from-primary/20 dark:to-primary/10">
-            <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden />
-            Legal research & compliance across Africa
-          </p>
 
           <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl lg:text-[2.85rem] lg:leading-[1.12] lg:tracking-tighter">
             African law,{" "}
