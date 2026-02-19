@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, BookOpen, GraduationCap, FileText, Check, Loader2, ShoppingCart, Zap, X } from "lucide-react";
+import { Search, BookOpen, GraduationCap, FileText, Check, Loader2, ShoppingCart, Zap, X, Package } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 
@@ -221,18 +221,27 @@ export default function MarketplacePage() {
               </p>
             </div>
             {isSignedIn && (
-              <Link
-                href="/marketplace/cart"
-                className="relative inline-flex items-center gap-2 rounded-xl border border-primary/40 bg-background/80 px-4 py-2.5 text-sm font-medium text-foreground shadow-sm shadow-primary/20 backdrop-blur transition hover:border-primary/70 hover:bg-primary/10 hover:shadow-md"
-              >
-                <ShoppingCart className="h-5 w-5 text-primary" />
-                <span>Cart</span>
-                {cartCount > 0 && (
-                  <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                    {cartCount > 9 ? "9+" : cartCount}
-                  </span>
-                )}
-              </Link>
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/marketplace/purchased"
+                  className="inline-flex items-center gap-2 rounded-xl border border-primary/40 bg-background/80 px-4 py-2.5 text-sm font-medium text-foreground shadow-sm shadow-primary/20 backdrop-blur transition hover:border-primary/70 hover:bg-primary/10 hover:shadow-md"
+                >
+                  <Package className="h-5 w-5 text-primary" />
+                  <span>Purchased</span>
+                </Link>
+                <Link
+                  href="/marketplace/cart"
+                  className="relative inline-flex items-center gap-2 rounded-xl border border-primary/40 bg-background/80 px-4 py-2.5 text-sm font-medium text-foreground shadow-sm shadow-primary/20 backdrop-blur transition hover:border-primary/70 hover:bg-primary/10 hover:shadow-md"
+                >
+                  <ShoppingCart className="h-5 w-5 text-primary" />
+                  <span>Cart</span>
+                  {cartCount > 0 && (
+                    <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                      {cartCount > 9 ? "9+" : cartCount}
+                    </span>
+                  )}
+                </Link>
+              </div>
             )}
           </div>
         </div>
