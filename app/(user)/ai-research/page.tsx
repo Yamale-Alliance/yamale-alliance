@@ -8,7 +8,6 @@ import { useUser } from "@clerk/nextjs";
 import {
   Send,
   Lock,
-  Plus,
   Pencil,
   Search,
   Menu,
@@ -16,7 +15,6 @@ import {
   Share2,
   Download,
   X,
-  Paperclip,
   Zap,
   Users,
   Loader2,
@@ -112,7 +110,6 @@ export default function AIResearchPage() {
   const [searchChats, setSearchChats] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [shareOpen, setShareOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [templates, setTemplates] = useState<Array<{ id: string; title: string; description: string | null; query_text: string; category: string | null }>>([]);
@@ -124,11 +121,7 @@ export default function AIResearchPage() {
     tier?: Tier;
   } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const mounted = useRef(false);
-
-  const acceptFileTypes =
-    "image/*,.pdf,.doc,.docx,.txt,.md,.rtf,.odt,.csv,.xls,.xlsx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
   const tierFromMetadata: Tier =
     user?.publicMetadata ? getTierFromUser(user.publicMetadata as Record<string, unknown>) : "free";
@@ -322,34 +315,21 @@ export default function AIResearchPage() {
     URL.revokeObjectURL(url);
   }, [currentSession, getChatTranscript]);
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files?.length) return;
-    setAttachedFiles((prev) => [...prev, ...Array.from(files)]);
-    e.target.value = "";
-  }, []);
-
-  const removeAttachment = useCallback((index: number) => {
-    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
   const sendMessage = async (text: string) => {
     const trimmed = text.trim();
-    const hasAttachments = attachedFiles.length > 0;
-    const content = trimmed || (hasAttachments ? `[Attached: ${attachedFiles.map((f) => f.name).join(", ")}]` : "");
-    if (!content || (atLimit && limit !== null)) return;
+    if (!trimmed || (atLimit && limit !== null)) return;
 
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       role: "user",
-      content: trimmed || (hasAttachments ? `Attached ${attachedFiles.length} file(s) for context.` : ""),
+      content: trimmed,
     };
 
     let sessionIdToUpdate = currentId;
     if (!currentId) {
       const newSession: ChatSession = {
         id: `chat-${Date.now()}`,
-        title: (content.slice(0, 60) || "New chat") + (content.length > 60 ? "…" : ""),
+        title: (trimmed.slice(0, 60) || "New chat") + (trimmed.length > 60 ? "…" : ""),
         messages: [userMessage],
         updatedAt: Date.now(),
       };
@@ -363,7 +343,7 @@ export default function AIResearchPage() {
             ? {
                 ...s,
                 messages: [...s.messages, userMessage],
-                title: s.messages.length === 0 ? (content.slice(0, 60) || s.title) + (content.length > 60 ? "…" : "") : s.title,
+                title: s.messages.length === 0 ? (trimmed.slice(0, 60) || s.title) + (trimmed.length > 60 ? "…" : "") : s.title,
                 updatedAt: Date.now(),
               }
             : s
@@ -371,35 +351,9 @@ export default function AIResearchPage() {
       );
     }
     setInput("");
-    const filesToProcess = [...attachedFiles];
-    setAttachedFiles([]);
     setIsLoading(true);
 
     try {
-      // Convert images to base64
-      const attachments: Array<{ type: string; data: string; name?: string }> = [];
-      for (const file of filesToProcess) {
-        if (file.type.startsWith("image/")) {
-          const base64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => {
-              const result = reader.result as string;
-              // Remove data:image/...;base64, prefix
-              const base64Data = result.split(",")[1];
-              resolve(base64Data);
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          });
-          attachments.push({
-            type: file.type,
-            data: base64,
-            name: file.name,
-          });
-        }
-        // Note: For documents, we could extract text here, but Claude API v1 primarily supports images
-      }
-
       // Build messages array for API (include conversation history)
       const currentSessionMessages = currentId
         ? sessions.find((s) => s.id === currentId)?.messages ?? []
@@ -411,7 +365,7 @@ export default function AIResearchPage() {
         })),
         {
           role: "user" as const,
-          content: trimmed || (hasAttachments ? `I've attached ${filesToProcess.length} file(s) for context.` : ""),
+          content: trimmed,
         },
       ];
 
@@ -422,7 +376,6 @@ export default function AIResearchPage() {
         credentials: "include",
         body: JSON.stringify({
           messages: apiMessages,
-          attachments: attachments.length > 0 ? attachments : undefined,
         }),
       });
 
@@ -859,59 +812,22 @@ export default function AIResearchPage() {
             </div>
           </div>
 
-          {/* Input bar: attach files (+), input, send */}
+          {/* Input bar: input, send */}
           <div className="shrink-0 border-t border-border/70 bg-background/95 backdrop-blur p-4">
             <div className="mx-auto max-w-3xl">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept={acceptFileTypes}
-                multiple
-                className="hidden"
-                onChange={handleFileSelect}
-              />
-              {attachedFiles.length > 0 && (
-                <div className="mb-3 flex flex-wrap gap-2">
-                  {attachedFiles.map((file, i) => (
-                    <span
-                      key={`${file.name}-${i}`}
-                      className="flex items-center gap-1.5 rounded-xl border border-border/70 bg-card/95 px-3 py-1.5 text-xs shadow-sm backdrop-blur-sm"
-                    >
-                      <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="max-w-[120px] truncate">{file.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeAttachment(i)}
-                        className="rounded p-0.5 hover:bg-muted hover:text-foreground transition"
-                        aria-label="Remove"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
               <form onSubmit={handleSubmit}>
                 <div className="flex items-center gap-2 rounded-2xl border border-border/70 bg-card/95 backdrop-blur-xl px-4 py-2.5 shadow-lg shadow-primary/10 transition focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/30">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="shrink-0 rounded-xl p-2 text-muted-foreground transition hover:bg-primary/10 hover:text-primary"
-                    aria-label="Attach files"
-                  >
-                    <Plus className="h-5 w-5" />
-                  </button>
                   <input
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder="Ask anything. Attach images or documents with +."
+                    placeholder="Ask anything about African law..."
                     disabled={atLimit}
                     className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none placeholder:text-muted-foreground/70 disabled:opacity-50"
                   />
                   <button
                     type="submit"
-                    disabled={(!input.trim() && attachedFiles.length === 0) || atLimit || isLoading}
+                    disabled={!input.trim() || atLimit || isLoading}
                     className="shrink-0 rounded-xl bg-gradient-to-r from-primary to-primary/90 p-2.5 text-primary-foreground shadow-sm shadow-primary/20 transition hover:brightness-105 disabled:opacity-50"
                     aria-label="Send"
                   >
