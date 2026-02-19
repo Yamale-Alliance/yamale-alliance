@@ -44,7 +44,7 @@ function LinkGroup({
       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/90 mb-3">
         {title}
       </p>
-      <ul className="flex flex-wrap gap-x-1 gap-y-1">
+      <ul className="flex flex-col gap-y-1.5">
         {links.map(({ href, label }) => (
           <li key={href}>
             <FooterLink href={href}>{label}</FooterLink>

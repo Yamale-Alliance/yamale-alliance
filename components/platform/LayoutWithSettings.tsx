@@ -1,6 +1,6 @@
 import { getPlatformSettings } from "@/lib/platform-settings";
 import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
+import { ConditionalFooter } from "@/components/layout/ConditionalFooter";
 import { DynamicFavicon } from "@/components/platform/DynamicFavicon";
 import { PlatformSettingsProvider } from "@/components/platform/PlatformSettingsContext";
 import { OfflineProvider } from "@/components/offline/OfflineProvider";
@@ -24,7 +24,7 @@ export async function LayoutWithSettings({
       <div className="flex min-h-screen flex-col">
         <Header />
         <div className="flex-1">{children}</div>
-        <Footer />
+        <ConditionalFooter />
       </div>
       <OfflineProvider />
     </PlatformSettingsProvider>
@@ -49,7 +49,7 @@ export function LayoutWithSettingsFallback({
       <div className="flex min-h-screen flex-col">
         <Header />
         <div className="flex-1">{children}</div>
-        <Footer />
+        <ConditionalFooter />
       </div>
       <OfflineProvider />
     </PlatformSettingsProvider>

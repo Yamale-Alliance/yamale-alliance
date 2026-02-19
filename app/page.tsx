@@ -1,17 +1,10 @@
 import Link from "next/link";
-import Image from "next/image";
 import { auth } from "@clerk/nextjs/server";
 import { BookOpen, FileCheck, Search, Scale, ShoppingBag, ArrowRight, Sparkles, CheckCircle2 } from "lucide-react";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
-import { getPlatformSettings } from "@/lib/platform-settings";
-
-// Always fetch fresh so hero image is correct when navigating from admin (no stale RSC cache)
-export const dynamic = "force-dynamic";
-
 export default async function Home() {
   const { userId } = await auth();
   const isSignedIn = !!userId;
-  const { heroImageUrl } = await getPlatformSettings();
 
   return (
     <div className="min-h-screen">
@@ -45,20 +38,7 @@ export default async function Home() {
         <div className="relative mx-auto max-w-5xl px-4 py-6 text-center sm:py-8 md:py-10">
           <div className="mb-3 flex justify-center sm:mb-4">
             <Link href="/" className="inline-block transition-transform duration-300 hover:scale-[1.03]">
-              {heroImageUrl ? (
-                <span className="relative block w-full max-w-[220px] sm:max-w-[280px] md:max-w-[320px] drop-shadow-2xl">
-                  <Image
-                    src={heroImageUrl}
-                    alt="Yamalé"
-                    width={320}
-                    height={180}
-                    className="h-auto w-full object-contain"
-                    priority
-                  />
-                </span>
-              ) : (
-                <PlatformLogo height={72} width={240} className="h-14 w-auto max-w-[220px] sm:h-16 sm:max-w-[260px]" />
-              )}
+              <PlatformLogo height={96} width={320} className="h-20 w-auto max-w-[280px] sm:h-24 sm:max-w-[340px] md:h-28 md:max-w-[400px] drop-shadow-2xl" />
             </Link>
           </div>
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Upload, Image as ImageIcon, CheckCircle2, Loader2 } from "lucide-react";
-import { HeroImageCropModal } from "@/components/admin/HeroImageCropModal";
+import { LogoCropModal } from "@/components/admin/LogoCropModal";
 
 function showToast(message: string, type: "success" | "error" = "success") {
   // Simple toast implementation
@@ -26,16 +26,14 @@ function showToast(message: string, type: "success" | "error" = "success") {
 interface PlatformSettings {
   logoUrl: string | null;
   faviconUrl: string | null;
-  heroImageUrl: string | null;
 }
 
 export default function BrandingSettingsPage() {
-  const [settings, setSettings] = useState<PlatformSettings>({ logoUrl: null, faviconUrl: null, heroImageUrl: null });
+  const [settings, setSettings] = useState<PlatformSettings>({ logoUrl: null, faviconUrl: null });
   const [loading, setLoading] = useState(true);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
-  const [uploadingHero, setUploadingHero] = useState(false);
-  const [heroCropImage, setHeroCropImage] = useState<{ url: string; fileName: string } | null>(null);
+  const [logoCropImage, setLogoCropImage] = useState<{ url: string; fileName: string } | null>(null);
 
   useEffect(() => {
     fetchSettings();
@@ -46,7 +44,7 @@ export default function BrandingSettingsPage() {
       const res = await fetch("/api/admin/platform-settings");
       if (res.ok) {
         const data = await res.json();
-        setSettings({ logoUrl: data.logoUrl, faviconUrl: data.faviconUrl, heroImageUrl: data.heroImageUrl ?? null });
+        setSettings({ logoUrl: data.logoUrl, faviconUrl: data.faviconUrl });
       }
     } catch (error) {
       console.error("Failed to fetch settings:", error);
@@ -55,7 +53,7 @@ export default function BrandingSettingsPage() {
     }
   };
 
-  const handleUpload = async (type: "logo" | "favicon" | "hero", file: File) => {
+  const handleUpload = useCallback(async (type: "logo" | "favicon", file: File) => {
     if (type === "favicon" && !file.name.toLowerCase().endsWith(".ico")) {
       showToast("Favicon must be a .ico file", "error");
       return;
@@ -65,7 +63,7 @@ export default function BrandingSettingsPage() {
     formData.append("file", file);
     formData.append("type", type);
 
-    const setUploading = type === "logo" ? setUploadingLogo : type === "favicon" ? setUploadingFavicon : setUploadingHero;
+    const setUploading = type === "logo" ? setUploadingLogo : setUploadingFavicon;
     setUploading(true);
 
     try {
@@ -83,13 +81,11 @@ export default function BrandingSettingsPage() {
       
       if (type === "logo") {
         setSettings((prev) => ({ ...prev, logoUrl: data.url }));
-      } else if (type === "favicon") {
-        setSettings((prev) => ({ ...prev, faviconUrl: data.url }));
       } else {
-        setSettings((prev) => ({ ...prev, heroImageUrl: data.url }));
+        setSettings((prev) => ({ ...prev, faviconUrl: data.url }));
       }
 
-      const label = type === "logo" ? "Logo" : type === "favicon" ? "Favicon" : "Main page image";
+      const label = type === "logo" ? "Logo" : "Favicon";
       showToast(`${label} updated successfully`, "success");
       
       // Reload page after a short delay to show new favicon
@@ -103,14 +99,15 @@ export default function BrandingSettingsPage() {
     } finally {
       setUploading(false);
     }
-  };
-
-  const handleHeroCropComplete = useCallback((blob: Blob, fileName: string, imageSrcToRevoke: string) => {
-    URL.revokeObjectURL(imageSrcToRevoke);
-    setHeroCropImage(null);
-    const file = new File([blob], fileName, { type: blob.type });
-    handleUpload("hero", file);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleLogoCropComplete = useCallback((blob: Blob, fileName: string, imageSrcToRevoke: string) => {
+    URL.revokeObjectURL(imageSrcToRevoke);
+    setLogoCropImage(null);
+    const file = new File([blob], fileName, { type: blob.type });
+    handleUpload("logo", file);
+  }, [handleUpload]);
 
   if (loading) {
     return (
@@ -127,7 +124,7 @@ export default function BrandingSettingsPage() {
       <div className="rounded-2xl border border-border bg-card px-4 py-6 shadow-sm sm:px-6 sm:py-8 md:px-8 md:py-10">
         <h1 className="text-2xl font-semibold tracking-tight">Branding Settings</h1>
         <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-          Upload your platform logo and favicon. Changes will be reflected immediately across the site.
+          Upload and edit your platform logo and favicon. Changes will be reflected immediately across the site.
         </p>
       </div>
 
@@ -138,7 +135,7 @@ export default function BrandingSettingsPage() {
             <div className="flex-1">
               <h2 className="text-lg font-semibold text-foreground">Logo</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Your platform logo appears in the header and PDF exports. Supports PNG, JPG, SVG, and other image formats.
+                Your platform logo appears in the header and on the home page. Upload an image to crop, zoom, and resize it. Supports PNG, JPG, SVG, and other image formats.
               </p>
               
               {settings.logoUrl && (
@@ -147,7 +144,7 @@ export default function BrandingSettingsPage() {
                     <img
                       src={settings.logoUrl}
                       alt="Current logo"
-                      className="h-16 max-w-[200px] object-contain"
+                      className="h-20 max-w-[300px] object-contain"
                     />
                   </div>
                 </div>
@@ -163,70 +160,28 @@ export default function BrandingSettingsPage() {
                     className="hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) handleUpload("logo", file);
+                      if (file) {
+                        const url = URL.createObjectURL(file);
+                        setLogoCropImage({ url, fileName: file.name });
+                      }
+                      e.target.value = "";
                     }}
                     disabled={uploadingLogo}
                   />
                 </label>
               </div>
-            </div>
-            {settings.logoUrl && (
-              <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0 ml-4" />
-            )}
-          </div>
-        </div>
-
-        {/* Main page / Hero image */}
-        <div className="rounded-xl border border-border bg-card p-6">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <h2 className="text-lg font-semibold text-foreground">Main page image</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Shown large on the home page above the headline. Use a high-quality image (e.g. 400–600px wide) so it stays sharp. PNG, JPG, or WebP.
-              </p>
-              {settings.heroImageUrl && (
-                <div className="mt-4">
-                  <div className="relative inline-block rounded-lg border border-border p-2 bg-background">
-                    <img
-                      src={settings.heroImageUrl}
-                      alt="Main page image"
-                      className="max-h-32 w-auto max-w-[280px] object-contain"
-                    />
-                  </div>
-                </div>
-              )}
-              <div className="mt-4">
-                <label className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent cursor-pointer">
-                  <Upload className="h-4 w-4" />
-                  {uploadingHero ? "Uploading..." : settings.heroImageUrl ? "Change main page image" : "Upload main page image"}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const url = URL.createObjectURL(file);
-                        setHeroCropImage({ url, fileName: file.name });
-                      }
-                      e.target.value = "";
-                    }}
-                    disabled={uploadingHero}
-                  />
-                </label>
-              </div>
-              {heroCropImage && (
-                <HeroImageCropModal
-                  imageSrc={heroCropImage.url}
-                  onComplete={handleHeroCropComplete}
+              {logoCropImage && (
+                <LogoCropModal
+                  imageSrc={logoCropImage.url}
+                  onComplete={handleLogoCropComplete}
                   onCancel={() => {
-                    URL.revokeObjectURL(heroCropImage.url);
-                    setHeroCropImage(null);
+                    URL.revokeObjectURL(logoCropImage.url);
+                    setLogoCropImage(null);
                   }}
                 />
               )}
             </div>
-            {settings.heroImageUrl && (
+            {settings.logoUrl && (
               <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0 ml-4" />
             )}
           </div>
