@@ -5,7 +5,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 const BUCKET = "marketplace-files";
 const SIGNED_URL_EXPIRY_SEC = 3600; // 1 hour
 
-/** GET: return signed URL for item file. Requires auth + purchase. */
+/** GET: return signed URL for item file (viewing only, no download). Requires auth + purchase. */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -46,14 +46,12 @@ export async function GET(
     .maybeSingle();
 
   if (!purchase) {
-    return NextResponse.json({ error: "Purchase this item to view or download" }, { status: 403 });
+    return NextResponse.json({ error: "Purchase this item to view" }, { status: 403 });
   }
 
   const { data: signed, error: signErr } = await supabase.storage
     .from(BUCKET)
-    .createSignedUrl(item.file_path, SIGNED_URL_EXPIRY_SEC, {
-      download: item.file_name ?? undefined,
-    });
+    .createSignedUrl(item.file_path, SIGNED_URL_EXPIRY_SEC);
 
   if (signErr) {
     console.error("Marketplace download signed URL error:", signErr);
