@@ -55,15 +55,13 @@ export async function POST(request: NextRequest) {
         } else if (kind === "lawyer_search_unlock" && clerkUserId) {
           const supabase = getSupabaseServer();
           const { data: row } = await (supabase.from("lawyer_search_purchases") as any)
-            .select("lawyer_ids")
+            .select("country, expertise")
             .eq("stripe_session_id", session.id)
             .single();
-          const lawyerIdsRaw = row?.lawyer_ids;
-          const lawyerIds = Array.isArray(lawyerIdsRaw)
-            ? (lawyerIdsRaw as string[]).filter((id: unknown) => typeof id === "string")
-            : [];
-          if (lawyerIds.length > 0) {
-            await recordSearchUnlockGrant(clerkUserId, lawyerIds, session.id);
+          const country = (row?.country ?? "all") as string;
+          const expertise = (row?.expertise ?? "") as string;
+          if (expertise && expertise !== "all") {
+            await recordSearchUnlockGrant(clerkUserId, country, expertise, session.id);
           }
         } else if (kind === "team_extra_seats" && clerkUserId && session.metadata?.seats) {
           const seats = Number(session.metadata.seats);

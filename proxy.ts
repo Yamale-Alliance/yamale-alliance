@@ -41,7 +41,7 @@ export default clerkMiddleware(async (auth, request) => {
   // Basic HTTP Auth check (only if enabled via env var)
   // Skip basic auth for public laws API so Library works without sign-in (incl. on mobile)
   const url = request.nextUrl ?? new URL(request.url);
-  const isPublicApi =
+  const isPublicApi = 
     request.method === "GET" &&
     (url.pathname === "/api/laws" ||
       url.pathname.startsWith("/api/laws/") ||

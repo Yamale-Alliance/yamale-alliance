@@ -14,6 +14,7 @@ import {
   X,
   Store,
   Cpu,
+  Search,
 } from "lucide-react";
 
 const navItems = [
@@ -22,6 +23,7 @@ const navItems = [
   { href: "/admin-panel/users", label: "Users", icon: Users },
   { href: "/admin-panel/ai-usage", label: "AI Usage", icon: Cpu },
   { href: "/admin-panel/lawyers", label: "Lawyers", icon: Briefcase },
+  { href: "/admin-panel/lawyer-searches", label: "Lawyer Searches", icon: Search },
   { href: "/admin-panel/laws", label: "Laws", icon: BookOpen },
   { href: "/admin-panel/marketplace", label: "Marketplace", icon: Store },
   { href: "/admin-panel/pricing", label: "Pricing", icon: Scale },

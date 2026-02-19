@@ -21,15 +21,8 @@ export async function POST(request: NextRequest) {
     const country = typeof body.country === "string" ? body.country.trim() : "";
     const expertise = typeof body.expertise === "string" ? body.expertise.trim() : "";
 
-    if (!Array.isArray(lawyerIds) || lawyerIds.length === 0) {
-      return NextResponse.json({ error: "lawyerIds array (non-empty) is required" }, { status: 400 });
-    }
     if (!expertise || expertise === "all") {
       return NextResponse.json({ error: "A specific practice area (expertise) is required to unlock a search" }, { status: 400 });
-    }
-    const ids = (lawyerIds as string[]).filter((id) => typeof id === "string");
-    if (ids.length === 0) {
-      return NextResponse.json({ error: "At least one valid lawyer id is required" }, { status: 400 });
     }
 
     const origin = request.headers.get("origin") || request.nextUrl.origin;
@@ -67,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = getSupabaseServer();
     await (supabase.from("lawyer_search_purchases") as any).upsert(
-      { stripe_session_id: session.id, user_id: userId, lawyer_ids: ids, country: country || "all", expertise },
+      { stripe_session_id: session.id, user_id: userId, lawyer_ids: [], country: country || "all", expertise },
       { onConflict: "stripe_session_id" }
     );
 

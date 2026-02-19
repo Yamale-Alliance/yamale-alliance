@@ -91,7 +91,7 @@ export default function LawyersPage() {
   };
 
   const handlePayForSearch = async () => {
-    if (filteredLawyers.length === 0 || selectedExpertise === "all") return;
+    if (selectedExpertise === "all") return;
     if (!userLoaded || !isSignedIn) {
       setSearchPayError("Sign in to unlock contact details.");
       return;
@@ -103,7 +103,6 @@ export default function LawyersPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          lawyerIds: filteredLawyers.map((l) => l.id),
           country: selectedCountry,
           expertise: selectedExpertise,
         }),
@@ -264,10 +263,6 @@ export default function LawyersPage() {
             <h1 className="heading mt-5 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-[2.5rem]">
               Find counsel anywhere in Africa.
             </h1>
-            <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-              Search by country and practice area to locate vetted lawyers and firms for cross-border work,
-              AfCFTA matters, and local transactions.
-            </p>
           </div>
         </div>
       </section>
@@ -279,10 +274,7 @@ export default function LawyersPage() {
           <div className="mb-8 rounded-2xl border border-border/70 bg-card/95 p-5 shadow-lg shadow-primary/10 backdrop-blur-xl sm:p-6">
             <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
               <div className="max-w-xl">
-                <h2 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
-                  What type of lawyer are you looking for?
-                </h2>
-                <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                <p className="text-xs text-muted-foreground sm:text-sm">
                   Choose <strong>country</strong> and <strong>practice area</strong> (required). One search costs ${SEARCH_PRICE} and
                   unlocks contact details for all matching lawyers.
                 </p>
@@ -422,8 +414,7 @@ export default function LawyersPage() {
                 <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
                   Pay ${SEARCH_PRICE} to unlock contact details for all{" "}
                   {filteredLawyers.length} lawyer{filteredLawyers.length !== 1 ? "s" : ""} in this search (
-                  {selectedCountry === "all" ? "All countries" : selectedCountry} + {selectedExpertise}). New
-                  lawyers added later require another search.
+                  {selectedCountry === "all" ? "All countries" : selectedCountry} + {selectedExpertise}).
                 </p>
               </div>
               <div className="flex flex-col items-end gap-2">
