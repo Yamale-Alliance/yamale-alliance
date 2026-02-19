@@ -36,12 +36,6 @@ export default async function Home() {
         />
 
         <div className="relative mx-auto max-w-5xl px-4 py-6 text-center sm:py-8 md:py-10">
-          <div className="mb-6 flex justify-center sm:mb-8">
-            <Link href="/" className="inline-block transition-transform duration-300 hover:scale-[1.03]">
-              <PlatformLogo height={96} width={320} className="h-20 w-auto max-w-[280px] sm:h-24 sm:max-w-[340px] md:h-28 md:max-w-[400px] drop-shadow-2xl" />
-            </Link>
-          </div>
-
           <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl lg:text-[2.85rem] lg:leading-[1.12] lg:tracking-tighter">
             African law,{" "}
             <span className="bg-gradient-to-r from-primary via-amber-600 to-amber-500 bg-clip-text text-transparent dark:via-amber-400">
@@ -270,6 +264,13 @@ export default async function Home() {
           </div>
         </div>
       </section>
+
+      {/* Logo at bottom left */}
+      <div className="fixed bottom-6 left-6 z-10 sm:bottom-8 sm:left-8">
+        <Link href="/" className="inline-block transition-transform duration-300 hover:scale-[1.05]">
+          <PlatformLogo height={120} width={400} className="h-24 w-auto max-w-[320px] sm:h-32 sm:max-w-[420px] md:h-40 md:max-w-[520px] drop-shadow-2xl" />
+        </Link>
+      </div>
     </div>
   );
 }
