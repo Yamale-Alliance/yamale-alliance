@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Search, BookOpen, ArrowRight, Filter, X, Bookmark, Sparkles, Calendar, FileEdit, Eye } from "lucide-react";
+import { Search, BookOpen, ArrowRight, Filter, X, Bookmark, Sparkles, Calendar, FileEdit, Eye, BookmarkCheck } from "lucide-react";
 import type { LibraryCountry, LibraryCategory, LibraryLawRow } from "@/lib/library-data";
 
 const RECENTLY_ADDED_DAYS = 3;
@@ -262,18 +262,26 @@ export function LibraryView({
   };
 
   const filteredLaws = useMemo(() => {
-    return laws.filter((law) => {
+    const filtered = laws.filter((law) => {
       const matchSearch =
         !search ||
         law.name.toLowerCase().includes(search.toLowerCase()) ||
-        law.country.toLowerCase().includes(search.toLowerCase()) ||
         law.category.toLowerCase().includes(search.toLowerCase());
       const matchCountry = !country || law.country === country;
       const matchCategory = !category || law.category === category;
       const matchStatus = !status || law.status === status;
       return matchSearch && matchCountry && matchCategory && matchStatus;
     });
-  }, [laws, search, country, category, status]);
+    
+    // Sort: bookmarked laws first, then others
+    return filtered.sort((a, b) => {
+      const aBookmarked = bookmarkedIds.has(a.id);
+      const bBookmarked = bookmarkedIds.has(b.id);
+      if (aBookmarked && !bBookmarked) return -1;
+      if (!aBookmarked && bBookmarked) return 1;
+      return 0;
+    });
+  }, [laws, search, country, category, status, bookmarkedIds]);
 
   const categoryNames = useMemo(() => [...new Set(laws.map((l) => l.category))].filter(Boolean).sort(), [laws]);
 
@@ -290,14 +298,11 @@ export function LibraryView({
         <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-primary">
-                <BookOpen className="h-5 w-5" />
-                Legal Library
-              </div>
-              <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+              <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                <BookOpen className="h-6 w-6 text-primary" />
                 African Legal Library
               </h1>
-              <p className="mt-1 text-muted-foreground">
+              <p className="mt-2 text-muted-foreground">
                 Browse by jurisdiction and domain. No sign-in required.
               </p>
             </div>
@@ -308,7 +313,7 @@ export function LibraryView({
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="search"
-                placeholder="Search by name, country, or category..."
+                placeholder="Search by law, category..."
                 value={search}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 className="w-full rounded-xl border border-border/80 bg-background py-3 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -362,6 +367,18 @@ export function LibraryView({
                   </option>
                 ))}
               </select>
+              {bookmarkedIds.size > 0 && (
+                <Link
+                  href="/library/bookmarks"
+                  className="inline-flex items-center gap-2 rounded-xl border border-primary/50 bg-gradient-to-r from-primary/15 via-primary/10 to-primary/15 px-4 py-2.5 text-sm font-semibold text-primary shadow-sm shadow-primary/10 transition-all hover:border-primary/70 hover:bg-primary/20 hover:shadow-md hover:shadow-primary/20"
+                >
+                  <BookmarkCheck className="h-4 w-4" />
+                  <span className="hidden sm:inline">Bookmarked</span>
+                  <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs font-bold text-primary">
+                    {bookmarkedIds.size}
+                  </span>
+                </Link>
+              )}
               {hasFilters && (
                 <button
                   type="button"
