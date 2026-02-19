@@ -61,8 +61,23 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Skip Clerk authentication domains (iframes, popups, etc.)
+  if (url.hostname.includes('clerk.') || url.hostname.includes('clerk.com') || url.hostname.includes('clerk.dev') || url.hostname.includes('clerk.accounts')) {
+    return;
+  }
+
+  // Skip navigation requests (let browser handle page navigation)
+  if (request.mode === 'navigate' || request.destination === 'document') {
+    return;
+  }
+
   // Skip cross-origin requests (except our API)
   if (url.origin !== self.location.origin && !url.pathname.startsWith('/api/')) {
+    return;
+  }
+
+  // Skip Clerk API endpoints
+  if (url.pathname.startsWith('/api/clerk') || url.pathname.includes('clerk')) {
     return;
   }
 
@@ -72,14 +87,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first strategy for static assets
+  // Cache-first strategy for static assets (only specific paths)
   if (STATIC_CACHE_URLS.some(path => url.pathname === path || url.pathname.startsWith(path + '/'))) {
     event.respondWith(cacheFirstStrategy(request));
     return;
   }
 
-  // Default: network-first with cache fallback
-  event.respondWith(networkFirstStrategy(request));
+  // Don't intercept other requests - let them pass through normally
+  return;
 });
 
 // Network-first strategy: try network, fallback to cache
