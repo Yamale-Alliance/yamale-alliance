@@ -264,13 +264,6 @@ export default async function Home() {
           </div>
         </div>
       </section>
-
-      {/* Logo at bottom left */}
-      <div className="fixed bottom-6 left-6 z-10 sm:bottom-8 sm:left-8">
-        <Link href="/" className="inline-block transition-transform duration-300 hover:scale-[1.05]">
-          <PlatformLogo height={120} width={400} className="h-24 w-auto max-w-[320px] sm:h-32 sm:max-w-[420px] md:h-40 md:max-w-[520px] drop-shadow-2xl" />
-        </Link>
-      </div>
     </div>
   );
 }
