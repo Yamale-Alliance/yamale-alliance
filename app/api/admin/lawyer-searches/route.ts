@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { clerkClient } from "@clerk/nextjs/server";
+import type { Database } from "@/lib/database.types";
+
+type LawyerSearchUnlockGrant = Database["public"]["Tables"]["lawyer_search_unlock_grants"]["Row"];
 
 export async function GET() {
   const admin = await requireAdmin();
@@ -12,8 +15,7 @@ export async function GET() {
     const now = new Date().toISOString();
     
     // Get all active search grants (not expired)
-    const { data: grants, error } = await supabase
-      .from("lawyer_search_unlock_grants")
+    const { data: grants, error } = await (supabase.from("lawyer_search_unlock_grants") as any)
       .select("user_id, lawyer_ids, expires_at, created_at, stripe_session_id")
       .gt("expires_at", now)
       .order("created_at", { ascending: false });
@@ -27,8 +29,10 @@ export async function GET() {
       return NextResponse.json([]);
     }
 
+    const grantRows = grants as LawyerSearchUnlockGrant[];
+
     // Get unique user IDs
-    const userIds = Array.from(new Set(grants.map((g) => g.user_id)));
+    const userIds = Array.from(new Set(grantRows.map((g) => g.user_id)));
     
     // Fetch user details from Clerk
     const clerk = await clerkClient();
@@ -49,7 +53,7 @@ export async function GET() {
     }
 
     // Process grants and calculate days left
-    const searches = grants.map((grant) => {
+    const searches = grantRows.map((grant) => {
       const user = usersMap.get(grant.user_id) || { name: "Unknown", email: null };
       const expiresAt = new Date(grant.expires_at);
       const nowDate = new Date();
