@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
             session.metadata.lawyer_id as string,
             session.id
           );
-        } else if (kind === "lawyer_search_unlock" && clerkUserId) {
+        } else if ((kind === "lawyer_search_unlock" || kind === "payg_lawyer_search") && clerkUserId) {
           const supabase = getSupabaseServer();
           const { data: row } = await (supabase.from("lawyer_search_purchases") as any)
             .select("country, expertise")
@@ -63,6 +63,40 @@ export async function POST(request: NextRequest) {
           if (expertise && expertise !== "all") {
             await recordSearchUnlockGrant(clerkUserId, country, expertise, session.id);
           }
+          // Record pay-as-you-go purchase
+          await (supabase.from("pay_as_you_go_purchases") as any).insert({
+            user_id: clerkUserId,
+            item_type: "lawyer_search",
+            quantity: 1,
+            stripe_session_id: session.id,
+          });
+        } else if (kind === "payg_document" && clerkUserId) {
+          const supabase = getSupabaseServer();
+          await (supabase.from("pay_as_you_go_purchases") as any).insert({
+            user_id: clerkUserId,
+            item_type: "document",
+            quantity: 1,
+            stripe_session_id: session.id,
+          });
+          console.log("Webhook: pay-as-you-go document purchase recorded for", clerkUserId);
+        } else if (kind === "payg_ai_query" && clerkUserId) {
+          const supabase = getSupabaseServer();
+          await (supabase.from("pay_as_you_go_purchases") as any).insert({
+            user_id: clerkUserId,
+            item_type: "ai_query",
+            quantity: 1,
+            stripe_session_id: session.id,
+          });
+          console.log("Webhook: pay-as-you-go AI query purchase recorded for", clerkUserId);
+        } else if (kind === "payg_afcfta_report" && clerkUserId) {
+          const supabase = getSupabaseServer();
+          await (supabase.from("pay_as_you_go_purchases") as any).insert({
+            user_id: clerkUserId,
+            item_type: "afcfta_report",
+            quantity: 1,
+            stripe_session_id: session.id,
+          });
+          console.log("Webhook: pay-as-you-go AfCFTA report purchase recorded for", clerkUserId);
         } else if (kind === "team_extra_seats" && clerkUserId && session.metadata?.seats) {
           const seats = Number(session.metadata.seats);
           if (seats > 0) {
