@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { getAiUsage } from "@/lib/ai-usage";
 import { getAiQueryLimit } from "@/lib/plan-limits";
+import { getUnusedPayAsYouGoCount } from "@/lib/pay-as-you-go";
 
 /** GET: current user's AI query usage this month and plan limit. */
 export async function GET() {
@@ -18,7 +19,6 @@ export async function GET() {
   const used = usage.query_count;
   
   // Check for pay-as-you-go purchases
-  const { getUnusedPayAsYouGoCount } = await import("@/lib/pay-as-you-go");
   const payAsYouGoCount = await getUnusedPayAsYouGoCount(userId, "ai_query");
   
   // Remaining = plan limit - used, but if they have pay-as-you-go purchases, they can still query

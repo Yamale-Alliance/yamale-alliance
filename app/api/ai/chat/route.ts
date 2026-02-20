@@ -219,7 +219,6 @@ export async function POST(request: NextRequest) {
 
     // Enforce plan limits: Basic 10, Pro 50, Team unlimited (incl. team members)
     // Check if user has pay-as-you-go purchases
-    const { hasUnusedPayAsYouGo, consumePayAsYouGoPurchase } = await import("@/lib/pay-as-you-go");
     const hasPayAsYouGoQuery = await hasUnusedPayAsYouGo(userId, "ai_query");
     
     const { getEffectiveTierForUser } = await import("@/lib/team");
