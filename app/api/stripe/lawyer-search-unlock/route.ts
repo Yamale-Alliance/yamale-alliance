@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       client_reference_id: userId,
       metadata: {
         clerk_user_id: userId,
-        kind: "lawyer_search_unlock",
+        kind: "payg_lawyer_search",
       },
     });
 
