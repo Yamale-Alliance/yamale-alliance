@@ -16,12 +16,21 @@ export async function GET() {
   const limit = getAiQueryLimit(tier);
   const usage = await getAiUsage(userId);
   const used = usage.query_count;
+  
+  // Check for pay-as-you-go purchases
+  const { getUnusedPayAsYouGoCount } = await import("@/lib/pay-as-you-go");
+  const payAsYouGoCount = await getUnusedPayAsYouGoCount(userId, "ai_query");
+  
+  // Remaining = plan limit - used, but if they have pay-as-you-go purchases, they can still query
   const remaining = limit === null ? null : Math.max(0, limit - used);
+  const canQuery = limit === null || (remaining !== null && remaining > 0) || payAsYouGoCount > 0;
 
   return NextResponse.json({
     used,
     limit,
     remaining,
     tier,
+    payAsYouGoCount,
+    canQuery,
   });
 }
