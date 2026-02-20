@@ -72,7 +72,8 @@ export default function AdminPricingPage() {
         setSaving(false);
         return;
       }
-      setPlans((prev) => prev.map((p) => (p.id === editing.id ? { ...p, ...data } : p)));
+      // Refresh all plans to reflect the highlighted change (in case another plan was unhighlighted)
+      fetchPlans();
       setEditing(null);
     } catch {
       setError("Network error");
