@@ -225,6 +225,44 @@ export default function PricingPage() {
     }
   };
 
+  const handlePayAsYouGoCheckout = async (itemType: "document" | "ai_query" | "afcfta_report") => {
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      const returnUrl = encodeURIComponent(`/pricing?payg=${itemType}`);
+      router.push(`/sign-in?redirect_url=${returnUrl}`);
+      return;
+    }
+
+    setCheckoutLoading(`payg-${itemType}`);
+    try {
+      const endpointMap = {
+        document: "/api/stripe/payg/document",
+        ai_query: "/api/stripe/payg/ai-query",
+        afcfta_report: "/api/stripe/payg/afcfta-report",
+      };
+      const res = await fetch(endpointMap[itemType], {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 401) {
+          const returnUrl = encodeURIComponent(`/pricing?payg=${itemType}`);
+          router.push(`/sign-in?redirect_url=${returnUrl}`);
+          return;
+        }
+        alert(data.error || "Checkout failed");
+        return;
+      }
+      if (data.url) window.location.href = data.url;
+    } catch {
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setCheckoutLoading(null);
+    }
+  };
+
   useEffect(() => {
     fetch("/api/pricing")
       .then((r) => r.json())
@@ -263,6 +301,15 @@ export default function PricingPage() {
       // Clean up URL
       window.history.replaceState({}, "", "/pricing");
       return () => clearTimeout(timeoutId);
+    } else {
+      const payg = params.get("payg");
+      if (payg && ["document", "ai_query", "afcfta_report"].includes(payg)) {
+        const timeoutId = setTimeout(() => {
+          handlePayAsYouGoCheckout(payg as "document" | "ai_query" | "afcfta_report");
+        }, 100);
+        window.history.replaceState({}, "", "/pricing");
+        return () => clearTimeout(timeoutId);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded, isSignedIn]);
@@ -457,7 +504,12 @@ export default function PricingPage() {
           <div className="mb-12">
             <div className="rounded-2xl border border-border/70 bg-card/95 p-6 shadow-lg shadow-primary/10 backdrop-blur-xl sm:p-10">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="group relative overflow-hidden rounded-xl border border-border/70 bg-background/80 p-6 text-center transition hover:border-primary/50 hover:shadow-md">
+                <button
+                  type="button"
+                  onClick={() => handlePayAsYouGoCheckout("document")}
+                  disabled={checkoutLoading !== null}
+                  className="group relative overflow-hidden rounded-xl border border-border/70 bg-background/80 p-6 text-center transition hover:border-primary/50 hover:shadow-md hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
+                >
                   <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[rgba(193,140,67,0.9)] via-[rgba(227,186,101,0.95)] to-[rgba(154,99,42,0.9)] opacity-70" />
                   <div className="text-4xl mb-3 sm:text-5xl">📄</div>
                   <div className="text-lg font-bold mb-2 text-foreground sm:text-xl">
@@ -470,9 +522,17 @@ export default function PricingPage() {
                   <div className="text-xs text-muted-foreground/80 mt-2">
                     Download & keep forever
                   </div>
-                </div>
+                  {checkoutLoading === "payg-document" && (
+                    <div className="mt-3 text-xs text-primary font-medium">Redirecting…</div>
+                  )}
+                </button>
 
-                <div className="group relative overflow-hidden rounded-xl border border-border/70 bg-background/80 p-6 text-center transition hover:border-primary/50 hover:shadow-md">
+                <button
+                  type="button"
+                  onClick={() => handlePayAsYouGoCheckout("ai_query")}
+                  disabled={checkoutLoading !== null}
+                  className="group relative overflow-hidden rounded-xl border border-border/70 bg-background/80 p-6 text-center transition hover:border-primary/50 hover:shadow-md hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
+                >
                   <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[rgba(193,140,67,0.9)] via-[rgba(227,186,101,0.95)] to-[rgba(154,99,42,0.9)] opacity-70" />
                   <div className="text-4xl mb-3 sm:text-5xl">🤖</div>
                   <div className="text-lg font-bold mb-2 text-foreground sm:text-xl">
@@ -485,7 +545,10 @@ export default function PricingPage() {
                   <div className="text-xs text-muted-foreground/80 mt-2">
                     Full answer with citations
                   </div>
-                </div>
+                  {checkoutLoading === "payg-ai_query" && (
+                    <div className="mt-3 text-xs text-primary font-medium">Redirecting…</div>
+                  )}
+                </button>
 
                 <div className="group relative overflow-hidden rounded-xl border border-border/70 bg-background/80 p-6 text-center transition hover:border-primary/50 hover:shadow-md">
                   <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[rgba(193,140,67,0.9)] via-[rgba(227,186,101,0.95)] to-[rgba(154,99,42,0.9)] opacity-70" />
@@ -500,9 +563,17 @@ export default function PricingPage() {
                   <div className="text-xs text-muted-foreground/80 mt-2">
                     Unlocks direct email &amp; phone for matching lawyers
                   </div>
+                  <div className="text-xs text-muted-foreground/60 mt-3 italic">
+                    Purchase from lawyer directory page
+                  </div>
                 </div>
 
-                <div className="group relative overflow-hidden rounded-xl border border-border/70 bg-background/80 p-6 text-center transition hover:border-primary/50 hover:shadow-md">
+                <button
+                  type="button"
+                  onClick={() => handlePayAsYouGoCheckout("afcfta_report")}
+                  disabled={checkoutLoading !== null}
+                  className="group relative overflow-hidden rounded-xl border border-border/70 bg-background/80 p-6 text-center transition hover:border-primary/50 hover:shadow-md hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
+                >
                   <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[rgba(193,140,67,0.9)] via-[rgba(227,186,101,0.95)] to-[rgba(154,99,42,0.9)] opacity-70" />
                   <div className="text-4xl mb-3 sm:text-5xl">📊</div>
                   <div className="text-lg font-bold mb-2 text-foreground sm:text-xl">
@@ -515,7 +586,10 @@ export default function PricingPage() {
                   <div className="text-xs text-muted-foreground/80 mt-2">
                     Full compliance analysis
                   </div>
-                </div>
+                  {checkoutLoading === "payg-afcfta_report" && (
+                    <div className="mt-3 text-xs text-primary font-medium">Redirecting…</div>
+                  )}
+                </button>
               </div>
 
               <div className="mt-8 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-center text-sm text-muted-foreground">
