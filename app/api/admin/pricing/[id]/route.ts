@@ -31,6 +31,14 @@ export async function PATCH(
     if (typeof body.sort_order === "number") updates.sort_order = body.sort_order;
 
     const supabase = getSupabaseServer();
+    
+    // If marking this plan as highlighted, clear highlighted from all other plans first
+    if (body.highlighted === true) {
+      await (supabase.from("pricing_plans") as any)
+        .update({ highlighted: false, updated_at: new Date().toISOString() })
+        .neq("id", id);
+    }
+    
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase.from("pricing_plans") as any)
       .update(updates)
