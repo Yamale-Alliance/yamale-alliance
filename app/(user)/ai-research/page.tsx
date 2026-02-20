@@ -567,16 +567,16 @@ export default function AIResearchPage() {
         className="fixed left-0 right-0 top-14 z-10 flex h-[calc(100vh-3.5rem)] bg-gradient-to-b from-muted/20 via-background to-background"
         style={{ height: "calc(100vh - 3.5rem)" }}
       >
-        {/* Sidebar - ChatGPT style */}
+        {/* Sidebar - partial width on mobile, opaque like desktop */}
         <aside
-          className={`absolute inset-y-0 left-0 z-20 flex h-full flex-col border-r border-border/70 bg-card/95 backdrop-blur-xl shadow-lg shadow-primary/5 transition-transform duration-200 md:relative md:z-auto md:bg-card/80 md:backdrop-blur-xl md:transition-[width] ${
+          className={`absolute inset-y-0 left-0 z-20 flex h-full flex-col border-r border-border/70 bg-card shadow-lg transition-transform duration-200 md:relative md:z-auto md:transition-[width] ${
             sidebarOpen
               ? "translate-x-0 w-3/4 max-w-xs md:w-64 md:shrink-0"
               : "-translate-x-full w-3/4 max-w-xs md:w-0 md:shrink-0 md:overflow-hidden"
           }`}
         >
-          {/* Mobile-only sidebar header with close button */}
-          <div className="flex items-center justify-between border-b border-border px-3 py-2 md:hidden">
+          {/* Mobile-only sidebar header - safe area top so not under status bar */}
+          <div className="flex items-center justify-between border-b border-border px-3 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:py-2 md:pt-2">
             <span className="text-sm font-semibold text-foreground">Your chats</span>
             <button
               type="button"
@@ -691,7 +691,7 @@ export default function AIResearchPage() {
               )}
             </nav>
           </div>
-          <div className="border-t border-border/70 p-3 space-y-2">
+          <div className="border-t border-border/70 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-2">
             <div className="rounded-xl border border-border/70 bg-gradient-to-br from-muted/40 to-muted/20 px-3 py-2.5 shadow-sm">
               <div className="flex items-center justify-between gap-2 mb-2">
                 <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
@@ -725,10 +725,10 @@ export default function AIResearchPage() {
           </div>
         </aside>
 
-        {/* Mobile sidebar backdrop */}
+        {/* Mobile sidebar backdrop - darker for better contrast */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 z-10 bg-black/60 md:hidden"
+            className="absolute inset-0 z-10 bg-black/60 md:hidden"
             aria-hidden
             onClick={() => setSidebarOpen(false)}
           />
