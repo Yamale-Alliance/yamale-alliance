@@ -8,6 +8,7 @@ import {
   incrementAiUsage,
   getCurrentMonthKey,
 } from "@/lib/ai-usage";
+import { hasUnusedPayAsYouGo, consumePayAsYouGoPurchase } from "@/lib/pay-as-you-go";
 
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
