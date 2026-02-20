@@ -6,6 +6,7 @@ import {
   getAiUsage,
   getAiQueryLimitForTier,
   incrementAiUsage,
+  getCurrentMonthKey,
 } from "@/lib/ai-usage";
 
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
@@ -217,15 +218,38 @@ export async function POST(request: NextRequest) {
     }
 
     // Enforce plan limits: Basic 10, Pro 50, Team unlimited (incl. team members)
+    // Check if user has pay-as-you-go purchases
+    const { hasUnusedPayAsYouGo, consumePayAsYouGoPurchase } = await import("@/lib/pay-as-you-go");
+    const hasPayAsYouGoQuery = await hasUnusedPayAsYouGo(userId, "ai_query");
+    
     const { getEffectiveTierForUser } = await import("@/lib/team");
     const tier = await getEffectiveTierForUser(userId);
     const limit = getAiQueryLimitForTier(tier);
+    
+    let usedPayAsYouGo = false;
     if (limit !== null) {
       const usage = await getAiUsage(userId);
-      if (usage.query_count >= limit) {
+      // For free tier (limit = 0), always consume pay-as-you-go if available
+      // For other tiers, consume pay-as-you-go only when limit is reached
+      const shouldUsePayAsYouGo = limit === 0 ? hasPayAsYouGoQuery : (usage.query_count >= limit && hasPayAsYouGoQuery);
+      
+      if (shouldUsePayAsYouGo) {
+        // Consume one pay-as-you-go purchase to allow this query
+        const consumed = await consumePayAsYouGoPurchase(userId, "ai_query");
+        if (!consumed) {
+          return NextResponse.json(
+            {
+              error: `Failed to use pay-as-you-go purchase. Please try again.`,
+            },
+            { status: 429 }
+          );
+        }
+        usedPayAsYouGo = true;
+      } else if (usage.query_count >= limit) {
+        // No pay-as-you-go purchases available and limit reached
         return NextResponse.json(
           {
-            error: `AI query limit reached for your plan (${limit} per month). Upgrade to Pro or Team for more.`,
+            error: `AI query limit reached for your plan (${limit} per month). Upgrade to Pro or Team for more, or purchase additional queries.`,
           },
           { status: 429 }
         );
@@ -407,10 +431,50 @@ Always remind users that your responses are indicative and not a substitute for 
     const assistantText = data.content?.[0]?.text || "I apologize, but I couldn't generate a response.";
 
     // Record usage: queries and tokens (Anthropic returns usage.input_tokens, usage.output_tokens)
+    // For free tier using pay-as-you-go, don't increment query count (only tokens)
     const usage = (data.usage as { input_tokens?: number; output_tokens?: number }) ?? {};
     const inputTokens = typeof usage.input_tokens === "number" ? usage.input_tokens : 0;
     const outputTokens = typeof usage.output_tokens === "number" ? usage.output_tokens : 0;
-    await incrementAiUsage(userId, inputTokens, outputTokens);
+    
+    if (usedPayAsYouGo && limit === 0) {
+      // Free tier with pay-as-you-go: only record tokens, not query count
+      // We'll manually update just the tokens
+      const supabase = getSupabaseServer();
+      const month = getCurrentMonthKey();
+      const { data: row } = await supabase
+        .from("ai_usage")
+        .select("input_tokens, output_tokens")
+        .eq("user_id", userId)
+        .eq("month", month)
+        .maybeSingle();
+      
+      const prev = (row as { input_tokens?: number; output_tokens?: number } | null) ?? null;
+      const newInput = (prev?.input_tokens ?? 0) + inputTokens;
+      const newOutput = (prev?.output_tokens ?? 0) + outputTokens;
+      
+      if (!prev) {
+        await (supabase.from("ai_usage") as any).insert({
+          user_id: userId,
+          month,
+          query_count: 0, // Don't increment for pay-as-you-go on free tier
+          input_tokens: newInput,
+          output_tokens: newOutput,
+          updated_at: new Date().toISOString(),
+        });
+      } else {
+        await (supabase.from("ai_usage") as any)
+          .update({
+            input_tokens: newInput,
+            output_tokens: newOutput,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("user_id", userId)
+          .eq("month", month);
+      }
+    } else {
+      // Normal usage tracking (increment query count)
+      await incrementAiUsage(userId, inputTokens, outputTokens);
+    }
 
     // Build sources list from retrieved legal documents
     const sources = legalContext.length > 0
