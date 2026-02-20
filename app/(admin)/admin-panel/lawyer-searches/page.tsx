@@ -12,7 +12,6 @@ type SearchRow = {
   expertise: string;
   datePurchased: string;
   expiresAt: string;
-  daysLeft: number;
   stripeSessionId: string | null;
 };
 
@@ -22,13 +21,18 @@ export default function AdminLawyerSearchesPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/admin/lawyer-searches")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.error) {
+    fetch("/api/admin/lawyer-searches", { credentials: "include" })
+      .then((res) => {
+        return res.json().then((data) => ({ ok: res.ok, status: res.status, data }));
+      })
+      .then(({ ok, status, data }) => {
+        if (!ok) {
+          const msg = data?.error ?? (status === 401 ? "Sign in required" : status === 403 ? "Admin access required" : "Failed to load searches");
+          setError(data?.details ? `${msg}: ${data.details}` : msg);
+        } else if (data?.error) {
           setError(data.error);
         } else {
-          setSearches(data);
+          setSearches(Array.isArray(data) ? data : []);
         }
       })
       .catch((err) => {
@@ -38,8 +42,10 @@ export default function AdminLawyerSearchesPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null | undefined) => {
+    if (dateString == null || dateString === "") return "—";
     const date = new Date(dateString);
+    if (Number.isNaN(date.getTime()) || date.getTime() <= 0) return "—";
     return date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
@@ -56,7 +62,7 @@ export default function AdminLawyerSearchesPage() {
           Lawyer Searches
         </h1>
         <p className="mt-2 max-w-xl text-muted-foreground">
-          View all active lawyer searches purchased by users. Each search grants access to matching lawyers for 30 days.
+          View lawyer searches purchased by users. Each search grants access for 30 days from the date of purchase.
         </p>
       </div>
 
@@ -80,7 +86,7 @@ export default function AdminLawyerSearchesPage() {
                 <th className="text-left p-3 font-medium">User</th>
                 <th className="text-left p-3 font-medium">Search</th>
                 <th className="text-left p-3 font-medium">Date Purchased</th>
-                <th className="text-left p-3 font-medium">Days Left</th>
+                <th className="text-left p-3 font-medium">Date of Expiry</th>
               </tr>
             </thead>
             <tbody>
@@ -101,18 +107,8 @@ export default function AdminLawyerSearchesPage() {
                   <td className="p-3 text-muted-foreground">
                     {formatDate(search.datePurchased)}
                   </td>
-                  <td className="p-3">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                        search.daysLeft <= 7
-                          ? "bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-400"
-                          : search.daysLeft <= 14
-                          ? "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400"
-                          : "bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-400"
-                      }`}
-                    >
-                      {search.daysLeft} {search.daysLeft === 1 ? "day" : "days"}
-                    </span>
+                  <td className="p-3 text-muted-foreground">
+                    {formatDate(search.expiresAt)}
                   </td>
                 </tr>
               ))}
