@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useUser } from "@clerk/nextjs";
@@ -104,6 +105,7 @@ function saveSessions(sessions: ChatSession[]) {
 
 export default function AIResearchPage() {
   const { user } = useUser();
+  const searchParams = useSearchParams();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -119,9 +121,13 @@ export default function AIResearchPage() {
     limit: number | null;
     remaining: number | null;
     tier?: Tier;
+    payAsYouGoCount?: number;
+    canQuery?: boolean;
   } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [showPayAsYouGoPrompt, setShowPayAsYouGoPrompt] = useState(false);
 
   const tierFromMetadata: Tier =
     user?.publicMetadata ? getTierFromUser(user.publicMetadata as Record<string, unknown>) : "free";
@@ -131,7 +137,10 @@ export default function AIResearchPage() {
   const messages = currentSession?.messages ?? [];
   const used = aiUsage?.used ?? 0;
   const remaining = aiUsage?.remaining ?? (limit === null ? null : Math.max(0, limit - used));
-  const atLimit = limit !== null && (remaining ?? 0) <= 0;
+  const payAsYouGoCount = aiUsage?.payAsYouGoCount ?? 0;
+  const canQuery = aiUsage?.canQuery ?? true;
+  // User is at limit only if they can't query (no plan limit remaining AND no pay-as-you-go purchases)
+  const atLimit = !canQuery;
   const [usageFetched, setUsageFetched] = useState(false);
   const effectiveTierLoaded = !user || usageFetched;
 
@@ -187,6 +196,48 @@ export default function AIResearchPage() {
     if (!user) return;
     fetchAiUsage();
   }, [user, fetchAiUsage]);
+
+  // Handle payment confirmation after Stripe redirect
+  useEffect(() => {
+    const sessionId = searchParams.get("session_id");
+    const payg = searchParams.get("payg");
+    
+    if (sessionId && payg === "ai_query" && user && !confirmingPayment) {
+      setConfirmingPayment(true);
+      fetch("/api/ai/confirm-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ session_id: sessionId }),
+      })
+        .then(async (res) => {
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.error || "Failed to confirm payment");
+          }
+          return data;
+        })
+        .then(async (data) => {
+          console.log("Payment confirmed:", data);
+          if (data.ok) {
+            // Wait a bit for DB to be consistent, then refresh usage
+            await new Promise(resolve => setTimeout(resolve, 500));
+            // Refresh usage to show the purchase
+            await fetchAiUsage();
+            // Remove query params from URL
+            window.history.replaceState({}, "", "/ai-research");
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to confirm payment:", err);
+          // Still try to refresh usage in case webhook already processed it
+          fetchAiUsage();
+        })
+        .finally(() => {
+          setConfirmingPayment(false);
+        });
+    }
+  }, [searchParams, user, confirmingPayment, fetchAiUsage]);
 
   // Fetch AI templates
   useEffect(() => {
@@ -369,6 +420,9 @@ export default function AIResearchPage() {
         },
       ];
 
+      // Track pay-as-you-go count before query
+      const payAsYouGoBefore = payAsYouGoCount;
+
       // Call Claude API
       const res = await fetch("/api/ai/chat", {
         method: "POST",
@@ -407,7 +461,37 @@ export default function AIResearchPage() {
           s.id === id ? { ...s, messages: [...s.messages, assistantMessage], updatedAt: Date.now() } : s
         )
       );
-      fetchAiUsage();
+      
+      // Refresh usage and check if pay-as-you-go was consumed
+      const usageRes = await fetch("/api/ai/usage", { credentials: "include" });
+      const usageData = (await usageRes.json()) as {
+        used?: number;
+        limit?: number | null;
+        remaining?: number | null;
+        tier?: string;
+        payAsYouGoCount?: number;
+        canQuery?: boolean;
+      };
+      
+      if (usageRes.ok) {
+        setAiUsage({
+          used: usageData.used ?? 0,
+          limit: usageData.limit ?? null,
+          remaining: usageData.remaining ?? null,
+          tier: (usageData.tier as Tier) ?? undefined,
+          payAsYouGoCount: usageData.payAsYouGoCount ?? 0,
+          canQuery: usageData.canQuery ?? true,
+        });
+        
+        // Check if pay-as-you-go was consumed (count decreased from before)
+        const payAsYouGoAfter = usageData.payAsYouGoCount ?? 0;
+        if (payAsYouGoBefore > 0 && payAsYouGoAfter === 0) {
+          setShowPayAsYouGoPrompt(true);
+        }
+      } else {
+        // Fallback to regular fetch
+        fetchAiUsage();
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Something went wrong. Please try again.";
       const errorResponse: Message = {
@@ -440,15 +524,21 @@ export default function AIResearchPage() {
     );
   }
 
-  if (!effectiveTierLoaded) {
+  if (!effectiveTierLoaded || confirmingPayment) {
     return (
       <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-2" />
+          {confirmingPayment && (
+            <p className="text-sm text-muted-foreground">Confirming payment...</p>
+          )}
+        </div>
       </div>
     );
   }
 
-  if (tier === "free") {
+  // Allow free tier users if they have pay-as-you-go purchases
+  if (tier === "free" && !canQuery && payAsYouGoCount === 0) {
     return (
       <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center bg-background px-4 py-12">
         <div className="w-full max-w-md rounded-2xl border border-border/70 bg-card/95 p-8 text-center shadow-sm shadow-primary/10">
@@ -710,7 +800,7 @@ export default function AIResearchPage() {
                 </>
               )}
               <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                {TIER_LABELS[tier]}
+                {tier === "free" && payAsYouGoCount > 0 ? "Limited" : TIER_LABELS[tier]}
               </span>
             </div>
           </div>
@@ -835,7 +925,37 @@ export default function AIResearchPage() {
                   </button>
                 </div>
               </form>
-              {atLimit && (
+              {showPayAsYouGoPrompt && (
+                <div className="mt-3 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-center">
+                  <p className="text-sm font-medium text-foreground mb-2">
+                    You've used your pay-as-you-go query.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2 justify-center items-center">
+                    <Link
+                      href="/pricing"
+                      className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+                      onClick={() => setShowPayAsYouGoPrompt(false)}
+                    >
+                      Purchase more queries
+                    </Link>
+                    <Link
+                      href="/pricing"
+                      className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                      onClick={() => setShowPayAsYouGoPrompt(false)}
+                    >
+                      Upgrade plan
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => setShowPayAsYouGoPrompt(false)}
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              )}
+              {atLimit && !showPayAsYouGoPrompt && (
                 <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-sm font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100">
                   Limit reached.{" "}
                   <Link href="/pricing" className="underline underline-offset-2 hover:no-underline">
