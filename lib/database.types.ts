@@ -529,6 +529,62 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["shopping_cart_items"]["Insert"]>;
       };
+      pay_as_you_go_purchases: {
+        Row: {
+          id: string;
+          user_id: string;
+          item_type: string;
+          quantity: number;
+          stripe_session_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          item_type: string;
+          quantity?: number;
+          stripe_session_id?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["pay_as_you_go_purchases"]["Insert"]>;
+      };
+      afcfta_tariff_schedule: {
+        Row: {
+          id: string;
+          country: string;
+          hs_code: string;
+          product_description: string;
+          product_category: string | null;
+          sensitivity: string | null;
+          mfn_rate_percent: number | null;
+          afcfta_2026_percent: number | null;
+          afcfta_2030_percent: number | null;
+          afcfta_2035_percent: number | null;
+          phase_category: string | null;
+          phase_years: string | null;
+          annual_savings_10k: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          country: string;
+          hs_code: string;
+          product_description: string;
+          product_category?: string | null;
+          sensitivity?: string | null;
+          mfn_rate_percent?: number | null;
+          afcfta_2026_percent?: number | null;
+          afcfta_2030_percent?: number | null;
+          afcfta_2035_percent?: number | null;
+          phase_category?: string | null;
+          phase_years?: string | null;
+          annual_savings_10k?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["afcfta_tariff_schedule"]["Insert"]>;
+      };
     };
   };
 }
