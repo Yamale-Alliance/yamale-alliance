@@ -91,10 +91,14 @@ export function FileViewer({ fileUrl, fileName, fileFormat, onClose }: FileViewe
 
     const loadPdf = async () => {
       try {
-        // Dynamically import PDF.js
-        const pdfjsLib = await import("pdfjs-dist");
-        // Use local worker file from public folder (ESM module)
-        pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.mjs";
+        // Prefer webpack entry so the worker is created with type: "module" (avoids "Unexpected token export" from public .mjs)
+        let pdfjsLib: typeof import("pdfjs-dist");
+        try {
+          pdfjsLib = await import("pdfjs-dist/webpack.mjs");
+        } catch {
+          // Fallback: main build without worker (no workerSrc) to avoid ESM parse errors
+          pdfjsLib = await import("pdfjs-dist");
+        }
 
         const loadingTask = pdfjsLib.getDocument({ url: fileUrl });
         const pdf = await loadingTask.promise;
