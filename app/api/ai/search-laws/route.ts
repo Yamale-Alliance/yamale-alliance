@@ -24,6 +24,29 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getSupabaseServer() as any;
+
+    // Resolve country/category names to IDs for reliable filtering
+    let countryId: string | null = null;
+    let categoryId: string | null = null;
+    if (country?.trim()) {
+      const { data: countryRow } = await supabase
+        .from("countries")
+        .select("id")
+        .eq("name", country.trim())
+        .limit(1)
+        .maybeSingle();
+      countryId = countryRow?.id ?? null;
+    }
+    if (category?.trim()) {
+      const { data: categoryRow } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("name", category.trim())
+        .limit(1)
+        .maybeSingle();
+      categoryId = categoryRow?.id ?? null;
+    }
+
     let lawsQuery = supabase
       .from("laws")
       .select(
@@ -32,15 +55,8 @@ export async function POST(request: NextRequest) {
       .not("content", "is", null)
       .limit(Math.min(limit || 5, 20)); // Max 20 results
 
-    // Filter by country if specified
-    if (country && country.trim()) {
-      lawsQuery = lawsQuery.eq("countries.name", country.trim());
-    }
-
-    // Filter by category if specified
-    if (category && category.trim()) {
-      lawsQuery = lawsQuery.eq("categories.name", category.trim());
-    }
+    if (countryId) lawsQuery = lawsQuery.eq("country_id", countryId);
+    if (categoryId) lawsQuery = lawsQuery.eq("category_id", categoryId);
 
     // Full-text search on title and content
     const searchTerms = query.trim().toLowerCase();
