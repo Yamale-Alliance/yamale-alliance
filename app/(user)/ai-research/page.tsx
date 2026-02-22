@@ -19,7 +19,7 @@ import {
   Zap,
   Users,
   Loader2,
-  FileText,
+  ChevronDown,
 } from "lucide-react";
 import { canShareByEmail, canDownloadConversations } from "@/lib/plan-limits";
 
@@ -113,9 +113,6 @@ export default function AIResearchPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
-  const [templatesOpen, setTemplatesOpen] = useState(false);
-  const [templates, setTemplates] = useState<Array<{ id: string; title: string; description: string | null; query_text: string; category: string | null }>>([]);
-  const [templatesLoading, setTemplatesLoading] = useState(false);
   const [aiUsage, setAiUsage] = useState<{
     used: number;
     limit: number | null;
@@ -128,6 +125,12 @@ export default function AIResearchPage() {
   const mounted = useRef(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [showPayAsYouGoPrompt, setShowPayAsYouGoPrompt] = useState(false);
+  const [models, setModels] = useState<Array<{ id: string; display_name?: string }>>([]);
+  const [defaultModelId, setDefaultModelId] = useState<string | null>(null);
+  const [allowedModelIds, setAllowedModelIds] = useState<string[]>([]);
+  const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
+  const [modelsOpen, setModelsOpen] = useState(false);
+  const canChooseModel = allowedModelIds.length > 1;
 
   const tierFromMetadata: Tier =
     user?.publicMetadata ? getTierFromUser(user.publicMetadata as Record<string, unknown>) : "free";
@@ -176,6 +179,8 @@ export default function AIResearchPage() {
         limit?: number | null;
         remaining?: number | null;
         tier?: string;
+        payAsYouGoCount?: number;
+        canQuery?: boolean;
       };
       if (res.ok) {
         setAiUsage({
@@ -183,6 +188,8 @@ export default function AIResearchPage() {
           limit: data.limit ?? null,
           remaining: data.remaining ?? null,
           tier: (data.tier as Tier) ?? undefined,
+          payAsYouGoCount: data.payAsYouGoCount ?? 0,
+          canQuery: data.canQuery ?? true,
         });
       }
     } catch {
@@ -196,6 +203,35 @@ export default function AIResearchPage() {
     if (!user) return;
     fetchAiUsage();
   }, [user, fetchAiUsage]);
+
+  const fetchModels = useCallback(async () => {
+    try {
+      const res = await fetch("/api/ai/models", { credentials: "include" });
+      const data = (await res.json()) as {
+        models?: Array<{ id: string; display_name?: string }>;
+        defaultModelId?: string | null;
+        allowedModelIds?: string[];
+      };
+      if (res.ok && data.models?.length) {
+        setModels(data.models);
+        const allowed = data.allowedModelIds ?? [];
+        setAllowedModelIds(allowed);
+        const defaultId = data.defaultModelId ?? data.models[0]?.id ?? null;
+        setDefaultModelId(defaultId);
+        setSelectedModelId((prev) => {
+          if (prev && allowed.includes(prev)) return prev;
+          return defaultId ?? data.models?.[0]?.id ?? null;
+        });
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchModels();
+  }, [user, fetchModels]);
 
   // Handle payment confirmation after Stripe redirect
   useEffect(() => {
@@ -238,26 +274,6 @@ export default function AIResearchPage() {
         });
     }
   }, [searchParams, user, confirmingPayment, fetchAiUsage]);
-
-  // Fetch AI templates
-  useEffect(() => {
-    setTemplatesLoading(true);
-    fetch("/api/ai/templates")
-      .then((r) => r.json())
-      .then((data: { templates?: Array<{ id: string; title: string; description: string | null; query_text: string; category: string | null }> }) => {
-        setTemplates(data.templates ?? []);
-      })
-      .catch(() => setTemplates([]))
-      .finally(() => setTemplatesLoading(false));
-  }, []);
-
-  const useTemplate = (queryText: string) => {
-    setInput(queryText);
-    setTemplatesOpen(false);
-    if (!currentId) {
-      newChat();
-    }
-  };
 
   // Load sessions from backend for signed-in users
   useEffect(() => {
@@ -423,13 +439,14 @@ export default function AIResearchPage() {
       // Track pay-as-you-go count before query
       const payAsYouGoBefore = payAsYouGoCount;
 
-      // Call Claude API
+      const effectiveModelId = allowedModelIds.includes(selectedModelId ?? "") ? selectedModelId : defaultModelId;
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           messages: apiMessages,
+          model: effectiveModelId ?? undefined,
         }),
       });
 
@@ -596,14 +613,6 @@ export default function AIResearchPage() {
               <Pencil className="h-4 w-4 text-primary" />
               New chat
             </button>
-            <button
-              type="button"
-              onClick={() => setTemplatesOpen(!templatesOpen)}
-              className="flex items-center gap-2 rounded-xl border border-border/70 bg-background/80 px-3 py-2.5 text-sm font-medium text-foreground transition hover:border-primary/50 hover:bg-primary/10"
-            >
-              <FileText className="h-4 w-4" />
-              Templates
-            </button>
             {tier === "team" && (
               <Link
                 href="/ai-research/team"
@@ -612,33 +621,6 @@ export default function AIResearchPage() {
                 <Users className="h-4 w-4" />
                 Manage team
               </Link>
-            )}
-            {templatesOpen && (
-              <div className="rounded-lg border border-border bg-background p-2 max-h-64 overflow-y-auto">
-                {templatesLoading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  </div>
-                ) : templates.length === 0 ? (
-                  <p className="px-2 py-4 text-xs text-muted-foreground">No templates available.</p>
-                ) : (
-                  <div className="space-y-1">
-                    {templates.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => useTemplate(t.query_text)}
-                        className="w-full text-left rounded px-2 py-2 text-xs hover:bg-muted transition"
-                      >
-                        <div className="font-medium text-foreground">{t.title}</div>
-                        {t.description && (
-                          <div className="text-muted-foreground mt-0.5">{t.description}</div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
             )}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -902,27 +884,82 @@ export default function AIResearchPage() {
             </div>
           </div>
 
-          {/* Input bar: input, send */}
+          {/* Input bar: input, model selector, send (Claude-style) */}
           <div className="shrink-0 border-t border-border/70 bg-background/95 backdrop-blur p-4">
             <div className="mx-auto max-w-3xl">
               <form onSubmit={handleSubmit}>
-                <div className="flex items-center gap-2 rounded-2xl border border-border/70 bg-card/95 backdrop-blur-xl px-4 py-2.5 shadow-lg shadow-primary/10 transition focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/30">
+                <div className="flex flex-col rounded-2xl border border-border/70 bg-card/95 backdrop-blur-xl shadow-lg shadow-primary/10 transition focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/30">
                   <input
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder="Ask anything about African law..."
+                    placeholder="How can I help you today?"
                     disabled={atLimit}
-                    className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none placeholder:text-muted-foreground/70 disabled:opacity-50"
+                    className="w-full bg-transparent px-4 pt-4 pb-2 text-sm outline-none placeholder:text-muted-foreground/70 disabled:opacity-50"
                   />
-                  <button
-                    type="submit"
-                    disabled={!input.trim() || atLimit || isLoading}
-                    className="shrink-0 rounded-xl bg-gradient-to-r from-primary to-primary/90 p-2.5 text-primary-foreground shadow-sm shadow-primary/20 transition hover:brightness-105 disabled:opacity-50"
-                    aria-label="Send"
-                  >
-                    <Send className="h-5 w-5" />
-                  </button>
+                  <div className="flex items-center justify-end gap-2 px-2 pb-2 pt-0">
+                    {models.length > 0 && defaultModelId && (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setModelsOpen((o) => !o)}
+                          className="flex items-center gap-1.5 rounded-lg py-1.5 pr-2 pl-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                        >
+                          <span className="max-w-[140px] truncate">
+                            {models.find((m) => m.id === (allowedModelIds.includes(selectedModelId ?? "") ? selectedModelId : defaultModelId))?.display_name ?? "Model"}
+                          </span>
+                          <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                        </button>
+                        {modelsOpen && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-40"
+                              aria-hidden
+                              onClick={() => setModelsOpen(false)}
+                            />
+                            <div className="absolute right-0 bottom-full z-50 mb-1 min-w-[200px] rounded-lg border border-border bg-card py-1 shadow-lg">
+                              {models.map((m) => {
+                                const allowed = allowedModelIds.includes(m.id);
+                                const isSelected = (allowed ? selectedModelId : defaultModelId) === m.id;
+                                const upgradeMessage =
+                                  tier === "pro"
+                                    ? "Upgrade to Team to use this model"
+                                    : "Upgrade to Pro or Team to use this model";
+                                return (
+                                  <button
+                                    key={m.id}
+                                    type="button"
+                                    disabled={!allowed}
+                                    title={!allowed ? upgradeMessage : undefined}
+                                    onClick={() => {
+                                      if (allowed) setSelectedModelId(m.id);
+                                      setModelsOpen(false);
+                                    }}
+                                    className={`w-full px-3 py-2 text-left text-sm ${!allowed ? "cursor-not-allowed text-muted-foreground opacity-60" : "hover:bg-muted"} ${isSelected ? "bg-primary/10 font-medium text-foreground" : ""}`}
+                                  >
+                                    <span className="block truncate">{m.display_name ?? m.id}</span>
+                                    {!allowed && (
+                                      <span className="block truncate text-xs text-muted-foreground mt-0.5">
+                                        {upgradeMessage}
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={!input.trim() || atLimit || isLoading}
+                      className="shrink-0 rounded-xl bg-gradient-to-r from-primary to-primary/90 p-2.5 text-primary-foreground shadow-sm shadow-primary/20 transition hover:brightness-105 disabled:opacity-50"
+                      aria-label="Send"
+                    >
+                      <Send className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
               </form>
               {showPayAsYouGoPrompt && (
