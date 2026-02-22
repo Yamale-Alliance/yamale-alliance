@@ -19,34 +19,62 @@ if (!CLAUDE_API_KEY) {
   console.warn("CLAUDE_API_KEY not set - AI chat will not work");
 }
 
-/** Cached model id from GET /v1/models; refreshed on 404. */
-let cachedModelId: string | null = null;
+/** Cached models list; refreshed on 404. */
+let cachedModels: Array<{ id: string }> | null = null;
 
-/**
- * Resolve model id: use CLAUDE_MODEL if set, else fetch from API and pick best (prefer sonnet).
- */
-async function resolveModelId(): Promise<string> {
-  if (CLAUDE_MODEL_ENV) return CLAUDE_MODEL_ENV;
-  if (cachedModelId) return cachedModelId;
-
+async function fetchModels(): Promise<Array<{ id: string }>> {
+  if (cachedModels?.length) return cachedModels;
   const res = await fetch(MODELS_URL, {
     headers: {
       "x-api-key": CLAUDE_API_KEY!,
       "anthropic-version": "2023-06-01",
     },
   });
-  if (!res.ok) {
-    throw new Error(`Models list failed: ${res.status}`);
-  }
-  const json = (await res.json()) as { data?: Array<{ id: string; display_name?: string }> };
-  const models = json.data || [];
+  if (!res.ok) throw new Error(`Models list failed: ${res.status}`);
+  const json = (await res.json()) as { data?: Array<{ id: string }> };
+  const list = json.data ?? [];
+  cachedModels = list;
+  return list;
+}
+
+/** Basic: Haiku and below. Pro: Sonnet and below. Team: all. */
+function getAllowedModelIdsForTier(models: Array<{ id: string }>, tier: string): string[] {
+  const id = (m: { id: string }) => m.id.toLowerCase();
+  if (tier === "team") return models.map((m) => m.id);
+  if (tier === "pro") return models.filter((m) => id(m).includes("sonnet") || id(m).includes("haiku")).map((m) => m.id);
+  return models.filter((m) => id(m).includes("haiku")).map((m) => m.id);
+}
+
+/**
+ * Resolve model id for the chat request.
+ * Basic: Haiku 4.5 and below. Pro: Sonnet 4.5 and below. Team: all models.
+ */
+async function resolveModelIdForRequest(
+  tier: string,
+  requestedModel?: string | null
+): Promise<string> {
+  if (CLAUDE_MODEL_ENV) return CLAUDE_MODEL_ENV;
+
+  const models = await fetchModels();
+  const allowedIds = getAllowedModelIdsForTier(models, tier);
   const sonnet = models.find((m) => m.id.toLowerCase().includes("sonnet"));
-  const chosen = sonnet?.id ?? models[0]?.id;
-  if (chosen) {
-    cachedModelId = chosen;
-    return chosen;
+  const haiku = models.find((m) => m.id.toLowerCase().includes("haiku"));
+  const defaultId =
+    tier === "team"
+      ? sonnet?.id ?? haiku?.id ?? models[0]?.id
+      : tier === "pro"
+        ? (allowedIds.includes(sonnet?.id ?? "") ? sonnet?.id : allowedIds[0])
+        : allowedIds[0];
+  const fallback = defaultId ?? sonnet?.id ?? haiku?.id ?? models[0]?.id ?? "claude-3-5-sonnet-20241022";
+
+  if (requestedModel?.trim() && allowedIds.includes(requestedModel.trim())) {
+    return requestedModel.trim();
   }
-  return "claude-3-5-sonnet-20241022";
+  return fallback ?? "claude-3-5-sonnet-20241022";
+}
+
+function clearModelCache() {
+  cachedModels = null;
 }
 
 type ClaudeMessageContent = {
@@ -87,6 +115,7 @@ function extractQueryHints(query: string): { country?: string; category?: string
     "angola": "Angola",
     "ethiopia": "Ethiopia",
     "rwanda": "Rwanda",
+    "madagascar": "Madagascar",
   };
   
   let foundCountry: string | undefined;
@@ -101,6 +130,8 @@ function extractQueryHints(query: string): { country?: string; category?: string
   const categoryMap: Record<string, string> = {
     "corporate law": "Corporate Law",
     "corporate": "Corporate Law",
+    "sociétés commerciales": "Corporate Law",
+    "loi sur les sociétés": "Corporate Law",
     "tax law": "Tax Law",
     "tax": "Tax Law",
     "labor law": "Labor/Employment Law",
@@ -147,6 +178,28 @@ async function searchLegalLibrary(
     const searchCountry = country || hints.country;
     const searchCategory = category || hints.category;
 
+    // Resolve country/category names to IDs so we can filter reliably (Supabase nested .eq("countries.name") can be unreliable)
+    let countryId: string | null = null;
+    let categoryId: string | null = null;
+    if (searchCountry) {
+      const { data: countryRow } = await supabase
+        .from("countries")
+        .select("id")
+        .eq("name", searchCountry)
+        .limit(1)
+        .maybeSingle();
+      countryId = countryRow?.id ?? null;
+    }
+    if (searchCategory) {
+      const { data: categoryRow } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("name", searchCategory)
+        .limit(1)
+        .maybeSingle();
+      categoryId = categoryRow?.id ?? null;
+    }
+
     let lawsQuery = supabase
       .from("laws")
       .select(
@@ -155,20 +208,19 @@ async function searchLegalLibrary(
       .not("content", "is", null)
       .limit(5);
 
-    // Filter by country if specified
-    if (searchCountry) {
-      lawsQuery = lawsQuery.eq("countries.name", searchCountry);
+    if (countryId) {
+      lawsQuery = lawsQuery.eq("country_id", countryId);
+    }
+    if (categoryId) {
+      lawsQuery = lawsQuery.eq("category_id", categoryId);
     }
 
-    // Filter by category if specified
-    if (searchCategory) {
-      lawsQuery = lawsQuery.eq("categories.name", searchCategory);
-    }
-
-    // Full-text search on title and content (only if query is not empty)
-    if (query.trim()) {
+    // Only require title/content to match the query when we have no country/category hint.
+    // When user asks e.g. "what does Loi sur les sociétés commerciales Madagascar state", we
+    // already filter by country + category; requiring the full sentence in content would return nothing.
+    const hasHint = searchCountry || searchCategory;
+    if (query.trim() && !hasHint) {
       const searchTerms = query.trim().toLowerCase();
-      // Escape special characters for ilike
       const escapedTerms = searchTerms.replace(/%/g, "\\%").replace(/_/g, "\\_");
       lawsQuery = lawsQuery.or(
         `title.ilike.%${escapedTerms}%,content.ilike.%${escapedTerms}%`
@@ -267,9 +319,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { messages, attachments } = body as {
+    const { messages, attachments, model: requestedModel } = body as {
       messages: Array<{ role: "user" | "assistant"; content: string }>;
       attachments?: Array<{ type: string; data: string; name?: string }>;
+      model?: string | null;
     };
 
     if (!Array.isArray(messages) || messages.length === 0) {
@@ -359,17 +412,17 @@ Always remind users that your responses are indicative and not a substitute for 
 
     // Add legal context if available
     if (legalContext.length > 0) {
-      systemPrompt += `\n\nRELEVANT LEGAL DOCUMENTS FROM THE LIBRARY:\n\n${legalContext
+      systemPrompt += `\n\nRELEVANT LEGAL DOCUMENTS FROM THE DATABASE (library):\n\n${legalContext
         .map(
           (law, i) =>
             `[Document ${i + 1}]\nTitle: ${law.title}\nCountry: ${law.country}\nCategory: ${law.category}${
               law.year ? `\nYear: ${law.year}` : ""
             }\nContent:\n${law.content}\n---\n`
         )
-        .join("\n")}\n\nIMPORTANT: Base your answer primarily on the legal documents provided above. If the documents contain relevant information, cite them specifically (e.g., "According to [Document 1]..."). If the documents don't contain relevant information, say so and provide general guidance based on your knowledge of African law.`;
+        .join("\n")}\n\nIMPORTANT: (1) Base your answer primarily on these legal documents from the database. When the user asks about a specific law, use the content above as the main source. (2) Do not cite them as \"Document 1\", \"Based on Document 2\", or similar—instead refer to the law by its title or country (e.g. \"Under the Loi sur les sociétés commerciales...\" or \"Malagasy law provides that...\"). (3) Use your knowledge to interpret the text, fix obvious typos or OCR errors, and clarify wording where the source is unclear—but stay grounded in what the documents say. (4) If the documents do not cover the question, say so and then give general guidance from your knowledge of African law.`;
     }
 
-    const modelId = await resolveModelId();
+    const modelId = await resolveModelIdForRequest(tier, requestedModel);
 
     // Call Claude API
     const response = await fetch(CLAUDE_API_URL, {
@@ -411,7 +464,7 @@ Always remind users that your responses are indicative and not a substitute for 
       if (response.status === 401) {
         errorMessage = "Invalid API key. Please check CLAUDE_API_KEY configuration.";
       } else if (response.status === 404) {
-        cachedModelId = null;
+        clearModelCache();
         errorMessage = `Model not found (${modelId}). Set CLAUDE_MODEL in .env to a valid model ID from your account. List models: curl -H "x-api-key: \$CLAUDE_API_KEY" -H "anthropic-version: 2023-06-01" https://api.anthropic.com/v1/models`;
       } else if (response.status === 429) {
         errorMessage = "Rate limit exceeded. Please try again later.";
