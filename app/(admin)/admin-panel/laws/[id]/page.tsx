@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Search } from "lucide-react";
 
 type LawForEdit = {
   id: string;
@@ -22,6 +22,9 @@ export default function AdminLawEditPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [findValue, setFindValue] = useState("");
+  const [replaceValue, setReplaceValue] = useState("");
+  const [replaceResult, setReplaceResult] = useState<number | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -45,6 +48,22 @@ export default function AdminLawEditPage() {
       })
       .finally(() => setLoading(false));
   }, [id]);
+
+  const handleReplaceAll = () => {
+    if (!findValue.trim()) {
+      setReplaceResult(null);
+      return;
+    }
+    const parts = text.split(findValue);
+    const count = parts.length - 1;
+    if (count === 0) {
+      setReplaceResult(0);
+      return;
+    }
+    setText(parts.join(replaceValue));
+    setReplaceResult(count);
+    setStatus(null);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +134,56 @@ export default function AdminLawEditPage() {
           <div className="rounded-lg border border-border bg-card px-4 py-3">
             <p className="text-sm font-medium text-foreground">{law.title}</p>
             <p className="mt-1 text-xs text-muted-foreground">Law ID: {law.id}</p>
+          </div>
+
+          <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Search className="h-4 w-4" />
+              Find and replace all
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Find a repeated typo or phrase and replace it everywhere in this law’s text. Leave “Replace with” empty to delete all occurrences.
+            </p>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="min-w-[140px] flex-1">
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Find</label>
+                <input
+                  type="text"
+                  value={findValue}
+                  onChange={(e) => {
+                    setFindValue(e.target.value);
+                    setReplaceResult(null);
+                  }}
+                  placeholder="e.g. jfkjs"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="min-w-[140px] flex-1">
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Replace with</label>
+                <input
+                  type="text"
+                  value={replaceValue}
+                  onChange={(e) => setReplaceValue(e.target.value)}
+                  placeholder="Leave empty to delete"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleReplaceAll}
+                disabled={!findValue.trim()}
+                className="rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
+              >
+                Replace all
+              </button>
+            </div>
+            {replaceResult !== null && (
+              <p className="text-xs text-muted-foreground">
+                {replaceResult === 0
+                  ? "No occurrences found."
+                  : `Replaced ${replaceResult} occurrence${replaceResult === 1 ? "" : "s"}. Save changes to persist.`}
+              </p>
+            )}
           </div>
 
           <form onSubmit={handleSave} className="space-y-4">
