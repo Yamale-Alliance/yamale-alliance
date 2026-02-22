@@ -5,6 +5,10 @@ const supabaseHostname =
     : "fitqojixvjbthsxignka.supabase.co";
 
 const nextConfig = {
+  experimental: {
+    // Load CSS in import order so preloaded chunks are used when needed (reduces "preloaded but not used" warnings)
+    cssChunking: "strict",
+  },
   images: {
     remotePatterns: [
       {
