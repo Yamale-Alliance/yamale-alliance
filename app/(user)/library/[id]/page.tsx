@@ -78,6 +78,7 @@ const COMPANIES_ACT_TABLE_HEADERS = [
 
 // Only major headings start a new section. Numbered provisions (356., 357.) stay in body so all content is shown.
 // Includes Arabic: المادة (Article), الفصل (Chapter), الباب (Part). French: Article, Chapitre, Titre, Art.
+// Kinyarwanda: Ingingo ya 1, Ingingo 2, etc.
 function isSectionStart(line: string): boolean {
   const t = line.trim();
   if (!t) return false;
@@ -95,6 +96,8 @@ function isSectionStart(line: string): boolean {
   if (/^Chapitre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*/i.test(t)) return true;
   // French: "Titre I", "Titre 1", "Titre II" (Title/Part)
   if (/^Titre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*/i.test(t)) return true;
+  // Kinyarwanda: "Ingingo ya 1", "Ingingo 2." – articles/provisions
+  if (/^Ingingo\s+(ya\s+)?\d+[.:]?\s*/i.test(t)) return true;
   // Arabic: المادة 1، المادة ۲ (Article), الفصل (Chapter), الباب (Part)
   if (/^\s*المادة\s*[\d٠-٩]+/u.test(t)) return true;
   if (/^\s*الفصل\s*[\d٠-٩]*/u.test(t)) return true;
@@ -124,6 +127,8 @@ function sectionTitle(firstLine: string): string {
   if (chapitreMatch) return chapitreMatch[1];
   const titreMatch = t.match(/^(Titre\s+[\dIVXLCDMivxlcdm]+)[.:]?\s*(.*)$/i);
   if (titreMatch) return titreMatch[1];
+  const ingingoMatch = t.match(/^(Ingingo\s+(?:ya\s+)?\d+)[.:]?\s*(.*)$/i);
+  if (ingingoMatch) return ingingoMatch[1];
   // Arabic: المادة 1، الفصل ۲، الباب الأول
   const arArticle = t.match(/^(\s*المادة\s*[\d٠-٩]+)[\s.:،]*/u);
   if (arArticle) return arArticle[1].trim();
@@ -179,7 +184,8 @@ function splitIntoSections(text: string): Section[] {
         /^(Art\.\s*\d+[.:]?\s*)(.*)$/i.exec(t) ||
         /^(Chapter\s+\d+[.:]?\s*)(.*)$/i.exec(t) ||
         /^(Chapitre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*)(.*)$/i.exec(t) ||
-        /^(Titre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*)(.*)$/i.exec(t);
+        /^(Titre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*)(.*)$/i.exec(t) ||
+        /^(Ingingo\s+(?:ya\s+)?\d+[.:]?\s*)(.*)$/i.exec(t);
       if (sectionLike && sectionLike[2].trim()) currentBody.push(sectionLike[2].trim());
       else {
         const arArticleLine = /^(\s*المادة\s*[\d٠-٩]+[\s.:،]*)(.+)$/u.exec(t);

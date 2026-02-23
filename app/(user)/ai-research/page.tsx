@@ -719,7 +719,7 @@ export default function AIResearchPage() {
         {/* Main area */}
         <div className="flex min-w-0 flex-1 flex-col">
           {/* Top bar */}
-          <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border/70 bg-card/80 px-4 py-2 backdrop-blur">
+          <div className="relative z-20 flex shrink-0 items-center justify-between gap-4 border-b border-border/70 bg-card/80 px-4 py-2 backdrop-blur">
             <button
               type="button"
               onClick={() => setSidebarOpen((o) => !o)}

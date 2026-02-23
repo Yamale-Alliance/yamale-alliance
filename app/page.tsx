@@ -112,7 +112,7 @@ export default async function Home() {
             </Link>
 
             <Link
-              href="/afcfta"
+              href="/afcfta/compliance-check"
               className="group relative overflow-hidden rounded-[1.75rem] border-2 border-border/80 bg-card p-6 shadow-lg transition-all duration-300 hover:-translate-y-2 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/15 lg:col-span-2 shine-hover"
             >
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 text-primary ring-2 ring-primary/10 transition group-hover:ring-primary/30">

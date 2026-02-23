@@ -44,6 +44,7 @@ const LANGUAGE_OPTIONS = [
   "Arabic",
   "Portuguese",
   "Swahili",
+  "Kinyarwanda",
   "Yoruba",
   "Wolof",
   "Twi",

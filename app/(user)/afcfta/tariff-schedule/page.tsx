@@ -181,7 +181,7 @@ export default function TariffSchedulePage() {
               </p>
             </div>
             <Link
-              href="/afcfta"
+              href="/afcfta/compliance-check"
               className="text-sm text-muted-foreground hover:text-foreground"
             >
               ← Back to AfCFTA Tools

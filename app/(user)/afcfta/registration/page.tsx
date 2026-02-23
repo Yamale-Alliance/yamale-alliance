@@ -49,7 +49,7 @@ export default function AfCFTARegistrationPage() {
       );
     }
     setSubmitted(true);
-    setTimeout(() => router.push("/afcfta"), 1500);
+    setTimeout(() => router.push("/afcfta/compliance-check"), 1500);
   };
 
   const isValid = businessName.trim() && country && sector && email.trim();
@@ -58,7 +58,7 @@ export default function AfCFTARegistrationPage() {
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Link
-          href="/afcfta"
+          href="/afcfta/compliance-check"
           className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground mb-8"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -153,7 +153,7 @@ export default function AfCFTARegistrationPage() {
                   Complete registration
                 </button>
                 <Link
-                  href="/afcfta"
+                  href="/afcfta/compliance-check"
                   className="rounded-xl border border-border bg-background px-6 py-3 text-sm font-medium text-muted-foreground text-center transition-colors hover:bg-muted hover:text-foreground"
                 >
                   Cancel
@@ -164,7 +164,7 @@ export default function AfCFTARegistrationPage() {
         </div>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Step 1 of 6 · Your AfCFTA Compliance Journey
+          Step 1 of 6 · AfCFTA Compliance Tool — HS code → Production → Origin → NTB → Tariff → Checklist
         </p>
       </div>
     </div>

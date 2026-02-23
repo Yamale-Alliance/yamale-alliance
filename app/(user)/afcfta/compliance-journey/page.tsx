@@ -229,7 +229,7 @@ export default function ComplianceJourneyPage() {
               </div>
             </div>
             <Link
-              href="/afcfta"
+              href="/afcfta/compliance-check"
               className="text-sm text-white/80 hover:text-white transition-colors"
             >
               ← Back to Tools

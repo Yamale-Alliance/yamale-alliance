@@ -23,7 +23,7 @@ export const userNavLinks: Array<{
 }> = [
   { href: "/", label: "Home", icon: Home },
   { href: "/library", label: "Library", icon: BookOpen },
-  { href: "/afcfta", label: "AfCFTA", icon: FileCheck },
+  { href: "/afcfta/compliance-check", label: "AfCFTA", icon: FileCheck },
   { href: "/ai-research", label: "AI Research", icon: Search },
   { href: "/marketplace", label: "Marketplace", icon: Store },
   { href: "/lawyers", label: "Lawyers", icon: Users },

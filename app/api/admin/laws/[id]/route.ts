@@ -95,3 +95,56 @@ export async function PUT(
   }
 }
 
+/** DELETE: remove a law from the database (admin only). */
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const admin = await requireAdmin();
+  if (admin instanceof NextResponse) return admin;
+
+  const { id } = await params;
+  if (!id) {
+    return NextResponse.json({ error: "Missing law id" }, { status: 400 });
+  }
+
+  try {
+    const supabase = getSupabaseServer();
+    const { data: existing, error: fetchError } = await supabase
+      .from("laws")
+      .select("id, title")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !existing) {
+      return NextResponse.json({ error: "Law not found" }, { status: 404 });
+    }
+
+    const existingLaw = existing as { id: string; title: string };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: deleteError } = await (supabase.from("laws") as any)
+      .delete()
+      .eq("id", id);
+
+    if (deleteError) {
+      console.error("Admin law DELETE error:", deleteError);
+      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+    }
+
+    await recordAuditLog(supabase, {
+      adminId: admin.userId,
+      adminEmail: admin.email,
+      action: "law.delete",
+      entityType: "law",
+      entityId: id,
+      details: { title: existingLaw.title },
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("Admin law DELETE error:", err);
+    return NextResponse.json({ error: "Failed to delete law" }, { status: 500 });
+  }
+}
+

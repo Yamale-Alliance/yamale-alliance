@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Search } from "lucide-react";
+import { ArrowLeft, Loader2, Search, Trash2 } from "lucide-react";
 
 type LawForEdit = {
   id: string;
@@ -25,6 +25,8 @@ export default function AdminLawEditPage() {
   const [findValue, setFindValue] = useState("");
   const [replaceValue, setReplaceValue] = useState("");
   const [replaceResult, setReplaceResult] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (!id) return;
@@ -65,6 +67,26 @@ export default function AdminLawEditPage() {
     setStatus(null);
   };
 
+  const handleDelete = async () => {
+    if (!id || !law) return;
+    if (!window.confirm(`Delete "${law.title}"? This cannot be undone and the law will be removed from the library and AI.`)) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/laws/${id}`, { method: "DELETE", credentials: "include" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to delete law");
+        setDeleting(false);
+        return;
+      }
+      router.push("/admin-panel/laws");
+    } catch {
+      setError("Network error. Please try again.");
+      setDeleting(false);
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id) return;
@@ -102,14 +124,25 @@ export default function AdminLawEditPage() {
           Back to laws
         </Link>
         {law && (
-          <Link
-            href={`/library/${law.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-primary hover:underline"
-          >
-            View in library →
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/library/${law.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-primary hover:underline"
+            >
+              View in library →
+            </Link>
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/50 bg-destructive/10 px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/20 disabled:opacity-50"
+            >
+              {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              Delete law
+            </button>
+          </div>
         )}
       </div>
 

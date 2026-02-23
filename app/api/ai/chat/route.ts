@@ -165,6 +165,17 @@ function extractQueryHints(query: string): { country?: string; category?: string
 }
 
 /**
+ * Heuristic: is the query likely about a specific law or legal framework?
+ * Used to decide when to ask the user to specify a country if none was detected.
+ */
+function isLikelyLegalQuestion(query: string): boolean {
+  const q = query.toLowerCase();
+  return /\blaw\b|\bcode\b|\bact\b|\bregulation\b|\bstatute\b|\bordonnance\b|\bproclamation\b|\bcorporate governance\b|\bcompanies act\b/.test(
+    q
+  );
+}
+
+/**
  * Search legal library for relevant content (RAG)
  */
 async function searchLegalLibrary(
@@ -233,22 +244,52 @@ async function searchLegalLibrary(
       return [];
     }
 
-    // Use chunking strategy: paragraph/sentence-aware chunks, then take first chunks per law (max ~2000 chars per law for context)
-    const maxCharsPerLaw = 2000;
+    // Use chunking strategy: paragraph/sentence-aware chunks, then take the chunks
+    // that are most relevant to the user's query (not just the first N chars),
+    // so that specific articles (e.g. "Chapter III, Article 8") are more likely
+    // to be included in the context.
+    const maxCharsPerLaw = 4000;
+    const queryLower = query.toLowerCase();
+    const queryTokens = queryLower
+      .split(/\W+/)
+      .filter((t) => t.length >= 3);
+
+    function scoreChunk(text: string): number {
+      const t = text.toLowerCase();
+      let score = 0;
+      for (const token of queryTokens) {
+        if (t.includes(token)) score++;
+      }
+      return score;
+    }
+
     return laws.map((law: any) => {
       const fullText = law.content_plain || law.content || "";
       const chunks = chunkLawContent(fullText, { maxChunkChars: 800, overlapChars: 120 });
+
+      // Score chunks by how many query tokens they contain
+      const scored = chunks.map((c: any) => ({
+        text: c.text,
+        score: scoreChunk(c.text),
+      }));
+
+      // Sort by score (desc), but keep original order among equally scored chunks
+      scored.sort((a, b) => b.score - a.score);
+
       let content = "";
-      for (const c of chunks) {
+      for (const c of scored) {
         if (content.length + c.text.length + 2 <= maxCharsPerLaw) {
           content += (content ? "\n\n" : "") + c.text;
         } else {
           const remaining = maxCharsPerLaw - content.length - 2;
-          if (remaining > 100) content += "\n\n" + c.text.slice(0, remaining);
+          if (remaining > 200) content += "\n\n" + c.text.slice(0, remaining);
           break;
         }
       }
+
+      // Fallback: if, for some reason, nothing was selected, use the first part of the text
       if (!content) content = fullText.slice(0, maxCharsPerLaw);
+
       return {
         title: law.title,
         country: law.countries?.name || "",
@@ -335,6 +376,21 @@ export async function POST(request: NextRequest) {
     // Get the last user message for RAG search
     const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
     const userQuery = lastUserMessage?.content || "";
+
+    // If the user appears to be asking about a specific law but we don't
+    // detect any country, ask them to clarify the country instead of guessing
+    // from another jurisdiction or general knowledge.
+    const hints = extractQueryHints(userQuery);
+    if (!hints.country && isLikelyLegalQuestion(userQuery)) {
+      return NextResponse.json({
+        content:
+          "I couldn't tell which country's law you mean from your question.\n\n" +
+          "Please re-ask your question and include the country explicitly, for example:\n" +
+          "- \"In Rwanda, what does the Capital Market Corporate Governance Code N°___, 2024 provide?\"\n" +
+          "- \"Under Ghanaian corporate law, what does the Companies Act say about directors' duties?\"",
+        sources: ["Yamalé AI · African Legal Research"],
+      });
+    }
 
     // Search legal library for relevant content (RAG)
     const legalContext = await searchLegalLibrary(userQuery);
