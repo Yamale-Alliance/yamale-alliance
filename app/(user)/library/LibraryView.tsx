@@ -3,8 +3,18 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Search, BookOpen, ArrowRight, Filter, X, Bookmark, Sparkles, Calendar, FileEdit, Eye, BookmarkCheck } from "lucide-react";
+import { Search, BookOpen, ArrowRight, Filter, X, Bookmark, Sparkles, Calendar, FileEdit, Eye, BookmarkCheck, ChevronLeft, ChevronRight } from "lucide-react";
 import type { LibraryCountry, LibraryCategory, LibraryLawRow } from "@/lib/library-data";
+
+const PAGE_SIZE = 12;
+type SortOption = "title-asc" | "title-desc" | "country" | "category" | "newest";
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: "title-asc", label: "Title (A–Z)" },
+  { value: "title-desc", label: "Title (Z–A)" },
+  { value: "country", label: "Country" },
+  { value: "category", label: "Category" },
+  { value: "newest", label: "Newest first" },
+];
 
 const RECENTLY_ADDED_DAYS = 3;
 const RECENTLY_UPDATED_DAYS = 90;
@@ -123,7 +133,14 @@ type Props = {
   initialCategory: string;
   initialStatus: string;
   initialSearch: string;
+  initialPage?: string;
+  initialSort?: string;
 };
+
+function parsePage(s: string): number {
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+}
 
 export function LibraryView({
   initialCountries,
@@ -133,6 +150,8 @@ export function LibraryView({
   initialCategory,
   initialStatus,
   initialSearch,
+  initialPage = "",
+  initialSort = "title-asc",
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -147,6 +166,10 @@ export function LibraryView({
   const [error, setError] = useState<string | null>(null);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
   const [recentlyOpenedIds, setRecentlyOpenedIds] = useState<Set<string>>(() => new Set());
+  const [sortBy, setSortBy] = useState<SortOption>(
+    SORT_OPTIONS.some((o) => o.value === initialSort) ? (initialSort as SortOption) : "title-asc"
+  );
+  const [currentPage, setCurrentPage] = useState(() => parsePage(initialPage) || 1);
 
   const hasFilters = !!(country || category || status || search.trim());
 
@@ -180,20 +203,24 @@ export function LibraryView({
   }, []);
 
   const updateUrl = useCallback(
-    (updates: { country?: string; category?: string; status?: string; q?: string }) => {
+    (updates: { country?: string; category?: string; status?: string; q?: string; page?: number; sort?: string }) => {
       const params = new URLSearchParams();
       const c = updates.country ?? country;
       const cat = updates.category ?? category;
       const s = updates.status ?? status;
       const q = updates.q ?? search;
+      const page = updates.page ?? currentPage;
+      const sort = updates.sort ?? sortBy;
       if (c) params.set("country", c);
       if (cat) params.set("category", cat);
       if (s) params.set("status", s);
       if (q.trim()) params.set("q", q.trim());
+      if (page > 1) params.set("page", String(page));
+      if (sort && sort !== "title-asc") params.set("sort", sort);
       const query = params.toString();
       router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
     },
-    [country, category, status, search, pathname, router]
+    [country, category, status, search, currentPage, sortBy, pathname, router]
   );
 
   const hadInitialFilters = !!(initialCountry || initialCategory || initialStatus || initialSearch);
@@ -239,30 +266,45 @@ export function LibraryView({
 
   const handleCountryChange = (v: string) => {
     setCountry(v);
-    updateUrl({ country: v });
+    setCurrentPage(1);
+    updateUrl({ country: v, page: 1 });
   };
   const handleCategoryChange = (v: string) => {
     setCategory(v);
-    updateUrl({ category: v });
+    setCurrentPage(1);
+    updateUrl({ category: v, page: 1 });
   };
   const handleStatusChange = (v: string) => {
     setStatus(v);
-    updateUrl({ status: v });
+    setCurrentPage(1);
+    updateUrl({ status: v, page: 1 });
   };
   const handleSearchChange = (v: string) => {
     setSearch(v);
-    updateUrl({ q: v });
+    setCurrentPage(1);
+    updateUrl({ q: v, page: 1 });
+  };
+  const handleSortChange = (v: string) => {
+    const next = v as SortOption;
+    setSortBy(next);
+    setCurrentPage(1);
+    updateUrl({ sort: next, page: 1 });
+  };
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    updateUrl({ page });
   };
   const clearFilters = () => {
     setCountry("");
     setCategory("");
     setStatus("");
     setSearch("");
+    setCurrentPage(1);
     router.replace(pathname, { scroll: false });
   };
 
   const filteredLaws = useMemo(() => {
-    const filtered = laws.filter((law) => {
+    return laws.filter((law) => {
       const matchSearch =
         !search ||
         law.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -272,18 +314,118 @@ export function LibraryView({
       const matchStatus = !status || law.status === status;
       return matchSearch && matchCountry && matchCategory && matchStatus;
     });
-    
-    // Sort: bookmarked laws first, then others
-    return filtered.sort((a, b) => {
+  }, [laws, search, country, category, status]);
+
+  const sortedLaws = useMemo(() => {
+    const list = [...filteredLaws];
+    // Bookmarked first, then by sort option
+    list.sort((a, b) => {
       const aBookmarked = bookmarkedIds.has(a.id);
       const bBookmarked = bookmarkedIds.has(b.id);
       if (aBookmarked && !bBookmarked) return -1;
       if (!aBookmarked && bBookmarked) return 1;
-      return 0;
+      switch (sortBy) {
+        case "title-asc":
+          return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+        case "title-desc":
+          return b.name.localeCompare(a.name, undefined, { sensitivity: "base" });
+        case "country":
+          return (a.country || "").localeCompare(b.country || "", undefined, { sensitivity: "base" }) || a.name.localeCompare(b.name);
+        case "category":
+          return (a.category || "").localeCompare(b.category || "", undefined, { sensitivity: "base" }) || a.name.localeCompare(b.name);
+        case "newest":
+          return (new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
+        default:
+          return a.name.localeCompare(b.name);
+      }
     });
-  }, [laws, search, country, category, status, bookmarkedIds]);
+    return list;
+  }, [filteredLaws, sortBy, bookmarkedIds]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedLaws.length / PAGE_SIZE));
+  const safePage = Math.min(Math.max(1, currentPage), totalPages);
+
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(1);
+      const params = new URLSearchParams();
+      if (country) params.set("country", country);
+      if (category) params.set("category", category);
+      if (status) params.set("status", status);
+      if (search.trim()) params.set("q", search.trim());
+      if (sortBy !== "title-asc") params.set("sort", sortBy);
+      router.replace(params.toString() ? `${pathname}?${params.toString()}` : pathname, { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable deps: only run when page count or current page change
+  }, [totalPages, currentPage]);
+
+  const paginatedLaws = useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE;
+    return sortedLaws.slice(start, start + PAGE_SIZE);
+  }, [sortedLaws, safePage]);
 
   const categoryNames = useMemo(() => [...new Set(laws.map((l) => l.category))].filter(Boolean).sort(), [laws]);
+
+  function PageSelector() {
+    if (totalPages <= 1) return null;
+    const showPages: (number | "ellipsis")[] = [];
+    const add = (p: number) => {
+      if (p >= 1 && p <= totalPages) showPages.push(p);
+    };
+    add(1);
+    if (safePage > 3) showPages.push("ellipsis");
+    for (let p = Math.max(2, safePage - 1); p <= Math.min(totalPages - 1, safePage + 1); p++) add(p);
+    if (safePage < totalPages - 2) showPages.push("ellipsis");
+    if (totalPages > 1) add(totalPages);
+    const uniq = Array.from(new Set(showPages));
+
+    return (
+      <nav className="flex items-center justify-center gap-1" aria-label="Pagination">
+        <button
+          type="button"
+          onClick={() => handlePageChange(safePage - 1)}
+          disabled={safePage <= 1}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-sm font-medium text-foreground transition hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+          aria-label="Previous page"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <div className="flex items-center gap-1">
+          {uniq.map((p, i) =>
+            p === "ellipsis" ? (
+              <span key={`e-${i}`} className="px-2 text-muted-foreground">
+                …
+              </span>
+            ) : (
+              <button
+                key={p}
+                type="button"
+                onClick={() => handlePageChange(p)}
+                className={`inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-lg border px-2 text-sm font-medium transition ${
+                  p === safePage
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background text-foreground hover:bg-muted"
+                }`}
+                aria-label={`Page ${p}`}
+                aria-current={p === safePage ? "page" : undefined}
+              >
+                {p}
+              </button>
+            )
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => handlePageChange(safePage + 1)}
+          disabled={safePage >= totalPages}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-sm font-medium text-foreground transition hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+          aria-label="Next page"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </nav>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -418,15 +560,39 @@ export function LibraryView({
         )}
         {!loadingLaws && !error && (
           <>
-            <p className="mb-4 text-sm font-medium text-muted-foreground">
-              {filteredLaws.length} result{filteredLaws.length !== 1 ? "s" : ""}
-            </p>
+            <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="text-sm font-medium text-muted-foreground">
+                  {sortedLaws.length} result{sortedLaws.length !== 1 ? "s" : ""}
+                  {totalPages > 1 && (
+                    <span className="ml-1 text-muted-foreground">
+                      (page {safePage} of {totalPages})
+                    </span>
+                  )}
+                </p>
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>Sort:</span>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => handleSortChange(e.target.value)}
+                    className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  >
+                    {SORT_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {totalPages > 1 && <PageSelector />}
+            </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredLaws.map((law) => (
+              {paginatedLaws.map((law) => (
                 <Link
                   key={law.id}
                   href={
-                    hasFilters
+                    (hasFilters || sortBy !== "title-asc" || safePage > 1)
                       ? `/library/${law.id}?returnTo=${encodeURIComponent(
                           pathname +
                             "?" +
@@ -435,6 +601,8 @@ export function LibraryView({
                               ...(category && { category }),
                               ...(status && { status }),
                               ...(search.trim() && { q: search.trim() }),
+                              ...(safePage > 1 && { page: String(safePage) }),
+                              ...(sortBy !== "title-asc" && { sort: sortBy }),
                             }).toString()
                         )}`
                       : `/library/${law.id}`
@@ -462,10 +630,15 @@ export function LibraryView({
                 </Link>
               ))}
             </div>
-            {filteredLaws.length === 0 && (
+            {sortedLaws.length === 0 && (
               <p className="py-12 text-center text-muted-foreground">
                 No laws match your filters. Try adjusting your search or filters.
               </p>
+            )}
+            {totalPages > 1 && sortedLaws.length > 0 && (
+              <div className="mt-8 flex justify-center">
+                <PageSelector />
+              </div>
             )}
           </>
         )}
