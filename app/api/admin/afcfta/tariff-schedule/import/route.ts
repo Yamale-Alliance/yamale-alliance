@@ -255,10 +255,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Save to import history so admin can view this import later
+    const batchPayload = {
+      country: country.trim(),
+      file_name: file.name || null,
+      row_count: parsed.length,
+      rows: parsed as unknown as Record<string, unknown>[],
+    };
+    await (supabase as any).from("afcfta_import_batches").insert(batchPayload);
+
     return NextResponse.json({
       ok: true,
       inserted: payload.length,
-      preview: parsed.slice(0, 5),
+      /** Full list of normalized rows that were inserted (for admin to view). */
+      rows: parsed,
     });
   } catch (err) {
     console.error("AfCFTA import error:", err);
