@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Search, Filter, Download, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
+import { InfoIcon } from "@/components/ui/InfoIcon";
 
 type TariffRow = {
   id: string;
@@ -176,8 +177,9 @@ export default function TariffSchedulePage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">AfCFTA Tariff Schedule</h1>
-              <p className="mt-2 text-muted-foreground">
+              <p className="mt-2 flex flex-wrap items-center gap-1.5 text-muted-foreground">
                 Search and compare tariff rates across AfCFTA member countries. View MFN rates and phased reductions through 2035.
+                <InfoIcon content="MFN (Most Favoured Nation) is the standard tariff applied to non-preferential trade. AfCFTA rates are the preferential tariffs agreed under the agreement, often lower or zero, phased by 2026, 2030, and 2035." />
               </p>
             </div>
             <Link
@@ -191,6 +193,15 @@ export default function TariffSchedulePage() {
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-6">
+        <div className="mb-6 rounded-xl border border-sky-200/80 bg-sky-50/90 p-4 dark:border-sky-800/40 dark:bg-sky-950/30 shadow-sm">
+          <p className="text-sm text-sky-900 dark:text-sky-100">
+            <span className="font-semibold">What&apos;s in this schedule?</span> Each row shows one product line (HS code) for a country: the standard MFN tariff and the AfCFTA preferential rates at 2026, 2030, and 2035. &quot;Savings ($10k)&quot; is the estimated duty saved on a $10,000 shipment when using AfCFTA rates.{" "}
+            <span className="inline-flex items-center gap-0.5">
+              <InfoIcon content="Sensitivity (e.g. sensitive, liberalised) indicates how each product is treated in the phased tariff reduction. Phase category and years show when the full reduction applies." />
+            </span>
+          </p>
+        </div>
+
         {/* Search and Filters */}
         <div className="mb-6 space-y-4">
           <div className="flex flex-wrap items-center gap-3">
@@ -207,7 +218,7 @@ export default function TariffSchedulePage() {
                 className="w-full rounded-lg border border-input bg-background pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
-            <div className="relative min-w-[120px]">
+            <div className="relative min-w-[120px] flex items-center gap-1">
               <input
                 type="text"
                 placeholder="HS Code"
@@ -218,6 +229,7 @@ export default function TariffSchedulePage() {
                 }}
                 className="w-full rounded-lg border border-input bg-background px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
+              <InfoIcon content="Harmonized System code: an international standard for classifying products (e.g. 0101.21 for live horses). Used for customs and tariff rates." />
             </div>
             <button
               type="button"
@@ -361,17 +373,39 @@ export default function TariffSchedulePage() {
                       className="cursor-pointer px-4 py-3 text-right font-medium hover:bg-muted/70"
                       onClick={() => handleSort("mfn_rate_percent")}
                     >
-                      MFN Rate {sortColumn === "mfn_rate_percent" && (sortDirection === "asc" ? "↑" : "↓")}
+                      <span className="inline-flex items-center gap-1">
+                        MFN Rate <InfoIcon content="Most Favoured Nation rate: the standard tariff applied to imports from non-preferential partners." />
+                        {sortColumn === "mfn_rate_percent" && (sortDirection === "asc" ? " ↑" : " ↓")}
+                      </span>
                     </th>
-                    <th className="px-4 py-3 text-right font-medium">AfCFTA 2026</th>
-                    <th className="px-4 py-3 text-right font-medium">AfCFTA 2030</th>
-                    <th className="px-4 py-3 text-right font-medium">AfCFTA 2035</th>
-                    <th className="px-4 py-3 text-left font-medium">Phase</th>
+                    <th className="px-4 py-3 text-right font-medium">
+                      <span className="inline-flex items-center justify-end gap-1">
+                        AfCFTA 2026 <InfoIcon content="Preferential tariff rate in 2026 under the AfCFTA phased reduction schedule." />
+                      </span>
+                    </th>
+                    <th className="px-4 py-3 text-right font-medium">
+                      <span className="inline-flex items-center justify-end gap-1">
+                        AfCFTA 2030 <InfoIcon content="Preferential tariff rate in 2030; many lines reach full reduction by this phase." />
+                      </span>
+                    </th>
+                    <th className="px-4 py-3 text-right font-medium">
+                      <span className="inline-flex items-center justify-end gap-1">
+                        AfCFTA 2035 <InfoIcon content="Final preferential rate by 2035 when the full tariff liberalisation is complete." />
+                      </span>
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium">
+                      <span className="inline-flex items-center gap-1">
+                        Phase <InfoIcon content="Phase category and years when the tariff reduction applies (e.g. immediate, 5-year, 10-year)." />
+                      </span>
+                    </th>
                     <th
                       className="cursor-pointer px-4 py-3 text-right font-medium hover:bg-muted/70"
                       onClick={() => handleSort("annual_savings_10k")}
                     >
-                      Savings ($10k) {sortColumn === "annual_savings_10k" && (sortDirection === "asc" ? "↑" : "↓")}
+                      <span className="inline-flex items-center justify-end gap-1">
+                        Savings ($10k) <InfoIcon content="Estimated duty saved on a $10,000 shipment when using AfCFTA preferential rate instead of MFN." />
+                        {sortColumn === "annual_savings_10k" && (sortDirection === "asc" ? " ↑" : " ↓")}
+                      </span>
                     </th>
                   </tr>
                 </thead>
