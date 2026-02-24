@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Loader2, Undo2 } from "lucide-react";
 
 type SearchRow = {
   userId: string;
@@ -13,18 +13,21 @@ type SearchRow = {
   datePurchased: string;
   expiresAt: string;
   stripeSessionId: string | null;
+  source: "grant" | "unlock";
+  grantId?: string;
 };
 
 export default function AdminLawyerSearchesPage() {
   const [searches, setSearches] = useState<SearchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [revertingId, setRevertingId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchSearches = useCallback(() => {
+    setLoading(true);
+    setError(null);
     fetch("/api/admin/lawyer-searches", { credentials: "include" })
-      .then((res) => {
-        return res.json().then((data) => ({ ok: res.ok, status: res.status, data }));
-      })
+      .then((res) => res.json().then((data) => ({ ok: res.ok, status: res.status, data })))
       .then(({ ok, status, data }) => {
         if (!ok) {
           const msg = data?.error ?? (status === 401 ? "Sign in required" : status === 403 ? "Admin access required" : "Failed to load searches");
@@ -41,6 +44,43 @@ export default function AdminLawyerSearchesPage() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    fetchSearches();
+  }, [fetchSearches]);
+
+  const revertKey = (row: SearchRow) =>
+    row.source === "grant" && row.grantId
+      ? row.grantId
+      : `unlock-${row.userId}-${row.country}-${row.expertise}`;
+
+  async function handleRevert(row: SearchRow) {
+    const id = revertKey(row);
+    setRevertingId(id);
+    setError(null);
+    try {
+      const body =
+        row.source === "grant" && row.grantId
+          ? { grantId: row.grantId }
+          : { source: "unlock" as const, userId: row.userId, country: row.country, expertise: row.expertise };
+      const res = await fetch("/api/admin/lawyer-searches/revert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data?.error ?? data?.details ?? "Failed to revert");
+        return;
+      }
+      setSearches((prev) => prev.filter((s) => revertKey(s) !== id));
+    } catch (e) {
+      setError("Failed to revert search");
+    } finally {
+      setRevertingId(null);
+    }
+  }
 
   const formatDate = (dateString: string | null | undefined) => {
     if (dateString == null || dateString === "") return "—";
@@ -63,6 +103,7 @@ export default function AdminLawyerSearchesPage() {
         </h1>
         <p className="mt-2 max-w-xl text-muted-foreground">
           View lawyer searches purchased by users. Each search grants access for 30 days from the date of purchase.
+          You can revert a search to mark it as unpaid so the user loses access.
         </p>
       </div>
 
@@ -87,31 +128,52 @@ export default function AdminLawyerSearchesPage() {
                 <th className="text-left p-3 font-medium">Search</th>
                 <th className="text-left p-3 font-medium">Date Purchased</th>
                 <th className="text-left p-3 font-medium">Date of Expiry</th>
+                <th className="text-right p-3 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {searches.map((search, idx) => (
-                <tr
-                  key={`${search.userId}-${search.country}-${search.expertise}-${idx}`}
-                  className="border-b border-border last:border-0"
-                >
-                  <td className="p-3">
-                    <div className="font-medium text-foreground">{search.userName}</div>
-                    {search.userEmail && (
-                      <div className="text-xs text-muted-foreground">{search.userEmail}</div>
-                    )}
-                  </td>
-                  <td className="p-3">
-                    <span className="font-medium text-foreground">{search.search}</span>
-                  </td>
-                  <td className="p-3 text-muted-foreground">
-                    {formatDate(search.datePurchased)}
-                  </td>
-                  <td className="p-3 text-muted-foreground">
-                    {formatDate(search.expiresAt)}
-                  </td>
-                </tr>
-              ))}
+              {searches.map((search, idx) => {
+                const key = revertKey(search);
+                const isReverting = revertingId === key;
+                return (
+                  <tr
+                    key={`${search.userId}-${search.country}-${search.expertise}-${idx}`}
+                    className="border-b border-border last:border-0"
+                  >
+                    <td className="p-3">
+                      <div className="font-medium text-foreground">{search.userName}</div>
+                      {search.userEmail && (
+                        <div className="text-xs text-muted-foreground">{search.userEmail}</div>
+                      )}
+                    </td>
+                    <td className="p-3">
+                      <span className="font-medium text-foreground">{search.search}</span>
+                    </td>
+                    <td className="p-3 text-muted-foreground">
+                      {formatDate(search.datePurchased)}
+                    </td>
+                    <td className="p-3 text-muted-foreground">
+                      {formatDate(search.expiresAt)}
+                    </td>
+                    <td className="p-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleRevert(search)}
+                        disabled={isReverting}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-900/40"
+                        title="Revert this search (user will no longer have paid access)"
+                      >
+                        {isReverting ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Undo2 className="h-3.5 w-3.5" />
+                        )}
+                        Revert
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
