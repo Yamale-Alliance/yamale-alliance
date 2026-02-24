@@ -17,9 +17,9 @@ import {
   Target,
   Shield,
   Award,
-  Info,
 } from "lucide-react";
 import Link from "next/link";
+import { InfoIcon } from "@/components/ui/InfoIcon";
 
 const CONTINENTS = ["Africa", "Asia", "Europe", "Americas", "Oceania"];
 
@@ -300,16 +300,24 @@ export default function ComplianceJourneyPage() {
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold">Tariff Schedule Lookup</h2>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground flex items-center gap-1.5">
                       Find tariff rates and potential savings for your products
+                      <InfoIcon content="Compare the standard (MFN) tariff with the AfCFTA preferential rate for your product and destination. Lower AfCFTA rates mean potential duty savings." />
                     </p>
                   </div>
+                </div>
+
+                <div className="mb-6 rounded-xl border border-sky-200/80 bg-sky-50/90 p-4 dark:border-sky-800/40 dark:bg-sky-950/30 shadow-sm">
+                  <p className="text-sm text-sky-900 dark:text-sky-100">
+                    <span className="font-semibold">What&apos;s this for?</span> Enter your product&apos;s HS code and value to see estimated MFN vs AfCFTA rates and potential savings. For the full searchable schedule, use &quot;Open Full Tariff Schedule&quot; below.{" "}
+                    <InfoIcon content="HS (Harmonized System) code is the international product classification used for customs and tariffs. Product value is used to estimate duty and savings." />
+                  </p>
                 </div>
 
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="space-y-4">
                     <div>
-                      <label className="mb-2 block text-sm font-semibold">HS Code</label>
+                      <label className="mb-2 flex items-center gap-1.5 text-sm font-semibold">HS Code</label>
                       <input
                         type="text"
                         value={hsCode}
@@ -317,9 +325,12 @@ export default function ComplianceJourneyPage() {
                         placeholder="e.g., 0101.21"
                         className="w-full rounded-lg border-2 border-input bg-background px-4 py-3 text-sm focus:border-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20"
                       />
+                      <span className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <InfoIcon content="International product classification code (e.g. 0101.21 for live horses). Find yours on customs documents or the full tariff schedule." />
+                      </span>
                     </div>
                     <div>
-                      <label className="mb-2 block text-sm font-semibold">Product Value (USD)</label>
+                      <label className="mb-2 flex items-center gap-1.5 text-sm font-semibold">Product Value (USD)</label>
                       <input
                         type="number"
                         value={productValue}
@@ -376,11 +387,15 @@ export default function ComplianceJourneyPage() {
                       <h3 className="mb-4 text-lg font-semibold">Estimated Savings</h3>
                       <div className="space-y-4">
                         <div className="flex items-center justify-between rounded-lg bg-muted/50 p-4">
-                          <span className="text-sm text-muted-foreground">MFN Rate</span>
+                          <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                            MFN Rate <InfoIcon content="Most Favoured Nation: the standard tariff applied without a trade agreement." />
+                          </span>
                           <span className="text-lg font-bold">{mockTariffRate || "—"}</span>
                         </div>
                         <div className="flex items-center justify-between rounded-lg bg-green-500/10 p-4">
-                          <span className="text-sm text-green-700 dark:text-green-400">AfCFTA Rate</span>
+                          <span className="flex items-center gap-1.5 text-sm text-green-700 dark:text-green-400">
+                            AfCFTA Rate <InfoIcon content="Preferential tariff under the AfCFTA agreement, subject to rules of origin." />
+                          </span>
                           <span className="text-lg font-bold text-green-700 dark:text-green-400">
                             {mockAfCFTARate || "—"}
                           </span>
@@ -416,9 +431,21 @@ export default function ComplianceJourneyPage() {
                   </div>
                 </div>
 
+                <div className="mb-6 rounded-xl border border-sky-200/80 bg-sky-50/90 p-4 dark:border-sky-800/40 dark:bg-sky-950/30 shadow-sm">
+                  <p className="text-sm text-sky-900 dark:text-sky-100">
+                    <span className="font-semibold">What&apos;s this for?</span> Rules of origin determine whether your product &quot;counts&quot; as from an AfCFTA country so it can get preferential tariffs. You need to show where the product was produced and that it meets value-added or other criteria.{" "}
+                    <span className="inline-flex items-center align-middle">
+                      <InfoIcon content="Under AfCFTA, products often need a minimum share of value added in member countries (e.g. 40% RVC) or to meet product-specific rules." />
+                    </span>
+                  </p>
+                </div>
+
                 <div className="space-y-6">
                   <div>
-                    <label className="mb-2 block text-sm font-semibold">Product Category</label>
+                    <label className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
+                      Product Category
+                      <InfoIcon content="Product type for applying the right rules of origin (e.g. wholly obtained, value-added, or product-specific rules)." />
+                    </label>
                     <select
                       value={productCategory}
                       onChange={(e) => setProductCategory(e.target.value)}
@@ -547,8 +574,9 @@ export default function ComplianceJourneyPage() {
                   </div>
                   <div className="flex-1">
                     <h2 className="text-2xl font-bold">Compliance Checklist</h2>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground flex items-center gap-1.5">
                       Track your compliance requirements by sector
+                      <InfoIcon content="Sector-specific list of documents and steps (e.g. certificate of origin, SPS, customs declaration) needed for AfCFTA trade." />
                     </p>
                   </div>
                   {checklistTotal > 0 && (
@@ -562,7 +590,10 @@ export default function ComplianceJourneyPage() {
                 </div>
 
                 <div className="mb-6">
-                  <label className="mb-2 block text-sm font-semibold">Select Sector</label>
+                  <label className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
+                    Select Sector
+                    <InfoIcon content="Your sector determines which checklist items apply (e.g. agriculture needs SPS; manufacturing needs certificate of origin)." />
+                  </label>
                   <select
                     value={sector}
                     onChange={(e) => setSector(e.target.value)}
@@ -639,10 +670,17 @@ export default function ComplianceJourneyPage() {
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold">Document Library</h2>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground flex items-center gap-1.5">
                       Key AfCFTA agreements, protocols, and guidelines
+                      <InfoIcon content="Official AfCFTA texts and guidelines: the agreement, protocols on goods and rules of origin, tariff schedules, and certificate of origin guidelines." />
                     </p>
                   </div>
+                </div>
+
+                <div className="mb-6 rounded-xl border border-sky-200/80 bg-sky-50/90 p-4 dark:border-sky-800/40 dark:bg-sky-950/30 shadow-sm">
+                  <p className="text-sm text-sky-900 dark:text-sky-100">
+                    <span className="font-semibold">What&apos;s here?</span> Reference documents for the African Continental Free Trade Area: the main agreement, protocols on trade in goods and rules of origin, tariff schedules, and guidance on certificates of origin and dispute settlement.
+                  </p>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
