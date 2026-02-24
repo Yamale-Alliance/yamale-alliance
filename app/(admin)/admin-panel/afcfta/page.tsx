@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   FileCheck,
   Plus,
@@ -8,7 +8,33 @@ import {
   AlertCircle,
   CheckCircle2,
   FileSpreadsheet,
+  History,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
 } from "lucide-react";
+
+type ImportRow = {
+  hsCode: string;
+  productDescription: string;
+  productCategory?: string | null;
+  sensitivity?: string | null;
+  mfnRatePercent?: number | null;
+  afcfta2026Percent?: number | null;
+  afcfta2030Percent?: number | null;
+  afcfta2035Percent?: number | null;
+  phaseCategory?: string | null;
+  phaseYears?: string | null;
+  annualSavings10k?: number | null;
+};
+
+type ImportBatchSummary = {
+  id: string;
+  country: string;
+  file_name: string | null;
+  imported_at: string;
+  row_count: number;
+};
 
 const AFRICA_COUNTRIES = [
   "Ghana", "Nigeria", "Kenya", "South Africa", "Senegal", "Tanzania", "Rwanda",
@@ -52,7 +78,92 @@ export default function AdminAfCFTAPage() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importStatus, setImportStatus] = useState<"idle" | "uploading" | "done" | "error">("idle");
   const [importError, setImportError] = useState<string | null>(null);
-  const [importResult, setImportResult] = useState<{ inserted: number; preview?: unknown[] } | null>(null);
+  const [importResult, setImportResult] = useState<{
+    inserted: number;
+    rows?: ImportRow[];
+  } | null>(null);
+
+  const [importHistory, setImportHistory] = useState<ImportBatchSummary[]>([]);
+  const [importHistoryLoading, setImportHistoryLoading] = useState(true);
+  const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
+  const [expandedBatchRows, setExpandedBatchRows] = useState<ImportRow[] | null>(null);
+  const [expandedBatchLoading, setExpandedBatchLoading] = useState(false);
+
+  const fetchImportHistory = useCallback(() => {
+    setImportHistoryLoading(true);
+    fetch("/api/admin/afcfta/imports", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => setImportHistory(Array.isArray(data) ? data : []))
+      .catch(() => setImportHistory([]))
+      .finally(() => setImportHistoryLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetchImportHistory();
+  }, [fetchImportHistory]);
+
+  useEffect(() => {
+    if (importStatus === "done" && importResult) fetchImportHistory();
+  }, [importStatus, importResult, fetchImportHistory]);
+
+  const loadBatchRows = useCallback((batchId: string) => {
+    if (expandedBatchId === batchId && expandedBatchRows !== null) {
+      setExpandedBatchId(null);
+      setExpandedBatchRows(null);
+      return;
+    }
+    setExpandedBatchId(batchId);
+    setExpandedBatchRows(null);
+    setExpandedBatchLoading(true);
+    fetch(`/api/admin/afcfta/imports/${batchId}`, { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => setExpandedBatchRows(Array.isArray(data?.rows) ? data.rows : []))
+      .catch(() => setExpandedBatchRows([]))
+      .finally(() => setExpandedBatchLoading(false));
+  }, [expandedBatchId, expandedBatchRows]);
+  const formatImportDate = (dateString: string) => {
+    const d = new Date(dateString);
+    if (Number.isNaN(d.getTime())) return dateString;
+    return d.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+  };
+  const renderRowsTable = (rows: ImportRow[]) => (
+    <div className="max-h-[320px] overflow-auto rounded-lg border border-border">
+      <table className="w-full min-w-[720px] text-left text-sm">
+        <thead className="sticky top-0 z-10 border-b border-border bg-muted/80 backdrop-blur-sm">
+          <tr>
+            <th className="p-2 font-medium">HS Code</th>
+            <th className="p-2 font-medium">Product</th>
+            <th className="p-2 font-medium">Category</th>
+            <th className="p-2 font-medium">Sensitivity</th>
+            <th className="p-2 font-medium">MFN %</th>
+            <th className="p-2 font-medium">2026</th>
+            <th className="p-2 font-medium">2030</th>
+            <th className="p-2 font-medium">2035</th>
+            <th className="p-2 font-medium">Phase</th>
+            <th className="p-2 font-medium">Years</th>
+            <th className="p-2 font-medium">Savings $10k</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i} className="border-b border-border/60 last:border-0">
+              <td className="p-2 font-mono text-xs">{row.hsCode}</td>
+              <td className="max-w-[180px] truncate p-2" title={row.productDescription}>{row.productDescription}</td>
+              <td className="max-w-[100px] truncate p-2 text-muted-foreground">{row.productCategory ?? "—"}</td>
+              <td className="p-2 text-muted-foreground">{row.sensitivity ?? "—"}</td>
+              <td className="p-2">{row.mfnRatePercent != null ? row.mfnRatePercent : "—"}</td>
+              <td className="p-2">{row.afcfta2026Percent != null ? row.afcfta2026Percent : "—"}</td>
+              <td className="p-2">{row.afcfta2030Percent != null ? row.afcfta2030Percent : "—"}</td>
+              <td className="p-2">{row.afcfta2035Percent != null ? row.afcfta2035Percent : "—"}</td>
+              <td className="max-w-[80px] truncate p-2 text-muted-foreground">{row.phaseCategory ?? "—"}</td>
+              <td className="p-2 text-muted-foreground">{row.phaseYears ?? "—"}</td>
+              <td className="p-2">{row.annualSavings10k != null ? row.annualSavings10k : "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,7 +235,7 @@ export default function AdminAfCFTAPage() {
         return;
       }
       setImportStatus("done");
-      setImportResult({ inserted: json.inserted, preview: json.preview });
+      setImportResult({ inserted: json.inserted, rows: json.rows ?? [] });
       setImportFile(null);
     } catch (err) {
       console.error("Import error", err);
@@ -356,12 +467,20 @@ export default function AdminAfCFTAPage() {
               </div>
             )}
             {importStatus === "done" && importResult && (
-              <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">
-                <div className="flex items-center gap-2 font-medium">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  Imported {importResult.inserted} row(s).
+              <>
+                <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">
+                  <div className="flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    Imported {importResult.inserted} row(s).
+                  </div>
                 </div>
-              </div>
+                {importResult.rows && importResult.rows.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground">Imported data</p>
+                    {renderRowsTable(importResult.rows)}
+                  </div>
+                )}
+              </>
             )}
             <button
               type="submit"
@@ -373,6 +492,67 @@ export default function AdminAfCFTAPage() {
             </button>
           </form>
         </div>
+      </div>
+
+      {/* Import history — view any past import */}
+      <div className="mt-10 rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+          <History className="h-5 w-5" />
+          Import history
+        </h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          View data from past file imports. Click a row to expand and see the imported rows.
+        </p>
+        {importHistoryLoading ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Loading…
+          </div>
+        ) : importHistory.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">No imports yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {importHistory.map((batch) => (
+              <div
+                key={batch.id}
+                className="rounded-lg border border-border bg-muted/30 overflow-hidden"
+              >
+                <button
+                  type="button"
+                  onClick={() => loadBatchRows(batch.id)}
+                  className="flex w-full items-center gap-2 p-3 text-left hover:bg-muted/50"
+                >
+                  {expandedBatchId === batch.id ? (
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  )}
+                  <span className="font-medium">{batch.country}</span>
+                  {batch.file_name && (
+                    <span className="text-muted-foreground">— {batch.file_name}</span>
+                  )}
+                  <span className="ml-auto text-sm text-muted-foreground">
+                    {batch.row_count} row{batch.row_count !== 1 ? "s" : ""} · {formatImportDate(batch.imported_at)}
+                  </span>
+                </button>
+                {expandedBatchId === batch.id && (
+                  <div className="border-t border-border bg-background p-4">
+                    {expandedBatchLoading ? (
+                      <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Loading rows…
+                      </div>
+                    ) : expandedBatchRows && expandedBatchRows.length > 0 ? (
+                      renderRowsTable(expandedBatchRows)
+                    ) : (
+                      <p className="py-4 text-center text-sm text-muted-foreground">No row data.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
