@@ -27,6 +27,8 @@ export default async function LibraryPage({ searchParams }: { searchParams: Sear
   const category = typeof params.category === "string" ? decodeURIComponent(params.category) : "";
   const status = typeof params.status === "string" ? params.status : "";
   const q = typeof params.q === "string" ? params.q : "";
+  const pageParam = typeof params.page === "string" ? params.page : "";
+  const sortParam = typeof params.sort === "string" ? params.sort : "";
 
   const { countries, categories, laws } = await fetchLibraryData();
   const filteredLaws = filterLawsByParams(laws, country, category, status, q);
@@ -40,6 +42,8 @@ export default async function LibraryPage({ searchParams }: { searchParams: Sear
       initialCategory={category}
       initialStatus={status}
       initialSearch={q}
+      initialPage={pageParam}
+      initialSort={sortParam}
     />
   );
 }
