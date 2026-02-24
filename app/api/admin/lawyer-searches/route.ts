@@ -17,7 +17,7 @@ function expiryFromPurchased(purchasedAt: string | null | undefined): string {
   return new Date(ts + SEARCH_GRANT_DAYS * 24 * 60 * 60 * 1000).toISOString();
 }
 
-type SearchRow = {
+export type SearchRow = {
   userId: string;
   userName: string;
   userEmail: string | null;
@@ -27,6 +27,10 @@ type SearchRow = {
   datePurchased: string;
   expiresAt: string;
   stripeSessionId: string | null;
+  /** "grant" = lawyer_search_unlock_grants (has grantId), "unlock" = lawyer_search_unlocks (revert by userId+country+expertise) */
+  source: "grant" | "unlock";
+  /** Present when source === "grant"; use for revert */
+  grantId?: string;
 };
 
 function buildSearchLabel(country: string, expertise: string): string {
@@ -45,7 +49,7 @@ export async function GET() {
 
     // 1) 30-day grants from lawyer_search_unlock_grants (all, not only active)
     const { data: grants, error: grantsError } = await (supabase.from("lawyer_search_unlock_grants") as any)
-      .select("user_id, lawyer_ids, expires_at, created_at, stripe_session_id")
+      .select("id, user_id, lawyer_ids, expires_at, created_at, stripe_session_id")
       .order("created_at", { ascending: false });
 
     if (grantsError) {
@@ -98,6 +102,8 @@ export async function GET() {
             ? grant.expires_at
             : expiryFromPurchased(purchased),
           stripeSessionId: grant.stripe_session_id,
+          source: "grant",
+          grantId: grant.id,
         });
       }
     }
@@ -136,6 +142,7 @@ export async function GET() {
           datePurchased,
           expiresAt: expiryFromPurchased(datePurchased),
           stripeSessionId: row.stripe_session_id,
+          source: "unlock",
         });
       }
     }
