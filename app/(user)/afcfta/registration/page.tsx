@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { InfoIcon } from "@/components/ui/InfoIcon";
 
 const AFRICA_COUNTRIES = [
   "Ghana", "Nigeria", "Kenya", "South Africa", "Senegal", "Tanzania", "Rwanda",
@@ -78,6 +79,15 @@ export default function AfCFTARegistrationPage() {
             </div>
           </div>
 
+          <div className="mb-6 rounded-xl border border-sky-200/80 bg-sky-50/90 p-4 dark:border-sky-800/40 dark:bg-sky-950/30 shadow-sm">
+            <p className="text-sm text-sky-900 dark:text-sky-100">
+              <span className="font-semibold">What&apos;s this for?</span> This information helps us tailor the compliance checklist and tariff tools to your business. Your data is used only within the AfCFTA tool and is not shared.{" "}
+              <span className="inline-flex items-center gap-0.5">
+                <InfoIcon content="AfCFTA tools use your sector and country to show relevant rules of origin, document requirements, and tariff schedules for your trade route." />
+              </span>
+            </p>
+          </div>
+
           {submitted ? (
             <div className="py-12 text-center">
               <CheckCircle2 className="h-16 w-16 text-green-600 mx-auto mb-4" />
@@ -87,8 +97,9 @@ export default function AfCFTARegistrationPage() {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label className="mb-2 block text-sm font-medium text-foreground">
+                <label className="mb-2 flex items-center gap-1.5 text-sm font-medium text-foreground">
                   Business name <span className="text-destructive">*</span>
+                  <InfoIcon content="Legal or trading name of your company as it appears on official documents." />
                 </label>
                 <input
                   type="text"
@@ -100,8 +111,9 @@ export default function AfCFTARegistrationPage() {
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-foreground">
+                <label className="mb-2 flex items-center gap-1.5 text-sm font-medium text-foreground">
                   Country of registration <span className="text-destructive">*</span>
+                  <InfoIcon content="The AfCFTA member country where your business is legally registered. This determines which tariff schedule and rules of origin apply." />
                 </label>
                 <select
                   value={country}
@@ -116,8 +128,9 @@ export default function AfCFTARegistrationPage() {
                 </select>
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-foreground">
+                <label className="mb-2 flex items-center gap-1.5 text-sm font-medium text-foreground">
                   Sector <span className="text-destructive">*</span>
+                  <InfoIcon content="Your main business sector. We use this to show the right compliance checklist (e.g. SPS for agriculture, certificates of origin for manufacturing)." />
                 </label>
                 <select
                   value={sector}
@@ -132,8 +145,9 @@ export default function AfCFTARegistrationPage() {
                 </select>
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-foreground">
+                <label className="mb-2 flex items-center gap-1.5 text-sm font-medium text-foreground">
                   Email <span className="text-destructive">*</span>
+                  <InfoIcon content="Contact email for your business. Used only to link your registration to this session and for any follow-up within the AfCFTA tools." />
                 </label>
                 <input
                   type="email"
