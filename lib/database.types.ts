@@ -298,6 +298,21 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["ai_usage"]["Insert"]>;
       };
+      afcfta_report_usage: {
+        Row: {
+          user_id: string;
+          month: string;
+          report_count: number;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          month: string;
+          report_count?: number;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["afcfta_report_usage"]["Insert"]>;
+      };
       lawyer_profiles: {
         Row: {
           user_id: string;
@@ -547,6 +562,25 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["pay_as_you_go_purchases"]["Insert"]>;
+      };
+      afcfta_import_batches: {
+        Row: {
+          id: string;
+          country: string;
+          file_name: string | null;
+          imported_at: string;
+          row_count: number;
+          rows: Json;
+        };
+        Insert: {
+          id?: string;
+          country: string;
+          file_name?: string | null;
+          imported_at?: string;
+          row_count: number;
+          rows: Json;
+        };
+        Update: Partial<Database["public"]["Tables"]["afcfta_import_batches"]["Insert"]>;
       };
       afcfta_tariff_schedule: {
         Row: {
