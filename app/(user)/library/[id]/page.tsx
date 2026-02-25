@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { ChevronLeft, FileText, Loader2, GripVertical, ArrowUp, ArrowDown, Menu, X, Bookmark, BookmarkCheck } from "lucide-react";
+import { ChevronLeft, FileText, Loader2, GripVertical, ArrowUp, ArrowDown, Menu, X, Bookmark, BookmarkCheck, FileEdit } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 
 type LawStatus = "In force" | "Amended" | "Repealed";
@@ -293,6 +293,7 @@ export default function LawDetailPage({
 
   // Check if user has team plan
   const isTeamPlan = user?.publicMetadata?.tier === "team" || user?.publicMetadata?.subscriptionTier === "team";
+  const isAdmin = (user?.publicMetadata?.role as string | undefined) === "admin";
 
   // Check bookmark status (fetch with credentials so auth cookie is sent)
   useEffect(() => {
@@ -435,6 +436,7 @@ export default function LawDetailPage({
               <Link
                 href={returnTo && returnTo.startsWith("/library") ? returnTo : "/library"}
                 className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                title="Back to the African Legal Library"
               >
                 <ChevronLeft className="h-4 w-4" /> Back to Library
               </Link>
@@ -443,26 +445,13 @@ export default function LawDetailPage({
               </h1>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={isSignedIn ? toggleBookmark : () => window.location.assign("/sign-in?redirect_url=" + encodeURIComponent(window.location.pathname))}
-                disabled={bookmarkLoading}
-                className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
-                aria-label={isSignedIn ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Sign in to bookmark"}
-                title={isSignedIn ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Sign in to bookmark"}
-              >
-                {isSignedIn && isBookmarked ? (
-                  <BookmarkCheck className="h-5 w-5 fill-current text-primary" />
-                ) : (
-                  <Bookmark className="h-5 w-5" />
-                )}
-              </button>
               {hasContent && sections.length > 1 && (
                 <button
                   type="button"
                   onClick={() => setMobileContentsOpen(true)}
                   className="lg:hidden shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
                   aria-label="Open contents"
+                  title="Open contents sidebar"
                 >
                   <Menu className="h-6 w-6" />
                 </button>
@@ -703,23 +692,86 @@ export default function LawDetailPage({
       </div>
 
       {hasContent && (
-        <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-2 rounded-lg border border-border bg-card p-1 shadow-lg">
-          <button
-            type="button"
-            onClick={scrollToTop}
-            className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-            title="Move to top"
-          >
-            <ArrowUp className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            onClick={scrollToBottom}
-            className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-            title="Move to bottom"
-          >
-            <ArrowDown className="h-5 w-5" />
-          </button>
+        <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-1.5 rounded-lg border border-border bg-card/95 p-1.5 shadow-lg backdrop-blur">
+          {/* Back to Library */}
+          <div className="relative group">
+            <Link
+              href={returnTo && returnTo.startsWith("/library") ? returnTo : "/library"}
+              className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label="Back to Library"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Link>
+            <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+              Back to Library
+            </span>
+          </div>
+
+          {/* Edit (admins only) */}
+          {isAdmin && (
+            <div className="relative group">
+              <Link
+                href={`/admin-panel/laws/${law.id}`}
+                className="inline-flex items-center justify-center rounded-md p-2 text-primary hover:bg-primary/10"
+                aria-label="Edit law"
+              >
+                <FileEdit className="h-5 w-5" />
+              </Link>
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+                Edit law (admin)
+              </span>
+            </div>
+          )}
+
+          {/* Bookmark toggle */}
+          <div className="relative group">
+            <button
+              type="button"
+              onClick={isSignedIn ? toggleBookmark : () => window.location.assign("/sign-in?redirect_url=" + encodeURIComponent(window.location.pathname))}
+              disabled={bookmarkLoading}
+              className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+              aria-label={isSignedIn ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Sign in to bookmark"}
+            >
+              {isSignedIn && isBookmarked ? (
+                <BookmarkCheck className="h-5 w-5 fill-current text-primary" />
+              ) : (
+                <Bookmark className="h-5 w-5" />
+              )}
+            </button>
+            <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+              {isSignedIn ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Sign in to bookmark"}
+            </span>
+          </div>
+
+          <div className="my-0.5 h-px bg-border" />
+
+          {/* Scroll controls */}
+          <div className="relative group">
+            <button
+              type="button"
+              onClick={scrollToTop}
+              className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label="Scroll to top"
+            >
+              <ArrowUp className="h-5 w-5" />
+            </button>
+            <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+              Scroll to top
+            </span>
+          </div>
+          <div className="relative group">
+            <button
+              type="button"
+              onClick={scrollToBottom}
+              className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label="Scroll to bottom"
+            >
+              <ArrowDown className="h-5 w-5" />
+            </button>
+            <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+              Scroll to bottom
+            </span>
+          </div>
         </div>
       )}
     </div>
