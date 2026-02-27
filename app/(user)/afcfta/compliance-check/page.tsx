@@ -20,7 +20,6 @@ import {
   Paperclip,
   X,
   Download,
-  RotateCcw,
 } from "lucide-react";
 import { InfoIcon } from "@/components/ui/InfoIcon";
 import { buildAfCFTAReportPdf, loadImageAsDataUrl } from "@/lib/afcfta-report-pdf";
@@ -51,6 +50,7 @@ const AFCFTA_COUNTRIES = COUNTRIES_BY_CONTINENT.Africa;
 /* Organization palette: primary #c18c43, accent #603b1c, muted #e3ba65 */
 const ORG_ACCENT = "#603b1c";
 const ORG_PRIMARY = "#c18c43";
+const JOURNEY_STORAGE_KEY = "yamale-afcfta-journey-v1";
 
 type StepId = "start" | "production" | "origin" | "ntb" | "tariff" | "checklist";
 
@@ -177,9 +177,9 @@ export default function ComplianceCheckPage() {
   const [activeStep, setActiveStep] = useState<StepId>("start");
   const [hsCode, setHsCode] = useState("");
   const [productName, setProductName] = useState("");
-  const [originContinent, setOriginContinent] = useState("");
+  const [originContinent, setOriginContinent] = useState("Africa");
   const [originCountry, setOriginCountry] = useState("");
-  const [destContinent, setDestContinent] = useState("");
+  const [destContinent, setDestContinent] = useState("Africa");
   const [destCountry, setDestCountry] = useState("");
   const [productionRows, setProductionRows] = useState<ProductionRow[]>([
     { id: "1", description: "", sourceCountry: "", cost: "", fileName: "" },
@@ -198,6 +198,80 @@ export default function ComplianceCheckPage() {
   } | null>(null);
   const [reportDownloadStatus, setReportDownloadStatus] = useState<"idle" | "loading" | "error">("idle");
   const [reportError, setReportError] = useState<string | null>(null);
+
+  // Hydrate journey state from localStorage so refreshing the page keeps the current step and inputs
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(JOURNEY_STORAGE_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw) as Partial<{
+        activeStep: StepId;
+        hsCode: string;
+        productName: string;
+        originContinent: string;
+        originCountry: string;
+        destContinent: string;
+        destCountry: string;
+        productionRows: ProductionRow[];
+        checklistProgress: Record<string, boolean>;
+        shipmentValue: string;
+      }> | null;
+      if (!data) return;
+
+      if (data.activeStep && STEPS.some((s) => s.id === data.activeStep)) {
+        setActiveStep(data.activeStep);
+      }
+      if (typeof data.hsCode === "string") setHsCode(data.hsCode);
+      if (typeof data.productName === "string") setProductName(data.productName);
+      if (typeof data.originContinent === "string") setOriginContinent(data.originContinent);
+      if (typeof data.originCountry === "string") setOriginCountry(data.originCountry);
+      if (typeof data.destContinent === "string") setDestContinent(data.destContinent);
+      if (typeof data.destCountry === "string") setDestCountry(data.destCountry);
+      if (Array.isArray(data.productionRows) && data.productionRows.length > 0) {
+        setProductionRows(data.productionRows);
+      }
+      if (data.checklistProgress && typeof data.checklistProgress === "object") {
+        setChecklistProgress(data.checklistProgress);
+      }
+      if (typeof data.shipmentValue === "string") setShipmentValue(data.shipmentValue);
+    } catch {
+      // ignore hydration errors
+    }
+  }, []);
+
+  // Persist journey state whenever key inputs change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const snapshot = {
+      activeStep,
+      hsCode,
+      productName,
+      originContinent,
+      originCountry,
+      destContinent,
+      destCountry,
+      productionRows,
+      checklistProgress,
+      shipmentValue,
+    };
+    try {
+      window.localStorage.setItem(JOURNEY_STORAGE_KEY, JSON.stringify(snapshot));
+    } catch {
+      // ignore persistence errors
+    }
+  }, [
+    activeStep,
+    hsCode,
+    productName,
+    originContinent,
+    originCountry,
+    destContinent,
+    destCountry,
+    productionRows,
+    checklistProgress,
+    shipmentValue,
+  ]);
 
   useEffect(() => {
     if (activeStep !== "tariff" || !hsCode.trim() || !destCountry) {
@@ -355,26 +429,6 @@ export default function ComplianceCheckPage() {
     setChecklistProgress((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const resetJourney = () => {
-    if (typeof window !== "undefined" && !window.confirm("Reset the compliance journey? All your inputs will be cleared and you will start from the beginning.")) return;
-    setActiveStep("start");
-    setHsCode("");
-    setProductName("");
-    setOriginContinent("");
-    setOriginCountry("");
-    setDestContinent("");
-    setDestCountry("");
-    setProductionRows([{ id: "1", description: "", sourceCountry: "", cost: "", fileName: "" }]);
-    setChecklistProgress({});
-    setHsLookupStatus("idle");
-    setShipmentValue("");
-    setSavingsTariffRow(null);
-    setSavingsTariffStatus("idle");
-    setReportUsage(null);
-    setReportDownloadStatus("idle");
-    setReportError(null);
-  };
-
   const handleDownloadReport = async () => {
     setReportDownloadStatus("loading");
     setReportError(null);
@@ -488,31 +542,6 @@ export default function ComplianceCheckPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-muted/20 via-background to-background">
-      <div className="sticky top-0 z-50 border-b border-border bg-gradient-to-r from-[#1a1a1a] via-[#2d2d2d] to-[#1a1a1a] shadow-lg">
-        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-[#D4AF37] to-[#c99d2e] text-[#1a1a1a] font-bold text-lg">
-                🌍
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">AfCFTA Compliance Tool</h1>
-                <p className="text-xs text-white/70">HS code → Production → Origin → NTB → Tariff → Checklist</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={resetJourney}
-              className="flex items-center gap-2 rounded-lg border border-white/30 bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/20"
-              title="Clear all inputs and start from the beginning"
-            >
-              <RotateCcw className="h-4 w-4" />
-              Reset journey
-            </button>
-          </div>
-        </div>
-      </div>
-
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         <div className="mb-8 rounded-2xl border border-border bg-card p-6 shadow-lg">
           <div className="relative mb-6">
@@ -811,7 +840,7 @@ export default function ComplianceCheckPage() {
                               >
                                 <option value="">Select country</option>
                                 {AFCFTA_COUNTRIES.map((c) => (
-                                  <option key={c} value={c}>{c} (AfCFTA)</option>
+                                  <option key={c} value={c}>{c}</option>
                                 ))}
                                 {COUNTRIES_BY_CONTINENT.Asia.map((c) => (
                                   <option key={c} value={c}>{c}</option>
