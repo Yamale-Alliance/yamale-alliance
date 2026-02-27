@@ -22,8 +22,10 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { readFile } from "fs/promises";
-import { basename } from "path";
+import { readFile, mkdtemp, rm } from "fs/promises";
+import { basename, join } from "path";
+import { tmpdir } from "os";
+import { execFile } from "child_process";
 import { PDFParse } from "pdf-parse";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -78,6 +80,73 @@ if (!VALID_CATEGORIES.includes(category)) {
   process.exit(1);
 }
 
+function runExecFile(cmd, args, opts = {}) {
+  return new Promise((resolve, reject) => {
+    execFile(cmd, args, opts, (error, stdout, stderr) => {
+      if (error) {
+        const msg = stderr?.toString?.().trim() || error.message;
+        return reject(new Error(msg));
+      }
+      resolve(stdout?.toString?.() ?? "");
+    });
+  });
+}
+
+async function ocrPdfWithTesseract(pdfPath) {
+  console.log("Falling back to Tesseract OCR (scanned PDF detected)...");
+  let tmpDir;
+  try {
+    tmpDir = await mkdtemp(join(tmpdir(), "ocr-"));
+    const prefix = join(tmpDir, "page");
+
+    // Convert PDF pages to PNG images (requires `pdftoppm` from poppler-utils)
+    await runExecFile("pdftoppm", ["-r", "300", "-png", pdfPath, prefix]);
+
+    // Collect all generated page images (page-1.png, page-2.png, ...)
+    const pages = [];
+    let index = 1;
+    while (true) {
+      const imgPath = `${prefix}-${index}.png`;
+      try {
+        await readFile(imgPath);
+        pages.push(imgPath);
+        index += 1;
+      } catch {
+        break;
+      }
+    }
+
+    if (pages.length === 0) {
+      console.warn("No page images generated for OCR. Is `pdftoppm` installed?");
+      return "";
+    }
+
+    let combined = "";
+    for (const img of pages) {
+      try {
+        // Run Tesseract on each image; output to stdout
+        const out = await runExecFile("tesseract", [img, "stdout", "-l", "eng"]);
+        combined += `\n${out}`;
+      } catch (e) {
+        console.warn("Tesseract OCR failed for page:", img, "-", e.message);
+      }
+    }
+
+    return combined.trim();
+  } catch (e) {
+    console.warn("OCR pipeline failed:", e.message);
+    return "";
+  } finally {
+    if (tmpDir) {
+      try {
+        await rm(tmpDir, { recursive: true, force: true });
+      } catch {
+        // ignore cleanup errors
+      }
+    }
+  }
+}
+
 async function main() {
   let buffer;
   try {
@@ -96,14 +165,27 @@ async function main() {
     await parser.destroy();
     text = result.text || "";
   } catch (e) {
-    console.error("PDF parse failed:", e.message);
-    process.exit(1);
+    console.error("PDF parse failed, will attempt OCR:", e.message);
+    text = "";
   }
 
-  if (!text || !text.trim()) {
-    console.warn("No text extracted from PDF. Inserting anyway with empty content.");
+  if (!text || !text.trim() || text.trim().length < 500) {
+    console.warn(
+      !text || !text.trim()
+        ? "No or very little text extracted from PDF. Attempting Tesseract OCR..."
+        : `Only ${text.trim().length} characters extracted; attempting Tesseract OCR for better text.`
+    );
+    const ocrText = await ocrPdfWithTesseract(pdfPath);
+    if (ocrText && ocrText.trim().length > text.trim().length) {
+      console.log("OCR extracted", ocrText.trim().length, "characters (replacing original text).");
+      text = ocrText;
+    } else if (!text || !text.trim()) {
+      console.warn("OCR did not produce usable text. Inserting with empty content.");
+    } else {
+      console.log("Keeping original extracted text (OCR was not better).");
+    }
   } else {
-    console.log("Extracted", text.length, "characters.");
+    console.log("Extracted", text.length, "characters from PDF without needing OCR.");
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
