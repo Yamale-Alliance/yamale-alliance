@@ -242,7 +242,6 @@ export function LibraryView({
       if (id) params.set("categoryId", id);
     }
     if (status) params.set("status", status);
-    if (search.trim()) params.set("q", search.trim());
     const query = params.toString();
     const url = `/api/laws${query ? `?${query}` : ""}`;
 
