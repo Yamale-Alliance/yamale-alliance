@@ -1,25 +1,7 @@
 import { LibraryView } from "./LibraryView";
 import { fetchLibraryData } from "@/lib/library-data";
-import type { LibraryLawRow } from "@/lib/library-data";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
-
-function filterLawsByParams(
-  laws: LibraryLawRow[],
-  country: string,
-  category: string,
-  status: string,
-  q: string
-): LibraryLawRow[] {
-  if (!country && !category && !status && !q.trim()) return laws;
-  return laws.filter((row) => {
-    const matchCountry = !country || row.countries?.name === country;
-    const matchCategory = !category || row.categories?.name === category;
-    const matchStatus = !status || row.status === status;
-    const matchQ = !q.trim() || row.title.toLowerCase().includes(q.trim().toLowerCase());
-    return matchCountry && matchCategory && matchStatus && matchQ;
-  });
-}
 
 export default async function LibraryPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
@@ -30,14 +12,24 @@ export default async function LibraryPage({ searchParams }: { searchParams: Sear
   const pageParam = typeof params.page === "string" ? params.page : "";
   const sortParam = typeof params.sort === "string" ? params.sort : "";
 
-  const { countries, categories, laws } = await fetchLibraryData();
-  const filteredLaws = filterLawsByParams(laws, country, category, status, q);
+  // First load countries/categories so we can resolve IDs from names
+  const baseData = await fetchLibraryData();
+  const countryId = baseData.countries.find((c) => c.name === country)?.id;
+  const categoryId = baseData.categories.find((c) => c.name === category)?.id;
+
+  // Then fetch laws using the same filtered query as the /api/laws endpoint
+  const filteredData = await fetchLibraryData({
+    countryId,
+    categoryId,
+    status: status || undefined,
+    q: q || undefined,
+  });
 
   return (
     <LibraryView
-      initialCountries={countries}
-      initialCategories={categories}
-      initialLaws={filteredLaws}
+      initialCountries={baseData.countries}
+      initialCategories={baseData.categories}
+      initialLaws={filteredData.laws}
       initialCountry={country}
       initialCategory={category}
       initialStatus={status}
