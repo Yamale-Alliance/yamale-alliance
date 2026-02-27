@@ -22,7 +22,6 @@ export default async function LibraryPage({ searchParams }: { searchParams: Sear
     countryId,
     categoryId,
     status: status || undefined,
-    q: q || undefined,
   });
 
   return (
