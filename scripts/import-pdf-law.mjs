@@ -13,6 +13,7 @@
  *   --status "In force"         (default: "In force")
  *   --source-url "https://..."   (optional) — original PDF URL for reference
  *   --update                    Update existing law (match by title + category + country) instead of inserting
+ *   --force-ocr                 Always run Tesseract OCR and use OCR text (for scanned PDFs)
  *
  * Example (Ghana):
  *   node --env-file=.env scripts/import-pdf-law.mjs "/path/to/file.pdf" --title "Ghana Corporate Laws" --category "Corporate Law"
@@ -22,7 +23,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { readFile, mkdtemp, rm } from "fs/promises";
+import { readFile, readdir, mkdtemp, rm } from "fs/promises";
 import { basename, join } from "path";
 import { tmpdir } from "os";
 import { execFile } from "child_process";
@@ -55,6 +56,7 @@ const yearStr = getOpt("--year", null);
 const status = getOpt("--status", "In force");
 const sourceUrl = getOpt("--source-url", null);
 const doUpdate = args.includes("--update");
+const forceOcr = args.includes("--force-ocr");
 const year = yearStr ? parseInt(yearStr, 10) : null;
 
 const VALID_COUNTRIES = ["Ghana", "Kenya", "Tunisia", "Ethiopia", "Madagascar", "Rwanda", "Seychelles", "Zambia"];
@@ -99,25 +101,27 @@ async function ocrPdfWithTesseract(pdfPath) {
     tmpDir = await mkdtemp(join(tmpdir(), "ocr-"));
     const prefix = join(tmpDir, "page");
 
-    // Convert PDF pages to PNG images (requires `pdftoppm` from poppler-utils)
-    await runExecFile("pdftoppm", ["-r", "300", "-png", pdfPath, prefix]);
-
-    // Collect all generated page images (page-1.png, page-2.png, ...)
-    const pages = [];
-    let index = 1;
-    while (true) {
-      const imgPath = `${prefix}-${index}.png`;
-      try {
-        await readFile(imgPath);
-        pages.push(imgPath);
-        index += 1;
-      } catch {
-        break;
-      }
+    // Convert PDF pages to PNG images (requires `pdftoppm` from poppler)
+    try {
+      await runExecFile("pdftoppm", ["-r", "300", "-png", pdfPath, prefix]);
+    } catch (e) {
+      console.warn("pdftoppm failed:", e.message);
+      return "";
     }
 
+    // Discover generated images (pdftoppm may output page-1.png, page-01.png, etc.)
+    const names = await readdir(tmpDir);
+    const pages = names
+      .filter((n) => n.endsWith(".png"))
+      .sort((a, b) => {
+        const numA = parseInt(a.replace(/\D/g, ""), 10) || 0;
+        const numB = parseInt(b.replace(/\D/g, ""), 10) || 0;
+        return numA - numB || a.localeCompare(b);
+      })
+      .map((n) => join(tmpDir, n));
+
     if (pages.length === 0) {
-      console.warn("No page images generated for OCR. Is `pdftoppm` installed?");
+      console.warn("No page images generated for OCR. Check that the PDF has pages and pdftoppm is on PATH.");
       return "";
     }
 
@@ -169,19 +173,27 @@ async function main() {
     text = "";
   }
 
-  if (!text || !text.trim() || text.trim().length < 500) {
-    console.warn(
-      !text || !text.trim()
-        ? "No or very little text extracted from PDF. Attempting Tesseract OCR..."
-        : `Only ${text.trim().length} characters extracted; attempting Tesseract OCR for better text.`
-    );
+  const shouldTryOcr = forceOcr || !text || !text.trim() || text.trim().length < 500;
+  if (shouldTryOcr) {
+    if (forceOcr) {
+      console.log("Running Tesseract OCR (--force-ocr)...");
+    } else {
+      console.warn(
+        !text || !text.trim()
+          ? "No or very little text extracted from PDF. Attempting Tesseract OCR..."
+          : `Only ${text.trim().length} characters extracted; attempting Tesseract OCR for better text.`
+      );
+    }
     const ocrText = await ocrPdfWithTesseract(pdfPath);
-    if (ocrText && ocrText.trim().length > text.trim().length) {
+    if (ocrText && ocrText.trim().length > (text?.trim?.()?.length ?? 0)) {
       console.log("OCR extracted", ocrText.trim().length, "characters (replacing original text).");
       text = ocrText;
+    } else if (forceOcr && ocrText?.trim()) {
+      text = ocrText;
+      console.log("Using OCR text:", ocrText.trim().length, "characters.");
     } else if (!text || !text.trim()) {
       console.warn("OCR did not produce usable text. Inserting with empty content.");
-    } else {
+    } else if (!forceOcr) {
       console.log("Keeping original extracted text (OCR was not better).");
     }
   } else {
