@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ChevronLeft, FileText, Loader2, GripVertical, ArrowUp, ArrowDown, Menu, X, Bookmark, BookmarkCheck, FileEdit } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 
@@ -76,12 +78,33 @@ const COMPANIES_ACT_TABLE_HEADERS = [
   "COMPANIES BILL, 2018",
 ];
 
+// Heuristic: content looks like Markdown (headings, bold, lists, etc.)
+function isLikelyMarkdown(text: string): boolean {
+  if (!text?.trim()) return false;
+  const sample = text.slice(0, 4000);
+  // # or ## or ### at start of line
+  if (/^#{1,6}\s+\S/m.test(sample)) return true;
+  // ** or __ for bold
+  if (/\*\*[^*]+\*\*|__[^_]+__/.test(sample)) return true;
+  // - or * list at line start
+  if (/^\s*[-*]\s+\S/m.test(sample)) return true;
+  // ``` code fence
+  if (/^```/m.test(sample)) return true;
+  // [text](url) links
+  if (/\[[^\]]+\]\([^)]+\)/.test(sample)) return true;
+  return false;
+}
+
 // Only major headings start a new section. Numbered provisions (356., 357.) stay in body so all content is shown.
 // Includes Arabic: المادة (Article), الفصل (Chapter), الباب (Part). French: Article, Chapitre, Titre, Art.
-// Kinyarwanda: Ingingo ya 1, Ingingo 2, etc.
+// Kinyarwanda: Ingingo ya 1, Ingingo 2, etc. Markdown: ## Heading, ### Subheading, **Bold heading** on its own line.
 function isSectionStart(line: string): boolean {
   const t = line.trim();
   if (!t) return false;
+  // Markdown headings: ## Title or ### Subtitle
+  if (/^#{1,6}\s+\S/.test(t)) return true;
+  // Markdown bold-only line as heading (e.g. **Introduction**, **Article I**)
+  if (/^\*\*[^*]+\*\*\s*$/.test(t) || /^__[^_]+__\s*$/.test(t)) return true;
   // "Section 20", "Section 21.", "Section 22"
   if (/^Section\s+\d+[.:]?\s*/i.test(t)) return true;
   // "Part D: Administrative...", "Part E: General Provisions"
@@ -112,6 +135,14 @@ function isSectionStart(line: string): boolean {
 // Extract the actual heading from the document for sidebar and section title
 function sectionTitle(firstLine: string): string {
   const t = firstLine.trim();
+  // Markdown: ## Title or ### Title -> strip # and use rest
+  const mdHeading = t.match(/^#{1,6}\s+(.+)$/);
+  if (mdHeading) return mdHeading[1].trim();
+  // Markdown bold-only: **Introduction** or __Article I__ -> strip markers for sidebar
+  const boldStar = t.match(/^\*\*(.+)\*\*\s*$/);
+  if (boldStar) return boldStar[1].trim();
+  const boldUnder = t.match(/^__(.+)__\s*$/);
+  if (boldUnder) return boldUnder[1].trim();
   // Use full line for "Part D: ..." and "356. Meetings of the Board"
   if (/^Part\s+[A-Z]/i.test(t) || /^\d+\.\s+[A-Z]/.test(t)) return t;
   // "Section 20" or "Section 20. Something" -> show as "Section 20" in nav; full line in body
@@ -178,20 +209,26 @@ function splitIntoSections(text: string): Section[] {
       currentBody = [];
       const t = line.trim();
       // Put any text after the heading on the same line into body (e.g. "Section 20. A forfeited share...")
-      const sectionLike =
-        /^(Section\s+\d+[.:]?\s*)(.*)$/i.exec(t) ||
-        /^(Article\s+\d+[.:]?\s*)(.*)$/i.exec(t) ||
-        /^(Art\.\s*\d+[.:]?\s*)(.*)$/i.exec(t) ||
-        /^(Chapter\s+\d+[.:]?\s*)(.*)$/i.exec(t) ||
-        /^(Chapitre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*)(.*)$/i.exec(t) ||
-        /^(Titre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*)(.*)$/i.exec(t) ||
-        /^(Ingingo\s+(?:ya\s+)?\d+[.:]?\s*)(.*)$/i.exec(t);
-      if (sectionLike && sectionLike[2].trim()) currentBody.push(sectionLike[2].trim());
-      else {
-        const arArticleLine = /^(\s*المادة\s*[\d٠-٩]+[\s.:،]*)(.+)$/u.exec(t);
-        const arChapterLine = /^(\s*الفصل\s*[\d٠-٩]*[\s.:،]*)(.+)$/u.exec(t);
-        if (arArticleLine && arArticleLine[2].trim()) currentBody.push(arArticleLine[2].trim());
-        else if (arChapterLine && arChapterLine[2].trim()) currentBody.push(arChapterLine[2].trim());
+      const mdHeadingLine = /^(#{1,6}\s+)(.+)$/.exec(t);
+      if (mdHeadingLine && mdHeadingLine[2].trim()) {
+        currentBody.push(mdHeadingLine[2].trim());
+      } else {
+        const sectionLike =
+          /^(Section\s+\d+[.:]?\s*)(.*)$/i.exec(t) ||
+          /^(Article\s+\d+[.:]?\s*)(.*)$/i.exec(t) ||
+          /^(Art\.\s*\d+[.:]?\s*)(.*)$/i.exec(t) ||
+          /^(Chapter\s+\d+[.:]?\s*)(.*)$/i.exec(t) ||
+          /^(Chapitre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*)(.*)$/i.exec(t) ||
+          /^(Titre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*)(.*)$/i.exec(t) ||
+          /^(Ingingo\s+(?:ya\s+)?\d+[.:]?\s*)(.*)$/i.exec(t);
+        if (sectionLike && sectionLike[2].trim()) {
+          currentBody.push(sectionLike[2].trim());
+        } else {
+          const arArticleLine = /^(\s*المادة\s*[\d٠-٩]+[\s.:،]*)(.+)$/u.exec(t);
+          const arChapterLine = /^(\s*الفصل\s*[\d٠-٩]*[\s.:،]*)(.+)$/u.exec(t);
+          if (arArticleLine && arArticleLine[2].trim()) currentBody.push(arArticleLine[2].trim());
+          else if (arChapterLine && arChapterLine[2].trim()) currentBody.push(arChapterLine[2].trim());
+        }
       }
     } else {
       // Skip page markers and OCR junk (e.g. "|", ";", symbol-only lines)
@@ -628,59 +665,69 @@ export default function LawDetailPage({
                       dir={isRtl ? "rtl" : undefined}
                       lang={isRtl ? "ar" : undefined}
                     >
-                      {parseBodyBlocks(sec.body).map((block, bi) =>
-                        block.type === "table" ? (
-                          <div key={bi} className="my-6 overflow-x-auto">
-                            <table className="w-full min-w-[400px] border-collapse border border-border text-sm">
-                              <thead>
-                                <tr>
-                                  {block.rows[0].length === 4
-                                    ? COMPANIES_ACT_TABLE_HEADERS.map((h, j) => (
-                                        <th
-                                          key={j}
-                                          className="border border-border bg-muted/50 px-3 py-2 text-left font-semibold"
-                                        >
-                                          {h}
-                                        </th>
-                                      ))
-                                    : block.rows[0].map((_, j) => (
-                                        <th
-                                          key={j}
-                                          className="border border-border bg-muted/50 px-3 py-2 text-left font-semibold"
-                                        >
-                                          Col {j + 1}
-                                        </th>
-                                      ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {block.rows.map((row, ri) => (
-                                  <tr key={ri}>
-                                    {row.map((cell, ci) => (
-                                      <td
-                                        key={ci}
-                                        className="border border-border px-3 py-2 text-center"
-                                      >
-                                        {cell}
-                                      </td>
+                      {isLikelyMarkdown(sec.body) ? (
+                        <div className="prose prose-sm max-w-none text-foreground dark:prose-invert prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {sec.body}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <>
+                          {parseBodyBlocks(sec.body).map((block, bi) =>
+                            block.type === "table" ? (
+                              <div key={bi} className="my-6 overflow-x-auto">
+                                <table className="w-full min-w-[400px] border-collapse border border-border text-sm">
+                                  <thead>
+                                    <tr>
+                                      {block.rows[0].length === 4
+                                        ? COMPANIES_ACT_TABLE_HEADERS.map((h, j) => (
+                                            <th
+                                              key={j}
+                                              className="border border-border bg-muted/50 px-3 py-2 text-left font-semibold"
+                                            >
+                                              {h}
+                                            </th>
+                                          ))
+                                        : block.rows[0].map((_, j) => (
+                                            <th
+                                              key={j}
+                                              className="border border-border bg-muted/50 px-3 py-2 text-left font-semibold"
+                                            >
+                                              Col {j + 1}
+                                            </th>
+                                          ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {block.rows.map((row, ri) => (
+                                      <tr key={ri}>
+                                        {row.map((cell, ci) => (
+                                          <td
+                                            key={ci}
+                                            className="border border-border px-3 py-2 text-center"
+                                          >
+                                            {cell}
+                                          </td>
+                                        ))}
+                                      </tr>
                                     ))}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        ) : (
-                          <div key={bi} className="mb-3">
-                            {block.text
-                              .split(/\n/)
-                              .filter((line) => !isPageMarker(line) && !isJunkLine(line))
-                              .map((para, pi) => (
-                                <p key={pi} className="mb-3 last:mb-0">
-                                  {para.trim() || "\u00A0"}
-                                </p>
-                              ))}
-                          </div>
-                        )
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <div key={bi} className="mb-3">
+                                {block.text
+                                  .split(/\n/)
+                                  .filter((line) => !isPageMarker(line) && !isJunkLine(line))
+                                  .map((para, pi) => (
+                                    <p key={pi} className="mb-3 last:mb-0">
+                                      {para.trim() || "\u00A0"}
+                                    </p>
+                                  ))}
+                              </div>
+                            )
+                          )}
+                        </>
                       )}
                     </div>
                   </section>
