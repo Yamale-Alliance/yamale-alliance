@@ -57,6 +57,17 @@ export default function AdminMarketplacePage() {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const editImageInputRef = useRef<HTMLInputElement>(null);
 
+  type PurchaseRow = {
+    id: string;
+    user_id: string;
+    marketplace_item_id: string;
+    item_title: string;
+    created_at: string;
+  };
+  const [purchases, setPurchases] = useState<PurchaseRow[]>([]);
+  const [loadingPurchases, setLoadingPurchases] = useState(false);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
   const handleUploadImage = async (file: File) => {
@@ -118,8 +129,20 @@ export default function AdminMarketplacePage() {
       .finally(() => setLoading(false));
   };
 
+  const fetchPurchases = () => {
+    setLoadingPurchases(true);
+    fetch(`${origin}/api/admin/marketplace/purchases`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        setPurchases(Array.isArray(data.purchases) ? data.purchases : []);
+      })
+      .catch(() => setPurchases([]))
+      .finally(() => setLoadingPurchases(false));
+  };
+
   useEffect(() => {
     fetchItems();
+    fetchPurchases();
   }, [origin]);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -223,6 +246,28 @@ export default function AdminMarketplacePage() {
     } catch {
       setError("Failed to delete");
     }
+  };
+
+  const handleRevokePurchase = async (id: string) => {
+    if (!confirm("Revoke this purchase? The user will lose access and can purchase again.")) return;
+    setRevokingId(id);
+    setError(null);
+    try {
+      const res = await fetch(`${origin}/api/admin/marketplace/purchases?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to revoke purchase");
+        setRevokingId(null);
+        return;
+      }
+      setPurchases((prev) => prev.filter((p) => p.id !== id));
+    } catch {
+      setError("Failed to revoke purchase");
+    }
+    setRevokingId(null);
   };
 
   return (
@@ -445,6 +490,70 @@ export default function AdminMarketplacePage() {
           )}
         </div>
       )}
+
+      {/* Purchases overview */}
+      <div className="mt-10 rounded-lg border border-border bg-card p-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Purchases</h2>
+          <button
+            type="button"
+            onClick={fetchPurchases}
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            Refresh
+          </button>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          View which users currently own marketplace items. You can revoke a purchase so that the user can purchase again.
+        </p>
+
+        {loadingPurchases ? (
+          <div className="flex items-center justify-center py-6">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : purchases.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">No purchases recorded yet.</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full divide-y divide-border text-sm">
+              <thead className="bg-muted/40">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Item</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">User ID</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Purchased at</th>
+                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {purchases.map((p) => (
+                  <tr key={p.id}>
+                    <td className="px-3 py-2">
+                      <div className="max-w-xs truncate text-sm font-medium text-foreground" title={p.item_title}>
+                        {p.item_title}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Item ID: {p.marketplace_item_id}</div>
+                    </td>
+                    <td className="px-3 py-2 align-top text-xs text-muted-foreground">{p.user_id}</td>
+                    <td className="px-3 py-2 align-top text-xs text-muted-foreground">
+                      {new Date(p.created_at).toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2 align-top text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleRevokePurchase(p.id)}
+                        disabled={revokingId === p.id}
+                        className="inline-flex items-center rounded-md border border-border px-2 py-1 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                      >
+                        {revokingId === p.id ? "Revoking…" : "Revoke"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
