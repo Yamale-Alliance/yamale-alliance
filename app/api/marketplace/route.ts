@@ -8,7 +8,7 @@ export async function GET() {
     const supabase = getSupabaseServer();
     const { data: rows, error } = await supabase
       .from("marketplace_items")
-      .select("id, type, title, author, description, price_cents, currency, image_url, sort_order")
+      .select("id, type, title, author, description, price_cents, currency, image_url, sort_order, video_url")
       .eq("published", true)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: false });
@@ -18,7 +18,18 @@ export async function GET() {
       return NextResponse.json({ error: "Failed to load marketplace" }, { status: 500 });
     }
 
-    type Row = { id: string; type: string; title: string; author: string; description: string | null; price_cents: number; currency: string; image_url: string | null; sort_order: number };
+    type Row = {
+      id: string;
+      type: string;
+      title: string;
+      author: string;
+      description: string | null;
+      price_cents: number;
+      currency: string;
+      image_url: string | null;
+      sort_order: number;
+      video_url: string | null;
+    };
     const items: Row[] = (rows ?? []) as Row[];
     const { userId } = await auth();
     let ownedIds = new Set<string>();
