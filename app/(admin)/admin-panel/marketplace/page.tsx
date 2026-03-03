@@ -60,6 +60,7 @@ export default function AdminMarketplacePage() {
   type PurchaseRow = {
     id: string;
     user_id: string;
+    buyer_name: string;
     marketplace_item_id: string;
     item_title: string;
     created_at: string;
@@ -519,7 +520,7 @@ export default function AdminMarketplacePage() {
               <thead className="bg-muted/40">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium text-muted-foreground">Item</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">User ID</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Buyer</th>
                   <th className="px-3 py-2 text-left font-medium text-muted-foreground">Purchased at</th>
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground">Actions</th>
                 </tr>
@@ -533,7 +534,10 @@ export default function AdminMarketplacePage() {
                       </div>
                       <div className="text-xs text-muted-foreground">Item ID: {p.marketplace_item_id}</div>
                     </td>
-                    <td className="px-3 py-2 align-top text-xs text-muted-foreground">{p.user_id}</td>
+                    <td className="px-3 py-2 align-top text-xs text-muted-foreground">
+                      <div className="text-foreground text-sm">{p.buyer_name}</div>
+                      <div className="text-[10px] text-muted-foreground/80">User ID: {p.user_id}</div>
+                    </td>
                     <td className="px-3 py-2 align-top text-xs text-muted-foreground">
                       {new Date(p.created_at).toLocaleString()}
                     </td>
