@@ -28,6 +28,7 @@ type Product = {
   image_url: string | null;
   sort_order: number;
   owned?: boolean;
+  video_url?: string | null;
 };
 
 const CATEGORIES: { value: ProductCategory; label: string }[] = [
