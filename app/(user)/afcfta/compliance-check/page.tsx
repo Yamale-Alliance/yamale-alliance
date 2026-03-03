@@ -185,7 +185,9 @@ export default function ComplianceCheckPage() {
     { id: "1", description: "", sourceCountry: "", cost: "", fileName: "" },
   ]);
   const [checklistProgress, setChecklistProgress] = useState<Record<string, boolean>>({});
-  const [hsLookupStatus, setHsLookupStatus] = useState<"idle" | "loading" | "found" | "not-found" | "error">("idle");
+  const [hsLookupStatus, setHsLookupStatus] = useState<
+    "idle" | "loading" | "found" | "not-found" | "error" | "unauthenticated"
+  >("idle");
   const [shipmentValue, setShipmentValue] = useState("");
   const [savingsTariffRow, setSavingsTariffRow] = useState<SavingsTariffRow | null>(null);
   const [savingsTariffStatus, setSavingsTariffStatus] = useState<"idle" | "loading" | "found" | "not-found" | "error">("idle");
@@ -522,6 +524,10 @@ export default function ComplianceCheckPage() {
       const res = await fetch(`/api/afcfta/tariff-schedule?${params.toString()}`, {
         credentials: "include",
       });
+      if (res.status === 401) {
+        setHsLookupStatus("unauthenticated");
+        return;
+      }
       if (!res.ok) {
         setHsLookupStatus("error");
         return;
@@ -535,8 +541,13 @@ export default function ComplianceCheckPage() {
         setHsLookupStatus("not-found");
       }
     } catch (err) {
-      console.error("HS lookup failed", err);
-      setHsLookupStatus("error");
+      // Network / auth issues (e.g. blocked when not signed in) surface as TypeError: Failed to fetch
+      if (err instanceof TypeError && err.message.includes("Failed to fetch")) {
+        setHsLookupStatus("unauthenticated");
+      } else {
+        console.error("HS lookup failed", err);
+        setHsLookupStatus("error");
+      }
     }
   };
 
@@ -667,6 +678,25 @@ export default function ComplianceCheckPage() {
                     {hsLookupStatus === "not-found" && (
                       <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
                         No tariff data found for this HS code yet.
+                      </p>
+                    )}
+                    {hsLookupStatus === "unauthenticated" && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Please{" "}
+                        <a
+                          href={`/sign-in?redirect_url=${encodeURIComponent("/afcfta/compliance-check")}`}
+                          className="text-blue-600 underline"
+                        >
+                          sign in
+                        </a>{" "}
+                        or{" "}
+                        <a
+                          href={`/sign-up?redirect_url=${encodeURIComponent("/afcfta/compliance-check")}`}
+                          className="text-blue-600 underline"
+                        >
+                          sign up
+                        </a>{" "}
+                        to look up HS codes for your products.
                       </p>
                     )}
                     {hsLookupStatus === "error" && (
