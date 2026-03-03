@@ -58,7 +58,6 @@ export async function PUT(
       file_name,
       file_format,
       video_url,
-      video_url,
     } = body;
 
     const updates: Update = {};
@@ -79,8 +78,10 @@ export async function PUT(
     if (file_path !== undefined) updates.file_path = file_path || null;
     if (file_name !== undefined) updates.file_name = file_name || null;
     if (file_format !== undefined) updates.file_format = file_format || null;
-    if (video_url !== undefined) updates.video_url = video_url ? String(video_url).trim() : null;
-    if (video_url !== undefined) updates.video_url = video_url || null;
+    if (video_url !== undefined) {
+      const trimmed = typeof video_url === "string" ? video_url.trim() : String(video_url);
+      updates.video_url = trimmed || null;
+    }
     updates.updated_at = new Date().toISOString();
 
     const supabase = getSupabaseServer();
