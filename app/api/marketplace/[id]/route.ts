@@ -19,11 +19,13 @@ export async function GET(
     const supabase = getSupabaseServer();
     const { data, error } = await supabase
       .from("marketplace_items")
-      .select("id, type, title, author, description, price_cents, currency, image_url, published, sort_order, file_path, file_name, file_format, created_at")
+      .select(
+        "id, type, title, author, description, price_cents, currency, image_url, published, sort_order, file_path, file_name, file_format, video_url, created_at"
+      )
       .eq("id", id)
       .single();
 
-    const row = data as (MarketplaceItemRow & { file_path?: string | null }) | null;
+    const row = data as (MarketplaceItemRow & { file_path?: string | null; video_url?: string | null }) | null;
     if (error || !row) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
