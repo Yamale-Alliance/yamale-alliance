@@ -46,6 +46,31 @@ export async function POST(request: NextRequest) {
             },
             { onConflict: "user_id,marketplace_item_id" }
           );
+        } else if (kind === "marketplace_cart" && clerkUserId && session.metadata?.item_ids) {
+          const supabase = getSupabaseServer();
+          let ids: string[] = [];
+          try {
+            const raw = session.metadata.item_ids as string;
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              ids = parsed.filter((v) => typeof v === "string" && v.trim().length > 0);
+            }
+          } catch {
+            // ignore JSON parse errors – no purchases recorded
+          }
+          if (ids.length > 0) {
+            const uniqueIds = Array.from(new Set(ids));
+            for (const itemId of uniqueIds) {
+              await (supabase.from("marketplace_purchases") as any).upsert(
+                {
+                  user_id: clerkUserId,
+                  marketplace_item_id: itemId,
+                  stripe_session_id: session.id,
+                },
+                { onConflict: "user_id,marketplace_item_id" }
+              );
+            }
+          }
         } else if (kind === "lawyer_unlock" && clerkUserId && session.metadata?.lawyer_id) {
           await recordUnlock(
             clerkUserId,
