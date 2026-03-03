@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
       file_path = null,
       file_name = null,
       file_format = null,
+      video_url = null,
     } = body as {
       type?: string;
       title?: string;
@@ -63,6 +64,7 @@ export async function POST(request: NextRequest) {
       file_path?: string | null;
       file_name?: string | null;
       file_format?: string | null;
+      video_url?: string | null;
     };
 
     if (!type || !VALID_TYPES.includes(type as (typeof VALID_TYPES)[number])) {
@@ -89,6 +91,7 @@ export async function POST(request: NextRequest) {
       file_path: typeof file_path === "string" && file_path ? file_path : null,
       file_name: typeof file_name === "string" && file_name ? file_name : null,
       file_format: typeof file_format === "string" && file_format ? file_format : null,
+      video_url: typeof video_url === "string" && video_url ? video_url.trim() : null,
     };
 
     const supabase = getSupabaseServer();
