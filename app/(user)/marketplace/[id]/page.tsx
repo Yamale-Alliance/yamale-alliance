@@ -29,6 +29,7 @@ type Item = {
   has_file?: boolean;
   file_name?: string | null;
   file_format?: string | null;
+  video_url?: string | null;
 };
 
 function TypeIcon({ type }: { type: string }) {
@@ -40,6 +41,30 @@ function TypeIcon({ type }: { type: string }) {
     default:
       return <FileText className="h-8 w-8" />;
   }
+}
+
+function getYouTubeEmbedUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    // youtu.be/VIDEO_ID
+    if (u.hostname === "youtu.be") {
+      const id = u.pathname.replace("/", "");
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+    // www.youtube.com or m.youtube.com
+    if (u.hostname.includes("youtube.com")) {
+      // Already an embed URL
+      if (u.pathname.startsWith("/embed/")) {
+        return u.toString();
+      }
+      const id = u.searchParams.get("v");
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+  } catch {
+    // fall through
+  }
+  return null;
 }
 
 export default function MarketplaceItemPage() {
@@ -339,6 +364,23 @@ export default function MarketplaceItemPage() {
           <div className="mb-6 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
             Checkout was cancelled.
           </div>
+        )}
+
+        {/* Video section */}
+        {getYouTubeEmbedUrl(item.video_url ?? null) && (
+          <section className="mb-8">
+            <div className="overflow-hidden rounded-xl border border-border bg-black">
+              <div className="relative w-full pt-[56.25%]">
+                <iframe
+                  src={getYouTubeEmbedUrl(item.video_url ?? null) ?? ""}
+                  title="Product video"
+                  className="absolute inset-0 h-full w-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          </section>
         )}
 
         {item.description && (
