@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { clerkClient } from "@clerk/nextjs/server";
 import { requireAdmin } from "@/lib/admin";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { recordAuditLog } from "@/lib/admin-audit";
 
-/** GET: list all marketplace purchases (admin) with basic item info. */
+/** GET: list all marketplace purchases (admin) with basic item info and buyer name. */
 export async function GET() {
   const admin = await requireAdmin();
   if (admin instanceof NextResponse) return admin;
@@ -30,11 +31,47 @@ export async function GET() {
       return NextResponse.json({ error: "Failed to load purchases" }, { status: 500 });
     }
 
-    const purchases = (data ?? []).map((row: any) => ({
-      id: row.id as string,
-      user_id: row.user_id as string,
-      marketplace_item_id: row.marketplace_item_id as string,
-      created_at: row.created_at as string,
+    const rows = (data ?? []) as Array<{
+      id: string;
+      user_id: string;
+      marketplace_item_id: string;
+      created_at: string;
+      marketplace_items?: { title?: string | null } | null;
+    }>;
+
+    // Fetch basic user info from Clerk so we can show names instead of raw user IDs
+    const uniqueUserIds = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean)));
+    const userNameMap = new Map<string, string>();
+    try {
+      if (uniqueUserIds.length > 0) {
+        const clerk = await clerkClient();
+        // Clerk Node SDK supports fetching users in parallel; keep it simple and loop
+        await Promise.all(
+          uniqueUserIds.map(async (userId) => {
+            try {
+              const user = await clerk.users.getUser(userId);
+              const name =
+                [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+                (user.username ?? "") ||
+                (user.emailAddresses?.[0]?.emailAddress ?? "") ||
+                userId;
+              userNameMap.set(userId, name);
+            } catch {
+              userNameMap.set(userId, userId);
+            }
+          })
+        );
+      }
+    } catch (e) {
+      console.error("Admin marketplace purchases: failed to fetch user names from Clerk", e);
+    }
+
+    const purchases = rows.map((row) => ({
+      id: row.id,
+      user_id: row.user_id,
+      buyer_name: userNameMap.get(row.user_id) ?? row.user_id,
+      marketplace_item_id: row.marketplace_item_id,
+      created_at: row.created_at,
       item_title: row.marketplace_items?.title ?? "(deleted item)",
     }));
 
@@ -76,7 +113,8 @@ export async function DELETE(request: NextRequest) {
     await recordAuditLog(supabase, {
       adminId: admin.userId,
       adminEmail: admin.email,
-      action: "marketplace_purchase.delete",
+      // Reuse existing marketplace_item.delete audit action for revoking purchases
+      action: "marketplace_item.delete",
       entityType: "marketplace_purchase",
       entityId: id,
       details: {

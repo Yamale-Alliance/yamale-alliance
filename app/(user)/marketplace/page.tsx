@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Search, BookOpen, GraduationCap, FileText, Check, Loader2, ShoppingCart, Zap, X, Package } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const BRAND = {
   dark: "#221913",
@@ -52,6 +52,7 @@ function CategoryIcon({ type, className }: { type: string; className?: string })
 
 export default function MarketplacePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<ProductCategory>("");
   const [items, setItems] = useState<Product[]>([]);
@@ -60,6 +61,7 @@ export default function MarketplacePage() {
   const [cartCount, setCartCount] = useState(0);
   const [cartItemIds, setCartItemIds] = useState<Set<string>>(new Set());
   const { isSignedIn } = useUser();
+  const confirmedCartSessionRef = useRef<string | null>(null);
 
   useEffect(() => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
@@ -69,6 +71,48 @@ export default function MarketplacePage() {
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
   }, []);
+
+  // After returning from Stripe cart checkout, confirm payment by session_id
+  useEffect(() => {
+    const sessionId = searchParams.get("session_id");
+    if (!sessionId || confirmedCartSessionRef.current === sessionId) return;
+    confirmedCartSessionRef.current = sessionId;
+
+    const confirmAndRefresh = async () => {
+      try {
+        await fetch("/api/cart/confirm-payment", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: sessionId }),
+        });
+      } catch {
+        // ignore – webhook may still apply
+      }
+
+      // Clean session_id from URL so refresh doesn't re-trigger
+      if (typeof window !== "undefined" && window.history.replaceState) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("session_id");
+        window.history.replaceState({}, "", url.toString());
+      }
+
+      // Refresh marketplace items so owned flags are updated
+      try {
+        setLoading(true);
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        const r = await fetch(`${origin}/api/marketplace`, { credentials: "include" });
+        const data = await r.json();
+        setItems(Array.isArray(data.items) ? data.items : []);
+      } catch {
+        // ignore
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    confirmAndRefresh();
+  }, [searchParams]);
 
   // Fetch cart items
   useEffect(() => {
