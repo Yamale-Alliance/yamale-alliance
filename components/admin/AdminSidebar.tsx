@@ -16,6 +16,7 @@ import {
   Cpu,
   Search,
   FileCheck,
+  CreditCard,
 } from "lucide-react";
 
 const navItems = [
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/admin-panel/admins", label: "Admin Management", icon: Shield },
   { href: "/admin-panel/users", label: "Users", icon: Users },
   { href: "/admin-panel/ai-usage", label: "AI Usage", icon: Cpu },
+  { href: "/admin-panel/subscriptions", label: "Subscriptions", icon: CreditCard },
   { href: "/admin-panel/lawyers", label: "Lawyers", icon: Briefcase },
   { href: "/admin-panel/lawyer-searches", label: "Lawyer Searches", icon: Search },
   { href: "/admin-panel/laws", label: "Laws", icon: BookOpen },
