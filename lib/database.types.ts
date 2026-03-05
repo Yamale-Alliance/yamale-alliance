@@ -621,6 +621,29 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["afcfta_tariff_schedule"]["Insert"]>;
       };
+      afcfta_requirements_override: {
+        Row: {
+          country: string;
+          export_documents: Json;
+          export_regulatory: Json;
+          export_compliance_notes: Json;
+          import_documents: Json;
+          import_regulatory: Json;
+          import_compliance_notes: Json;
+          updated_at: string;
+        };
+        Insert: {
+          country: string;
+          export_documents?: Json;
+          export_regulatory?: Json;
+          export_compliance_notes?: Json;
+          import_documents?: Json;
+          import_regulatory?: Json;
+          import_compliance_notes?: Json;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["afcfta_requirements_override"]["Insert"]>;
+      };
     };
   };
 }
