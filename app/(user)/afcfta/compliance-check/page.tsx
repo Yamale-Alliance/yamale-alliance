@@ -23,6 +23,15 @@ import {
 } from "lucide-react";
 import { InfoIcon } from "@/components/ui/InfoIcon";
 import { buildAfCFTAReportPdf, loadImageAsDataUrl } from "@/lib/afcfta-report-pdf";
+import {
+  getProductCategory,
+  getExportRequirements,
+  getImportRequirements,
+  getExportRequirementsFromList,
+  getImportRequirementsFromList,
+  isRequirementsCountry,
+  type CountryRequirementsPublic,
+} from "@/lib/afcfta-country-requirements";
 
 const CONTINENTS = ["Africa", "Asia", "Europe", "Americas", "Oceania"];
 
@@ -132,32 +141,59 @@ type ChecklistSection = {
   items: { id: string; title: string; subLabel?: string }[];
 };
 
-const CHECKLIST_SECTIONS: ChecklistSection[] = [
-  {
-    id: "before-export",
-    titleKey: "before_export",
-    items: [
-      { id: "registration", title: "Business Registration Certificate", subLabel: "Valid until Dec 2026" },
-      { id: "phytosanitary", title: "Phytosanitary Certificate", subLabel: "From Plant Protection Service (3-5 days)" },
-    ],
-  },
-  {
-    id: "afcfta-docs",
-    titleKey: "afcfta_docs",
-    items: [
-      { id: "coo-application", title: "Certificate of Origin Application", subLabel: "Submit to authorized agency" },
-      { id: "production-costs", title: "Production Cost Records", subLabel: "Keep invoices and receipts for 5 years" },
-    ],
-  },
-  {
-    id: "at-import",
-    titleKey: "at_import",
-    items: [
-      { id: "commercial-invoice", title: "Commercial Invoice", subLabel: "With HS code and AfCFTA claim" },
-      { id: "customs-declaration", title: "Customs Declaration", subLabel: "Filed at port of entry" },
-    ],
-  },
-];
+/** Build checklist sections from country-specific export/import requirements (same data as NTB). Uses requirementsList when provided (API merge with admin overrides). */
+function getChecklistSectionsForRoute(
+  originCountry: string,
+  destCountry: string,
+  hsCode: string,
+  productName: string,
+  requirementsList: CountryRequirementsPublic[] | null = null
+): ChecklistSection[] {
+  const productCategory = getProductCategory(hsCode, productName);
+  const exportReqs =
+    originCountry && isRequirementsCountry(originCountry)
+      ? (requirementsList?.length
+          ? getExportRequirementsFromList(requirementsList, originCountry, productCategory)
+          : getExportRequirements(originCountry, productCategory))
+      : null;
+  const importReqs =
+    destCountry && isRequirementsCountry(destCountry)
+      ? (requirementsList?.length
+          ? getImportRequirementsFromList(requirementsList, destCountry, productCategory)
+          : getImportRequirements(destCountry, productCategory))
+      : null;
+
+  const beforeExportItems: { id: string; title: string; subLabel?: string }[] = exportReqs
+    ? [
+        ...exportReqs.documents.map((d, i) => ({ id: `doc-${i}`, title: d })),
+        ...exportReqs.regulatory.map((r, i) => ({ id: `reg-${i}`, title: r })),
+      ]
+    : [
+        { id: "registration", title: "Business Registration Certificate", subLabel: "Valid until Dec 2026" },
+        { id: "phytosanitary", title: "Phytosanitary Certificate", subLabel: "From Plant Protection Service (3-5 days)" },
+      ];
+
+  const afcftaItems = [
+    { id: "coo-application", title: "Certificate of Origin Application", subLabel: "Submit to authorized agency" },
+    { id: "production-costs", title: "Production Cost Records", subLabel: "Keep invoices and receipts for 5 years" },
+  ];
+
+  const atImportItems: { id: string; title: string; subLabel?: string }[] = importReqs
+    ? [
+        ...importReqs.documents.map((d, i) => ({ id: `doc-${i}`, title: d })),
+        ...importReqs.regulatory.map((r, i) => ({ id: `reg-${i}`, title: r })),
+      ]
+    : [
+        { id: "commercial-invoice", title: "Commercial Invoice", subLabel: "With HS code and AfCFTA claim" },
+        { id: "customs-declaration", title: "Customs Declaration", subLabel: "Filed at port of entry" },
+      ];
+
+  return [
+    { id: "before-export", titleKey: "before_export", items: beforeExportItems },
+    { id: "afcfta-docs", titleKey: "afcfta_docs", items: afcftaItems },
+    { id: "at-import", titleKey: "at_import", items: atImportItems },
+  ];
+}
 
 interface ProductionRow {
   id: string;
@@ -200,6 +236,15 @@ export default function ComplianceCheckPage() {
   } | null>(null);
   const [reportDownloadStatus, setReportDownloadStatus] = useState<"idle" | "loading" | "error">("idle");
   const [reportError, setReportError] = useState<string | null>(null);
+  const [requirementsFromApi, setRequirementsFromApi] = useState<CountryRequirementsPublic[] | null>(null);
+
+  // Fetch merged requirements (lib + admin overrides) for compliance tool
+  useEffect(() => {
+    fetch("/api/afcfta/requirements", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setRequirementsFromApi(Array.isArray(data) ? data : null))
+      .catch(() => setRequirementsFromApi(null));
+  }, []);
 
   // Hydrate journey state from localStorage so refreshing the page keeps the current step and inputs
   useEffect(() => {
@@ -414,7 +459,8 @@ export default function ComplianceCheckPage() {
       ? (shipmentNum * savingsRateForCurrentYear) / 100
       : 0;
 
-  const checklistFlatItems = CHECKLIST_SECTIONS.flatMap((sec) =>
+  const checklistSections = getChecklistSectionsForRoute(originCountry, destCountry, hsCode, productName, requirementsFromApi);
+  const checklistFlatItems = checklistSections.flatMap((sec) =>
     sec.items.map((item) => ({ sectionId: sec.id, sectionTitleKey: sec.titleKey, itemId: item.id, title: item.title, subLabel: item.subLabel, key: `${sec.id}-${item.id}` }))
   );
   const checklistTotal = checklistFlatItems.length;
@@ -478,7 +524,7 @@ export default function ComplianceCheckPage() {
         shipmentValue,
         estimatedAnnualSavings: estimatedAnnualSavingsForCurrentYear,
         currentYear,
-        checklistSections: CHECKLIST_SECTIONS,
+        checklistSections,
         checklistProgress,
         getSectionTitle: getChecklistSectionTitle,
       };
@@ -1049,70 +1095,206 @@ export default function ComplianceCheckPage() {
             </div>
           )}
 
-          {/* Step 4: Non-Tariff Barrier Check — destination-specific */}
+          {/* Step 4: Non-Tariff Barrier Check — destination-specific, modern layout */}
           {activeStep === "ntb" && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="rounded-xl border border-border bg-card p-6 shadow-md">
-                <h2 className="text-2xl font-bold text-foreground">Non-Tariff Barrier Check</h2>
-                <div className="mt-2 rounded-lg border-l-4 border-l-amber-400 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                  Checking for other requirements or restrictions beyond tariffs that could affect your shipment{destCountry ? ` to ${destCountry}` : ""}.
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+              {/* Hero: route + title */}
+              <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
+                <div
+                  className="px-6 py-4 text-white"
+                  style={{ background: `linear-gradient(135deg, ${ORG_ACCENT} 0%, ${ORG_PRIMARY} 100%)` }}
+                >
+                  <p className="text-xs font-medium uppercase tracking-wider text-white/90">
+                    Non-Tariff Barrier Check
+                  </p>
+                  {destCountry || originCountry ? (
+                    <p className="mt-1 text-lg font-semibold">
+                      {originCountry ? `${originCountry} → ` : ""}
+                      {destCountry || "Select destination"}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-lg font-semibold">Select your route in Start to see requirements</p>
+                  )}
                 </div>
-
-                <div className="mt-6 rounded-xl border border-sky-200/80 bg-sky-50/90 p-4 dark:border-sky-800/40 dark:bg-sky-950/30 shadow-sm">
-                  <p className="text-sm text-sky-900 dark:text-sky-100">
-                    What are <span className="inline-flex items-center align-middle"><InfoIcon content="Non-tariff barriers are rules, procedures, or standards (e.g. licences, SPS certificates, quality standards) that affect trade without being a customs tariff. They must be met for your goods to enter the destination market." /></span> <strong>Non-Tariff Barriers?</strong> These are additional requirements like licences, certificates, or quality standards you need to meet.
+                <div className="px-6 py-4 bg-muted/30 border-t border-border">
+                  <p className="text-sm text-muted-foreground flex items-center gap-2">
+                    <InfoIcon content="Non-tariff barriers are rules, procedures, or standards (e.g. licences, SPS certificates, quality standards) that affect trade without being a customs tariff. They must be met for your goods to enter the destination market." />
+                    <span>
+                      <strong className="text-foreground">Non-tariff barriers</strong> are licences, certificates, and standards you must meet for your goods to enter the destination market.
+                    </span>
                   </p>
                 </div>
-
-                {!destCountry ? (
-                  <p className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
-                    Select a <strong>destination country</strong> in the Start step to see requirements specific to your export market. Below is a general checklist.
-                  </p>
-                ) : (
-                  <p className="mt-6 text-sm font-medium text-foreground">
-                    Requirements for exporting to <strong>{destCountry}</strong>
-                    {originCountry && (
-                      <span className="text-muted-foreground font-normal"> (from {originCountry})</span>
-                    )}
-                  </p>
-                )}
-
-                <ul className="mt-4 space-y-4">
-                  {getBarriersForDestination(destCountry, originCountry).map((item) => (
-                    <li
-                      key={item.id}
-                      className={`rounded-lg border px-4 py-4 ${
-                        item.type === "required"
-                          ? "border-l-4 border-l-red-500 bg-red-50/50 dark:bg-red-950/20"
-                          : item.type === "compliant"
-                            ? "border-l-4 border-l-green-500 bg-green-50/50 dark:bg-green-950/20"
-                            : "border-l-4 border-l-amber-400 bg-muted/20"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        {item.type === "required" && (
-                          <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-                        )}
-                        {item.type === "compliant" && (
-                          <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600 dark:text-green-400 mt-0.5" />
-                        )}
-                        {item.type === "optional" && (
-                          <FileText className="h-5 w-5 shrink-0 text-muted-foreground mt-0.5" />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-foreground">{item.title}</div>
-                          <p className="mt-1 text-sm text-muted-foreground">{item.description}</p>
-                          {item.howToGet && (
-                            <p className="mt-2 text-xs text-muted-foreground">
-                              <span className="font-medium text-foreground">How to get it:</span> {item.howToGet}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
               </div>
+
+              {!destCountry ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-6 py-4 text-sm text-amber-900 dark:text-amber-100">
+                  Select a <strong>destination country</strong> in the Start step to see requirements specific to your export market. Below is a general checklist.
+                </div>
+              ) : null}
+
+              {/* Export Requirements (origin country) — when origin is in supported list; numbered required docs, no checkboxes */}
+              {originCountry && isRequirementsCountry(originCountry) && (() => {
+                const productCategory = getProductCategory(hsCode, productName);
+                const exportReqs =
+                  requirementsFromApi?.length
+                    ? getExportRequirementsFromList(requirementsFromApi, originCountry, productCategory)
+                    : getExportRequirements(originCountry, productCategory);
+                if (!exportReqs) return null;
+                return (
+                  <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-border text-white" style={{ backgroundColor: ORG_PRIMARY }}>
+                      <h3 className="text-lg font-semibold">Export Requirements ({originCountry})</h3>
+                      {productCategory !== "general" && (
+                        <p className="mt-0.5 text-sm text-white/90">Product category: {productCategory}</p>
+                      )}
+                    </div>
+                    <div className="px-6 py-5 space-y-5 text-sm">
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-1">Documents</h4>
+                        <p className="text-xs text-muted-foreground mb-2">Papers you must have to clear goods for export from {originCountry}.</p>
+                        <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
+                          {exportReqs.documents.map((d, i) => (
+                            <li key={i}>{d}</li>
+                          ))}
+                        </ol>
+                      </div>
+                      {exportReqs.regulatory.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold text-foreground mb-1">Regulatory requirements</h4>
+                          <p className="text-xs text-muted-foreground mb-2">Permits, licences or certificates that may be required by law.</p>
+                          <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
+                            {exportReqs.regulatory.map((r, i) => (
+                              <li key={i}>{r}</li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-1">Compliance notes</h4>
+                        <p className="text-xs text-muted-foreground mb-2">Things to keep in mind when exporting from {originCountry}.</p>
+                        <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
+                          {exportReqs.complianceNotes.map((n, i) => (
+                            <li key={i}>{n}</li>
+                          ))}
+                        </ol>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Import Requirements (destination country) — when destination is in supported list; numbered required docs, no checkboxes */}
+              {destCountry && isRequirementsCountry(destCountry) && (() => {
+                const productCategory = getProductCategory(hsCode, productName);
+                const importReqs =
+                  requirementsFromApi?.length
+                    ? getImportRequirementsFromList(requirementsFromApi, destCountry, productCategory)
+                    : getImportRequirements(destCountry, productCategory);
+                if (!importReqs) return null;
+                return (
+                  <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-border text-white" style={{ backgroundColor: ORG_ACCENT }}>
+                      <h3 className="text-lg font-semibold">Import Requirements ({destCountry})</h3>
+                      {productCategory !== "general" && (
+                        <p className="mt-0.5 text-sm text-white/90">Product category: {productCategory}</p>
+                      )}
+                    </div>
+                    <div className="px-6 py-5 space-y-5 text-sm">
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-1">Documents</h4>
+                        <p className="text-xs text-muted-foreground mb-2">Papers required by {destCountry} customs to clear your shipment at arrival.</p>
+                        <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
+                          {importReqs.documents.map((d, i) => (
+                            <li key={i}>{d}</li>
+                          ))}
+                        </ol>
+                      </div>
+                      {importReqs.regulatory.length > 0 && (
+                        <div>
+                          <h4 className="font-semibold text-foreground mb-1">Regulatory requirements</h4>
+                          <p className="text-xs text-muted-foreground mb-2">Permits, health certificates or approvals that may be required by {destCountry}.</p>
+                          <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
+                            {importReqs.regulatory.map((r, i) => (
+                              <li key={i}>{r}</li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
+                      <div>
+                        <h4 className="font-semibold text-foreground mb-1">Compliance notes</h4>
+                        <p className="text-xs text-muted-foreground mb-2">Things to keep in mind when importing into {destCountry}.</p>
+                        <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
+                          {importReqs.complianceNotes.map((n, i) => (
+                            <li key={i}>{n}</li>
+                          ))}
+                        </ol>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Requirements checklist — general barriers (hidden when both origin and destination have structured Export/Import cards to avoid repetition) */}
+              {!(originCountry && isRequirementsCountry(originCountry) && destCountry && isRequirementsCountry(destCountry)) && (
+                <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+                  <div className="px-6 py-4 border-b border-border bg-muted/20">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground">
+                      Requirements checklist
+                    </h3>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      {destCountry
+                        ? `Exporting to ${destCountry}${originCountry ? ` from ${originCountry}` : ""}`
+                        : "General requirements"}
+                    </p>
+                  </div>
+                  <ul className="divide-y divide-border">
+                    {getBarriersForDestination(destCountry, originCountry).map((item) => {
+                      const key = `ntb-barrier-${item.id}`;
+                      const checked = !!checklistProgress[key];
+                      return (
+                        <li key={item.id} className="px-6 py-5 hover:bg-muted/10 transition-colors">
+                          <div className="flex items-start gap-4">
+                            <button
+                              type="button"
+                              onClick={() => toggleChecklist(key)}
+                              className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded border-2 transition-all ${
+                                checked ? "border-emerald-600 bg-emerald-600 text-white" : "border-input bg-background"
+                              }`}
+                              aria-pressed={checked}
+                            >
+                              {checked && <CheckCircle2 className="h-4 w-4" />}
+                            </button>
+                            <span
+                              className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                item.type === "required"
+                                  ? "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200"
+                                  : item.type === "compliant"
+                                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200"
+                                    : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                              }`}
+                            >
+                              {item.type === "required" ? "Required" : item.type === "compliant" ? "Compliant" : "If required"}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <h4 className={`font-semibold ${checked ? "text-muted-foreground line-through" : "text-foreground"}`}>{item.title}</h4>
+                              <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+                              {item.howToGet && (
+                                <p className="mt-3 text-sm text-muted-foreground/90 pl-3 border-l-2 border-muted-foreground/30">
+                                  <span className="font-medium text-foreground">How to get it:</span> {item.howToGet}
+                                </p>
+                              )}
+                            </div>
+                            {item.type === "required" && !checked && <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500 mt-0.5" />}
+                            {item.type === "compliant" && !checked && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500 mt-0.5" />}
+                            {item.type === "optional" && !checked && <FileText className="h-5 w-5 shrink-0 text-muted-foreground mt-0.5" />}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+
             </div>
           )}
 
@@ -1209,7 +1391,7 @@ export default function ComplianceCheckPage() {
             </div>
           )}
 
-          {/* Step 6: Your Compliance Checklist */}
+          {/* Step 6: Your Compliance Checklist — sections and items from same country-specific export/import data as NTB */}
           {activeStep === "checklist" && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="rounded-xl border border-border bg-card p-6 shadow-md">
@@ -1226,7 +1408,7 @@ export default function ComplianceCheckPage() {
                 </div>
 
                 <div className="mt-8 space-y-8">
-                  {CHECKLIST_SECTIONS.map((section) => (
+                  {checklistSections.map((section) => (
                     <div key={section.id}>
                       <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-foreground">
                         {getChecklistSectionTitle(section.titleKey)}
