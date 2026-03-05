@@ -49,7 +49,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` — Clerk publishable key  
 - `CLERK_SECRET_KEY` — Clerk secret key  
 
-**Optional (password protection for staging/demo):**
+**Optional (password protection for staging/demo): to be removed later** 
 
 - `ENABLE_BASIC_AUTH` — Set to `"true"` to enable basic HTTP authentication  
 - `BASIC_AUTH_USERNAME` — Username (default: `yamale`)  
