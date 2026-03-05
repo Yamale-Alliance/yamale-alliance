@@ -1,74 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Yamale Alliance
+
+**African law, accessible and verifiable.**
+
+Yamale Alliance is a legal technology platform that brings national and regional African law, AfCFTA (African Continental Free Trade Area) tools, and AI-powered research into one place—grounded in verified sources.
+
+## What It Does
+
+- **Legal Library** — Browse African legal materials by jurisdiction and domain. Find laws, regulations, and official documents quickly.
+- **AfCFTA Tools** — Step-by-step tools for cross-border trade and investment: registration, compliance checks, and tariff-schedule lookup to support businesses operating under the African Continental Free Trade Area.
+- **AI Legal Research** — Ask questions in plain language and get answers with citations to verified legal sources.
+- **Marketplace** — Books, courses, and templates for legal and compliance professionals.
+- **Find a Lawyer** — Connect with verified legal professionals when you need advice.
+
+The platform is built so it can be branded and configured per deployment (e.g. white-label or alliance use).
+
+## Tech Stack
+
+- **Framework:** [Next.js](https://nextjs.org) (App Router)
+- **Auth:** [Clerk](https://clerk.com)
+- **Database:** [Supabase](https://supabase.com)
+- **Payments:** [Stripe](https://stripe.com)
+- **UI:** React, Tailwind CSS, Radix UI
 
 ## Getting Started
 
-First, run the development server:
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Configure environment variables (see [Environment Variables](#environment-variables) below).
+
+3. Run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-**Access from your phone (same Wi‑Fi):** On the phone, “localhost” is the phone itself, so use your computer’s IP instead. Find it with `ifconfig` (Mac/Linux) or `ipconfig` (Windows), then on the phone open `http://<that-IP>:3000` (e.g. `http://192.168.1.5:3000`). The dev server is started with `-H 0.0.0.0` so it accepts connections from other devices.
+**Access from your phone (same Wi‑Fi):** Use your computer’s IP (e.g. from `ifconfig` on Mac/Linux or `ipconfig` on Windows) and open `http://<that-IP>:3000`. The dev server is started with `-H 0.0.0.0` so it accepts connections from other devices.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**Required:**
 
-## Learn More
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` — Clerk publishable key  
+- `CLERK_SECRET_KEY` — Clerk secret key  
 
-To learn more about Next.js, take a look at the following resources:
+**Optional (password protection for staging/demo):**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `ENABLE_BASIC_AUTH` — Set to `"true"` to enable basic HTTP authentication  
+- `BASIC_AUTH_USERNAME` — Username (default: `yamale`)  
+- `BASIC_AUTH_PASSWORD` — Password (default: `demo2024`)  
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Configure any other keys your deployment needs (e.g. Supabase, Stripe) in your environment or `.env.local`.
 
 ## Deploy on Vercel
 
-### Quick Deploy
+1. Push your code to GitHub/GitLab/Bitbucket.  
+2. [Import the project in Vercel](https://vercel.com/new) and connect the repository.  
+3. Set the required environment variables in the project settings.  
+4. Deploy.
 
-1. **Push your code to GitHub/GitLab/Bitbucket**
-2. **Import project in Vercel**: Go to [vercel.com/new](https://vercel.com/new)
-3. **Connect your repository**
-4. **Configure environment variables** (see below)
-5. **Deploy**
+The project includes `vercel.json` with build settings; Vercel will detect Next.js and use the correct build command.
 
-### Environment Variables
+## Learn More
 
-Set these in your Vercel project settings (Settings → Environment Variables):
-
-**Required:**
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` - Your Clerk publishable key
-- `CLERK_SECRET_KEY` - Your Clerk secret key
-
-**Optional (for password protection):**
-- `ENABLE_BASIC_AUTH` - Set to `"true"` to enable basic HTTP authentication
-- `BASIC_AUTH_USERNAME` - Username for basic auth (default: `yamale`)
-- `BASIC_AUTH_PASSWORD` - Password for basic auth (default: `demo2024`)
-
-### Password Protection (Basic Auth)
-
-To password-protect your staging/demo site:
-
-1. In Vercel, go to your project → Settings → Environment Variables
-2. Add:
-   - `ENABLE_BASIC_AUTH` = `true`
-   - `BASIC_AUTH_USERNAME` = your desired username
-   - `BASIC_AUTH_PASSWORD` = your desired password
-3. Redeploy
-
-Visitors will be prompted for username/password before accessing the site.
-
-### Build Settings
-
-The project includes `vercel.json` with optimized build settings. Vercel will automatically detect Next.js and use the correct build command.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Next.js Documentation](https://nextjs.org/docs)  
+- [Next.js Deployment](https://nextjs.org/docs/app/building-your-application/deploying)
