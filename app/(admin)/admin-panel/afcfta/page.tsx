@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
   FileCheck,
   Plus,
@@ -12,6 +13,7 @@ import {
   ChevronDown,
   ChevronRight,
   Loader2,
+  FileText,
 } from "lucide-react";
 
 type ImportRow = {
@@ -255,6 +257,13 @@ export default function AdminAfCFTAPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Add entries one by one or import from a file (PDF, XLSX, or CSV). The system detects HS Code, Product Description, and other columns automatically.
           </p>
+          <Link
+            href="/admin-panel/afcfta/requirements"
+            className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
+          >
+            <FileText className="h-4 w-4" />
+            View export & import requirements by country
+          </Link>
         </div>
       </div>
 
