@@ -5,7 +5,7 @@ import { recordAuditLog } from "@/lib/admin-audit";
 import type { Database } from "@/lib/database.types";
 
 type Insert = Database["public"]["Tables"]["marketplace_items"]["Insert"];
-const VALID_TYPES = ["book", "course", "template"] as const;
+const VALID_TYPES = ["book", "course", "template", "guide"] as const;
 
 /** GET: list all marketplace items (admin) */
 export async function GET() {
