@@ -134,7 +134,7 @@ export default function PurchasedItemsPage() {
                 Purchased Items
               </h1>
               <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
-                Access all your purchased books, courses, and templates in one place.
+                Access all your purchased books, courses, templates, and guides in one place.
               </p>
             </div>
           </div>
