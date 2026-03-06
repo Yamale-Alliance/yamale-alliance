@@ -463,8 +463,12 @@ export default function ComplianceCheckPage() {
   const checklistFlatItems = checklistSections.flatMap((sec) =>
     sec.items.map((item) => ({ sectionId: sec.id, sectionTitleKey: sec.titleKey, itemId: item.id, title: item.title, subLabel: item.subLabel, key: `${sec.id}-${item.id}` }))
   );
-  const checklistTotal = checklistFlatItems.length;
-  const checklistCompleted = checklistFlatItems.filter(({ key }) => checklistProgress[key]).length;
+  const barrierItems = getBarriersForDestination(destCountry, originCountry);
+  const barrierKeys = barrierItems.map((item) => `ntb-barrier-${item.id}`);
+  const checklistTotal = checklistFlatItems.length + barrierKeys.length;
+  const checklistCompleted =
+    checklistFlatItems.filter(({ key }) => checklistProgress[key]).length +
+    barrierKeys.filter((key) => checklistProgress[key]).length;
   const checklistPercent = checklistTotal > 0 ? (checklistCompleted / checklistTotal) * 100 : 0;
 
   const getChecklistSectionTitle = (key: "before_export" | "afcfta_docs" | "at_import") => {
@@ -1128,7 +1132,7 @@ export default function ComplianceCheckPage() {
 
               {!destCountry ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-6 py-4 text-sm text-amber-900 dark:text-amber-100">
-                  Select a <strong>destination country</strong> in the Start step to see requirements specific to your export market. Below is a general checklist.
+                  Select a <strong>destination country</strong> in the Start step to see import requirements for your export market. Your actionable checklist is on the last step.
                 </div>
               ) : null}
 
@@ -1233,67 +1237,6 @@ export default function ComplianceCheckPage() {
                   </div>
                 );
               })()}
-
-              {/* Requirements checklist — general barriers (hidden when both origin and destination have structured Export/Import cards to avoid repetition) */}
-              {!(originCountry && isRequirementsCountry(originCountry) && destCountry && isRequirementsCountry(destCountry)) && (
-                <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-                  <div className="px-6 py-4 border-b border-border bg-muted/20">
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground">
-                      Requirements checklist
-                    </h3>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                      {destCountry
-                        ? `Exporting to ${destCountry}${originCountry ? ` from ${originCountry}` : ""}`
-                        : "General requirements"}
-                    </p>
-                  </div>
-                  <ul className="divide-y divide-border">
-                    {getBarriersForDestination(destCountry, originCountry).map((item) => {
-                      const key = `ntb-barrier-${item.id}`;
-                      const checked = !!checklistProgress[key];
-                      return (
-                        <li key={item.id} className="px-6 py-5 hover:bg-muted/10 transition-colors">
-                          <div className="flex items-start gap-4">
-                            <button
-                              type="button"
-                              onClick={() => toggleChecklist(key)}
-                              className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded border-2 transition-all ${
-                                checked ? "border-emerald-600 bg-emerald-600 text-white" : "border-input bg-background"
-                              }`}
-                              aria-pressed={checked}
-                            >
-                              {checked && <CheckCircle2 className="h-4 w-4" />}
-                            </button>
-                            <span
-                              className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                item.type === "required"
-                                  ? "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200"
-                                  : item.type === "compliant"
-                                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200"
-                                    : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
-                              }`}
-                            >
-                              {item.type === "required" ? "Required" : item.type === "compliant" ? "Compliant" : "If required"}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <h4 className={`font-semibold ${checked ? "text-muted-foreground line-through" : "text-foreground"}`}>{item.title}</h4>
-                              <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{item.description}</p>
-                              {item.howToGet && (
-                                <p className="mt-3 text-sm text-muted-foreground/90 pl-3 border-l-2 border-muted-foreground/30">
-                                  <span className="font-medium text-foreground">How to get it:</span> {item.howToGet}
-                                </p>
-                              )}
-                            </div>
-                            {item.type === "required" && !checked && <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500 mt-0.5" />}
-                            {item.type === "compliant" && !checked && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500 mt-0.5" />}
-                            {item.type === "optional" && !checked && <FileText className="h-5 w-5 shrink-0 text-muted-foreground mt-0.5" />}
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              )}
 
             </div>
           )}
@@ -1454,6 +1397,65 @@ export default function ComplianceCheckPage() {
                       </ul>
                     </div>
                   ))}
+
+                  {/* Requirements checklist — Exporting to X from Y (same barrier items as NTB, but only on last page) */}
+                  <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-border bg-muted/20">
+                      <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground">
+                        Requirements checklist
+                      </h3>
+                      <p className="mt-0.5 text-sm text-muted-foreground">
+                        {destCountry
+                          ? `Exporting to ${destCountry}${originCountry ? ` from ${originCountry}` : ""}`
+                          : "General requirements"}
+                      </p>
+                    </div>
+                    <ul className="divide-y divide-border">
+                      {getBarriersForDestination(destCountry, originCountry).map((item) => {
+                        const key = `ntb-barrier-${item.id}`;
+                        const checked = !!checklistProgress[key];
+                        return (
+                          <li key={item.id} className="px-6 py-5 hover:bg-muted/10 transition-colors">
+                            <div className="flex items-start gap-4">
+                              <button
+                                type="button"
+                                onClick={() => toggleChecklist(key)}
+                                className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded border-2 transition-all ${
+                                  checked ? "border-emerald-600 bg-emerald-600 text-white" : "border-input bg-background"
+                                }`}
+                                aria-pressed={checked}
+                              >
+                                {checked && <CheckCircle2 className="h-4 w-4" />}
+                              </button>
+                              <span
+                                className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                  item.type === "required"
+                                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200"
+                                    : item.type === "compliant"
+                                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200"
+                                      : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                                }`}
+                              >
+                                {item.type === "required" ? "Required" : item.type === "compliant" ? "Compliant" : "If required"}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <h4 className={`font-semibold ${checked ? "text-muted-foreground line-through" : "text-foreground"}`}>{item.title}</h4>
+                                <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+                                {item.howToGet && (
+                                  <p className="mt-3 text-sm text-muted-foreground/90 pl-3 border-l-2 border-muted-foreground/30">
+                                    <span className="font-medium text-foreground">How to get it:</span> {item.howToGet}
+                                  </p>
+                                )}
+                              </div>
+                              {item.type === "required" && !checked && <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500 mt-0.5" />}
+                              {item.type === "compliant" && !checked && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500 mt-0.5" />}
+                              {item.type === "optional" && !checked && <FileText className="h-5 w-5 shrink-0 text-muted-foreground mt-0.5" />}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>
