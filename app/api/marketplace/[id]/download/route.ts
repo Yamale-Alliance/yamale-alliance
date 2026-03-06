@@ -5,7 +5,10 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 const BUCKET = "marketplace-files";
 const SIGNED_URL_EXPIRY_SEC = 3600; // 1 hour
 
-/** GET: return signed URL for item file (viewing only, no download). Requires auth + purchase. */
+/** GET: return signed URL for item file (viewing only, no download).
+ * - Free items (price_cents <= 0): anyone can access without purchase.
+ * - Paid items: require sign-in + purchase record.
+ */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -15,22 +18,23 @@ export async function GET(
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Sign in to access" }, { status: 401 });
-  }
-
   const supabase = getSupabaseServer();
   const { data, error: itemErr } = await supabase
     .from("marketplace_items")
-    .select("id, file_path, file_name, published")
+    .select("id, file_path, file_name, published, price_cents")
     .eq("id", id)
     .single();
 
   if (itemErr || !data) {
     return NextResponse.json({ error: "Item not found" }, { status: 404 });
   }
-  const item = data as { id: string; file_path: string | null; file_name: string | null; published: boolean };
+  const item = data as {
+    id: string;
+    file_path: string | null;
+    file_name: string | null;
+    published: boolean;
+    price_cents: number | null;
+  };
   if (!item.published) {
     return NextResponse.json({ error: "Item not found" }, { status: 404 });
   }
@@ -38,15 +42,25 @@ export async function GET(
     return NextResponse.json({ error: "No file available for this item" }, { status: 404 });
   }
 
-  const { data: purchase } = await supabase
-    .from("marketplace_purchases")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("marketplace_item_id", id)
-    .maybeSingle();
+  const isFree = !item.price_cents || item.price_cents <= 0;
 
-  if (!purchase) {
-    return NextResponse.json({ error: "Purchase this item to view" }, { status: 403 });
+  // Paid items require auth + purchase; free items do not.
+  if (!isFree) {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Sign in to access" }, { status: 401 });
+    }
+
+    const { data: purchase } = await supabase
+      .from("marketplace_purchases")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("marketplace_item_id", id)
+      .maybeSingle();
+
+    if (!purchase) {
+      return NextResponse.json({ error: "Purchase this item to view" }, { status: 403 });
+    }
   }
 
   const { data: signed, error: signErr } = await supabase.storage
