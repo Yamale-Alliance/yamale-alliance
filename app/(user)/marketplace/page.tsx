@@ -15,7 +15,7 @@ const BRAND = {
   accent: "#e3ba65",
 };
 
-type ProductCategory = "book" | "course" | "template" | "";
+type ProductCategory = "book" | "course" | "template" | "guide" | "";
 
 type Product = {
   id: string;
@@ -36,6 +36,7 @@ const CATEGORIES: { value: ProductCategory; label: string }[] = [
   { value: "book", label: "Books" },
   { value: "course", label: "Courses" },
   { value: "template", label: "Templates" },
+  { value: "guide", label: "Guides" },
 ];
 
 function CategoryIcon({ type, className }: { type: string; className?: string }) {
@@ -46,6 +47,8 @@ function CategoryIcon({ type, className }: { type: string; className?: string })
       return <GraduationCap className={className ?? "h-5 w-5"} />;
     case "template":
       return <FileText className={className ?? "h-5 w-5"} />;
+    case "guide":
+      return <BookOpen className={className ?? "h-5 w-5"} />;
     default:
       return <FileText className={className ?? "h-5 w-5"} />;
   }
