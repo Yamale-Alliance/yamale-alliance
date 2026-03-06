@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, Eye, Star, ShoppingCart, Zap, X } from "lucide-react";
+import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, Eye, Star, ShoppingCart, Zap, X, Download } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { FileViewer } from "@/components/marketplace/FileViewer";
 
@@ -83,30 +83,54 @@ export default function MarketplaceItemPage() {
   const [reviews, setReviews] = useState<{ averageRating: number | null; totalReviews: number }>({ averageRating: null, totalReviews: 0 });
   const [addingToCart, setAddingToCart] = useState(false);
   const [isInCart, setIsInCart] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const checkoutStatus = searchParams?.get("checkout");
   const sessionId = searchParams?.get("session_id") ?? null;
   const confirmedSessionRef = useRef<string | null>(null);
 
+  const fetchDownloadUrl = async () => {
+    if (!item?.id || !item.has_file) return null;
+    const res = await fetch(`/api/marketplace/${item.id}/download`, { credentials: "include" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Could not get file");
+    return data.url as string;
+  };
+
   const handleView = async () => {
-    if (!item?.id || !item.purchased || !item.has_file) return;
+    if (!item?.id || !item.has_file) return;
     setViewing(true);
     setError(null);
     try {
-      const res = await fetch(`/api/marketplace/${item.id}/download`, { credentials: "include" });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Could not get file");
-        setViewing(false);
-        return;
-      }
-      const url = data.url;
-      if (url) {
-        setViewerUrl(url);
-      }
-    } catch {
-      setError("Something went wrong");
+      const url = await fetchDownloadUrl();
+      if (url) setViewerUrl(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
       setViewing(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!item?.id || !item.has_file) return;
+    setDownloading(true);
+    setError(null);
+    try {
+      const url = await fetchDownloadUrl();
+      if (url) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = item.file_name ?? `download.${item.file_format ?? "pdf"}`;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not download");
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -315,7 +339,7 @@ export default function MarketplaceItemPage() {
   if (!item) return null;
 
   const owned = item.purchased;
-  const free = item.price_cents === 0;
+  const free = Number(item.price_cents) === 0 || item.price_cents == 0;
   const priceDisplay = free ? "Free" : `$${(item.price_cents / 100).toFixed(2)}`;
 
   return (
@@ -471,17 +495,29 @@ export default function MarketplaceItemPage() {
               </div>
             )}
           </div>
-          {owned && item.has_file && (
+          {(owned || free) && item.has_file && (
             <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-border pt-6">
-              <button
-                type="button"
-                onClick={handleView}
-                disabled={viewing}
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-              >
-                {viewing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
-                View
-              </button>
+              {free ? (
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  disabled={downloading}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+                  View
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleView}
+                  disabled={viewing}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {viewing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+                  View
+                </button>
+              )}
               {item.file_format && (
                 <span className="text-xs text-muted-foreground">
                   {item.file_name ?? `.${item.file_format}`}
@@ -489,7 +525,7 @@ export default function MarketplaceItemPage() {
               )}
             </div>
           )}
-          {owned && !item.has_file && (
+          {(owned || free) && !item.has_file && (
             <p className="mt-6 border-t border-border pt-6 text-sm text-muted-foreground">
               No file is attached to this item. Contact support if you expected a download.
             </p>
