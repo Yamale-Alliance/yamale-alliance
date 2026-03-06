@@ -7,7 +7,7 @@ import { Loader2, Plus, Pencil, Trash2, BookOpen, GraduationCap, FileText, Uploa
 
 type MarketplaceItem = {
   id: string;
-  type: "book" | "course" | "template";
+  type: "book" | "course" | "template" | "guide";
   title: string;
   author: string;
   description: string | null;
@@ -27,6 +27,7 @@ const TYPE_LABELS: Record<string, string> = {
   book: "Book",
   course: "Course",
   template: "Template",
+  guide: "Guide",
 };
 
 function TypeIcon({ type }: { type: string }) {
@@ -35,6 +36,8 @@ function TypeIcon({ type }: { type: string }) {
       return <BookOpen className="h-4 w-4" />;
     case "course":
       return <GraduationCap className="h-4 w-4" />;
+    case "guide":
+      return <BookOpen className="h-4 w-4" />;
     default:
       return <FileText className="h-4 w-4" />;
   }
@@ -332,6 +335,7 @@ export default function AdminMarketplacePage() {
                 <option value="book">Book</option>
                 <option value="course">Course</option>
                 <option value="template">Template</option>
+                <option value="guide">Guide</option>
               </select>
             </div>
             <div>
@@ -623,6 +627,7 @@ export default function AdminMarketplacePage() {
                   <option value="book">Book</option>
                   <option value="course">Course</option>
                   <option value="template">Template</option>
+                  <option value="guide">Guide</option>
                 </select>
               </div>
               <div>
