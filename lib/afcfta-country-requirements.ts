@@ -1,7 +1,8 @@
 /**
  * Export and import requirements by country for AfCFTA trade.
  * Product-specific requirements are merged when HS code/product category matches.
- * Data sources: trade.gov country guides, SADC/COMESA documentation, national customs.
+ * Source URLs point to each country's official customs/trade portal; requirements align with
+ * AfCFTA (Certificate of Origin, rules of origin) and national documentation.
  */
 
 export const AFCFTA_REQUIREMENTS_COUNTRIES = [
@@ -124,58 +125,56 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
   Angola: {
     country: "Angola",
     sourceUrls: {
-      export: "https://www.trade.gov/country-commercial-guides/angola-import-requirements-and-documentation",
-      import: "https://www.trade.gov/country-commercial-guides/angola-import-requirements-and-documentation",
+      export: "https://agt.minfin.gov.ao/",
+      import: "https://agt.minfin.gov.ao/",
     },
     export: {
       documents: [
-        "Commercial invoice (with HTS/HS codes, value breakdown, incoterm)",
+        "Commercial invoice (with HS codes, value breakdown, incoterm)",
         "Packing list",
-        "Export customs declaration",
+        "Export customs declaration (via AGT-approved systems)",
         "AfCFTA Certificate of Origin (for preferential treatment)",
         "Loading certificate (ARCCLA/CNCA) for maritime shipments",
       ],
       regulatory: [
-        "Registration with Ministry of Industry and Trade for the product category (where required)",
-        "Export permit or licence for controlled goods",
+        "Registration in Register of Exporters and Importers (REI) – valid 5 years",
+        "Export permit or licence for controlled goods (MINCO where required)",
       ],
       complianceNotes: [
-        "Only registered companies can apply for export/import licences where applicable.",
-        "Customs brokers approved by the Angolan government must process customs documentation; broker rates are regulated (max 2% CIF).",
+        "Only registered companies can apply for export/import licences. Customs brokers (Despachantes) approved by AGT must process customs documentation; broker fees regulated (max 2% CIF). Verify current procedures on the AGT portal.",
       ],
     },
     import: {
       documents: [
         "Commercial invoice",
-        "Customs import declaration (Documento Único)",
+        "Customs import declaration (Documento Único – DU)",
         "Declaration of Customs Value (ADV)",
         "Loading certificate (ARC / Waiver / CNCA)",
-        "Ministry of Industry and Trade (MINCO) Import License (sensitive products)",
+        "MINCO Import License for sensitive products",
         "Packing list",
         "Terminal handling receipts",
-        "SOLAS certificate",
+        "SOLAS certificate (where applicable)",
       ],
       regulatory: [
-        "Importer registration with Ministry of Industry and Trade for product category",
+        "Importer registration with Ministry of Industry and Trade (MINCO) for product category",
         "Pre-shipment inspection optional; may enable green channel at customs",
         "Laboratory testing for foods and pharmaceuticals at port of entry",
       ],
       complianceNotes: [
-        "Letters of credit preferred for transactions above 100,000 euros (Angolan Central Bank guidance).",
-        "Import procedures are time-consuming; maintain close contact with importer/distributor.",
+        "Letters of credit preferred for transactions above 100,000 euros (Central Bank guidance). Import licensing and customs clearance can be managed via PICE (integrated external trade platform). Verify current requirements on the AGT portal.",
       ],
     },
   },
   Botswana: {
     country: "Botswana",
-    sourceUrls: { export: "https://www.trade.gov/country-commercial-guides/botswana", import: "https://www.trade.gov/country-commercial-guides/botswana" },
+    sourceUrls: { export: "https://www.botswanatradeportal.org.bw/", import: "https://www.botswanatradeportal.org.bw/" },
     export: {
       documents: [
         "Commercial invoice",
         "Packing list",
-        "Export customs declaration",
+        "Single Administrative Declaration (SAD 500) or export customs declaration",
         "AfCFTA Certificate of Origin",
-        "Bill of lading or transport document",
+        "Consignment note or bill of lading",
       ],
       regulatory: [
         "Phytosanitary certificate (plant/plant products)",
@@ -183,29 +182,29 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "Export permit for controlled products",
       ],
       complianceNotes: [
-        "Certificate of Origin required for preferential treatment under SADC/COMESA/AfCFTA.",
+        "Botswana Trade Portal is the single source for procedures and tariffs. Certificate of Origin required for preferential treatment under SADC/COMESA/AfCFTA. VAT 14% may apply. Verify current requirements on the Trade Portal.",
       ],
     },
     import: {
       documents: [
         "Commercial invoice",
         "Packing list",
-        "Import declaration / Bill of Entry",
+        "Import declaration (SAD 500) / Bill of Entry",
         "Certificate of Origin (for preferential rates)",
         "Insurance and freight documentation",
       ],
       regulatory: [
-        "Import permit for plant/plant products (apply for phytosanitary conditions)",
+        "Import permit for plant/plant products (phytosanitary conditions)",
         "SPS compliance for agricultural and food products",
       ],
       complianceNotes: [
-        "Duty calculated on CIF. Preferential rates apply with valid Certificate of Origin from FTA partners.",
+        "Duty calculated on CIF. Preferential rates apply with valid Certificate of Origin. Check the Botswana Trade Portal for current procedures and tariff rates.",
       ],
     },
   },
   Comoros: {
     country: "Comoros",
-    sourceUrls: { export: "https://www.trade.gov/country-commercial-guides", import: "https://www.trade.gov/country-commercial-guides" },
+    sourceUrls: { export: "https://www.comesa.int/?page_id=1148", import: "https://www.comesa.int/?page_id=1148" },
     export: {
       documents: [
         "Commercial invoice",
@@ -219,7 +218,7 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "Export authorization for controlled goods",
       ],
       complianceNotes: [
-        "COMESA member; AfCFTA Certificate of Origin enables preferential access to member states.",
+        "COMESA member. AfCFTA Certificate of Origin enables preferential access to member states. For national procedures, refer to COMESA Trade & Customs and confirm with Comoros customs.",
       ],
     },
     import: {
@@ -234,18 +233,18 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "SPS compliance for food and agricultural goods",
       ],
       complianceNotes: [
-        "Verify specific requirements with Comoros customs or trade ministry.",
+        "Verify specific requirements with Comoros customs. COMESA Trade & Customs Division provides regional framework; national authorities may have additional requirements.",
       ],
     },
   },
   DRC: {
     country: "DRC",
-    sourceUrls: { export: "https://www.trade.gov/country-commercial-guides/democratic-republic-congo", import: "https://www.trade.gov/country-commercial-guides/democratic-republic-congo" },
+    sourceUrls: { export: "https://douane.gouv.cd/entreprises/commerce-international/import-export/", import: "https://douane.gouv.cd/entreprises/commerce-international/import-export/" },
     export: {
       documents: [
-        "Commercial invoice",
+        "Commercial invoice (documents in French)",
         "Packing list",
-        "Export customs declaration",
+        "Export customs declaration (via DGDA/Guichet Unique)",
         "AfCFTA Certificate of Origin",
         "Transport document",
       ],
@@ -254,34 +253,34 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "Phytosanitary/veterinary certificates for agricultural products",
       ],
       complianceNotes: [
-        "Export procedures may involve multiple agencies; use experienced customs brokers.",
+        "DGDA (Direction Générale des Douanes) oversees customs. Pre-customs clearance for imports/exports at pilot sites (e.g. Kinshasa, Lubumbashi, Matadi) is via Guichet Unique Intégral. Verify current procedures on the DGDA import-export page.",
       ],
     },
     import: {
       documents: [
-        "Commercial invoice",
+        "Commercial invoice (in French)",
         "Packing list",
-        "Import declaration",
+        "Import declaration (via DGDA systems)",
         "Certificate of Origin (for preferential rates)",
-        "Proof of payment/letter of credit where required",
+        "Import licences where required",
       ],
       regulatory: [
-        "Import licence for sensitive products",
+        "Import licence for sensitive products; OCC/BIVAC pre-shipment inspection for imports ≥ USD 2,500 (exemptions apply)",
         "SPS and quality compliance for food and regulated goods",
       ],
       complianceNotes: [
-        "Customs and trade regulations subject to change; confirm with DRC authorities.",
+        "All documents must be submitted in French. Confirm current requirements and Guichet Unique procedures on the DGDA import-export page.",
       ],
     },
   },
   Eswatini: {
     country: "Eswatini",
-    sourceUrls: { export: "https://www.trade.gov/country-commercial-guides/eswatini-import-requirements-and-documentation", import: "https://www.trade.gov/country-commercial-guides/eswatini-import-requirements-and-documentation" },
+    sourceUrls: { export: "https://www.ers.org.sz/customs", import: "https://www.ers.org.sz/customs" },
     export: {
       documents: [
         "Commercial invoice",
         "Packing list",
-        "Export customs declaration",
+        "Export customs declaration (via ERS e-Customs/ASYCUDA World)",
         "AfCFTA Certificate of Origin",
         "Bill of lading or waybill",
       ],
@@ -290,14 +289,14 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "Health certificate (animal/food products where required)",
       ],
       complianceNotes: [
-        "SADC and SACU member; AfCFTA CoO supports preferential access to African markets.",
+        "Eswatini Revenue Service (ERS) manages customs; ASYCUDA World used for declarations. SADC and SACU member. Verify current procedures and advance rulings on the ERS customs page.",
       ],
     },
     import: {
       documents: [
         "Commercial invoice",
         "Packing list",
-        "Import declaration",
+        "Import declaration (ERS/ASYCUDA World)",
         "Certificate of Origin (SADC/COMESA/AfCFTA)",
         "Shipping and insurance documents",
       ],
@@ -306,34 +305,34 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "SPS compliance for agricultural and food products",
       ],
       complianceNotes: [
-        "Duty on CIF. Preferential rates apply with valid Certificate of Origin.",
+        "Duty on CIF. Preferential rates apply with valid Certificate of Origin. Check ERS customs portal for tariff browse and document requirements.",
       ],
     },
   },
   Lesotho: {
     country: "Lesotho",
-    sourceUrls: { export: "https://www.trade.gov/country-commercial-guides/lesotho-import-requirements-and-documentation", import: "https://www.trade.gov/country-commercial-guides/lesotho-import-requirements-and-documentation" },
+    sourceUrls: { export: "https://www.rsl.org.ls/customs-procedures", import: "https://www.rsl.org.ls/customs-procedures" },
     export: {
       documents: [
         "Commercial invoice",
         "Packing list",
-        "Export customs declaration",
+        "Export declaration (EX1/EX3 via ASYCUDA World – Revenue Services Lesotho)",
         "AfCFTA Certificate of Origin",
         "Transport document",
       ],
       regulatory: [
-        "Phytosanitary/health certificates as required by destination",
+        "Phytosanitary certificate, veterinary export health certificate, or sector permit (e.g. Kimberley Process for rough diamonds) as required",
         "Export permit for controlled goods",
       ],
       complianceNotes: [
-        "SACU member; ensure CoO meets AfCFTA/SADC requirements for partner countries.",
+        "Revenue Services Lesotho (RSL) operates ASYCUDA World; e-Customs Tariff available. SACU member. Export certificates from Ministry of Trade. Verify current procedures on the RSL customs-procedures page.",
       ],
     },
     import: {
       documents: [
         "Commercial invoice",
         "Packing list",
-        "Import declaration",
+        "Import declaration (ASYCUDA World)",
         "Certificate of Origin (for preferential treatment)",
         "Freight and insurance documentation",
       ],
@@ -342,18 +341,18 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "SPS compliance for food and agricultural products",
       ],
       complianceNotes: [
-        "Preferential tariffs apply with valid Certificate of Origin from FTA partners.",
+        "Preferential tariffs apply with valid Certificate of Origin. Confirm current requirements on the RSL customs-procedures page.",
       ],
     },
   },
   Madagascar: {
     country: "Madagascar",
-    sourceUrls: { export: "https://www.trade.gov/country-commercial-guides/madagascar", import: "https://www.trade.gov/country-commercial-guides/madagascar" },
+    sourceUrls: { export: "https://www.douanes.gov.mg/", import: "https://www.douanes.gov.mg/" },
     export: {
       documents: [
         "Commercial invoice",
         "Packing list",
-        "Export customs declaration",
+        "Export customs declaration (Direction Générale des Douanes)",
         "AfCFTA Certificate of Origin",
         "Bill of lading",
       ],
@@ -363,7 +362,7 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "Export authorization for controlled products",
       ],
       complianceNotes: [
-        "COMESA and IOC member; CoO enables preferential access to member states.",
+        "COMESA and IOC member. Customs portal (douanes.gov.mg) provides eTariff, customs code, and procedures. CoO enables preferential access to member states. Verify current requirements on the Douanes portal.",
       ],
     },
     import: {
@@ -379,28 +378,28 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "SPS compliance for food and agricultural goods",
       ],
       complianceNotes: [
-        "IOC rules of origin apply for trade with Mauritius and other IOC members.",
+        "IOC rules of origin apply for trade with Mauritius and other IOC members. Check the Douanes portal for tariff, tracking, and current document requirements.",
       ],
     },
   },
   Malawi: {
     country: "Malawi",
-    sourceUrls: { export: "https://www.trade.gov/country-commercial-guides/malawi", import: "https://www.trade.gov/country-commercial-guides/malawi" },
+    sourceUrls: { export: "https://www.mra.mw/", import: "https://www.mra.mw/" },
     export: {
       documents: [
         "Commercial invoice",
         "Packing list",
-        "Export customs declaration",
+        "Export customs declaration (MRA – online or at customs offices)",
         "AfCFTA Certificate of Origin",
         "Transport document",
       ],
       regulatory: [
         "Phytosanitary certificate (plant products)",
         "Export permit for controlled goods",
-        "Clearance via Customs Clearing Agents",
+        "Clearance via licensed Customs Clearing Agents where required",
       ],
       complianceNotes: [
-        "Export clearance can be submitted online or at customs offices (Blantyre, Lilongwe, Mzuzu, border stations).",
+        "Malawi Revenue Authority (MRA) handles customs. Export clearance can be submitted online or at Blantyre, Lilongwe, Mzuzu, and border stations. COMESA member. Verify procedures on the MRA site.",
       ],
     },
     import: {
@@ -416,28 +415,27 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "SPS compliance for agricultural and food products",
       ],
       complianceNotes: [
-        "COMESA member; Simplified Trade Regime may apply for low-value consignments at border.",
+        "COMESA member; Simplified Trade Regime may apply for low-value consignments at border. Confirm current requirements on the MRA portal.",
       ],
     },
   },
   Mauritius: {
     country: "Mauritius",
-    sourceUrls: { export: "https://www.trade.gov/country-commercial-guides/mauritius-import-requirements-and-documentation", import: "https://www.trade.gov/country-commercial-guides/mauritius-import-requirements-and-documentation" },
+    sourceUrls: { export: "https://mra.mu/index.php/customs", import: "https://mra.mu/index.php/customs" },
     export: {
       documents: [
         "Commercial invoice",
         "Packing list",
-        "Export customs declaration",
+        "Export customs declaration (MRA Customs / TradeNet)",
         "AfCFTA Certificate of Origin",
-        "Export invoice",
-        "Certified costing documentation (for value-added / rules of origin)",
+        "Export invoice; certified costing documentation (for value-added / rules of origin where required)",
       ],
       regulatory: [
         "Export permit (if applicable)",
         "Phytosanitary/health certificates as required by destination",
       ],
       complianceNotes: [
-        "COMESA and IOC member. CoO obtained via Mauritius Revenue Authority Customs or TradeNet through a freight forwarder.",
+        "COMESA and IOC member. CoO obtained via Mauritius Revenue Authority Customs or TradeNet through a freight forwarder. Verify current procedures and e-services on the MRA customs page.",
       ],
     },
     import: {
@@ -453,18 +451,18 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "SPS compliance; use SPS portal for phytosanitary certificates where applicable",
       ],
       complianceNotes: [
-        "At least 35% value added or wholly produced criteria for preferential treatment under regional agreements.",
+        "At least 35% value added or wholly produced for preferential treatment under regional agreements. Check MRA customs for tariff, quotas, and current requirements.",
       ],
     },
   },
   Mozambique: {
     country: "Mozambique",
-    sourceUrls: { export: "https://www.trade.gov/country-commercial-guides/mozambique", import: "https://www.trade.gov/country-commercial-guides/mozambique" },
+    sourceUrls: { export: "https://portalcomercioexterno.gov.mz/en/commerce-guides/", import: "https://portalcomercioexterno.gov.mz/en/commerce-guides/" },
     export: {
       documents: [
         "Commercial invoice",
         "Packing list",
-        "Export customs declaration",
+        "Export customs declaration (AT / Foreign Trade Portal)",
         "AfCFTA Certificate of Origin",
         "Transport document",
       ],
@@ -473,7 +471,7 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "Export licence for controlled products",
       ],
       complianceNotes: [
-        "SADC member; ensure CoO meets AfCFTA/SADC requirements.",
+        "SADC member. Autoridade Tributária (AT) and Foreign Trade Portal (portalcomercioexterno.gov.mz) provide commerce guides and procedures. Ensure CoO meets AfCFTA/SADC requirements. Verify on the portal.",
       ],
     },
     import: {
@@ -489,18 +487,18 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "SPS compliance for food and agricultural goods",
       ],
       complianceNotes: [
-        "Verify current requirements with Mozambique customs or trade ministry.",
+        "Check the Mozambique Foreign Trade Portal commerce guides for current procedures and requirements.",
       ],
     },
   },
   Namibia: {
     country: "Namibia",
-    sourceUrls: { export: "https://www.trade.gov/country-commercial-guides/namibia", import: "https://www.trade.gov/country-commercial-guides/namibia" },
+    sourceUrls: { export: "https://namibiatradeportal.gov.na/general-trade-information/general-export-import-and-transit-procedures", import: "https://www.namra.org.na/customs-excise/page/importation-of-goods/" },
     export: {
       documents: [
         "Commercial invoice",
         "Packing list",
-        "Export customs declaration",
+        "Export customs declaration (see Namibia Trade Portal procedures)",
         "AfCFTA Certificate of Origin",
         "Bill of lading or waybill",
       ],
@@ -510,14 +508,14 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "Export permit for controlled goods",
       ],
       complianceNotes: [
-        "SACU and SADC member; CoO required for preferential access to partner markets.",
+        "SACU and SADC member. Namibia Trade Portal covers general export/import/transit procedures; NamRA handles customs. CoO required for preferential access. Verify on the Trade Portal and NamRA.",
       ],
     },
     import: {
       documents: [
         "Commercial invoice",
         "Packing list",
-        "Import declaration",
+        "Import declaration (NamRA Customs & Excise)",
         "Certificate of Origin (SADC/SACU/AfCFTA)",
         "Shipping and insurance documents",
       ],
@@ -526,13 +524,13 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "SPS compliance for agricultural and food products",
       ],
       complianceNotes: [
-        "Preferential rates apply with valid Certificate of Origin from FTA partners.",
+        "Preferential rates apply with valid Certificate of Origin. Confirm classification, prohibited/restricted items, and procedures on NamRA importation-of-goods page.",
       ],
     },
   },
   Seychelles: {
     country: "Seychelles",
-    sourceUrls: { export: "https://www.trade.gov/country-commercial-guides", import: "https://www.trade.gov/country-commercial-guides" },
+    sourceUrls: { export: "https://www.tradeportal.sc/import-guide/", import: "https://www.tradeportal.sc/import-guide/" },
     export: {
       documents: [
         "Commercial invoice",
@@ -546,7 +544,7 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "Export permit for controlled goods",
       ],
       complianceNotes: [
-        "COMESA member; AfCFTA CoO supports preferential access to African markets.",
+        "COMESA member. Seychelles Trade Portal (tradeportal.sc) provides import/export guides. AfCFTA CoO supports preferential access to African markets. Verify current requirements on the Trade Portal.",
       ],
     },
     import: {
@@ -561,21 +559,21 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "SPS compliance for food and agricultural goods",
       ],
       complianceNotes: [
-        "Verify specific requirements with Seychelles customs or trade authority.",
+        "Use the Trade Portal import guide for procedures and document lists. Confirm specific requirements with Seychelles customs or trade authority.",
       ],
     },
   },
   "South Africa": {
     country: "South Africa",
     sourceUrls: {
-      export: "https://www.trade.gov/country-commercial-guides/south-africa-import-requirements-and-documentation",
-      import: "https://www.trade.gov/country-commercial-guides/south-africa-import-requirements-and-documentation",
+      export: "https://www.sars.gov.za/customs-and-excise/import-export-and-transit/",
+      import: "https://www.sars.gov.za/customs-and-excise/goods-declaration/customs-endorsement-documents-requirements/",
     },
     export: {
       documents: [
         "Commercial invoice",
         "Packing list",
-        "Export customs declaration",
+        "Export customs declaration (SARS)",
         "AfCFTA Certificate of Origin",
         "Bill of lading or waybill",
       ],
@@ -585,7 +583,7 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "Export permit for controlled products",
       ],
       complianceNotes: [
-        "SACU/SADC member; NRCS and other bodies may apply to specific product categories.",
+        "SACU/SADC member. SARS manages customs; see import-export-and-transit for procedures. NRCS and other bodies may apply to specific product categories. Verify on the SARS site.",
       ],
     },
     import: {
@@ -602,18 +600,18 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "SPS compliance for food and agricultural products",
       ],
       complianceNotes: [
-        "Product must meet destination sanitary standards. NRCS handles import approvals for regulated products; contact IMPORTSCT@nrcs.org.za for queries.",
+        "SARS customs endorsement documents page lists required documents. Product must meet destination sanitary standards. NRCS handles import approvals for regulated products; contact IMPORTSCT@nrcs.org.za for queries. Verify current requirements on SARS and NRCS.",
       ],
     },
   },
   Tanzania: {
     country: "Tanzania",
-    sourceUrls: { export: "https://www.trade.gov/country-commercial-guides/tanzania-import-requirements-and-documentation", import: "https://www.trade.gov/country-commercial-guides/tanzania-import-requirements-and-documentation" },
+    sourceUrls: { export: "https://www.tra.go.tz/page/export-procedures", import: "https://www.tra.go.tz/page/import-procedures" },
     export: {
       documents: [
         "Commercial invoice",
         "Packing list",
-        "Export customs declaration",
+        "Export customs declaration (TRA)",
         "AfCFTA Certificate of Origin",
         "Transport document",
       ],
@@ -623,7 +621,7 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "Export permit for controlled goods",
       ],
       complianceNotes: [
-        "EAC and SADC member; CoO must comply with AfCFTA/EAC/SADC rules of origin.",
+        "EAC and SADC member. Tanzania Revenue Authority (TRA) publishes export and import procedures on tra.go.tz. CoO must comply with AfCFTA/EAC/SADC rules of origin. Verify on the TRA pages.",
       ],
     },
     import: {
@@ -639,18 +637,18 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "SPS compliance for agricultural and food products",
       ],
       complianceNotes: [
-        "Duty on CIF. Preferential rates apply with valid Certificate of Origin from FTA partners.",
+        "Duty on CIF. Preferential rates apply with valid Certificate of Origin from FTA partners. Check TRA import-procedures page for current steps and documents.",
       ],
     },
   },
   Zambia: {
     country: "Zambia",
-    sourceUrls: { export: "https://www.trade.gov/country-commercial-guides/zambia-import-requirements-and-documentation", import: "https://www.trade.gov/country-commercial-guides/zambia-import-requirements-and-documentation" },
+    sourceUrls: { export: "https://www.zambiatradeportal.gov.zm/", import: "https://www.zambiatradeportal.gov.zm/" },
     export: {
       documents: [
         "Commercial invoice",
         "Packing list",
-        "Export customs declaration",
+        "Export customs declaration (Zambia Trade Portal / ZRA)",
         "AfCFTA Certificate of Origin",
         "Transport document",
       ],
@@ -660,7 +658,7 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "Export permit for controlled goods",
       ],
       complianceNotes: [
-        "COMESA member; Simplified Trade Regime (STR) allows simplified documentation for consignments up to USD 1,000 at border.",
+        "COMESA member. Zambia Trade Portal (zambiatradeportal.gov.zm) and ZRA handle customs. Simplified Trade Regime (STR) allows simplified documentation for consignments up to USD 1,000 at border. Verify procedures on the Trade Portal.",
       ],
     },
     import: {
@@ -676,18 +674,18 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "SPS compliance for food and agricultural products",
       ],
       complianceNotes: [
-        "COMESA STR allows simplified declaration and CoO at border for low-value goods.",
+        "COMESA STR allows simplified declaration and CoO at border for low-value goods. Confirm current requirements and e-services on the Zambia Trade Portal.",
       ],
     },
   },
   Zimbabwe: {
     country: "Zimbabwe",
-    sourceUrls: { export: "https://www.trade.gov/country-commercial-guides/zimbabwe-import-requirements-and-documentations", import: "https://www.trade.gov/country-commercial-guides/zimbabwe-import-requirements-and-documentations" },
+    sourceUrls: { export: "https://www.zimra.co.zw/customs/customs-clearance-procedures", import: "https://www.zimra.co.zw/customs/customs-clearance-procedures" },
     export: {
       documents: [
         "Commercial invoice",
         "Packing list",
-        "Export customs declaration",
+        "Export customs declaration (ZIMRA)",
         "AfCFTA Certificate of Origin",
         "Bill of lading or waybill",
       ],
@@ -697,14 +695,14 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "Export permit for controlled goods",
       ],
       complianceNotes: [
-        "Duty calculated on CIF. Preferential rates for SADC/COMESA/AfCFTA with valid Certificate of Origin.",
+        "ZIMRA customs clearance procedures apply. Duty calculated on CIF. Preferential rates for SADC/COMESA/AfCFTA with valid Certificate of Origin. Verify on the ZIMRA customs-clearance-procedures page.",
       ],
     },
     import: {
       documents: [
         "Commercial invoice",
         "Packing list",
-        "Bill of Entry / Import declaration",
+        "Bill of Entry / Import declaration (ZIMRA)",
         "Certificate of Origin (SADC/COMESA/AfCFTA)",
         "Agent/importer worksheet",
         "Tax clearance (ITF 263 where required)",
@@ -715,7 +713,7 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
         "SPS compliance for agricultural and food products",
       ],
       complianceNotes: [
-        "ZIMRA manages customs clearance; ensure all permits and licences for controlled goods are in place.",
+        "ZIMRA manages customs clearance; ensure all permits and licences for controlled goods are in place. Check ZIMRA customs-clearance-procedures for current steps and document requirements.",
       ],
     },
   },
