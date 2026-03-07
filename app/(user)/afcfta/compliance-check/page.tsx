@@ -20,6 +20,7 @@ import {
   Paperclip,
   X,
   Download,
+  RotateCcw,
 } from "lucide-react";
 import { InfoIcon } from "@/components/ui/InfoIcon";
 import { buildAfCFTAReportPdf, loadImageAsDataUrl } from "@/lib/afcfta-report-pdf";
@@ -381,6 +382,12 @@ export default function ComplianceCheckPage() {
       .catch(() => setReportUsage(null));
   }, [activeStep]);
 
+  // Scroll to top when changing steps so the new step content is visible
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [activeStep]);
+
   const stepIndex = STEPS.findIndex((s) => s.id === activeStep);
   const progressPercent = ((stepIndex + 1) / STEPS.length) * 100;
 
@@ -425,6 +432,13 @@ export default function ComplianceCheckPage() {
   );
   const rvcPercent = totalCost > 0 ? (totalAfcfta / totalCost) * 100 : 0;
   const rvcMeetsThreshold = rvcPercent >= RVC_THRESHOLD;
+
+  // When product qualifies for AfCFTA (RVC meets threshold), auto-check "Product standards – compliant" on the checklist (system-determined)
+  useEffect(() => {
+    if (rvcMeetsThreshold) {
+      setChecklistProgress((prev) => ({ ...prev, "ntb-barrier-standards": true }));
+    }
+  }, [rvcMeetsThreshold]);
 
   const mockMfnRate = 10;
   const mockAfcftaRate = 0;
@@ -561,6 +575,28 @@ export default function ComplianceCheckPage() {
   const goPrev = () => {
     const prev = Math.max(0, stepIndex - 1);
     setActiveStep(STEPS[prev].id);
+  };
+
+  const resetJourney = () => {
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem(JOURNEY_STORAGE_KEY);
+      } catch {
+        // ignore
+      }
+    }
+    setActiveStep("start");
+    setHsCode("");
+    setProductName("");
+    setOriginContinent("Africa");
+    setOriginCountry("");
+    setDestContinent("Africa");
+    setDestCountry("");
+    setProductionRows([{ id: "1", description: "", sourceCountry: "", cost: "", fileName: "" }]);
+    setChecklistProgress({});
+    setShipmentValue("");
+    setSavingsTariffRow(null);
+    setSavingsTariffStatus("idle");
   };
 
   const lookupProductByHsCode = async (code: string) => {
@@ -1413,17 +1449,20 @@ export default function ComplianceCheckPage() {
                     <ul className="divide-y divide-border">
                       {getBarriersForDestination(destCountry, originCountry).map((item) => {
                         const key = `ntb-barrier-${item.id}`;
-                        const checked = !!checklistProgress[key];
+                        const isSystemChecked = item.id === "standards" && rvcMeetsThreshold;
+                        const checked = isSystemChecked || !!checklistProgress[key];
                         return (
                           <li key={item.id} className="px-6 py-5 hover:bg-muted/10 transition-colors">
                             <div className="flex items-start gap-4">
                               <button
                                 type="button"
-                                onClick={() => toggleChecklist(key)}
+                                onClick={isSystemChecked ? undefined : () => toggleChecklist(key)}
+                                disabled={isSystemChecked}
                                 className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded border-2 transition-all ${
                                   checked ? "border-emerald-600 bg-emerald-600 text-white" : "border-input bg-background"
-                                }`}
+                                } ${isSystemChecked ? "cursor-default opacity-100" : ""}`}
                                 aria-pressed={checked}
+                                title={isSystemChecked ? "Checked by system – your product meets AfCFTA RVC" : undefined}
                               >
                                 {checked && <CheckCircle2 className="h-4 w-4" />}
                               </button>
@@ -1475,49 +1514,59 @@ export default function ComplianceCheckPage() {
             <span className="text-sm text-muted-foreground">
               Step {stepIndex + 1} of {STEPS.length}
             </span>
-            {activeStep === "checklist" ? (
-              <div className="flex flex-col items-end gap-2">
-                {reportError && (
-                  <p className="text-sm text-red-600 dark:text-red-400 text-right max-w-xs">
-                    {reportError}
-                    <a href="/pricing" className="ml-1 underline">Upgrade or buy a report</a>
-                  </p>
-                )}
-                {reportUsage != null && reportUsage.canDownload && (
-                  <p className="text-xs text-muted-foreground">
-                    {reportUsage.remaining === null
-                      ? "Unlimited reports"
-                      : `${reportUsage.remaining} report${reportUsage.remaining !== 1 ? "s" : ""} remaining this month`}
-                    {reportUsage.payAsYouGoCount > 0 && ` · ${reportUsage.payAsYouGoCount} pay-as-you-go`}
-                  </p>
-                )}
-                {reportUsage != null && !reportUsage.canDownload && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400">
-                    Report limit reached. <a href="/pricing" className="underline">Upgrade or purchase a report</a>
-                  </p>
-                )}
-                <button
-                  type="button"
-                  onClick={handleDownloadReport}
-                  disabled={reportDownloadStatus === "loading" || reportUsage === null || (reportUsage != null && !reportUsage.canDownload)}
-                  className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#c99d2e] px-4 py-2 text-sm font-semibold text-[#1a1a1a] transition-all hover:scale-[1.02] hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                >
-                  {reportDownloadStatus === "loading" ? "Preparing…" : "Download Full Report"}
-                  <Download className="h-4 w-4" />
-                </button>
-              </div>
-            ) : (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={goNext}
-                disabled={stepIndex === STEPS.length - 1 || (activeStep === "start" && !isStartValid)}
-                title={activeStep === "start" && !isStartValid ? "Fill in all required fields on the Start step to continue" : undefined}
-                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#c99d2e] px-4 py-2 text-sm font-semibold text-[#1a1a1a] transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] hover:shadow-lg"
+                onClick={resetJourney}
+                className="flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
               >
-                {activeStep === "production" ? "Continue to Origin Check" : activeStep === "origin" ? "Continue to Barrier Check" : activeStep === "ntb" ? "Continue to Tariff Savings" : activeStep === "tariff" ? "View Compliance Checklist" : "Next"}
-                <ChevronRight className="h-4 w-4" />
+                <RotateCcw className="h-4 w-4" />
+                Reset journey
               </button>
-            )}
+              {activeStep === "checklist" ? (
+                <div className="flex flex-col items-end gap-2">
+                  {reportError && (
+                    <p className="text-sm text-red-600 dark:text-red-400 text-right max-w-xs">
+                      {reportError}
+                      <a href="/pricing" className="ml-1 underline">Upgrade or buy a report</a>
+                    </p>
+                  )}
+                  {reportUsage != null && reportUsage.canDownload && (
+                    <p className="text-xs text-muted-foreground">
+                      {reportUsage.remaining === null
+                        ? "Unlimited reports"
+                        : `${reportUsage.remaining} report${reportUsage.remaining !== 1 ? "s" : ""} remaining this month`}
+                      {reportUsage.payAsYouGoCount > 0 && ` · ${reportUsage.payAsYouGoCount} pay-as-you-go`}
+                    </p>
+                  )}
+                  {reportUsage != null && !reportUsage.canDownload && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      Report limit reached. <a href="/pricing" className="underline">Upgrade or purchase a report</a>
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleDownloadReport}
+                    disabled={reportDownloadStatus === "loading" || reportUsage === null || (reportUsage != null && !reportUsage.canDownload)}
+                    className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#c99d2e] px-4 py-2 text-sm font-semibold text-[#1a1a1a] transition-all hover:scale-[1.02] hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  >
+                    {reportDownloadStatus === "loading" ? "Preparing…" : "Download Full Report"}
+                    <Download className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={goNext}
+                  disabled={stepIndex === STEPS.length - 1 || (activeStep === "start" && !isStartValid)}
+                  title={activeStep === "start" && !isStartValid ? "Fill in all required fields on the Start step to continue" : undefined}
+                  className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#c99d2e] px-4 py-2 text-sm font-semibold text-[#1a1a1a] transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] hover:shadow-lg"
+                >
+                  {activeStep === "production" ? "Continue to Origin Check" : activeStep === "origin" ? "Continue to Barrier Check" : activeStep === "ntb" ? "Continue to Tariff Savings" : activeStep === "tariff" ? "View Compliance Checklist" : "Next"}
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
