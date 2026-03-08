@@ -38,14 +38,35 @@ function isTableRow(line: string): { cells: string[] } | null {
   return allCellLike ? { cells } : null;
 }
 
-// Parse body into blocks: either table (consecutive table-like rows) or paragraph text
+// Markdown pipe table: | Col1 | Col2 | or |---|---|
+function isMarkdownTableLine(line: string): boolean {
+  const t = line.trim();
+  if (!t || !t.includes("|")) return false;
+  const cells = t.split("|").map((c) => c.trim()).filter(Boolean);
+  return cells.length >= 2;
+}
+
+function parseMarkdownTableLine(line: string): string[] {
+  return line
+    .split("|")
+    .map((c) => c.trim())
+    .filter((c) => c !== ""); // keep all cells; for "| A | B |" we get [A, B]
+}
+
+function isMarkdownTableSeparatorRow(cells: string[]): boolean {
+  return cells.length >= 1 && cells.every((c) => /^-+$/.test(c.trim()));
+}
+
+// Parse body into blocks: table (numeric/space-separated or Markdown pipe), or paragraph
 type BodyBlock = { type: "table"; rows: string[][] } | { type: "paragraph"; text: string };
 function parseBodyBlocks(body: string): BodyBlock[] {
   const lines = body.split(/\n/);
   const blocks: BodyBlock[] = [];
   let i = 0;
   while (i < lines.length) {
-    const rowResult = isTableRow(lines[i]);
+    const line = lines[i];
+    // 1) Existing numeric/space-separated table
+    const rowResult = isTableRow(line);
     if (rowResult) {
       const rows: string[][] = [rowResult.cells];
       const colCount = rowResult.cells.length;
@@ -59,8 +80,28 @@ function parseBodyBlocks(body: string): BodyBlock[] {
       if (rows.length >= 1) blocks.push({ type: "table", rows });
       continue;
     }
+    // 2) Markdown pipe table (e.g. | Classes | Commune de Dakar | ...)
+    if (isMarkdownTableLine(line)) {
+      const rows: string[][] = [];
+      let colCount = 0;
+      while (i < lines.length && isMarkdownTableLine(lines[i])) {
+        const cells = parseMarkdownTableLine(lines[i]);
+        if (cells.length >= 2) {
+          if (isMarkdownTableSeparatorRow(cells)) {
+            i++;
+            continue;
+          }
+          if (colCount === 0) colCount = cells.length;
+          if (cells.length === colCount) rows.push(cells);
+        }
+        i++;
+      }
+      if (rows.length >= 1) blocks.push({ type: "table", rows });
+      continue;
+    }
+    // 3) Paragraph
     const paraLines: string[] = [];
-    while (i < lines.length && !isTableRow(lines[i])) {
+    while (i < lines.length && !isTableRow(lines[i]) && !isMarkdownTableLine(lines[i])) {
       paraLines.push(lines[i]);
       i++;
     }
@@ -68,6 +109,47 @@ function parseBodyBlocks(body: string): BodyBlock[] {
     if (text) blocks.push({ type: "paragraph", text });
   }
   return blocks;
+}
+
+// Body items for a section: table, paragraph, or sub-heading (with id for sidebar/scroll)
+type BodyItem =
+  | { type: "table"; rows: string[][] }
+  | { type: "p"; text: string }
+  | { type: "h3"; text: string; id: string };
+function getBodyItems(sec: Section): BodyItem[] {
+  const items: BodyItem[] = [];
+  let subIdx = 0;
+  for (const block of parseBodyBlocks(sec.body)) {
+    if (block.type === "table") {
+      items.push({ type: "table", rows: block.rows });
+      continue;
+    }
+    const lines = block.text
+      .split(/\n/)
+      .filter((l) => !isPageMarker(l) && !isJunkLine(l))
+      .map((l) => l.trim())
+      .filter(Boolean);
+    for (const line of lines) {
+      if (isSubHeadingLine(line)) {
+        items.push({ type: "h3", text: line, id: `${sec.id}-h-${subIdx++}` });
+      } else {
+        items.push({ type: "p", text: line });
+      }
+    }
+  }
+  return items;
+}
+
+// Full outline for sidebar: section titles + sub-headings, with level for styling
+type OutlineItem = { id: string; title: string; level: "section" | "sub" };
+function getOutlineItems(sections: Section[]): OutlineItem[] {
+  return sections.flatMap((sec) => {
+    const bodyItems = getBodyItems(sec);
+    const subHeads = bodyItems
+      .filter((i): i is { type: "h3"; text: string; id: string } => i.type === "h3")
+      .map((i) => ({ id: i.id, title: i.text, level: "sub" as const }));
+    return [{ id: sec.id, title: sec.title, level: "section" as const }, ...subHeads];
+  });
 }
 
 // Default headers for 4-column Companies Act / Bill cross-reference table
@@ -95,40 +177,43 @@ function isLikelyMarkdown(text: string): boolean {
   return false;
 }
 
-// Only major headings start a new section. Numbered provisions (356., 357.) stay in body so all content is shown.
-// Includes Arabic: المادة (Article), الفصل (Chapter), الباب (Part). French: Article, Chapitre, Titre, Art.
-// Kinyarwanda: Ingingo ya 1, Ingingo 2, etc. Markdown: ## Heading, ### Subheading, **Bold heading** on its own line.
-function isSectionStart(line: string): boolean {
+// Major headings start a new section (new card). Section and Article stay in the flow as sub-headings so the doc doesn’t fragment.
+// Major: Part, Titre, Chapitre, Chapter, markdown ##, Arabic الباب/الفصل. Minor (sub-headings in body): Section, Article, Art., Ingingo, المادة.
+function isMajorSectionStart(line: string): boolean {
   const t = line.trim();
   if (!t) return false;
   // Markdown headings: ## Title or ### Subtitle
   if (/^#{1,6}\s+\S/.test(t)) return true;
-  // Markdown bold-only line as heading (e.g. **Introduction**, **Article I**)
+  // Markdown bold-only line as heading (e.g. **Introduction**)
   if (/^\*\*[^*]+\*\*\s*$/.test(t) || /^__[^_]+__\s*$/.test(t)) return true;
-  // "Section 20", "Section 21.", "Section 22"
-  if (/^Section\s+\d+[.:]?\s*/i.test(t)) return true;
   // "Part D: Administrative...", "Part E: General Provisions"
   if (/^Part\s+[A-Z][.:]?\s+/i.test(t)) return true;
-  // "Article 1", "Article 2." (English/French)
-  if (/^Article\s+\d+[.:]?\s*/i.test(t)) return true;
-  // "Art. 1", "Art. 2" (French abbreviation)
-  if (/^Art\.\s*\d+[.:]?\s*/i.test(t)) return true;
   // "Chapter 1", "Chapter 2." (English)
   if (/^Chapter\s+\d+[.:]?\s*/i.test(t)) return true;
-  // French: "Chapitre I", "Chapitre 1", "Chapitre II"
+  // French: "Chapitre I", "Chapitre III - POUVOIRS..."
   if (/^Chapitre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*/i.test(t)) return true;
-  // French: "Titre I", "Titre 1", "Titre II" (Title/Part)
+  // French: "Titre I", "Titre II" (Title/Part)
   if (/^Titre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*/i.test(t)) return true;
-  // Kinyarwanda: "Ingingo ya 1", "Ingingo 2." – articles/provisions
-  if (/^Ingingo\s+(ya\s+)?\d+[.:]?\s*/i.test(t)) return true;
-  // Arabic: المادة 1، المادة ۲ (Article), الفصل (Chapter), الباب (Part)
-  if (/^\s*المادة\s*[\d٠-٩]+/u.test(t)) return true;
+  // Arabic: الفصل (Chapter), الباب (Part) – major divisions
   if (/^\s*الفصل\s*[\d٠-٩]*/u.test(t)) return true;
   if (/^\s*الباب\s+/u.test(t) || /^\s*الباب\s*[\d٠-٩]/u.test(t)) return true;
-  // Standalone topic headings: "Lien", "Definitions" – but skip OCR noise (very short or all-caps fragments)
-  if (t.length <= 3) return false; // "SI", "An", "Vv" etc.
-  if (/^[A-Z]{2,3}$/.test(t)) return false; // "SI", "AN"
+  // Standalone topic headings (short, single-word style) – but never "Section" or "Article" (they are sub-headings)
+  if (t.length <= 3) return false;
+  if (/^[A-Z]{2,3}$/.test(t)) return false;
+  if (/^(Section|Article)$/i.test(t)) return false;
   if (/^[A-Z][a-z]+$/.test(t) && t.length < 50) return true;
+  return false;
+}
+
+// Sub-headings: Section, Article, Art. – shown inside the section body as h3-style lines, not as new cards (include Roman numerals: Section I, Section II)
+function isSubHeadingLine(line: string): boolean {
+  const t = line.trim();
+  if (!t) return false;
+  if (/^Section\s+[\dIVXLCDMivxlcdm]+[.:]?\s*/i.test(t)) return true;
+  if (/^Article\s+\d+[.:]?\s*/i.test(t)) return true;
+  if (/^Art\.\s*\d+[.:]?\s*/i.test(t)) return true;
+  if (/^Ingingo\s+(ya\s+)?\d+[.:]?\s*/i.test(t)) return true;
+  if (/^\s*المادة\s*[\d٠-٩]+/u.test(t)) return true;
   return false;
 }
 
@@ -187,7 +272,7 @@ function isJunkLine(line: string): boolean {
   return false;
 }
 
-// Split content using actual headings from the document (Section 20, Part D:, 356. Meetings, Lien, etc.)
+// Split content by major headings only (Part, Chapitre, Titre, Chapter). Section and Article stay in body as sub-headings.
 function splitIntoSections(text: string): Section[] {
   if (!text?.trim()) return [];
 
@@ -197,7 +282,7 @@ function splitIntoSections(text: string): Section[] {
   let currentBody: string[] = [];
 
   for (const line of lines) {
-    if (isSectionStart(line)) {
+    if (isMajorSectionStart(line)) {
       if (currentTitle || currentBody.length > 0) {
         sections.push({
           id: `sec-${sections.length}`,
@@ -208,30 +293,27 @@ function splitIntoSections(text: string): Section[] {
       currentTitle = sectionTitle(line);
       currentBody = [];
       const t = line.trim();
-      // Put any text after the heading on the same line into body (e.g. "Section 20. A forfeited share...")
+      // Put any text after the major heading on the same line into body
       const mdHeadingLine = /^(#{1,6}\s+)(.+)$/.exec(t);
       if (mdHeadingLine && mdHeadingLine[2].trim()) {
         currentBody.push(mdHeadingLine[2].trim());
       } else {
-        const sectionLike =
-          /^(Section\s+\d+[.:]?\s*)(.*)$/i.exec(t) ||
-          /^(Article\s+\d+[.:]?\s*)(.*)$/i.exec(t) ||
-          /^(Art\.\s*\d+[.:]?\s*)(.*)$/i.exec(t) ||
+        const majorLike =
+          /^(Part\s+[A-Z][.:]?\s*)(.*)$/i.exec(t) ||
           /^(Chapter\s+\d+[.:]?\s*)(.*)$/i.exec(t) ||
           /^(Chapitre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*)(.*)$/i.exec(t) ||
-          /^(Titre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*)(.*)$/i.exec(t) ||
-          /^(Ingingo\s+(?:ya\s+)?\d+[.:]?\s*)(.*)$/i.exec(t);
-        if (sectionLike && sectionLike[2].trim()) {
-          currentBody.push(sectionLike[2].trim());
+          /^(Titre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*)(.*)$/i.exec(t);
+        if (majorLike && majorLike[2].trim()) {
+          currentBody.push(majorLike[2].trim());
         } else {
-          const arArticleLine = /^(\s*المادة\s*[\d٠-٩]+[\s.:،]*)(.+)$/u.exec(t);
           const arChapterLine = /^(\s*الفصل\s*[\d٠-٩]*[\s.:،]*)(.+)$/u.exec(t);
-          if (arArticleLine && arArticleLine[2].trim()) currentBody.push(arArticleLine[2].trim());
-          else if (arChapterLine && arChapterLine[2].trim()) currentBody.push(arChapterLine[2].trim());
+          const arPartLine = /^(\s*الباب\s+[^\n]{0,60}[\s.:،]*)(.+)$/u.exec(t);
+          if (arChapterLine && arChapterLine[2].trim()) currentBody.push(arChapterLine[2].trim());
+          else if (arPartLine && arPartLine[2].trim()) currentBody.push(arPartLine[2].trim());
         }
       }
     } else {
-      // Skip page markers and OCR junk (e.g. "|", ";", symbol-only lines)
+      // Section, Article, Art. and normal lines all go into body (Section/Article rendered as sub-headings later)
       if (!isPageMarker(line) && !isJunkLine(line)) currentBody.push(line);
     }
   }
@@ -461,28 +543,33 @@ export default function LawDetailPage({
 
   const rawContent = law.content_plain || law.content || "";
   const sections = splitIntoSections(rawContent);
+  const outlineItems = getOutlineItems(sections);
   const hasContent = sections.length > 0;
   const isRtl = isPrimarilyArabic(rawContent);
 
   return (
-    <div className="min-h-screen">
-      <div className="border-b border-border bg-card/50 px-4 py-6">
+    <div className="min-h-screen bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,var(--primary)/8%,transparent)]">
+      <header className="border-b border-border/80 bg-card/80 px-4 py-8 backdrop-blur-md sm:px-6">
         <div className="mx-auto max-w-6xl">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <Link
                 href={returnTo && returnTo.startsWith("/library") ? returnTo : "/library"}
-                className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                className="group inline-flex items-center gap-2 rounded-full border border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-all duration-200 hover:border-border hover:bg-muted/50 hover:text-foreground"
                 title="Back to the African Legal Library"
               >
-                <ChevronLeft className="h-4 w-4" /> Back to Library
+                <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" /> Back to Library
               </Link>
-              <h1 className="mt-4 text-2xl font-semibold tracking-tight text-foreground">
+              <h1 className="mt-6 font-extrabold leading-[1.15] tracking-tight text-foreground text-2xl sm:text-3xl md:text-4xl md:tracking-[-0.02em]">
                 {law.title}
               </h1>
+              <div className="mt-4 flex items-center gap-3" aria-hidden>
+                <div className="h-1 w-12 rounded-full bg-primary" />
+                <div className="h-px flex-1 max-w-24 bg-gradient-to-r from-primary/60 to-transparent" />
+              </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {hasContent && sections.length > 1 && (
+              {hasContent && sections.length >= 1 && (
                 <button
                   type="button"
                   onClick={() => setMobileContentsOpen(true)}
@@ -495,22 +582,26 @@ export default function LawDetailPage({
               )}
             </div>
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-            <span>{law.countries?.name ?? "—"}</span>
-            <span>·</span>
-            <span>{law.categories?.name ?? "—"}</span>
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            {law.countries?.name && (
+              <span className="rounded-full bg-primary/15 px-3.5 py-1.5 text-xs font-semibold tracking-wide text-primary">
+                {law.countries.name}
+              </span>
+            )}
+            {law.categories?.name && (
+              <span className="rounded-full bg-muted/80 px-3.5 py-1.5 text-xs font-medium text-muted-foreground">
+                {law.categories.name}
+              </span>
+            )}
             {law.source_url && (
-              <>
-                <span>·</span>
-                <a
-                  href={law.source_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  Source
-                </a>
-              </>
+              <a
+                href={law.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-full border border-border/80 bg-background/80 px-3.5 py-1.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted/50"
+              >
+                Source
+              </a>
             )}
           </div>
           {/* Law Summary (Team Plan Only) */}
@@ -522,22 +613,22 @@ export default function LawDetailPage({
                   <span>Loading summary...</span>
                 </div>
               ) : summary ? (
-                <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-                  <h3 className="text-sm font-semibold text-foreground mb-2">AI Summary</h3>
-                  <p className="text-sm text-foreground/90 leading-relaxed">{summary.summary_text}</p>
+                <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 p-5 shadow-sm">
+                  <h3 className="mb-2.5 text-sm font-bold uppercase tracking-wider text-foreground">AI Summary</h3>
+                  <p className="text-sm leading-relaxed text-foreground/90">{summary.summary_text}</p>
                 </div>
               ) : (
-                <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+                <div className="rounded-2xl border border-border/80 bg-muted/20 p-5 text-sm text-muted-foreground">
                   <p>No summary available for this law yet.</p>
                 </div>
               )}
             </div>
           )}
         </div>
-      </div>
+      </header>
 
       {/* Mobile Contents drawer */}
-      {hasContent && sections.length > 1 && mobileContentsOpen && (
+      {hasContent && sections.length >= 1 && mobileContentsOpen && (
         <>
           <div
             className="fixed inset-0 z-50 bg-black/50 lg:hidden"
@@ -545,11 +636,11 @@ export default function LawDetailPage({
             onClick={() => setMobileContentsOpen(false)}
           />
           <aside
-            className="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] border-r border-border bg-card shadow-xl lg:hidden"
+            className="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] border-r border-border/80 bg-card/95 shadow-2xl backdrop-blur-xl lg:hidden"
             aria-label="Contents"
           >
-            <div className="flex h-14 items-center justify-between border-b border-border px-4">
-              <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            <div className="flex h-14 items-center justify-between border-b border-border/80 bg-muted/20 px-5 backdrop-blur-sm">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                 Contents
               </p>
               <button
@@ -562,18 +653,19 @@ export default function LawDetailPage({
               </button>
             </div>
             <ul className={`max-h-[calc(100vh-3.5rem)] space-y-0.5 overflow-y-auto p-4 ${isRtl ? "text-right" : ""}`} dir={isRtl ? "rtl" : undefined}>
-              {sections.map((sec) => (
-                <li key={sec.id}>
+              {outlineItems.map((item) => (
+                <li key={item.id} className={item.level === "sub" ? "pl-3" : undefined}>
                   <button
                     type="button"
                     onClick={() => {
-                      setActiveSection(sec.id);
-                      document.getElementById(sec.id)?.scrollIntoView({ behavior: "smooth" });
+                      setActiveSection(item.id);
+                      document.getElementById(item.id)?.scrollIntoView({ behavior: "smooth" });
                       setMobileContentsOpen(false);
                     }}
-                    className={`block w-full rounded px-3 py-2.5 text-sm ${isRtl ? "text-right" : "text-left"} ${activeSection === sec.id ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
+                    className={`block w-full rounded-lg border-l-2 py-2.5 pr-3 text-left transition-all duration-200 ${item.level === "section" ? "pl-3 text-sm font-bold" : "pl-2 text-xs font-medium"} ${isRtl ? "text-right border-l-0 border-r-2 pr-3 pl-3" : ""} ${activeSection === item.id ? "border-primary bg-primary/10 font-semibold text-primary" : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
+                    title={item.title.length > 60 ? item.title : undefined}
                   >
-                    {sec.title}
+                    <span className="block truncate">{item.title}</span>
                   </button>
                 </li>
               ))}
@@ -582,56 +674,58 @@ export default function LawDetailPage({
         </>
       )}
 
-      <div className="mx-auto max-w-6xl px-4 py-8">
-        <div className="flex flex-col gap-8 lg:flex-row">
+      <div className="min-h-screen bg-gradient-to-b from-muted/10 via-background to-muted/20">
+        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+          <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
           {/* Desktop: sidebar. Mobile: hidden (use hamburger + drawer) */}
-          {hasContent && sections.length > 1 && (
+          {hasContent && sections.length >= 1 && (
             <nav
-              className="hidden shrink-0 lg:block lg:w-56"
-              style={contentsPosition ? { position: "fixed", left: contentsPosition.x, top: contentsPosition.y, zIndex: 50, width: "14rem" } : undefined}
+              className="hidden shrink-0 lg:block lg:w-60"
+              style={contentsPosition ? { position: "fixed", left: contentsPosition.x, top: contentsPosition.y, zIndex: 50, width: "15rem" } : undefined}
               ref={contentsRef}
             >
-              <div className="sticky top-24 rounded-lg border border-border bg-card p-4 shadow-lg">
+              <div className="sticky top-24 rounded-2xl border border-border/80 bg-card/70 p-5 shadow-xl shadow-black/[0.06] backdrop-blur-xl dark:bg-card/80 dark:shadow-none dark:ring-1 dark:ring-white/10">
                 <div
                   role="button"
                   tabIndex={0}
                   onMouseDown={handleContentsMouseDown}
                   onDoubleClick={() => setContentsPosition(null)}
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") e.currentTarget.click(); }}
-                  className="mb-3 flex cursor-grab items-center gap-2 active:cursor-grabbing"
+                  className="mb-4 flex cursor-grab items-center gap-2.5 active:cursor-grabbing"
                   title="Drag to move. Double-click to reset position."
                 >
-                  <GripVertical className="h-4 w-4 text-muted-foreground" />
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <GripVertical className="h-4 w-4 text-muted-foreground/80" />
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                     Contents
                   </p>
                 </div>
-                <ul className={`max-h-[70vh] space-y-1 overflow-y-auto ${isRtl ? "text-right" : ""}`} dir={isRtl ? "rtl" : undefined}>
-                  {sections.map((sec) => (
-                    <li key={sec.id}>
+                <ul className={`max-h-[70vh] space-y-0.5 overflow-y-auto ${isRtl ? "text-right" : ""}`} dir={isRtl ? "rtl" : undefined}>
+                  {outlineItems.map((item) => (
+                    <li key={item.id} className={item.level === "sub" ? "pl-3" : undefined}>
                       <button
                         type="button"
                         onClick={() => {
-                          setActiveSection(sec.id);
-                          document.getElementById(sec.id)?.scrollIntoView({ behavior: "smooth" });
+                          setActiveSection(item.id);
+                          document.getElementById(item.id)?.scrollIntoView({ behavior: "smooth" });
                         }}
-                        className={`block w-full rounded px-2 py-1.5 text-sm ${isRtl ? "text-right" : "text-left"} ${activeSection === sec.id ? "bg-primary/10 font-medium text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
+                        className={`block w-full rounded-xl py-2 pr-3 text-left transition-all duration-200 ${item.level === "section" ? "pl-3 text-sm font-bold" : "pl-2 text-xs font-medium"} ${isRtl ? "text-right pr-3 pl-3" : ""} ${activeSection === item.id ? "bg-primary/12 font-semibold text-primary shadow-sm" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
+                        title={item.title.length > 50 ? item.title : undefined}
                       >
-                        {sec.title}
+                        <span className={`block truncate ${item.level === "section" ? "" : "border-s-2 border-primary/30 ps-2"}`}>{item.title}</span>
                       </button>
                     </li>
                   ))}
                 </ul>
-                <p className="mt-2 text-[10px] text-muted-foreground">Drag header to move</p>
+                <p className="mt-3 text-[10px] font-medium tracking-wide text-muted-foreground/70">Drag to move</p>
               </div>
             </nav>
           )}
 
           <main className="min-w-0 flex-1">
             {!hasContent && (
-              <div className="rounded-xl border border-border bg-card p-8 text-center">
-                <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-                <p className="mt-4 text-muted-foreground">
+              <div className="rounded-2xl border border-border bg-muted/20 p-12 text-center shadow-sm">
+                <FileText className="mx-auto h-14 w-14 text-muted-foreground/70" />
+                <p className="mt-5 text-base text-muted-foreground">
                   Full text for this law is not yet available.
                 </p>
                 {law.source_url && (
@@ -639,7 +733,7 @@ export default function LawDetailPage({
                     href={law.source_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-4 inline-block text-primary hover:underline"
+                    className="mt-5 inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                   >
                     View source
                   </a>
@@ -648,64 +742,50 @@ export default function LawDetailPage({
             )}
 
             {hasContent && (
-              <div className="space-y-10">
-                {sections.map((sec) => (
-                  <section
-                    key={sec.id}
-                    id={sec.id}
-                    className="scroll-mt-24 rounded-xl border border-border bg-card p-6"
-                    dir={isRtl ? "rtl" : undefined}
-                    lang={isRtl ? "ar" : undefined}
-                  >
-                    <h2 className="mb-4 text-lg font-semibold text-foreground">
-                      {sec.title}
-                    </h2>
-                    <div
-                      className={`prose prose-sm max-w-none text-foreground dark:prose-invert ${isRtl ? "text-right" : ""}`}
-                      dir={isRtl ? "rtl" : undefined}
-                      lang={isRtl ? "ar" : undefined}
-                    >
+              <article className="w-full overflow-hidden rounded-3xl border border-border/80 bg-card shadow-2xl shadow-black/[0.08] ring-1 ring-black/[0.05] dark:ring-white/10 transition-shadow duration-300 hover:shadow-black/[0.12]" dir={isRtl ? "rtl" : undefined} lang={isRtl ? "ar" : undefined}>
+                {/* Accent strip */}
+                <div className="h-2 w-full bg-gradient-to-r from-primary via-primary to-amber-500/80" aria-hidden />
+                <div className={`mx-auto w-full max-w-4xl px-6 py-8 sm:px-12 sm:py-10 md:px-16 md:py-14 ${isRtl ? "text-right" : ""}`} dir={isRtl ? "rtl" : undefined} lang={isRtl ? "ar" : undefined}>
+                  {sections.map((sec) => (
+                    <section key={sec.id} id={sec.id} className="scroll-mt-24 border-b border-border/40 pb-14 last:border-0 last:pb-0">
+                      {/* Level 1: Section / Chapter – big, bold, primary accent */}
+                      <h2 className="mb-8 mt-14 border-s-4 border-primary bg-gradient-to-r from-primary/12 to-primary/5 py-4 ps-6 first:mt-0 sm:ps-7">
+                        <span className="text-2xl font-extrabold tracking-tight text-foreground sm:text-[1.65rem]">
+                          {sec.title}
+                        </span>
+                      </h2>
                       {isLikelyMarkdown(sec.body) ? (
-                        <div className="prose prose-sm max-w-none text-foreground dark:prose-invert prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground">
+                        <div className="prose prose-lg max-w-none leading-relaxed text-foreground dark:prose-invert prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-foreground prose-p:leading-[1.75] prose-p:text-foreground/90 prose-li:text-foreground">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {sec.body}
                           </ReactMarkdown>
                         </div>
                       ) : (
                         <>
-                          {parseBodyBlocks(sec.body).map((block, bi) =>
-                            block.type === "table" ? (
-                              <div key={bi} className="my-6 overflow-x-auto">
-                                <table className="w-full min-w-[400px] border-collapse border border-border text-sm">
+                          {getBodyItems(sec).map((item, bi) =>
+                            item.type === "table" ? (
+                              <div key={bi} className="my-8 overflow-x-auto rounded-xl border border-border/80 shadow-sm">
+                                <table className="w-full min-w-[400px] border-collapse text-sm">
                                   <thead>
                                     <tr>
-                                      {block.rows[0].length === 4
+                                      {item.rows[0].length === 4
                                         ? COMPANIES_ACT_TABLE_HEADERS.map((h, j) => (
-                                            <th
-                                              key={j}
-                                              className="border border-border bg-muted/50 px-3 py-2 text-left font-semibold"
-                                            >
+                                            <th key={j} className="border-b border-border bg-muted/40 px-4 py-3 text-left font-semibold text-foreground">
                                               {h}
                                             </th>
                                           ))
-                                        : block.rows[0].map((_, j) => (
-                                            <th
-                                              key={j}
-                                              className="border border-border bg-muted/50 px-3 py-2 text-left font-semibold"
-                                            >
+                                        : item.rows[0].map((_, j) => (
+                                            <th key={j} className="border-b border-border bg-muted/40 px-4 py-3 text-left font-semibold text-foreground">
                                               Col {j + 1}
                                             </th>
                                           ))}
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {block.rows.map((row, ri) => (
-                                      <tr key={ri}>
+                                    {item.rows.map((row, ri) => (
+                                      <tr key={ri} className="transition-colors hover:bg-muted/20">
                                         {row.map((cell, ci) => (
-                                          <td
-                                            key={ci}
-                                            className="border border-border px-3 py-2 text-center"
-                                          >
+                                          <td key={ci} className="border-b border-border/60 px-4 py-3 text-center last:border-b-0">
                                             {cell}
                                           </td>
                                         ))}
@@ -714,32 +794,34 @@ export default function LawDetailPage({
                                   </tbody>
                                 </table>
                               </div>
+                            ) : item.type === "h3" ? (
+                              <h3
+                                key={bi}
+                                id={item.id}
+                                className="mt-8 mb-4 scroll-mt-24 border-s-2 border-primary/50 ps-4 text-[1.0625rem] font-semibold tracking-tight text-foreground/95 first:mt-0 sm:ps-5"
+                              >
+                                {item.text}
+                              </h3>
                             ) : (
-                              <div key={bi} className="mb-3">
-                                {block.text
-                                  .split(/\n/)
-                                  .filter((line) => !isPageMarker(line) && !isJunkLine(line))
-                                  .map((para, pi) => (
-                                    <p key={pi} className="mb-3 last:mb-0">
-                                      {para.trim() || "\u00A0"}
-                                    </p>
-                                  ))}
-                              </div>
+                              <p key={bi} className="mb-5 pl-0 text-[1.0625rem] leading-[1.8] text-foreground/85 last:mb-0 sm:pl-0">
+                                {item.text}
+                              </p>
                             )
                           )}
                         </>
                       )}
-                    </div>
-                  </section>
-                ))}
-              </div>
+                    </section>
+                  ))}
+                </div>
+              </article>
             )}
           </main>
+          </div>
         </div>
       </div>
 
       {hasContent && (
-        <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-1.5 rounded-lg border border-border bg-card/95 p-1.5 shadow-lg backdrop-blur">
+        <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-1 rounded-2xl border border-border/80 bg-card/90 p-2 shadow-xl shadow-black/10 backdrop-blur-xl">
           {/* Back to Library */}
           <div className="relative group">
             <Link
