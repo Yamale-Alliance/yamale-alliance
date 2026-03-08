@@ -24,7 +24,7 @@ export async function GET(
     const { data, error } = await supabase
       .from("laws")
       .select(
-        "id, title, country_id, category_id, year, status, content, content_plain"
+        "id, title, country_id, category_id, year, status, source_url, source_name, content, content_plain"
       )
       .eq("id", id)
       .single();
@@ -41,7 +41,7 @@ export async function GET(
   }
 }
 
-/** PUT: update law text (content/content_plain) for typo fixes and corrections. */
+/** PUT: update law metadata (title, country, category, year, status, source) and/or content. */
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -56,22 +56,39 @@ export async function PUT(
 
   try {
     const body = await request.json().catch(() => ({}));
-    const content = typeof body.content === "string" ? body.content : null;
-    if (content === null) {
-      return NextResponse.json({ error: "content is required" }, { status: 400 });
+    const supabase = getSupabaseServer();
+
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
+    if (typeof body.title === "string") {
+      const t = body.title.trim();
+      if (!t) {
+        return NextResponse.json({ error: "title cannot be empty" }, { status: 400 });
+      }
+      updates.title = t;
+    }
+    if (body.country_id !== undefined) updates.country_id = body.country_id || null;
+    if (body.category_id !== undefined) updates.category_id = body.category_id || null;
+    if (body.year !== undefined) updates.year = body.year ? Number(body.year) : null;
+    if (typeof body.status === "string") updates.status = body.status.trim() || "In force";
+    if (typeof body.source_url === "string") updates.source_url = body.source_url.trim() || null;
+    if (typeof body.source_name === "string") updates.source_name = body.source_name.trim() || null;
+
+    if (typeof body.content === "string") {
+      const trimmed = body.content.trim() || null;
+      updates.content = trimmed;
+      updates.content_plain = trimmed;
     }
 
-    const trimmed = content.trim() || null;
-    const supabase = getSupabaseServer();
+    if (Object.keys(updates).length <= 1) {
+      return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data, error } = await (supabase.from("laws") as any)
-      .update({
-        content: trimmed,
-        content_plain: trimmed,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updates)
       .eq("id", id)
-      .select("id, title")
+      .select("id, title, country_id, category_id, year, status, source_url, source_name")
       .single();
 
     if (error) {
@@ -85,7 +102,7 @@ export async function PUT(
       action: "law.update",
       entityType: "law",
       entityId: id,
-      details: { fields: ["content", "content_plain"], title: data?.title },
+      details: { fields: Object.keys(updates).filter((k) => k !== "updated_at"), title: data?.title },
     });
 
     return NextResponse.json({ ok: true, law: data });
