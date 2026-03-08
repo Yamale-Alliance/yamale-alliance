@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, FileUp, FileText } from "lucide-react";
+import { ArrowLeft, Loader2, FileUp, FileText, CheckCircle2 } from "lucide-react";
 
 type Country = { id: string; name: string };
 type Category = { id: string; name: string };
@@ -11,7 +10,6 @@ type Category = { id: string; name: string };
 type InputMode = "upload" | "paste";
 
 export default function AdminLawsAddPage() {
-  const router = useRouter();
   const [countries, setCountries] = useState<Country[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [countryId, setCountryId] = useState("");
@@ -25,6 +23,7 @@ export default function AdminLawsAddPage() {
   const [pastedContent, setPastedContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`${window.location.origin}/api/laws`, { credentials: "include" })
@@ -39,6 +38,7 @@ export default function AdminLawsAddPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccessMessage(null);
     if (!title.trim()) {
       setError("Title is required.");
       return;
@@ -95,8 +95,17 @@ export default function AdminLawsAddPage() {
         setSubmitting(false);
         return;
       }
-      router.push("/admin-panel/laws");
-      router.refresh();
+      setSuccessMessage("Law added successfully. You can add another below.");
+      setTitle("");
+      setYear("");
+      setPastedContent("");
+      setFile(null);
+      if (mode === "upload" && typeof document !== "undefined") {
+        const fileInput = document.querySelector<HTMLInputElement>('input[type="file"][accept="application/pdf"]');
+        if (fileInput) fileInput.value = "";
+      }
+      setSubmitting(false);
+      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
       if ((e as Error).name === "AbortError") {
         setError("Request took too long. Try a smaller PDF or use “Paste content” for very large documents.");
@@ -125,6 +134,12 @@ export default function AdminLawsAddPage() {
         {error && (
           <div className="rounded-md bg-destructive/10 text-destructive px-4 py-3 text-sm">
             {error}
+          </div>
+        )}
+        {successMessage && (
+          <div className="flex items-center gap-2 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 px-4 py-3 text-sm">
+            <CheckCircle2 className="h-5 w-5 shrink-0" />
+            {successMessage}
           </div>
         )}
 
@@ -217,7 +232,10 @@ export default function AdminLawsAddPage() {
           <input
             type="text"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              setSuccessMessage(null);
+            }}
             placeholder="e.g. Companies Act, 2019"
             required
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -244,7 +262,10 @@ export default function AdminLawsAddPage() {
               <input
                 type="file"
                 accept="application/pdf"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  setFile(e.target.files?.[0] ?? null);
+                  setSuccessMessage(null);
+                }}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:mr-4 file:rounded file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:text-primary-foreground"
               />
               <p className="mt-1 text-xs text-muted-foreground">
@@ -275,7 +296,10 @@ export default function AdminLawsAddPage() {
             <label className="block text-sm font-medium mb-1">Law content *</label>
             <textarea
               value={pastedContent}
-              onChange={(e) => setPastedContent(e.target.value)}
+              onChange={(e) => {
+                setPastedContent(e.target.value);
+                setSuccessMessage(null);
+              }}
               placeholder="Paste the full text of the law here. You can use plain text or Markdown (headings, lists, etc.)."
               rows={14}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono placeholder:text-muted-foreground resize-y min-h-[200px]"
