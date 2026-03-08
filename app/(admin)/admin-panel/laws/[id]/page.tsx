@@ -5,9 +5,18 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Search, Trash2 } from "lucide-react";
 
+type Country = { id: string; name: string };
+type Category = { id: string; name: string };
+
 type LawForEdit = {
   id: string;
   title: string;
+  country_id: string;
+  category_id: string;
+  year: number | null;
+  status: string;
+  source_url: string | null;
+  source_name: string | null;
   content: string | null;
   content_plain: string | null;
 };
@@ -17,16 +26,35 @@ export default function AdminLawEditPage() {
   const id = params?.id as string;
 
   const [law, setLaw] = useState<LawForEdit | null>(null);
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [title, setTitle] = useState("");
+  const [countryId, setCountryId] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [year, setYear] = useState("");
+  const [status, setStatus] = useState("In force");
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [sourceName, setSourceName] = useState("");
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [findValue, setFindValue] = useState("");
   const [replaceValue, setReplaceValue] = useState("");
   const [replaceResult, setReplaceResult] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    fetch(`${window.location.origin}/api/laws`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        setCountries(data.countries ?? []);
+        setCategories(data.categories ?? []);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -42,6 +70,13 @@ export default function AdminLawEditPage() {
         }
         const lawData = data.law as LawForEdit;
         setLaw(lawData);
+        setTitle(lawData.title ?? "");
+        setCountryId(lawData.country_id ?? "");
+        setCategoryId(lawData.category_id ?? "");
+        setYear(lawData.year != null ? String(lawData.year) : "");
+        setStatus(lawData.status ?? "In force");
+        setSourceUrl(lawData.source_url ?? "");
+        setSourceName(lawData.source_name ?? "");
         setText(lawData.content_plain ?? lawData.content ?? "");
       })
       .catch(() => {
@@ -64,7 +99,7 @@ export default function AdminLawEditPage() {
     }
     setText(parts.join(replaceValue));
     setReplaceResult(count);
-    setStatus(null);
+    setStatusMsg(null);
   };
 
   const handleDelete = async () => {
@@ -90,15 +125,28 @@ export default function AdminLawEditPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id) return;
+    if (!title.trim()) {
+      setError("Title is required.");
+      return;
+    }
     setSaving(true);
     setError(null);
-    setStatus(null);
+    setStatusMsg(null);
     try {
       const res = await fetch(`/api/admin/laws/${id}`, {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: text }),
+        body: JSON.stringify({
+          title: title.trim(),
+          country_id: countryId || null,
+          category_id: categoryId || null,
+          year: year.trim() ? Number(year.trim()) : null,
+          status: status.trim() || "In force",
+          source_url: sourceUrl.trim() || null,
+          source_name: sourceName.trim() || null,
+          content: text,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -106,7 +154,8 @@ export default function AdminLawEditPage() {
         setSaving(false);
         return;
       }
-      setStatus("Changes saved.");
+      setStatusMsg("Changes saved.");
+      if (data.law?.title) setLaw((prev) => (prev ? { ...prev, ...data.law } : null));
     } catch {
       setError("Network error. Please try again.");
     }
@@ -155,18 +204,100 @@ export default function AdminLawEditPage() {
           {error}
         </div>
       ) : !law ? null : (
-        <div className="max-w-4xl space-y-4">
+        <form onSubmit={handleSave} className="max-w-4xl space-y-6">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Edit law text</h1>
+            <h1 className="text-2xl font-semibold text-foreground">Edit law</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Fix typos or minor text issues. This updates what users see in the library. For structural
-              changes (e.g. adding/removing sections), consider re-importing from PDF.
+              Update metadata (title, country, category, etc.) and/or the law text. Changes apply to the library and AI.
             </p>
           </div>
 
-          <div className="rounded-lg border border-border bg-card px-4 py-3">
-            <p className="text-sm font-medium text-foreground">{law.title}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Law ID: {law.id}</p>
+          <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
+            <p className="text-xs font-medium text-muted-foreground">Law ID: {law.id}</p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Title *</label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="e.g. Companies Act, 2019"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Country</label>
+              <select
+                value={countryId}
+                onChange={(e) => setCountryId(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select country</option>
+                {countries.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Category</label>
+              <select
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select category</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Year</label>
+              <input
+                type="number"
+                min={1900}
+                max={2100}
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="e.g. 2019"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Status</label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="In force">In force</option>
+                <option value="Amended">Amended</option>
+                <option value="Repealed">Repealed</option>
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Source URL</label>
+              <input
+                type="url"
+                value={sourceUrl}
+                onChange={(e) => setSourceUrl(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="https://..."
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Source name</label>
+              <input
+                type="text"
+                value={sourceName}
+                onChange={(e) => setSourceName(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="e.g. Official Gazette"
+              />
+            </div>
           </div>
 
           <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 space-y-3">
@@ -219,48 +350,39 @@ export default function AdminLawEditPage() {
             )}
           </div>
 
-          <form onSubmit={handleSave} className="space-y-4">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-foreground">
-                Law text
-              </label>
-              <p className="mb-2 text-xs text-muted-foreground">
-                This is the raw text used by the library view and AI tools. Editing it will immediately
-                update what users see.
-              </p>
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                rows={24}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono leading-relaxed"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                {text.length.toLocaleString()} characters
-              </p>
-            </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium text-foreground">Law text</label>
+            <p className="mb-2 text-xs text-muted-foreground">
+              Raw text used by the library view and AI. Edit to fix typos or update content.
+            </p>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              rows={24}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono leading-relaxed"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              {text.length.toLocaleString()} characters
+            </p>
+          </div>
 
-            <div className="flex items-center gap-3">
-              {status && (
-                <p className="text-xs text-muted-foreground">
-                  {status}
-                </p>
-              )}
-              {error && !loading && (
-                <p className="text-xs text-destructive">
-                  {error}
-                </p>
-              )}
-              <button
-                type="submit"
-                disabled={saving}
-                className="ml-auto inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-              >
-                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                <span>Save changes</span>
-              </button>
-            </div>
-          </form>
-        </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {statusMsg && (
+              <p className="text-sm text-muted-foreground">{statusMsg}</p>
+            )}
+            {error && !loading && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
+            <button
+              type="submit"
+              disabled={saving}
+              className="ml-auto inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              <span>Save changes</span>
+            </button>
+          </div>
+        </form>
       )}
     </div>
   );
