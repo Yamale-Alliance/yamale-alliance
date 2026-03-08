@@ -6,7 +6,7 @@
  *   node --env-file=.env scripts/import-pdf-law.mjs "/path/to/file.pdf" [options]
  *
  * Options:
- *   --country "Ghana"           (default: Ghana) — must be one of: Ghana, Kenya, Tunisia, Ethiopia, Madagascar, Rwanda, Seychelles, Zambia
+ *   --country "Ghana"           (default: Ghana) — must be one of: Ghana, Kenya, Tunisia, Ethiopia, Madagascar, Rwanda, Seychelles, Senegal, Zambia
  *   --title "Display title"     (default: filename without .pdf)
  *   --category "Corporate Law"  (default: "Corporate Law")
  *   --year 2019                 (optional)
@@ -39,7 +39,7 @@ if (!supabaseUrl || !supabaseKey) {
 const args = process.argv.slice(2);
 const pdfPath = args.find((a) => !a.startsWith("--"));
 if (!pdfPath) {
-  console.error("Usage: node --env-file=.env scripts/import-pdf-law.mjs \"/path/to/file.pdf\" [--country Ghana|Kenya|Tunisia|Ethiopia|Madagascar|Rwanda|Seychelles|Zambia] [--title \"...\"] [--category \"...\"] [--year 2019] [--source-url \"...\"] [--status \"In force\"] [--update]");
+  console.error("Usage: node --env-file=.env scripts/import-pdf-law.mjs \"/path/to/file.pdf\" [--country Ghana|Kenya|Tunisia|Ethiopia|Madagascar|Rwanda|Seychelles|Senegal|Zambia] [--title \"...\"] [--category \"...\"] [--year 2019] [--source-url \"...\"] [--status \"In force\"] [--update]");
   process.exit(1);
 }
 
@@ -59,7 +59,7 @@ const doUpdate = args.includes("--update");
 const forceOcr = args.includes("--force-ocr");
 const year = yearStr ? parseInt(yearStr, 10) : null;
 
-const VALID_COUNTRIES = ["Ghana", "Kenya", "Tunisia", "Ethiopia", "Madagascar", "Rwanda", "Seychelles", "Zambia"];
+const VALID_COUNTRIES = ["Ghana", "Kenya", "Tunisia", "Ethiopia", "Madagascar", "Rwanda", "Seychelles", "Senegal", "Zambia"];
 
 const VALID_CATEGORIES = [
   "Corporate Law",
