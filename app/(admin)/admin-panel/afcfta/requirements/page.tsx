@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { FileCheck, ChevronLeft, ChevronDown, ChevronRight, Loader2, Plus, Trash2, Save, ExternalLink } from "lucide-react";
 import type { CountryRequirements } from "@/lib/afcfta-country-requirements";
+import { getRequirementsRegion, REQUIREMENTS_REGION_ORDER, type RequirementsRegionId } from "@/lib/afcfta-country-requirements";
 
 function cloneRequirement(r: CountryRequirements): CountryRequirements {
   return {
@@ -206,99 +207,117 @@ export default function AdminAfCFTARequirementsPage() {
       )}
 
       {!loading && !error && requirements.length > 0 && (
-        <div className="space-y-3">
-          {requirements.map((r) => {
-            const isExpanded = expandedCountry === r.country;
-            const data = isExpanded && editDraft?.country === r.country ? editDraft : r;
-            const sourceUrls = "sourceUrls" in r && r.sourceUrls ? r.sourceUrls : undefined;
-
+        <div className="space-y-8">
+          {REQUIREMENTS_REGION_ORDER.map((regionId) => {
+            const regionRequirements = requirements.filter((r) => getRequirementsRegion(r.country) === regionId);
+            if (regionRequirements.length === 0) return null;
+            const regionLabels: Record<RequirementsRegionId, string> = {
+              SADC: "SADC",
+              ECOWAS: "ECOWAS",
+              Others: "Others",
+            };
             return (
-              <div
-                key={r.country}
-                className="rounded-xl border border-border bg-card shadow-sm overflow-hidden"
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleCountry(r.country)}
-                  className="flex w-full items-center justify-between px-6 py-4 text-left hover:bg-muted/20 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <FileCheck className="h-5 w-5 text-primary" />
-                    <span className="font-semibold text-foreground">{r.country}</span>
-                  </div>
-                  {isExpanded ? (
-                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                  ) : (
-                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                  )}
-                </button>
-                {isExpanded && editDraft && (
-                  <div className="border-t border-border bg-muted/10 px-6 py-5 space-y-6">
-                    {/* Source links — admin only */}
-                    {sourceUrls && (sourceUrls.export || sourceUrls.import) && (
-                      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                        {sourceUrls.export && (
-                          <a
-                            href={sourceUrls.export}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-primary hover:underline"
-                          >
-                            Source (export) <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
+              <section key={regionId}>
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                  {regionLabels[regionId]}
+                </h2>
+                <div className="space-y-3">
+                  {regionRequirements.map((r) => {
+                    const isExpanded = expandedCountry === r.country;
+                    const data = isExpanded && editDraft?.country === r.country ? editDraft : r;
+                    const sourceUrls = "sourceUrls" in r && r.sourceUrls ? r.sourceUrls : undefined;
+
+                    return (
+                      <div
+                        key={r.country}
+                        className="rounded-xl border border-border bg-card shadow-sm overflow-hidden"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => toggleCountry(r.country)}
+                          className="flex w-full items-center justify-between px-6 py-4 text-left hover:bg-muted/20 transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <FileCheck className="h-5 w-5 text-primary" />
+                            <span className="font-semibold text-foreground">{r.country}</span>
+                          </div>
+                          {isExpanded ? (
+                            <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </button>
+                        {isExpanded && editDraft && (
+                          <div className="border-t border-border bg-muted/10 px-6 py-5 space-y-6">
+                            {/* Source links — admin only */}
+                            {sourceUrls && (sourceUrls.export || sourceUrls.import) && (
+                              <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                                {sourceUrls.export && (
+                                  <a
+                                    href={sourceUrls.export}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-primary hover:underline"
+                                  >
+                                    Source (export) <ExternalLink className="h-3.5 w-3.5" />
+                                  </a>
+                                )}
+                                {sourceUrls.import && (
+                                  <a
+                                    href={sourceUrls.import}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-primary hover:underline"
+                                  >
+                                    Source (import) <ExternalLink className="h-3.5 w-3.5" />
+                                  </a>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Export */}
+                            <section>
+                              <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-3">
+                                Export requirements
+                              </h3>
+                              <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-3">
+                                {renderEditableList(r.country, "export", "documents", data.export.documents, "Documents")}
+                                {renderEditableList(r.country, "export", "regulatory", data.export.regulatory, "Regulatory")}
+                                {renderEditableList(r.country, "export", "complianceNotes", data.export.complianceNotes, "Compliance notes")}
+                              </div>
+                            </section>
+
+                            {/* Import */}
+                            <section>
+                              <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-3">
+                                Import requirements
+                              </h3>
+                              <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-3">
+                                {renderEditableList(r.country, "import", "documents", data.import.documents, "Documents")}
+                                {renderEditableList(r.country, "import", "regulatory", data.import.regulatory, "Regulatory")}
+                                {renderEditableList(r.country, "import", "complianceNotes", data.import.complianceNotes, "Compliance notes")}
+                              </div>
+                            </section>
+
+                            {saveError && (
+                              <p className="text-sm text-destructive">{saveError}</p>
+                            )}
+                            <button
+                              type="button"
+                              onClick={handleSave}
+                              disabled={saving}
+                              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                            >
+                              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                              Save changes
+                            </button>
+                          </div>
                         )}
-                        {sourceUrls.import && (
-                          <a
-                            href={sourceUrls.import}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-primary hover:underline"
-                          >
-                            Source (import) <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        )}
                       </div>
-                    )}
-
-                    {/* Export */}
-                    <section>
-                      <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-3">
-                        Export requirements
-                      </h3>
-                      <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-3">
-                        {renderEditableList(r.country, "export", "documents", data.export.documents, "Documents")}
-                        {renderEditableList(r.country, "export", "regulatory", data.export.regulatory, "Regulatory")}
-                        {renderEditableList(r.country, "export", "complianceNotes", data.export.complianceNotes, "Compliance notes")}
-                      </div>
-                    </section>
-
-                    {/* Import */}
-                    <section>
-                      <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-3">
-                        Import requirements
-                      </h3>
-                      <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-3">
-                        {renderEditableList(r.country, "import", "documents", data.import.documents, "Documents")}
-                        {renderEditableList(r.country, "import", "regulatory", data.import.regulatory, "Regulatory")}
-                        {renderEditableList(r.country, "import", "complianceNotes", data.import.complianceNotes, "Compliance notes")}
-                      </div>
-                    </section>
-
-                    {saveError && (
-                      <p className="text-sm text-destructive">{saveError}</p>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                    >
-                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      Save changes
-                    </button>
-                  </div>
-                )}
-              </div>
+                    );
+                  })}
+                </div>
+              </section>
             );
           })}
         </div>
