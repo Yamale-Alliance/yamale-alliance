@@ -19,6 +19,97 @@ type IncomingRow = {
   annualSavings10k?: number | null;
 };
 
+/** GET: List countries that have tariff schedule data (for admin "Delete country" UI). */
+export async function GET() {
+  const admin = await requireAdmin();
+  if (admin instanceof NextResponse) return admin;
+
+  try {
+    const supabase = getSupabaseServer();
+
+    const { data: rpcData, error: rpcError } = await (supabase as any).rpc("get_afcfta_tariff_countries");
+    if (!rpcError && Array.isArray(rpcData)) {
+      const countries = rpcData.filter((c: unknown) => c != null && String(c).trim() !== "").sort();
+      return NextResponse.json({ countries });
+    }
+
+    const { data, error } = await (supabase as any)
+      .from("afcfta_tariff_schedule")
+      .select("country")
+      .order("country")
+      .range(0, 49999);
+
+    if (error) {
+      console.error("Admin tariff schedule countries list error:", error);
+      return NextResponse.json(
+        { error: "Failed to load countries", details: error.message },
+        { status: 500 }
+      );
+    }
+
+    const countries = Array.from(new Set((data ?? []).map((r: { country: string }) => r.country).filter(Boolean))).sort();
+    return NextResponse.json({ countries });
+  } catch (err) {
+    console.error("Admin AfCFTA tariff schedule GET error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json(
+      { error: "Failed to load countries", details: message },
+      { status: 500 }
+    );
+  }
+}
+
+/** DELETE: Remove all tariff data and import history for a country. Query: ?country=... */
+export async function DELETE(req: NextRequest) {
+  const admin = await requireAdmin();
+  if (admin instanceof NextResponse) return admin;
+
+  const country = req.nextUrl.searchParams.get("country");
+  if (!country?.trim()) {
+    return NextResponse.json({ error: "country query parameter is required" }, { status: 400 });
+  }
+
+  try {
+    const supabase = getSupabaseServer();
+    const c = country.trim();
+
+    const { error: tariffError } = await (supabase as any)
+      .from("afcfta_tariff_schedule")
+      .delete()
+      .eq("country", c);
+
+    if (tariffError) {
+      console.error("Delete tariff schedule error:", tariffError);
+      return NextResponse.json(
+        { error: "Failed to delete tariff data", details: tariffError.message },
+        { status: 500 }
+      );
+    }
+
+    const { error: batchError } = await (supabase as any)
+      .from("afcfta_import_batches")
+      .delete()
+      .eq("country", c);
+
+    if (batchError) {
+      console.error("Delete import batches error:", batchError);
+      return NextResponse.json(
+        { error: "Failed to delete import history", details: batchError.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ ok: true, deleted: c });
+  } catch (err) {
+    console.error("Admin AfCFTA tariff schedule DELETE error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json(
+      { error: "Failed to delete country data", details: message },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(req: NextRequest) {
   const admin = await requireAdmin();
   if (admin instanceof NextResponse) return admin;
