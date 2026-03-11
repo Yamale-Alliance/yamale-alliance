@@ -6,6 +6,59 @@
  */
 
 export const AFCFTA_REQUIREMENTS_COUNTRIES = [
+  "Algeria",
+  "Angola",
+  "Benin",
+  "Botswana",
+  "Burkina Faso",
+  "Burundi",
+  "Cabo Verde",
+  "Cameroon",
+  "Central African Republic",
+  "Comoros",
+  "Côte d'Ivoire",
+  "Djibouti",
+  "DRC",
+  "Egypt",
+  "Equatorial Guinea",
+  "Eswatini",
+  "Ethiopia",
+  "Gabon",
+  "Gambia",
+  "Ghana",
+  "Guinea",
+  "Guinea-Bissau",
+  "Kenya",
+  "Lesotho",
+  "Liberia",
+  "Madagascar",
+  "Malawi",
+  "Mali",
+  "Mauritania",
+  "Mauritius",
+  "Morocco",
+  "Mozambique",
+  "Namibia",
+  "Niger",
+  "Nigeria",
+  "Rwanda",
+  "Sao Tome and Principe",
+  "Senegal",
+  "Seychelles",
+  "Sierra Leone",
+  "South Africa",
+  "Tanzania",
+  "Togo",
+  "Tunisia",
+  "Uganda",
+  "Zambia",
+  "Zimbabwe",
+] as const;
+
+export type AfCFTARequirementsCountry = (typeof AFCFTA_REQUIREMENTS_COUNTRIES)[number];
+
+/** SADC member countries with export/import requirements (original set). */
+export const SADC_REQUIREMENTS_COUNTRIES = [
   "Angola",
   "Botswana",
   "Comoros",
@@ -24,7 +77,40 @@ export const AFCFTA_REQUIREMENTS_COUNTRIES = [
   "Zimbabwe",
 ] as const;
 
-export type AfCFTARequirementsCountry = (typeof AFCFTA_REQUIREMENTS_COUNTRIES)[number];
+/** ECOWAS member countries with export/import requirements. */
+export const ECOWAS_REQUIREMENTS_COUNTRIES = [
+  "Benin",
+  "Burkina Faso",
+  "Cabo Verde",
+  "Côte d'Ivoire",
+  "Gambia",
+  "Ghana",
+  "Guinea",
+  "Guinea-Bissau",
+  "Liberia",
+  "Mali",
+  "Niger",
+  "Nigeria",
+  "Senegal",
+  "Sierra Leone",
+  "Togo",
+] as const;
+
+export type RequirementsRegionId = "SADC" | "ECOWAS" | "Others";
+
+const SADC_SET = new Set<string>(SADC_REQUIREMENTS_COUNTRIES);
+const ECOWAS_SET = new Set<string>(ECOWAS_REQUIREMENTS_COUNTRIES);
+
+/** Region for grouping on admin requirements page. "Others" = yet to add / other blocs. */
+export function getRequirementsRegion(country: string): RequirementsRegionId {
+  const key = normalizeCountryKey(country);
+  if (SADC_SET.has(key)) return "SADC";
+  if (ECOWAS_SET.has(key)) return "ECOWAS";
+  return "Others";
+}
+
+/** Display order for region sections on admin page. */
+export const REQUIREMENTS_REGION_ORDER: RequirementsRegionId[] = ["SADC", "ECOWAS", "Others"];
 
 export type ProductCategory = "fish" | "agricultural" | "pharmaceutical" | "general";
 
@@ -165,6 +251,47 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
       ],
     },
   },
+  Benin: {
+    country: "Benin",
+    sourceUrls: {
+      export: "https://douanes.gouv.bj/en/",
+      import: "https://guce.gouv.bj/",
+    },
+    export: {
+      documents: [
+        "Commercial invoice (with HS codes, value, incoterm)",
+        "Packing list",
+        "Export customs declaration",
+        "AfCFTA Certificate of Origin (for preferential treatment)",
+        "ETLS certificate (for ECOWAS trade liberalisation where applicable)",
+        "Transport document (bill of lading or waybill)",
+      ],
+      regulatory: [
+        "Phytosanitary certificate (plant/plant products)",
+        "Veterinary or health certificate (animal products)",
+        "Export permit for controlled goods",
+      ],
+      complianceNotes: [
+        "ECOWAS member. Community Customs Code applies. ETLS enables duty-free circulation for qualifying goods within ECOWAS. AfCFTA CoO supports preferential access to African markets. Verify procedures on ECOTIS and national customs.",
+      ],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import customs declaration",
+        "Certificate of Origin (ECOWAS ETLS / AfCFTA for preferential rates)",
+        "Transport and insurance documentation",
+      ],
+      regulatory: [
+        "Import permit for regulated products",
+        "SPS compliance for food and agricultural goods",
+      ],
+      complianceNotes: [
+        "Duty on CIF. ECOWAS Common External Tariff (CET) applies. Preferential rates with valid ETLS or AfCFTA Certificate of Origin. Verify current requirements on ECOTIS and ETLS.",
+      ],
+    },
+  },
   Botswana: {
     country: "Botswana",
     sourceUrls: { export: "https://www.botswanatradeportal.org.bw/", import: "https://www.botswanatradeportal.org.bw/" },
@@ -202,6 +329,86 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
       ],
     },
   },
+  "Burkina Faso": {
+    country: "Burkina Faso",
+    sourceUrls: {
+      export: "https://burkinatradeportal.bf/",
+      import: "http://www.douanes.bf/",
+    },
+    export: {
+      documents: [
+        "Commercial invoice (documents in French preferred)",
+        "Packing list",
+        "Export customs declaration",
+        "AfCFTA Certificate of Origin",
+        "ETLS certificate (for ECOWAS preferential circulation where applicable)",
+        "Transport document",
+      ],
+      regulatory: [
+        "Phytosanitary certificate (plant products)",
+        "Veterinary/health certificate (animal products)",
+        "Export authorisation for controlled goods",
+      ],
+      complianceNotes: [
+        "ECOWAS member. Customs procedures aligned with Community Customs Code. ETLS and AfCFTA CoO enable preferential treatment. Verify current requirements on ECOTIS and national customs (Direction Générale des Douanes).",
+      ],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration",
+        "Certificate of Origin (ETLS / AfCFTA for preferential rates)",
+        "Freight and insurance documentation",
+      ],
+      regulatory: [
+        "Import permit for regulated products",
+        "SPS compliance for food and agricultural goods",
+      ],
+      complianceNotes: [
+        "ECOWAS CET applies. Preferential rates with valid Certificate of Origin. Verify on ECOTIS and ETLS.",
+      ],
+    },
+  },
+  "Cabo Verde": {
+    country: "Cabo Verde",
+    sourceUrls: {
+      export: "https://www.mf.gov.cv/web/dnre/direca-geral-das-alfandegas",
+      import: "https://portaldocomercio.gov.cv/",
+    },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration",
+        "AfCFTA Certificate of Origin",
+        "ETLS certificate (where applicable for ECOWAS)",
+        "Transport document",
+      ],
+      regulatory: [
+        "Phytosanitary/health certificates as required by destination",
+        "Export permit for controlled goods",
+      ],
+      complianceNotes: [
+        "ECOWAS member. AfCFTA and ETLS Certificates of Origin support preferential access. Verify procedures on ECOTIS and national customs.",
+      ],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Customs import declaration",
+        "Certificate of Origin (ETLS / AfCFTA for preferential treatment)",
+      ],
+      regulatory: [
+        "Import permits for regulated products",
+        "SPS compliance for food and agricultural goods",
+      ],
+      complianceNotes: [
+        "Preferential rates apply with valid CoO. Check ECOTIS and ETLS for current requirements.",
+      ],
+    },
+  },
   Comoros: {
     country: "Comoros",
     sourceUrls: { export: "https://www.comesa.int/?page_id=1148", import: "https://www.comesa.int/?page_id=1148" },
@@ -234,6 +441,47 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
       ],
       complianceNotes: [
         "Verify specific requirements with Comoros customs. COMESA Trade & Customs Division provides regional framework; national authorities may have additional requirements.",
+      ],
+    },
+  },
+  "Côte d'Ivoire": {
+    country: "Côte d'Ivoire",
+    sourceUrls: {
+      export: "https://www.douanes.ci/",
+      import: "https://guce.gouv.ci/",
+    },
+    export: {
+      documents: [
+        "Commercial invoice (French acceptable)",
+        "Packing list",
+        "Export customs declaration",
+        "AfCFTA Certificate of Origin",
+        "ETLS certificate (for ECOWAS where applicable)",
+        "Bill of lading or waybill",
+      ],
+      regulatory: [
+        "Phytosanitary certificate (plant products)",
+        "Veterinary/health certificate (animal products)",
+        "Export authorisation for controlled goods",
+      ],
+      complianceNotes: [
+        "ECOWAS member. Port of Abidjan and national customs apply Community Customs Code. ETLS and AfCFTA CoO enable preferential treatment. Verify on ECOTIS and ETLS.",
+      ],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration",
+        "Certificate of Origin (ETLS / AfCFTA for preferential rates)",
+        "Shipping and insurance documents",
+      ],
+      regulatory: [
+        "Import permit for regulated products",
+        "SPS compliance for food and agricultural goods",
+      ],
+      complianceNotes: [
+        "ECOWAS CET applies. Preferential rates with valid Certificate of Origin. Verify current requirements on ECOTIS and national customs.",
       ],
     },
   },
@@ -309,6 +557,166 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
       ],
     },
   },
+  Gambia: {
+    country: "Gambia",
+    sourceUrls: {
+      export: "https://www.gra.gm/",
+      import: "https://www.gra.gm/",
+    },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration (GRA Customs)",
+        "AfCFTA Certificate of Origin",
+        "ETLS certificate (for ECOWAS where applicable)",
+        "Transport document",
+      ],
+      regulatory: [
+        "Phytosanitary certificate (plant products)",
+        "Veterinary/health certificate (animal products)",
+        "Export permit for controlled goods",
+      ],
+      complianceNotes: [
+        "ECOWAS member. Gambia Revenue Authority (GRA) manages customs. ETLS and AfCFTA CoO enable preferential access. Verify procedures on ECOTIS and ETLS.",
+      ],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration",
+        "Certificate of Origin (ETLS / AfCFTA for preferential treatment)",
+        "Freight and insurance documentation",
+      ],
+      regulatory: [
+        "Import permit for regulated products",
+        "SPS compliance for food and agricultural goods",
+      ],
+      complianceNotes: [
+        "ECOWAS CET applies. Preferential rates with valid CoO. Verify on ECOTIS and GRA customs.",
+      ],
+    },
+  },
+  Ghana: {
+    country: "Ghana",
+    sourceUrls: {
+      export: "https://gra.gov.gh/customs/",
+      import: "https://gra.gov.gh/customs/",
+    },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration (GRA/GCMS)",
+        "AfCFTA Certificate of Origin",
+        "ETLS certificate (for ECOWAS where applicable)",
+        "Bill of lading or waybill",
+      ],
+      regulatory: [
+        "Phytosanitary certificate (plant products)",
+        "Veterinary/health certificate (animal products)",
+        "Export permit for controlled goods",
+      ],
+      complianceNotes: [
+        "ECOWAS member. Ghana Revenue Authority (GRA) and Ghana Customs manage clearance. ETLS and AfCFTA CoO enable preferential treatment. Verify procedures on GRA and ECOTIS.",
+      ],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration (GCMS)",
+        "Certificate of Origin (ETLS / AfCFTA for preferential rates)",
+        "Shipping and insurance documentation",
+      ],
+      regulatory: [
+        "Import permit for regulated products (e.g. FDA for food and drugs)",
+        "SPS compliance for food and agricultural goods",
+      ],
+      complianceNotes: [
+        "ECOWAS CET applies. Preferential rates with valid Certificate of Origin. Check GRA and ECOTIS for current requirements.",
+      ],
+    },
+  },
+  Guinea: {
+    country: "Guinea",
+    sourceUrls: {
+      export: "https://guceg.gov.gn/",
+      import: "https://guceg.gov.gn/",
+    },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration",
+        "AfCFTA Certificate of Origin",
+        "ETLS certificate (for ECOWAS where applicable)",
+        "Transport document",
+      ],
+      regulatory: [
+        "Phytosanitary/veterinary certificates as required",
+        "Export authorisation for controlled goods",
+      ],
+      complianceNotes: [
+        "ECOWAS member. Community Customs Code applies. ETLS and AfCFTA CoO support preferential access. Verify on ECOTIS and national customs.",
+      ],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration",
+        "Certificate of Origin (ETLS / AfCFTA for preferential treatment)",
+      ],
+      regulatory: [
+        "Import permit for regulated products",
+        "SPS compliance for food and agricultural goods",
+      ],
+      complianceNotes: [
+        "Preferential rates with valid CoO. Verify current requirements on ECOTIS and ETLS.",
+      ],
+    },
+  },
+  "Guinea-Bissau": {
+    country: "Guinea-Bissau",
+    sourceUrls: {
+      export: "https://alfandegas.mef.gw/",
+      import: "https://dga.mef.gw/",
+    },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration",
+        "AfCFTA Certificate of Origin",
+        "ETLS certificate (where applicable)",
+        "Transport document",
+      ],
+      regulatory: [
+        "Phytosanitary/health certificates as required by destination",
+        "Export permit for controlled goods",
+      ],
+      complianceNotes: [
+        "ECOWAS member. ETLS and AfCFTA CoO enable preferential access. Verify procedures on ECOTIS and national customs.",
+      ],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Customs import declaration",
+        "Certificate of Origin (ETLS / AfCFTA for preferential rates)",
+      ],
+      regulatory: [
+        "Import permits for regulated products",
+        "SPS compliance for food and agricultural goods",
+      ],
+      complianceNotes: [
+        "ECOWAS CET applies. Verify current requirements on ECOTIS and ETLS.",
+      ],
+    },
+  },
   Lesotho: {
     country: "Lesotho",
     sourceUrls: { export: "https://www.rsl.org.ls/customs-procedures", import: "https://www.rsl.org.ls/customs-procedures" },
@@ -342,6 +750,47 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
       ],
       complianceNotes: [
         "Preferential tariffs apply with valid Certificate of Origin. Confirm current requirements on the RSL customs-procedures page.",
+      ],
+    },
+  },
+  Liberia: {
+    country: "Liberia",
+    sourceUrls: {
+      export: "https://www.lra.gov.lr/",
+      import: "https://revenue.lra.gov.lr/",
+    },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration (LRA)",
+        "AfCFTA Certificate of Origin",
+        "ETLS certificate (for ECOWAS where applicable)",
+        "Transport document",
+      ],
+      regulatory: [
+        "Phytosanitary certificate (plant products)",
+        "Veterinary/health certificate (animal products)",
+        "Export permit for controlled goods",
+      ],
+      complianceNotes: [
+        "ECOWAS member. Liberia Revenue Authority (LRA) manages customs. ETLS and AfCFTA CoO enable preferential treatment. Verify on ECOTIS and LRA.",
+      ],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration (LRA)",
+        "Certificate of Origin (ETLS / AfCFTA for preferential rates)",
+        "Shipping and insurance documentation",
+      ],
+      regulatory: [
+        "Import permit for regulated products",
+        "SPS compliance for food and agricultural goods",
+      ],
+      complianceNotes: [
+        "ECOWAS CET applies. Preferential rates with valid CoO. Check LRA and ECOTIS for current requirements.",
       ],
     },
   },
@@ -416,6 +865,46 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
       ],
       complianceNotes: [
         "COMESA member; Simplified Trade Regime may apply for low-value consignments at border. Confirm current requirements on the MRA portal.",
+      ],
+    },
+  },
+  Mali: {
+    country: "Mali",
+    sourceUrls: {
+      export: "https://douanes.gouv.ml/",
+      import: "https://douanes.gouv.ml/",
+    },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration",
+        "AfCFTA Certificate of Origin",
+        "ETLS certificate (for ECOWAS where applicable)",
+        "Transport document",
+      ],
+      regulatory: [
+        "Phytosanitary certificate (plant products)",
+        "Veterinary/health certificate (animal products)",
+        "Export authorisation for controlled goods",
+      ],
+      complianceNotes: [
+        "ECOWAS member. Community Customs Code applies. ETLS and AfCFTA CoO enable preferential access. Verify on ECOTIS and national customs.",
+      ],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration",
+        "Certificate of Origin (ETLS / AfCFTA for preferential treatment)",
+      ],
+      regulatory: [
+        "Import permit for regulated products",
+        "SPS compliance for food and agricultural goods",
+      ],
+      complianceNotes: [
+        "ECOWAS CET applies. Verify current requirements on ECOTIS and ETLS.",
       ],
     },
   },
@@ -528,6 +1017,128 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
       ],
     },
   },
+  Niger: {
+    country: "Niger",
+    sourceUrls: {
+      export: "http://www.douanes.gouv.ne/",
+      import: "http://www.douanes.gouv.ne/",
+    },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration",
+        "AfCFTA Certificate of Origin",
+        "ETLS certificate (for ECOWAS where applicable)",
+        "Transport document",
+      ],
+      regulatory: [
+        "Phytosanitary/veterinary certificates as required",
+        "Export authorisation for controlled goods",
+      ],
+      complianceNotes: [
+        "ECOWAS member. ETLS and AfCFTA CoO enable preferential treatment. Verify procedures on ECOTIS and national customs.",
+      ],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration",
+        "Certificate of Origin (ETLS / AfCFTA for preferential rates)",
+      ],
+      regulatory: [
+        "Import permit for regulated products",
+        "SPS compliance for food and agricultural goods",
+      ],
+      complianceNotes: [
+        "ECOWAS CET applies. Verify current requirements on ECOTIS and ETLS.",
+      ],
+    },
+  },
+  Nigeria: {
+    country: "Nigeria",
+    sourceUrls: {
+      export: "https://customs.gov.ng/",
+      import: "https://customs.gov.ng/",
+    },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration (Nigeria Customs Service / NCS)",
+        "AfCFTA Certificate of Origin",
+        "ETLS certificate (for ECOWAS where applicable)",
+        "Bill of lading or waybill",
+      ],
+      regulatory: [
+        "Phytosanitary certificate (plant products)",
+        "Veterinary/health certificate (animal products)",
+        "Export permit for controlled goods (e.g. NAFDAC for regulated products)",
+      ],
+      complianceNotes: [
+        "ECOWAS member. Nigeria Customs Service (NCS) manages customs. ETLS and AfCFTA CoO enable preferential treatment. Verify on NCS and ECOTIS.",
+      ],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration (Single Goods Declaration – SGD)",
+        "Certificate of Origin (ETLS / AfCFTA for preferential rates)",
+        "Shipping and insurance documentation",
+      ],
+      regulatory: [
+        "Import permit or SONCAP (Standards Organisation of Nigeria) where applicable",
+        "NAFDAC registration/approval for food, drugs, and cosmetics",
+        "SPS compliance for agricultural goods",
+      ],
+      complianceNotes: [
+        "ECOWAS CET applies. Preferential rates with valid Certificate of Origin. Verify current requirements on NCS and Trade.gov Nigeria customs guide.",
+      ],
+    },
+  },
+  Senegal: {
+    country: "Senegal",
+    sourceUrls: {
+      export: "https://www.douanes.sn/",
+      import: "https://www.douanes.sn/",
+    },
+    export: {
+      documents: [
+        "Commercial invoice (French acceptable)",
+        "Packing list",
+        "Export customs declaration (Direction Générale des Douanes – DGD)",
+        "AfCFTA Certificate of Origin",
+        "ETLS certificate (for ECOWAS where applicable)",
+        "Transport document",
+      ],
+      regulatory: [
+        "Phytosanitary certificate (plant products)",
+        "Veterinary/health certificate (animal products)",
+        "Export authorisation for controlled goods",
+      ],
+      complianceNotes: [
+        "ECOWAS member. DGD and Guichet Unique apply. ETLS and AfCFTA CoO enable preferential treatment. Verify on ECOTIS and Trade.gov Senegal customs guide.",
+      ],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration (DGD / Guichet Unique)",
+        "Certificate of Origin (ETLS / AfCFTA for preferential rates)",
+        "Freight and insurance documentation",
+      ],
+      regulatory: [
+        "Import permit for regulated products",
+        "SPS compliance for food and agricultural goods",
+      ],
+      complianceNotes: [
+        "ECOWAS CET applies. Preferential rates with valid CoO. Verify current requirements on ECOTIS and national customs.",
+      ],
+    },
+  },
   Seychelles: {
     country: "Seychelles",
     sourceUrls: { export: "https://www.tradeportal.sc/import-guide/", import: "https://www.tradeportal.sc/import-guide/" },
@@ -560,6 +1171,45 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
       ],
       complianceNotes: [
         "Use the Trade Portal import guide for procedures and document lists. Confirm specific requirements with Seychelles customs or trade authority.",
+      ],
+    },
+  },
+  "Sierra Leone": {
+    country: "Sierra Leone",
+    sourceUrls: {
+      export: "https://www.nra.gov.sl/",
+      import: "https://portal.nra.gov.sl/",
+    },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration",
+        "AfCFTA Certificate of Origin",
+        "ETLS certificate (for ECOWAS where applicable)",
+        "Transport document",
+      ],
+      regulatory: [
+        "Phytosanitary/veterinary certificates as required",
+        "Export permit for controlled goods",
+      ],
+      complianceNotes: [
+        "ECOWAS member. National Revenue Authority (NRA) manages customs. ETLS and AfCFTA CoO enable preferential access. Verify on ECOTIS and ETLS.",
+      ],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration",
+        "Certificate of Origin (ETLS / AfCFTA for preferential treatment)",
+      ],
+      regulatory: [
+        "Import permit for regulated products",
+        "SPS compliance for food and agricultural goods",
+      ],
+      complianceNotes: [
+        "ECOWAS CET applies. Verify current requirements on ECOTIS and ETLS.",
       ],
     },
   },
@@ -641,6 +1291,47 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
       ],
     },
   },
+  Togo: {
+    country: "Togo",
+    sourceUrls: {
+      export: "https://www.otr.tg/",
+      import: "https://www.otr.tg/",
+    },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration (OTR – Office Togolais des Recettes)",
+        "AfCFTA Certificate of Origin",
+        "ETLS certificate (for ECOWAS where applicable)",
+        "Transport document",
+      ],
+      regulatory: [
+        "Phytosanitary certificate (plant products)",
+        "Veterinary/health certificate (animal products)",
+        "Export authorisation for controlled goods",
+      ],
+      complianceNotes: [
+        "ECOWAS member. OTR manages customs and tax. ETLS and AfCFTA CoO enable preferential treatment. Verify on ECOTIS and ETLS.",
+      ],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration",
+        "Certificate of Origin (ETLS / AfCFTA for preferential rates)",
+        "Shipping and insurance documentation",
+      ],
+      regulatory: [
+        "Import permit for regulated products",
+        "SPS compliance for food and agricultural goods",
+      ],
+      complianceNotes: [
+        "ECOWAS CET applies. Preferential rates with valid CoO. Verify current requirements on ECOTIS and national customs.",
+      ],
+    },
+  },
   Zambia: {
     country: "Zambia",
     sourceUrls: { export: "https://www.zambiatradeportal.gov.zm/", import: "https://www.zambiatradeportal.gov.zm/" },
@@ -717,6 +1408,413 @@ const COUNTRY_REQUIREMENTS: Record<string, CountryRequirements> = {
       ],
     },
   },
+  Algeria: {
+    country: "Algeria",
+    sourceUrls: { export: "https://www.douane.gov.dz/?lang=en", import: "https://www.douane.gov.dz/?lang=en" },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration (Direction Générale des Douanes)",
+        "AfCFTA Certificate of Origin",
+        "Transport document",
+      ],
+      regulatory: ["Phytosanitary/veterinary certificates as required", "Export authorisation for controlled goods"],
+      complianceNotes: ["DGD Algeria publishes exporter guide and procedures. Verify current requirements on douane.gov.dz."],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration",
+        "Certificate of Origin (for preferential rates)",
+        "Freight and insurance documentation",
+      ],
+      regulatory: ["Import permit for regulated products", "SPS compliance for food and agricultural goods"],
+      complianceNotes: ["Verify current procedures and tariff on the DGD portal (douane.gov.dz)."],
+    },
+  },
+  Burundi: {
+    country: "Burundi",
+    sourceUrls: { export: "https://www.obr.bi/", import: "https://www.obr.bi/index.php/operations-douanieres" },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration (OBR)",
+        "AfCFTA Certificate of Origin",
+        "Transport document",
+      ],
+      regulatory: ["Phytosanitary/veterinary certificates as required", "Export permit for controlled goods"],
+      complianceNotes: ["Office Burundais des Recettes (OBR) manages customs. EAC member. Verify procedures on the OBR portal."],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration",
+        "Certificate of Origin (EAC/AfCFTA for preferential rates)",
+      ],
+      regulatory: ["Import permit for regulated products", "SPS compliance for food and agricultural goods"],
+      complianceNotes: ["Verify current requirements on the OBR operations douanières page."],
+    },
+  },
+  Cameroon: {
+    country: "Cameroon",
+    sourceUrls: { export: "https://www.douanes.cm/", import: "https://minfi.gov.cm/direction-generale-des-douanes/" },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration (e-GUCE / CAMCIS)",
+        "AfCFTA Certificate of Origin",
+        "Transport document",
+      ],
+      regulatory: ["Phytosanitary/veterinary certificates as required", "Export authorisation for controlled goods"],
+      complianceNotes: ["CEMAC member. Direction Générale des Douanes (MINFI). Verify procedures on douanes.cm and minfi.gov.cm."],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration (e-GUCE)",
+        "Certificate of Origin (CEMAC/AfCFTA for preferential rates)",
+        "Shipping and insurance documentation",
+      ],
+      regulatory: ["Import permit for regulated products", "SPS compliance for food and agricultural goods"],
+      complianceNotes: ["CEMAC Customs Code applies. Verify current requirements on the customs portal."],
+    },
+  },
+  "Central African Republic": {
+    country: "Central African Republic",
+    sourceUrls: { export: "https://edouanes.cf/", import: "https://edouanes.cf/?lang=en" },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Commercial export declaration (eDouanes)",
+        "AfCFTA Certificate of Origin",
+        "Transport document",
+      ],
+      regulatory: ["Phytosanitary/veterinary certificates as required", "Export authorisation for controlled goods"],
+      complianceNotes: ["CEMAC member. eDouanes portal for prior declarations and export/import. Verify on edouanes.cf."],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Prior import declaration / Commercial import declaration (eDouanes)",
+        "Certificate of Origin (CEMAC/AfCFTA for preferential rates)",
+      ],
+      regulatory: ["Import permit for regulated products", "SPS compliance for food and agricultural goods"],
+      complianceNotes: ["Verify tariff and procedures on the eDouanes portal."],
+    },
+  },
+  Djibouti: {
+    country: "Djibouti",
+    sourceUrls: { export: "https://douanes.gouv.dj/", import: "https://douanes.gouv.dj/" },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration (DGDDI / ASYCUDA)",
+        "AfCFTA Certificate of Origin",
+        "Transport document",
+      ],
+      regulatory: ["Phytosanitary/veterinary certificates as required", "Export authorisation for controlled goods"],
+      complianceNotes: ["Direction Générale des Douanes et Droits Indirects. Verify procedures and tariff on douanes.gouv.dj."],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration",
+        "Certificate of Origin (for preferential rates)",
+      ],
+      regulatory: ["Import permit for regulated products", "SPS compliance for food and agricultural goods"],
+      complianceNotes: ["Verify current requirements on the DGDDI portal."],
+    },
+  },
+  Egypt: {
+    country: "Egypt",
+    sourceUrls: { export: "https://www.nafeza.gov.eg/", import: "https://www.nafeza.gov.eg/en/pages/15" },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export declaration (Nafeza single window)",
+        "AfCFTA Certificate of Origin",
+        "Transport document",
+      ],
+      regulatory: ["Phytosanitary/veterinary certificates as required", "Export permit for controlled goods"],
+      complianceNotes: ["Nafeza is the national single window. ACI may apply for cargo. Verify on nafeza.gov.eg."],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration (Nafeza)",
+        "Certificate of Origin (for preferential rates)",
+        "ACI/cargo information where required",
+      ],
+      regulatory: ["Import permit for regulated products", "SPS compliance for food and agricultural goods"],
+      complianceNotes: ["Advanced Cargo Information (ACI) required for maritime cargo. Verify on Nafeza portal."],
+    },
+  },
+  "Equatorial Guinea": {
+    country: "Equatorial Guinea",
+    sourceUrls: { export: "https://www.trade.gov/country-commercial-guides/equatorial-guinea-market", import: "https://www.trade.gov/country-commercial-guides/equatorial-guinea-market" },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration",
+        "AfCFTA Certificate of Origin",
+        "Transport document",
+      ],
+      regulatory: ["Phytosanitary/veterinary certificates as required", "Export authorisation for controlled goods"],
+      complianceNotes: ["CEMAC member. Customs & Tax Administration. Verify current procedures via trade authority or Trade.gov country guide."],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration",
+        "Certificate of Origin (CEMAC/AfCFTA for preferential rates)",
+      ],
+      regulatory: ["Import permit for regulated products", "SPS compliance for food and agricultural goods"],
+      complianceNotes: ["Verify current requirements with customs or Trade.gov country commercial guide."],
+    },
+  },
+  Ethiopia: {
+    country: "Ethiopia",
+    sourceUrls: { export: "https://www.esw.et/", import: "https://customs.erca.gov.et/" },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export declaration (ESW / ERCA Customs)",
+        "AfCFTA Certificate of Origin",
+        "Transport document",
+      ],
+      regulatory: ["Phytosanitary/veterinary certificates as required", "Export permit for controlled goods"],
+      complianceNotes: ["Ethiopian Electronic Single Window (ESW) and ERCA Customs Trade Portal. Verify on esw.et and customs.erca.gov.et."],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration (ESW)",
+        "Certificate of Origin (for preferential rates)",
+        "LPCO and other permits where required",
+      ],
+      regulatory: ["Import permit for regulated products", "SPS compliance for food and agricultural goods"],
+      complianceNotes: ["Traders guide and document finder on ERCA Customs portal. Verify current requirements."],
+    },
+  },
+  Gabon: {
+    country: "Gabon",
+    sourceUrls: { export: "https://douanes.ga/", import: "https://douanes.ga/" },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration (DGDDI)",
+        "AfCFTA Certificate of Origin",
+        "Transport document",
+      ],
+      regulatory: ["Phytosanitary/veterinary certificates as required", "Export authorisation for controlled goods"],
+      complianceNotes: ["CEMAC member. Direction Générale des Douanes. Verify procedures on douanes.ga."],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration",
+        "Certificate of Origin (CEMAC/AfCFTA for preferential rates)",
+      ],
+      regulatory: ["Import permit for regulated products", "SPS compliance for food and agricultural goods"],
+      complianceNotes: ["Verify current requirements on the DGDDI portal."],
+    },
+  },
+  Kenya: {
+    country: "Kenya",
+    sourceUrls: { export: "https://www.kra.go.ke/", import: "https://www.kra.go.ke/" },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export declaration (KRA / iTax / SIMBA)",
+        "AfCFTA Certificate of Origin",
+        "Transport document",
+      ],
+      regulatory: ["Phytosanitary/veterinary certificates as required", "Export permit for controlled goods"],
+      complianceNotes: ["EAC member. Kenya Revenue Authority (KRA) manages customs. Verify procedures on kra.go.ke."],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration (SIMBA/ASYCUDA)",
+        "Certificate of Origin (EAC/AfCFTA for preferential rates)",
+        "Shipping and insurance documentation",
+      ],
+      regulatory: ["Import permit for regulated products", "SPS compliance for food and agricultural goods"],
+      complianceNotes: ["Verify current requirements and e-services on the KRA portal."],
+    },
+  },
+  Mauritania: {
+    country: "Mauritania",
+    sourceUrls: { export: "https://www.trade.gov/country-commercial-guides/mauritania-customs-regulations", import: "https://www.omdaoc.org/douane.php?pay=MR" },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration",
+        "AfCFTA Certificate of Origin",
+        "Transport document",
+      ],
+      regulatory: ["Phytosanitary/veterinary certificates as required", "Export authorisation for controlled goods"],
+      complianceNotes: ["Direction Générale des Douanes; OMD-AOC regional framework. Verify procedures on Trade.gov and OMD-AOC."],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration",
+        "Certificate of Origin (for preferential rates)",
+      ],
+      regulatory: ["Import permit for regulated products", "SPS compliance for food and agricultural goods"],
+      complianceNotes: ["Verify current requirements with customs or Trade.gov Mauritania customs guide."],
+    },
+  },
+  Morocco: {
+    country: "Morocco",
+    sourceUrls: { export: "https://www.douane.gov.ma/", import: "https://www.douane.gov.ma/" },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration (ADII)",
+        "AfCFTA Certificate of Origin",
+        "Transport document",
+      ],
+      regulatory: ["Phytosanitary/veterinary certificates as required", "Export authorisation for controlled goods"],
+      complianceNotes: ["Administration des Douanes et Impôts Indirects (ADII). Verify procedures on douane.gov.ma."],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration",
+        "Certificate of Origin (for preferential rates)",
+        "Freight and insurance documentation",
+      ],
+      regulatory: ["Import permit for regulated products", "SPS compliance for food and agricultural goods"],
+      complianceNotes: ["Verify current requirements on the ADII portal."],
+    },
+  },
+  Rwanda: {
+    country: "Rwanda",
+    sourceUrls: { export: "https://www.rra.gov.rw/en/customs-services", import: "https://www.rra.gov.rw/en/customs-services/rwanda-electronic-single-window" },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export declaration (ReSW / RRA)",
+        "AfCFTA Certificate of Origin",
+        "Transport document",
+      ],
+      regulatory: ["Phytosanitary/veterinary certificates as required", "Export permit for controlled goods"],
+      complianceNotes: ["EAC member. Rwanda Electronic Single Window (ReSW), ASYCUDA World. Verify on rra.gov.rw."],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration (ReSW)",
+        "Certificate of Origin (EAC/AfCFTA for preferential rates)",
+      ],
+      regulatory: ["Import permit for regulated products", "SPS compliance for food and agricultural goods"],
+      complianceNotes: ["Verify current requirements on the RRA customs services page."],
+    },
+  },
+  "Sao Tome and Principe": {
+    country: "Sao Tome and Principe",
+    sourceUrls: { export: "https://www.financas.gov.st/", import: "https://www.financas.gov.st/index.php/direccoes/direccao-das-alfandegas" },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration (Direcção das Alfândegas)",
+        "AfCFTA Certificate of Origin",
+        "Transport document",
+      ],
+      regulatory: ["Phytosanitary/veterinary certificates as required", "Export authorisation for controlled goods"],
+      complianceNotes: ["Ministry of Finance – Direcção das Alfândegas. Verify procedures on financas.gov.st."],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration",
+        "Certificate of Origin (for preferential rates)",
+      ],
+      regulatory: ["Import permit for regulated products", "SPS compliance for food and agricultural goods"],
+      complianceNotes: ["Verify current requirements on the Direcção das Alfândegas page."],
+    },
+  },
+  Tunisia: {
+    country: "Tunisia",
+    sourceUrls: { export: "https://www.douane.gov.tn/", import: "https://www.douane.gov.tn/" },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export customs declaration (Douane Tunisienne)",
+        "AfCFTA Certificate of Origin",
+        "Transport document",
+      ],
+      regulatory: ["Phytosanitary/veterinary certificates as required", "Export authorisation for controlled goods"],
+      complianceNotes: ["Douane Tunisienne portal: tariff, nomenclature, e-services. Verify on douane.gov.tn."],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration",
+        "Certificate of Origin (for preferential rates)",
+      ],
+      regulatory: ["Import permit for regulated products", "SPS compliance for food and agricultural goods"],
+      complianceNotes: ["Verify current requirements on the Douane Tunisienne portal."],
+    },
+  },
+  Uganda: {
+    country: "Uganda",
+    sourceUrls: { export: "https://ura.go.ug/en/uesw/", import: "https://ura.go.ug/en/uesw/" },
+    export: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Export declaration (UESW / URA ASYCUDA World)",
+        "AfCFTA Certificate of Origin",
+        "Transport document",
+      ],
+      regulatory: ["Phytosanitary/veterinary certificates as required", "Export permit for controlled goods"],
+      complianceNotes: ["EAC member. Uganda Electronic Single Window (UESW), URA. Verify procedures on ura.go.ug."],
+    },
+    import: {
+      documents: [
+        "Commercial invoice",
+        "Packing list",
+        "Import declaration (UESW)",
+        "Certificate of Origin (EAC/AfCFTA for preferential rates)",
+        "Shipping and insurance documentation",
+      ],
+      regulatory: ["Import permit for regulated products", "SPS compliance for food and agricultural goods"],
+      complianceNotes: ["Verify current requirements on the URA UESW portal."],
+    },
+  },
 };
 
 export function getExportRequirements(
@@ -754,6 +1852,9 @@ const COUNTRY_KEY_ALIASES: Record<string, string> = {
   "Congo": "DRC",
   "Democratic Republic of the Congo": "DRC",
   "DRC": "DRC",
+  "Cote d'Ivoire": "Côte d'Ivoire",
+  "Ivory Coast": "Côte d'Ivoire",
+  "São Tomé and Príncipe": "Sao Tome and Principe",
 };
 
 function normalizeCountryKey(country: string): string {
@@ -771,7 +1872,7 @@ export function getAllCountriesRequirements(): CountryRequirements[] {
   return AFCFTA_REQUIREMENTS_COUNTRIES.map((c) => COUNTRY_REQUIREMENTS[c]).filter(Boolean);
 }
 
-/** Check if country has structured export/import requirements (is in the 16-country list). */
+/** Check if country has structured export/import requirements (is in the supported country list). */
 export function isRequirementsCountry(country: string): boolean {
   const key = normalizeCountryKey(country);
   return key !== "" && key in COUNTRY_REQUIREMENTS;
