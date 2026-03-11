@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
@@ -175,6 +175,30 @@ function isLikelyMarkdown(text: string): boolean {
   // [text](url) links
   if (/\[[^\]]+\]\([^)]+\)/.test(sample)) return true;
   return false;
+}
+
+// Turn URLs in text into clickable links (e.g. http://www.adie.sn/...)
+function linkify(text: string): ReactNode {
+  if (!text?.trim()) return text;
+  const urlRegex = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, i) => {
+    if (/^https?:\/\//.test(part)) {
+      const href = part.replace(/[.,;:?!)\]]+$/, "");
+      return (
+        <a
+          key={i}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="!text-blue-600 font-bold underline decoration-blue-600 hover:decoration-blue-600"
+        >
+          {part}
+        </a>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
 }
 
 // Major headings start a new section (new card). Section and Article stay in the flow as sub-headings so the doc doesn’t fragment.
@@ -756,7 +780,22 @@ export default function LawDetailPage({
                       </h2>
                       {isLikelyMarkdown(sec.body) ? (
                         <div className="prose prose-lg max-w-none leading-relaxed text-foreground dark:prose-invert prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-foreground prose-p:leading-[1.75] prose-p:text-foreground/90 prose-li:text-foreground">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              a: ({ href, children, ...props }) => (
+                                <a
+                                  href={href}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="!text-blue-600 font-bold underline decoration-blue-600 hover:decoration-blue-600"
+                                  {...props}
+                                >
+                                  {children}
+                                </a>
+                              ),
+                            }}
+                          >
                             {sec.body}
                           </ReactMarkdown>
                         </div>
@@ -786,7 +825,7 @@ export default function LawDetailPage({
                                       <tr key={ri} className="transition-colors hover:bg-muted/20">
                                         {row.map((cell, ci) => (
                                           <td key={ci} className="border-b border-border/60 px-4 py-3 text-center last:border-b-0">
-                                            {cell}
+                                            {linkify(cell)}
                                           </td>
                                         ))}
                                       </tr>
@@ -800,11 +839,11 @@ export default function LawDetailPage({
                                 id={item.id}
                                 className="mt-8 mb-4 scroll-mt-24 border-s-2 border-primary/50 ps-4 text-[1.0625rem] font-semibold tracking-tight text-foreground/95 first:mt-0 sm:ps-5"
                               >
-                                {item.text}
+                                {linkify(item.text)}
                               </h3>
                             ) : (
                               <p key={bi} className="mb-5 pl-0 text-[1.0625rem] leading-[1.8] text-foreground/85 last:mb-0 sm:pl-0">
-                                {item.text}
+                                {linkify(item.text)}
                               </p>
                             )
                           )}
