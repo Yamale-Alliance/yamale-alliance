@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Loader2,
   FileText,
+  Trash2,
 } from "lucide-react";
 
 type ImportRow = {
@@ -91,6 +92,12 @@ export default function AdminAfCFTAPage() {
   const [expandedBatchRows, setExpandedBatchRows] = useState<ImportRow[] | null>(null);
   const [expandedBatchLoading, setExpandedBatchLoading] = useState(false);
 
+  const [countriesWithData, setCountriesWithData] = useState<string[]>([]);
+  const [countriesWithDataLoading, setCountriesWithDataLoading] = useState(false);
+  const [selectedCountryToDelete, setSelectedCountryToDelete] = useState<string>("");
+  const [deletingCountry, setDeletingCountry] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   const fetchImportHistory = useCallback(() => {
     setImportHistoryLoading(true);
     fetch("/api/admin/afcfta/imports", { credentials: "include" })
@@ -100,13 +107,53 @@ export default function AdminAfCFTAPage() {
       .finally(() => setImportHistoryLoading(false));
   }, []);
 
+  const fetchCountriesWithData = useCallback(() => {
+    setCountriesWithDataLoading(true);
+    fetch("/api/admin/afcfta/tariff-schedule", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => setCountriesWithData(Array.isArray(data?.countries) ? data.countries : []))
+      .catch(() => setCountriesWithData([]))
+      .finally(() => setCountriesWithDataLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetchCountriesWithData();
+  }, [fetchCountriesWithData]);
+
   useEffect(() => {
     fetchImportHistory();
   }, [fetchImportHistory]);
 
   useEffect(() => {
-    if (importStatus === "done" && importResult) fetchImportHistory();
-  }, [importStatus, importResult, fetchImportHistory]);
+    if (importStatus === "done" && importResult) {
+      fetchImportHistory();
+      fetchCountriesWithData();
+    }
+  }, [importStatus, importResult, fetchImportHistory, fetchCountriesWithData]);
+
+  const handleDeleteCountry = useCallback(async (country: string) => {
+    if (!confirm(`Delete all tariff data and import history for "${country}"? This cannot be undone.`)) return;
+    setDeletingCountry(country);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/admin/afcfta/tariff-schedule?country=${encodeURIComponent(country)}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setDeleteError(json.error || "Failed to delete");
+        return;
+      }
+      setSelectedCountryToDelete("");
+      fetchImportHistory();
+      fetchCountriesWithData();
+    } catch {
+      setDeleteError("Failed to delete");
+    } finally {
+      setDeletingCountry(null);
+    }
+  }, [fetchImportHistory, fetchCountriesWithData]);
 
   const loadBatchRows = useCallback((batchId: string) => {
     if (expandedBatchId === batchId && expandedBatchRows !== null) {
@@ -265,6 +312,62 @@ export default function AdminAfCFTAPage() {
             View export & import requirements by country
           </Link>
         </div>
+      </div>
+
+      {/* Delete country data — at top so the feature is easy to find */}
+      <div className="mb-10 rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+          <Trash2 className="h-5 w-5 text-destructive" />
+          Delete country data
+        </h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Remove all AfCFTA tariff schedule entries and import history for a country. The country will no longer appear in the compliance tool or tariff filters. This cannot be undone.
+        </p>
+        {deleteError && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {deleteError}
+          </div>
+        )}
+        {countriesWithDataLoading ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Loading…
+          </div>
+        ) : countriesWithData.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">No countries with tariff data. Import a file or add entries to see countries here.</p>
+        ) : (
+          <div className="flex flex-col sm:flex-row sm:items-end gap-4 max-w-xl">
+            <div className="flex-1 min-w-0">
+              <label htmlFor="delete-country-select" className="mb-1.5 block text-sm font-medium text-foreground">
+                Country
+              </label>
+              <select
+                id="delete-country-select"
+                value={selectedCountryToDelete}
+                onChange={(e) => setSelectedCountryToDelete(e.target.value)}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="">Select a country</option>
+                {countriesWithData.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedCountryToDelete) handleDeleteCountry(selectedCountryToDelete);
+              }}
+              disabled={!selectedCountryToDelete || deletingCountry !== null}
+              className="shrink-0 flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:pointer-events-none transition-colors h-[42px]"
+              aria-label="Delete selected country data"
+            >
+              {deletingCountry !== null ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Delete
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-8 lg:grid-cols-2">
