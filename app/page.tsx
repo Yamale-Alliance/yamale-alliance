@@ -192,37 +192,36 @@ export default async function Home() {
             <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-primary/15 blur-2xl" aria-hidden />
             <div className="relative text-center">
               <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl">
-                Ready to get started?
+                See which plan fits your practice
               </h2>
               <p className="mx-auto mt-6 max-w-lg text-lg text-muted-foreground">
-                Create an account to access the legal library, AfCFTA tools, and
-                AI-powered research.
+                Compare pricing for the legal library, AfCFTA tools, AI research, and marketplace so you can choose the right level for your team.
               </p>
               <ul className="mx-auto mt-8 flex max-w-md flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm font-medium text-muted-foreground">
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
-                  No credit card required
+                  Transparent pricing for every stage
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
-                  Free to start
+                  Start on free, upgrade as you grow
                 </li>
               </ul>
               <div className="mt-10">
                 {isSignedIn ? (
                   <Link
-                    href="/dashboard"
+                    href="/pricing"
                     className="group inline-flex items-center gap-2 rounded-2xl bg-primary px-10 py-4 text-base font-bold text-primary-foreground shadow-xl shadow-primary/35 transition-all duration-300 hover:scale-[1.05] hover:shadow-2xl hover:shadow-primary/40"
                   >
-                    Open dashboard
+                    View pricing
                     <ArrowRight className="h-5 w-5 transition group-hover:translate-x-1" />
                   </Link>
                 ) : (
                   <Link
-                    href="/signup"
+                    href="/pricing"
                     className="group inline-flex items-center gap-2 rounded-2xl bg-primary px-10 py-4 text-base font-bold text-primary-foreground shadow-xl shadow-primary/35 transition-all duration-300 hover:scale-[1.05] hover:shadow-2xl hover:shadow-primary/40"
                   >
-                    Sign up free
+                    View pricing
                     <ArrowRight className="h-5 w-5 transition group-hover:translate-x-1" />
                   </Link>
                 )}
