@@ -81,7 +81,7 @@ export function Footer() {
                 className="inline-block transition opacity-90 hover:opacity-100"
                 aria-label="Yamalé home"
               >
-                <PlatformLogo height={48} width={180} className="h-12 w-auto" />
+                <PlatformLogo height={64} width={220} className="h-16 w-auto" />
               </Link>
               <p className="heading mt-6 text-2xl font-medium tracking-tight text-foreground sm:text-3xl lg:text-[2rem] lg:leading-tight">
                 African law, accessible and verifiable.
