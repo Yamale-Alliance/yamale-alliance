@@ -32,7 +32,7 @@ export function UserHeader() {
     <header className="sticky top-0 z-50 border-b border-border/60 bg-background/95 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center transition-opacity hover:opacity-90">
-          <PlatformLogo height={64} width={240} className="h-16 sm:h-20" />
+          <PlatformLogo height={72} width={240} className="h-18 sm:h-20" />
         </Link>
 
         {/* Desktop nav */}
