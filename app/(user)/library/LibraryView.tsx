@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { Search, BookOpen, ArrowRight, Filter, X, Bookmark, Sparkles, Calendar, FileEdit, Eye, BookmarkCheck, ChevronLeft, ChevronRight } from "lucide-react";
 import type { LibraryCountry, LibraryCategory, LibraryLawRow } from "@/lib/library-data";
+import { useUser } from "@clerk/nextjs";
 
 const PAGE_SIZE = 12;
 type SortOption = "title-asc" | "title-desc" | "country" | "category" | "newest";
@@ -51,9 +52,10 @@ type LawFlairsProps = {
   law: Law;
   isBookmarked: boolean;
   isRecentlyOpened: boolean;
+  isAdmin: boolean;
 };
 
-function LawFlairs({ law, isBookmarked, isRecentlyOpened }: LawFlairsProps) {
+function LawFlairs({ law, isBookmarked, isRecentlyOpened, isAdmin }: LawFlairsProps) {
   const recentlyAdded = isRecent(law.created_at, RECENTLY_ADDED_DAYS);
   const amended = law.status === "Amended";
   const recentlyUpdated =
@@ -62,9 +64,9 @@ function LawFlairs({ law, isBookmarked, isRecentlyOpened }: LawFlairsProps) {
   const flairs: { label: string; icon: React.ReactNode; className: string }[] = [];
   if (isBookmarked) flairs.push({ label: "Bookmarked", icon: <Bookmark className="h-3 w-3" />, className: "bg-primary/15 text-primary border-primary/30" });
   if (isRecentlyOpened) flairs.push({ label: "Recently opened", icon: <Eye className="h-3 w-3" />, className: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30" });
-  if (recentlyAdded) flairs.push({ label: "Recently added", icon: <Sparkles className="h-3 w-3" />, className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" });
+  if (recentlyAdded && isAdmin) flairs.push({ label: "Recently added", icon: <Sparkles className="h-3 w-3" />, className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" });
   if (amended) flairs.push({ label: "Amended", icon: <FileEdit className="h-3 w-3" />, className: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30" });
-  if (recentlyUpdated) flairs.push({ label: "Updated", icon: <Calendar className="h-3 w-3" />, className: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/30" });
+  if (recentlyUpdated && isAdmin) flairs.push({ label: "Updated", icon: <Calendar className="h-3 w-3" />, className: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/30" });
 
   if (flairs.length === 0) return null;
 
@@ -155,6 +157,8 @@ export function LibraryView({
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useUser();
+  const isAdmin = (user?.publicMetadata?.role as string | undefined) === "admin";
   const [search, setSearch] = useState(initialSearch);
   const [country, setCountry] = useState(initialCountry);
   const [category, setCategory] = useState(initialCategory);
@@ -618,6 +622,7 @@ export function LibraryView({
                     law={law}
                     isBookmarked={bookmarkedIds.has(law.id)}
                     isRecentlyOpened={recentlyOpenedIds.has(law.id)}
+                    isAdmin={isAdmin}
                   />
                   <div className="mt-4 flex items-center gap-2">
                     <StatusBadge status={law.status} />
