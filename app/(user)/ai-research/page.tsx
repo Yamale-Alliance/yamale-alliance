@@ -39,12 +39,29 @@ const TIER_LABELS: Record<Tier, string> = {
   team: "Team",
 };
 
-const EXAMPLE_QUESTIONS = [
+const EXAMPLE_QUESTIONS_POOL = [
   "What are the requirements for company registration in Ghana?",
   "What is the minimum wage under Kenyan employment law?",
-  "What documents are needed for AfCFTA certificate of origin?",
+  "What documents are needed for an AfCFTA certificate of origin?",
   "What are the rules of origin for manufactured goods under AfCFTA?",
+  "How does VAT work for cross-border services in Nigeria?",
+  "What are the key labour protections for employees in South Africa?",
+  "What permits are required to export agricultural products under AfCFTA?",
+  "How do I register a trademark in Kenya?",
+  "What customs documents are needed to import machinery into Rwanda?",
+  "How are AfCFTA tariff phase-down schedules applied for sensitive products?",
+  "What are the main corporate tax obligations for a company in Senegal?",
+  "How do rules of origin differ between AfCFTA and ECOWAS?",
 ];
+
+function pickRandomExampleQuestions(count: number): string[] {
+  const pool = [...EXAMPLE_QUESTIONS_POOL];
+  for (let i = pool.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, Math.min(count, pool.length));
+}
 
 type Message = {
   id: string;
@@ -130,6 +147,7 @@ export default function AIResearchPage() {
   const [allowedModelIds, setAllowedModelIds] = useState<string[]>([]);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [modelsOpen, setModelsOpen] = useState(false);
+  const [exampleQuestions, setExampleQuestions] = useState<string[]>(() => pickRandomExampleQuestions(4));
   const canChooseModel = allowedModelIds.length > 1;
 
   const tierFromMetadata: Tier =
@@ -324,13 +342,10 @@ export default function AIResearchPage() {
     };
   }, [sessions, user]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
-
   const newChat = useCallback(() => {
     setCurrentId(null);
     setInput("");
+    setExampleQuestions(pickRandomExampleQuestions(4));
   }, []);
 
   const selectChat = useCallback((id: string) => {
@@ -808,7 +823,7 @@ export default function AIResearchPage() {
                     Ask about African law, AfCFTA, or compliance. Responses are indicative only.
                   </p>
                   <div className="mt-10 flex flex-wrap justify-center gap-3">
-                    {EXAMPLE_QUESTIONS.map((q) => (
+                    {exampleQuestions.map((q) => (
                       <button
                         key={q}
                         type="button"
