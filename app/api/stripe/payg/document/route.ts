@@ -16,6 +16,17 @@ export async function POST(request: NextRequest) {
     }
 
     const origin = request.headers.get("origin") || request.nextUrl.origin;
+    let successPath = "/library?session_id={CHECKOUT_SESSION_ID}&payg=document";
+    try {
+      const body = await request.json();
+      const returnPath = body?.return_path;
+      if (typeof returnPath === "string" && returnPath.startsWith("/") && !returnPath.startsWith("//")) {
+        successPath = `${returnPath}${returnPath.includes("?") ? "&" : "?"}session_id={CHECKOUT_SESSION_ID}&payg=document`;
+      }
+    } catch {
+      // ignore invalid body
+    }
+    const success_url = `${origin}${successPath}`;
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -33,7 +44,7 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: `${origin}/library?session_id={CHECKOUT_SESSION_ID}&payg=document`,
+      success_url,
       cancel_url: `${origin}/pricing?checkout=cancelled`,
       client_reference_id: userId,
       metadata: {

@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Search, BookOpen, ArrowRight, Filter, X, Bookmark, Sparkles, Calendar, FileEdit, Eye, BookmarkCheck, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, BookOpen, ArrowRight, Filter, X, Bookmark, Sparkles, Calendar, FileEdit, Eye, BookmarkCheck, ChevronLeft, ChevronRight, Printer, Loader2 } from "lucide-react";
 import type { LibraryCountry, LibraryCategory, LibraryLawRow } from "@/lib/library-data";
 import { useUser } from "@clerk/nextjs";
 
@@ -157,7 +157,9 @@ export function LibraryView({
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user } = useUser();
+  const { user, isSignedIn } = useUser();
+  const [printLoadingId, setPrintLoadingId] = useState<string | null>(null);
+  const [paidLawIds, setPaidLawIds] = useState<Set<string>>(() => new Set());
   const isAdmin = (user?.publicMetadata?.role as string | undefined) === "admin";
   const [search, setSearch] = useState(initialSearch);
   const [country, setCountry] = useState(initialCountry);
@@ -204,6 +206,22 @@ export function LibraryView({
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
+  }, []);
+
+  // Hydrate paid law IDs from localStorage so we can avoid Stripe for laws
+  // that have already been purchased (from this browser).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("yamale-paid-laws");
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        setPaidLawIds(new Set(parsed.filter((id: unknown) => typeof id === "string")));
+      }
+    } catch {
+      // ignore
+    }
   }, []);
 
   const updateUrl = useCallback(
@@ -306,6 +324,41 @@ export function LibraryView({
     router.replace(pathname, { scroll: false });
   };
 
+  const handlePrintPayment = useCallback(
+    async (lawId: string) => {
+      if (paidLawIds.has(lawId)) {
+        // Already paid for this law in this browser – go straight to law page
+        // and trigger print via ?print=1.
+        router.push(`/library/${lawId}?print=1`);
+        return;
+      }
+      if (!isSignedIn) {
+        router.push("/sign-in?redirect_url=" + encodeURIComponent("/library"));
+        return;
+      }
+      setPrintLoadingId(lawId);
+      try {
+        const res = await fetch("/api/stripe/payg/document", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ return_path: `/library/${lawId}` }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || "Checkout failed");
+          return;
+        }
+        if (data.url) window.location.href = data.url;
+      } catch {
+        alert("Checkout failed");
+      } finally {
+        setPrintLoadingId(null);
+      }
+    },
+    [isSignedIn, router, paidLawIds]
+  );
+
   const filteredLaws = useMemo(() => {
     return laws.filter((law) => {
       const matchSearch =
@@ -321,12 +374,7 @@ export function LibraryView({
 
   const sortedLaws = useMemo(() => {
     const list = [...filteredLaws];
-    // Bookmarked first, then by sort option
     list.sort((a, b) => {
-      const aBookmarked = bookmarkedIds.has(a.id);
-      const bBookmarked = bookmarkedIds.has(b.id);
-      if (aBookmarked && !bBookmarked) return -1;
-      if (!aBookmarked && bBookmarked) return 1;
       switch (sortBy) {
         case "title-asc":
           return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
@@ -343,7 +391,7 @@ export function LibraryView({
       }
     });
     return list;
-  }, [filteredLaws, sortBy, bookmarkedIds]);
+  }, [filteredLaws, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(sortedLaws.length / PAGE_SIZE));
   const safePage = Math.min(Math.max(1, currentPage), totalPages);
@@ -512,6 +560,16 @@ export function LibraryView({
                   </option>
                 ))}
               </select>
+              {hasFilters && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                  Clear
+                </button>
+              )}
               {bookmarkedIds.size > 0 && (
                 <Link
                   href="/library/bookmarks"
@@ -523,16 +581,6 @@ export function LibraryView({
                     {bookmarkedIds.size}
                   </span>
                 </Link>
-              )}
-              {hasFilters && (
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                >
-                  <X className="h-4 w-4" />
-                  Clear
-                </button>
               )}
             </div>
           </div>
@@ -591,48 +639,73 @@ export function LibraryView({
               {totalPages > 1 && <PageSelector />}
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {paginatedLaws.map((law) => (
-                <Link
-                  key={law.id}
-                  href={
-                    (hasFilters || sortBy !== "title-asc" || safePage > 1)
-                      ? `/library/${law.id}?returnTo=${encodeURIComponent(
-                          pathname +
-                            "?" +
-                            new URLSearchParams({
-                              ...(country && { country }),
-                              ...(category && { category }),
-                              ...(status && { status }),
-                              ...(search.trim() && { q: search.trim() }),
-                              ...(safePage > 1 && { page: String(safePage) }),
-                              ...(sortBy !== "title-asc" && { sort: sortBy }),
-                            }).toString()
-                        )}`
-                      : `/library/${law.id}`
-                  }
-                  className="group flex flex-col rounded-2xl border border-border/80 bg-card p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10"
-                >
-                  <h2 className="font-semibold text-foreground group-hover:text-primary">{law.name}</h2>
-                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                    <span>{law.country}</span>
-                    <span>·</span>
-                    <span>{law.category}</span>
+              {paginatedLaws.map((law) => {
+                const lawHref =
+                  (hasFilters || sortBy !== "title-asc" || safePage > 1)
+                    ? `/library/${law.id}?returnTo=${encodeURIComponent(
+                        pathname +
+                          "?" +
+                          new URLSearchParams({
+                            ...(country && { country }),
+                            ...(category && { category }),
+                            ...(status && { status }),
+                            ...(search.trim() && { q: search.trim() }),
+                            ...(safePage > 1 && { page: String(safePage) }),
+                            ...(sortBy !== "title-asc" && { sort: sortBy }),
+                          }).toString()
+                      )}`
+                    : `/library/${law.id}`;
+                return (
+                  <div
+                    key={law.id}
+                    className="group flex flex-col rounded-2xl border border-border/80 bg-card p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10"
+                  >
+                    <Link
+                      href={lawHref}
+                      className="flex min-w-0 flex-1 flex-col"
+                    >
+                      <h2 className="font-semibold text-foreground group-hover:text-primary">{law.name}</h2>
+                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                        <span>{law.country}</span>
+                        <span>·</span>
+                        <span>{law.category}</span>
+                      </div>
+                      <LawFlairs
+                        law={law}
+                        isBookmarked={bookmarkedIds.has(law.id)}
+                        isRecentlyOpened={recentlyOpenedIds.has(law.id)}
+                        isAdmin={isAdmin}
+                      />
+                    </Link>
+                    <div className="mt-4 flex items-center gap-2">
+                      <StatusBadge status={law.status} />
+                      <div className="ml-auto flex items-center gap-2 opacity-0 transition group-hover:opacity-100">
+                        <button
+                          type="button"
+                          onClick={() => handlePrintPayment(law.id)}
+                          disabled={printLoadingId === law.id}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                          title="Print or download ($3) — payment required"
+                        >
+                          {printLoadingId === law.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Printer className="h-3.5 w-3.5" />
+                          )}
+                          <span>Print ($3)</span>
+                        </button>
+                        <Link
+                          href={lawHref}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                        >
+                          View
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      </div>
+                    </div>
                   </div>
-                  <LawFlairs
-                    law={law}
-                    isBookmarked={bookmarkedIds.has(law.id)}
-                    isRecentlyOpened={recentlyOpenedIds.has(law.id)}
-                    isAdmin={isAdmin}
-                  />
-                  <div className="mt-4 flex items-center gap-2">
-                    <StatusBadge status={law.status} />
-                    <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-primary opacity-0 transition group-hover:opacity-100">
-                      View
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </span>
-                  </div>
-                </Link>
-              ))}
+                );
+              })}
             </div>
             {sortedLaws.length === 0 && (
               <p className="py-12 text-center text-muted-foreground">

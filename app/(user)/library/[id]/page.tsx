@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChevronLeft, FileText, Loader2, GripVertical, ArrowUp, ArrowDown, Menu, X, Bookmark, BookmarkCheck, FileEdit } from "lucide-react";
+import { ChevronLeft, FileText, Loader2, GripVertical, ArrowUp, ArrowDown, Menu, X, Bookmark, BookmarkCheck, FileEdit, Printer } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 
 type LawStatus = "In force" | "Amended" | "Repealed";
@@ -392,6 +392,7 @@ export default function LawDetailPage({
   const [mobileContentsOpen, setMobileContentsOpen] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
+  const [printLoading, setPrintLoading] = useState(false);
   const [summary, setSummary] = useState<{ summary_text: string; generated_at: string } | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number; clientX: number; clientY: number } | null>(null);
@@ -399,6 +400,9 @@ export default function LawDetailPage({
   const { isSignedIn, user } = useUser();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
+  const paygDocument = searchParams.get("payg") === "document" && searchParams.get("session_id");
+  const printRequested = searchParams.get("print") === "1";
+  const [hasPaidForThisLaw, setHasPaidForThisLaw] = useState(false);
 
   const scrollToTop = useCallback(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -414,6 +418,22 @@ export default function LawDetailPage({
     const y = contentsPosition?.y ?? rect.top;
     dragStartRef.current = { x, y, clientX: e.clientX, clientY: e.clientY };
   }, [contentsPosition]);
+
+  // When law ID is known, hydrate hasPaidForThisLaw from localStorage so we remember
+  // past purchases across sessions for this browser.
+  useEffect(() => {
+    if (!resolvedId || typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("yamale-paid-laws");
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.includes(resolvedId)) {
+        setHasPaidForThisLaw(true);
+      }
+    } catch {
+      // ignore
+    }
+  }, [resolvedId]);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -511,6 +531,39 @@ export default function LawDetailPage({
     }
   };
 
+  const handlePrintPayment = async () => {
+    if (!resolvedId) return;
+    if (hasPaidForThisLaw) {
+      if (typeof window !== "undefined") {
+        window.print();
+      }
+      return;
+    }
+    if (!isSignedIn) {
+      window.location.assign("/sign-in?redirect_url=" + encodeURIComponent(window.location.pathname));
+      return;
+    }
+    setPrintLoading(true);
+    try {
+      const res = await fetch("/api/stripe/payg/document", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ return_path: `/library/${resolvedId}` }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Checkout failed");
+        return;
+      }
+      if (data.url) window.location.href = data.url;
+    } catch {
+      alert("Checkout failed");
+    } finally {
+      setPrintLoading(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     params.then((p) => {
@@ -544,6 +597,37 @@ export default function LawDetailPage({
       .finally(() => setLoading(false));
   }, [resolvedId]);
 
+  // After successful pay-as-you-go document payment: open print dialog once, then clean URL.
+  // Also remember that this law has been paid for (in localStorage) so future prints
+  // do not go back to Stripe from this browser.
+  const hasTriggeredPrint = useRef(false);
+  useEffect(() => {
+    if (!law || hasTriggeredPrint.current || typeof window === "undefined") return;
+    const shouldAutoPrint = Boolean(
+      paygDocument || (printRequested && hasPaidForThisLaw)
+    );
+    if (!shouldAutoPrint) return;
+    hasTriggeredPrint.current = true;
+    setHasPaidForThisLaw(true);
+    try {
+      const raw = window.localStorage.getItem("yamale-paid-laws");
+      const existing = Array.isArray(raw ? JSON.parse(raw) : null) ? JSON.parse(raw as string) : [];
+      const next = Array.from(new Set([...(existing as string[]), resolvedId].filter(Boolean)));
+      window.localStorage.setItem("yamale-paid-laws", JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+    const t = setTimeout(() => {
+      window.print();
+      const url = new URL(window.location.href);
+      url.searchParams.delete("session_id");
+      url.searchParams.delete("payg");
+      url.searchParams.delete("print");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    }, 800);
+    return () => clearTimeout(t);
+  }, [law, paygDocument]);
+
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -572,8 +656,8 @@ export default function LawDetailPage({
   const isRtl = isPrimarilyArabic(rawContent);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,var(--primary)/8%,transparent)]">
-      <header className="border-b border-border/80 bg-card/80 px-4 py-8 backdrop-blur-md sm:px-6">
+    <div className="min-h-screen bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,var(--primary)/8%,transparent)] print:bg-white">
+      <header className="border-b border-border/80 bg-card/80 px-4 py-8 backdrop-blur-md sm:px-6 print:hidden">
         <div className="mx-auto max-w-6xl">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
@@ -698,13 +782,13 @@ export default function LawDetailPage({
         </>
       )}
 
-      <div className="min-h-screen bg-gradient-to-b from-muted/10 via-background to-muted/20">
+      <div className="min-h-screen bg-gradient-to-b from-muted/10 via-background to-muted/20 print:bg-white">
         <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
           <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
           {/* Desktop: sidebar. Mobile: hidden (use hamburger + drawer) */}
           {hasContent && sections.length >= 1 && (
             <nav
-              className="hidden shrink-0 lg:block lg:w-60"
+              className="hidden shrink-0 lg:block lg:w-60 print:hidden"
               style={contentsPosition ? { position: "fixed", left: contentsPosition.x, top: contentsPosition.y, zIndex: 50, width: "15rem" } : undefined}
               ref={contentsRef}
             >
@@ -766,7 +850,7 @@ export default function LawDetailPage({
             )}
 
             {hasContent && (
-              <article className="w-full overflow-hidden rounded-3xl border border-border/80 bg-card shadow-2xl shadow-black/[0.08] ring-1 ring-black/[0.05] dark:ring-white/10 transition-shadow duration-300 hover:shadow-black/[0.12]" dir={isRtl ? "rtl" : undefined} lang={isRtl ? "ar" : undefined}>
+              <article className="w-full overflow-hidden rounded-3xl border border-border/80 bg-card shadow-2xl shadow-black/[0.08] ring-1 ring-black/[0.05] dark:ring-white/10 transition-shadow duration-300 hover:shadow-black/[0.12] print:shadow-none print:ring-0 print:border print:bg-white" dir={isRtl ? "rtl" : undefined} lang={isRtl ? "ar" : undefined}>
                 {/* Accent strip */}
                 <div className="h-2 w-full bg-gradient-to-r from-primary via-primary to-amber-500/80" aria-hidden />
                 <div className={`mx-auto w-full max-w-4xl px-6 py-8 sm:px-12 sm:py-10 md:px-16 md:py-14 ${isRtl ? "text-right" : ""}`} dir={isRtl ? "rtl" : undefined} lang={isRtl ? "ar" : undefined}>
@@ -860,7 +944,7 @@ export default function LawDetailPage({
       </div>
 
       {hasContent && (
-        <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-1 rounded-2xl border border-border/80 bg-card/90 p-2 shadow-xl shadow-black/10 backdrop-blur-xl">
+        <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-1 rounded-2xl border border-border/80 bg-card/90 p-2 shadow-xl shadow-black/10 backdrop-blur-xl print:hidden">
           {/* Back to Library */}
           <div className="relative group">
             <Link
@@ -890,6 +974,45 @@ export default function LawDetailPage({
               </span>
             </div>
           )}
+
+          {/* Print / Download — pay-as-you-go ($3) or direct print after payment */}
+          <div className="relative group">
+            <button
+              type="button"
+              onClick={
+                hasPaidForThisLaw
+                  ? () => {
+                      if (typeof window !== "undefined") {
+                        window.print();
+                      }
+                    }
+                  : handlePrintPayment
+              }
+              disabled={!hasPaidForThisLaw && printLoading}
+              className="inline-flex items-center justify-center gap-1.5 rounded-md px-2.5 py-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+              aria-label={
+                hasPaidForThisLaw
+                  ? "Print or download this document"
+                  : "Print or download this document ($3)"
+              }
+            >
+              {!hasPaidForThisLaw && printLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Printer className="h-5 w-5" />
+              )}
+              <span className="text-[11px] font-medium hidden sm:inline">
+                {hasPaidForThisLaw ? "Print" : "Print ($3)"}
+              </span>
+            </button>
+            <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+              {isSignedIn
+                ? hasPaidForThisLaw
+                  ? "Print or download (paid)"
+                  : "Print or download — $3"
+                : "Sign in to print or download"}
+            </span>
+          </div>
 
           {/* Bookmark toggle */}
           <div className="relative group">
