@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
 import {
   FileText,
   CheckSquare,
@@ -211,6 +212,9 @@ function getFilteredCountries(continent: string): string[] {
 
 
 export default function ComplianceCheckPage() {
+  const { user } = useUser();
+  const tier = ((user?.publicMetadata?.tier ?? user?.publicMetadata?.subscriptionTier) as string) || "free";
+  const isFreeTier = tier === "free";
   const [activeStep, setActiveStep] = useState<StepId>("start");
   const [hsCode, setHsCode] = useState("");
   const [productName, setProductName] = useState("");
@@ -657,7 +661,7 @@ export default function ComplianceCheckPage() {
                     key={step.id}
                     type="button"
                     onClick={() => {
-                      if (activeStep === "start" && idx > 0 && !isStartValid) return;
+                      if (!isFreeTier && activeStep === "start" && idx > 0 && !isStartValid) return;
                       setActiveStep(step.id);
                     }}
                     className="flex flex-col items-center flex-1 group"
@@ -725,6 +729,19 @@ export default function ComplianceCheckPage() {
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="rounded-xl border border-border bg-card p-6 shadow-md">
                 <h2 className="text-2xl font-bold text-foreground">Start Your Compliance Check</h2>
+                {isFreeTier && (
+                  <div className="mt-3 rounded-lg border border-amber-300/70 bg-amber-50 px-4 py-3 text-xs text-amber-900 sm:text-sm">
+                    <p className="font-semibold mb-1">Read-only for Free plan</p>
+                    <p>
+                      You can explore the AfCFTA compliance steps here, but interactive inputs and downloadable
+                      reports are only available on paid plans.{" "}
+                      <a href="/pricing" className="font-semibold underline">
+                        View pricing
+                      </a>
+                      .
+                    </p>
+                  </div>
+                )}
                 <div className="mt-4 rounded-lg border-l-4 border-l-amber-400 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
                   Welcome! Let&apos;s check if your product qualifies for{" "}
                   <span className="inline-flex items-center align-middle">
@@ -744,13 +761,20 @@ export default function ComplianceCheckPage() {
                       type="text"
                       value={hsCode}
                       onChange={(e) => {
+                        if (isFreeTier) return;
                         setHsCode(e.target.value);
                         setHsLookupStatus("idle");
                         setProductName("");
                       }}
-                      onBlur={() => lookupProductByHsCode(hsCode)}
+                      onBlur={() => {
+                        if (isFreeTier) return;
+                        lookupProductByHsCode(hsCode);
+                      }}
                       placeholder="e.g. 012222"
-                      className="w-full rounded-lg border border-input bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      readOnly={isFreeTier}
+                      className={`w-full rounded-lg border border-input px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                        isFreeTier ? "bg-muted/50 cursor-not-allowed" : "bg-background"
+                      }`}
                     />
                     <p className="mt-1 text-xs text-muted-foreground">Enter the 6-digit code for your product</p>
                     {hsLookupStatus === "loading" && (
@@ -816,10 +840,12 @@ export default function ComplianceCheckPage() {
                       <select
                         value={originContinent}
                         onChange={(e) => {
+                          if (isFreeTier) return;
                           setOriginContinent(e.target.value);
                           setOriginCountry("");
                         }}
-                        className="rounded-lg border border-input bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        disabled={isFreeTier}
+                        className="rounded-lg border border-input bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                       >
                         <option value="">Continent</option>
                         {CONTINENTS.map((c) => (
@@ -828,8 +854,11 @@ export default function ComplianceCheckPage() {
                       </select>
                       <select
                         value={originCountry}
-                        onChange={(e) => setOriginCountry(e.target.value)}
-                        disabled={!originContinent}
+                        onChange={(e) => {
+                          if (isFreeTier) return;
+                          setOriginCountry(e.target.value);
+                        }}
+                        disabled={isFreeTier || !originContinent}
                         className="rounded-lg border border-input bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                       >
                         <option value="">Country</option>
@@ -848,10 +877,12 @@ export default function ComplianceCheckPage() {
                       <select
                         value={destContinent}
                         onChange={(e) => {
+                          if (isFreeTier) return;
                           setDestContinent(e.target.value);
                           setDestCountry("");
                         }}
-                        className="rounded-lg border border-input bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        disabled={isFreeTier}
+                        className="rounded-lg border border-input bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                       >
                         <option value="">Continent</option>
                         {CONTINENTS.map((c) => (
@@ -860,8 +891,11 @@ export default function ComplianceCheckPage() {
                       </select>
                       <select
                         value={destCountry}
-                        onChange={(e) => setDestCountry(e.target.value)}
-                        disabled={!destContinent}
+                        onChange={(e) => {
+                          if (isFreeTier) return;
+                          setDestCountry(e.target.value);
+                        }}
+                        disabled={isFreeTier || !destContinent}
                         className="rounded-lg border border-input bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                       >
                         <option value="">Country</option>
@@ -1503,8 +1537,8 @@ export default function ComplianceCheckPage() {
           <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
             <button
               type="button"
-              onClick={goPrev}
-              disabled={stepIndex === 0}
+              onClick={isFreeTier ? undefined : goPrev}
+              disabled={stepIndex === 0 || isFreeTier}
               className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-95"
               style={{ backgroundColor: ORG_ACCENT }}
             >
@@ -1555,16 +1589,34 @@ export default function ComplianceCheckPage() {
                   </button>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={goNext}
-                  disabled={stepIndex === STEPS.length - 1 || (activeStep === "start" && !isStartValid)}
-                  title={activeStep === "start" && !isStartValid ? "Fill in all required fields on the Start step to continue" : undefined}
-                  className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#c99d2e] px-4 py-2 text-sm font-semibold text-[#1a1a1a] transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] hover:shadow-lg"
-                >
-                  {activeStep === "production" ? "Continue to Origin Check" : activeStep === "origin" ? "Continue to Barrier Check" : activeStep === "ntb" ? "Continue to Tariff Savings" : activeStep === "tariff" ? "View Compliance Checklist" : "Next"}
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+                  <button
+                    type="button"
+                    onClick={isFreeTier ? undefined : goNext}
+                    disabled={
+                      isFreeTier ||
+                      stepIndex === STEPS.length - 1 ||
+                      (activeStep === "start" && !isStartValid)
+                    }
+                    title={
+                      isFreeTier
+                        ? "Upgrade your plan to run an interactive AfCFTA compliance check"
+                        : activeStep === "start" && !isStartValid
+                        ? "Fill in all required fields on the Start step to continue"
+                        : undefined
+                    }
+                    className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#c99d2e] px-4 py-2 text-sm font-semibold text-[#1a1a1a] transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] hover:shadow-lg"
+                  >
+                    {activeStep === "production"
+                      ? "Continue to Origin Check"
+                      : activeStep === "origin"
+                      ? "Continue to Barrier Check"
+                      : activeStep === "ntb"
+                      ? "Continue to Tariff Savings"
+                      : activeStep === "tariff"
+                      ? "View Compliance Checklist"
+                      : "Next"}
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
               )}
             </div>
           </div>
