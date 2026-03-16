@@ -80,10 +80,17 @@ export default function MarketplaceItemPage() {
   const [viewing, setViewing] = useState(false);
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [reviews, setReviews] = useState<{ averageRating: number | null; totalReviews: number }>({ averageRating: null, totalReviews: 0 });
+  const [reviews, setReviews] = useState<{ averageRating: number | null; totalReviews: number }>({
+    averageRating: null,
+    totalReviews: 0,
+  });
   const [addingToCart, setAddingToCart] = useState(false);
   const [isInCart, setIsInCart] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [myRating, setMyRating] = useState<number | null>(null);
+  const [hoverRating, setHoverRating] = useState<number | null>(null);
+  const [savingRating, setSavingRating] = useState(false);
+  const [ratingError, setRatingError] = useState<string | null>(null);
 
   const checkoutStatus = searchParams?.get("checkout");
   const sessionId = searchParams?.get("session_id") ?? null;
@@ -184,12 +191,18 @@ export default function MarketplaceItemPage() {
     if (!id) return;
     fetch(`/api/marketplace/${id}/reviews`)
       .then((r) => r.json())
-      .then((data: { averageRating?: number | null; totalReviews?: number }) => {
-        setReviews({
-          averageRating: data.averageRating ?? null,
-          totalReviews: data.totalReviews ?? 0,
-        });
-      })
+      .then(
+        (data: {
+          averageRating?: number | null;
+          totalReviews?: number;
+          // we ignore individual reviews here – only summary is needed
+        }) => {
+          setReviews({
+            averageRating: data.averageRating ?? null,
+            totalReviews: data.totalReviews ?? 0,
+          });
+        }
+      )
       .catch(() => {});
   }, [id]);
 
@@ -317,6 +330,51 @@ export default function MarketplaceItemPage() {
     setPurchasing(false);
   };
 
+  const handleSetRating = async (value: number) => {
+    if (!item) return;
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      router.push(`/sign-in?redirect_url=${encodeURIComponent(`/marketplace/${id}`)}`);
+      return;
+    }
+    if (!owned) {
+      // Only allow users who own the item to rate
+      return;
+    }
+    setSavingRating(true);
+    setRatingError(null);
+    setMyRating(value);
+    try {
+      const res = await fetch(`/api/marketplace/${id}/reviews`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating: value }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setRatingError(data.error || "Failed to save rating");
+        return;
+      }
+      // Refresh summary after saving
+      fetch(`/api/marketplace/${id}/reviews`)
+        .then((r) => r.json())
+        .then(
+          (summary: { averageRating?: number | null; totalReviews?: number }) => {
+            setReviews({
+              averageRating: summary.averageRating ?? null,
+              totalReviews: summary.totalReviews ?? 0,
+            });
+          }
+        )
+        .catch(() => {});
+    } catch {
+      setRatingError("Failed to save rating");
+    } finally {
+      setSavingRating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -413,6 +471,42 @@ export default function MarketplaceItemPage() {
             <div className="mt-2 whitespace-pre-wrap text-muted-foreground">
               {item.description}
             </div>
+          </section>
+        )}
+
+        {owned && (
+          <section className="mb-8">
+            <h2 className="text-lg font-semibold">Rate this product</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Share your experience to help other practitioners decide if this resource is useful.
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              {[1, 2, 3, 4, 5].map((value) => {
+                const active = (hoverRating ?? myRating ?? 0) >= value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onMouseEnter={() => setHoverRating(value)}
+                    onMouseLeave={() => setHoverRating(null)}
+                    onClick={() => handleSetRating(value)}
+                    disabled={savingRating}
+                    className="p-0.5 text-yellow-500 disabled:opacity-50"
+                    aria-label={`Rate ${value} star${value > 1 ? "s" : ""}`}
+                  >
+                    <Star
+                      className={`h-6 w-6 ${active ? "fill-current" : "stroke-current"}`}
+                    />
+                  </button>
+                );
+              })}
+              <span className="ml-2 text-xs text-muted-foreground">
+                {myRating ? `You rated this ${myRating}/5` : "Click to rate (1–5 stars)"}
+              </span>
+            </div>
+            {ratingError && (
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{ratingError}</p>
+            )}
           </section>
         )}
 
