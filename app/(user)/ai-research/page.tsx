@@ -146,9 +146,7 @@ export default function AIResearchPage() {
   const [defaultModelId, setDefaultModelId] = useState<string | null>(null);
   const [allowedModelIds, setAllowedModelIds] = useState<string[]>([]);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
-  const [modelsOpen, setModelsOpen] = useState(false);
   const [exampleQuestions, setExampleQuestions] = useState<string[]>(() => pickRandomExampleQuestions(4));
-  const canChooseModel = allowedModelIds.length > 1;
 
   const tierFromMetadata: Tier =
     user?.publicMetadata ? getTierFromUser(user.publicMetadata as Record<string, unknown>) : "free";
@@ -236,10 +234,7 @@ export default function AIResearchPage() {
         setAllowedModelIds(allowed);
         const defaultId = data.defaultModelId ?? data.models[0]?.id ?? null;
         setDefaultModelId(defaultId);
-        setSelectedModelId((prev) => {
-          if (prev && allowed.includes(prev)) return prev;
-          return defaultId ?? data.models?.[0]?.id ?? null;
-        });
+        setSelectedModelId(defaultId ?? data.models?.[0]?.id ?? null);
       }
     } catch {
       // ignore
@@ -250,6 +245,10 @@ export default function AIResearchPage() {
     if (!user) return;
     fetchModels();
   }, [user, fetchModels]);
+
+  const activeModelName =
+    models.find((m) => m.id === (selectedModelId ?? defaultModelId ?? ""))?.display_name ??
+    "Claude Sonnet (latest)";
 
   // Handle payment confirmation after Stripe redirect
   useEffect(() => {
@@ -913,59 +912,9 @@ export default function AIResearchPage() {
                     className="w-full bg-transparent px-4 pt-4 pb-2 text-sm outline-none placeholder:text-muted-foreground/70 disabled:opacity-50"
                   />
                   <div className="flex items-center justify-end gap-2 px-2 pb-2 pt-0">
-                    {models.length > 0 && defaultModelId && (
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setModelsOpen((o) => !o)}
-                          className="flex items-center gap-1.5 rounded-lg py-1.5 pr-2 pl-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition"
-                        >
-                          <span className="max-w-[140px] truncate">
-                            {models.find((m) => m.id === (allowedModelIds.includes(selectedModelId ?? "") ? selectedModelId : defaultModelId))?.display_name ?? "Model"}
-                          </span>
-                          <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" />
-                        </button>
-                        {modelsOpen && (
-                          <>
-                            <div
-                              className="fixed inset-0 z-40"
-                              aria-hidden
-                              onClick={() => setModelsOpen(false)}
-                            />
-                            <div className="absolute right-0 bottom-full z-50 mb-1 min-w-[200px] rounded-lg border border-border bg-card py-1 shadow-lg">
-                              {models.map((m) => {
-                                const allowed = allowedModelIds.includes(m.id);
-                                const isSelected = (allowed ? selectedModelId : defaultModelId) === m.id;
-                                const upgradeMessage =
-                                  tier === "pro"
-                                    ? "Upgrade to Team to use this model"
-                                    : "Upgrade to Pro or Team to use this model";
-                                return (
-                                  <button
-                                    key={m.id}
-                                    type="button"
-                                    disabled={!allowed}
-                                    title={!allowed ? upgradeMessage : undefined}
-                                    onClick={() => {
-                                      if (allowed) setSelectedModelId(m.id);
-                                      setModelsOpen(false);
-                                    }}
-                                    className={`w-full px-3 py-2 text-left text-sm ${!allowed ? "cursor-not-allowed text-muted-foreground opacity-60" : "hover:bg-muted"} ${isSelected ? "bg-primary/10 font-medium text-foreground" : ""}`}
-                                  >
-                                    <span className="block truncate">{m.display_name ?? m.id}</span>
-                                    {!allowed && (
-                                      <span className="block truncate text-xs text-muted-foreground mt-0.5">
-                                        {upgradeMessage}
-                                      </span>
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
+                    <div className="text-[11px] font-medium text-muted-foreground">
+                      {activeModelName}
+                    </div>
                     <button
                       type="submit"
                       disabled={!input.trim() || atLimit || isLoading}
