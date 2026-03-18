@@ -178,6 +178,8 @@ export function LibraryView({
   const [currentPage, setCurrentPage] = useState(() => parsePage(initialPage) || 1);
 
   const hasFilters = !!(country || category || status || search.trim());
+  const currentTier =
+    ((user?.publicMetadata?.tier ?? user?.publicMetadata?.subscriptionTier) as string | undefined) || "free";
 
   useEffect(() => {
     fetch("/api/bookmarks", { credentials: "include" })
@@ -207,6 +209,33 @@ export function LibraryView({
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []);
+
+  // When a user's tier changes (e.g., Free -> Basic), clear their bookmarks once so
+  // they start fresh under the new role.
+  useEffect(() => {
+    if (typeof window === "undefined" || !isSignedIn) return;
+    try {
+      const key = "yamale-last-tier";
+      const prev = window.localStorage.getItem(key);
+      if (prev && prev !== currentTier) {
+        fetch("/api/bookmarks?all=1", {
+          method: "DELETE",
+          credentials: "include",
+        })
+          .then(() => {
+            setBookmarkedIds(new Set());
+            window.localStorage.setItem(key, currentTier);
+          })
+          .catch(() => {
+            window.localStorage.setItem(key, currentTier);
+          });
+      } else if (!prev) {
+        window.localStorage.setItem(key, currentTier);
+      }
+    } catch {
+      // ignore
+    }
+  }, [currentTier, isSignedIn]);
 
   // Hydrate paid law IDs from localStorage so we can avoid Stripe for laws
   // that have already been purchased (from this browser).
