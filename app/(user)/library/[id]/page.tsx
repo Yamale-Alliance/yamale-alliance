@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChevronLeft, FileText, Loader2, GripVertical, ArrowUp, ArrowDown, Menu, X, Bookmark, BookmarkCheck, FileEdit, Printer } from "lucide-react";
+import { ChevronLeft, FileText, Loader2, GripVertical, ArrowUp, ArrowDown, Menu, X, Bookmark, BookmarkCheck, FileEdit } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 
 type LawStatus = "In force" | "Amended" | "Repealed";
@@ -999,7 +999,7 @@ export default function LawDetailPage({
               {!hasPaidForThisLaw && printLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
-                <Printer className="h-5 w-5" />
+                <FileText className="h-5 w-5" />
               )}
               <span className="text-[11px] font-medium hidden sm:inline">
                 {hasPaidForThisLaw ? "Print" : "Print ($3)"}
