@@ -217,7 +217,7 @@ async function searchLegalLibrary(
         "id, title, content, content_plain, year, status, country_id, category_id, countries(name), categories(name)"
       )
       .not("content", "is", null)
-      .limit(5);
+      .limit(3);
 
     if (countryId) {
       lawsQuery = lawsQuery.eq("country_id", countryId);
@@ -248,7 +248,7 @@ async function searchLegalLibrary(
     // that are most relevant to the user's query (not just the first N chars),
     // so that specific articles (e.g. "Chapter III, Article 8") are more likely
     // to be included in the context.
-    const maxCharsPerLaw = 4000;
+    const maxCharsPerLaw = 2500;
     const queryLower = query.toLowerCase();
     const queryTokens = queryLower
       .split(/\W+/)
@@ -490,7 +490,7 @@ Always remind users that your responses are indicative and not a substitute for 
       },
       body: JSON.stringify({
         model: modelId,
-        max_tokens: 4096,
+        max_tokens: 2048,
         messages: claudeMessages,
         system: systemPrompt,
       }),
