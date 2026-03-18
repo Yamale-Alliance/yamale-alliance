@@ -64,7 +64,6 @@ export default function MarketplacePage() {
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
   const [cartCount, setCartCount] = useState(0);
   const [cartItemIds, setCartItemIds] = useState<Set<string>>(new Set());
-  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
   const { isSignedIn } = useUser();
   const confirmedCartSessionRef = useRef<string | null>(null);
 
@@ -432,32 +431,9 @@ export default function MarketplacePage() {
                                 <p className="text-xs text-muted-foreground">by {product.author}</p>
                               )}
                               {product.description && (
-                                <div className="mt-1 text-xs sm:text-sm leading-relaxed text-muted-foreground">
-                                  <p className={expandedDescriptions.has(product.id) ? "" : "line-clamp-2"}>
-                                    {product.description}
-                                  </p>
-                                  {product.description.length > 140 && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        setExpandedDescriptions((prev) => {
-                                          const next = new Set(prev);
-                                          if (next.has(product.id)) {
-                                            next.delete(product.id);
-                                          } else {
-                                            next.add(product.id);
-                                          }
-                                          return next;
-                                        });
-                                      }}
-                                      className="mt-0.5 text-[11px] font-medium text-primary hover:underline"
-                                    >
-                                      {expandedDescriptions.has(product.id) ? "Show less" : "Read more"}
-                                    </button>
-                                  )}
-                                </div>
+                                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                                  {product.description}
+                                </p>
                               )}
                             </div>
                           </div>
