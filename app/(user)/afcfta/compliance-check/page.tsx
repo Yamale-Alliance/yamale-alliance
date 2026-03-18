@@ -598,6 +598,10 @@ export default function ComplianceCheckPage() {
     setDestCountry("");
     setProductionRows([{ id: "1", description: "", sourceCountry: "", cost: "", fileName: "" }]);
     setChecklistProgress({});
+    setHsLookupStatus("idle");
+    setReportUsage(null);
+    setReportDownloadStatus("idle");
+    setReportError(null);
     setShipmentValue("");
     setSavingsTariffRow(null);
     setSavingsTariffStatus("idle");
