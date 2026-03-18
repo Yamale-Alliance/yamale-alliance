@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/** DELETE: remove a bookmark */
+/** DELETE: remove a bookmark (or all bookmarks for current user) */
 export async function DELETE(request: NextRequest) {
   try {
     const { userId } = await auth();
@@ -74,16 +74,11 @@ export async function DELETE(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const lawId = searchParams.get("law_id");
-    if (!lawId) {
-      return NextResponse.json({ error: "law_id is required" }, { status: 400 });
-    }
+    const resetAll = searchParams.get("all") === "1";
 
     const supabase = getSupabaseServer();
-    const { error } = await supabase
-      .from("law_bookmarks")
-      .delete()
-      .eq("user_id", userId)
-      .eq("law_id", lawId);
+    const query = supabase.from("law_bookmarks").delete().eq("user_id", userId);
+    const { error } = resetAll ? await (query as any) : await query.eq("law_id", lawId);
 
     if (error) {
       console.error("Bookmarks DELETE error:", error);
