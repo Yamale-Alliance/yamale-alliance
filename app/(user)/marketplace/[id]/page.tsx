@@ -448,8 +448,8 @@ export default function MarketplaceItemPage() {
           </div>
         )}
 
-        {/* Video section */}
-        {getYouTubeEmbedUrl(item.video_url ?? null) && (
+        {/* Video section – only show full video for free or owned items */}
+        {getYouTubeEmbedUrl(item.video_url ?? null) && (free || owned) && (
           <section className="mb-8">
             <div className="overflow-hidden rounded-xl border border-border bg-black">
               <div className="relative w-full pt-[56.25%]">
