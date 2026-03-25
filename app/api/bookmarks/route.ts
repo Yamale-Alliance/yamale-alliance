@@ -77,8 +77,15 @@ export async function DELETE(request: NextRequest) {
     const resetAll = searchParams.get("all") === "1";
 
     const supabase = getSupabaseServer();
-    const query = supabase.from("law_bookmarks").delete().eq("user_id", userId);
-    const { error } = resetAll ? await (query as any) : await query.eq("law_id", lawId);
+    let error;
+    if (resetAll) {
+      ({ error } = await supabase.from("law_bookmarks").delete().eq("user_id", userId));
+    } else {
+      if (!lawId) {
+        return NextResponse.json({ error: "law_id is required" }, { status: 400 });
+      }
+      ({ error } = await supabase.from("law_bookmarks").delete().eq("user_id", userId).eq("law_id", lawId));
+    }
 
     if (error) {
       console.error("Bookmarks DELETE error:", error);
