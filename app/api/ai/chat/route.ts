@@ -116,6 +116,12 @@ function extractQueryHints(query: string): { country?: string; category?: string
     "ethiopia": "Ethiopia",
     "rwanda": "Rwanda",
     "madagascar": "Madagascar",
+    "mali": "Mali",
+    "sierra leone": "Sierra Leone",
+    "togo": "Togo",
+    "liberia": "Liberia",
+    // After "nigeria" so queries mentioning Nigeria do not match the "niger" substring first
+    "niger": "Niger",
   };
   
   let foundCountry: string | undefined;
