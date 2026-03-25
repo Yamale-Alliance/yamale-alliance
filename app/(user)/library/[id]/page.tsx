@@ -296,6 +296,47 @@ function isJunkLine(line: string): boolean {
   return false;
 }
 
+/** Collapse whitespace and accents for comparing heading text to body lines. */
+function normalizeHeadingText(s: string): string {
+  return s
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
+}
+
+/** Drop leading body lines that repeat the section title (PDF/OCR duplicates, or stray ## lines). */
+function stripLeadingTitleDuplicate(sec: Section): Section {
+  let body = sec.body?.trim() ?? "";
+  if (!body) return sec;
+  const titleKey = normalizeHeadingText(sec.title);
+  if (!titleKey) return sec;
+
+  for (let guard = 0; guard < 8; guard++) {
+    const lines = body.split("\n");
+    let i = 0;
+    while (i < lines.length && !lines[i].trim()) i++;
+    if (i >= lines.length) break;
+
+    const raw = lines[i].trim();
+    let compare = raw;
+    const md = raw.match(/^#{1,6}\s+(.+)$/);
+    if (md) compare = md[1].trim();
+    const boldStar = raw.match(/^\*\*(.+)\*\*\s*$/);
+    if (boldStar) compare = boldStar[1].trim();
+    const boldUnder = raw.match(/^__(.+)__\s*$/);
+    if (boldUnder) compare = boldUnder[1].trim();
+
+    if (normalizeHeadingText(compare) !== titleKey) break;
+
+    i++;
+    while (i < lines.length && !lines[i].trim()) i++;
+    body = lines.slice(i).join("\n").trim();
+  }
+  return { ...sec, body };
+}
+
 // Split content by major headings only (Part, Chapitre, Titre, Chapter). Section and Article stay in body as sub-headings.
 function splitIntoSections(text: string): Section[] {
   if (!text?.trim()) return [];
@@ -317,11 +358,9 @@ function splitIntoSections(text: string): Section[] {
       currentTitle = sectionTitle(line);
       currentBody = [];
       const t = line.trim();
-      // Put any text after the major heading on the same line into body
-      const mdHeadingLine = /^(#{1,6}\s+)(.+)$/.exec(t);
-      if (mdHeadingLine && mdHeadingLine[2].trim()) {
-        currentBody.push(mdHeadingLine[2].trim());
-      } else {
+      // Markdown ## line: title is already in the section h2 — do not repeat the same text in the body
+      const isMdMajorHeading = /^#{1,6}\s+\S/.test(t);
+      if (!isMdMajorHeading) {
         const majorLike =
           /^(Part\s+[A-Z][.:]?\s*)(.*)$/i.exec(t) ||
           /^(Chapter\s+\d+[.:]?\s*)(.*)$/i.exec(t) ||
@@ -366,7 +405,7 @@ function splitIntoSections(text: string): Section[] {
     return [{ id: "sec-0", title: "النص الكامل / Full text", body: text.trim() }];
   }
 
-  return sections;
+  return sections.map(stripLeadingTitleDuplicate);
 }
 
 // Detect if content is primarily Arabic (for RTL display)
