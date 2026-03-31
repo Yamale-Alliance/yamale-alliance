@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { stripe } from "@/lib/stripe";
+import { getDepositStatus, isDepositCompleted } from "@/lib/pawapay";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 /**
- * After Stripe redirect: confirm pay-as-you-go AI query payment from session_id and record purchase.
+ * After pawaPay redirect: confirm pay-as-you-go AI query payment from session_id and record purchase.
  * Call this when the user lands on /ai-research with session_id so the purchase
  * is applied even if the webhook hasn't run yet.
  */
@@ -21,17 +21,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "session_id required" }, { status: 400 });
     }
 
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-    if (session.payment_status !== "paid") {
+    const deposit = await getDepositStatus(sessionId);
+    if (!deposit || !isDepositCompleted(deposit.status)) {
       return NextResponse.json({ error: "Payment not completed" }, { status: 400 });
     }
 
-    const clerkUserId = session.metadata?.clerk_user_id as string | undefined;
+    const clerkUserId = deposit.metadata?.clerk_user_id;
     if (clerkUserId !== userId) {
       return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
     }
 
-    const kind = session.metadata?.kind as string | undefined;
+    const kind = deposit.metadata?.kind;
     if (kind !== "payg_ai_query") {
       return NextResponse.json({ error: "Not an AI query purchase session" }, { status: 400 });
     }
