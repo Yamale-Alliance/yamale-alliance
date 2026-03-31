@@ -82,8 +82,27 @@ function getOpt(name, defaultValue) {
   return args[i + 1];
 }
 
+function normaliseTitleCase(raw) {
+  if (!raw) return raw;
+  const trimmed = raw.trim();
+  const hasLetters = /[A-Za-z]/.test(trimmed);
+  const isAllCaps = hasLetters && trimmed === trimmed.toUpperCase();
+  const base = isAllCaps ? trimmed.toLowerCase() : trimmed;
+  return base
+    .split(/\s+/)
+    .map((word) => {
+      if (!word) return word;
+      if (/^(of|and|the|for|to|in|on|at|by|with|or|vs\.?)$/i.test(word)) {
+        return word.toLowerCase();
+      }
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(" ");
+}
+
 const countryName = getOpt("--country", "Ghana");
-const title = getOpt("--title", basename(pdfPath, ".pdf").replace(/-/g, " "));
+const rawTitle = getOpt("--title", basename(pdfPath, ".pdf").replace(/-/g, " "));
+const title = normaliseTitleCase(rawTitle);
 const category = getOpt("--category", "Corporate Law");
 const yearStr = getOpt("--year", null);
 const status = getOpt("--status", "In force");
@@ -111,6 +130,129 @@ function runExecFile(cmd, args, opts = {}) {
       resolve(stdout?.toString?.() ?? "");
     });
   });
+}
+
+function collapseWhitespace(value) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function isLikelyTocLine(line) {
+  const t = line.trim();
+  if (!t) return true;
+  if (/\.{2,}\s*\d+\s*$/.test(t)) return true; // dotted leaders ending in page number
+  if (/^(part|chapter|section|article)\s+.*\s+\d+\s*$/i.test(t)) return true;
+  if (/^\d+(\.\d+)*\s+.*\s+\d+\s*$/.test(t)) return true;
+  return false;
+}
+
+function isLikelySectionHeading(line) {
+  const t = collapseWhitespace(line);
+  if (!t) return false;
+  if (/^(part|chapter|section|article|schedule|appendix)\b/i.test(t)) return true;
+  if (/^\d+(\.\d+)*[\)\.]?\s+[A-Z]/.test(t)) return true;
+  if (/^[IVXLC]+\.\s+[A-Z]/.test(t)) return true;
+  if (t === t.toUpperCase() && t.length >= 5 && t.length <= 120) return true;
+  return false;
+}
+
+function stripTableOfContents(rawText) {
+  const lines = rawText.split(/\r?\n/);
+  if (lines.length < 10) return rawText;
+
+  const searchLimit = Math.min(lines.length, 300);
+  let tocStart = -1;
+  for (let i = 0; i < searchLimit; i++) {
+    const t = lines[i].trim().toLowerCase();
+    if (t === "table of contents" || t === "contents") {
+      tocStart = i;
+      break;
+    }
+  }
+  if (tocStart === -1) return rawText;
+
+  let tocEnd = -1;
+  let nonTocStreak = 0;
+  const endSearchLimit = Math.min(lines.length, tocStart + 500);
+  for (let i = tocStart + 1; i < endSearchLimit; i++) {
+    const line = lines[i];
+    if (isLikelyTocLine(line)) {
+      nonTocStreak = 0;
+      continue;
+    }
+    if (isLikelySectionHeading(line)) {
+      nonTocStreak += 1;
+      if (nonTocStreak >= 2) {
+        tocEnd = i - 1;
+        break;
+      }
+    } else {
+      nonTocStreak = 0;
+    }
+  }
+
+  if (tocEnd === -1) {
+    tocEnd = Math.min(lines.length - 1, tocStart + 120);
+  }
+
+  const filtered = [...lines.slice(0, tocStart), ...lines.slice(tocEnd + 1)];
+  return filtered.join("\n");
+}
+
+function toMarkdownFromText(rawText) {
+  const lines = rawText.split(/\r?\n/);
+  const out = [];
+  let paragraph = [];
+
+  const flushParagraph = () => {
+    if (paragraph.length === 0) return;
+    out.push(collapseWhitespace(paragraph.join(" ")));
+    paragraph = [];
+  };
+
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) {
+      flushParagraph();
+      if (out.length > 0 && out[out.length - 1] !== "") out.push("");
+      continue;
+    }
+
+    if (/^[-*]\s+/.test(t) || /^\d+[\.\)]\s+/.test(t)) {
+      flushParagraph();
+      out.push(t);
+      continue;
+    }
+
+    if (isLikelySectionHeading(t)) {
+      flushParagraph();
+      const heading = collapseWhitespace(t);
+      const prefix = /^(part|chapter)\b/i.test(heading) ? "## " : "### ";
+      out.push(`${prefix}${heading}`);
+      out.push("");
+      continue;
+    }
+
+    paragraph.push(t);
+  }
+
+  flushParagraph();
+
+  return out
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function markdownToPlainText(markdown) {
+  return markdown
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*]\s+/gm, "")
+    .replace(/^\s*\d+[\.\)]\s+/gm, "")
+    .replace(/`/g, "")
+    .replace(/\*\*/g, "")
+    .replace(/__/g, "")
+    .replace(/\r/g, "")
+    .trim();
 }
 
 async function ocrPdfWithTesseract(pdfPath) {
@@ -219,6 +361,14 @@ async function main() {
     console.log("Extracted", text.length, "characters from PDF without needing OCR.");
   }
 
+  const withoutToc = stripTableOfContents(text || "");
+  const markdownContent = toMarkdownFromText(withoutToc || "");
+  const plainContent = markdownToPlainText(markdownContent);
+
+  console.log(
+    `Prepared Markdown content (${markdownContent.length} chars) after TOC cleanup.`
+  );
+
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   const { data: countries } = await supabase.from("countries").select("id").eq("name", countryName).limit(1);
@@ -235,9 +385,15 @@ async function main() {
     process.exit(1);
   }
 
-  let contentTrimmed = text.trim() || null;
-  if (contentTrimmed) {
-    contentTrimmed = contentTrimmed
+  let markdownTrimmed = markdownContent.trim() || null;
+  let plainTrimmed = plainContent.trim() || null;
+  if (markdownTrimmed) {
+    markdownTrimmed = markdownTrimmed
+      .replace(/\0/g, "")
+      .replace(/\\/g, "\\\\");
+  }
+  if (plainTrimmed) {
+    plainTrimmed = plainTrimmed
       .replace(/\0/g, "")
       .replace(/\\/g, "\\\\");
   }
@@ -261,7 +417,11 @@ async function main() {
     }
     const { error: updateErr } = await supabase
       .from("laws")
-      .update({ content: contentTrimmed, content_plain: contentTrimmed, updated_at: new Date().toISOString() })
+      .update({
+        content: markdownTrimmed,
+        content_plain: plainTrimmed,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", existing.id);
     if (updateErr) {
       console.error("Update failed:", updateErr.message);
@@ -279,8 +439,8 @@ async function main() {
     source_name: null,
     year,
     status,
-    content: contentTrimmed,
-    content_plain: contentTrimmed,
+    content: markdownTrimmed,
+    content_plain: plainTrimmed,
   };
 
   const { data, error } = await supabase.from("laws").insert(row).select("id").single();
