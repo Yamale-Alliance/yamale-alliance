@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { stripe } from "@/lib/stripe";
+import { createPaymentPageSession } from "@/lib/pawapay";
 
 const DOCUMENT_PRICE_CENTS = 300; // $3 per document
 
 /**
- * Create Stripe Checkout for purchasing one document download ($3).
- * One-time payment. On success, webhook records the purchase.
+ * Create pawaPay Payment Page session for purchasing one document download.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -16,48 +15,33 @@ export async function POST(request: NextRequest) {
     }
 
     const origin = request.headers.get("origin") || request.nextUrl.origin;
-    let successPath = "/library?session_id={CHECKOUT_SESSION_ID}&payg=document";
+    const depositId = crypto.randomUUID();
+    let successPath = `/library?session_id=${encodeURIComponent(depositId)}&payg=document`;
     try {
       const body = await request.json();
       const returnPath = body?.return_path;
       if (typeof returnPath === "string" && returnPath.startsWith("/") && !returnPath.startsWith("//")) {
-        successPath = `${returnPath}${returnPath.includes("?") ? "&" : "?"}session_id={CHECKOUT_SESSION_ID}&payg=document`;
+        successPath = `${returnPath}${returnPath.includes("?") ? "&" : "?"}session_id=${encodeURIComponent(depositId)}&payg=document`;
       }
     } catch {
       // ignore invalid body
     }
-    const success_url = `${origin}${successPath}`;
-
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            unit_amount: DOCUMENT_PRICE_CENTS,
-            product_data: {
-              name: "Document Download",
-              description: "One document download - Download & keep forever",
-            },
-          },
-          quantity: 1,
-        },
-      ],
-      success_url,
-      cancel_url: `${origin}/pricing?checkout=cancelled`,
-      client_reference_id: userId,
+    const returnUrl = `${origin}${successPath}`;
+    const { redirectUrl } = await createPaymentPageSession({
+      depositId,
+      amountCents: DOCUMENT_PRICE_CENTS,
+      currency: (process.env.PAWAPAY_CURRENCY || "USD").toUpperCase(),
+      returnUrl,
+      reason: "Document download",
+      customerMessage: "One document download - Download and keep forever",
+      country: process.env.PAWAPAY_COUNTRY,
       metadata: {
         clerk_user_id: userId,
         kind: "payg_document",
       },
     });
 
-    if (!session.url) {
-      return NextResponse.json({ error: "Failed to create session" }, { status: 500 });
-    }
-
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: redirectUrl });
   } catch (err) {
     console.error("Pay-as-you-go document checkout error:", err);
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
