@@ -131,7 +131,7 @@ export default function CartPage() {
               Review & checkout
             </h1>
             <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
-              Review your selected resources and proceed to secure checkout. All payments are processed via Stripe.
+              Review your selected resources and proceed to secure checkout. All payments are processed via mobile money through pawaPay.
             </p>
           </div>
         </div>
@@ -269,7 +269,7 @@ export default function CartPage() {
                     )}
                   </button>
                   <p className="mt-4 text-center text-xs text-muted-foreground">
-                    Secure payment via Stripe
+                    Secure payment via mobile money
                   </p>
                 </div>
               </div>
