@@ -140,7 +140,7 @@ export default function TermsOfServicePage() {
           <P>
             Subscription fees, one-off payments (for example, lawyer contact unlocks, day pass,
             marketplace purchases), and billing cycles are as displayed at the time of purchase.
-            Payments are processed by our payment providers (such as Stripe). By purchasing, you
+            Payments are processed by our payment providers (such as pawaPay). By purchasing, you
             agree to the applicable pricing and any refund policy stated on the Platform. We may
             change fees with notice where required; continued use after changes may constitute
             acceptance. Subscription and usage limits (for example, AI research credits) are
