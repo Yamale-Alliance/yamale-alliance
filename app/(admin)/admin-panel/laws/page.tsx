@@ -56,13 +56,21 @@ export default function AdminLawsPage() {
             View and add laws. Use filters to narrow by country, category, or status.
           </p>
         </div>
-        <Link
-          href="/admin-panel/laws/add"
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-        >
-          <Plus className="h-4 w-4" />
-          Add law
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin-panel/laws/bulk"
+            className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+          >
+            Bulk upload
+          </Link>
+          <Link
+            href="/admin-panel/laws/add"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" />
+            Add law
+          </Link>
+        </div>
       </div>
 
       <div className="mt-6 flex flex-wrap gap-4">
