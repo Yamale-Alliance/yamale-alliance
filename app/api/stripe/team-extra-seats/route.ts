@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { stripe } from "@/lib/stripe";
+import { createPaymentPageSession } from "@/lib/pawapay";
 import { isTeamAdmin } from "@/lib/team";
 import { clerkClient } from "@clerk/nextjs/server";
 import { EXTRA_SEAT_CENTS } from "@/lib/team";
 
 /**
- * Create Stripe Checkout for extra team seats ($6 per seat).
- * Only team admin can call. On success, webhook adds seats to team_extra_seats.
+ * Create pawaPay Payment Page session for extra team seats.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -29,36 +28,23 @@ export async function POST(request: NextRequest) {
 
     const origin = request.headers.get("origin") || request.nextUrl.origin;
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            unit_amount: EXTRA_SEAT_CENTS,
-            product_data: {
-              name: "Extra team seat",
-              description: `Additional seat for your Team plan (${seats} seat${seats > 1 ? "s" : ""})`,
-            },
-          },
-          quantity: seats,
-        },
-      ],
-      success_url: `${origin}/ai-research/team?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/ai-research/team?checkout=cancelled`,
-      client_reference_id: userId,
+    const depositId = crypto.randomUUID();
+    const returnUrl = `${origin}/ai-research/team?session_id=${encodeURIComponent(depositId)}`;
+    const { redirectUrl } = await createPaymentPageSession({
+      depositId,
+      amountCents,
+      currency: (process.env.PAWAPAY_CURRENCY || "USD").toUpperCase(),
+      returnUrl,
+      reason: "Extra team seat",
+      customerMessage: `Additional seat for your Team plan (${seats} seat${seats > 1 ? "s" : ""})`,
+      country: process.env.PAWAPAY_COUNTRY,
       metadata: {
         clerk_user_id: userId,
         kind: "team_extra_seats",
         seats: String(seats),
       },
     });
-
-    if (!session.url) {
-      return NextResponse.json({ error: "Failed to create session" }, { status: 500 });
-    }
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: redirectUrl });
   } catch (err) {
     console.error("Team extra seats checkout error:", err);
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
