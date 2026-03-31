@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { stripe } from "@/lib/stripe";
+import { createPaymentPageSession } from "@/lib/pawapay";
 
 const DAY_PASS_CENTS = 2500; // $25
-const DAY_PASS_CURRENCY = (process.env.STRIPE_CURRENCY || "usd").toLowerCase();
+const DAY_PASS_CURRENCY = (process.env.PAWAPAY_CURRENCY || "USD").toUpperCase();
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,25 +14,16 @@ export async function POST(request: NextRequest) {
 
     const origin = request.headers.get("origin") || request.nextUrl.origin;
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: DAY_PASS_CURRENCY,
-            unit_amount: DAY_PASS_CENTS,
-            product_data: {
-              name: "24-hour day pass",
-              description: "Full Pro-level access for 24 hours",
-            },
-          },
-          quantity: 1,
-        },
-      ],
-      success_url: `${origin}/lawyers?day_pass=1&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/lawyers?checkout=cancelled`,
-      client_reference_id: userId,
+    const depositId = crypto.randomUUID();
+    const returnUrl = `${origin}/lawyers?day_pass=1&session_id=${encodeURIComponent(depositId)}`;
+    const { redirectUrl } = await createPaymentPageSession({
+      depositId,
+      amountCents: DAY_PASS_CENTS,
+      currency: DAY_PASS_CURRENCY,
+      returnUrl,
+      reason: "24-hour day pass",
+      customerMessage: "Full Pro-level access for 24 hours",
+      country: process.env.PAWAPAY_COUNTRY,
       metadata: {
         clerk_user_id: userId,
         plan_id: "day-pass",
@@ -40,16 +31,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (!session.url) {
-      return NextResponse.json(
-        { error: "Failed to create session" },
-        { status: 500 },
-      );
-    }
-
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: redirectUrl });
   } catch (err) {
-    console.error("Stripe day-pass checkout error:", err);
+    console.error("pawaPay day-pass checkout error:", err);
     return NextResponse.json(
       { error: "Checkout failed" },
       { status: 500 },
