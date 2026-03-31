@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { stripe } from "@/lib/stripe";
+import { createPaymentPageSession } from "@/lib/pawapay";
 import type { Database } from "@/lib/database.types";
 
 type MarketplaceItemRow = Database["public"]["Tables"]["marketplace_items"]["Row"];
 
 /**
- * Create Stripe Checkout for a marketplace item.
- * Price is read from DB (not from Stripe product catalog). One-time payment.
+ * Create pawaPay Payment Page session for a marketplace item.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -45,26 +44,16 @@ export async function POST(request: NextRequest) {
 
     const origin = request.headers.get("origin") || request.nextUrl.origin;
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: (item.currency || "usd").toLowerCase(),
-            unit_amount: item.price_cents,
-            product_data: {
-              name: item.title,
-              description: (item.description || "").slice(0, 500),
-              images: [],
-            },
-          },
-          quantity: 1,
-        },
-      ],
-      success_url: `${origin}/marketplace/${itemId}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/marketplace/${itemId}?checkout=cancelled`,
-      client_reference_id: userId,
+    const depositId = crypto.randomUUID();
+    const returnUrl = `${origin}/marketplace/${itemId}?checkout=success&session_id=${encodeURIComponent(depositId)}`;
+    const { redirectUrl } = await createPaymentPageSession({
+      depositId,
+      amountCents: item.price_cents,
+      currency: (item.currency || process.env.PAWAPAY_CURRENCY || "USD").toUpperCase(),
+      returnUrl,
+      reason: item.title.slice(0, 50),
+      customerMessage: (item.description || item.title).slice(0, 120),
+      country: process.env.PAWAPAY_COUNTRY,
       metadata: {
         clerk_user_id: userId,
         marketplace_item_id: itemId,
@@ -72,10 +61,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (!session.url) {
-      return NextResponse.json({ error: "Failed to create session" }, { status: 500 });
-    }
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: redirectUrl });
   } catch (err) {
     console.error("Marketplace checkout error:", err);
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
