@@ -35,6 +35,8 @@ import {
   type CountryRequirementsPublic,
 } from "@/lib/afcfta-country-requirements";
 
+const AFCFTA_DISABLED = true;
+
 const CONTINENTS = ["Africa", "Asia", "Europe", "Americas", "Oceania"];
 
 const COUNTRIES_BY_CONTINENT: Record<string, string[]> = {
@@ -644,6 +646,25 @@ export default function ComplianceCheckPage() {
       }
     }
   };
+
+  if (AFCFTA_DISABLED) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-muted/20 via-background to-background">
+        <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+          <div className="rounded-2xl border border-border bg-card px-6 py-10 shadow-sm sm:px-10">
+            <h1 className="text-2xl font-semibold tracking-tight">AfCFTA tools are coming soon</h1>
+            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+              We&apos;re putting the finishing touches on our AfCFTA compliance calculator and export journey tools.
+              For now, you can still browse the legal library and other features while we prepare this experience.
+            </p>
+            <p className="mt-4 text-xs text-muted-foreground">
+              If you need AfCFTA support today, reach out to our team and we can share tailored guidance manually.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-muted/20 via-background to-background">
