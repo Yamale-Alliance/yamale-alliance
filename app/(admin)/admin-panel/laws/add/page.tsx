@@ -8,6 +8,7 @@ type Country = { id: string; name: string };
 type Category = { id: string; name: string };
 
 type InputMode = "upload" | "paste";
+const MAX_SINGLE_UPLOAD_MB = 45;
 
 export default function AdminLawsAddPage() {
   const [countries, setCountries] = useState<Country[]>([]);
@@ -57,6 +58,13 @@ export default function AdminLawsAddPage() {
         setError("File must be a PDF.");
         return;
       }
+      if (file.size > MAX_SINGLE_UPLOAD_MB * 1024 * 1024) {
+        setError(
+          `This PDF is too large for browser upload (${(file.size / (1024 * 1024)).toFixed(1)}MB). ` +
+            `Use a smaller file or the CLI script for very large laws.`
+        );
+        return;
+      }
     } else {
       if (!pastedContent.trim()) {
         setError("Paste the law content in the text area, or switch to “Upload PDF”.");
@@ -89,9 +97,21 @@ export default function AdminLawsAddPage() {
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
-      const data = await res.json();
+      let data: { error?: string } = {};
+      try {
+        data = (await res.json()) as { error?: string };
+      } catch {
+        // Non-JSON error responses can happen for oversized payloads.
+      }
       if (!res.ok) {
-        setError(data.error ?? "Failed to add law");
+        if (res.status === 413) {
+          setError(
+            data.error ??
+              "Upload is too large. Try a smaller PDF, disable OCR, or use the CLI import script."
+          );
+        } else {
+          setError(data.error ?? "Failed to add law");
+        }
         setSubmitting(false);
         return;
       }
@@ -110,7 +130,14 @@ export default function AdminLawsAddPage() {
       if ((e as Error).name === "AbortError") {
         setError("Request took too long. Try a smaller PDF or use “Paste content” for very large documents.");
       } else {
-        setError("Network error. Please try again.");
+        const msg = e instanceof Error ? e.message : "";
+        const looksLikeNetwork =
+          /failed to fetch|load failed|networkerror|network request failed/i.test(msg);
+        setError(
+          looksLikeNetwork
+            ? "Could not reach the server. Restart the dev server if you changed upload limits in next.config; for very large PDFs use the CLI import script."
+            : msg || "Something went wrong. Please try again."
+        );
       }
       setSubmitting(false);
     }
@@ -125,10 +152,20 @@ export default function AdminLawsAddPage() {
         <ArrowLeft className="h-4 w-4" />
         Back to laws
       </Link>
-      <h1 className="text-2xl font-semibold">Add law</h1>
-      <p className="mt-1 text-muted-foreground">
-        Upload a PDF (with optional OCR for scanned documents) or paste the law content directly.
-      </p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Add law</h1>
+          <p className="mt-1 text-muted-foreground">
+            Upload a PDF (with optional OCR for scanned documents) or paste the law content directly.
+          </p>
+        </div>
+        <Link
+          href="/admin-panel/laws/bulk"
+          className="text-sm text-primary hover:underline shrink-0"
+        >
+          Bulk upload (multiple PDFs)
+        </Link>
+      </div>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-6">
         {error && (
