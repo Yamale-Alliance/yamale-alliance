@@ -3,6 +3,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin";
 import { recordAuditLog } from "@/lib/admin-audit";
 import { extractTextFromPdf } from "@/lib/pdf-extract";
+import { sanitizeLawContent, VALID_LAW_STATUSES, normaliseLawTitle } from "@/lib/admin-law-utils";
 import type { Database } from "@/lib/database.types";
 
 // Allow up to 5 minutes for PDF extraction and OCR (large or scanned PDFs)
@@ -10,40 +11,52 @@ export const maxDuration = 300;
 
 type LawInsert = Database["public"]["Tables"]["laws"]["Insert"];
 
-const VALID_STATUSES = ["In force", "Amended", "Repealed"];
-
-function sanitizeContent(text: string | null): string | null {
-  if (!text?.trim()) return null;
-  return text
-    .trim()
-    .replace(/\0/g, "")
-    .replace(/\\/g, "\\\\");
-}
-
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin();
   if (admin instanceof NextResponse) return admin;
 
   try {
-    const formData = await request.formData();
+    const contentType = request.headers.get("content-type") || "";
+    if (!contentType.toLowerCase().includes("multipart/form-data")) {
+      return NextResponse.json(
+        { error: "Expected multipart/form-data body. Use the admin form upload for this endpoint." },
+        { status: 400 }
+      );
+    }
+
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch (parseErr) {
+      console.error("Admin laws: formData parse failed:", parseErr);
+      return NextResponse.json(
+        {
+          error:
+            "Could not read the upload (often the PDF is too large for the server limit, or the connection was cut). Try a smaller PDF, restart the dev server after config changes, or use: node --env-file=.env scripts/import-pdf-law.mjs \"path/to.pdf\" --country \"…\" --title \"…\" --category \"…\"",
+        },
+        { status: 413 }
+      );
+    }
     const countryId = formData.get("countryId") as string | null;
     const categoryId = formData.get("categoryId") as string | null;
     const status = formData.get("status") as string | null;
-    const title = formData.get("title") as string | null;
+    const rawTitle = formData.get("title") as string | null;
     const yearStr = formData.get("year") as string | null;
     const file = formData.get("file") as File | null;
     const content = formData.get("content") as string | null;
     const forceOcr = formData.get("forceOcr") === "true";
 
-    if (!countryId?.trim() || !categoryId?.trim() || !title?.trim()) {
+    const title = normaliseLawTitle(rawTitle);
+
+    if (!countryId?.trim() || !categoryId?.trim() || !title) {
       return NextResponse.json(
         { error: "Missing required fields: countryId, categoryId, title" },
         { status: 400 }
       );
     }
-    if (!VALID_STATUSES.includes(status ?? "")) {
+    if (!VALID_LAW_STATUSES.includes(status as (typeof VALID_LAW_STATUSES)[number])) {
       return NextResponse.json(
-        { error: `Invalid status. Use one of: ${VALID_STATUSES.join(", ")}` },
+        { error: `Invalid status. Use one of: ${VALID_LAW_STATUSES.join(", ")}` },
         { status: 400 }
       );
     }
@@ -80,13 +93,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const contentTrimmed = sanitizeContent(text) || null;
+    const contentTrimmed = sanitizeLawContent(text) || null;
 
     const supabase = getSupabaseServer();
     const row: LawInsert = {
       country_id: countryId.trim(),
       category_id: categoryId.trim(),
-      title: title.trim(),
+      title,
       source_url: null,
       source_name: null,
       year: year ?? null,
@@ -114,7 +127,7 @@ export async function POST(request: NextRequest) {
       action: "law.add",
       entityType: "law",
       entityId: data?.id ?? null,
-      details: { title: title.trim() },
+      details: { title },
     });
 
     return NextResponse.json({ ok: true, law: data });
