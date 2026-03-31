@@ -43,6 +43,7 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
       let query = supabase
         .from("laws")
         .select("id, title, source_url, source_name, year, status, country_id, category_id, created_at, updated_at, countries(name), categories(name)")
+        .order("created_at", { ascending: false })
         .order("title")
         .limit(LAWS_LIMIT);
       if (filters?.countryId) query = query.eq("country_id", filters.countryId);
