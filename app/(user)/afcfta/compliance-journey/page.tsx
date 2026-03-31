@@ -21,6 +21,8 @@ import {
 import Link from "next/link";
 import { InfoIcon } from "@/components/ui/InfoIcon";
 
+const AFCFTA_DISABLED = true;
+
 const CONTINENTS = ["Africa", "Asia", "Europe", "Americas", "Oceania"];
 
 const COUNTRIES_BY_CONTINENT: Record<string, string[]> = {
@@ -212,6 +214,25 @@ export default function ComplianceJourneyPage() {
             : "Origin and destination must be different.",
         }
       : null;
+
+  if (AFCFTA_DISABLED) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-muted/20 via-background to-background">
+        <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+          <div className="rounded-2xl border border-border bg-card px-6 py-10 shadow-sm sm:px-10">
+            <h1 className="text-2xl font-semibold tracking-tight">AfCFTA journey is coming soon</h1>
+            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+              This interactive AfCFTA compliance journey is currently read-only while we finalize the underlying data
+              and workflows. We&apos;ll open it up for full use very soon.
+            </p>
+            <p className="mt-4 text-xs text-muted-foreground">
+              In the meantime, use the legal library and other tools, or contact us for a manual AfCFTA review.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-muted/20 via-background to-background">
