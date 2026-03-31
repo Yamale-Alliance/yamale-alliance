@@ -81,7 +81,7 @@ export default function AdminSubscriptionsPage() {
         AI Subscriptions
       </h1>
       <p className="mt-1 text-sm text-muted-foreground max-w-xl">
-        Users who currently have an AI subscription via Stripe. See their plan, when it started, and when their next
+        Users who currently have a paid AI plan via pawaPay. See their plan, when it started, and when their next
         charge or reset to free is scheduled.
       </p>
 
