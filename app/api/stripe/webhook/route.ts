@@ -1,244 +1,107 @@
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
-import { stripe } from "@/lib/stripe";
 import { clerkClient } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { recordUnlock, recordSearchUnlockGrant } from "@/lib/unlocks";
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-if (!webhookSecret) {
-  console.warn("STRIPE_WEBHOOK_SECRET not set – webhooks will not be verified");
-}
+type DepositCallback = {
+  depositId?: string;
+  status?: string;
+  metadata?: Record<string, string>;
+};
 
 export async function POST(request: NextRequest) {
-  let event: Stripe.Event;
-  const rawBody = await request.text();
-  const signature = request.headers.get("stripe-signature");
+  const callback = (await request.json().catch(() => ({}))) as DepositCallback;
+  const status = String(callback.status || "").toUpperCase();
+  if (status !== "COMPLETED") {
+    return NextResponse.json({ received: true, ignored: true });
+  }
 
-  if (!signature || !webhookSecret) {
-    return NextResponse.json({ error: "Missing signature or webhook secret" }, { status: 400 });
+  const depositId = callback.depositId;
+  const metadata = callback.metadata ?? {};
+  const clerkUserId = metadata.clerk_user_id;
+  const kind = metadata.kind;
+  if (!depositId || !clerkUserId) {
+    return NextResponse.json({ received: true, ignored: true });
   }
 
   try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("Webhook signature verification failed:", message);
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
-  }
-
-  try {
-    switch (event.type) {
-      case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
-        const clerkUserId =
-          session.client_reference_id ??
-          (session.metadata?.clerk_user_id as string | undefined);
-        const kind = session.metadata?.kind as string | undefined;
-
-        if (kind === "marketplace" && clerkUserId && session.metadata?.marketplace_item_id) {
-          const supabase = getSupabaseServer();
-          await (supabase.from("marketplace_purchases") as any).upsert(
-            {
-              user_id: clerkUserId,
-              marketplace_item_id: session.metadata.marketplace_item_id,
-              stripe_session_id: session.id,
-            },
-            { onConflict: "user_id,marketplace_item_id" }
-          );
-        } else if (kind === "marketplace_cart" && clerkUserId && session.metadata?.item_ids) {
-          const supabase = getSupabaseServer();
-          let ids: string[] = [];
-          try {
-            const raw = session.metadata.item_ids as string;
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-              ids = parsed.filter((v) => typeof v === "string" && v.trim().length > 0);
-            }
-          } catch {
-            // ignore JSON parse errors – no purchases recorded
-          }
-          if (ids.length > 0) {
-            const uniqueIds = Array.from(new Set(ids));
-            for (const itemId of uniqueIds) {
-              await (supabase.from("marketplace_purchases") as any).upsert(
-                {
-                  user_id: clerkUserId,
-                  marketplace_item_id: itemId,
-                  stripe_session_id: session.id,
-                },
-                { onConflict: "user_id,marketplace_item_id" }
-              );
-            }
-          }
-        } else if (kind === "lawyer_unlock" && clerkUserId && session.metadata?.lawyer_id) {
-          await recordUnlock(
-            clerkUserId,
-            session.metadata.lawyer_id as string,
-            session.id
-          );
-        } else if ((kind === "lawyer_search_unlock" || kind === "payg_lawyer_search") && clerkUserId) {
-          const supabase = getSupabaseServer();
-          const { data: row } = await (supabase.from("lawyer_search_purchases") as any)
-            .select("country, expertise")
-            .eq("stripe_session_id", session.id)
-            .single();
-          const country = (row?.country ?? "all") as string;
-          const expertise = (row?.expertise ?? "") as string;
-          if (expertise && expertise !== "all") {
-            await recordSearchUnlockGrant(clerkUserId, country, expertise, session.id);
-          }
-          // Record pay-as-you-go purchase
-          await (supabase.from("pay_as_you_go_purchases") as any).insert({
-            user_id: clerkUserId,
-            item_type: "lawyer_search",
-            quantity: 1,
-            stripe_session_id: session.id,
-          });
-        } else if (kind === "payg_document" && clerkUserId) {
-          const supabase = getSupabaseServer();
-          await (supabase.from("pay_as_you_go_purchases") as any).insert({
-            user_id: clerkUserId,
-            item_type: "document",
-            quantity: 1,
-            stripe_session_id: session.id,
-          });
-          console.log("Webhook: pay-as-you-go document purchase recorded for", clerkUserId);
-        } else if (kind === "payg_ai_query" && clerkUserId) {
-          const supabase = getSupabaseServer();
-          await (supabase.from("pay_as_you_go_purchases") as any).insert({
-            user_id: clerkUserId,
-            item_type: "ai_query",
-            quantity: 1,
-            stripe_session_id: session.id,
-          });
-          console.log("Webhook: pay-as-you-go AI query purchase recorded for", clerkUserId);
-        } else if (kind === "payg_afcfta_report" && clerkUserId) {
-          const supabase = getSupabaseServer();
-          await (supabase.from("pay_as_you_go_purchases") as any).insert({
-            user_id: clerkUserId,
-            item_type: "afcfta_report",
-            quantity: 1,
-            stripe_session_id: session.id,
-          });
-          console.log("Webhook: pay-as-you-go AfCFTA report purchase recorded for", clerkUserId);
-        } else if (kind === "team_extra_seats" && clerkUserId && session.metadata?.seats) {
-          const seats = Number(session.metadata.seats);
-          if (seats > 0) {
-            const clerk = await clerkClient();
-            const user = await clerk.users.getUser(clerkUserId);
-            const existing = (user.publicMetadata ?? {}) as Record<string, unknown>;
-            const current = (existing.team_extra_seats as number) ?? 0;
-            await clerk.users.updateUserMetadata(clerkUserId, {
-              publicMetadata: { ...existing, team_extra_seats: current + seats },
-            });
-            console.log("Webhook: team_extra_seats +", seats, "for", clerkUserId);
-          }
-        } else if (clerkUserId) {
-          let planId = (session.metadata?.plan_id as string | undefined) ?? null;
-          if (!planId && session.subscription && typeof session.subscription === "string") {
-            try {
-              const sub = await stripe.subscriptions.retrieve(session.subscription, {
-                expand: ["items.data.price.product"],
-              });
-              planId = (sub.metadata?.plan_id as string) ?? null;
-              if (!planId && sub.items?.data?.[0]?.price?.product) {
-                const product = sub.items.data[0].price.product as Stripe.Product;
-                const name = (product.name ?? "").toLowerCase();
-                if (name.includes("basic")) planId = "basic";
-                else if (name.includes("pro")) planId = "pro";
-                else if (name.includes("team")) planId = "team";
-              }
-            } catch (e) {
-              console.error("Webhook: could not retrieve subscription for plan_id", e);
-            }
-          }
-          if (planId) {
-            const clerk = await clerkClient();
-            const user = await clerk.users.getUser(clerkUserId);
-            const existing = (user.publicMetadata ?? {}) as Record<string, unknown>;
-
-            if (planId === "day-pass") {
-              const now = new Date();
-              const expires = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-              await clerk.users.updateUserMetadata(clerkUserId, {
-                publicMetadata: {
-                  ...existing,
-                  day_pass_expires_at: expires.toISOString(),
-                  day_pass_last_purchase_at: now.toISOString(),
-                },
-              });
-              console.log("Webhook: day-pass granted for", clerkUserId);
-            } else {
-              const nextMeta: Record<string, unknown> = { ...existing, tier: planId };
-              if (planId === "team") {
-                nextMeta.team_admin = true;
-                nextMeta.team_extra_seats = (existing.team_extra_seats as number) ?? 0;
-              }
-              await clerk.users.updateUserMetadata(clerkUserId, {
-                publicMetadata: nextMeta,
-              });
-              console.log("Webhook: tier set to", planId, "for", clerkUserId);
-            }
-          } else {
-            console.warn("Webhook: checkout.session.completed had no plan_id for", clerkUserId, "session_id", session.id);
-          }
-        }
-        break;
+    const supabase = getSupabaseServer();
+    if (kind === "marketplace" && metadata.marketplace_item_id) {
+      await (supabase.from("marketplace_purchases") as any).upsert(
+        {
+          user_id: clerkUserId,
+          marketplace_item_id: metadata.marketplace_item_id,
+          stripe_session_id: depositId,
+        },
+        { onConflict: "user_id,marketplace_item_id" }
+      );
+    } else if (kind === "marketplace_cart" && metadata.item_ids) {
+      let ids: string[] = [];
+      try {
+        const parsed = JSON.parse(metadata.item_ids);
+        if (Array.isArray(parsed)) ids = parsed.filter((v) => typeof v === "string");
+      } catch {}
+      for (const itemId of Array.from(new Set(ids))) {
+        await (supabase.from("marketplace_purchases") as any).upsert(
+          { user_id: clerkUserId, marketplace_item_id: itemId, stripe_session_id: depositId },
+          { onConflict: "user_id,marketplace_item_id" }
+        );
       }
-
-      case "customer.subscription.updated":
-      case "customer.subscription.deleted": {
-        const sub = event.data.object as Stripe.Subscription;
-        const clerkUserId = sub.metadata?.clerk_user_id as string | undefined;
-        if (!clerkUserId) break;
-
-        if (event.type === "customer.subscription.deleted") {
-          const clerk = await clerkClient();
-          const user = await clerk.users.getUser(clerkUserId);
-          const existing = (user.publicMetadata ?? {}) as Record<string, unknown>;
-          const { team_admin, team_extra_seats, ...rest } = existing;
-          await clerk.users.updateUserMetadata(clerkUserId, {
-            publicMetadata: { ...rest, tier: "free" },
-          });
-          console.log("Webhook: tier set to free (subscription deleted) for", clerkUserId);
-        } else if (sub.status === "active") {
-          let planId = (sub.metadata?.plan_id as string) ?? null;
-          if (!planId) {
-            try {
-              const expanded = await stripe.subscriptions.retrieve(sub.id, {
-                expand: ["items.data.price.product"],
-              });
-              const product = expanded.items?.data?.[0]?.price?.product;
-              if (product && typeof product === "object" && "name" in product) {
-                const name = ((product as Stripe.Product).name ?? "").toLowerCase();
-                if (name.includes("basic")) planId = "basic";
-                else if (name.includes("pro")) planId = "pro";
-                else if (name.includes("team")) planId = "team";
-              }
-            } catch (e) {
-              console.error("Webhook: could not expand subscription for plan_id", e);
-            }
-          }
-          if (planId) {
-            const clerk = await clerkClient();
-            const user = await clerk.users.getUser(clerkUserId);
-            const existing = (user.publicMetadata ?? {}) as Record<string, unknown>;
-            await clerk.users.updateUserMetadata(clerkUserId, {
-              publicMetadata: { ...existing, tier: planId },
-            });
-            console.log("Webhook: tier set to", planId, "for", clerkUserId, "(subscription.updated)");
-          }
-        }
-        break;
+    } else if (kind === "lawyer_unlock" && metadata.lawyer_id) {
+      await recordUnlock(clerkUserId, metadata.lawyer_id, depositId);
+    } else if ((kind === "lawyer_search_unlock" || kind === "payg_lawyer_search") && metadata.expertise) {
+      await recordSearchUnlockGrant(clerkUserId, metadata.country || "all", metadata.expertise, depositId);
+      await (supabase.from("pay_as_you_go_purchases") as any).insert({
+        user_id: clerkUserId,
+        item_type: "lawyer_search",
+        quantity: 1,
+        stripe_session_id: depositId,
+      });
+    } else if (kind === "payg_document" || kind === "payg_ai_query" || kind === "payg_afcfta_report") {
+      const itemType = kind === "payg_document" ? "document" : kind === "payg_ai_query" ? "ai_query" : "afcfta_report";
+      await (supabase.from("pay_as_you_go_purchases") as any).insert({
+        user_id: clerkUserId,
+        item_type: itemType,
+        quantity: 1,
+        stripe_session_id: depositId,
+      });
+    } else if (kind === "team_extra_seats" && metadata.seats) {
+      const seats = Number(metadata.seats);
+      if (seats > 0) {
+        const clerk = await clerkClient();
+        const user = await clerk.users.getUser(clerkUserId);
+        const existing = (user.publicMetadata ?? {}) as Record<string, unknown>;
+        const current = (existing.team_extra_seats as number) ?? 0;
+        await clerk.users.updateUserMetadata(clerkUserId, {
+          publicMetadata: { ...existing, team_extra_seats: current + seats },
+        });
       }
-
-      default:
-        // Unhandled event type
-        break;
+    } else if (metadata.plan_id) {
+      const planId = metadata.plan_id;
+      const clerk = await clerkClient();
+      const user = await clerk.users.getUser(clerkUserId);
+      const existing = (user.publicMetadata ?? {}) as Record<string, unknown>;
+      if (planId === "day-pass") {
+        const now = new Date();
+        const expires = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        await clerk.users.updateUserMetadata(clerkUserId, {
+          publicMetadata: {
+            ...existing,
+            day_pass_expires_at: expires.toISOString(),
+            day_pass_last_purchase_at: now.toISOString(),
+          },
+        });
+      } else if (["basic", "pro", "team"].includes(planId)) {
+        const nextMeta: Record<string, unknown> = { ...existing, tier: planId };
+        if (planId === "team") {
+          nextMeta.team_admin = true;
+          nextMeta.team_extra_seats = (existing.team_extra_seats as number) ?? 0;
+        }
+        await clerk.users.updateUserMetadata(clerkUserId, { publicMetadata: nextMeta });
+      }
     }
   } catch (err) {
-    console.error("Webhook handler error:", err);
+    console.error("pawaPay webhook handler error:", err);
     return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
   }
 
