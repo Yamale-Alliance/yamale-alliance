@@ -649,7 +649,7 @@ export default function LawyersPage() {
           <p className="mt-8 text-center text-xs text-muted-foreground sm:text-sm">
             <strong>${SEARCH_PRICE} per search</strong> (country + practice area). Your payment unlocks contact details
             for the lawyers in that search. Different country or practice area = a new search. Payments are processed
-            securely via Stripe.
+            securely via mobile money.
           </p>
         )}
         </div>
