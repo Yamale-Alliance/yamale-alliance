@@ -184,7 +184,7 @@ export default function PrivacyPolicyPage() {
 
           <SubHeading number="2.4" title="Payment and Transaction Information" />
           <P>
-            We process payments through secure third-party payment processors (such as Stripe). We do{" "}
+            We process payments through secure third-party payment processors (such as pawaPay). We do{" "}
             <strong>NOT</strong> store your complete credit card information on our servers. We
             collect and store:
           </P>
@@ -324,7 +324,7 @@ export default function PrivacyPolicyPage() {
             items={[
               "Authentication services (e.g., Clerk, Auth0) — to manage user accounts and login",
               "Database and storage providers (e.g., Supabase, AWS) — to store Platform data and documents",
-              "Payment processors (e.g., Stripe, mobile money providers) — to process subscription and unlock payments",
+              "Payment processors (e.g., pawaPay, mobile money providers) — to process subscription and unlock payments",
               "AI providers (e.g., Anthropic Claude) — to power our AI legal research features",
               "Email service providers — to send transactional and notification emails",
               "Analytics providers — to understand Platform usage and performance",
