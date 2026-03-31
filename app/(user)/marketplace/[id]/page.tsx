@@ -519,7 +519,7 @@ export default function MarketplaceItemPage() {
                   ? "You own this item"
                   : free
                     ? "Get instant access"
-                    : "One-time payment via Stripe"}
+                    : "One-time payment via mobile money"}
               </p>
             </div>
             {!owned && (
