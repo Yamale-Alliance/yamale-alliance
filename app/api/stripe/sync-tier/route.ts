@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { clerkClient } from "@clerk/nextjs/server";
-import Stripe from "stripe";
-import { stripe } from "@/lib/stripe";
+import { getDepositStatus, isDepositCompleted } from "@/lib/pawapay";
 
-/** After checkout redirect: set user tier from Stripe session so UI updates without waiting for webhook. */
+/** After checkout redirect: set user tier from pawaPay deposit metadata. */
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await auth();
@@ -21,43 +20,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const session = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ["subscription"],
-    });
-
-    if (session.payment_status !== "paid") {
+    const deposit = await getDepositStatus(sessionId);
+    if (!deposit || !isDepositCompleted(deposit.status)) {
       return NextResponse.json(
-        { error: "Session not paid yet" },
+        { error: "Payment not completed yet" },
         { status: 400 }
       );
     }
 
-    const sessionUserId =
-      session.client_reference_id ??
-      (session.metadata?.clerk_user_id as string | undefined);
+    const sessionUserId = deposit.metadata?.clerk_user_id;
     if (sessionUserId !== userId) {
       return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
     }
 
-    let planId =
-      (session.metadata?.plan_id as string | undefined) ?? null;
-
-    if (!planId && session.subscription) {
-      const sub =
-        typeof session.subscription === "string"
-          ? await stripe.subscriptions.retrieve(session.subscription, {
-              expand: ["items.data.price.product"],
-            })
-          : (session.subscription as Stripe.Subscription);
-      planId = (sub.metadata?.plan_id as string) ?? null;
-      if (!planId && sub.items?.data?.[0]?.price?.product) {
-        const product = sub.items.data[0].price.product as Stripe.Product;
-        const name = (product.name ?? "").toLowerCase();
-        if (name.includes("basic")) planId = "basic";
-        else if (name.includes("pro")) planId = "pro";
-        else if (name.includes("team")) planId = "team";
-      }
-    }
+    const planId = deposit.metadata?.plan_id ?? null;
 
     if (!planId || !["basic", "pro", "team"].includes(planId)) {
       return NextResponse.json(
@@ -80,7 +56,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true, tier: planId });
   } catch (err) {
-    console.error("Stripe sync-tier error:", err);
+    console.error("pawaPay sync-tier error:", err);
     return NextResponse.json(
       { error: "Failed to sync plan" },
       { status: 500 }
