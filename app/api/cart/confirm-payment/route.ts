@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { stripe } from "@/lib/stripe";
+import { getDepositStatus, isDepositCompleted } from "@/lib/pawapay";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 /**
- * After Stripe redirect for cart checkout:
+ * After pawaPay redirect for cart checkout:
  * confirm payment from session_id and record purchases for all cart items.
  * This complements the webhook so local dev still works even without webhooks configured.
  */
@@ -21,24 +21,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "session_id required" }, { status: 400 });
     }
 
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-    if (session.payment_status !== "paid") {
+    const deposit = await getDepositStatus(sessionId);
+    if (!deposit || !isDepositCompleted(deposit.status)) {
       return NextResponse.json({ error: "Payment not completed" }, { status: 400 });
     }
 
-    const clerkUserId = (session.metadata?.clerk_user_id as string | undefined) ?? session.client_reference_id;
+    const clerkUserId = deposit.metadata?.clerk_user_id;
     if (clerkUserId !== userId) {
       return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
     }
 
-    const kind = session.metadata?.kind as string | undefined;
+    const kind = deposit.metadata?.kind;
     if (kind !== "marketplace_cart") {
       return NextResponse.json({ error: "Not a marketplace cart session" }, { status: 400 });
     }
 
     let ids: string[] = [];
     try {
-      const raw = session.metadata?.item_ids as string | undefined;
+      const raw = deposit.metadata?.item_ids;
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
         {
           user_id: userId,
           marketplace_item_id: itemId,
-          stripe_session_id: session.id,
+          stripe_session_id: sessionId,
         },
         { onConflict: "user_id,marketplace_item_id" }
       );
