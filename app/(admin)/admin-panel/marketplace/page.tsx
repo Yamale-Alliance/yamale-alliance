@@ -306,7 +306,7 @@ export default function AdminMarketplacePage() {
         <div>
           <h1 className="text-2xl font-semibold">Marketplace</h1>
           <p className="mt-1 text-muted-foreground">
-            Books, courses, and templates. Prices are set here and charged via Stripe at checkout.
+            Books, courses, and templates. Prices are set here and charged via pawaPay at checkout.
           </p>
         </div>
         <Link
