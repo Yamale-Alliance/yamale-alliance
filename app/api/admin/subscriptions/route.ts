@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { requireAdmin } from "@/lib/admin";
-import { stripe } from "@/lib/stripe";
 
 type SubscriptionSummary = {
   user_id: string;
@@ -14,77 +13,39 @@ type SubscriptionSummary = {
   current_period_end: string;
 };
 
-/** GET: list current AI subscriptions from Stripe, grouped by Clerk user. Admin only. */
+/** GET: list current paid users from Clerk metadata. Admin only. */
 export async function GET() {
   const admin = await requireAdmin();
   if (admin instanceof NextResponse) return admin;
 
   try {
-    // Fetch all active/trialing subscriptions from Stripe
-    const subs = await stripe.subscriptions.list({
-      status: "all",
-      limit: 100,
-      expand: ["data.items.data.price.product"],
-    });
-
     const summaries: SubscriptionSummary[] = [];
-    const userIds = new Set<string>();
-
-    type SubWithPeriod = { start_date?: number; current_period_end?: number; status: string; metadata?: Record<string, string>; items?: { data?: Array<{ price?: { product?: { name?: string | null } } }> }; cancel_at_period_end?: boolean };
-    for (const raw of subs.data) {
-      const sub = raw as unknown as SubWithPeriod;
-      if (!["active", "trialing", "past_due", "unpaid"].includes(sub.status)) continue;
-      const clerkUserId = (sub.metadata?.clerk_user_id as string | undefined) ?? null;
-      if (!clerkUserId) continue;
-
-      let planId = (sub.metadata?.plan_id as string | undefined) ?? null;
-      if (!planId && sub.items?.data?.[0]?.price?.product) {
-        const product = sub.items.data[0].price.product as { name?: string | null } | null;
-        const name = ((product?.name ?? "") as string).toLowerCase();
-        if (name.includes("basic")) planId = "basic";
-        else if (name.includes("pro")) planId = "pro";
-        else if (name.includes("team")) planId = "team";
-      }
-      if (!planId) planId = "unknown";
-
-      const startedAt = sub.start_date ? new Date(sub.start_date * 1000).toISOString() : new Date().toISOString();
-      const currentPeriodEnd = sub.current_period_end
-        ? new Date(sub.current_period_end * 1000).toISOString()
-        : startedAt;
-
-      summaries.push({
-        user_id: clerkUserId,
-        email: null,
-        name: "",
-        tier: planId,
-        status: sub.status,
-        cancel_at_period_end: sub.cancel_at_period_end ?? false,
-        started_at: startedAt,
-        current_period_end: currentPeriodEnd,
-      });
-      userIds.add(clerkUserId);
-    }
-
-    // Enrich with Clerk user info
     const userNameMap = new Map<string, { name: string; email: string | null }>();
     try {
       const clerk = await clerkClient();
-      await Promise.all(
-        Array.from(userIds).map(async (userId) => {
-          try {
-            const user = await clerk.users.getUser(userId);
-            const name =
-              [user.firstName, user.lastName].filter(Boolean).join(" ") ||
-              (user.username ?? "") ||
-              (user.emailAddresses?.[0]?.emailAddress ?? "") ||
-              userId;
-            const email = user.emailAddresses?.[0]?.emailAddress ?? null;
-            userNameMap.set(userId, { name, email });
-          } catch {
-            userNameMap.set(userId, { name: userId, email: null });
-          }
-        })
-      );
+      const users = await clerk.users.getUserList({ limit: 500 });
+      for (const user of users.data) {
+        const meta = (user.publicMetadata ?? {}) as Record<string, unknown>;
+        const tier = String(meta.tier || "free");
+        if (!["basic", "pro", "team"].includes(tier)) continue;
+        const name =
+          [user.firstName, user.lastName].filter(Boolean).join(" ") ||
+          (user.username ?? "") ||
+          (user.emailAddresses?.[0]?.emailAddress ?? "") ||
+          user.id;
+        const email = user.emailAddresses?.[0]?.emailAddress ?? null;
+        userNameMap.set(user.id, { name, email });
+        summaries.push({
+          user_id: user.id,
+          email,
+          name,
+          tier,
+          status: "active",
+          cancel_at_period_end: false,
+          started_at: user.createdAt ? new Date(user.createdAt).toISOString() : new Date().toISOString(),
+          current_period_end: user.updatedAt ? new Date(user.updatedAt).toISOString() : new Date().toISOString(),
+        });
+      }
     } catch (e) {
       console.error("Admin subscriptions: failed to load Clerk users", e);
     }
