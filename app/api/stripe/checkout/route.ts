@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { stripe, getStripePriceId } from "@/lib/stripe";
+import { createPaymentPageSession, getPlanAmountCents } from "@/lib/pawapay";
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,41 +17,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     }
 
-    const priceId = getStripePriceId(planId, interval);
-    if (!priceId) {
+    const amountCents = getPlanAmountCents(planId, interval);
+    if (!amountCents) {
       return NextResponse.json(
-        { error: "Price not configured. Add STRIPE_PRICE_* env vars." },
+        { error: "Plan pricing not configured. Add PAWAPAY_PLAN_*_CENTS env vars." },
         { status: 500 }
       );
     }
 
     const origin = request.headers.get("origin") || request.nextUrl.origin;
+    const depositId = crypto.randomUUID();
+    const returnUrl = `${origin}/dashboard?checkout=success&session_id=${encodeURIComponent(depositId)}`;
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      success_url: `${origin}/dashboard?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/pricing?checkout=cancelled`,
-      client_reference_id: userId,
-      subscription_data: {
-        metadata: { clerk_user_id: userId, plan_id: planId, interval },
-      },
-      metadata: { clerk_user_id: userId, plan_id: planId, interval },
+    const { redirectUrl } = await createPaymentPageSession({
+      depositId,
+      amountCents,
+      currency: (process.env.PAWAPAY_CURRENCY || "USD").toUpperCase(),
+      returnUrl,
+      reason: `${planId} plan (${interval})`,
+      customerMessage: `${planId.toUpperCase()} ${interval} plan`,
+      country: process.env.PAWAPAY_COUNTRY,
+      metadata: { clerk_user_id: userId, plan_id: planId, interval, kind: "subscription_plan" },
     });
 
-    if (!session.url) {
-      return NextResponse.json({ error: "Failed to create session" }, { status: 500 });
-    }
-
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: redirectUrl });
   } catch (err) {
-    console.error("Stripe checkout error:", err);
+    console.error("pawaPay checkout error:", err);
     return NextResponse.json(
       { error: "Checkout failed" },
       { status: 500 }
