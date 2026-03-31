@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { stripe } from "@/lib/stripe";
+import { createPaymentPageSession } from "@/lib/pawapay";
 
-/** POST: create Stripe checkout session for cart items */
+/** POST: create pawaPay payment page session for cart items */
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await auth();
@@ -32,38 +32,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
     }
 
-    // Build line items for Stripe (filter out nulls so type is LineItem[])
-    type LineItem = {
-      price_data: { currency: string; product_data: { name: string }; unit_amount: number };
-      quantity: number;
-    };
-    const lineItems: LineItem[] = cartItems
+    const pricedItems = cartItems
       .map((item: any) => {
         const marketplaceItem = item.marketplace_items;
         if (!marketplaceItem || marketplaceItem.price_cents === 0) return null;
         return {
-          price_data: {
-            currency: marketplaceItem.currency || "usd",
-            product_data: {
-              name: marketplaceItem.title,
-            },
-            unit_amount: marketplaceItem.price_cents,
-          },
+          currency: (marketplaceItem.currency || process.env.PAWAPAY_CURRENCY || "USD").toUpperCase(),
+          title: marketplaceItem.title as string,
+          price_cents: Number(marketplaceItem.price_cents) || 0,
           quantity: item.quantity || 1,
         };
       })
-      .filter((x): x is LineItem => x != null);
+      .filter((x): x is { currency: string; title: string; price_cents: number; quantity: number } => x != null);
 
-    if (lineItems.length === 0) {
+    if (pricedItems.length === 0) {
       return NextResponse.json({ error: "No items to checkout" }, { status: 400 });
     }
 
-    // Create Stripe checkout session
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      line_items: lineItems,
-      success_url: `${request.headers.get("origin") || ""}/marketplace?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${request.headers.get("origin") || ""}/marketplace`,
+    const currencies = Array.from(new Set(pricedItems.map((x) => x.currency)));
+    if (currencies.length > 1) {
+      return NextResponse.json({ error: "Cart checkout supports one currency at a time" }, { status: 400 });
+    }
+    const amountCents = pricedItems.reduce((sum, x) => sum + x.price_cents * x.quantity, 0);
+    const depositId = crypto.randomUUID();
+    const origin = request.headers.get("origin") || request.nextUrl.origin;
+
+    const { redirectUrl } = await createPaymentPageSession({
+      depositId,
+      amountCents,
+      currency: currencies[0] || (process.env.PAWAPAY_CURRENCY || "USD").toUpperCase(),
+      returnUrl: `${origin}/marketplace?session_id=${encodeURIComponent(depositId)}`,
+      reason: "Marketplace cart",
+      customerMessage: "Marketplace cart checkout",
+      country: process.env.PAWAPAY_COUNTRY,
       metadata: {
         clerk_user_id: userId,
         kind: "marketplace_cart",
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
     // Note: Actual purchase is recorded via webhook
     await supabase.from("shopping_cart_items").delete().eq("user_id", userId);
 
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: redirectUrl });
   } catch (err) {
     console.error("Cart checkout error:", err);
     return NextResponse.json({ error: "Failed to create checkout session" }, { status: 500 });
