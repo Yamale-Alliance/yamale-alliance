@@ -24,6 +24,11 @@ type PawaPayDepositData = {
 const apiToken = process.env.PAWAPAY_API_TOKEN ?? "";
 const baseUrl = (process.env.PAWAPAY_BASE_URL || "https://api.sandbox.pawapay.io").replace(/\/+$/, "");
 
+/** True when `PAWAPAY_API_TOKEN` is set — required for all pawaPay Payment Page flows. */
+export function isPawapayConfigured(): boolean {
+  return !!apiToken.trim();
+}
+
 function requireToken() {
   if (!apiToken) {
     throw new Error("Missing PAWAPAY_API_TOKEN");
