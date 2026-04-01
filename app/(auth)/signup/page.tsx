@@ -15,7 +15,7 @@ export default function SignUpPage() {
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Create a client account to access the library, AfCFTA tools,
-            marketplace, and AI research.
+            The Yamale Vault, and AI research.
           </p>
         </div>
 
