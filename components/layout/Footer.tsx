@@ -6,7 +6,7 @@ const productLinks = [
   { href: "/library", label: "Legal Library" },
   { href: "/afcfta", label: "AfCFTA Tools" },
   { href: "/ai-research", label: "AI Research" },
-  { href: "/marketplace", label: "Marketplace" },
+  { href: "/marketplace", label: "The Yamale Vault" },
   { href: "/lawyers", label: "Find a Lawyer" },
 ];
 
