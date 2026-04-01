@@ -28,7 +28,7 @@ export { cloudinary };
  * @returns Cloudinary upload result with secure_url
  */
 export async function uploadToCloudinary(
-  file: Buffer | string | File,
+  file: Buffer | string | File | Blob,
   folder: string,
   publicId?: string
 ): Promise<{ secure_url: string; public_id: string }> {
@@ -58,8 +58,13 @@ export async function uploadToCloudinary(
       const base64 = buffer.toString('base64');
       const mime = file.type || 'image/jpeg';
       uploadData = `data:${mime};base64,${base64}`;
+    } else if (file instanceof Blob) {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const base64 = buffer.toString('base64');
+      const mime = file.type || 'image/jpeg';
+      uploadData = `data:${mime};base64,${base64}`;
     } else {
-      uploadData = `data:image/png;base64,${file.toString('base64')}`;
+      uploadData = `data:image/png;base64,${(file as Buffer).toString('base64')}`;
     }
 
     const result = await cloudinary.uploader.upload(uploadData, uploadOptions as any);
