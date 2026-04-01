@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseServer();
     const { data, error } = await (supabase.from("marketplace_items") as any)
       .insert(row)
-      .select("id, type, title, author, price_cents, published")
+      .select("*")
       .single();
 
     if (error) {
