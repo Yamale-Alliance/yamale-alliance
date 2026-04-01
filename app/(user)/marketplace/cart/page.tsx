@@ -6,6 +6,10 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ShoppingCart, Trash2, Loader2, Check, Sparkles, Package } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import Image from "next/image";
+import {
+  PaymentMethodPicker,
+  type CheckoutPaymentProvider,
+} from "@/components/checkout/PaymentMethodPicker";
 
 const BRAND = {
   dark: "#221913",
@@ -36,6 +40,7 @@ export default function CartPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
   const [removing, setRemoving] = useState<string | null>(null);
 
   useEffect(() => {
@@ -75,6 +80,8 @@ export default function CartPage() {
       const res = await fetch("/api/cart/checkout", {
         method: "POST",
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: paymentProvider }),
       });
       const data = await res.json();
       if (res.ok && data.url) {
@@ -120,7 +127,7 @@ export default function CartPage() {
             href="/marketplace"
             className="inline-flex items-center gap-2 rounded-xl border border-border/60 bg-background/80 px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:border-primary/60 hover:bg-primary/10 hover:text-foreground backdrop-blur mb-6"
           >
-            <ArrowLeft className="h-3.5 w-3.5" /> Back to marketplace
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to The Yamale Vault
           </Link>
           <div className="max-w-2xl">
             <p className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/90 backdrop-blur">
@@ -131,7 +138,7 @@ export default function CartPage() {
               Review & checkout
             </h1>
             <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
-              Review your selected resources and proceed to secure checkout. All payments are processed via mobile money through pawaPay.
+              Review your cart and choose how to pay: mobile money with pawaPay or cards with Stripe.
             </p>
           </div>
         </div>
@@ -157,14 +164,14 @@ export default function CartPage() {
               </div>
               <h2 className="text-xl font-semibold text-foreground sm:text-2xl">Your cart is empty</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Add items from the marketplace to get started.
+                Add items from The Yamale Vault to get started.
               </p>
               <Link
                 href="/marketplace"
                 className="mt-6 inline-flex items-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-6 py-3 text-sm font-semibold text-foreground shadow-sm shadow-primary/20 transition hover:border-primary/60 hover:bg-primary/20 hover:shadow-md"
               >
                 <Sparkles className="h-4 w-4" />
-                Browse marketplace
+                Browse The Yamale Vault
               </Link>
             </div>
           ) : (
@@ -250,6 +257,7 @@ export default function CartPage() {
                       </div>
                     </div>
                   </div>
+                  <PaymentMethodPicker value={paymentProvider} onChange={setPaymentProvider} />
                   <button
                     type="button"
                     onClick={handleCheckout}
@@ -269,7 +277,7 @@ export default function CartPage() {
                     )}
                   </button>
                   <p className="mt-4 text-center text-xs text-muted-foreground">
-                    Secure payment via mobile money
+                    Secure checkout — you will confirm payment on pawaPay or Stripe.
                   </p>
                 </div>
               </div>
