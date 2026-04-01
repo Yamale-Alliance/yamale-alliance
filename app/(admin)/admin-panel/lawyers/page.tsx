@@ -68,6 +68,16 @@ export default function AdminLawyersPage() {
     fetchLawyers();
   }, []);
 
+  async function parseJsonSafe(res: Response): Promise<{ error?: string; url?: string }> {
+    const text = await res.text();
+    if (!text.trim()) return {};
+    try {
+      return JSON.parse(text) as { error?: string; url?: string };
+    } catch {
+      return { error: text.slice(0, 200) || "Server returned non-JSON (check deployment logs)." };
+    }
+  }
+
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formExpertise.trim()) {
@@ -110,6 +120,7 @@ export default function AdminLawyersPage() {
       setFormPrimaryLanguage("");
       setFormOtherLanguages("");
       setFormLinkedin("");
+      setFormImageUrl("");
       setShowForm(false);
       fetchLawyers();
     } catch {
@@ -437,6 +448,7 @@ export default function AdminLawyersPage() {
                       const f = e.target.files?.[0];
                       if (!f) return;
                       setFormImageUploading(true);
+                      setError(null);
                       try {
                         const fd = new FormData();
                         fd.set("file", f);
@@ -445,9 +457,17 @@ export default function AdminLawyersPage() {
                           credentials: "include",
                           body: fd,
                         });
-                        const d = await r.json().catch(() => ({}));
-                        if (r.ok && d.url) setFormImageUrl(d.url);
-                        else setError(d.error ?? "Upload failed");
+                        const d = await parseJsonSafe(r);
+                        if (r.ok && d.url) {
+                          setFormImageUrl(d.url);
+                        } else {
+                          setError(
+                            d.error ??
+                              (r.status === 413
+                                ? "Image too large for the server limit. Use a file under 5 MB or compress the photo."
+                                : "Upload failed. Ensure CLOUDINARY_* env vars are set on Vercel.")
+                          );
+                        }
                       } finally {
                         setFormImageUploading(false);
                         e.target.value = "";
@@ -614,6 +634,7 @@ export default function AdminLawyersPage() {
                       const f = e.target.files?.[0];
                       if (!f) return;
                       setEditImageUploading(true);
+                      setError(null);
                       try {
                         const fd = new FormData();
                         fd.set("file", f);
@@ -622,9 +643,17 @@ export default function AdminLawyersPage() {
                           credentials: "include",
                           body: fd,
                         });
-                        const d = await r.json().catch(() => ({}));
-                        if (r.ok && d.url) setEditImageUrl(d.url);
-                        else setError(d.error ?? "Upload failed");
+                        const d = await parseJsonSafe(r);
+                        if (r.ok && d.url) {
+                          setEditImageUrl(d.url);
+                        } else {
+                          setError(
+                            d.error ??
+                              (r.status === 413
+                                ? "Image too large for the server limit. Use a file under 5 MB or compress the photo."
+                                : "Upload failed. Ensure CLOUDINARY_* env vars are set on Vercel.")
+                          );
+                        }
                       } finally {
                         setEditImageUploading(false);
                         e.target.value = "";
