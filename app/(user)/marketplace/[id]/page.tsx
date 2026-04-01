@@ -388,7 +388,7 @@ export default function MarketplaceItemPage() {
       <div className="mx-auto max-w-2xl px-4 py-12 text-center">
         <p className="text-muted-foreground">{error}</p>
         <Link href="/marketplace" className="mt-4 inline-block text-primary hover:underline">
-          ← Back to marketplace
+          ← Back to The Yamale Vault
         </Link>
       </div>
     );
@@ -408,7 +408,7 @@ export default function MarketplaceItemPage() {
             href="/marketplace"
             className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
           >
-            <ArrowLeft className="h-4 w-4" /> Back to marketplace
+            <ArrowLeft className="h-4 w-4" /> Back to The Yamale Vault
           </Link>
           <div className="flex items-start gap-4">
             <div className="rounded-xl bg-muted p-4">
