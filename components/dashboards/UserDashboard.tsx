@@ -7,7 +7,7 @@ const quickLinks = [
   { href: "/library", label: "Legal Library", icon: BookOpen },
   { href: "/afcfta", label: "AfCFTA Compliance", icon: FileCheck },
   { href: "/ai-research", label: "AI Research", icon: Search },
-  { href: "/marketplace", label: "Marketplace", icon: Store },
+  { href: "/marketplace", label: "The Yamale Vault", icon: Store },
 ];
 
 export function UserDashboard() {
