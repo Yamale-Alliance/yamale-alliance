@@ -110,7 +110,7 @@ export default function PrivacyPolicyPage() {
             &ldquo;our&rdquo;) operates the Yamalé Legal Platform website and mobile applications
             (collectively, the &ldquo;Platform&rdquo;), which provide African legal research, AfCFTA
             compliance tools, AI-powered legal research, a comprehensive legal document library, a
-            verified lawyer directory, and a marketplace for legal and compliance resources.
+            verified lawyer directory, and The Yamale Vault for legal and compliance resources.
           </P>
           <P>
             This Privacy Policy explains how we collect, use, disclose, and safeguard your personal
@@ -216,8 +216,8 @@ export default function PrivacyPolicyPage() {
             ]}
           />
 
-          <SubHeading number="2.6" title="Marketplace Activity" />
-          <P>When you use our marketplace for legal resources:</P>
+          <SubHeading number="2.6" title="The Yamale Vault Activity" />
+          <P>When you use The Yamale Vault for legal resources:</P>
           <BulletList
             items={[
               "Purchase history of templates, courses, and toolkits",
@@ -240,7 +240,7 @@ export default function PrivacyPolicyPage() {
               "Generate AfCFTA compliance reports",
               "Display lawyer profiles in our directory (with appropriate privacy controls)",
               "Process lawyer profile unlock payments and reveal contact information to paying users",
-              "Facilitate marketplace transactions",
+              "Facilitate The Yamale Vault transactions",
               "Track usage limits according to your subscription tier",
               "Enable document downloads and exports",
             ]}
@@ -621,7 +621,7 @@ export default function PrivacyPolicyPage() {
           <SectionHeading id="third-party" number="9" title="Third-Party Links and Services" />
           <P>
             Our Platform may contain links to third-party websites, applications, or services
-            (including resources in our marketplace, external legal databases, or social media
+            (including resources in The Yamale Vault, external legal databases, or social media
             platforms). We are not responsible for the privacy practices or content of these third
             parties.
           </P>
@@ -630,9 +630,9 @@ export default function PrivacyPolicyPage() {
             Platform and are subject to that third party&apos;s privacy policy and terms of service.
             We encourage you to read the privacy policies of any third-party services you visit.
           </P>
-          <LabelBlock label="Marketplace Resources">
-            When you purchase templates, courses, or other resources from third-party sellers in our
-            marketplace, the seller may collect additional information from you. We facilitate the
+          <LabelBlock label="The Yamale Vault Resources">
+            When you purchase templates, courses, or other resources from third-party sellers in The
+            Yamale Vault, the seller may collect additional information from you. We facilitate the
             transaction but are not responsible for the seller&apos;s privacy practices.
           </LabelBlock>
 
