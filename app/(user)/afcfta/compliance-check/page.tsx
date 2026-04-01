@@ -35,7 +35,8 @@ import {
   type CountryRequirementsPublic,
 } from "@/lib/afcfta-country-requirements";
 
-const AFCFTA_DISABLED = true;
+/** Full journey is visible for orientation; inputs, downloads, and reset stay disabled until launch. */
+const AFCFTA_COMING_SOON_READ_ONLY = true;
 
 const CONTINENTS = ["Africa", "Asia", "Europe", "Americas", "Oceania"];
 
@@ -217,6 +218,9 @@ export default function ComplianceCheckPage() {
   const { user } = useUser();
   const tier = ((user?.publicMetadata?.tier ?? user?.publicMetadata?.subscriptionTier) as string) || "free";
   const isFreeTier = tier === "free";
+  const inputsLocked = isFreeTier || AFCFTA_COMING_SOON_READ_ONLY;
+  /** Step-to-step navigation (header + footer) allowed for preview when coming soon, or when user is on a paid tier. */
+  const canBrowseSteps = AFCFTA_COMING_SOON_READ_ONLY || !isFreeTier;
   const [activeStep, setActiveStep] = useState<StepId>("start");
   const [hsCode, setHsCode] = useState("");
   const [productName, setProductName] = useState("");
@@ -247,15 +251,33 @@ export default function ComplianceCheckPage() {
 
   // Fetch merged requirements (lib + admin overrides) for compliance tool
   useEffect(() => {
+    if (AFCFTA_COMING_SOON_READ_ONLY) return;
     fetch("/api/afcfta/requirements", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => setRequirementsFromApi(Array.isArray(data) ? data : null))
       .catch(() => setRequirementsFromApi(null));
   }, []);
 
+  // Demo data for read-only preview (no localStorage restore in this mode)
+  useEffect(() => {
+    if (!AFCFTA_COMING_SOON_READ_ONLY) return;
+    setHsCode("090111");
+    setProductName("Coffee, not roasted, not decaffeinated");
+    setOriginContinent("Africa");
+    setOriginCountry("Ghana");
+    setDestContinent("Africa");
+    setDestCountry("Nigeria");
+    setProductionRows([
+      { id: "1", description: "Green coffee beans", sourceCountry: "Ghana", cost: "12000", fileName: "" },
+      { id: "2", description: "Packaging materials", sourceCountry: "China", cost: "3000", fileName: "" },
+    ]);
+    setShipmentValue("50000");
+    setHsLookupStatus("idle");
+  }, []);
+
   // Hydrate journey state from localStorage so refreshing the page keeps the current step and inputs
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || AFCFTA_COMING_SOON_READ_ONLY) return;
     try {
       const raw = window.localStorage.getItem(JOURNEY_STORAGE_KEY);
       if (!raw) return;
@@ -296,7 +318,7 @@ export default function ComplianceCheckPage() {
 
   // Persist journey state whenever key inputs change
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || AFCFTA_COMING_SOON_READ_ONLY) return;
     const snapshot = {
       activeStep,
       hsCode,
@@ -328,6 +350,21 @@ export default function ComplianceCheckPage() {
   ]);
 
   useEffect(() => {
+    if (AFCFTA_COMING_SOON_READ_ONLY) {
+      if (activeStep === "tariff") {
+        setSavingsTariffRow({
+          mfn_rate_percent: 15,
+          afcfta_2026_percent: 10,
+          afcfta_2030_percent: 5,
+          afcfta_2035_percent: 0,
+        });
+        setSavingsTariffStatus("found");
+      } else {
+        setSavingsTariffRow(null);
+        setSavingsTariffStatus("idle");
+      }
+      return;
+    }
     if (activeStep !== "tariff" || !hsCode.trim() || !destCountry) {
       setSavingsTariffRow(null);
       setSavingsTariffStatus("idle");
@@ -374,6 +411,16 @@ export default function ComplianceCheckPage() {
 
   useEffect(() => {
     if (activeStep !== "checklist") return;
+    if (AFCFTA_COMING_SOON_READ_ONLY) {
+      setReportUsage({
+        canDownload: false,
+        limit: 0,
+        used: 0,
+        remaining: 0,
+        payAsYouGoCount: 0,
+      });
+      return;
+    }
     fetch("/api/afcfta/report/usage", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Failed to load"))))
       .then((data: { canDownload?: boolean; limit?: number | null; used?: number; remaining?: number | null; payAsYouGoCount?: number }) => {
@@ -647,28 +694,24 @@ export default function ComplianceCheckPage() {
     }
   };
 
-  if (AFCFTA_DISABLED) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-muted/20 via-background to-background">
-        <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
-          <div className="rounded-2xl border border-border bg-card px-6 py-10 shadow-sm sm:px-10">
-            <h1 className="text-2xl font-semibold tracking-tight">AfCFTA tools are coming soon</h1>
-            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-              We&apos;re putting the finishing touches on our AfCFTA compliance calculator and export journey tools.
-              For now, you can still browse the legal library and other features while we prepare this experience.
-            </p>
-            <p className="mt-4 text-xs text-muted-foreground">
-              If you need AfCFTA support today, reach out to our team and we can share tailored guidance manually.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-muted/20 via-background to-background">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        {AFCFTA_COMING_SOON_READ_ONLY && (
+          <div
+            className="mb-6 flex gap-3 rounded-2xl border border-amber-300/80 bg-amber-50 px-4 py-4 text-sm text-amber-950 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100 sm:px-5 sm:py-4"
+            role="status"
+          >
+            <AlertCircle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+            <div>
+              <p className="font-semibold text-foreground dark:text-amber-50">Coming soon</p>
+              <p className="mt-1 text-muted-foreground dark:text-amber-100/90">
+                Browse every step of the AfCFTA compliance journey below. Fields, checklists, downloads, and reset are
+                read-only until we launch the live tool.
+              </p>
+            </div>
+          </div>
+        )}
         <div className="mb-8 rounded-2xl border border-border bg-card p-6 shadow-lg">
           <div className="relative mb-6">
             <div className="absolute top-5 left-0 right-0 h-1 bg-muted" />
@@ -686,6 +729,10 @@ export default function ComplianceCheckPage() {
                     key={step.id}
                     type="button"
                     onClick={() => {
+                      if (AFCFTA_COMING_SOON_READ_ONLY) {
+                        setActiveStep(step.id);
+                        return;
+                      }
                       if (!isFreeTier && activeStep === "start" && idx > 0 && !isStartValid) return;
                       setActiveStep(step.id);
                     }}
@@ -754,7 +801,7 @@ export default function ComplianceCheckPage() {
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="rounded-xl border border-border bg-card p-6 shadow-md">
                 <h2 className="text-2xl font-bold text-foreground">Start Your Compliance Check</h2>
-                {isFreeTier && (
+                {isFreeTier && !AFCFTA_COMING_SOON_READ_ONLY && (
                   <div className="mt-3 rounded-lg border border-amber-300/70 bg-amber-50 px-4 py-3 text-xs text-amber-900 sm:text-sm">
                     <p className="font-semibold mb-1">Read-only for Free plan</p>
                     <p>
@@ -786,19 +833,19 @@ export default function ComplianceCheckPage() {
                       type="text"
                       value={hsCode}
                       onChange={(e) => {
-                        if (isFreeTier) return;
+                        if (inputsLocked) return;
                         setHsCode(e.target.value);
                         setHsLookupStatus("idle");
                         setProductName("");
                       }}
                       onBlur={() => {
-                        if (isFreeTier) return;
+                        if (inputsLocked) return;
                         lookupProductByHsCode(hsCode);
                       }}
                       placeholder="e.g. 012222"
-                      readOnly={isFreeTier}
+                      readOnly={inputsLocked}
                       className={`w-full rounded-lg border border-input px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 ${
-                        isFreeTier ? "bg-muted/50 cursor-not-allowed" : "bg-background"
+                        inputsLocked ? "bg-muted/50 cursor-not-allowed" : "bg-background"
                       }`}
                     />
                     <p className="mt-1 text-xs text-muted-foreground">Enter the 6-digit code for your product</p>
@@ -865,11 +912,11 @@ export default function ComplianceCheckPage() {
                       <select
                         value={originContinent}
                         onChange={(e) => {
-                          if (isFreeTier) return;
+                          if (inputsLocked) return;
                           setOriginContinent(e.target.value);
                           setOriginCountry("");
                         }}
-                        disabled={isFreeTier}
+                        disabled={inputsLocked}
                         className="rounded-lg border border-input bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                       >
                         <option value="">Continent</option>
@@ -880,10 +927,10 @@ export default function ComplianceCheckPage() {
                       <select
                         value={originCountry}
                         onChange={(e) => {
-                          if (isFreeTier) return;
+                          if (inputsLocked) return;
                           setOriginCountry(e.target.value);
                         }}
-                        disabled={isFreeTier || !originContinent}
+                        disabled={inputsLocked || !originContinent}
                         className="rounded-lg border border-input bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                       >
                         <option value="">Country</option>
@@ -902,11 +949,11 @@ export default function ComplianceCheckPage() {
                       <select
                         value={destContinent}
                         onChange={(e) => {
-                          if (isFreeTier) return;
+                          if (inputsLocked) return;
                           setDestContinent(e.target.value);
                           setDestCountry("");
                         }}
-                        disabled={isFreeTier}
+                        disabled={inputsLocked}
                         className="rounded-lg border border-input bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                       >
                         <option value="">Continent</option>
@@ -917,10 +964,10 @@ export default function ComplianceCheckPage() {
                       <select
                         value={destCountry}
                         onChange={(e) => {
-                          if (isFreeTier) return;
+                          if (inputsLocked) return;
                           setDestCountry(e.target.value);
                         }}
-                        disabled={isFreeTier || !destContinent}
+                        disabled={inputsLocked || !destContinent}
                         className="rounded-lg border border-input bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                       >
                         <option value="">Country</option>
@@ -935,8 +982,12 @@ export default function ComplianceCheckPage() {
                   <button
                     type="button"
                     onClick={goNext}
-                    disabled={!isStartValid}
-                    title={!isStartValid ? "Fill in HS Code, Product Description, Exporting From, and Exporting To to continue" : undefined}
+                    disabled={!AFCFTA_COMING_SOON_READ_ONLY && !isStartValid}
+                    title={
+                      !AFCFTA_COMING_SOON_READ_ONLY && !isStartValid
+                        ? "Fill in HS Code, Product Description, Exporting From, and Exporting To to continue"
+                        : undefined
+                    }
                     className="w-full rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#c99d2e] px-6 py-3 text-sm font-semibold text-[#1a1a1a] shadow-md transition hover:opacity-95 hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:opacity-50"
                   >
                     Start Compliance Check
@@ -1002,16 +1053,24 @@ export default function ComplianceCheckPage() {
                               <input
                                 type="text"
                                 value={row.description}
-                                onChange={(e) => updateProductionRow(row.id, "description", e.target.value)}
+                                readOnly={inputsLocked}
+                                onChange={(e) => {
+                                  if (inputsLocked) return;
+                                  updateProductionRow(row.id, "description", e.target.value);
+                                }}
                                 placeholder="e.g. Coffee Beans"
-                                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
+                                className={`w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow ${inputsLocked ? "cursor-not-allowed bg-muted/50" : "bg-background"}`}
                               />
                             </td>
                             <td className="p-2">
                               <select
                                 value={row.sourceCountry}
-                                onChange={(e) => updateProductionRow(row.id, "sourceCountry", e.target.value)}
-                                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
+                                disabled={inputsLocked}
+                                onChange={(e) => {
+                                  if (inputsLocked) return;
+                                  updateProductionRow(row.id, "sourceCountry", e.target.value);
+                                }}
+                                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 <option value="">Select country</option>
                                 {AFCFTA_COUNTRIES.map((c) => (
@@ -1037,18 +1096,26 @@ export default function ComplianceCheckPage() {
                                 min={0}
                                 step={0.01}
                                 value={row.cost}
-                                onChange={(e) => updateProductionRow(row.id, "cost", e.target.value)}
+                                readOnly={inputsLocked}
+                                onChange={(e) => {
+                                  if (inputsLocked) return;
+                                  updateProductionRow(row.id, "cost", e.target.value);
+                                }}
                                 placeholder="0"
-                                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-right focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
+                                className={`w-full rounded-lg border border-input px-3 py-2 text-sm text-right focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow ${inputsLocked ? "cursor-not-allowed bg-muted/50" : "bg-background"}`}
                               />
                             </td>
                             <td className="p-2">
-                              <label className="flex cursor-pointer items-center gap-2 text-muted-foreground hover:text-foreground">
+                              <label
+                                className={`flex items-center gap-2 text-muted-foreground ${inputsLocked ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:text-foreground"}`}
+                              >
                                 <input
                                   type="file"
                                   className="sr-only"
                                   accept=".pdf,.jpg,.jpeg,.png"
+                                  disabled={inputsLocked}
                                   onChange={(e) => {
+                                    if (inputsLocked) return;
                                     const f = e.target.files?.[0];
                                     if (f) updateProductionRow(row.id, "fileName", f.name);
                                   }}
@@ -1075,7 +1142,7 @@ export default function ComplianceCheckPage() {
                               <button
                                 type="button"
                                 onClick={() => removeProductionRow(row.id)}
-                                disabled={productionRows.length <= 1}
+                                disabled={productionRows.length <= 1 || inputsLocked}
                                 className="rounded bg-destructive/90 px-3 py-1.5 text-xs font-medium text-white hover:bg-destructive disabled:opacity-30 disabled:pointer-events-none"
                               >
                                 Remove
@@ -1091,7 +1158,8 @@ export default function ComplianceCheckPage() {
                 <button
                   type="button"
                   onClick={addProductionRow}
-                  className="mt-4 flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:opacity-95"
+                  disabled={inputsLocked}
+                  className="mt-4 flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
                   style={{ backgroundColor: ORG_ACCENT }}
                 >
                   <Plus className="h-4 w-4" />
@@ -1405,9 +1473,13 @@ export default function ComplianceCheckPage() {
                         type="text"
                         inputMode="numeric"
                         value={shipmentValue}
-                        onChange={(e) => setShipmentValue(e.target.value.replace(/[^0-9,]/g, ""))}
+                        readOnly={inputsLocked}
+                        onChange={(e) => {
+                          if (inputsLocked) return;
+                          setShipmentValue(e.target.value.replace(/[^0-9,]/g, ""));
+                        }}
                         placeholder="e.g., 50000"
-                        className="w-full max-w-xs rounded-lg border border-input bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        className={`w-full max-w-xs rounded-lg border border-input px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 ${inputsLocked ? "cursor-not-allowed bg-muted/50" : "bg-background"}`}
                       />
                       <div className="mt-4 rounded-lg bg-green-100 dark:bg-green-950/40 px-4 py-4">
                         <p className="text-sm text-foreground">
@@ -1435,7 +1507,8 @@ export default function ComplianceCheckPage() {
               <div className="rounded-xl border border-border bg-card p-6 shadow-md">
                 <h2 className="text-2xl font-bold text-foreground">Your Compliance Checklist</h2>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Here are the documents and steps you need to complete. Click each item when done.
+                  Here are the documents and steps you need to complete.
+                  {inputsLocked ? " Preview only — checklist interaction is disabled." : " Click each item when done."}
                 </p>
 
                 <div className="mt-6 rounded-xl bg-green-100 dark:bg-green-950/40 px-6 py-5 text-center">
@@ -1462,7 +1535,8 @@ export default function ComplianceCheckPage() {
                             >
                               <button
                                 type="button"
-                                onClick={() => toggleChecklist(key)}
+                                onClick={() => !inputsLocked && toggleChecklist(key)}
+                                disabled={inputsLocked}
                                 className={`flex h-6 w-6 shrink-0 items-center justify-center rounded border-2 transition-all ${
                                   checked
                                     ? "border-[#D4AF37] bg-[#D4AF37] text-[#1a1a1a]"
@@ -1515,8 +1589,8 @@ export default function ComplianceCheckPage() {
                             <div className="flex items-start gap-4">
                               <button
                                 type="button"
-                                onClick={isSystemChecked ? undefined : () => toggleChecklist(key)}
-                                disabled={isSystemChecked}
+                                onClick={isSystemChecked || inputsLocked ? undefined : () => toggleChecklist(key)}
+                                disabled={isSystemChecked || inputsLocked}
                                 className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded border-2 transition-all ${
                                   checked ? "border-emerald-600 bg-emerald-600 text-white" : "border-input bg-background"
                                 } ${isSystemChecked ? "cursor-default opacity-100" : ""}`}
@@ -1562,8 +1636,8 @@ export default function ComplianceCheckPage() {
           <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
             <button
               type="button"
-              onClick={isFreeTier ? undefined : goPrev}
-              disabled={stepIndex === 0 || isFreeTier}
+              onClick={canBrowseSteps ? goPrev : undefined}
+              disabled={stepIndex === 0 || !canBrowseSteps}
               className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-95"
               style={{ backgroundColor: ORG_ACCENT }}
             >
@@ -1577,7 +1651,9 @@ export default function ComplianceCheckPage() {
               <button
                 type="button"
                 onClick={resetJourney}
-                className="flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
+                disabled={AFCFTA_COMING_SOON_READ_ONLY}
+                title={AFCFTA_COMING_SOON_READ_ONLY ? "Reset is disabled in preview mode" : undefined}
+                className="flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <RotateCcw className="h-4 w-4" />
                 Reset journey
@@ -1606,7 +1682,13 @@ export default function ComplianceCheckPage() {
                   <button
                     type="button"
                     onClick={handleDownloadReport}
-                    disabled={reportDownloadStatus === "loading" || reportUsage === null || (reportUsage != null && !reportUsage.canDownload)}
+                    disabled={
+                      AFCFTA_COMING_SOON_READ_ONLY ||
+                      reportDownloadStatus === "loading" ||
+                      reportUsage === null ||
+                      (reportUsage != null && !reportUsage.canDownload)
+                    }
+                    title={AFCFTA_COMING_SOON_READ_ONLY ? "Report download is coming soon" : undefined}
                     className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#c99d2e] px-4 py-2 text-sm font-semibold text-[#1a1a1a] transition-all hover:scale-[1.02] hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                   >
                     {reportDownloadStatus === "loading" ? "Preparing…" : "Download Full Report"}
@@ -1616,18 +1698,18 @@ export default function ComplianceCheckPage() {
               ) : (
                   <button
                     type="button"
-                    onClick={isFreeTier ? undefined : goNext}
+                    onClick={canBrowseSteps ? goNext : undefined}
                     disabled={
-                      isFreeTier ||
+                      !canBrowseSteps ||
                       stepIndex === STEPS.length - 1 ||
-                      (activeStep === "start" && !isStartValid)
+                      (activeStep === "start" && !isStartValid && !AFCFTA_COMING_SOON_READ_ONLY)
                     }
                     title={
-                      isFreeTier
+                      !canBrowseSteps
                         ? "Upgrade your plan to run an interactive AfCFTA compliance check"
-                        : activeStep === "start" && !isStartValid
-                        ? "Fill in all required fields on the Start step to continue"
-                        : undefined
+                        : activeStep === "start" && !isStartValid && !AFCFTA_COMING_SOON_READ_ONLY
+                          ? "Fill in all required fields on the Start step to continue"
+                          : undefined
                     }
                     className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#c99d2e] px-4 py-2 text-sm font-semibold text-[#1a1a1a] transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] hover:shadow-lg"
                   >
