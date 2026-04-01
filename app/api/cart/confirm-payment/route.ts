@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDepositStatus, isDepositCompleted } from "@/lib/pawapay";
-import { getSupabaseServer } from "@/lib/supabase/server";
+import { getStripe, isStripeSecretConfigured } from "@/lib/stripe-server";
+import {
+  clearUserShoppingCart,
+  parseCartItemIdsMetadata,
+  recordMarketplaceCartPurchases,
+} from "@/lib/marketplace-cart-purchases";
 
 /**
- * After pawaPay redirect for cart checkout:
- * confirm payment from session_id and record purchases for all cart items.
- * This complements the webhook so local dev still works even without webhooks configured.
+ * After checkout redirect: confirm payment and record purchases.
+ * Supports pawaPay deposit IDs and Stripe Checkout session IDs (`cs_...`).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +25,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "session_id required" }, { status: 400 });
     }
 
+    // Stripe Checkout
+    if (sessionId.startsWith("cs_")) {
+      if (!isStripeSecretConfigured()) {
+        return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
+      }
+      const stripe = getStripe();
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      if (session.payment_status !== "paid") {
+        return NextResponse.json({ error: "Payment not completed" }, { status: 400 });
+      }
+      const clerkUserId = session.metadata?.clerk_user_id;
+      if (clerkUserId !== userId) {
+        return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
+      }
+      if (session.metadata?.kind !== "marketplace_cart") {
+        return NextResponse.json({ error: "Not a marketplace cart session" }, { status: 400 });
+      }
+      const ids = parseCartItemIdsMetadata(session.metadata?.item_ids);
+      if (ids.length === 0) {
+        return NextResponse.json({ error: "No items found in cart session" }, { status: 400 });
+      }
+      await recordMarketplaceCartPurchases({
+        userId,
+        itemIds: ids,
+        sessionId,
+      });
+      await clearUserShoppingCart(userId);
+      return NextResponse.json({ ok: true, marketplace_item_ids: ids, provider: "stripe" });
+    }
+
+    // pawaPay deposit
     const deposit = await getDepositStatus(sessionId);
     if (!deposit || !isDepositCompleted(deposit.status)) {
       return NextResponse.json({ error: "Payment not completed" }, { status: 400 });
@@ -31,45 +66,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
     }
 
-    const kind = deposit.metadata?.kind;
-    if (kind !== "marketplace_cart") {
+    if (deposit.metadata?.kind !== "marketplace_cart") {
       return NextResponse.json({ error: "Not a marketplace cart session" }, { status: 400 });
     }
 
-    let ids: string[] = [];
-    try {
-      const raw = deposit.metadata?.item_ids;
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          ids = parsed.filter((v) => typeof v === "string" && v.trim().length > 0);
-        }
-      }
-    } catch {
-      // ignore parse errors
-    }
-
+    const ids = parseCartItemIdsMetadata(deposit.metadata?.item_ids);
     if (ids.length === 0) {
       return NextResponse.json({ error: "No items found in cart session" }, { status: 400 });
     }
 
-    const supabase = getSupabaseServer();
-    const uniqueIds = Array.from(new Set(ids));
-    for (const itemId of uniqueIds) {
-      await (supabase.from("marketplace_purchases") as any).upsert(
-        {
-          user_id: userId,
-          marketplace_item_id: itemId,
-          stripe_session_id: sessionId,
-        },
-        { onConflict: "user_id,marketplace_item_id" }
-      );
-    }
+    await recordMarketplaceCartPurchases({
+      userId,
+      itemIds: ids,
+      sessionId,
+    });
 
-    return NextResponse.json({ ok: true, marketplace_item_ids: uniqueIds });
+    return NextResponse.json({ ok: true, marketplace_item_ids: ids, provider: "pawapay" });
   } catch (err) {
     console.error("Cart confirm payment error:", err);
     return NextResponse.json({ error: "Failed to confirm cart payment" }, { status: 500 });
   }
 }
-
