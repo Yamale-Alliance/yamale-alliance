@@ -28,6 +28,11 @@ const nextConfig = {
         hostname: "static.wixstatic.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "upload.wikimedia.org",
+        pathname: "/wikipedia/commons/**",
+      },
     ],
   },
 };
