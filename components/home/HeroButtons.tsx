@@ -47,7 +47,7 @@ export function HeroButtons({ isSignedIn }: HeroButtonsProps) {
         href="/marketplace"
         className="group relative inline-flex items-center gap-2 overflow-hidden rounded-2xl bg-primary px-7 py-3.5 text-sm font-bold text-primary-foreground shadow-xl shadow-primary/30 transition-all duration-300 hover:scale-[1.04] hover:shadow-2xl hover:shadow-primary/40 sm:text-base"
       >
-        Browse marketplace
+        Browse The Yamale Vault
         <ArrowRight className="h-5 w-5 transition group-hover:translate-x-1" />
       </Link>
     </>
