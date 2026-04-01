@@ -10,7 +10,7 @@ const contentLinks = [
   },
   {
     href: "/admin-panel/marketplace",
-    label: "Marketplace items",
+    label: "The Yamale Vault items",
     description: "Manage books, courses, and templates for sale.",
     icon: Store,
   },
@@ -28,7 +28,7 @@ export default function AdminContentPage() {
       <div className="rounded-2xl border border-border bg-card px-4 py-6 shadow-sm sm:px-6 sm:py-8 md:px-8 md:py-10">
         <h1 className="text-2xl font-semibold tracking-tight">Content Management</h1>
         <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-          Manage the core content that powers the platform: library entries, marketplace products,
+          Manage the core content that powers the platform: library entries, The Yamale Vault products,
           and the lawyer directory.
         </p>
       </div>
