@@ -122,7 +122,7 @@ export default function PurchasedItemsPage() {
             href="/marketplace"
             className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"
           >
-            <ArrowLeft className="h-4 w-4" /> Back to marketplace
+            <ArrowLeft className="h-4 w-4" /> Back to The Yamale Vault
           </Link>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -161,13 +161,13 @@ export default function PurchasedItemsPage() {
                 No purchased items yet
               </h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                Purchase items from the marketplace to access them here.
+                Purchase items from The Yamale Vault to access them here.
               </p>
               <Link
                 href="/marketplace"
                 className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-primary/90 px-6 py-3 text-sm font-semibold text-primary-foreground shadow-sm shadow-primary/20 transition hover:brightness-105"
               >
-                Browse marketplace
+                Browse The Yamale Vault
               </Link>
             </div>
           ) : (
