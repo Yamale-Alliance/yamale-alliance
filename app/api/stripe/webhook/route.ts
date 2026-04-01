@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+
+export const runtime = "nodejs";
 import { clerkClient } from "@clerk/nextjs/server";
+import type Stripe from "stripe";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { recordUnlock, recordSearchUnlockGrant } from "@/lib/unlocks";
+import { clearUserShoppingCart, parseCartItemIdsMetadata } from "@/lib/marketplace-cart-purchases";
+import { getStripe } from "@/lib/stripe-server";
 
 type DepositCallback = {
   depositId?: string;
@@ -10,7 +15,58 @@ type DepositCallback = {
 };
 
 export async function POST(request: NextRequest) {
-  const callback = (await request.json().catch(() => ({}))) as DepositCallback;
+  const rawBody = await request.text();
+  const stripeSig = request.headers.get("stripe-signature");
+
+  if (stripeSig && process.env.STRIPE_WEBHOOK_SECRET) {
+    try {
+      const stripe = getStripe();
+      const event = stripe.webhooks.constructEvent(rawBody, stripeSig, process.env.STRIPE_WEBHOOK_SECRET);
+      if (event.type === "checkout.session.completed") {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const md = session.metadata ?? {};
+        const supabase = getSupabaseServer();
+        if (md.kind === "marketplace_cart" && md.clerk_user_id && md.item_ids) {
+          const ids = parseCartItemIdsMetadata(md.item_ids);
+          for (const itemId of Array.from(new Set(ids))) {
+            await (supabase.from("marketplace_purchases") as any).upsert(
+              {
+                user_id: md.clerk_user_id,
+                marketplace_item_id: itemId,
+                stripe_session_id: session.id,
+              },
+              { onConflict: "user_id,marketplace_item_id" }
+            );
+          }
+          await clearUserShoppingCart(md.clerk_user_id);
+        } else if (
+          (md.kind === "payg_lawyer_search" || md.kind === "lawyer_search_unlock") &&
+          md.clerk_user_id &&
+          md.expertise
+        ) {
+          await recordSearchUnlockGrant(md.clerk_user_id, md.country || "all", md.expertise, session.id);
+          await (supabase.from("pay_as_you_go_purchases") as any).insert({
+            user_id: md.clerk_user_id,
+            item_type: "lawyer_search",
+            quantity: 1,
+            stripe_session_id: session.id,
+          });
+        }
+      }
+      return NextResponse.json({ received: true });
+    } catch (err) {
+      console.error("Stripe webhook error:", err);
+      return NextResponse.json({ error: "Stripe webhook verification failed" }, { status: 400 });
+    }
+  }
+
+  let callback: DepositCallback;
+  try {
+    callback = JSON.parse(rawBody || "{}") as DepositCallback;
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
   const status = String(callback.status || "").toUpperCase();
   if (status !== "COMPLETED") {
     return NextResponse.json({ received: true, ignored: true });
@@ -36,11 +92,7 @@ export async function POST(request: NextRequest) {
         { onConflict: "user_id,marketplace_item_id" }
       );
     } else if (kind === "marketplace_cart" && metadata.item_ids) {
-      let ids: string[] = [];
-      try {
-        const parsed = JSON.parse(metadata.item_ids);
-        if (Array.isArray(parsed)) ids = parsed.filter((v) => typeof v === "string");
-      } catch {}
+      const ids = parseCartItemIdsMetadata(metadata.item_ids);
       for (const itemId of Array.from(new Set(ids))) {
         await (supabase.from("marketplace_purchases") as any).upsert(
           { user_id: clerkUserId, marketplace_item_id: itemId, stripe_session_id: depositId },
