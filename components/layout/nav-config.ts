@@ -25,7 +25,7 @@ export const userNavLinks: Array<{
   { href: "/library", label: "Library", icon: BookOpen },
   { href: "/afcfta/compliance-check", label: "AfCFTA", icon: FileCheck },
   { href: "/ai-research", label: "AI Research", icon: Search },
-  { href: "/marketplace", label: "Marketplace", icon: Store },
+  { href: "/marketplace", label: "The Yamale Vault", icon: Store },
   { href: "/lawyers", label: "Lawyers", icon: Users },
   { href: "/pricing", label: "Pricing", icon: DollarSign },
 ];
