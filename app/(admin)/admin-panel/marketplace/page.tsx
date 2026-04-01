@@ -89,6 +89,16 @@ export default function AdminMarketplacePage() {
     router.replace(url.toString());
   };
 
+  async function parseJsonSafe(res: Response): Promise<{ error?: string; url?: string; path?: string; file_name?: string; file_format?: string }> {
+    const text = await res.text();
+    if (!text.trim()) return {};
+    try {
+      return JSON.parse(text) as { error?: string; url?: string; path?: string; file_name?: string; file_format?: string };
+    } catch {
+      return { error: text.slice(0, 200) || "Invalid response from server" };
+    }
+  }
+
   const handleUploadImage = async (file: File) => {
     setImageUploading(true);
     setError(null);
@@ -100,14 +110,15 @@ export default function AdminMarketplacePage() {
         credentials: "include",
         body: form,
       });
-      const data = await res.json();
+      const data = await parseJsonSafe(res);
       if (!res.ok) {
         setError(data.error ?? "Image upload failed");
         return;
       }
       if (data.url) setPendingImageUrl(data.url);
+      else setError("Upload succeeded but no image URL was returned. Check Cloudinary env vars on this deployment.");
     } catch {
-      setError("Image upload failed");
+      setError("Image upload failed (network or blocked response). Check the browser Network tab.");
     }
     setImageUploading(false);
   };
@@ -124,15 +135,19 @@ export default function AdminMarketplacePage() {
         credentials: "include",
         body: form,
       });
-      const data = await res.json();
+      const data = await parseJsonSafe(res);
       if (!res.ok) {
         setError(data.error ?? "Upload failed");
         setFileUploading(false);
         return;
       }
-      setPendingFile({ path: data.path, file_name: data.file_name, file_format: data.file_format });
+      if (data.path && data.file_name != null && data.file_format != null) {
+        setPendingFile({ path: data.path, file_name: data.file_name, file_format: data.file_format });
+      } else {
+        setError("Upload succeeded but file details were missing. Check Supabase storage and env.");
+      }
     } catch {
-      setError("Upload failed");
+      setError("Upload failed (network or blocked response). Check the browser Network tab.");
     }
     setFileUploading(false);
   };
@@ -192,6 +207,7 @@ export default function AdminMarketplacePage() {
           description: (form.elements.namedItem("description") as HTMLTextAreaElement)?.value?.trim() || null,
           price_cents: priceCents,
           currency: "usd",
+          image_url: pendingImageUrl ?? null,
           published: (form.elements.namedItem("published") as HTMLInputElement)?.checked ?? true,
           sort_order: parseInt((form.elements.namedItem("sort_order") as HTMLInputElement)?.value ?? "0", 10),
           file_path: pendingFile?.path ?? null,
@@ -304,7 +320,7 @@ export default function AdminMarketplacePage() {
     <div className="p-4 sm:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Marketplace</h1>
+          <h1 className="text-2xl font-semibold">The Yamale Vault</h1>
           <p className="mt-1 text-muted-foreground">
             Books, courses, and templates. Prices are set here and charged via pawaPay at checkout.
           </p>
@@ -315,7 +331,7 @@ export default function AdminMarketplacePage() {
           rel="noopener noreferrer"
           className="text-sm text-primary hover:underline"
         >
-          View public marketplace →
+          View The Yamale Vault →
         </Link>
       </div>
 
@@ -443,7 +459,7 @@ export default function AdminMarketplacePage() {
             <div className="flex items-center gap-4 sm:col-span-2">
               <label className="flex items-center gap-2 text-sm">
                 <input name="published" type="checkbox" defaultChecked className="rounded border-input" />
-                Published (visible on marketplace)
+                Published (visible in The Yamale Vault)
               </label>
               <label className="flex items-center gap-2 text-sm">
                 Sort order
@@ -544,7 +560,7 @@ export default function AdminMarketplacePage() {
             </tbody>
           </table>
           {items.length === 0 && !adding && (
-            <p className="py-8 text-center text-muted-foreground">No marketplace items yet. Add one above.</p>
+            <p className="py-8 text-center text-muted-foreground">No items in The Yamale Vault yet. Add one above.</p>
           )}
         </div>
       )}
@@ -562,7 +578,7 @@ export default function AdminMarketplacePage() {
           </button>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          View which users currently own marketplace items. You can revoke a purchase so that the user can purchase again.
+          View which users currently own items from The Yamale Vault. You can revoke a purchase so that the user can purchase again.
         </p>
 
         {loadingPurchases ? (
