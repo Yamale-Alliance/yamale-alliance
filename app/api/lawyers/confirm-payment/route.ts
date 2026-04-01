@@ -4,6 +4,7 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { getDepositStatus, isDepositCompleted } from "@/lib/pawapay";
 import { recordUnlock, recordSearchUnlockGrant } from "@/lib/unlocks";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { getStripe, isStripeSecretConfigured } from "@/lib/stripe-server";
 
 /**
  * After pawaPay redirect: confirm payment from session_id and record unlock or day pass.
@@ -21,6 +22,37 @@ export async function POST(request: NextRequest) {
     const sessionId = body.session_id as string | undefined;
     if (!sessionId || typeof sessionId !== "string") {
       return NextResponse.json({ error: "session_id required" }, { status: 400 });
+    }
+
+    // Stripe Checkout (card payment for lawyer search unlock)
+    if (sessionId.startsWith("cs_")) {
+      if (!isStripeSecretConfigured()) {
+        return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
+      }
+      const stripe = getStripe();
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      if (session.payment_status !== "paid") {
+        return NextResponse.json({ error: "Payment not completed" }, { status: 400 });
+      }
+      if (session.metadata?.clerk_user_id !== userId) {
+        return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
+      }
+      const kind = session.metadata?.kind;
+      if (kind === "payg_lawyer_search" || kind === "lawyer_search_unlock") {
+        const country = (session.metadata?.country ?? body.country ?? "all") as string;
+        const expertise = (session.metadata?.expertise ?? body.expertise ?? "") as string;
+        if (expertise && expertise !== "all") {
+          await recordSearchUnlockGrant(userId, country, expertise, sessionId);
+        }
+        return NextResponse.json({
+          ok: true,
+          kind: "lawyer_search_unlock",
+          country,
+          expertise,
+          provider: "stripe",
+        });
+      }
+      return NextResponse.json({ error: "Unknown Stripe session type" }, { status: 400 });
     }
 
     const deposit = await getDepositStatus(sessionId);
@@ -45,7 +77,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, kind: "lawyer_unlock", lawyerId });
     }
 
-    if (kind === "lawyer_search_unlock") {
+    if (kind === "lawyer_search_unlock" || kind === "payg_lawyer_search") {
       const supabase = getSupabaseServer();
       const { data: row } = await (supabase.from("lawyer_search_purchases") as any)
         .select("country, expertise")
