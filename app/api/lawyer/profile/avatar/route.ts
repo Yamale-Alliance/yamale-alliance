@@ -4,7 +4,8 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { uploadToCloudinary } from "@/lib/cloudinary";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
-const MAX_MB = 2;
+/** Match admin lawyer photo limit (phone camera JPEGs are often 2–4 MB). */
+const MAX_MB = 5;
 
 /** POST: upload profile picture. Body: multipart form with file (image). Stored in Cloudinary. */
 export async function POST(request: NextRequest) {
