@@ -152,7 +152,7 @@ export default async function Home() {
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 text-primary ring-2 ring-primary/10 transition group-hover:ring-primary/30">
                 <ShoppingBag className="h-8 w-8" />
               </div>
-              <h3 className="mt-5 font-extrabold text-foreground">Marketplace</h3>
+              <h3 className="mt-5 font-extrabold text-foreground">The Yamale Vault</h3>
               <p className="mt-2 text-sm text-muted-foreground">
                 Books, courses, and templates for legal and compliance.
               </p>
@@ -195,7 +195,7 @@ export default async function Home() {
                 See which plan fits your practice
               </h2>
               <p className="mx-auto mt-6 max-w-lg text-lg text-muted-foreground">
-                Compare pricing for the legal library, AfCFTA tools, AI research, and marketplace so you can choose the right level for your team.
+                Compare pricing for the legal library, AfCFTA tools, AI research, and The Yamale Vault so you can choose the right level for your team.
               </p>
               <ul className="mx-auto mt-8 flex max-w-md flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm font-medium text-muted-foreground">
                 <li className="flex items-center gap-2">
