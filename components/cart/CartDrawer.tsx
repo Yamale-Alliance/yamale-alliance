@@ -2,9 +2,13 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ShoppingCart, X, Loader2, Trash2, ArrowRight } from "lucide-react";
+import { ShoppingCart, X, Loader2, Trash2 } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import {
+  PaymentMethodPicker,
+  type CheckoutPaymentProvider,
+} from "@/components/checkout/PaymentMethodPicker";
 
 type CartItem = {
   id: string;
@@ -26,6 +30,7 @@ export function CartDrawer() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
   const { isSignedIn } = useUser();
   const router = useRouter();
 
@@ -57,6 +62,8 @@ export function CartDrawer() {
       const res = await fetch("/api/cart/checkout", {
         method: "POST",
         credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: paymentProvider }),
       });
       const data = await res.json();
       if (res.ok && data.url) {
@@ -159,6 +166,7 @@ export function CartDrawer() {
                   <span>Total</span>
                   <span>${(total / 100).toFixed(2)}</span>
                 </div>
+                <PaymentMethodPicker value={paymentProvider} onChange={setPaymentProvider} />
                 <Link
                   href="/marketplace/cart"
                   onClick={() => setOpen(false)}
