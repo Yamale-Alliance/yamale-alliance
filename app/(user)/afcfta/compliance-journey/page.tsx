@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   FileText,
   CheckSquare,
@@ -21,7 +21,8 @@ import {
 import Link from "next/link";
 import { InfoIcon } from "@/components/ui/InfoIcon";
 
-const AFCFTA_DISABLED = true;
+/** Show full journey; form controls inside the main area are disabled until launch. */
+const AFCFTA_COMING_SOON_READ_ONLY = true;
 
 const CONTINENTS = ["Africa", "Asia", "Europe", "Americas", "Oceania"];
 
@@ -185,8 +186,23 @@ export default function ComplianceJourneyPage() {
   };
 
   const toggleChecklistItem = (key: string) => {
+    if (AFCFTA_COMING_SOON_READ_ONLY) return;
     setChecklistProgress((prev) => ({ ...prev, [key]: !prev[key] }));
   };
+
+  useEffect(() => {
+    if (!AFCFTA_COMING_SOON_READ_ONLY) return;
+    setHsCode("090111");
+    setProductValue("10000");
+    setDestinationContinent("Africa");
+    setCountryB("Nigeria");
+    setProductCategory("Agricultural products (unprocessed)");
+    setOriginContinent("Africa");
+    setOriginCountry("Ghana");
+    setDestContinent("Africa");
+    setDestCountry("Kenya");
+    setSector("Agriculture & Agro-processing");
+  }, []);
 
   const getStepIndex = (step: Step) => STEPS.findIndex((s) => s.id === step);
   const currentStepIndex = getStepIndex(activeStep);
@@ -215,25 +231,6 @@ export default function ComplianceJourneyPage() {
         }
       : null;
 
-  if (AFCFTA_DISABLED) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-muted/20 via-background to-background">
-        <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
-          <div className="rounded-2xl border border-border bg-card px-6 py-10 shadow-sm sm:px-10">
-            <h1 className="text-2xl font-semibold tracking-tight">AfCFTA journey is coming soon</h1>
-            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-              This interactive AfCFTA compliance journey is currently read-only while we finalize the underlying data
-              and workflows. We&apos;ll open it up for full use very soon.
-            </p>
-            <p className="mt-4 text-xs text-muted-foreground">
-              In the meantime, use the legal library and other tools, or contact us for a manual AfCFTA review.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-muted/20 via-background to-background">
       {/* Header */}
@@ -260,6 +257,21 @@ export default function ComplianceJourneyPage() {
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        {AFCFTA_COMING_SOON_READ_ONLY && (
+          <div
+            className="mb-6 flex gap-3 rounded-2xl border border-amber-300/80 bg-amber-50 px-4 py-4 text-sm text-amber-950 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100 sm:px-5"
+            role="status"
+          >
+            <AlertCircle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+            <div>
+              <p className="font-semibold text-foreground dark:text-amber-50">Coming soon</p>
+              <p className="mt-1 text-muted-foreground dark:text-amber-100/90">
+                Explore each step of the journey below. Form fields, checklists, and document actions are read-only until
+                the tool is fully launched; use Previous / Next and the step icons to move through the flow.
+              </p>
+            </div>
+          </div>
+        )}
         {/* Progress Steps */}
         <div className="mb-8 rounded-2xl border border-border bg-card p-6 shadow-lg">
           <div className="relative mb-6">
@@ -309,8 +321,8 @@ export default function ComplianceJourneyPage() {
           </div>
         </div>
 
-        {/* Content Sections */}
-        <div className="space-y-6">
+        {/* Content Sections — fieldset disables native controls when in preview mode */}
+        <fieldset disabled={AFCFTA_COMING_SOON_READ_ONLY} className="min-w-0 space-y-6 border-0 p-0">
           {/* Step 1: Tariff Lookup */}
           {activeStep === "tariff" && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -394,13 +406,20 @@ export default function ComplianceJourneyPage() {
                         ))}
                       </select>
                     </div>
-                    <Link
-                      href="/afcfta/tariff-schedule"
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#c99d2e] px-6 py-3 font-semibold text-[#1a1a1a] transition-all hover:scale-[1.02] hover:shadow-lg"
-                    >
-                      <Search className="h-5 w-5" />
-                      Open Full Tariff Schedule
-                    </Link>
+                    {AFCFTA_COMING_SOON_READ_ONLY ? (
+                      <span className="inline-flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-dashed border-muted-foreground/40 bg-muted/40 px-6 py-3 text-center text-sm font-medium text-muted-foreground">
+                        <Search className="h-5 w-5 shrink-0 opacity-60" />
+                        Full tariff schedule opens when this tool launches
+                      </span>
+                    ) : (
+                      <Link
+                        href="/afcfta/tariff-schedule"
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#c99d2e] px-6 py-3 font-semibold text-[#1a1a1a] transition-all hover:scale-[1.02] hover:shadow-lg"
+                      >
+                        <Search className="h-5 w-5" />
+                        Open Full Tariff Schedule
+                      </Link>
+                    )}
                   </div>
 
                   {hsCode && (
@@ -736,6 +755,7 @@ export default function ComplianceJourneyPage() {
               </div>
             </div>
           )}
+        </fieldset>
 
           {/* Navigation */}
           <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
@@ -765,7 +785,6 @@ export default function ComplianceJourneyPage() {
               Next →
             </button>
           </div>
-        </div>
       </div>
     </div>
   );
