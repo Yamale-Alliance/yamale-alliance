@@ -87,7 +87,7 @@ export default function TermsOfServicePage() {
           <P>
             By accessing or using Yamalé Legal Platform (&ldquo;Platform&rdquo;, &ldquo;we&rdquo;,
             &ldquo;us&rdquo;, &ldquo;our&rdquo;), including our website, legal library, AfCFTA
-            tools, AI legal research, lawyer directory, marketplace, and any related services, you
+            tools, AI legal research, lawyer directory, The Yamale Vault, and any related services, you
             agree to be bound by these Terms of Service (&ldquo;Terms&rdquo;). If you do not agree,
             you must not use the Platform. Additional terms may apply to specific features (for
             example, payments or lawyer verification); those terms are incorporated by reference.
@@ -115,14 +115,14 @@ export default function TermsOfServicePage() {
                 Platform.
               </>,
               <>
-                <strong>Marketplace:</strong> Digital products (for example, books, courses,
+                <strong>The Yamale Vault:</strong> Digital products (for example, books, courses,
                 templates) for legal and compliance use. Claims and access are subject to payment
                 and any item-specific terms.
               </>,
               <>
                 <strong>Subscriptions and Payments:</strong> Subscription plans (for example, Basic,
-                Pro, Team) and one-off purchases (for example, search unlocks, day pass, marketplace
-                items) as described on the pricing and checkout pages.
+                Pro, Team) and one-off purchases (for example, search unlocks, day pass, The Yamale
+                Vault items) as described on the pricing and checkout pages.
               </>,
             ]}
           />
@@ -139,7 +139,7 @@ export default function TermsOfServicePage() {
           <SectionHeading number="4" title="Subscriptions and Payments" />
           <P>
             Subscription fees, one-off payments (for example, lawyer contact unlocks, day pass,
-            marketplace purchases), and billing cycles are as displayed at the time of purchase.
+            The Yamale Vault purchases), and billing cycles are as displayed at the time of purchase.
             Payments are processed by our payment providers (such as pawaPay). By purchasing, you
             agree to the applicable pricing and any refund policy stated on the Platform. We may
             change fees with notice where required; continued use after changes may constitute
@@ -187,7 +187,7 @@ export default function TermsOfServicePage() {
           <P>
             The Platform (including design, text, software, and our branding) is owned or licensed
             by us. You may not copy, modify, distribute, or create derivative works without our
-            prior written consent. Legal and marketplace content may be subject to third-party
+            prior written consent. Legal and Yamale Vault content may be subject to third-party
             rights; your use must comply with any licences or terms shown for that content.
           </P>
 
