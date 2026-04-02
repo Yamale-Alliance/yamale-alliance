@@ -16,6 +16,40 @@ async function runCommand(cmd: string, args: string[]): Promise<string> {
   return (stdout as string)?.toString?.() ?? "";
 }
 
+/** Score 0–1; low = likely garbled embedded font / broken text layer (common in gazettes). */
+function scoreEmbeddedTextQuality(text: string): { score: number; suspicious: boolean } {
+  const t = text.trim();
+  if (!t) return { score: 0, suspicious: true };
+  const letters = (t.match(/[A-Za-zÀ-ÿ]/g) ?? []).length;
+  const letterRatio = letters / Math.max(t.length, 1);
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return { score: 0, suspicious: true };
+  const alnum = words.map((w) => w.replace(/[^A-Za-z0-9]/g, "")).filter((w) => w.length > 0);
+  const avgLen = alnum.length ? alnum.reduce((a, w) => a + w.length, 0) / alnum.length : 0;
+  const shortRatio = words.filter((w) => w.length <= 2).length / words.length;
+  const suspicious =
+    letterRatio < 0.42 ||
+    avgLen < 3.8 ||
+    shortRatio > 0.45 ||
+    (t.length > 800 && letterRatio < 0.48);
+  const score = Math.max(
+    0,
+    Math.min(
+      1,
+      letterRatio * 0.42 + Math.min(avgLen / 10, 1) * 0.35 + (1 - Math.min(shortRatio * 1.6, 1)) * 0.23
+    )
+  );
+  return { score, suspicious };
+}
+
+async function tesseractPage(img: string): Promise<string> {
+  try {
+    return await runCommand("tesseract", [img, "stdout", "-l", "eng+afr"]);
+  } catch {
+    return await runCommand("tesseract", [img, "stdout", "-l", "eng"]);
+  }
+}
+
 export async function ocrPdfBuffer(pdfPath: string): Promise<string> {
   let tmpDir: string | undefined;
   try {
@@ -44,7 +78,7 @@ export async function ocrPdfBuffer(pdfPath: string): Promise<string> {
     let combined = "";
     for (const img of pages) {
       try {
-        const out = await runCommand("tesseract", [img, "stdout", "-l", "eng"]);
+        const out = await tesseractPage(img);
         combined += `\n${out}`;
       } catch {
         // skip failed page
@@ -68,9 +102,9 @@ export type ExtractPdfOptions = {
 };
 
 /**
- * Extract text from a PDF buffer. Uses pdf-parse first; if forceOcr is true
- * or extracted text is very short (< 500 chars), runs Tesseract OCR and uses
- * the better result.
+ * Extract text from a PDF buffer. Uses pdf-parse first; if forceOcr is true,
+ * embedded text is missing/short, or embedded text looks garbled (bad text layer),
+ * runs Tesseract OCR and picks the better result.
  */
 export async function extractTextFromPdf(
   buffer: Buffer,
@@ -78,20 +112,27 @@ export async function extractTextFromPdf(
 ): Promise<string> {
   const { forceOcr = false } = options;
 
-  let text = "";
+  let embedded = "";
   try {
     const { PDFParse } = await import("pdf-parse");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parser = new (PDFParse as any)({ data: buffer });
     const result = await parser.getText();
     await parser.destroy();
-    text = result?.text ?? "";
+    embedded = result?.text ?? "";
   } catch {
-    text = "";
+    embedded = "";
   }
 
-  const shouldTryOcr = forceOcr || !text?.trim() || text.trim().length < 500;
-  if (!shouldTryOcr) return text;
+  const embTrim = embedded?.trim() ?? "";
+  const qEmb = scoreEmbeddedTextQuality(embTrim);
+
+  const shouldRunOcr =
+    forceOcr || !embTrim || embTrim.length < 500 || qEmb.suspicious;
+
+  if (!shouldRunOcr) {
+    return embedded;
+  }
 
   let tmpDir: string | undefined;
   try {
@@ -99,10 +140,29 @@ export async function extractTextFromPdf(
     const tmpFile = join(tmpDir, "doc.pdf");
     await writeFile(tmpFile, buffer);
     const ocrText = await ocrPdfBuffer(tmpFile);
-    if (ocrText && ocrText.trim().length > (text?.trim()?.length ?? 0)) {
+    const ocrTrim = ocrText?.trim() ?? "";
+    const qOcr = scoreEmbeddedTextQuality(ocrTrim);
+
+    if (!ocrTrim) {
+      return embedded;
+    }
+    if (!embTrim) {
       return ocrText;
     }
-    if (forceOcr && ocrText?.trim()) return ocrText;
+    if (forceOcr) {
+      return ocrText;
+    }
+
+    if (qOcr.score > qEmb.score + 0.06 || (qEmb.suspicious && qOcr.score >= qEmb.score)) {
+      return ocrText;
+    }
+    if (ocrTrim.length > embTrim.length * 1.25 && qOcr.score >= qEmb.score - 0.05) {
+      return ocrText;
+    }
+    return embedded;
+  } catch (e) {
+    console.warn("PDF OCR fallback failed:", (e as Error).message);
+    return embedded;
   } finally {
     if (tmpDir) {
       try {
@@ -112,6 +172,4 @@ export async function extractTextFromPdf(
       }
     }
   }
-
-  return text;
 }

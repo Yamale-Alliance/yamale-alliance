@@ -266,12 +266,14 @@ export default function AdminLawsAddPage() {
             Markdown, and suggests title and jurisdiction (Claude optional).
           </p>
         </div>
-        <Link
-          href="/admin-panel/laws/bulk"
-          className="text-sm text-primary hover:underline shrink-0"
-        >
-          Bulk upload (multiple PDFs)
-        </Link>
+        <div className="flex flex-col gap-1 items-end shrink-0 text-sm">
+          <Link href="/admin-panel/laws/bulk-url" className="text-primary hover:underline">
+            Bulk from URLs (CSV)
+          </Link>
+          <Link href="/admin-panel/laws/bulk" className="text-primary hover:underline">
+            Bulk PDF upload
+          </Link>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-6">

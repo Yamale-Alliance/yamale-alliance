@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
       countries: data.countries,
       categories: data.categories,
       laws: metaOnly ? [] : data.laws,
+      lawCount: data.lawCount,
     });
   } catch (err) {
     console.error("Laws API error:", err);

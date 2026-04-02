@@ -58,10 +58,16 @@ export default function AdminLawsPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
+            href="/admin-panel/laws/bulk-url"
+            className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+          >
+            Bulk URLs (CSV)
+          </Link>
+          <Link
             href="/admin-panel/laws/bulk"
             className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
           >
-            Bulk upload
+            Bulk PDFs
           </Link>
           <Link
             href="/admin-panel/laws/add"

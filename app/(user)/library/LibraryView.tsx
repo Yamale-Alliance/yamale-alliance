@@ -131,6 +131,8 @@ type Props = {
   initialCountries: LibraryCountry[];
   initialCategories: LibraryCategory[];
   initialLaws: LibraryLawRow[];
+  /** Total laws matching server filters (may exceed initialLaws.length if catalog cap applies). */
+  initialLawCount?: number;
   initialCountry: string;
   initialCategory: string;
   initialStatus: string;
@@ -148,6 +150,7 @@ export function LibraryView({
   initialCountries,
   initialCategories,
   initialLaws,
+  initialLawCount,
   initialCountry,
   initialCategory,
   initialStatus,
@@ -166,6 +169,9 @@ export function LibraryView({
   const [category, setCategory] = useState(initialCategory);
   const [status, setStatus] = useState(initialStatus);
   const [laws, setLaws] = useState<Law[]>(() => initialLaws.map(mapRowToLaw));
+  const [lawCount, setLawCount] = useState(
+    () => initialLawCount ?? initialLaws.length
+  );
   const [countries] = useState<LibraryCountry[]>(() => initialCountries);
   const [categories] = useState<LibraryCategory[]>(() => initialCategories);
   const [loadingLaws, setLoadingLaws] = useState(false);
@@ -279,6 +285,7 @@ export function LibraryView({
   useEffect(() => {
     if (!hasFilters) {
       setLaws(initialLaws.map(mapRowToLaw));
+      setLawCount(initialLawCount ?? initialLaws.length);
       setError(null);
       return;
     }
@@ -304,14 +311,29 @@ export function LibraryView({
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
-      .then((data: { laws: LibraryLawRow[] }) => {
+      .then((data: { laws: LibraryLawRow[]; lawCount?: number }) => {
         setLaws((data.laws ?? []).map(mapRowToLaw));
+        if (typeof data.lawCount === "number") {
+          setLawCount(data.lawCount);
+        } else {
+          setLawCount((data.laws ?? []).length);
+        }
       })
       .catch((err: Error) => {
         setError(err.message?.startsWith("HTTP") ? "Could not load the legal library." : "Check your connection.");
       })
       .finally(() => setLoadingLaws(false));
-  }, [search, country, category, status, countries, categories, initialLaws, hasFilters]);
+  }, [
+    search,
+    country,
+    category,
+    status,
+    countries,
+    categories,
+    initialLaws,
+    initialLawCount,
+    hasFilters,
+  ]);
 
 
   const handleCountryChange = (v: string) => {
@@ -443,6 +465,10 @@ export function LibraryView({
     const start = (safePage - 1) * PAGE_SIZE;
     return sortedLaws.slice(start, start + PAGE_SIZE);
   }, [sortedLaws, safePage]);
+
+  const showingSearch = search.trim().length > 0;
+  const resultsTotal = showingSearch ? sortedLaws.length : lawCount;
+  const listTruncated = !showingSearch && sortedLaws.length < lawCount;
 
   const categoryNames = useMemo(() => [...new Set(laws.map((l) => l.category))].filter(Boolean).sort(), [laws]);
 
@@ -643,10 +669,16 @@ export function LibraryView({
             <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-wrap items-center gap-3">
                 <p className="text-sm font-medium text-muted-foreground">
-                  {sortedLaws.length} result{sortedLaws.length !== 1 ? "s" : ""}
+                  {resultsTotal.toLocaleString()} result{resultsTotal !== 1 ? "s" : ""}
                   {totalPages > 1 && (
                     <span className="ml-1 text-muted-foreground">
                       (page {safePage} of {totalPages})
+                    </span>
+                  )}
+                  {listTruncated && (
+                    <span className="ml-1 block text-xs font-normal text-amber-700 dark:text-amber-400 sm:inline sm:ml-2">
+                      Only {sortedLaws.length.toLocaleString()} laws are loaded in the browser; the database has{" "}
+                      {lawCount.toLocaleString()}. Use country, category, or status filters to work with a smaller set.
                     </span>
                   )}
                 </p>

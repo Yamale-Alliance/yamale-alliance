@@ -1,6 +1,7 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
 
-const LAWS_LIMIT = 500;
+/** Max laws returned in one response (pagination is client-side within this set). */
+const LAWS_LIMIT = 20_000;
 
 export type LibraryCountry = { id: string; name: string };
 export type LibraryCategory = { id: string; name: string };
@@ -20,6 +21,8 @@ export type LibraryData = {
   countries: LibraryCountry[];
   categories: LibraryCategory[];
   laws: LibraryLawRow[];
+  /** Total rows matching filters in the database (may exceed laws.length if capped). */
+  lawCount: number;
 };
 
 function sortCountriesAlphabetically(countries: LibraryCountry[]): LibraryCountry[] {
@@ -42,34 +45,46 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
   const key = cacheKey(filters);
   const supabase = getSupabaseServer();
   return (async () => {
-    const [countriesRes, categoriesRes, lawsRes] = await Promise.all([
-    supabase.from("countries").select("id, name, region").order("name"),
-    supabase.from("categories").select("id, name, slug").order("name"),
-    (() => {
-      let query = supabase
-        .from("laws")
-        .select("id, title, source_url, source_name, year, status, country_id, category_id, created_at, updated_at, countries(name), categories(name)")
-        .order("created_at", { ascending: false })
-        .order("title")
-        .limit(LAWS_LIMIT);
-      if (filters?.countryId) query = query.eq("country_id", filters.countryId);
-      if (filters?.categoryId) query = query.eq("category_id", filters.categoryId);
-      if (filters?.status) query = query.eq("status", filters.status);
-      if (filters?.q?.trim()) {
-        query = query.ilike("title", `%${filters.q.trim()}%`);
-      }
-      return query;
-    })(),
-  ]);
+    let countQuery = supabase.from("laws").select("id", { count: "exact", head: true });
+    if (filters?.countryId) countQuery = countQuery.eq("country_id", filters.countryId);
+    if (filters?.categoryId) countQuery = countQuery.eq("category_id", filters.categoryId);
+    if (filters?.status) countQuery = countQuery.eq("status", filters.status);
+    if (filters?.q?.trim()) {
+      countQuery = countQuery.ilike("title", `%${filters.q.trim()}%`);
+    }
+
+    let lawsQuery = supabase
+      .from("laws")
+      .select("id, title, source_url, source_name, year, status, country_id, category_id, created_at, updated_at, countries(name), categories(name)")
+      .order("created_at", { ascending: false })
+      .order("title")
+      .limit(LAWS_LIMIT);
+    if (filters?.countryId) lawsQuery = lawsQuery.eq("country_id", filters.countryId);
+    if (filters?.categoryId) lawsQuery = lawsQuery.eq("category_id", filters.categoryId);
+    if (filters?.status) lawsQuery = lawsQuery.eq("status", filters.status);
+    if (filters?.q?.trim()) {
+      lawsQuery = lawsQuery.ilike("title", `%${filters.q.trim()}%`);
+    }
+
+    const [countriesRes, categoriesRes, countRes, lawsRes] = await Promise.all([
+      supabase.from("countries").select("id, name, region").order("name"),
+      supabase.from("categories").select("id, name, slug").order("name"),
+      countQuery,
+      lawsQuery,
+    ]);
 
   if (countriesRes.error) throw countriesRes.error;
   if (categoriesRes.error) throw categoriesRes.error;
+  if (countRes.error) throw countRes.error;
   if (lawsRes.error) throw lawsRes.error;
+
+  const lawCount = typeof countRes.count === "number" ? countRes.count : (lawsRes.data ?? []).length;
 
   const data: LibraryData = {
     countries: sortCountriesAlphabetically((countriesRes.data ?? []) as LibraryCountry[]),
     categories: (categoriesRes.data ?? []) as LibraryCategory[],
     laws: (lawsRes.data ?? []) as LibraryLawRow[],
+    lawCount,
   };
 
   if (key === "__initial__") {

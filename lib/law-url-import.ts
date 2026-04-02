@@ -52,10 +52,34 @@ export async function fetchPdfFromUrl(urlStr: string): Promise<{ buffer: Buffer;
  * Remove common table-of-contents sections from extracted PDF text.
  * Does not use AI — pattern-based only; Claude can refine metadata separately.
  */
+/** Remove repeated Government Gazette / Staatskoerant header lines often at the top of SA gazettes. */
+function stripLeadingGazetteNoise(text: string): string {
+  const lines = text.split("\n");
+  let i = 0;
+  const max = Math.min(lines.length, 120);
+  while (i < max) {
+    const t = lines[i].trim();
+    if (!t) {
+      i++;
+      continue;
+    }
+    const drop =
+      /^GOVERNMENT GAZETTE$/i.test(t) ||
+      /^STAATSKOERANT$/i.test(t) ||
+      /^Registered at the Post Office as a Newspaper/i.test(t) ||
+      /^As 'n Nuusblad by die Poskantoor Geregistreer/i.test(t) ||
+      /^VAN DIE REPUBLIEK VAN SUID-AFRIKA$/i.test(t);
+    if (!drop) break;
+    i++;
+  }
+  return lines.slice(i).join("\n");
+}
+
 export function stripTableOfContents(text: string): string {
   if (!text?.trim()) return text;
 
   let t = text.replace(/\r\n/g, "\n");
+  t = stripLeadingGazetteNoise(t);
 
   // 1) Explicit block: from a "Table of contents" / "Contents" heading until a structural body marker
   const bodyStart = /^(CHAPTER|PART|SECTION|ARTICLE|SCHEDULE|PREAMBLE|LONG TITLE|AN ACT|ARRANGEMENT OF SECTIONS)\b/im;

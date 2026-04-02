@@ -6,7 +6,7 @@
  *   node --env-file=.env scripts/import-pdf-law.mjs "/path/to/file.pdf" [options]
  *
  * Options:
- *   --country "Ghana"           (default: Ghana) — must be one of: Ghana, Kenya, Tunisia, Ethiopia, Madagascar, Rwanda, Seychelles, Senegal, Zambia, Mali, Sierra Leone, Togo, Niger, Liberia
+ *   --country "Ghana"           (default: Ghana) — must be one of: Ghana, Kenya, Tunisia, Ethiopia, Madagascar, Rwanda, Seychelles, Senegal, Zambia, Mali, Sierra Leone, Togo, Niger, Liberia, South Africa, Morocco, Sudan, Guinea, Guinea-Bissau, Burundi, Comoros, Djibouti
  *   --title "Display title"     (default: filename without .pdf)
  *   --category "Corporate Law"  (default: "Corporate Law")
  *   --year 2019                 (optional)
@@ -53,6 +53,14 @@ const VALID_COUNTRIES = [
   "Togo",
   "Niger",
   "Liberia",
+  "South Africa",
+  "Morocco",
+  "Sudan",
+  "Guinea",
+  "Guinea-Bissau",
+  "Burundi",
+  "Comoros",
+  "Djibouti",
 ];
 
 const VALID_CATEGORIES = [

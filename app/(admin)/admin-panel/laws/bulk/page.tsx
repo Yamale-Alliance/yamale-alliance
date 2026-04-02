@@ -226,12 +226,14 @@ export default function AdminLawsBulkPage() {
             Rows you leave completely empty are ignored.
           </p>
         </div>
-        <Link
-          href="/admin-panel/laws/add"
-          className="text-sm text-primary hover:underline shrink-0"
-        >
-          Single law upload
-        </Link>
+        <div className="flex flex-col gap-1 items-end shrink-0 text-sm">
+          <Link href="/admin-panel/laws/bulk-url" className="text-primary hover:underline">
+            Bulk from URLs (CSV)
+          </Link>
+          <Link href="/admin-panel/laws/add" className="text-primary hover:underline">
+            Single law upload
+          </Link>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-6">

@@ -29,6 +29,7 @@ export default async function LibraryPage({ searchParams }: { searchParams: Sear
       initialCountries={baseData.countries}
       initialCategories={baseData.categories}
       initialLaws={filteredData.laws}
+      initialLawCount={filteredData.lawCount}
       initialCountry={country}
       initialCategory={category}
       initialStatus={status}
