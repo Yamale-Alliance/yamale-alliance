@@ -22,6 +22,12 @@ export type LibraryData = {
   laws: LibraryLawRow[];
 };
 
+function sortCountriesAlphabetically(countries: LibraryCountry[]): LibraryCountry[] {
+  return [...countries].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+  );
+}
+
 const CACHE_TTL_MS = 60 * 1000; // 1 minute
 const FETCH_TIMEOUT_MS = 20 * 1000; // 20s max wait so page never hangs
 let cachedData: LibraryData | null = null;
@@ -61,7 +67,7 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
   if (lawsRes.error) throw lawsRes.error;
 
   const data: LibraryData = {
-    countries: (countriesRes.data ?? []) as LibraryCountry[],
+    countries: sortCountriesAlphabetically((countriesRes.data ?? []) as LibraryCountry[]),
     categories: (categoriesRes.data ?? []) as LibraryCategory[],
     laws: (lawsRes.data ?? []) as LibraryLawRow[],
   };
