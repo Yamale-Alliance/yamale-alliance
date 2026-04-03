@@ -4,7 +4,7 @@
  */
 
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
-const DEFAULT_IMPORT_MODEL = "claude-3-5-haiku-20241022";
+const DEFAULT_IMPORT_MODEL = "claude-haiku-4-5";
 const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
 
 export type CountryOpt = { id: string; name: string };
