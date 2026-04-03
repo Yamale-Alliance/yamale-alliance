@@ -468,7 +468,6 @@ export function LibraryView({
 
   const showingSearch = search.trim().length > 0;
   const resultsTotal = showingSearch ? sortedLaws.length : lawCount;
-  const listTruncated = !showingSearch && sortedLaws.length < lawCount;
 
   const categoryNames = useMemo(() => [...new Set(laws.map((l) => l.category))].filter(Boolean).sort(), [laws]);
 
@@ -673,12 +672,6 @@ export function LibraryView({
                   {totalPages > 1 && (
                     <span className="ml-1 text-muted-foreground">
                       (page {safePage} of {totalPages})
-                    </span>
-                  )}
-                  {listTruncated && (
-                    <span className="ml-1 block text-xs font-normal text-amber-700 dark:text-amber-400 sm:inline sm:ml-2">
-                      Only {sortedLaws.length.toLocaleString()} laws are loaded in the browser; the database has{" "}
-                      {lawCount.toLocaleString()}. Use country, category, or status filters to work with a smaller set.
                     </span>
                   )}
                 </p>
