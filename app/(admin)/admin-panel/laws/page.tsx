@@ -58,6 +58,12 @@ export default function AdminLawsPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
+            href="/admin-panel/laws/fix-ocr"
+            className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+          >
+            Fix OCR (AI)
+          </Link>
+          <Link
             href="/admin-panel/laws/bulk-url"
             className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
           >
