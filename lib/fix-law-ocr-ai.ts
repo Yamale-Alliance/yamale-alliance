@@ -127,6 +127,8 @@ export async function cleanFullLawTextWithClaude(params: {
   chunkChars?: number;
   delayMs?: number;
   signal?: AbortSignal;
+  /** Called before each Claude request (chunk `partIndex` of `totalParts`). */
+  onChunkProgress?: (info: { partIndex: number; totalParts: number }) => void;
 }): Promise<string> {
   const {
     raw,
@@ -134,12 +136,14 @@ export async function cleanFullLawTextWithClaude(params: {
     chunkChars = DEFAULT_CHUNK_CHARS,
     delayMs = DEFAULT_INTER_CHUNK_DELAY_MS,
     signal,
+    onChunkProgress,
   } = params;
   const maxLen = Math.max(20_000, chunkChars);
   const parts = chunkTextForOcrFix(raw, maxLen);
   const cleanedPieces: string[] = [];
   for (let p = 0; p < parts.length; p++) {
     if (signal?.aborted) throw abortErr();
+    onChunkProgress?.({ partIndex: p, totalParts: parts.length });
     const cleaned = await cleanLawChunkWithClaude({
       chunk: parts[p],
       partIndex: p,
