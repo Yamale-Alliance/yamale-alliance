@@ -6,7 +6,20 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChevronLeft, FileText, Loader2, GripVertical, ArrowUp, ArrowDown, Menu, X, Bookmark, BookmarkCheck, FileEdit } from "lucide-react";
+import {
+  ChevronLeft,
+  FileText,
+  Loader2,
+  GripVertical,
+  ArrowUp,
+  ArrowDown,
+  Menu,
+  X,
+  Bookmark,
+  BookmarkCheck,
+  FileEdit,
+  Sparkles,
+} from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 
 type LawStatus = "In force" | "Amended" | "Repealed";
@@ -124,11 +137,13 @@ function getBodyItems(sec: Section): BodyItem[] {
       items.push({ type: "table", rows: block.rows });
       continue;
     }
-    const lines = block.text
-      .split(/\n/)
-      .filter((l) => !isPageMarker(l) && !isJunkLine(l))
-      .map((l) => l.trim())
-      .filter(Boolean);
+    const lines = mergeSubheadingContinuationLines(
+      block.text
+        .split(/\n/)
+        .filter((l) => !isPageMarker(l) && !isJunkLine(l))
+        .map((l) => l.trim())
+        .filter(Boolean)
+    );
     for (const line of lines) {
       if (isSubHeadingLine(line)) {
         items.push({ type: "h3", text: line, id: `${sec.id}-h-${subIdx++}` });
@@ -148,7 +163,13 @@ function getOutlineItems(sections: Section[]): OutlineItem[] {
     const subHeads = bodyItems
       .filter((i): i is { type: "h3"; text: string; id: string } => i.type === "h3")
       .map((i) => ({ id: i.id, title: i.text, level: "sub" as const }));
-    return [{ id: sec.id, title: sec.title, level: "section" as const }, ...subHeads];
+    return [
+      { id: sec.id, title: sectionTitle(sec.title) || sec.title, level: "section" as const },
+      ...subHeads.map((h) => ({
+        ...h,
+        title: sectionTitle(h.title) || h.title,
+      })),
+    ];
   });
 }
 
@@ -201,15 +222,96 @@ function linkify(text: string): ReactNode {
   });
 }
 
+/** Remove OCR/markdown `**bold**` / `__bold__` markers for plain display (used before heading regex). */
+function stripInlineMarkdownBoldMarkers(text: string): string {
+  return text.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/__([^_]+)__/g, "$1");
+}
+
+/** Remove leading markdown heading markers like `## ` for display/matching. */
+function stripLeadingMarkdownHeadingMarkers(text: string): string {
+  return text.replace(/^\s*#{1,6}\s+/, "");
+}
+
+/** Whole line is only `**text**` / `__text__` (common in OCR; must not start a new section when it is an Article/Title subtitle). */
+function isBoldOnlyWrappedLine(line: string): boolean {
+  const s = line.trim();
+  return /^\*\*[^*]+\*\*\s*$/.test(s) || /^__[^_]+__\s*$/.test(s);
+}
+
+/** URLs + inline `**bold**` / `__bold__` (plain-text law path; avoids literal asterisks in the UI). */
+function linkifyRichText(text: string): ReactNode {
+  if (text == null || text === "") return text;
+  const segments: ReactNode[] = [];
+  const re = /(\*\*[^*]+\*\*|__[^_]+__)/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let k = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) {
+      segments.push(
+        <span key={`t-${k++}`}>{linkify(text.slice(last, m.index))}</span>
+      );
+    }
+    const raw = m[1];
+    const inner =
+      raw.startsWith("**") && raw.endsWith("**")
+        ? raw.slice(2, -2)
+        : raw.startsWith("__") && raw.endsWith("__")
+          ? raw.slice(2, -2)
+          : raw;
+    segments.push(
+      <strong key={`b-${k++}`} className="font-semibold text-foreground">
+        {linkify(inner)}
+      </strong>
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) {
+    segments.push(<span key={`t-${k++}`}>{linkify(text.slice(last))}</span>);
+  }
+  return segments.length > 0 ? <>{segments}</> : linkify(text);
+}
+
+/** When heading is "Article 2: …" or "Chapter 1: …", show label on first line and title indented beneath. */
+function renderLawSubheading(text: string, variant: "h2" | "h3" = "h3"): ReactNode {
+  const plain = stripLeadingMarkdownHeadingMarkers(stripInlineMarkdownBoldMarkers(text).trim());
+  const m = plain.match(
+    /^(Article\s+\d+|Chapter\s+\d+|Chapitre\s+[\dIVXLCDMivxlcdm]+|Section\s+[\dIVXLCDMivxlcdm]+|Art\.\s*\d+|Part\s+[A-Z]|Titre\s+[\dIVXLCDMivxlcdm]+|Title\s+[\dIVXLCDMivxlcdm]+|TITLE\s+[\dIVXLCDM]+|Ingingo\s+(?:ya\s+)?\d+)\s*:\s*(.+)$/i
+  );
+  if (m) {
+    const subtitle = m[2].trim();
+    const labelCls =
+      variant === "h2"
+        ? "block text-2xl font-extrabold tracking-tight text-foreground sm:text-[1.65rem]"
+        : "block font-extrabold tracking-tight text-foreground";
+    const subCls =
+      variant === "h2"
+        ? "mt-2 block border-s-2 border-primary/50 ps-4 text-lg font-semibold leading-snug text-foreground/90 sm:mt-2.5 sm:ps-6 sm:text-xl"
+        : "mt-1.5 block border-s-2 border-primary/45 ps-3 text-[0.98rem] font-semibold leading-snug text-foreground/90 sm:mt-2 sm:ps-5";
+    return (
+      <>
+        <span className={labelCls}>{linkifyRichText(m[1])}</span>
+        <span className={subCls}>{linkifyRichText(subtitle)}</span>
+      </>
+    );
+  }
+  if (variant === "h2") {
+    return (
+      <span className="text-2xl font-extrabold tracking-tight text-foreground sm:text-[1.65rem]">{linkifyRichText(plain)}</span>
+    );
+  }
+  return linkifyRichText(plain);
+}
+
 // Major headings start a new section (new card). Section and Article stay in the flow as sub-headings so the doc doesn’t fragment.
 // Major: Part, Titre, Chapitre, Chapter, markdown ##, Arabic الباب/الفصل. Minor (sub-headings in body): Section, Article, Art., Ingingo, المادة.
 function isMajorSectionStart(line: string): boolean {
-  const t = line.trim();
+  const t = stripInlineMarkdownBoldMarkers(line.trim());
   if (!t) return false;
   // Markdown headings: ## Title or ### Subtitle
-  if (/^#{1,6}\s+\S/.test(t)) return true;
-  // Markdown bold-only line as heading (e.g. **Introduction**)
-  if (/^\*\*[^*]+\*\*\s*$/.test(t) || /^__[^_]+__\s*$/.test(t)) return true;
+  if (/^#{1,6}\s+\S/.test(line.trim())) return true;
+  // Markdown bold-only line as heading (e.g. **Introduction**) — markers stripped above
+  if (/^\*\*[^*]+\*\*\s*$/.test(line.trim()) || /^__[^_]+__\s*$/.test(line.trim())) return true;
   // "Part D: Administrative...", "Part E: General Provisions"
   if (/^Part\s+[A-Z][.:]?\s+/i.test(t)) return true;
   // "Chapter 1", "Chapter 2." (English)
@@ -218,6 +320,9 @@ function isMajorSectionStart(line: string): boolean {
   if (/^Chapitre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*/i.test(t)) return true;
   // French: "Titre I", "Titre II" (Title/Part)
   if (/^Titre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*/i.test(t)) return true;
+  // English: "Title II", "TITLE II" (EU / treaty OCR)
+  if (/^Title\s+[\dIVXLCDMivxlcdm]+[.:]?\s*/i.test(t)) return true;
+  if (/^TITLE\s+[\dIVXLCDM]+[.:]?\s*/.test(t)) return true;
   // Arabic: الفصل (Chapter), الباب (Part) – major divisions
   if (/^\s*الفصل\s*[\d٠-٩]*/u.test(t)) return true;
   if (/^\s*الباب\s+/u.test(t) || /^\s*الباب\s*[\d٠-٩]/u.test(t)) return true;
@@ -231,7 +336,7 @@ function isMajorSectionStart(line: string): boolean {
 
 // Sub-headings: Section, Article, Art. – shown inside the section body as h3-style lines, not as new cards (include Roman numerals: Section I, Section II)
 function isSubHeadingLine(line: string): boolean {
-  const t = line.trim();
+  const t = stripInlineMarkdownBoldMarkers(line.trim());
   if (!t) return false;
   if (/^Section\s+[\dIVXLCDMivxlcdm]+[.:]?\s*/i.test(t)) return true;
   if (/^Article\s+\d+[.:]?\s*/i.test(t)) return true;
@@ -239,6 +344,107 @@ function isSubHeadingLine(line: string): boolean {
   if (/^Ingingo\s+(ya\s+)?\d+[.:]?\s*/i.test(t)) return true;
   if (/^\s*المادة\s*[\d٠-٩]+/u.test(t)) return true;
   return false;
+}
+
+/** Next line is a short subtitle (not body text) when the previous line is a lone Article/Chapter number. */
+function shouldMergeSubtitleLine(next: string): boolean {
+  const t = stripInlineMarkdownBoldMarkers(next.trim());
+  if (!t) return false;
+  if (isSubHeadingLine(t)) return false;
+  if (isMajorSectionStart(t)) return false;
+  if (t.length > 180) return false;
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length > 16) return false;
+  // Reject obvious sentence-openers that start real paragraphs (not chapter/article subtitles like "The actors of the partnership")
+  if (/^(This|These|Those|There|Here|It|They|If|When|Where|While|Unless|For|In\s+accordance|According|Upon|Notwithstanding|Subject\s+to|Each|Every|All|No\s+|Any\s+)\s+/i.test(t)) return false;
+  if (/^(The|A|An)\s+/i.test(t)) {
+    const looksLikeBodySentence =
+      /\b(shall|must|may|should|will|are|is|was|were|have|has|having|been|undertake|undertakes|agree|agrees|determine|determines|provide|provides)\b/i.test(t) ||
+      words.length > 14 ||
+      /[.!?]\s*$/.test(t);
+    if (looksLikeBodySentence) return false;
+  }
+  if (/^[a-z(—–-]/.test(t)) return false;
+  return true;
+}
+
+/** Lone label line (Article N / Chapter N / Title II / …) that may merge with the following subtitle. */
+function isLoneHeadingLabelLine(trimmed: string): boolean {
+  const t = stripInlineMarkdownBoldMarkers(trimmed.trim());
+  return (
+    /^Article\s+\d+[.:]?\s*$/i.test(t) ||
+    /^Chapter\s+\d+[.:]?\s*$/i.test(t) ||
+    /^Chapitre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*$/i.test(t) ||
+    /^Section\s+[\dIVXLCDMivxlcdm]+[.:]?\s*$/i.test(t) ||
+    /^Art\.\s*\d+[.:]?\s*$/i.test(t) ||
+    /^Ingingo\s+(ya\s+)?\d+[.:]?\s*$/i.test(t) ||
+    /^Part\s+[A-Z][.:]?\s*$/i.test(t) ||
+    /^Titre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*$/i.test(t) ||
+    /^Title\s+[\dIVXLCDMivxlcdm]+[.:]?\s*$/i.test(t) ||
+    /^TITLE\s+[\dIVXLCDM]+[.:]?\s*$/.test(t)
+  );
+}
+
+/** Merge Article/Chapter + subtitle across blank lines (markdown body never ran mergeSubheadingContinuationLines). */
+function preprocessMarkdownBodyForHeadingMerge(body: string): string {
+  if (!body.trim() || body.includes("```")) return body;
+  const rawLines = body.replace(/\r\n/g, "\n").split("\n");
+  const merged: string[] = [];
+  let i = 0;
+  while (i < rawLines.length) {
+    const line = rawLines[i];
+    if (!line.trim()) {
+      merged.push(line);
+      i++;
+      continue;
+    }
+    let j = i + 1;
+    while (j < rawLines.length && !rawLines[j].trim()) j++;
+    const nextLine = j < rawLines.length ? rawLines[j] : undefined;
+    const trimmed = stripInlineMarkdownBoldMarkers(line.trim());
+    if (nextLine !== undefined && isLoneHeadingLabelLine(trimmed) && shouldMergeSubtitleLine(nextLine)) {
+      merged.push(`${trimmed}: ${stripInlineMarkdownBoldMarkers(nextLine.trim())}`);
+      i = j + 1;
+      continue;
+    }
+    merged.push(line);
+    i++;
+  }
+  return merged.join("\n");
+}
+
+/** Merge lone Chapter / Chapitre / Titre / Title / TITLE line + next subtitle into one section h2. */
+function shouldMergeMajorTitleBlockWithNextLine(majorLine: string, nextLine: string): boolean {
+  const t = majorLine.trim();
+  const chapter = /^Chapter\s+\d+[.:]?\s*$/i.test(t) || /^Chapitre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*$/i.test(t);
+  const title =
+    /^Titre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*$/i.test(t) ||
+    /^Title\s+[\dIVXLCDMivxlcdm]+[.:]?\s*$/i.test(t) ||
+    /^TITLE\s+[\dIVXLCDM]+[.:]?\s*$/.test(t);
+  if (!chapter && !title) return false;
+  return shouldMergeSubtitleLine(nextLine);
+}
+
+/** Merge "Article 2" + next line "Fundamental principles" (or Chapter/… ) into one logical heading line. */
+function mergeSubheadingContinuationLines(lines: string[]): string[] {
+  const out: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const next = lines[i + 1];
+    const trimmed = stripInlineMarkdownBoldMarkers(line.trim());
+    if (next !== undefined && shouldMergeSubtitleLine(next)) {
+      const tryMerge = isLoneHeadingLabelLine(trimmed);
+      if (tryMerge) {
+        out.push(`${trimmed}: ${stripInlineMarkdownBoldMarkers(next.trim())}`);
+        i += 2;
+        continue;
+      }
+    }
+    out.push(line);
+    i++;
+  }
+  return out;
 }
 
 // Extract the actual heading from the document for sidebar and section title
@@ -267,6 +473,10 @@ function sectionTitle(firstLine: string): string {
   if (chapitreMatch) return chapitreMatch[1];
   const titreMatch = t.match(/^(Titre\s+[\dIVXLCDMivxlcdm]+)[.:]?\s*(.*)$/i);
   if (titreMatch) return titreMatch[1];
+  const titleEnMatch = t.match(/^(Title\s+[\dIVXLCDMivxlcdm]+)[.:]?\s*(.*)$/i);
+  if (titleEnMatch) return titleEnMatch[1];
+  const titleCapsMatch = t.match(/^(TITLE\s+[\dIVXLCDM]+)[.:]?\s*(.*)$/);
+  if (titleCapsMatch) return titleCapsMatch[1];
   const ingingoMatch = t.match(/^(Ingingo\s+(?:ya\s+)?\d+)[.:]?\s*(.*)$/i);
   if (ingingoMatch) return ingingoMatch[1];
   // Arabic: المادة 1، الفصل ۲، الباب الأول
@@ -310,7 +520,7 @@ function normalizeHeadingText(s: string): string {
 function stripLeadingTitleDuplicate(sec: Section): Section {
   let body = sec.body?.trim() ?? "";
   if (!body) return sec;
-  const titleKey = normalizeHeadingText(sec.title);
+  const titleKey = normalizeHeadingText(sectionTitle(sec.title) || sec.title);
   if (!titleKey) return sec;
 
   for (let guard = 0; guard < 8; guard++) {
@@ -346,7 +556,23 @@ function splitIntoSections(text: string): Section[] {
   let currentTitle = "";
   let currentBody: string[] = [];
 
-  for (const line of lines) {
+  let idx = 0;
+  while (idx < lines.length) {
+    const line = lines[idx];
+    // `**Political dialogue**` after lone `Article 8` was treated as a new major section — merge into one body line
+    if (
+      isBoldOnlyWrappedLine(line) &&
+      currentBody.length > 0 &&
+      !isPageMarker(line) &&
+      !isJunkLine(line)
+    ) {
+      const last = stripInlineMarkdownBoldMarkers(currentBody[currentBody.length - 1]!.trim());
+      if (shouldMergeSubtitleLine(line) && isLoneHeadingLabelLine(last)) {
+        currentBody[currentBody.length - 1] = `${last}: ${stripInlineMarkdownBoldMarkers(line.trim())}`;
+        idx++;
+        continue;
+      }
+    }
     if (isMajorSectionStart(line)) {
       if (currentTitle || currentBody.length > 0) {
         sections.push({
@@ -355,9 +581,17 @@ function splitIntoSections(text: string): Section[] {
           body: currentBody.join("\n").trim(),
         });
       }
-      currentTitle = sectionTitle(line);
+      let titleSourceLine = line.trim();
+      const nextLine = lines[idx + 1];
+      let mergedChapterTwoLines = false;
+      if (nextLine !== undefined && shouldMergeMajorTitleBlockWithNextLine(line, nextLine)) {
+        titleSourceLine = `${line.trim()}: ${nextLine.trim()}`;
+        mergedChapterTwoLines = true;
+        idx++;
+      }
+      currentTitle = titleSourceLine;
       currentBody = [];
-      const t = line.trim();
+      const t = titleSourceLine;
       // Markdown ## line: title is already in the section h2 — do not repeat the same text in the body
       const isMdMajorHeading = /^#{1,6}\s+\S/.test(t);
       if (!isMdMajorHeading) {
@@ -365,9 +599,17 @@ function splitIntoSections(text: string): Section[] {
           /^(Part\s+[A-Z][.:]?\s*)(.*)$/i.exec(t) ||
           /^(Chapter\s+\d+[.:]?\s*)(.*)$/i.exec(t) ||
           /^(Chapitre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*)(.*)$/i.exec(t) ||
-          /^(Titre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*)(.*)$/i.exec(t);
+          /^(Titre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*)(.*)$/i.exec(t) ||
+          /^(Title\s+[\dIVXLCDMivxlcdm]+[.:]?\s*)(.*)$/i.exec(t) ||
+          /^(TITLE\s+[\dIVXLCDM]+[.:]?\s*)(.*)$/.exec(t);
         if (majorLike && majorLike[2].trim()) {
-          currentBody.push(majorLike[2].trim());
+          if (mergedChapterTwoLines) {
+            // subtitle is only in the section title (h2)
+          } else if (/^(Chapter|Chapitre|Titre|Title|TITLE)\s+/i.test(majorLike[1]) && majorLike[2].trim().length > 0) {
+            // "Chapter 1: …" on one line — subtitle shown in h2 only
+          } else {
+            currentBody.push(majorLike[2].trim());
+          }
         } else {
           const arChapterLine = /^(\s*الفصل\s*[\d٠-٩]*[\s.:،]*)(.+)$/u.exec(t);
           const arPartLine = /^(\s*الباب\s+[^\n]{0,60}[\s.:،]*)(.+)$/u.exec(t);
@@ -379,6 +621,7 @@ function splitIntoSections(text: string): Section[] {
       // Section, Article, Art. and normal lines all go into body (Section/Article rendered as sub-headings later)
       if (!isPageMarker(line) && !isJunkLine(line)) currentBody.push(line);
     }
+    idx++;
   }
 
   if (currentTitle || currentBody.length > 0) {
@@ -442,6 +685,8 @@ export default function LawDetailPage({
   const paygDocument = searchParams.get("payg") === "document" && searchParams.get("session_id");
   const printRequested = searchParams.get("print") === "1";
   const [hasPaidForThisLaw, setHasPaidForThisLaw] = useState(false);
+  const [fixOcrLoading, setFixOcrLoading] = useState(false);
+  const [fixOcrBanner, setFixOcrBanner] = useState<string | null>(null);
 
   const scrollToTop = useCallback(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -496,6 +741,48 @@ export default function LawDetailPage({
   // Check if user has team plan
   const isTeamPlan = user?.publicMetadata?.tier === "team" || user?.publicMetadata?.subscriptionTier === "team";
   const isAdmin = (user?.publicMetadata?.role as string | undefined) === "admin";
+
+  const handleFixOcr = async () => {
+    if (!law || fixOcrLoading) return;
+    if (
+      !window.confirm(
+        "Run AI cleanup on this law? OCR noise will be reduced and stored text will be replaced. Very large laws can take several minutes."
+      )
+    ) {
+      return;
+    }
+    setFixOcrLoading(true);
+    setFixOcrBanner(null);
+    try {
+      const res = await fetch("/api/admin/laws/fix-ocr", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lawId: law.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setFixOcrBanner(typeof data.error === "string" ? data.error : "Fix OCR failed.");
+        return;
+      }
+      const r2 = await fetch(`/api/laws/${law.id}`);
+      if (!r2.ok) {
+        setFixOcrBanner("Saved, but could not reload the page text. Refresh the page.");
+        return;
+      }
+      const fresh = (await r2.json()) as LawDetail;
+      setLaw(fresh);
+      const nextSections = splitIntoSections(fresh.content_plain || fresh.content || "");
+      if (nextSections.length > 0) setActiveSection(nextSections[0].id);
+      setFixOcrBanner(
+        `Text updated (${typeof data.cleanedChars === "number" ? data.cleanedChars.toLocaleString() : "?"} characters).`
+      );
+    } catch {
+      setFixOcrBanner("Network error. Try again.");
+    } finally {
+      setFixOcrLoading(false);
+    }
+  };
 
   // Check bookmark status (fetch with credentials so auth cookie is sent)
   useEffect(() => {
@@ -751,6 +1038,29 @@ export default function LawDetailPage({
               </a>
             )}
           </div>
+          {isAdmin && (
+            <div className="mt-4 flex flex-col gap-2 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center">
+              <button
+                type="button"
+                onClick={() => void handleFixOcr()}
+                disabled={fixOcrLoading || !rawContent.trim()}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {fixOcrLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                Fix OCR and clean noise
+              </button>
+              <p className="text-xs text-muted-foreground sm:max-w-xl">
+                Admin only. Sends this law through Claude to tidy OCR errors and remove junk lines, then saves. Reloads the text below when done.
+              </p>
+              {fixOcrBanner && (
+                <p className="w-full text-sm text-foreground sm:order-last">{fixOcrBanner}</p>
+              )}
+            </div>
+          )}
           {/* Law Summary (Team Plan Only) */}
           {isTeamPlan && (
             <div className="mt-4">
@@ -896,10 +1206,8 @@ export default function LawDetailPage({
                   {sections.map((sec) => (
                     <section key={sec.id} id={sec.id} className="scroll-mt-24 border-b border-border/40 pb-14 last:border-0 last:pb-0">
                       {/* Level 1: Section / Chapter – big, bold, primary accent */}
-                      <h2 className="mb-8 mt-14 border-s-4 border-primary bg-gradient-to-r from-primary/12 to-primary/5 py-4 ps-6 first:mt-0 sm:ps-7">
-                        <span className="text-2xl font-extrabold tracking-tight text-foreground sm:text-[1.65rem]">
-                          {sec.title}
-                        </span>
+                      <h2 className="mb-6 mt-12 border-s-4 border-primary bg-gradient-to-r from-primary/12 to-primary/5 py-4 ps-6 first:mt-0 sm:ps-7">
+                        {renderLawSubheading(sec.title, "h2")}
                       </h2>
                       {isLikelyMarkdown(sec.body) ? (
                         <div className="prose prose-lg max-w-none leading-relaxed text-foreground dark:prose-invert prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-foreground prose-p:leading-[1.75] prose-p:text-foreground/90 prose-li:text-foreground">
@@ -919,7 +1227,7 @@ export default function LawDetailPage({
                               ),
                             }}
                           >
-                            {sec.body}
+                            {preprocessMarkdownBodyForHeadingMerge(sec.body)}
                           </ReactMarkdown>
                         </div>
                       ) : (
@@ -948,7 +1256,7 @@ export default function LawDetailPage({
                                       <tr key={ri} className="transition-colors hover:bg-muted/20">
                                         {row.map((cell, ci) => (
                                           <td key={ci} className="border-b border-border/60 px-4 py-3 text-center last:border-b-0">
-                                            {linkify(cell)}
+                                            {linkifyRichText(cell)}
                                           </td>
                                         ))}
                                       </tr>
@@ -960,13 +1268,13 @@ export default function LawDetailPage({
                               <h3
                                 key={bi}
                                 id={item.id}
-                                className="mt-8 mb-4 scroll-mt-24 border-s-2 border-primary/50 ps-4 text-[1.0625rem] font-semibold tracking-tight text-foreground/95 first:mt-0 sm:ps-5"
+                                className="mt-6 mb-3 scroll-mt-24 border-s-[3px] border-primary/55 bg-gradient-to-r from-primary/[0.07] to-transparent py-2.5 ps-4 text-[1.0625rem] font-semibold tracking-tight text-foreground/95 first:mt-0 sm:py-3 sm:ps-5"
                               >
-                                {linkify(item.text)}
+                                {renderLawSubheading(item.text, "h3")}
                               </h3>
                             ) : (
                               <p key={bi} className="mb-5 pl-0 text-[1.0625rem] leading-[1.8] text-foreground/85 last:mb-0 sm:pl-0">
-                                {linkify(item.text)}
+                                {linkifyRichText(item.text)}
                               </p>
                             )
                           )}
