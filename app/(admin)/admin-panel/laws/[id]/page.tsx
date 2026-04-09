@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Search, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Search, Sparkles, Trash2 } from "lucide-react";
 
 type Country = { id: string; name: string };
 type Category = { id: string; name: string };
@@ -44,6 +44,7 @@ export default function AdminLawEditPage() {
   const [replaceValue, setReplaceValue] = useState("");
   const [replaceResult, setReplaceResult] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [fixOcrLoading, setFixOcrLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -100,6 +101,49 @@ export default function AdminLawEditPage() {
     setText(parts.join(replaceValue));
     setReplaceResult(count);
     setStatusMsg(null);
+  };
+
+  const handleFixOcr = async () => {
+    if (!id || !law) return;
+    if (
+      !window.confirm(
+        "Run AI cleanup on this law? OCR noise will be reduced and stored text will be replaced. Very large laws can take several minutes."
+      )
+    ) {
+      return;
+    }
+    setFixOcrLoading(true);
+    setError(null);
+    setStatusMsg(null);
+    try {
+      const res = await fetch("/api/admin/laws/fix-ocr", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lawId: id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(typeof data.error === "string" ? data.error : "Fix OCR failed.");
+        return;
+      }
+      const r2 = await fetch(`/api/admin/laws/${id}`, { credentials: "include" });
+      const reload = await r2.json();
+      if (!r2.ok || !reload.law) {
+        setStatusMsg("OCR cleaned. Refresh if the editor text looks stale.");
+        return;
+      }
+      const lawData = reload.law as LawForEdit;
+      setLaw(lawData);
+      setText(lawData.content_plain ?? lawData.content ?? "");
+      setStatusMsg(
+        `OCR cleaned (${typeof data.cleanedChars === "number" ? data.cleanedChars.toLocaleString() : "?"} characters).`
+      );
+    } catch {
+      setError("Network error. Try again.");
+    } finally {
+      setFixOcrLoading(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -173,7 +217,16 @@ export default function AdminLawEditPage() {
           Back to laws
         </Link>
         {law && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => void handleFixOcr()}
+              disabled={fixOcrLoading || !(text.trim() || law.content_plain?.trim() || law.content?.trim())}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary hover:bg-primary/15 disabled:opacity-50"
+            >
+              {fixOcrLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              Fix OCR
+            </button>
             <Link
               href={`/library/${law.id}`}
               target="_blank"
