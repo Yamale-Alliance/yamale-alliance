@@ -6,7 +6,7 @@
  *   node --env-file=.env scripts/import-pdf-law.mjs "/path/to/file.pdf" [options]
  *
  * Options:
- *   --country "Ghana"           (default: Ghana) — must be one of: Ghana, Kenya, Tunisia, Ethiopia, Eritrea, Madagascar, Rwanda, Seychelles, Senegal, Zambia, Mali, Sierra Leone, Togo, Niger, Nigeria, Liberia, South Africa, Morocco, Sudan, Guinea, Guinea-Bissau, Burundi, Comoros, Djibouti
+ *   --country "Ghana"           (default: Ghana) — must match VALID_COUNTRIES in this file (e.g. Cameroon, Central African Republic, Chad, Democratic Republic of Congo, Equatorial Guinea, Gabon, Mauritius, Mozambique, Namibia, Zimbabwe, …).
  *   --title "Display title"     (default: filename without .pdf)
  *   --category "Corporate Law"  (default: "Corporate Law")
  *   --year 2019                 (optional)
@@ -39,30 +39,47 @@ if (!supabaseUrl || !supabaseKey) {
 const args = process.argv.slice(2);
 
 const VALID_COUNTRIES = [
+  "Angola",
+  "Botswana",
   "Ghana",
   "Kenya",
   "Tunisia",
   "Ethiopia",
   "Eritrea",
+  "Eswatini",
   "Madagascar",
   "Rwanda",
   "Seychelles",
   "Senegal",
   "Zambia",
   "Mali",
+  "Malawi",
   "Sierra Leone",
   "Togo",
   "Niger",
   "Nigeria",
+  "Lesotho",
   "Liberia",
   "South Africa",
   "Morocco",
   "Sudan",
+  "Tanzania",
+  "Uganda",
   "Guinea",
   "Guinea-Bissau",
   "Burundi",
   "Comoros",
   "Djibouti",
+  "Cameroon",
+  "Central African Republic",
+  "Chad",
+  "Democratic Republic of Congo",
+  "Equatorial Guinea",
+  "Gabon",
+  "Mauritius",
+  "Mozambique",
+  "Namibia",
+  "Zimbabwe",
 ];
 
 const VALID_CATEGORIES = [
