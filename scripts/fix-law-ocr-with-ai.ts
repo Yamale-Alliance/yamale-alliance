@@ -10,13 +10,15 @@
  *   --dry-run               Log what would be updated without writing to the database
  *   --limit N               Process at most N laws (default: all matching)
  *   --delay-ms 1500         Pause between API calls (rate limits / cost control)
- *   --chunk-chars 75000     Max characters per Claude request (large laws are split at paragraph breaks)
+ *   --chunk-chars 75000     Max characters per Claude request (large laws are split at paragraph breaks).
+ *                           Raise to 100000–120000 to reduce chunk count on huge acts (fewer API calls, longer each).
  *
  * Requires: CLAUDE_API_KEY, NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  */
 
 import { createClient } from "@supabase/supabase-js";
 import {
+  chunkTextForOcrFix,
   cleanFullLawTextWithClaude,
   DEFAULT_CHUNK_CHARS,
   DEFAULT_INTER_CHUNK_DELAY_MS,
@@ -108,12 +110,24 @@ async function main(): Promise<void> {
 
     console.log(`[${idx + 1}/${list.length}]`, law.id, "—", law.title.slice(0, 80), `(${raw.length} chars)`);
 
+    const maxLen = Math.max(20_000, chunkChars);
+    const partCount = chunkTextForOcrFix(raw, maxLen).length;
+    if (partCount > 1) {
+      const pauseSec = ((partCount - 1) * delayMs) / 1000;
+      console.log(
+        `  ${partCount} Claude chunk(s); ~${pauseSec.toFixed(0)}s minimum between-chunk pauses (${delayMs}ms each), plus model time per chunk (large laws take several minutes).`
+      );
+    }
+
     try {
       const mergedRaw = await cleanFullLawTextWithClaude({
         raw,
         lawTitle: law.title,
         chunkChars,
         delayMs,
+        onChunkProgress: ({ partIndex, totalParts }) => {
+          console.log(`    chunk ${partIndex + 1}/${totalParts}…`);
+        },
       });
       const merged = sanitizeLawContentForDb(mergedRaw);
       if (!merged) {
