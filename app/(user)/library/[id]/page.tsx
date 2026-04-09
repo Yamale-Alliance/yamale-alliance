@@ -1290,7 +1290,7 @@ export default function LawDetailPage({
         </div>
       </div>
 
-      {hasContent && (
+      {(hasContent || isAdmin) && (
         <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-1 rounded-2xl border border-border/80 bg-card/90 p-2 shadow-xl shadow-black/10 backdrop-blur-xl print:hidden">
           {/* Back to Library */}
           <div className="relative group">
@@ -1318,6 +1318,24 @@ export default function LawDetailPage({
               </Link>
               <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
                 Edit law (admin)
+              </span>
+            </div>
+          )}
+
+          {/* Fix OCR (admins only) — also in header; show here so it appears on every law page including those with no parsed sections */}
+          {isAdmin && (
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={() => void handleFixOcr()}
+                disabled={fixOcrLoading || !rawContent.trim()}
+                className="inline-flex items-center justify-center rounded-md p-2 text-primary hover:bg-primary/10 disabled:opacity-50"
+                aria-label="Fix OCR and clean noise"
+              >
+                {fixOcrLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
+              </button>
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+                Fix OCR (admin)
               </span>
             </div>
           )}
