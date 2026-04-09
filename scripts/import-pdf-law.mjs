@@ -73,6 +73,7 @@ const VALID_COUNTRIES = [
   "Cameroon",
   "Central African Republic",
   "Chad",
+  "Congo Brazzaville (Republic of the Congo)",
   "Democratic Republic of Congo",
   "Equatorial Guinea",
   "Gabon",
