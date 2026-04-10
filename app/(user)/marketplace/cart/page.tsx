@@ -10,6 +10,7 @@ import {
   PaymentMethodPicker,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
+import { useAlertDialog } from "@/components/ui/use-confirm";
 
 const BRAND = {
   dark: "#221913",
@@ -42,6 +43,7 @@ export default function CartPage() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
   const [removing, setRemoving] = useState<string | null>(null);
+  const { alert: showAlert, alertDialog } = useAlertDialog();
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -67,7 +69,7 @@ export default function CartPage() {
       });
       setCart((prev) => prev.filter((item) => item.marketplace_item_id !== itemId));
     } catch {
-      alert("Failed to remove from cart");
+      await showAlert("Failed to remove from cart", "Cart");
     } finally {
       setRemoving(null);
     }
@@ -87,11 +89,11 @@ export default function CartPage() {
       if (res.ok && data.url) {
         window.location.href = data.url;
       } else {
-        alert(data.error ?? "Checkout failed");
+        await showAlert(data.error ?? "Checkout failed", "Checkout");
         setCheckoutLoading(false);
       }
     } catch {
-      alert("Something went wrong");
+      await showAlert("Something went wrong", "Checkout");
       setCheckoutLoading(false);
     }
   };
@@ -112,6 +114,7 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      {alertDialog}
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-border/40 bg-gradient-to-b from-muted/30 via-background to-background">
         <div
