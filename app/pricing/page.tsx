@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
+import { useAlertDialog } from "@/components/ui/use-confirm";
 
 type BillingInterval = "monthly" | "annual";
 
@@ -149,6 +150,7 @@ export default function PricingPage() {
   const [tiers, setTiers] = useState<Tier[]>(FALLBACK_TIERS);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const isAnnual = billing === "annual";
+  const { alert: showAlert, alertDialog } = useAlertDialog();
 
   const handleCheckout = async (planId: string) => {
     if (planId === "free") return;
@@ -178,12 +180,12 @@ export default function PricingPage() {
           router.push(`/sign-in?redirect_url=${returnUrl}`);
           return;
         }
-        alert(data.error || "Checkout failed");
+        await showAlert(data.error || "Checkout failed", "Checkout");
         return;
       }
       if (data.url) window.location.href = data.url;
     } catch {
-      alert("Something went wrong. Please try again.");
+      await showAlert("Something went wrong. Please try again.", "Checkout");
     } finally {
       setCheckoutLoading(null);
     }
@@ -214,12 +216,12 @@ export default function PricingPage() {
           router.push(`/sign-in?redirect_url=${returnUrl}`);
           return;
         }
-        alert(data.error || "Checkout failed");
+        await showAlert(data.error || "Checkout failed", "Checkout");
         return;
       }
       if (data.url) window.location.href = data.url;
     } catch {
-      alert("Something went wrong. Please try again.");
+      await showAlert("Something went wrong. Please try again.", "Checkout");
     } finally {
       setCheckoutLoading(null);
     }
@@ -252,12 +254,12 @@ export default function PricingPage() {
           router.push(`/sign-in?redirect_url=${returnUrl}`);
           return;
         }
-        alert(data.error || "Checkout failed");
+        await showAlert(data.error || "Checkout failed", "Checkout");
         return;
       }
       if (data.url) window.location.href = data.url;
     } catch {
-      alert("Something went wrong. Please try again.");
+      await showAlert("Something went wrong. Please try again.", "Checkout");
     } finally {
       setCheckoutLoading(null);
     }
@@ -316,6 +318,7 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      {alertDialog}
       {/* Hero Section */}
       <section className="relative overflow-hidden border-b border-border/40 bg-gradient-to-b from-[#221913] via-[#603b1c] to-[#221913]">
         <div
