@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
+import { useAlertDialog } from "@/components/ui/use-confirm";
 
 const BRAND = {
   dark: "#221913",
@@ -103,6 +104,7 @@ export default function MarketplacePage() {
   const [cartItemIds, setCartItemIds] = useState<Set<string>>(new Set());
   const { isSignedIn } = useUser();
   const confirmedCartSessionRef = useRef<string | null>(null);
+  const { alert: showAlert, alertDialog } = useAlertDialog();
 
   const categoryQs = searchParams.get("category");
   const browse = parseBrowseMode(categoryQs);
@@ -250,10 +252,10 @@ export default function MarketplacePage() {
         refreshCart();
       } else {
         const data = await res.json();
-        alert(data.error ?? "Failed to add to cart");
+        await showAlert(data.error ?? "Failed to add to cart", "Cart");
       }
     } catch {
-      alert("Something went wrong");
+      await showAlert("Something went wrong", "Cart");
     } finally {
       setAddingToCart(null);
     }
@@ -273,10 +275,10 @@ export default function MarketplacePage() {
         refreshCart();
       } else {
         const data = await res.json();
-        alert(data.error ?? "Failed to remove from cart");
+        await showAlert(data.error ?? "Failed to remove from cart", "Cart");
       }
     } catch {
-      alert("Something went wrong");
+      await showAlert("Something went wrong", "Cart");
     } finally {
       setAddingToCart(null);
     }
@@ -301,15 +303,16 @@ export default function MarketplacePage() {
       if (res.ok && data.url) {
         window.location.href = data.url;
       } else {
-        alert(data.error ?? "Checkout failed");
+        await showAlert(data.error ?? "Checkout failed", "Checkout");
       }
     } catch {
-      alert("Something went wrong");
+      await showAlert("Something went wrong", "Checkout");
     }
   };
 
   return (
     <div className="min-h-screen bg-background">
+      {alertDialog}
       {/* Hero — outer shell ignores pointer events so pulled-up browse UI stays clickable in overlap */}
       <section className="relative overflow-hidden border-b border-border/40 bg-gradient-to-b from-muted/30 via-background to-background pointer-events-none">
         <div
