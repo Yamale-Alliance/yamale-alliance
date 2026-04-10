@@ -9,6 +9,7 @@ import {
   PaymentMethodPicker,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
+import { useAlertDialog } from "@/components/ui/use-confirm";
 
 type CartItem = {
   id: string;
@@ -33,6 +34,7 @@ export function CartDrawer() {
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
   const { isSignedIn } = useUser();
   const router = useRouter();
+  const { alert: showAlert, alertDialog } = useAlertDialog();
 
   useEffect(() => {
     if (!isSignedIn || !open) return;
@@ -69,11 +71,11 @@ export function CartDrawer() {
       if (res.ok && data.url) {
         window.location.href = data.url;
       } else {
-        alert(data.error ?? "Checkout failed");
+        await showAlert(data.error ?? "Checkout failed", "Checkout");
         setCheckoutLoading(false);
       }
     } catch {
-      alert("Something went wrong");
+      await showAlert("Something went wrong", "Checkout");
       setCheckoutLoading(false);
     }
   };
@@ -83,6 +85,7 @@ export function CartDrawer() {
 
   return (
     <>
+      {alertDialog}
       <button
         type="button"
         onClick={() => setOpen(true)}
