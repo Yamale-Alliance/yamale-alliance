@@ -12,6 +12,7 @@ import {
   ArrowLeft,
   CreditCard,
 } from "lucide-react";
+import { useConfirm } from "@/components/ui/use-confirm";
 
 type Member = { userId: string; email: string; addedAt: string };
 
@@ -32,6 +33,7 @@ export default function ManageTeamPage() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const confirmedRef = useRef<string | null>(null);
+  const { confirm, confirmDialog } = useConfirm();
 
   const metadata = user?.publicMetadata as Record<string, unknown> | undefined;
   const tier = (metadata?.tier ?? metadata?.subscriptionTier) as string | undefined;
@@ -142,7 +144,14 @@ export default function ManageTeamPage() {
   };
 
   const handleRemove = async (memberId: string) => {
-    if (!confirm("Remove this member from your team?")) return;
+    const ok = await confirm({
+      title: "Remove member",
+      description: "Remove this member from your team?",
+      confirmLabel: "Remove",
+      cancelLabel: "Cancel",
+      variant: "destructive",
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/team/members/${memberId}`, {
         method: "DELETE",
@@ -254,7 +263,7 @@ export default function ManageTeamPage() {
               <span className="text-sm">{m.email || m.userId}</span>
               <button
                 type="button"
-                onClick={() => handleRemove(m.userId)}
+                onClick={() => void handleRemove(m.userId)}
                 className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                 title="Remove"
               >
@@ -326,6 +335,7 @@ export default function ManageTeamPage() {
       <p className="mt-6 text-xs text-muted-foreground">
         Members must have a Yamalé account (sign up with the email you add). They will get Team-level AI access.
       </p>
+      {confirmDialog}
     </div>
   );
 }
