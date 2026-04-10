@@ -16,6 +16,7 @@ import {
   FileText,
   Trash2,
 } from "lucide-react";
+import { useConfirm } from "@/components/ui/use-confirm";
 
 type ImportRow = {
   hsCode: string;
@@ -97,6 +98,7 @@ export default function AdminAfCFTAPage() {
   const [selectedCountryToDelete, setSelectedCountryToDelete] = useState<string>("");
   const [deletingCountry, setDeletingCountry] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const { confirm, confirmDialog } = useConfirm();
 
   const fetchImportHistory = useCallback(() => {
     setImportHistoryLoading(true);
@@ -132,7 +134,14 @@ export default function AdminAfCFTAPage() {
   }, [importStatus, importResult, fetchImportHistory, fetchCountriesWithData]);
 
   const handleDeleteCountry = useCallback(async (country: string) => {
-    if (!confirm(`Delete all tariff data and import history for "${country}"? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: "Delete country data",
+      description: `Delete all tariff data and import history for "${country}"? This cannot be undone.`,
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
+      variant: "destructive",
+    });
+    if (!ok) return;
     setDeletingCountry(country);
     setDeleteError(null);
     try {
@@ -153,7 +162,7 @@ export default function AdminAfCFTAPage() {
     } finally {
       setDeletingCountry(null);
     }
-  }, [fetchImportHistory, fetchCountriesWithData]);
+  }, [confirm, fetchImportHistory, fetchCountriesWithData]);
 
   const loadBatchRows = useCallback((batchId: string) => {
     if (expandedBatchId === batchId && expandedBatchRows !== null) {
@@ -666,6 +675,7 @@ export default function AdminAfCFTAPage() {
           </div>
         )}
       </div>
+      {confirmDialog}
     </div>
   );
 }
