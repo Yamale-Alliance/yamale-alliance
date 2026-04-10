@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Plus, Pencil, Trash2, BookOpen, GraduationCap, FileText, Upload, X } from "lucide-react";
+import { useConfirm } from "@/components/ui/use-confirm";
 
 type MarketplaceItem = {
   id: string;
@@ -77,6 +78,7 @@ export default function AdminMarketplacePage() {
   const [revokingId, setRevokingId] = useState<string | null>(null);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const { confirm, confirmDialog } = useConfirm();
 
   const updateViewInUrl = (addingView: boolean) => {
     if (typeof window === "undefined") return;
@@ -280,7 +282,14 @@ export default function AdminMarketplacePage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this item? This cannot be undone.")) return;
+    const ok = await confirm({
+      title: "Delete item",
+      description: "Delete this item? This cannot be undone.",
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
+      variant: "destructive",
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`${origin}/api/admin/marketplace/${id}`, {
         method: "DELETE",
@@ -295,7 +304,14 @@ export default function AdminMarketplacePage() {
   };
 
   const handleRevokePurchase = async (id: string) => {
-    if (!confirm("Revoke this purchase? The user will lose access and can purchase again.")) return;
+    const ok = await confirm({
+      title: "Revoke purchase",
+      description: "Revoke this purchase? The user will lose access and can purchase again.",
+      confirmLabel: "Revoke",
+      cancelLabel: "Cancel",
+      variant: "destructive",
+    });
+    if (!ok) return;
     setRevokingId(id);
     setError(null);
     try {
@@ -776,6 +792,7 @@ export default function AdminMarketplacePage() {
           </div>
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }
