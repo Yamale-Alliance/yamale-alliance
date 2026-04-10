@@ -5,6 +5,7 @@ export type AuditAction =
   | "law.add"
   | "law.update"
   | "law.delete"
+  | "law.delete_batch"
   | "pricing.update"
   | "user.tier"
   | "admin.add"
