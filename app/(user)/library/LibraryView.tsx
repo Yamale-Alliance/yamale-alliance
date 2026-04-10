@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { Search, BookOpen, ArrowRight, Filter, X, Bookmark, Sparkles, Calendar, FileEdit, Eye, BookmarkCheck, ChevronLeft, ChevronRight, Printer, Loader2 } from "lucide-react";
 import type { LibraryCountry, LibraryCategory, LibraryLawRow } from "@/lib/library-data";
 import { useUser } from "@clerk/nextjs";
+import { useAlertDialog } from "@/components/ui/use-confirm";
 
 const PAGE_SIZE = 12;
 type SortOption = "title-asc" | "title-desc" | "country" | "category" | "newest";
@@ -182,6 +183,7 @@ export function LibraryView({
     SORT_OPTIONS.some((o) => o.value === initialSort) ? (initialSort as SortOption) : "title-asc"
   );
   const [currentPage, setCurrentPage] = useState(() => parsePage(initialPage) || 1);
+  const { alert: showAlert, alertDialog } = useAlertDialog();
 
   const hasFilters = !!(country || category || status || search.trim());
   const currentTier =
@@ -397,17 +399,17 @@ export function LibraryView({
         });
         const data = await res.json();
         if (!res.ok) {
-          alert(data.error || "Checkout failed");
+          await showAlert(data.error || "Checkout failed", "Checkout");
           return;
         }
         if (data.url) window.location.href = data.url;
       } catch {
-        alert("Checkout failed");
+        await showAlert("Checkout failed", "Checkout");
       } finally {
         setPrintLoadingId(null);
       }
     },
-    [isSignedIn, router, paidLawIds]
+    [isSignedIn, router, paidLawIds, showAlert]
   );
 
   const filteredLaws = useMemo(() => {
@@ -534,6 +536,7 @@ export function LibraryView({
 
   return (
     <div className="min-h-screen">
+      {alertDialog}
       {/* Header — gradient, modern filters */}
       <div className="relative overflow-hidden border-b border-border/50 bg-gradient-to-b from-primary/5 to-transparent">
         <div
