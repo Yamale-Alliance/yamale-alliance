@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { Loader2, Briefcase, Plus, Trash2, Download } from "lucide-react";
+import { useConfirm } from "@/components/ui/use-confirm";
 
 type LawyerRow = {
   id: string;
@@ -28,6 +29,7 @@ export default function AdminLawyersPage() {
   const [submitting, setSubmitting] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { confirm, confirmDialog } = useConfirm();
 
   const [formName, setFormName] = useState("");
   const [formCountry, setFormCountry] = useState("");
@@ -189,7 +191,16 @@ export default function AdminLawyersPage() {
   };
 
   const handleRemove = async (id: string) => {
-    if (removingId || !confirm("Remove this lawyer from the directory? They will no longer appear on the Find a Lawyer page.")) return;
+    if (removingId) return;
+    const ok = await confirm({
+      title: "Remove lawyer",
+      description:
+        "Remove this lawyer from the directory? They will no longer appear on the Find a Lawyer page.",
+      confirmLabel: "Remove",
+      cancelLabel: "Cancel",
+      variant: "destructive",
+    });
+    if (!ok) return;
     setRemovingId(id);
     setError(null);
     try {
@@ -787,6 +798,7 @@ export default function AdminLawyersPage() {
       <p className="mt-4 text-xs text-muted-foreground">
         Public form: <strong>/lawyers/join</strong> — lawyers can submit their details there to be added to the directory.
       </p>
+      {confirmDialog}
     </div>
   );
 }
