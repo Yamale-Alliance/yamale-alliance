@@ -21,6 +21,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
+import { useConfirm, useAlertDialog } from "@/components/ui/use-confirm";
 
 type LawStatus = "In force" | "Amended" | "Repealed";
 
@@ -687,6 +688,8 @@ export default function LawDetailPage({
   const [hasPaidForThisLaw, setHasPaidForThisLaw] = useState(false);
   const [fixOcrLoading, setFixOcrLoading] = useState(false);
   const [fixOcrBanner, setFixOcrBanner] = useState<string | null>(null);
+  const { confirm, confirmDialog } = useConfirm();
+  const { alert: showAlert, alertDialog } = useAlertDialog();
 
   const scrollToTop = useCallback(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -744,13 +747,15 @@ export default function LawDetailPage({
 
   const handleFixOcr = async () => {
     if (!law || fixOcrLoading) return;
-    if (
-      !window.confirm(
-        "Run AI cleanup on this law? OCR noise will be reduced and stored text will be replaced. Very large laws can take several minutes."
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Run AI cleanup",
+      description:
+        "OCR noise will be reduced and stored text will be replaced. Very large laws can take several minutes.",
+      confirmLabel: "Run cleanup",
+      cancelLabel: "Cancel",
+      variant: "default",
+    });
+    if (!ok) return;
     setFixOcrLoading(true);
     setFixOcrBanner(null);
     try {
@@ -879,12 +884,12 @@ export default function LawDetailPage({
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Checkout failed");
+        await showAlert(data.error || "Checkout failed", "Checkout");
         return;
       }
       if (data.url) window.location.href = data.url;
     } catch {
-      alert("Checkout failed");
+      await showAlert("Checkout failed", "Checkout");
     } finally {
       setPrintLoading(false);
     }
@@ -1430,6 +1435,8 @@ export default function LawDetailPage({
           </div>
         </div>
       )}
+      {confirmDialog}
+      {alertDialog}
     </div>
   );
 }
