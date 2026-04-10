@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Search, Sparkles, Trash2 } from "lucide-react";
+import { useConfirm } from "@/components/ui/use-confirm";
 
 type Country = { id: string; name: string };
 type Category = { id: string; name: string };
@@ -46,6 +47,7 @@ export default function AdminLawEditPage() {
   const [deleting, setDeleting] = useState(false);
   const [fixOcrLoading, setFixOcrLoading] = useState(false);
   const router = useRouter();
+  const { confirm, confirmDialog } = useConfirm();
 
   useEffect(() => {
     fetch(`${window.location.origin}/api/laws`, { credentials: "include" })
@@ -105,13 +107,15 @@ export default function AdminLawEditPage() {
 
   const handleFixOcr = async () => {
     if (!id || !law) return;
-    if (
-      !window.confirm(
-        "Run AI cleanup on this law? OCR noise will be reduced and stored text will be replaced. Very large laws can take several minutes."
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Run AI cleanup",
+      description:
+        "OCR noise will be reduced and stored text will be replaced. Very large laws can take several minutes.",
+      confirmLabel: "Run cleanup",
+      cancelLabel: "Cancel",
+      variant: "default",
+    });
+    if (!ok) return;
     setFixOcrLoading(true);
     setError(null);
     setStatusMsg(null);
@@ -148,7 +152,14 @@ export default function AdminLawEditPage() {
 
   const handleDelete = async () => {
     if (!id || !law) return;
-    if (!window.confirm(`Delete "${law.title}"? This cannot be undone and the law will be removed from the library and AI.`)) return;
+    const ok = await confirm({
+      title: "Delete law",
+      description: `Delete "${law.title}"? This cannot be undone and the law will be removed from the library and AI.`,
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
+      variant: "destructive",
+    });
+    if (!ok) return;
     setDeleting(true);
     setError(null);
     try {
@@ -437,6 +448,7 @@ export default function AdminLawEditPage() {
           </div>
         </form>
       )}
+      {confirmDialog}
     </div>
   );
 }
