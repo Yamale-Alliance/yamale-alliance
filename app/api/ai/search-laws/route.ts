@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  escapeIlikePattern,
+  lawsCountryOrGlobalWithTextSearch,
+} from "@/lib/law-country-scope";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { chunkLawContent } from "@/lib/embeddings/chunking";
 
@@ -55,14 +59,17 @@ export async function POST(request: NextRequest) {
       .not("content", "is", null)
       .limit(Math.min(limit || 5, 20)); // Max 20 results
 
-    if (countryId) lawsQuery = lawsQuery.eq("country_id", countryId);
     if (categoryId) lawsQuery = lawsQuery.eq("category_id", categoryId);
 
-    // Full-text search on title and content
     const searchTerms = query.trim().toLowerCase();
-    lawsQuery = lawsQuery.or(
-      `title.ilike.%${searchTerms}%,content.ilike.%${searchTerms}%`
-    );
+    const escapedTerms = escapeIlikePattern(searchTerms);
+    if (countryId) {
+      lawsQuery = lawsQuery.or(lawsCountryOrGlobalWithTextSearch(countryId, escapedTerms));
+    } else {
+      lawsQuery = lawsQuery.or(
+        `title.ilike.%${escapedTerms}%,content.ilike.%${escapedTerms}%`
+      );
+    }
 
     const { data: laws, error } = await lawsQuery;
 
