@@ -1,4 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { lawsOrGlobalForCountry } from "@/lib/law-country-scope";
 
 /** Max laws returned in one response (pagination is client-side within this set). */
 const LAWS_LIMIT = 20_000;
@@ -9,7 +10,8 @@ export type LibraryLawRow = {
   id: string;
   title: string;
   status: string;
-  country_id: string;
+  country_id: string | null;
+  applies_to_all_countries: boolean;
   category_id: string;
   countries: { name: string } | null;
   categories: { name: string } | null;
@@ -46,7 +48,7 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
   const supabase = getSupabaseServer();
   return (async () => {
     let countQuery = supabase.from("laws").select("id", { count: "exact", head: true });
-    if (filters?.countryId) countQuery = countQuery.eq("country_id", filters.countryId);
+    if (filters?.countryId) countQuery = countQuery.or(lawsOrGlobalForCountry(filters.countryId));
     if (filters?.categoryId) countQuery = countQuery.eq("category_id", filters.categoryId);
     if (filters?.status) countQuery = countQuery.eq("status", filters.status);
     if (filters?.q?.trim()) {
@@ -55,11 +57,13 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
 
     let lawsQuery = supabase
       .from("laws")
-      .select("id, title, source_url, source_name, year, status, country_id, category_id, created_at, updated_at, countries(name), categories(name)")
+      .select(
+        "id, title, source_url, source_name, year, status, country_id, applies_to_all_countries, category_id, created_at, updated_at, countries(name), categories(name)"
+      )
       .order("created_at", { ascending: false })
       .order("title")
       .limit(LAWS_LIMIT);
-    if (filters?.countryId) lawsQuery = lawsQuery.eq("country_id", filters.countryId);
+    if (filters?.countryId) lawsQuery = lawsQuery.or(lawsOrGlobalForCountry(filters.countryId));
     if (filters?.categoryId) lawsQuery = lawsQuery.eq("category_id", filters.categoryId);
     if (filters?.status) lawsQuery = lawsQuery.eq("status", filters.status);
     if (filters?.q?.trim()) {
