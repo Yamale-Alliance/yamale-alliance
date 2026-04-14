@@ -12,7 +12,8 @@ type Category = { id: string; name: string };
 type LawForEdit = {
   id: string;
   title: string;
-  country_id: string;
+  country_id: string | null;
+  applies_to_all_countries?: boolean;
   category_id: string;
   year: number | null;
   status: string;
@@ -31,6 +32,7 @@ export default function AdminLawEditPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [title, setTitle] = useState("");
   const [countryId, setCountryId] = useState("");
+  const [appliesToAll, setAppliesToAll] = useState(false);
   const [categoryId, setCategoryId] = useState("");
   const [year, setYear] = useState("");
   const [status, setStatus] = useState("In force");
@@ -74,6 +76,7 @@ export default function AdminLawEditPage() {
         const lawData = data.law as LawForEdit;
         setLaw(lawData);
         setTitle(lawData.title ?? "");
+        setAppliesToAll(!!lawData.applies_to_all_countries);
         setCountryId(lawData.country_id ?? "");
         setCategoryId(lawData.category_id ?? "");
         setYear(lawData.year != null ? String(lawData.year) : "");
@@ -184,6 +187,10 @@ export default function AdminLawEditPage() {
       setError("Title is required.");
       return;
     }
+    if (!appliesToAll && !countryId.trim()) {
+      setError("Select a country, or enable “All countries” for treaties and regional instruments.");
+      return;
+    }
     setSaving(true);
     setError(null);
     setStatusMsg(null);
@@ -194,7 +201,8 @@ export default function AdminLawEditPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
-          country_id: countryId || null,
+          applies_to_all_countries: appliesToAll,
+          country_id: appliesToAll ? null : countryId.trim(),
           category_id: categoryId || null,
           year: year.trim() ? Number(year.trim()) : null,
           status: status.trim() || "In force",
@@ -210,7 +218,12 @@ export default function AdminLawEditPage() {
         return;
       }
       setStatusMsg("Changes saved.");
-      if (data.law?.title) setLaw((prev) => (prev ? { ...prev, ...data.law } : null));
+      if (data.law) {
+        const u = data.law as Partial<LawForEdit>;
+        setLaw((prev) => (prev ? { ...prev, ...u } : null));
+        if (typeof u.applies_to_all_countries === "boolean") setAppliesToAll(u.applies_to_all_countries);
+        if (u.country_id !== undefined) setCountryId(u.country_id ?? "");
+      }
     } catch {
       setError("Network error. Please try again.");
     }
@@ -292,12 +305,34 @@ export default function AdminLawEditPage() {
                 placeholder="e.g. Companies Act, 2019"
               />
             </div>
+            <div className="sm:col-span-2">
+              <label className="flex cursor-pointer items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={appliesToAll}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setAppliesToAll(on);
+                    if (on) setCountryId("");
+                  }}
+                  className="mt-1 rounded border-input"
+                />
+                <span>
+                  <span className="font-medium text-foreground">All countries</span>
+                  <span className="block text-muted-foreground text-xs mt-0.5">
+                    Use for treaties and instruments that apply across all jurisdictions in the library (one record; appears in every country filter).
+                  </span>
+                </span>
+              </label>
+            </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">Country</label>
               <select
                 value={countryId}
                 onChange={(e) => setCountryId(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                disabled={appliesToAll}
+                required={!appliesToAll}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-60"
               >
                 <option value="">Select country</option>
                 {countries.map((c) => (
