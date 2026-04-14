@@ -14,6 +14,7 @@ export default function AdminLawsAddPage() {
   const [countries, setCountries] = useState<Country[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [countryId, setCountryId] = useState("");
+  const [appliesToAll, setAppliesToAll] = useState(false);
   const [categoryId, setCategoryId] = useState("");
   const [status, setStatus] = useState("In force");
   const [title, setTitle] = useState("");
@@ -108,8 +109,12 @@ export default function AdminLawsAddPage() {
       setError("Title is required.");
       return;
     }
-    if (!countryId || !categoryId) {
-      setError("Country and category are required.");
+    if (!appliesToAll && !countryId) {
+      setError("Select a country, or enable “All countries” for treaties and regional instruments.");
+      return;
+    }
+    if (!categoryId) {
+      setError("Category is required.");
       return;
     }
 
@@ -123,7 +128,8 @@ export default function AdminLawsAddPage() {
           body: JSON.stringify({
             previewOnly: false,
             url: sourceUrl.trim(),
-            countryId,
+            appliesToAllCountries: appliesToAll,
+            countryId: appliesToAll ? undefined : countryId,
             categoryId,
             title: title.trim(),
             status,
@@ -183,7 +189,11 @@ export default function AdminLawsAddPage() {
 
     setSubmitting(true);
     const formData = new FormData();
-    formData.set("countryId", countryId);
+    if (appliesToAll) {
+      formData.set("appliesToAll", "true");
+    } else {
+      formData.set("countryId", countryId);
+    }
     formData.set("categoryId", categoryId);
     formData.set("status", status);
     formData.set("title", title.trim());
@@ -344,13 +354,35 @@ export default function AdminLawsAddPage() {
           </div>
         </div>
 
+        <div className="rounded-lg border border-border bg-muted/20 p-4">
+          <label className="flex cursor-pointer items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={appliesToAll}
+              onChange={(e) => {
+                const on = e.target.checked;
+                setAppliesToAll(on);
+                if (on) setCountryId("");
+              }}
+              className="mt-1 rounded border-input"
+            />
+            <span>
+              <span className="font-medium text-foreground">All countries</span>
+              <span className="block text-muted-foreground text-xs mt-0.5">
+                One law record for treaties and instruments that apply across every jurisdiction (appears when filtering by any country).
+              </span>
+            </span>
+          </label>
+        </div>
+
         <div>
-          <label className="block text-sm font-medium mb-1">Country *</label>
+          <label className="block text-sm font-medium mb-1">Country{!appliesToAll ? " *" : ""}</label>
           <select
             value={countryId}
             onChange={(e) => setCountryId(e.target.value)}
-            required
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            required={!appliesToAll}
+            disabled={appliesToAll}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-60"
           >
             <option value="">Select country</option>
             {countries.map((c) => (
