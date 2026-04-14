@@ -81,7 +81,8 @@ export async function saveLawFromPdfUrlImport(params: {
   admin: AdminAuth;
   url: string;
   forceOcr: boolean;
-  countryId: string;
+  countryId?: string;
+  appliesToAllCountries?: boolean;
   categoryId: string;
   title: string;
   status: string;
@@ -95,6 +96,7 @@ export async function saveLawFromPdfUrlImport(params: {
     url,
     forceOcr,
     countryId,
+    appliesToAllCountries,
     categoryId,
     title,
     status,
@@ -103,8 +105,13 @@ export async function saveLawFromPdfUrlImport(params: {
     auditSource,
   } = params;
 
-  if (!countryId || !categoryId || !title) {
-    throw new Error("Saving requires countryId, categoryId, and title.");
+  const global = appliesToAllCountries === true;
+  const cid = (countryId ?? "").trim();
+  if (!categoryId || !title) {
+    throw new Error("Saving requires categoryId and title.");
+  }
+  if (!global && !cid) {
+    throw new Error("Saving requires countryId, or set appliesToAllCountries for treaties and regional instruments.");
   }
   if (!VALID_LAW_STATUSES.includes(status as (typeof VALID_LAW_STATUSES)[number])) {
     throw new Error(`Invalid status. Use one of: ${VALID_LAW_STATUSES.join(", ")}`);
@@ -135,17 +142,31 @@ export async function saveLawFromPdfUrlImport(params: {
     sourceName = null;
   }
 
-  const row: LawInsert = {
-    country_id: countryId,
-    category_id: categoryId,
-    title,
-    source_url: sourceUrl,
-    source_name: sourceName,
-    year: year ?? null,
-    status,
-    content: contentTrimmed,
-    content_plain: contentTrimmed,
-  };
+  const row: LawInsert = global
+    ? {
+        applies_to_all_countries: true,
+        country_id: null,
+        category_id: categoryId,
+        title,
+        source_url: sourceUrl,
+        source_name: sourceName,
+        year: year ?? null,
+        status,
+        content: contentTrimmed,
+        content_plain: contentTrimmed,
+      }
+    : {
+        applies_to_all_countries: false,
+        country_id: cid,
+        category_id: categoryId,
+        title,
+        source_url: sourceUrl,
+        source_name: sourceName,
+        year: year ?? null,
+        status,
+        content: contentTrimmed,
+        content_plain: contentTrimmed,
+      };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error: insertError, data } = await (supabase.from("laws") as any)
