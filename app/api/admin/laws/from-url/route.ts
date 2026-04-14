@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const appliesToAllCountries = body.appliesToAllCountries === true;
     const countryId = typeof body.countryId === "string" ? body.countryId.trim() : "";
     const categoryId = typeof body.categoryId === "string" ? body.categoryId.trim() : "";
     const rawTitle = typeof body.title === "string" ? body.title : "";
@@ -79,9 +80,18 @@ export async function POST(request: NextRequest) {
 
     const markdownOverride = typeof body.markdown === "string" ? body.markdown.trim() : "";
 
-    if (!countryId || !categoryId || !title) {
+    if (!categoryId || !title) {
       return NextResponse.json(
-        { error: "Saving requires countryId, categoryId, and title (run preview first or fill manually)." },
+        { error: "Saving requires categoryId and title (run preview first or fill manually)." },
+        { status: 400 }
+      );
+    }
+    if (!appliesToAllCountries && !countryId) {
+      return NextResponse.json(
+        {
+          error:
+            "Saving requires a country, or enable “All countries” for treaties and regional instruments.",
+        },
         { status: 400 }
       );
     }
@@ -92,7 +102,8 @@ export async function POST(request: NextRequest) {
       admin,
       url,
       forceOcr,
-      countryId,
+      countryId: appliesToAllCountries ? undefined : countryId,
+      appliesToAllCountries,
       categoryId,
       title,
       status,
