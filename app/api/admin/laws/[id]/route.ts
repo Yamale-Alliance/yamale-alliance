@@ -24,7 +24,7 @@ export async function GET(
     const { data, error } = await supabase
       .from("laws")
       .select(
-        "id, title, country_id, category_id, year, status, source_url, source_name, content, content_plain"
+        "id, title, country_id, applies_to_all_countries, category_id, year, status, source_url, source_name, content, content_plain"
       )
       .eq("id", id)
       .single();
@@ -67,7 +67,29 @@ export async function PUT(
       }
       updates.title = t;
     }
-    if (body.country_id !== undefined) updates.country_id = body.country_id || null;
+    if (body.applies_to_all_countries === true) {
+      updates.applies_to_all_countries = true;
+      updates.country_id = null;
+    } else if (body.applies_to_all_countries === false) {
+      const cid =
+        typeof body.country_id === "string" && body.country_id.trim()
+          ? body.country_id.trim()
+          : "";
+      if (!cid) {
+        return NextResponse.json(
+          { error: "Select a country, or enable “All countries” for treaties and regional instruments." },
+          { status: 400 }
+        );
+      }
+      updates.applies_to_all_countries = false;
+      updates.country_id = cid;
+    } else if (body.country_id !== undefined) {
+      const cid = body.country_id ? String(body.country_id).trim() : "";
+      if (cid) {
+        updates.country_id = cid;
+        updates.applies_to_all_countries = false;
+      }
+    }
     if (body.category_id !== undefined) updates.category_id = body.category_id || null;
     if (body.year !== undefined) updates.year = body.year ? Number(body.year) : null;
     if (typeof body.status === "string") updates.status = body.status.trim() || "In force";
@@ -88,7 +110,7 @@ export async function PUT(
     const { data, error } = await (supabase.from("laws") as any)
       .update(updates)
       .eq("id", id)
-      .select("id, title, country_id, category_id, year, status, source_url, source_name")
+      .select("id, title, country_id, applies_to_all_countries, category_id, year, status, source_url, source_name")
       .single();
 
     if (error) {
