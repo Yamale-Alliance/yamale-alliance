@@ -12,6 +12,7 @@ export function useServiceWorker() {
     // Check if service workers are supported
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       setIsSupported(true);
+      const isDev = process.env.NODE_ENV !== 'production';
 
       // Check online/offline status
       setIsOnline(navigator.onLine);
@@ -19,6 +20,21 @@ export function useServiceWorker() {
       const handleOffline = () => setIsOnline(false);
       window.addEventListener('online', handleOnline);
       window.addEventListener('offline', handleOffline);
+
+      // Avoid service worker side effects in local development.
+      // This prevents stale cache/network interception issues (e.g. auth SDK loading timeouts).
+      if (isDev) {
+        navigator.serviceWorker
+          .getRegistrations()
+          .then((registrations) => Promise.all(registrations.map((reg) => reg.unregister())))
+          .catch(() => {});
+        setIsRegistered(false);
+        setRegistration(null);
+        return () => {
+          window.removeEventListener('online', handleOnline);
+          window.removeEventListener('offline', handleOffline);
+        };
+      }
 
       // Register service worker
       navigator.serviceWorker
