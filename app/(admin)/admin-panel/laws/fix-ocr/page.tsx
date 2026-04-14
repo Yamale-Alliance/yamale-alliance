@@ -8,7 +8,8 @@ type Country = { id: string; name: string };
 type LawRow = {
   id: string;
   title: string;
-  country_id: string;
+  country_id: string | null;
+  applies_to_all_countries?: boolean;
   countries: { name: string } | null;
 };
 
@@ -29,6 +30,7 @@ export default function AdminLawsFixOcrPage() {
   const [running, setRunning] = useState(false);
   const [log, setLog] = useState<LogLine[]>([]);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [lastFailedLaws, setLastFailedLaws] = useState<LawRow[]>([]);
   const stopRef = useRef(false);
 
   useEffect(() => {
@@ -66,24 +68,32 @@ export default function AdminLawsFixOcrPage() {
     setLog((prev) => [...prev, line]);
   }, []);
 
-  const runBatch = async () => {
+  const runBatch = async (onlyLaws?: LawRow[]) => {
     if (!countryId || laws.length === 0) return;
-    let list = [...laws].sort((a, b) => a.title.localeCompare(b.title));
-    const lim = parseInt(limitStr, 10);
-    if (Number.isFinite(lim) && lim > 0) {
-      list = list.slice(0, lim);
+    const isRetry = Array.isArray(onlyLaws) && onlyLaws.length > 0;
+    let list = isRetry
+      ? [...onlyLaws]
+      : [...laws].sort((a, b) => a.title.localeCompare(b.title));
+    if (!isRetry) {
+      const lim = parseInt(limitStr, 10);
+      if (Number.isFinite(lim) && lim > 0) {
+        list = list.slice(0, lim);
+      }
     }
+    if (list.length === 0) return;
     stopRef.current = false;
     setRunning(true);
     setLog([]);
     setProgress({ done: 0, total: list.length });
+    setLastFailedLaws([]);
     appendLog({
       kind: "info",
-      text: `Starting ${dryRun ? "dry run (no saves) " : ""}for ${list.length} law(s).`,
+      text: `Starting ${isRetry ? "retry " : ""}${dryRun ? "dry run (no saves) " : ""}for ${list.length} law(s).`,
     });
 
     let ok = 0;
     let failed = 0;
+    const failedLaws: LawRow[] = [];
 
     for (let i = 0; i < list.length; i++) {
       if (stopRef.current) {
@@ -110,6 +120,7 @@ export default function AdminLawsFixOcrPage() {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           failed++;
+          failedLaws.push(law);
           appendLog({
             kind: "err",
             text: data?.error ?? `HTTP ${res.status}`,
@@ -136,6 +147,7 @@ export default function AdminLawsFixOcrPage() {
         }
       } catch (e) {
         failed++;
+        failedLaws.push(law);
         appendLog({
           kind: "err",
           text: e instanceof Error ? e.message : "Request failed",
@@ -152,6 +164,7 @@ export default function AdminLawsFixOcrPage() {
       kind: "info",
       text: `Finished. Success: ${ok}, failed: ${failed}.`,
     });
+    setLastFailedLaws(failedLaws);
     setRunning(false);
   };
 
@@ -276,6 +289,15 @@ export default function AdminLawsFixOcrPage() {
             {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             {running ? "Running…" : dryRun ? "Start dry run" : "Clean and save"}
           </button>
+          {!running && lastFailedLaws.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void runBatch(lastFailedLaws)}
+              className="rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+            >
+              Rerun failed ({lastFailedLaws.length})
+            </button>
+          )}
           {running && (
             <button
               type="button"
