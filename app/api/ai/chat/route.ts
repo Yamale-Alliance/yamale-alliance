@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  escapeIlikePattern,
+  lawsCountryOrGlobalWithTextSearch,
+  lawsOrGlobalForCountry,
+} from "@/lib/law-country-scope";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { chunkLawContent } from "@/lib/embeddings/chunking";
@@ -225,9 +230,6 @@ async function searchLegalLibrary(
       .not("content", "is", null)
       .limit(3);
 
-    if (countryId) {
-      lawsQuery = lawsQuery.eq("country_id", countryId);
-    }
     if (categoryId) {
       lawsQuery = lawsQuery.eq("category_id", categoryId);
     }
@@ -238,10 +240,16 @@ async function searchLegalLibrary(
     const hasHint = searchCountry || searchCategory;
     if (query.trim() && !hasHint) {
       const searchTerms = query.trim().toLowerCase();
-      const escapedTerms = searchTerms.replace(/%/g, "\\%").replace(/_/g, "\\_");
-      lawsQuery = lawsQuery.or(
-        `title.ilike.%${escapedTerms}%,content.ilike.%${escapedTerms}%`
-      );
+      const escapedTerms = escapeIlikePattern(searchTerms);
+      if (countryId) {
+        lawsQuery = lawsQuery.or(lawsCountryOrGlobalWithTextSearch(countryId, escapedTerms));
+      } else {
+        lawsQuery = lawsQuery.or(
+          `title.ilike.%${escapedTerms}%,content.ilike.%${escapedTerms}%`
+        );
+      }
+    } else if (countryId) {
+      lawsQuery = lawsQuery.or(lawsOrGlobalForCountry(countryId));
     }
 
     const { data: laws, error } = await lawsQuery;
