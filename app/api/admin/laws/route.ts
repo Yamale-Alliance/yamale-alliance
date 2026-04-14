@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
       );
     }
     const countryId = formData.get("countryId") as string | null;
+    const appliesToAll = formData.get("appliesToAll") === "true";
     const categoryId = formData.get("categoryId") as string | null;
     const status = formData.get("status") as string | null;
     const rawTitle = formData.get("title") as string | null;
@@ -48,9 +49,15 @@ export async function POST(request: NextRequest) {
 
     const title = normaliseLawTitle(rawTitle);
 
-    if (!countryId?.trim() || !categoryId?.trim() || !title) {
+    if (!categoryId?.trim() || !title) {
       return NextResponse.json(
-        { error: "Missing required fields: countryId, categoryId, title" },
+        { error: "Missing required fields: categoryId, title" },
+        { status: 400 }
+      );
+    }
+    if (!appliesToAll && !countryId?.trim()) {
+      return NextResponse.json(
+        { error: "Missing country, or enable “All countries” for treaties and regional instruments." },
         { status: 400 }
       );
     }
@@ -96,17 +103,31 @@ export async function POST(request: NextRequest) {
     const contentTrimmed = sanitizeLawContent(text) || null;
 
     const supabase = getSupabaseServer();
-    const row: LawInsert = {
-      country_id: countryId.trim(),
-      category_id: categoryId.trim(),
-      title,
-      source_url: null,
-      source_name: null,
-      year: year ?? null,
-      status: (status ?? "In force").trim(),
-      content: contentTrimmed,
-      content_plain: contentTrimmed,
-    };
+    const row: LawInsert = appliesToAll
+      ? {
+          applies_to_all_countries: true,
+          country_id: null,
+          category_id: categoryId.trim(),
+          title,
+          source_url: null,
+          source_name: null,
+          year: year ?? null,
+          status: (status ?? "In force").trim(),
+          content: contentTrimmed,
+          content_plain: contentTrimmed,
+        }
+      : {
+          applies_to_all_countries: false,
+          country_id: countryId!.trim(),
+          category_id: categoryId.trim(),
+          title,
+          source_url: null,
+          source_name: null,
+          year: year ?? null,
+          status: (status ?? "In force").trim(),
+          content: contentTrimmed,
+          content_plain: contentTrimmed,
+        };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: insertError, data } = await (supabase.from("laws") as any)
