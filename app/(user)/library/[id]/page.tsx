@@ -34,7 +34,8 @@ type LawDetail = {
   status: string;
   content: string | null;
   content_plain: string | null;
-  country_id: string;
+  country_id: string | null;
+  applies_to_all_countries?: boolean;
   category_id: string;
   countries: { name: string } | null;
   categories: { name: string } | null;
@@ -1022,9 +1023,9 @@ export default function LawDetailPage({
             </div>
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-2">
-            {law.countries?.name && (
+            {(law.applies_to_all_countries || law.countries?.name) && (
               <span className="rounded-full bg-primary/15 px-3.5 py-1.5 text-xs font-semibold tracking-wide text-primary">
-                {law.countries.name}
+                {law.applies_to_all_countries ? "All countries" : (law.countries?.name ?? "")}
               </span>
             )}
             {law.categories?.name && (
