@@ -17,6 +17,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { lawsOrGlobalForCountry } from "../lib/law-country-scope";
 import {
   chunkTextForOcrFix,
   cleanFullLawTextWithClaude,
@@ -81,7 +82,7 @@ async function main(): Promise<void> {
   const { data: laws, error: lErr } = await supabase
     .from("laws")
     .select("id, title, content, content_plain")
-    .eq("country_id", countryId)
+    .or(lawsOrGlobalForCountry(countryId))
     .order("title");
 
   if (lErr) {
