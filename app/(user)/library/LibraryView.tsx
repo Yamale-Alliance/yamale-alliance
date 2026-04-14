@@ -107,7 +107,7 @@ function mapRowToLaw(row: LibraryLawRow): Law {
   return {
     id: row.id,
     name: row.title,
-    country: row.countries?.name ?? "",
+    country: row.applies_to_all_countries ? "All countries" : row.countries?.name ?? "",
     category: row.categories?.name ?? "",
     status: (STATUSES.includes(row.status as LawStatus) ? row.status : "In force") as LawStatus,
     created_at: row.created_at,
