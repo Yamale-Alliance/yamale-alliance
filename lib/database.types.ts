@@ -44,7 +44,8 @@ export interface Database {
       laws: {
         Row: {
           id: string;
-          country_id: string;
+          country_id: string | null;
+          applies_to_all_countries: boolean;
           category_id: string;
           title: string;
           source_url: string | null;
@@ -59,7 +60,8 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          country_id: string;
+          country_id?: string | null;
+          applies_to_all_countries?: boolean;
           category_id: string;
           title: string;
           source_url?: string | null;
