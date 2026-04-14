@@ -13,7 +13,8 @@ type Law = {
   title: string;
   year: number | null;
   status: string;
-  country_id: string;
+  country_id: string | null;
+  applies_to_all_countries?: boolean;
   category_id: string;
   countries: { name: string } | null;
   categories: { name: string } | null;
@@ -303,7 +304,9 @@ function AdminLawsPageInner() {
                         {law.title}
                       </Link>
                     </td>
-                    <td className="p-3 text-muted-foreground">{law.countries?.name ?? "—"}</td>
+                    <td className="p-3 text-muted-foreground">
+                      {law.applies_to_all_countries ? "All countries" : law.countries?.name ?? "—"}
+                    </td>
                     <td className="p-3 text-muted-foreground">{law.categories?.name ?? "—"}</td>
                     <td className="p-3">{law.status}</td>
                     <td className="p-3">{law.year ?? "—"}</td>
