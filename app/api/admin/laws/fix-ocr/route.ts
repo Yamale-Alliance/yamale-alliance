@@ -11,7 +11,7 @@ import type { Database } from "@/lib/database.types";
 
 type LawOcrRow = Pick<
   Database["public"]["Tables"]["laws"]["Row"],
-  "id" | "title" | "content" | "content_plain"
+  "id" | "title" | "content" | "content_plain" | "metadata"
 >;
 
 /** Large laws need many Claude chunks; allow up to 5 minutes per law. */
@@ -22,7 +22,48 @@ type Body = {
   dryRun?: boolean;
   delayMs?: number;
   chunkChars?: number;
+  force?: boolean;
 };
+
+type OcrMetadata = {
+  ocrAi?: {
+    fixedAt?: string;
+    skippedAt?: string;
+    skipReason?: string;
+    heuristicScore?: number;
+  };
+};
+
+function toOcrMetadata(value: unknown): OcrMetadata {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as OcrMetadata;
+}
+
+/**
+ * Heuristic score for OCR noise; higher means more likely to need cleanup.
+ * We intentionally bias toward skipping to save Claude credits.
+ */
+function estimateOcrNoiseScore(text: string): number {
+  const sample = text.slice(0, 12000);
+  if (!sample.trim()) return 0;
+
+  let score = 0;
+  const weirdGlyphs = (sample.match(/[^\x09\x0A\x0D\x20-\x7E]/g) ?? []).length;
+  const replacementChars = (sample.match(/�/g) ?? []).length;
+  const longPunctRuns = (sample.match(/[|\\/_-]{4,}/g) ?? []).length;
+  const oddTokenFragments = (sample.match(/\b[a-zA-Z]{1,2}\d[a-zA-Z]{1,2}\b/g) ?? []).length;
+  const spacedLetters = (sample.match(/\b(?:[A-Za-z]\s){4,}[A-Za-z]\b/g) ?? []).length;
+  const veryLongLines = sample.split("\n").filter((line) => line.length > 400).length;
+
+  score += weirdGlyphs * 2;
+  score += replacementChars * 8;
+  score += longPunctRuns * 5;
+  score += oddTokenFragments * 2;
+  score += spacedLetters * 3;
+  score += veryLongLines * 2;
+
+  return score;
+}
 
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin();
@@ -49,6 +90,7 @@ export async function POST(request: NextRequest) {
   }
 
   const dryRun = Boolean(body.dryRun);
+  const force = body.force === true;
   const delayMs =
     typeof body.delayMs === "number" && Number.isFinite(body.delayMs) && body.delayMs >= 0
       ? Math.min(60_000, body.delayMs)
@@ -61,7 +103,7 @@ export async function POST(request: NextRequest) {
   const supabase = getSupabaseServer();
   const { data: lawRow, error: fetchErr } = await supabase
     .from("laws")
-    .select("id, title, content, content_plain")
+    .select("id, title, content, content_plain, metadata")
     .eq("id", lawId)
     .single();
 
@@ -75,6 +117,55 @@ export async function POST(request: NextRequest) {
     (law.content && law.content.trim()) || (law.content_plain && law.content_plain.trim()) || "";
   if (!raw) {
     return NextResponse.json({ error: "This law has no text to clean." }, { status: 400 });
+  }
+
+  const metadata = toOcrMetadata(law.metadata);
+  const alreadyFixed = Boolean(metadata.ocrAi?.fixedAt);
+  const heuristicScore = estimateOcrNoiseScore(raw);
+  const likelyNeedsCleaning = heuristicScore >= 18;
+
+  if (!force && alreadyFixed) {
+    return NextResponse.json({
+      ok: true,
+      skipped: true,
+      reason: "already_fixed",
+      lawId: law.id,
+      title: law.title,
+      heuristicScore,
+      originalChars: raw.length,
+    });
+  }
+
+  if (!force && !likelyNeedsCleaning) {
+    // Persist skip marker so repeat runs continue to avoid Claude calls.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- partial JSON metadata merge
+    const { error: skipMetaErr } = await (supabase.from("laws") as any)
+      .update({
+        metadata: {
+          ...(metadata ?? {}),
+          ocrAi: {
+            ...(metadata.ocrAi ?? {}),
+            skippedAt: new Date().toISOString(),
+            skipReason: "looks_clean",
+            heuristicScore,
+          },
+        },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", law.id);
+    if (skipMetaErr) {
+      console.error("fix-ocr skip metadata update:", skipMetaErr);
+    }
+
+    return NextResponse.json({
+      ok: true,
+      skipped: true,
+      reason: "looks_clean",
+      lawId: law.id,
+      title: law.title,
+      heuristicScore,
+      originalChars: raw.length,
+    });
   }
 
   const signal = request.signal;
@@ -124,6 +215,14 @@ export async function POST(request: NextRequest) {
     .update({
       content: merged,
       content_plain: merged,
+      metadata: {
+        ...(metadata ?? {}),
+        ocrAi: {
+          ...(metadata.ocrAi ?? {}),
+          fixedAt: new Date().toISOString(),
+          heuristicScore,
+        },
+      },
       updated_at: new Date().toISOString(),
     })
     .eq("id", law.id);
