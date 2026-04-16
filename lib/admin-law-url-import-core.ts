@@ -82,6 +82,7 @@ export async function saveLawFromPdfUrlImport(params: {
   url: string;
   forceOcr: boolean;
   countryId?: string;
+  countryIds?: string[];
   appliesToAllCountries?: boolean;
   categoryId: string;
   title: string;
@@ -89,13 +90,14 @@ export async function saveLawFromPdfUrlImport(params: {
   year: number | null;
   markdownOverride?: string;
   auditSource: LawUrlImportAuditSource;
-}): Promise<{ id: string; title: string }> {
+}): Promise<{ laws: Array<{ id: string; title: string }>; recordsCreated: number }> {
   const {
     supabase,
     admin,
     url,
     forceOcr,
     countryId,
+    countryIds,
     appliesToAllCountries,
     categoryId,
     title,
@@ -107,11 +109,15 @@ export async function saveLawFromPdfUrlImport(params: {
 
   const global = appliesToAllCountries === true;
   const cid = (countryId ?? "").trim();
+  const normalizedCountryIds = [...new Set((countryIds ?? []).map((id) => id.trim()).filter(Boolean))];
+  const effectiveCountryIds = normalizedCountryIds.length > 0 ? normalizedCountryIds : cid ? [cid] : [];
   if (!categoryId || !title) {
     throw new Error("Saving requires categoryId and title.");
   }
-  if (!global && !cid) {
-    throw new Error("Saving requires countryId, or set appliesToAllCountries for treaties and regional instruments.");
+  if (!global && effectiveCountryIds.length === 0) {
+    throw new Error(
+      "Saving requires at least one country, or set appliesToAllCountries for treaties and regional instruments."
+    );
   }
   if (!VALID_LAW_STATUSES.includes(status as (typeof VALID_LAW_STATUSES)[number])) {
     throw new Error(`Invalid status. Use one of: ${VALID_LAW_STATUSES.join(", ")}`);
@@ -142,22 +148,24 @@ export async function saveLawFromPdfUrlImport(params: {
     sourceName = null;
   }
 
-  const row: LawInsert = global
-    ? {
-        applies_to_all_countries: true,
-        country_id: null,
-        category_id: categoryId,
-        title,
-        source_url: sourceUrl,
-        source_name: sourceName,
-        year: year ?? null,
-        status,
-        content: contentTrimmed,
-        content_plain: contentTrimmed,
-      }
-    : {
+  const rows: LawInsert[] = global
+    ? [
+        {
+          applies_to_all_countries: true,
+          country_id: null,
+          category_id: categoryId,
+          title,
+          source_url: sourceUrl,
+          source_name: sourceName,
+          year: year ?? null,
+          status,
+          content: contentTrimmed,
+          content_plain: contentTrimmed,
+        },
+      ]
+    : effectiveCountryIds.map((countryIdValue) => ({
         applies_to_all_countries: false,
-        country_id: cid,
+        country_id: countryIdValue,
         category_id: categoryId,
         title,
         source_url: sourceUrl,
@@ -166,13 +174,12 @@ export async function saveLawFromPdfUrlImport(params: {
         status,
         content: contentTrimmed,
         content_plain: contentTrimmed,
-      };
+      }));
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error: insertError, data } = await (supabase.from("laws") as any)
-    .insert(row)
-    .select("id, title")
-    .single();
+    .insert(rows)
+    .select("id, title");
 
   if (insertError) {
     throw new Error(insertError.message);
@@ -183,9 +190,13 @@ export async function saveLawFromPdfUrlImport(params: {
     adminEmail: admin.email,
     action: "law.add",
     entityType: "law",
-    entityId: data?.id ?? null,
-    details: { title, source: auditSource },
+    entityId: null,
+    details: { title, source: auditSource, recordsCreated: data?.length ?? 0 },
   });
 
-  return { id: data.id as string, title: data.title as string };
+  const inserted = ((data ?? []) as Array<{ id: string; title: string }>).map((row) => ({
+    id: row.id,
+    title: row.title,
+  }));
+  return { laws: inserted, recordsCreated: inserted.length };
 }
