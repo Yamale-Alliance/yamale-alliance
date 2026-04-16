@@ -80,10 +80,11 @@ export async function POST(request: NextRequest) {
     await recordAuditLog(supabase, {
       adminId: admin.userId,
       adminEmail: admin.email,
-      action: "law.restore",
+      // Reuse existing audit action type so AuditAction stays valid.
+      action: "law.update",
       entityType: "law",
       entityId: row.id,
-      details: { title: row.title },
+      details: { title: row.title, restored: true },
     });
 
     return NextResponse.json({ ok: true, lawId: row.id, title: row.title });
