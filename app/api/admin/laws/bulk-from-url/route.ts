@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
           markdownOverride = markdown;
         }
 
-        const law = await saveLawFromPdfUrlImport({
+        const result = await saveLawFromPdfUrlImport({
           supabase,
           admin,
           url,
@@ -207,8 +207,12 @@ export async function POST(request: NextRequest) {
           markdownOverride,
           auditSource: "bulk-url-import",
         });
-
-        succeeded.push({ index: i, id: law.id, title: law.title });
+        const firstLaw = result.laws[0];
+        if (!firstLaw) {
+          failRow(i, title || rowLabel, "Import returned no created record.", item, countryId, categoryId);
+          continue;
+        }
+        succeeded.push({ index: i, id: firstLaw.id, title: firstLaw.title });
       } catch (e) {
         failRow(i, title || rowLabel, e instanceof Error ? e.message : "Import failed", item, countryId, categoryId);
       }
