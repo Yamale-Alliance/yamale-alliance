@@ -20,7 +20,7 @@ type LogLine =
 
 export default function AdminLawsFixOcrPage() {
   const [countries, setCountries] = useState<Country[]>([]);
-  const [countryId, setCountryId] = useState("");
+  const [countryIds, setCountryIds] = useState<string[]>([]);
   const [laws, setLaws] = useState<LawRow[]>([]);
   const [loadingLaws, setLoadingLaws] = useState(false);
   const [dryRun, setDryRun] = useState(false);
@@ -43,15 +43,29 @@ export default function AdminLawsFixOcrPage() {
   }, []);
 
   useEffect(() => {
-    if (!countryId) return;
+    if (countryIds.length === 0) {
+      setLaws([]);
+      return;
+    }
     let cancelled = false;
-    const params = new URLSearchParams();
-    params.set("countryId", countryId);
     setLoadingLaws(true);
-    fetch(`${window.location.origin}/api/laws?${params}`, { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => {
-        if (!cancelled) setLaws(data.laws ?? []);
+    Promise.all(
+      countryIds.map(async (countryId) => {
+        const params = new URLSearchParams();
+        params.set("countryId", countryId);
+        const res = await fetch(`${window.location.origin}/api/laws?${params}`, { credentials: "include" });
+        const data = await res.json();
+        return (data.laws ?? []) as LawRow[];
+      })
+    )
+      .then((countryLawLists) => {
+        if (cancelled) return;
+        // Same global law can appear in each selected country's response; keep unique ids only.
+        const byId = new Map<string, LawRow>();
+        countryLawLists.flat().forEach((law) => {
+          if (!byId.has(law.id)) byId.set(law.id, law);
+        });
+        setLaws(Array.from(byId.values()));
       })
       .catch(() => {
         if (!cancelled) setLaws([]);
@@ -62,14 +76,14 @@ export default function AdminLawsFixOcrPage() {
     return () => {
       cancelled = true;
     };
-  }, [countryId]);
+  }, [countryIds]);
 
   const appendLog = useCallback((line: LogLine) => {
     setLog((prev) => [...prev, line]);
   }, []);
 
   const runBatch = async (onlyLaws?: LawRow[]) => {
-    if (!countryId || laws.length === 0) return;
+    if (countryIds.length === 0 || laws.length === 0) return;
     const isRetry = Array.isArray(onlyLaws) && onlyLaws.length > 0;
     let list = isRetry
       ? [...onlyLaws]
@@ -88,7 +102,7 @@ export default function AdminLawsFixOcrPage() {
     setLastFailedLaws([]);
     appendLog({
       kind: "info",
-      text: `Starting ${isRetry ? "retry " : ""}${dryRun ? "dry run (no saves) " : ""}for ${list.length} law(s).`,
+      text: `Starting ${isRetry ? "retry " : ""}${dryRun ? "dry run (no saves) " : ""}for ${list.length} law(s) across ${countryIds.length} countr${countryIds.length === 1 ? "y" : "ies"}.`,
     });
 
     let ok = 0;
@@ -126,12 +140,30 @@ export default function AdminLawsFixOcrPage() {
             text: data?.error ?? `HTTP ${res.status}`,
           });
         } else {
-          ok++;
           const d = data as {
             originalChars?: number;
             cleanedChars?: number;
             preview?: string;
+            skipped?: boolean;
+            reason?: string;
+            heuristicScore?: number;
           };
+          if (d.skipped) {
+            ok++;
+            appendLog({
+              kind: "info",
+              text:
+                d.reason === "already_fixed"
+                  ? `Skipped (already fixed earlier).`
+                  : `Skipped (looks clean; score ${d.heuristicScore ?? "?"}).`,
+            });
+            setProgress({ done: i + 1, total: list.length });
+            if (i < list.length - 1 && !stopRef.current && lawDelayMs > 0) {
+              await new Promise((r) => setTimeout(r, lawDelayMs));
+            }
+            continue;
+          }
+          ok++;
           appendLog({
             kind: "ok",
             text: dryRun
@@ -172,7 +204,9 @@ export default function AdminLawsFixOcrPage() {
     stopRef.current = true;
   };
 
-  const selectedCountry = countries.find((c) => c.id === countryId);
+  const selectedCountryNames = countries
+    .filter((c) => countryIds.includes(c.id))
+    .map((c) => c.name);
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl">
@@ -201,24 +235,29 @@ export default function AdminLawsFixOcrPage() {
         <div>
           <label className="mb-1.5 block text-sm font-medium">Country</label>
           <select
-            value={countryId}
+            value={countryIds}
             onChange={(e) => {
-              setCountryId(e.target.value);
+              const vals = Array.from(e.target.selectedOptions).map((o) => o.value);
+              setCountryIds(vals);
               setLaws([]);
             }}
+            multiple
+            size={8}
             disabled={running}
             className="w-full max-w-md rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
-            <option value="">Select a country</option>
             {countries.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
             ))}
           </select>
-          {countryId && !loadingLaws && (
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Hold Cmd/Ctrl to select multiple countries.
+          </p>
+          {countryIds.length > 0 && !loadingLaws && (
             <p className="mt-1.5 text-xs text-muted-foreground">
-              {laws.length} law(s) in {selectedCountry?.name ?? "this country"}.
+              {laws.length} unique law(s) across {selectedCountryNames.join(", ")}.
             </p>
           )}
         </div>
@@ -283,7 +322,7 @@ export default function AdminLawsFixOcrPage() {
           <button
             type="button"
             onClick={() => void runBatch()}
-            disabled={running || !countryId || laws.length === 0 || loadingLaws}
+            disabled={running || countryIds.length === 0 || laws.length === 0 || loadingLaws}
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
             {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
