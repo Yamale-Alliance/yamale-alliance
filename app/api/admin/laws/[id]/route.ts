@@ -151,7 +151,9 @@ export async function DELETE(
     const supabase = getSupabaseServer();
     const { data: existing, error: fetchError } = await supabase
       .from("laws")
-      .select("id, title")
+      .select(
+        "id, country_id, applies_to_all_countries, category_id, title, source_url, source_name, year, status, content, content_plain, metadata, created_at, updated_at"
+      )
       .eq("id", id)
       .single();
 
@@ -159,12 +161,40 @@ export async function DELETE(
       return NextResponse.json({ error: "Law not found" }, { status: 404 });
     }
 
-    const existingLaw = existing as { id: string; title: string };
+    const existingLaw = existing as LawRow;
+
+    // Archive into deleted_laws before hard delete.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: archiveError } = await (supabase.from("deleted_laws") as any).insert({
+      id: existingLaw.id,
+      country_id: existingLaw.country_id,
+      applies_to_all_countries: existingLaw.applies_to_all_countries,
+      category_id: existingLaw.category_id,
+      title: existingLaw.title,
+      source_url: existingLaw.source_url,
+      source_name: existingLaw.source_name,
+      year: existingLaw.year,
+      status: existingLaw.status,
+      content: existingLaw.content,
+      content_plain: existingLaw.content_plain,
+      metadata: existingLaw.metadata,
+      created_at: existingLaw.created_at,
+      updated_at: existingLaw.updated_at,
+      deleted_at: new Date().toISOString(),
+      deleted_by: admin.userId,
+      delete_reason: "admin_delete_single",
+    });
+
+    if (archiveError) {
+      console.error("Admin law DELETE archive error:", archiveError);
+      return NextResponse.json(
+        { error: "Failed to archive deleted law", details: archiveError.message },
+        { status: 500 }
+      );
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: deleteError } = await (supabase.from("laws") as any)
-      .delete()
-      .eq("id", id);
+    const { error: deleteError } = await (supabase.from("laws") as any).delete().eq("id", id);
 
     if (deleteError) {
       console.error("Admin law DELETE error:", deleteError);
@@ -177,7 +207,7 @@ export async function DELETE(
       action: "law.delete",
       entityType: "law",
       entityId: id,
-      details: { title: existingLaw.title },
+      details: { title: existingLaw.title, archived: true },
     });
 
     return NextResponse.json({ ok: true });
