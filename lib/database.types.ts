@@ -646,6 +646,47 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["afcfta_requirements_override"]["Insert"]>;
       };
+      deleted_laws: {
+        Row: {
+          id: string;
+          country_id: string | null;
+          applies_to_all_countries: boolean;
+          category_id: string;
+          title: string;
+          source_url: string | null;
+          source_name: string | null;
+          year: number | null;
+          status: string;
+          content: string | null;
+          content_plain: string | null;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+          deleted_at: string;
+          deleted_by: string | null;
+          delete_reason: string | null;
+        };
+        Insert: {
+          id?: string;
+          country_id?: string | null;
+          applies_to_all_countries?: boolean;
+          category_id: string;
+          title: string;
+          source_url?: string | null;
+          source_name?: string | null;
+          year?: number | null;
+          status?: string;
+          content?: string | null;
+          content_plain?: string | null;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+          deleted_at?: string;
+          deleted_by?: string | null;
+          delete_reason?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["deleted_laws"]["Insert"]>;
+      };
     };
   };
 }
