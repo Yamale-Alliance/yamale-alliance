@@ -13,7 +13,7 @@ const MAX_SINGLE_UPLOAD_MB = 45;
 export default function AdminLawsAddPage() {
   const [countries, setCountries] = useState<Country[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [countryId, setCountryId] = useState("");
+  const [countryIds, setCountryIds] = useState<string[]>([]);
   const [appliesToAll, setAppliesToAll] = useState(false);
   const [categoryId, setCategoryId] = useState("");
   const [status, setStatus] = useState("In force");
@@ -79,7 +79,7 @@ export default function AdminLawsAddPage() {
         setMode("paste");
       }
       if (data.suggested?.title) setTitle(data.suggested.title);
-      if (data.suggested?.countryId) setCountryId(data.suggested.countryId);
+      if (data.suggested?.countryId) setCountryIds([data.suggested.countryId]);
       if (data.suggested?.categoryId) setCategoryId(data.suggested.categoryId);
       if (data.suggested?.year != null) setYear(String(data.suggested.year));
       setUrlImportReady(true);
@@ -109,8 +109,8 @@ export default function AdminLawsAddPage() {
       setError("Title is required.");
       return;
     }
-    if (!appliesToAll && !countryId) {
-      setError("Select a country, or enable “All countries” for treaties and regional instruments.");
+    if (!appliesToAll && countryIds.length === 0) {
+      setError("Select at least one country, or enable “All countries” for treaties and regional instruments.");
       return;
     }
     if (!categoryId) {
@@ -129,7 +129,7 @@ export default function AdminLawsAddPage() {
             previewOnly: false,
             url: sourceUrl.trim(),
             appliesToAllCountries: appliesToAll,
-            countryId: appliesToAll ? undefined : countryId,
+            countryIds: appliesToAll ? undefined : countryIds,
             categoryId,
             title: title.trim(),
             status,
@@ -192,7 +192,7 @@ export default function AdminLawsAddPage() {
     if (appliesToAll) {
       formData.set("appliesToAll", "true");
     } else {
-      formData.set("countryId", countryId);
+      countryIds.forEach((countryId) => formData.append("countryIds", countryId));
     }
     formData.set("categoryId", categoryId);
     formData.set("status", status);
@@ -362,7 +362,7 @@ export default function AdminLawsAddPage() {
               onChange={(e) => {
                 const on = e.target.checked;
                 setAppliesToAll(on);
-                if (on) setCountryId("");
+                if (on) setCountryIds([]);
               }}
               className="mt-1 rounded border-input"
             />
@@ -376,21 +376,47 @@ export default function AdminLawsAddPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Country{!appliesToAll ? " *" : ""}</label>
-          <select
-            value={countryId}
-            onChange={(e) => setCountryId(e.target.value)}
-            required={!appliesToAll}
-            disabled={appliesToAll}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-60"
-          >
-            <option value="">Select country</option>
-            {countries.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <label className="block text-sm font-medium mb-1">Countries{!appliesToAll ? " *" : ""}</label>
+          <div className="max-h-56 overflow-y-auto rounded-md border border-input bg-background p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">
+                {appliesToAll ? "Disabled because All countries is enabled." : "Select one or more countries."}
+              </span>
+              {!appliesToAll && (
+                <button
+                  type="button"
+                  onClick={() => setCountryIds(countries.map((c) => c.id))}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Select all
+                </button>
+              )}
+            </div>
+            <div className="space-y-2">
+              {countries.map((c) => {
+                const checked = countryIds.includes(c.id);
+                return (
+                  <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={appliesToAll}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setCountryIds((prev) => (prev.includes(c.id) ? prev : [...prev, c.id]));
+                        } else {
+                          setCountryIds((prev) => prev.filter((id) => id !== c.id));
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-input"
+                    />
+                    <span>{c.name}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+          {!appliesToAll && <p className="mt-1 text-xs text-muted-foreground">{countryIds.length} selected</p>}
         </div>
 
         <div>
