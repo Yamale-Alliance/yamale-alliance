@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Search, Sparkles, Trash2 } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
@@ -26,6 +26,12 @@ type LawForEdit = {
 export default function AdminLawEditPage() {
   const params = useParams();
   const id = params?.id as string;
+  const searchParams = useSearchParams();
+  const returnToParam = searchParams.get("returnTo");
+  const returnTo =
+    returnToParam && returnToParam.startsWith("/admin-panel/laws")
+      ? returnToParam
+      : "/admin-panel/laws";
 
   const [law, setLaw] = useState<LawForEdit | null>(null);
   const [countries, setCountries] = useState<Country[]>([]);
@@ -173,7 +179,7 @@ export default function AdminLawEditPage() {
         setDeleting(false);
         return;
       }
-      router.push("/admin-panel/laws");
+      router.push(returnTo);
     } catch {
       setError("Network error. Please try again.");
       setDeleting(false);
@@ -234,7 +240,7 @@ export default function AdminLawEditPage() {
     <div className="p-4 sm:p-6">
       <div className="mb-4 flex items-center justify-between gap-2">
         <Link
-          href="/admin-panel/laws"
+          href={returnTo}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
