@@ -28,6 +28,10 @@ function AdminLawsPageInner() {
   const countryId = searchParams.get("countryId") ?? "";
   const categoryId = searchParams.get("categoryId") ?? "";
   const status = searchParams.get("status") ?? "";
+  const currentListUrl = (() => {
+    const qs = searchParams.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  })();
 
   const setFilter = useCallback(
     (key: "countryId" | "categoryId" | "status", value: string) => {
@@ -298,7 +302,7 @@ function AdminLawsPageInner() {
                     </td>
                     <td className="p-3">
                       <Link
-                        href={`/admin-panel/laws/${law.id}`}
+                        href={`/admin-panel/laws/${law.id}?returnTo=${encodeURIComponent(currentListUrl)}`}
                         className="font-medium text-primary hover:underline"
                       >
                         {law.title}
