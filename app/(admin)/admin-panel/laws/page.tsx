@@ -236,6 +236,20 @@ function AdminLawsPageInner() {
             <option value="Repealed">Repealed</option>
           </select>
         </div>
+        <div className="self-end">
+          <button
+            type="button"
+            onClick={() => {
+              setFilter("countryId", "");
+              setFilter("categoryId", "");
+              setFilter("status", "");
+            }}
+            disabled={!countryId && !categoryId && !status}
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50"
+          >
+            Clear selected filters
+          </button>
+        </div>
       </div>
 
       {!loading && laws.length > 0 && (
