@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin";
 import { recordAuditLog } from "@/lib/admin-audit";
+import type { Database } from "@/lib/database.types";
 
 const MAX_BATCH = 500;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -42,7 +43,9 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseServer();
     const { data: existing, error: fetchErr } = await supabase
       .from("laws")
-      .select("id, title")
+      .select(
+        "id, country_id, applies_to_all_countries, category_id, title, source_url, source_name, year, status, content, content_plain, metadata, created_at, updated_at"
+      )
       .in("id", ids);
 
     if (fetchErr) {
@@ -50,12 +53,45 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: fetchErr.message }, { status: 500 });
     }
 
-    const rows = (existing ?? []) as { id: string; title: string }[];
+    const rows = (existing ?? []) as Database["public"]["Tables"]["laws"]["Row"][];
     if (rows.length === 0) {
       return NextResponse.json({ ok: true, deleted: 0, notFound: ids });
     }
 
     const foundIds = rows.map((r) => r.id);
+
+    // Archive into deleted_laws first (best-effort; if this fails, do not delete).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: archiveErr } = await (supabase.from("deleted_laws") as any).insert(
+      rows.map((existingLaw) => ({
+        id: existingLaw.id,
+        country_id: existingLaw.country_id,
+        applies_to_all_countries: existingLaw.applies_to_all_countries,
+        category_id: existingLaw.category_id,
+        title: existingLaw.title,
+        source_url: existingLaw.source_url,
+        source_name: existingLaw.source_name,
+        year: existingLaw.year,
+        status: existingLaw.status,
+        content: existingLaw.content,
+        content_plain: existingLaw.content_plain,
+        metadata: existingLaw.metadata,
+        created_at: existingLaw.created_at,
+        updated_at: existingLaw.updated_at,
+        deleted_at: new Date().toISOString(),
+        deleted_by: admin.userId,
+        delete_reason: "admin_delete_batch",
+      }))
+    );
+
+    if (archiveErr) {
+      console.error("Admin laws batch-delete archive:", archiveErr);
+      return NextResponse.json(
+        { error: "Failed to archive deleted laws", details: archiveErr.message },
+        { status: 500 }
+      );
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: delErr } = await (supabase.from("laws") as any).delete().in("id", foundIds);
 
