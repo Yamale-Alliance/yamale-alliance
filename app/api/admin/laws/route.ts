@@ -37,7 +37,11 @@ export async function POST(request: NextRequest) {
         { status: 413 }
       );
     }
-    const countryId = formData.get("countryId") as string | null;
+    const countryIds = formData
+      .getAll("countryIds")
+      .map((v) => (typeof v === "string" ? v.trim() : ""))
+      .filter(Boolean);
+    const fallbackCountryId = (formData.get("countryId") as string | null)?.trim() || "";
     const appliesToAll = formData.get("appliesToAll") === "true";
     const categoryId = formData.get("categoryId") as string | null;
     const status = formData.get("status") as string | null;
@@ -55,9 +59,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    if (!appliesToAll && !countryId?.trim()) {
+    if (!appliesToAll && countryIds.length === 0 && !fallbackCountryId) {
       return NextResponse.json(
-        { error: "Missing country, or enable “All countries” for treaties and regional instruments." },
+        { error: "Missing country selection, or enable “All countries” for treaties and regional instruments." },
         { status: 400 }
       );
     }
@@ -103,22 +107,25 @@ export async function POST(request: NextRequest) {
     const contentTrimmed = sanitizeLawContent(text) || null;
 
     const supabase = getSupabaseServer();
-    const row: LawInsert = appliesToAll
-      ? {
-          applies_to_all_countries: true,
-          country_id: null,
-          category_id: categoryId.trim(),
-          title,
-          source_url: null,
-          source_name: null,
-          year: year ?? null,
-          status: (status ?? "In force").trim(),
-          content: contentTrimmed,
-          content_plain: contentTrimmed,
-        }
-      : {
+    const effectiveCountryIds = countryIds.length > 0 ? [...new Set(countryIds)] : fallbackCountryId ? [fallbackCountryId] : [];
+    const rows: LawInsert[] = appliesToAll
+      ? [
+          {
+            applies_to_all_countries: true,
+            country_id: null,
+            category_id: categoryId.trim(),
+            title,
+            source_url: null,
+            source_name: null,
+            year: year ?? null,
+            status: (status ?? "In force").trim(),
+            content: contentTrimmed,
+            content_plain: contentTrimmed,
+          },
+        ]
+      : effectiveCountryIds.map((countryId) => ({
           applies_to_all_countries: false,
-          country_id: countryId!.trim(),
+          country_id: countryId,
           category_id: categoryId.trim(),
           title,
           source_url: null,
@@ -127,13 +134,12 @@ export async function POST(request: NextRequest) {
           status: (status ?? "In force").trim(),
           content: contentTrimmed,
           content_plain: contentTrimmed,
-        };
+        }));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: insertError, data } = await (supabase.from("laws") as any)
-      .insert(row)
-      .select("id, title")
-      .single();
+      .insert(rows)
+      .select("id, title");
 
     if (insertError) {
       return NextResponse.json(
@@ -147,11 +153,11 @@ export async function POST(request: NextRequest) {
       adminEmail: admin.email,
       action: "law.add",
       entityType: "law",
-      entityId: data?.id ?? null,
-      details: { title },
+      entityId: null,
+      details: { title, recordsCreated: data?.length ?? 0 },
     });
 
-    return NextResponse.json({ ok: true, law: data });
+    return NextResponse.json({ ok: true, laws: data ?? [], recordsCreated: data?.length ?? 0 });
   } catch (err) {
     console.error("Admin laws POST error:", err);
     return NextResponse.json(
