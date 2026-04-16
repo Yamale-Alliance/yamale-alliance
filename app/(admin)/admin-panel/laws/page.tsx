@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { Plus, FileText, Loader2, Trash2 } from "lucide-react";
+import { Plus, FileText, Loader2, Trash2, CopyCheck, Trash } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 
 type Country = { id: string; name: string; region: string | null };
@@ -51,6 +51,9 @@ function AdminLawsPageInner() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [dupLoading, setDupLoading] = useState(false);
+  const [dupError, setDupError] = useState<string | null>(null);
+  const [dupSummary, setDupSummary] = useState<{ groups: number; laws: number } | null>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
   const { confirm, confirmDialog } = useConfirm();
 
@@ -183,6 +186,13 @@ function AdminLawsPageInner() {
             Bulk PDFs
           </Link>
           <Link
+            href="/admin-panel/laws/deleted"
+            className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+          >
+            <Trash className="h-4 w-4" />
+            Recently deleted
+          </Link>
+          <Link
             href="/admin-panel/laws/add"
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
@@ -250,6 +260,81 @@ function AdminLawsPageInner() {
             Clear selected filters
           </button>
         </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            if (!countryId || !categoryId) return;
+            setDupLoading(true);
+            setDupError(null);
+            setDupSummary(null);
+            const params = new URLSearchParams();
+            params.set("countryId", countryId);
+            params.set("categoryId", categoryId);
+            fetch(`/api/admin/laws/duplicates?${params.toString()}`, { credentials: "include" })
+              .then((r) => r.json())
+              .then((data) => {
+                if (!data?.ok) {
+                  setDupError(
+                    typeof data.error === "string" ? data.error : "Failed to check duplicates."
+                  );
+                  setDupSummary(null);
+                  return;
+                }
+                const groups = Array.isArray(data.duplicates) ? data.duplicates : [];
+                const lawsCount = groups.reduce(
+                  (sum: number, g: { laws?: unknown[] }) => sum + (Array.isArray(g.laws) ? g.laws.length : 0),
+                  0
+                );
+                setDupSummary({ groups: groups.length, laws: lawsCount });
+              })
+              .catch(() => {
+                setDupError("Failed to check duplicates.");
+                setDupSummary(null);
+              })
+              .finally(() => setDupLoading(false));
+          }}
+          disabled={!countryId || !categoryId || dupLoading}
+          className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-accent disabled:opacity-50"
+        >
+          {dupLoading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <CopyCheck className="h-3.5 w-3.5" />
+          )}
+          {dupLoading ? "Checking duplicates…" : "Check duplicates in this country & category"}
+        </button>
+        {!countryId || !categoryId ? (
+          <span className="text-xs text-muted-foreground">
+            Select both a country and category to check for duplicates.
+          </span>
+        ) : dupError ? (
+          <span className="text-xs text-destructive">{dupError}</span>
+        ) : dupSummary ? (
+          dupSummary.groups > 0 ? (
+            <span className="text-xs text-muted-foreground">
+              Found {dupSummary.groups} duplicate group{dupSummary.groups === 1 ? "" : "s"} covering{" "}
+              {dupSummary.laws} law{dupSummary.laws === 1 ? "" : "s"}.{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  const params = new URLSearchParams();
+                  params.set("countryId", countryId);
+                  params.set("categoryId", categoryId);
+                  params.set("returnTo", currentListUrl);
+                  router.push(`/admin-panel/laws/duplicates?${params.toString()}`);
+                }}
+                className="text-primary underline-offset-2 hover:underline"
+              >
+                View details
+              </button>
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">No duplicates found for this country and category.</span>
+          )
+        ) : null}
       </div>
 
       {!loading && laws.length > 0 && (
