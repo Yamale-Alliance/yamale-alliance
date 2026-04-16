@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, RotateCcw, Trash2 } from "lucide-react";
 
 type DeletedLawRow = {
@@ -19,6 +20,12 @@ type Country = { id: string; name: string };
 type Category = { id: string; name: string };
 
 export default function AdminDeletedLawsPage() {
+  const searchParams = useSearchParams();
+  const returnToParam = searchParams.get("returnTo");
+  const returnTo =
+    returnToParam && returnToParam.startsWith("/admin-panel/laws")
+      ? returnToParam
+      : "/admin-panel/laws";
   const [rows, setRows] = useState<DeletedLawRow[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -81,7 +88,7 @@ export default function AdminDeletedLawsPage() {
     <div className="p-4 sm:p-6">
       <div className="mb-4 flex items-center justify-between gap-2">
         <Link
-          href="/admin-panel/laws"
+          href={returnTo}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
