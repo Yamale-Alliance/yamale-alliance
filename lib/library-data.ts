@@ -1,5 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { lawsOrGlobalForCountry } from "@/lib/law-country-scope";
+import { escapeIlikePattern, lawsOrGlobalForCountry } from "@/lib/law-country-scope";
 
 /** Max laws returned in one response (pagination is client-side within this set). */
 const LAWS_LIMIT = 20_000;
@@ -52,7 +52,8 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
     if (filters?.categoryId) countQuery = countQuery.eq("category_id", filters.categoryId);
     if (filters?.status) countQuery = countQuery.eq("status", filters.status);
     if (filters?.q?.trim()) {
-      countQuery = countQuery.ilike("title", `%${filters.q.trim()}%`);
+      const term = escapeIlikePattern(filters.q.trim());
+      countQuery = countQuery.or(`title.ilike.%${term}%,categories.name.ilike.%${term}%`);
     }
 
     let lawsQuery = supabase
@@ -67,7 +68,8 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
     if (filters?.categoryId) lawsQuery = lawsQuery.eq("category_id", filters.categoryId);
     if (filters?.status) lawsQuery = lawsQuery.eq("status", filters.status);
     if (filters?.q?.trim()) {
-      lawsQuery = lawsQuery.ilike("title", `%${filters.q.trim()}%`);
+      const term = escapeIlikePattern(filters.q.trim());
+      lawsQuery = lawsQuery.or(`title.ilike.%${term}%,categories.name.ilike.%${term}%`);
     }
 
     const [countriesRes, categoriesRes, countRes, lawsRes] = await Promise.all([

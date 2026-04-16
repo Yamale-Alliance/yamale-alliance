@@ -28,6 +28,8 @@ type Law = {
   id: string;
   name: string;
   country: string;
+  /** True when this row applies everywhere; still shown when a specific country filter is selected. */
+  applies_globally: boolean;
   category: string;
   status: LawStatus;
   created_at?: string;
@@ -108,6 +110,7 @@ function mapRowToLaw(row: LibraryLawRow): Law {
     id: row.id,
     name: row.title,
     country: row.applies_to_all_countries ? "All countries" : row.countries?.name ?? "",
+    applies_globally: !!row.applies_to_all_countries,
     category: row.categories?.name ?? "",
     status: (STATUSES.includes(row.status as LawStatus) ? row.status : "In force") as LawStatus,
     created_at: row.created_at,
@@ -418,7 +421,7 @@ export function LibraryView({
         !search ||
         law.name.toLowerCase().includes(search.toLowerCase()) ||
         law.category.toLowerCase().includes(search.toLowerCase());
-      const matchCountry = !country || law.country === country;
+      const matchCountry = !country || law.country === country || law.applies_globally;
       const matchCategory = !category || law.category === category;
       const matchStatus = !status || law.status === status;
       return matchSearch && matchCountry && matchCategory && matchStatus;
