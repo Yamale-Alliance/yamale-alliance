@@ -5,6 +5,7 @@ import { recordAuditLog } from "@/lib/admin-audit";
 import type { Database } from "@/lib/database.types";
 
 type LawRow = Database["public"]["Tables"]["laws"]["Row"];
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /** GET: fetch a single law for admin editing (including full text). */
 export async function GET(
@@ -181,7 +182,7 @@ export async function DELETE(
       created_at: existingLaw.created_at,
       updated_at: existingLaw.updated_at,
       deleted_at: new Date().toISOString(),
-      deleted_by: admin.userId,
+      deleted_by: UUID_RE.test(admin.userId) ? admin.userId : null,
       delete_reason: "admin_delete_single",
     });
 
