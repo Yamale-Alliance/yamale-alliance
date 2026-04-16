@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         created_at: existingLaw.created_at,
         updated_at: existingLaw.updated_at,
         deleted_at: new Date().toISOString(),
-        deleted_by: admin.userId,
+        deleted_by: UUID_RE.test(admin.userId) ? admin.userId : null,
         delete_reason: "admin_delete_batch",
       }))
     );
