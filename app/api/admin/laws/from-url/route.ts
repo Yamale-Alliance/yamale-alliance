@@ -66,6 +66,12 @@ export async function POST(request: NextRequest) {
 
     const appliesToAllCountries = body.appliesToAllCountries === true;
     const countryId = typeof body.countryId === "string" ? body.countryId.trim() : "";
+    const countryIds = Array.isArray(body.countryIds)
+      ? body.countryIds
+          .filter((v): v is string => typeof v === "string")
+          .map((v) => v.trim())
+          .filter(Boolean)
+      : [];
     const categoryId = typeof body.categoryId === "string" ? body.categoryId.trim() : "";
     const rawTitle = typeof body.title === "string" ? body.title : "";
     const title = normaliseLawTitle(rawTitle);
@@ -86,11 +92,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    if (!appliesToAllCountries && !countryId) {
+    if (!appliesToAllCountries && countryIds.length === 0 && !countryId) {
       return NextResponse.json(
         {
           error:
-            "Saving requires a country, or enable “All countries” for treaties and regional instruments.",
+            "Saving requires at least one country, or enable “All countries” for treaties and regional instruments.",
         },
         { status: 400 }
       );
@@ -103,6 +109,7 @@ export async function POST(request: NextRequest) {
       url,
       forceOcr,
       countryId: appliesToAllCountries ? undefined : countryId,
+      countryIds: appliesToAllCountries ? undefined : countryIds,
       appliesToAllCountries,
       categoryId,
       title,
@@ -112,7 +119,7 @@ export async function POST(request: NextRequest) {
       auditSource: "url-import",
     });
 
-    return NextResponse.json({ ok: true, law });
+    return NextResponse.json({ ok: true, ...law });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Import failed";
     console.error("Admin laws from-url:", err);
