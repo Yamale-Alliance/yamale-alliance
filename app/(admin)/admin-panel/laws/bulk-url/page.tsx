@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, CheckCircle2, AlertCircle, FileSpreadsheet } from "lucide-react";
+import * as XLSX from "xlsx";
 import {
   matrixRowsToItems,
   DEFAULT_LIBRARY_CATEGORY_NAMES,
@@ -54,16 +55,32 @@ function parseCsv(text: string): string[][] {
   return rows;
 }
 
+function parseWorkbookRows(buffer: ArrayBuffer): string[][] {
+  const wb = XLSX.read(buffer, { type: "array" });
+  const firstSheetName = wb.SheetNames[0];
+  if (!firstSheetName) return [];
+  const firstSheet = wb.Sheets[firstSheetName];
+  if (!firstSheet) return [];
+  const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" }) as unknown[][];
+  return rows.map((row) => row.map((cell) => String(cell ?? "").trim()));
+}
+
 const HEADER_ALIASES: Record<string, string> = {
   pdf_url: "url",
   pdf_link: "url",
   link: "url",
   pdf: "url",
+  law_url: "url",
+  law_link: "url",
   country_name: "country",
   category_name: "category",
+  db_category: "category",
+  law_name: "title",
+  law_title: "title",
   country_id: "countryid",
   category_id: "categoryid",
   force_ocr: "forceocr",
+  region_name: "region",
 };
 
 function normalizeHeader(h: string): string {
@@ -71,12 +88,30 @@ function normalizeHeader(h: string): string {
   return HEADER_ALIASES[t] ?? t;
 }
 
+/** Row index whose cells (after normalization) include flat-import columns. */
+function findFlatHeaderRowIndex(rows: string[][]): number {
+  const maxScan = Math.min(rows.length, 20);
+  for (let i = 0; i < maxScan; i++) {
+    const rawHeaders = rows[i]!.map(normalizeHeader);
+    const hasUrl = rawHeaders.includes("url");
+    const hasCountry = rawHeaders.includes("country") || rawHeaders.includes("countryid");
+    const hasCategory = rawHeaders.includes("category") || rawHeaders.includes("categoryid");
+    if (hasUrl && hasCountry && hasCategory) return i;
+  }
+  return -1;
+}
+
 function hasFlatUrlColumn(rows: string[][]): boolean {
-  if (rows.length < 1) return false;
-  return rows[0]!.some((cell) => {
-    const k = normalizeHeader(cell);
-    return k === "url";
-  });
+  return findFlatHeaderRowIndex(rows) >= 0;
+}
+
+/** Skip title rows (e.g. "MISSING LAWS — …") so row 2 is Country, Region, Law Name, URL, DB Category. */
+function rowsForFlatSheet(rows: string[][]): string[][] {
+  const headerIdx = findFlatHeaderRowIndex(rows);
+  if (headerIdx < 0) return rows;
+  const header = rows[headerIdx]!;
+  const data = rows.slice(headerIdx + 1);
+  return [header, ...data];
 }
 
 type ApiItem = {
@@ -170,6 +205,10 @@ const BATCH_SIZE = 25;
 
 export default function AdminLawsBulkUrlPage() {
   const [csvText, setCsvText] = useState("");
+  const [csvFileName, setCsvFileName] = useState<string | null>(null);
+  /** Yamale audit XLSX: row 1 = title, row 2 = headers (Country, Region, Law Name, URL, DB Category). */
+  const [missingLawsRows, setMissingLawsRows] = useState<string[][] | null>(null);
+  const [missingLawsFileName, setMissingLawsFileName] = useState<string | null>(null);
   const [forceOcrAll, setForceOcrAll] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [batchLabel, setBatchLabel] = useState<string | null>(null);
@@ -189,7 +228,7 @@ export default function AdminLawsBulkUrlPage() {
       category?: string | null;
     }[];
     parseWarnings: string[];
-    format: "flat" | "matrix";
+    format: "flat" | "matrix" | "missing_laws";
     totalLinks: number;
   } | null>(null);
 
@@ -203,61 +242,55 @@ export default function AdminLawsBulkUrlPage() {
       .catch(() => {});
   }, []);
 
-  const handleFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCsvFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
     const reader = new FileReader();
     reader.onload = () => {
-      setCsvText(typeof reader.result === "string" ? reader.result : "");
-      setError(null);
-      setResult(null);
+      try {
+        setCsvText(typeof reader.result === "string" ? reader.result : "");
+        setCsvFileName(f.name);
+        setError(null);
+        setResult(null);
+      } catch {
+        setError("Could not read this file.");
+      }
     };
     reader.readAsText(f);
     e.target.value = "";
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setResult(null);
-    setBatchLabel(null);
-
-    const rows = parseCsv(stripBom(csvText));
-    let items: ApiItem[] = [];
-    let parseWarnings: string[] = [];
-    let format: "flat" | "matrix" = "flat";
-
-    if (hasFlatUrlColumn(rows)) {
-      const flat = sheetToItems(rows);
-      if (flat.error) {
-        setError(flat.error);
-        return;
-      }
-      items = flat.items;
-      format = "flat";
-    } else {
-      const cats =
-        categoryNames.length > 0 ? categoryNames : [...DEFAULT_LIBRARY_CATEGORY_NAMES];
-      const matrix = matrixRowsToItems(rows, cats);
-      if (!matrix.ok) {
-        setError(matrix.error);
-        return;
-      }
-      items = matrix.items.map((i) => ({
-        url: i.url,
-        country: i.country,
-        category: i.category,
-        title: i.title,
-      }));
-      parseWarnings = matrix.warnings;
-      format = "matrix";
-    }
-
-    if (items.length === 0) {
-      setError("No laws to import.");
+  const handleMissingLawsXlsx = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const lower = f.name.toLowerCase();
+    if (!lower.endsWith(".xlsx") && !lower.endsWith(".xls")) {
+      setError("Missing-laws import expects an Excel file (.xlsx or .xls).");
+      e.target.value = "";
       return;
     }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const buffer = reader.result as ArrayBuffer;
+        const rows = parseWorkbookRows(buffer);
+        setMissingLawsRows(rows);
+        setMissingLawsFileName(f.name);
+        setError(null);
+        setResult(null);
+      } catch {
+        setError("Could not parse this spreadsheet.");
+      }
+    };
+    reader.readAsArrayBuffer(f);
+    e.target.value = "";
+  }, []);
 
+  const runBatchedImport = async (
+    items: ApiItem[],
+    formatLabel: "flat" | "matrix" | "missing_laws",
+    warnings: string[]
+  ) => {
     setSubmitting(true);
     const allSucceeded: { index: number; id: string; title: string }[] = [];
     const allFailed: {
@@ -291,7 +324,6 @@ export default function AdminLawsBulkUrlPage() {
             country?: string | null;
             category?: string | null;
           }[];
-          summary?: { added?: number; failed?: number };
         };
 
         if (!res.ok) {
@@ -314,8 +346,8 @@ export default function AdminLawsBulkUrlPage() {
         failed: allFailed.length,
         succeeded: allSucceeded,
         failedRows: allFailed,
-        parseWarnings,
-        format,
+        parseWarnings: warnings,
+        format: formatLabel,
         totalLinks: items.length,
       });
       setSubmitting(false);
@@ -326,6 +358,85 @@ export default function AdminLawsBulkUrlPage() {
       setSubmitting(false);
       setBatchLabel(null);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setResult(null);
+    setBatchLabel(null);
+
+    const rows = parseCsv(stripBom(csvText));
+    let items: ApiItem[] = [];
+    let parseWarnings: string[] = [];
+    let format: "flat" | "matrix" = "flat";
+
+    if (hasFlatUrlColumn(rows)) {
+      const flat = sheetToItems(rowsForFlatSheet(rows));
+      if (flat.error) {
+        setError(flat.error);
+        return;
+      }
+      items = flat.items;
+      format = "flat";
+    } else {
+      const cats =
+        categoryNames.length > 0 ? categoryNames : [...DEFAULT_LIBRARY_CATEGORY_NAMES];
+      const matrix = matrixRowsToItems(rows, cats);
+      if (!matrix.ok) {
+        setError(matrix.error);
+        return;
+      }
+      items = matrix.items.map((i) => ({
+        url: i.url,
+        country: i.country,
+        category: i.category,
+        title: i.title,
+      }));
+      parseWarnings = matrix.warnings;
+      format = "matrix";
+    }
+
+    if (items.length === 0) {
+      setError("No laws to import.");
+      return;
+    }
+
+    await runBatchedImport(items, format, parseWarnings);
+  };
+
+  const handleMissingLawsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setResult(null);
+    setBatchLabel(null);
+
+    if (!missingLawsRows || missingLawsRows.length < 3) {
+      setError(
+        "Upload the missing-laws XLSX first. Expect row 1 as a title, row 2 as headers (Country, Region, Law Name, URL, DB Category), then data."
+      );
+      return;
+    }
+
+    const sliced = rowsForFlatSheet(missingLawsRows);
+    if (!hasFlatUrlColumn(missingLawsRows)) {
+      setError(
+        'Could not find a header row with Country, URL, and Category (or DB Category). Row 2 of your file should list those columns after the title row.'
+      );
+      return;
+    }
+
+    const flat = sheetToItems(sliced);
+    if (flat.error) {
+      setError(flat.error);
+      return;
+    }
+    if (flat.items.length === 0) {
+      setError("No laws to import.");
+      return;
+    }
+
+    await runBatchedImport(flat.items, "missing_laws", []);
   };
 
   return (
@@ -345,10 +456,8 @@ export default function AdminLawsBulkUrlPage() {
             Bulk import from PDF URLs
           </h1>
           <p className="mt-1 text-muted-foreground max-w-2xl">
-            Supports a <strong>flat CSV</strong> (<code className="text-xs">url</code>, country, category) or your{" "}
-            <strong>research matrix</strong>: a <code className="text-xs">Country</code> column, an optional LII
-            column, and one column per library category where each cell lists many laws with inline{" "}
-            <code className="text-xs">https://</code> links. Titles are taken from the text before each link.
+            Use <strong>Missing laws XLSX</strong> for the audit workbook (title row, then headers), or{" "}
+            <strong>flat / matrix CSV</strong> in the lower section. Both import PDF URLs in batches of {BATCH_SIZE}.
           </p>
         </div>
         <div className="flex flex-col gap-2 shrink-0">
@@ -365,7 +474,17 @@ export default function AdminLawsBulkUrlPage() {
       </div>
 
       <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4 text-sm space-y-2">
-        <p className="font-medium">Flat CSV</p>
+        <p className="font-medium">Missing laws workbook (.xlsx)</p>
+        <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+          <li>
+            Row 1 is a title only (e.g. merged &quot;MISSING LAWS — …&quot;). Row 2 is the real header:{" "}
+            <code className="text-xs">Country</code>, <code className="text-xs">Region</code> (ignored),{" "}
+            <code className="text-xs">Law Name</code>, <code className="text-xs">URL</code>,{" "}
+            <code className="text-xs">DB Category</code>. Data starts on row 3.
+          </li>
+          <li>Use the <strong>Import missing laws from XLSX</strong> section below — not the CSV textarea.</li>
+        </ul>
+        <p className="font-medium pt-2">Flat CSV</p>
         <ul className="list-disc pl-5 text-muted-foreground space-y-1">
           <li>
             Columns: <code className="text-xs">url</code>, <code className="text-xs">country</code>,{" "}
@@ -391,21 +510,26 @@ export default function AdminLawsBulkUrlPage() {
         </ul>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-        {error && (
-          <div className="rounded-md bg-destructive/10 text-destructive px-4 py-3 text-sm flex items-start gap-2">
-            <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-            {error}
-          </div>
-        )}
+      {error && (
+        <div className="mt-8 rounded-md bg-destructive/10 text-destructive px-4 py-3 text-sm flex items-start gap-2">
+          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+          {error}
+        </div>
+      )}
 
-        {result && (
-          <div className="space-y-3 rounded-lg border border-border bg-card p-4">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-              Finished ({result.format === "matrix" ? "matrix" : "flat"}): {result.added} added
-              {result.failed > 0 ? `, ${result.failed} failed` : ""} out of {result.totalLinks} links.
-            </div>
+      {result && (
+        <div className="mt-6 space-y-3 rounded-lg border border-border bg-card p-4">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            Finished (
+            {result.format === "matrix"
+              ? "matrix CSV"
+              : result.format === "missing_laws"
+                ? "missing-laws XLSX"
+                : "flat CSV"}
+            ): {result.added} added
+            {result.failed > 0 ? `, ${result.failed} failed` : ""} out of {result.totalLinks} links.
+          </div>
             {result.parseWarnings.length > 0 && (
               <div className="text-xs text-amber-700 dark:text-amber-400 space-y-1">
                 <p className="font-medium">Parser notes</p>
@@ -438,8 +562,85 @@ export default function AdminLawsBulkUrlPage() {
                 </ul>
               </div>
             )}
-          </div>
-        )}
+        </div>
+      )}
+
+      <form onSubmit={handleMissingLawsSubmit} className="mt-8 space-y-4 rounded-lg border border-border bg-muted/20 p-4 sm:p-5">
+        <div>
+          <h2 className="text-lg font-semibold">Import missing laws from XLSX</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            For the audit file where row 1 is a heading and row 2 contains{" "}
+            <code className="text-xs">Country</code>, <code className="text-xs">Law Name</code>,{" "}
+            <code className="text-xs">URL</code>, <code className="text-xs">DB Category</code>.{" "}
+            <code className="text-xs">Region</code> is not used.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-muted">
+            Choose .xlsx / .xls
+            <input
+              type="file"
+              accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              className="sr-only"
+              onChange={handleMissingLawsXlsx}
+            />
+          </label>
+          {missingLawsFileName && (
+            <span className="text-sm text-muted-foreground">
+              Loaded: <span className="font-medium text-foreground">{missingLawsFileName}</span>
+            </span>
+          )}
+          {missingLawsRows != null && (
+            <button
+              type="button"
+              className="text-xs text-primary hover:underline"
+              onClick={() => {
+                setMissingLawsRows(null);
+                setMissingLawsFileName(null);
+                setError(null);
+                setResult(null);
+              }}
+            >
+              Clear file
+            </button>
+          )}
+        </div>
+        <div className="flex items-start gap-3 rounded-lg border border-input bg-background px-4 py-3">
+          <input
+            type="checkbox"
+            id="bulkUrlForceOcrMissing"
+            checked={forceOcrAll}
+            onChange={(e) => setForceOcrAll(e.target.checked)}
+            className="mt-1 h-4 w-4 rounded border-input"
+          />
+          <label htmlFor="bulkUrlForceOcrMissing" className="text-sm cursor-pointer">
+            <span className="font-medium">Force OCR for every row</span>
+            <span className="block text-muted-foreground mt-0.5 text-xs">
+              Same option as CSV import below. Use for scanned PDFs.
+            </span>
+          </label>
+        </div>
+        <button
+          type="submit"
+          disabled={submitting || !missingLawsRows}
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+        >
+          {submitting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {batchLabel ?? "Importing…"}
+            </>
+          ) : (
+            "Run missing-laws import"
+          )}
+        </button>
+      </form>
+
+      <form onSubmit={handleSubmit} className="mt-10 space-y-6">
+        <h2 className="text-lg font-semibold">CSV: flat or matrix</h2>
+        <p className="text-sm text-muted-foreground">
+          Paste CSV below or upload a <code className="text-xs">.csv</code> file. First row must be headers (no title row above them).
+        </p>
 
         <div>
           <div className="flex flex-wrap items-center gap-3 mb-2">
@@ -448,6 +649,7 @@ export default function AdminLawsBulkUrlPage() {
               type="button"
               onClick={() => {
                 setCsvText(SAMPLE_CSV);
+                setCsvFileName(null);
                 setError(null);
                 setResult(null);
               }}
@@ -457,17 +659,28 @@ export default function AdminLawsBulkUrlPage() {
             </button>
             <label className="text-xs text-primary hover:underline cursor-pointer">
               Upload file
-              <input type="file" accept=".csv,text/csv,text/plain" className="sr-only" onChange={handleFile} />
+              <input
+                type="file"
+                accept=".csv,text/csv,text/plain"
+                className="sr-only"
+                onChange={handleCsvFile}
+              />
             </label>
           </div>
+          {csvFileName && (
+            <p className="mb-2 text-xs text-muted-foreground">
+              Loaded file: <span className="font-medium">{csvFileName}</span>
+            </p>
+          )}
           <textarea
             value={csvText}
             onChange={(e) => {
               setCsvText(e.target.value);
+              setCsvFileName(null);
               setResult(null);
             }}
             rows={14}
-            placeholder={`Flat: country,category,url\nMatrix: Country,Has an LII?,Corporate Law,...`}
+            placeholder={`Flat: country,category,url,title\nMatrix: Country,Has an LII?,Corporate Law,...`}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono placeholder:text-muted-foreground resize-y min-h-[200px]"
           />
         </div>
