@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { Plus, FileText, Loader2, Trash2, CopyCheck, Trash } from "lucide-react";
+import { Plus, FileText, Loader2, Trash2, CopyCheck, Trash, History } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 
 type Country = { id: string; name: string; region: string | null };
@@ -191,6 +191,13 @@ function AdminLawsPageInner() {
           >
             <Trash className="h-4 w-4" />
             Recently deleted
+          </Link>
+          <Link
+            href="/admin-panel/laws/updated"
+            className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+          >
+            <History className="h-4 w-4" />
+            Recently updated
           </Link>
           <Link
             href="/admin-panel/laws/add"
