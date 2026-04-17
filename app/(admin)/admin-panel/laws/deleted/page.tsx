@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, RotateCcw, Trash2 } from "lucide-react";
 
 type DeletedLawRow = {
   id: string;
@@ -18,6 +18,7 @@ type DeletedLawRow = {
 
 type Country = { id: string; name: string };
 type Category = { id: string; name: string };
+const PAGE_SIZE = 25;
 
 export default function AdminDeletedLawsPage() {
   const searchParams = useSearchParams();
@@ -32,12 +33,15 @@ export default function AdminDeletedLawsPage() {
   const [loading, setLoading] = useState(true);
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
   useEffect(() => {
     setLoading(true);
     setError(null);
+    const offset = (page - 1) * PAGE_SIZE;
     Promise.all([
-      fetch("/api/admin/laws/deleted", { credentials: "include" })
+      fetch(`/api/admin/laws/deleted?limit=${PAGE_SIZE}&offset=${offset}`, { credentials: "include" })
         .then((r) => r.json())
         .catch(() => ({ laws: [] })),
       fetch("/api/laws?metaOnly=1", { credentials: "include" })
@@ -46,6 +50,7 @@ export default function AdminDeletedLawsPage() {
     ])
       .then(([deletedRes, metaRes]) => {
         setRows(Array.isArray(deletedRes?.laws) ? deletedRes.laws : []);
+        setTotal(typeof deletedRes?.total === "number" ? deletedRes.total : 0);
         setCountries(metaRes.countries ?? []);
         setCategories(metaRes.categories ?? []);
       })
@@ -53,7 +58,7 @@ export default function AdminDeletedLawsPage() {
         setError("Failed to load recently deleted laws.");
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [page]);
 
   const countryName = (id: string | null) =>
     id ? countries.find((c) => c.id === id)?.name ?? "—" : "—";
@@ -77,12 +82,14 @@ export default function AdminDeletedLawsPage() {
         return;
       }
       setRows((prev) => prev.filter((r) => r.id !== id));
+      setTotal((prev) => Math.max(0, prev - 1));
     } catch {
       setError("Network error while restoring.");
     } finally {
       setRestoringId(null);
     }
   };
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="p-4 sm:p-6">
@@ -123,8 +130,9 @@ export default function AdminDeletedLawsPage() {
           No recently deleted laws.
         </div>
       ) : (
-        <div className="mt-4 overflow-x-auto rounded-lg border border-border">
-          <table className="w-full text-sm">
+        <>
+          <div className="mt-4 overflow-x-auto rounded-lg border border-border">
+            <table className="w-full text-sm">
             <thead className="border-b border-border bg-muted/40">
               <tr>
                 <th className="p-2 text-left font-medium">Title</th>
@@ -137,44 +145,73 @@ export default function AdminDeletedLawsPage() {
                 <th className="p-2 text-right font-medium">Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className="border-b border-border/60 last:border-0">
-                  <td className="p-2 align-top">{row.title}</td>
-                  <td className="p-2 align-top text-muted-foreground">
-                    {countryName(row.country_id)}
-                  </td>
-                  <td className="p-2 align-top text-muted-foreground">
-                    {categoryName(row.category_id)}
-                  </td>
-                  <td className="p-2 align-top">{row.status}</td>
-                  <td className="p-2 align-top">{row.year ?? "—"}</td>
-                  <td className="p-2 align-top text-xs text-muted-foreground">
-                    {new Date(row.deleted_at).toLocaleString()}
-                  </td>
-                  <td className="p-2 align-top text-xs text-muted-foreground">
-                    {row.delete_reason ?? "—"}
-                  </td>
-                  <td className="p-2 align-top text-right">
-                    <button
-                      type="button"
-                      onClick={() => void handleRestore(row.id)}
-                      disabled={restoringId === row.id}
-                      className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-50"
-                    >
-                      {restoringId === row.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <RotateCcw className="h-3.5 w-3.5" />
-                      )}
-                      Restore
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.id} className="border-b border-border/60 last:border-0">
+                    <td className="p-2 align-top">{row.title}</td>
+                    <td className="p-2 align-top text-muted-foreground">
+                      {countryName(row.country_id)}
+                    </td>
+                    <td className="p-2 align-top text-muted-foreground">
+                      {categoryName(row.category_id)}
+                    </td>
+                    <td className="p-2 align-top">{row.status}</td>
+                    <td className="p-2 align-top">{row.year ?? "—"}</td>
+                    <td className="p-2 align-top text-xs text-muted-foreground">
+                      {new Date(row.deleted_at).toLocaleString()}
+                    </td>
+                    <td className="p-2 align-top text-xs text-muted-foreground">
+                      {row.delete_reason ?? "—"}
+                    </td>
+                    <td className="p-2 align-top text-right">
+                      <button
+                        type="button"
+                        onClick={() => void handleRestore(row.id)}
+                        disabled={restoringId === row.id}
+                        className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-50"
+                      >
+                        {restoringId === row.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        )}
+                        Restore
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-50"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Previous
+              </button>
+              <span className="text-xs text-muted-foreground">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-50"
+              >
+                Next
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
