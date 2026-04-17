@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const supabase = getSupabaseServer();
     let query = supabase
       .from("admin_audit_log")
-      .select("id, admin_id, admin_email, action, entity_type, entity_id, details, created_at")
+      .select("id, admin_id, admin_email, action, entity_type, entity_id, details, created_at", { count: "exact" })
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -25,12 +25,12 @@ export async function GET(request: NextRequest) {
     if (action) query = query.eq("action", action);
     if (entityType) query = query.eq("entity_type", entityType);
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    return NextResponse.json(data ?? []);
+    return NextResponse.json({ entries: data ?? [], total: typeof count === "number" ? count : 0 });
   } catch (err) {
     console.error("Admin audit-log GET error:", err);
     return NextResponse.json(
