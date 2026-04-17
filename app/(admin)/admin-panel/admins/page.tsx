@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { UserPlus, History, Loader2 } from "lucide-react";
+import { UserPlus, History, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 
 type AuditEntry = {
   id: string;
@@ -25,6 +25,7 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 export default function AdminAdminsPage() {
+  const PAGE_SIZE = 25;
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("admin");
   const [submitting, setSubmitting] = useState(false);
@@ -33,19 +34,34 @@ export default function AdminAdminsPage() {
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [auditLoading, setAuditLoading] = useState(true);
   const [auditFilter, setAuditFilter] = useState("");
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditTotal, setAuditTotal] = useState(0);
 
   const fetchAuditLog = () => {
     setAuditLoading(true);
-    const params = auditFilter ? `?action=${encodeURIComponent(auditFilter)}` : "";
-    fetch(`${window.location.origin}/api/admin/audit-log${params}`, { credentials: "include" })
+    const params = new URLSearchParams();
+    params.set("limit", String(PAGE_SIZE));
+    params.set("offset", String((auditPage - 1) * PAGE_SIZE));
+    if (auditFilter) params.set("action", auditFilter);
+    fetch(`${window.location.origin}/api/admin/audit-log?${params.toString()}`, { credentials: "include" })
       .then((r) => r.json())
-      .then((data) => setAuditLog(Array.isArray(data) ? data : []))
-      .catch(() => setAuditLog([]))
+      .then((data) => {
+        setAuditLog(Array.isArray(data?.entries) ? data.entries : []);
+        setAuditTotal(typeof data?.total === "number" ? data.total : 0);
+      })
+      .catch(() => {
+        setAuditLog([]);
+        setAuditTotal(0);
+      })
       .finally(() => setAuditLoading(false));
   };
 
   useEffect(() => {
     fetchAuditLog();
+  }, [auditFilter, auditPage]);
+
+  useEffect(() => {
+    setAuditPage(1);
   }, [auditFilter]);
 
   const handleAddAdmin = async (e: React.FormEvent) => {
@@ -88,6 +104,7 @@ export default function AdminAdminsPage() {
       timeStyle: "short",
     });
   };
+  const auditTotalPages = Math.max(1, Math.ceil(auditTotal / PAGE_SIZE));
 
   return (
     <div className="p-4 sm:p-6 md:p-8">
@@ -218,6 +235,36 @@ export default function AdminAdminsPage() {
               </table>
             </div>
           )}
+        </div>
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">
+            {auditTotal > 0
+              ? `Showing ${(auditPage - 1) * PAGE_SIZE + 1}–${Math.min(auditPage * PAGE_SIZE, auditTotal)} of ${auditTotal}`
+              : "No entries"}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setAuditPage((p) => Math.max(1, p - 1))}
+              disabled={auditPage <= 1 || auditLoading}
+              className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-50"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              Previous
+            </button>
+            <span className="text-xs text-muted-foreground">
+              Page {auditPage} of {auditTotalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setAuditPage((p) => Math.min(auditTotalPages, p + 1))}
+              disabled={auditPage >= auditTotalPages || auditLoading}
+              className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-50"
+            >
+              Next
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </section>
     </div>
