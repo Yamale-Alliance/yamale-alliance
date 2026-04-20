@@ -418,9 +418,7 @@ export function LibraryView({
   const filteredLaws = useMemo(() => {
     return laws.filter((law) => {
       const matchSearch =
-        !search ||
-        law.name.toLowerCase().includes(search.toLowerCase()) ||
-        law.category.toLowerCase().includes(search.toLowerCase());
+        !search || law.name.toLowerCase().includes(search.toLowerCase());
       const matchCountry = !country || law.country === country || law.applies_globally;
       const matchCategory = !category || law.category === category;
       const matchStatus = !status || law.status === status;
