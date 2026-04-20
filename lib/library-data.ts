@@ -51,9 +51,12 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
     if (filters?.countryId) countQuery = countQuery.or(lawsOrGlobalForCountry(filters.countryId));
     if (filters?.categoryId) countQuery = countQuery.eq("category_id", filters.categoryId);
     if (filters?.status) countQuery = countQuery.eq("status", filters.status);
+    // Note: PostgREST rejects `.or(categories.name.ilike.…)` on a count/head query
+    // because `categories` is not joined. Matching by category name is applied
+    // client-side against the returned rows; server-side search stays on title only.
     if (filters?.q?.trim()) {
       const term = escapeIlikePattern(filters.q.trim());
-      countQuery = countQuery.or(`title.ilike.%${term}%,categories.name.ilike.%${term}%`);
+      countQuery = countQuery.ilike("title", `%${term}%`);
     }
 
     let lawsQuery = supabase
@@ -69,7 +72,7 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
     if (filters?.status) lawsQuery = lawsQuery.eq("status", filters.status);
     if (filters?.q?.trim()) {
       const term = escapeIlikePattern(filters.q.trim());
-      lawsQuery = lawsQuery.or(`title.ilike.%${term}%,categories.name.ilike.%${term}%`);
+      lawsQuery = lawsQuery.ilike("title", `%${term}%`);
     }
 
     const [countriesRes, categoriesRes, countRes, lawsRes] = await Promise.all([
