@@ -3,7 +3,7 @@
  * Used by POST /api/admin/laws/from-url.
  */
 
-const MAX_PDF_BYTES = 45 * 1024 * 1024;
+const MAX_PDF_BYTES = 95 * 1024 * 1024;
 
 /** Fetch URL and return buffer if response is a PDF (by Content-Type or %PDF magic). */
 export async function fetchPdfFromUrl(urlStr: string): Promise<{ buffer: Buffer; finalUrl: string }> {
