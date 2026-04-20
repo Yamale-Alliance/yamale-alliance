@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { Plus, FileText, Loader2, Trash2, CopyCheck, Trash, History } from "lucide-react";
+import { Plus, FileText, Loader2, Trash2, CopyCheck, Trash, History, Download } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 
 type Country = { id: string; name: string; region: string | null };
@@ -54,6 +54,8 @@ function AdminLawsPageInner() {
   const [dupLoading, setDupLoading] = useState(false);
   const [dupError, setDupError] = useState<string | null>(null);
   const [dupSummary, setDupSummary] = useState<{ groups: number; laws: number } | null>(null);
+  const [exportScope, setExportScope] = useState<string>("all");
+  const [exporting, setExporting] = useState(false);
   const selectAllRef = useRef<HTMLInputElement>(null);
   const { confirm, confirmDialog } = useConfirm();
 
@@ -155,6 +157,44 @@ function AdminLawsPageInner() {
       setDeleting(false);
     }
   };
+
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const params = new URLSearchParams();
+      if (exportScope !== "all") params.set("region", exportScope);
+      const response = await fetch(`/api/admin/laws/export?${params.toString()}`, {
+        method: "GET",
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to export laws.");
+      const blob = await response.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const fileNameFromHeader = response.headers
+        .get("content-disposition")
+        ?.match(/filename="([^"]+)"/)?.[1];
+      link.href = downloadUrl;
+      link.download = fileNameFromHeader ?? "laws-export.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(downloadUrl);
+    } catch {
+      window.alert("Could not export laws. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const availableRegions = Array.from(
+    new Set(
+      countries
+        .map((c) => (c.region ?? "").trim().replace(/\s+/g, " "))
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 
   return (
     <div className="p-4 sm:p-6">
@@ -342,6 +382,33 @@ function AdminLawsPageInner() {
             <span className="text-xs text-muted-foreground">No duplicates found for this country and category.</span>
           )
         ) : null}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-end gap-3">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Export region</label>
+          <select
+            value={exportScope}
+            onChange={(e) => setExportScope(e.target.value)}
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="all">All regions (each in its own sheet)</option>
+            {availableRegions.map((region) => (
+              <option key={region} value={region}>
+                {region} only
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="button"
+          onClick={() => void handleExport()}
+          disabled={exporting}
+          className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50"
+        >
+          {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          {exporting ? "Exporting…" : "Export laws spreadsheet"}
+        </button>
       </div>
 
       {!loading && laws.length > 0 && (
