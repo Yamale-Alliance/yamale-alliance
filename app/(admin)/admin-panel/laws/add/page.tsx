@@ -2,13 +2,18 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2, FileUp, FileText, CheckCircle2, Link2 } from "lucide-react";
+import { ArrowLeft, Loader2, FileUp, FileText, CheckCircle2, Link2, FileSpreadsheet, AlertCircle } from "lucide-react";
+import {
+  parseWorkbookToRows,
+  parseFlatSheetFromMatrix,
+  type BulkUrlSheetItem,
+} from "@/lib/bulk-url-sheet-parse";
 
 type Country = { id: string; name: string };
 type Category = { id: string; name: string };
 
 type InputMode = "upload" | "paste" | "url";
-const MAX_SINGLE_UPLOAD_MB = 45;
+const MAX_SINGLE_UPLOAD_MB = 95;
 
 export default function AdminLawsAddPage() {
   const [countries, setCountries] = useState<Country[]>([]);
@@ -31,6 +36,23 @@ export default function AdminLawsAddPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  /** Missed-laws spreadsheet: one row per law, columns COUNTRY, CATEGORY, LAW NAME, URL (row 1 = headers). */
+  const [missedFileKey, setMissedFileKey] = useState(0);
+  const [missedFileName, setMissedFileName] = useState<string | null>(null);
+  const [missedItems, setMissedItems] = useState<BulkUrlSheetItem[] | null>(null);
+  const [missedParseError, setMissedParseError] = useState<string | null>(null);
+  const [missedForceOcr, setMissedForceOcr] = useState(false);
+  const [missedImporting, setMissedImporting] = useState(false);
+  const [missedProgress, setMissedProgress] = useState<{ current: number; total: number; label: string } | null>(null);
+  const [missedLiveFailures, setMissedLiveFailures] = useState<
+    { lawTitle: string; country: string; category: string; error: string }[]
+  >([]);
+  const [missedDone, setMissedDone] = useState<{
+    added: number;
+    failed: number;
+    failures: { lawTitle: string; country: string; category: string; error: string }[];
+  } | null>(null);
 
   useEffect(() => {
     fetch(`${window.location.origin}/api/laws`, { credentials: "include" })
@@ -259,8 +281,131 @@ export default function AdminLawsAddPage() {
     }
   };
 
+  const handleMissedXlsx = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const lower = f.name.toLowerCase();
+    if (!lower.endsWith(".xlsx") && !lower.endsWith(".xls")) {
+      setMissedParseError("Use an Excel file (.xlsx or .xls).");
+      setMissedItems(null);
+      setMissedFileName(null);
+      e.target.value = "";
+      return;
+    }
+    setMissedParseError(null);
+    setMissedDone(null);
+    setMissedLiveFailures([]);
+    setMissedProgress(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const buffer = reader.result as ArrayBuffer;
+        const rows = parseWorkbookToRows(buffer);
+        const { items, error } = parseFlatSheetFromMatrix(rows);
+        if (error) {
+          setMissedParseError(error);
+          setMissedItems(null);
+          setMissedFileName(null);
+          return;
+        }
+        setMissedItems(items);
+        setMissedFileName(f.name);
+      } catch {
+        setMissedParseError("Could not read this spreadsheet.");
+        setMissedItems(null);
+        setMissedFileName(null);
+      }
+    };
+    reader.readAsArrayBuffer(f);
+    e.target.value = "";
+  };
+
+  const runMissedImport = async () => {
+    if (!missedItems || missedItems.length === 0) return;
+    setMissedImporting(true);
+    setMissedDone(null);
+    setMissedLiveFailures([]);
+    let added = 0;
+    const failures: { lawTitle: string; country: string; category: string; error: string }[] = [];
+
+    const labelFor = (item: BulkUrlSheetItem) =>
+      (item.title?.trim() ? item.title.trim() : item.url) || "Untitled";
+
+    try {
+      for (let i = 0; i < missedItems.length; i++) {
+        const item = missedItems[i]!;
+        setMissedProgress({
+          current: i + 1,
+          total: missedItems.length,
+          label: labelFor(item),
+        });
+
+        const res = await fetch(`${window.location.origin}/api/admin/laws/bulk-from-url`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: [item], forceOcr: missedForceOcr }),
+        });
+        const data = (await res.json()) as {
+          error?: string;
+          succeeded?: { index: number; id: string; title: string }[];
+          failed?: {
+            index: number;
+            title: string;
+            error: string;
+            country?: string | null;
+            category?: string | null;
+          }[];
+        };
+
+        if (!res.ok) {
+          const row: (typeof failures)[number] = {
+            lawTitle: labelFor(item),
+            country: item.country ?? "",
+            category: item.category ?? "",
+            error: data.error ?? `HTTP ${res.status}`,
+          };
+          failures.push(row);
+          setMissedLiveFailures((prev) => [...prev, row]);
+          continue;
+        }
+
+        added += (data.succeeded ?? []).length;
+        for (const f of data.failed ?? []) {
+          const row: (typeof failures)[number] = {
+            lawTitle: f.title || labelFor(item),
+            country: f.country ?? item.country ?? "",
+            category: f.category ?? item.category ?? "",
+            error: f.error,
+          };
+          failures.push(row);
+          setMissedLiveFailures((prev) => [...prev, row]);
+        }
+      }
+
+      setMissedDone({
+        added,
+        failed: failures.length,
+        failures,
+      });
+    } catch {
+      const row = {
+        lawTitle: "—",
+        country: "",
+        category: "",
+        error: "Could not reach the server or import was interrupted.",
+      };
+      failures.push(row);
+      setMissedLiveFailures((prev) => [...prev, row]);
+      setMissedDone({ added, failed: failures.length, failures });
+    } finally {
+      setMissedImporting(false);
+      setMissedProgress(null);
+    }
+  };
+
   return (
-    <div className="p-4 max-w-2xl sm:p-6">
+    <div className="p-4 max-w-3xl sm:p-6">
       <Link
         href="/admin-panel/laws"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
@@ -615,6 +760,196 @@ export default function AdminLawsAddPage() {
           </Link>
         </div>
       </form>
+
+      <section className="mt-14 rounded-xl border border-border bg-muted/20 p-4 sm:p-6 space-y-4">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold inline-flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5 text-primary shrink-0" />
+              Simple XLSX (one header row)
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
+              Same layout as{" "}
+              <Link href="/admin-panel/laws/bulk-url" className="text-primary font-medium hover:underline">
+                Bulk import from PDF URLs
+              </Link>{" "}
+              (section &quot;Workbook type B&quot;) — row 1 only:{" "}
+              <code className="text-xs">COUNTRY</code>, <code className="text-xs">CATEGORY</code>,{" "}
+              <code className="text-xs">LAW NAME</code>, <code className="text-xs">URL</code>. This is not the Yamale
+              audit workbook (that has a title row on row 1). Country and category must match the library. Imports run one
+              row at a time with live progress and errors; use the bulk page for batched import without per-row
+              progress.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-muted">
+            Choose .xlsx / .xls
+            <input
+              key={missedFileKey}
+              type="file"
+              accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              className="sr-only"
+              onChange={handleMissedXlsx}
+              disabled={missedImporting}
+            />
+          </label>
+          {missedFileName && (
+            <span className="text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{missedFileName}</span>
+              {missedItems && (
+                <span className="ml-2">
+                  ({missedItems.length} row{missedItems.length === 1 ? "" : "s"})
+                </span>
+              )}
+            </span>
+          )}
+          {missedFileName && (
+            <button
+              type="button"
+              className="text-xs text-primary hover:underline"
+              disabled={missedImporting}
+              onClick={() => {
+                setMissedFileKey((k) => k + 1);
+                setMissedFileName(null);
+                setMissedItems(null);
+                setMissedParseError(null);
+                setMissedDone(null);
+                setMissedLiveFailures([]);
+                setMissedProgress(null);
+              }}
+            >
+              Clear file
+            </button>
+          )}
+        </div>
+
+        {missedParseError && (
+          <div className="rounded-md bg-destructive/10 text-destructive px-4 py-3 text-sm flex items-start gap-2">
+            <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+            {missedParseError}
+          </div>
+        )}
+
+        <div className="flex items-start gap-3 rounded-lg border border-input bg-background px-4 py-3">
+          <input
+            type="checkbox"
+            id="missedForceOcr"
+            checked={missedForceOcr}
+            onChange={(e) => setMissedForceOcr(e.target.checked)}
+            disabled={missedImporting}
+            className="mt-1 h-4 w-4 rounded border-input"
+          />
+          <label htmlFor="missedForceOcr" className="text-sm cursor-pointer">
+            <span className="font-medium">Force OCR for every row</span>
+            <span className="block text-muted-foreground mt-0.5 text-xs">
+              Use for scanned PDFs. Slower than text-based PDFs.
+            </span>
+          </label>
+        </div>
+
+        <button
+          type="button"
+          onClick={runMissedImport}
+          disabled={missedImporting || !missedItems?.length}
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+        >
+          {missedImporting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Importing…
+            </>
+          ) : (
+            "Import all rows"
+          )}
+        </button>
+
+        {missedImporting && missedProgress && (
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>
+                Row {missedProgress.current} of {missedProgress.total}
+              </span>
+              <span className="truncate max-w-[70%] text-right" title={missedProgress.label}>
+                {missedProgress.label}
+              </span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out"
+                style={{ width: `${(missedProgress.current / missedProgress.total) * 100}%` }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Do not close this tab until the import finishes. Failures appear below as they occur.
+            </p>
+          </div>
+        )}
+
+        {missedLiveFailures.length > 0 && (missedImporting || !missedDone) && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+            <p className="text-sm font-medium text-destructive mb-2">Failures so far</p>
+            <ul className="max-h-48 space-y-2 overflow-y-auto text-xs">
+              {missedLiveFailures.map((f, i) => (
+                <li key={`${f.lawTitle}-${i}`} className="border-b border-border/50 pb-2 last:border-0 last:pb-0">
+                  <div className="font-medium text-foreground">
+                    {f.lawTitle}
+                    {(f.country || f.category) && (
+                      <span className="font-normal text-muted-foreground">
+                        {" "}
+                        — {f.country}
+                        {f.country && f.category ? " · " : ""}
+                        {f.category}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-destructive/90 mt-0.5">{f.error}</div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {missedDone && !missedImporting && (
+          <div className="rounded-lg border border-border bg-card p-4 text-sm">
+            <p className="font-medium flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+              Import finished: {missedDone.added} added
+              {missedDone.failed > 0 ? `, ${missedDone.failed} failed` : ""}.
+            </p>
+            {missedDone.failures.length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+                  Summary of failures (law name — country · category)
+                </p>
+                <div className="overflow-x-auto rounded-md border border-border">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="p-2 font-medium">Law name</th>
+                        <th className="p-2 font-medium">Country</th>
+                        <th className="p-2 font-medium">Category</th>
+                        <th className="p-2 font-medium">Error</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {missedDone.failures.map((f, i) => (
+                        <tr key={`sum-${i}`} className="border-t border-border/60">
+                          <td className="p-2 align-top">{f.lawTitle}</td>
+                          <td className="p-2 align-top text-muted-foreground">{f.country || "—"}</td>
+                          <td className="p-2 align-top text-muted-foreground">{f.category || "—"}</td>
+                          <td className="p-2 align-top text-destructive">{f.error}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
