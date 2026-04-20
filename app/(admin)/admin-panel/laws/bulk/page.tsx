@@ -24,7 +24,7 @@ type Row = {
   year: string;
   status: string;
 };
-const MAX_BATCH_UPLOAD_MB = 45;
+const MAX_BATCH_UPLOAD_MB = 95;
 
 function newRow(): Row {
   return {
