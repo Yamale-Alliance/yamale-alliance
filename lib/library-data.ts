@@ -27,14 +27,46 @@ export type LibraryData = {
   lawCount: number;
 };
 
+type LibraryFilters = {
+  countryId?: string;
+  categoryId?: string;
+  status?: string;
+  q?: string;
+};
+
 function sortCountriesAlphabetically(countries: LibraryCountry[]): LibraryCountry[] {
   return [...countries].sort((a, b) =>
     a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
   );
 }
 
+function applyFiltersToCachedData(base: LibraryData, filters?: LibraryFilters): LibraryData {
+  if (!filters) return base;
+  const q = (filters.q ?? "").trim().toLowerCase();
+  const filteredLaws = base.laws.filter((law) => {
+    const matchCountry =
+      !filters.countryId || law.country_id === filters.countryId || law.applies_to_all_countries;
+    if (!matchCountry) return false;
+    const matchCategory = !filters.categoryId || law.category_id === filters.categoryId;
+    if (!matchCategory) return false;
+    const matchStatus = !filters.status || law.status === filters.status;
+    if (!matchStatus) return false;
+    if (!q) return true;
+    const title = (law.title ?? "").toLowerCase();
+    const category = (law.categories?.name ?? "").toLowerCase();
+    return title.includes(q) || category.includes(q);
+  });
+
+  return {
+    countries: base.countries,
+    categories: base.categories,
+    laws: filteredLaws,
+    lawCount: filteredLaws.length,
+  };
+}
+
 const CACHE_TTL_MS = 60 * 1000; // 1 minute
-const FETCH_TIMEOUT_MS = 20 * 1000; // 20s max wait so page never hangs
+const FETCH_TIMEOUT_MS = 35 * 1000; // 35s max wait so page never hangs on slower DB responses
 let cachedData: LibraryData | null = null;
 let cacheTimestamp = 0;
 
@@ -47,7 +79,9 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
   const key = cacheKey(filters);
   const supabase = getSupabaseServer();
   return (async () => {
-    let countQuery = supabase.from("laws").select("id", { count: "exact", head: true });
+    // `count: "exact"` can be expensive on larger datasets and was causing
+    // transient 20s timeouts. `planned` is much faster and good enough for UI totals.
+    let countQuery = supabase.from("laws").select("id", { count: "planned", head: true });
     if (filters?.countryId) countQuery = countQuery.or(lawsOrGlobalForCountry(filters.countryId));
     if (filters?.categoryId) countQuery = countQuery.eq("category_id", filters.categoryId);
     if (filters?.status) countQuery = countQuery.eq("status", filters.status);
@@ -117,17 +151,25 @@ export async function fetchLibraryData(filters?: {
     return cachedData;
   }
 
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error("Library load timeout")), FETCH_TIMEOUT_MS);
+    timeoutHandle = setTimeout(() => reject(new Error("Library load timeout")), FETCH_TIMEOUT_MS);
   });
 
   try {
     const data = await Promise.race([doFetch(filters), timeoutPromise]);
     return data;
   } catch (err) {
+    // For filtered requests, gracefully degrade to in-memory filtering from the
+    // most recent unfiltered cache instead of throwing a 500.
+    if (key !== "__initial__" && cachedData) {
+      return applyFiltersToCachedData(cachedData, filters);
+    }
     if (key === "__initial__" && cachedData) {
       return cachedData;
     }
     throw err;
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
   }
 }
