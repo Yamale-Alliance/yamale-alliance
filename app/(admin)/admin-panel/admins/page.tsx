@@ -13,15 +13,21 @@ type AuditEntry = {
   details: Record<string, unknown>;
   created_at: string;
 };
+type AuditAdmin = { id: string; email: string | null };
 
 const ACTION_LABELS: Record<string, string> = {
   "law.add": "Added law",
   "law.update": "Updated law",
   "law.delete": "Deleted law",
+  "law.delete_batch": "Deleted multiple laws",
   "pricing.update": "Updated pricing plan",
   "user.tier": "Changed user access tier",
   "admin.add": "Added/updated admin role",
   "admin.role": "Changed role",
+  "lawyer.removed": "Removed lawyer",
+  "marketplace_item.add": "Added marketplace item",
+  "marketplace_item.update": "Updated marketplace item",
+  "marketplace_item.delete": "Deleted marketplace item",
 };
 
 export default function AdminAdminsPage() {
@@ -34,6 +40,9 @@ export default function AdminAdminsPage() {
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [auditLoading, setAuditLoading] = useState(true);
   const [auditFilter, setAuditFilter] = useState("");
+  const [auditActionGroup, setAuditActionGroup] = useState("");
+  const [auditAdminId, setAuditAdminId] = useState("");
+  const [auditAdmins, setAuditAdmins] = useState<AuditAdmin[]>([]);
   const [auditPage, setAuditPage] = useState(1);
   const [auditTotal, setAuditTotal] = useState(0);
 
@@ -43,26 +52,30 @@ export default function AdminAdminsPage() {
     params.set("limit", String(PAGE_SIZE));
     params.set("offset", String((auditPage - 1) * PAGE_SIZE));
     if (auditFilter) params.set("action", auditFilter);
+    if (auditActionGroup) params.set("actionGroup", auditActionGroup);
+    if (auditAdminId) params.set("adminId", auditAdminId);
     fetch(`${window.location.origin}/api/admin/audit-log?${params.toString()}`, { credentials: "include" })
       .then((r) => r.json())
       .then((data) => {
         setAuditLog(Array.isArray(data?.entries) ? data.entries : []);
         setAuditTotal(typeof data?.total === "number" ? data.total : 0);
+        setAuditAdmins(Array.isArray(data?.admins) ? data.admins : []);
       })
       .catch(() => {
         setAuditLog([]);
         setAuditTotal(0);
+        setAuditAdmins([]);
       })
       .finally(() => setAuditLoading(false));
   };
 
   useEffect(() => {
     fetchAuditLog();
-  }, [auditFilter, auditPage]);
+  }, [auditFilter, auditActionGroup, auditAdminId, auditPage]);
 
   useEffect(() => {
     setAuditPage(1);
-  }, [auditFilter]);
+  }, [auditFilter, auditActionGroup, auditAdminId]);
 
   const handleAddAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,10 +180,21 @@ export default function AdminAdminsPage() {
           Version control
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Who added, updated, or changed what. Filter by action type below.
+          Who added, updated, or changed what. Filter by control type, action, or admin below.
         </p>
 
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex flex-wrap gap-2">
+          <select
+            value={auditActionGroup}
+            onChange={(e) => setAuditActionGroup(e.target.value)}
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="">All controls</option>
+            <option value="create">Create controls</option>
+            <option value="update">Update controls</option>
+            <option value="delete">Delete controls</option>
+            <option value="role">Admin/access controls</option>
+          </select>
           <select
             value={auditFilter}
             onChange={(e) => setAuditFilter(e.target.value)}
@@ -180,6 +204,18 @@ export default function AdminAdminsPage() {
             {Object.entries(ACTION_LABELS).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={auditAdminId}
+            onChange={(e) => setAuditAdminId(e.target.value)}
+            className="min-w-[240px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="">All admins</option>
+            {auditAdmins.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.email ?? a.id}
               </option>
             ))}
           </select>
