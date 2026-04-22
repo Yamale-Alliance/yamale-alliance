@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Trash2, CopyCheck } from "lucide-react";
 
@@ -12,6 +12,10 @@ type DuplicateLaw = {
   status: string;
   source_url: string | null;
   created_at: string;
+  updated_at: string | null;
+  country_id: string | null;
+  country_name: string | null;
+  is_claude_cleaned: boolean;
 };
 
 type DuplicateGroup = {
@@ -23,8 +27,6 @@ type DuplicateGroup = {
 
 export default function AdminLawDuplicatesPage() {
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const countryId = searchParams.get("countryId") ?? "";
   const categoryId = searchParams.get("categoryId") ?? "";
   const returnToParam = searchParams.get("returnTo");
   const returnTo =
@@ -37,19 +39,18 @@ export default function AdminLawDuplicatesPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [deleting, setDeleting] = useState(false);
+  const [dedupingAll, setDedupingAll] = useState(false);
 
   useEffect(() => {
-    if (!countryId || !categoryId) {
-      setError("Select a country and category from the main Laws page, then click Check duplicates.");
+    if (!categoryId) {
+      setError("Select a category from the main Laws page, then click Check duplicates.");
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
     fetch(
-      `/api/admin/laws/duplicates?countryId=${encodeURIComponent(
-        countryId
-      )}&categoryId=${encodeURIComponent(categoryId)}`,
+      `/api/admin/laws/duplicates?categoryId=${encodeURIComponent(categoryId)}`,
       { credentials: "include" }
     )
       .then((r) => r.json())
@@ -70,7 +71,7 @@ export default function AdminLawDuplicatesPage() {
         setGroups([]);
       })
       .finally(() => setLoading(false));
-  }, [countryId, categoryId]);
+  }, [categoryId]);
 
   const toggleLaw = (id: string) => {
     setSelectedIds((prev) => {
@@ -115,6 +116,43 @@ export default function AdminLawDuplicatesPage() {
     }
   };
 
+  const handleMassDedupe = async () => {
+    if (!categoryId || dedupingAll) return;
+    const yes = window.confirm(
+      "This will delete duplicates within each country for this category, keeping one per country+title (Claude-cleaned preferred, otherwise latest). Continue?"
+    );
+    if (!yes) return;
+    setDedupingAll(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/laws/duplicates", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoryId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(typeof data.error === "string" ? data.error : "Failed to dedupe all duplicates.");
+        return;
+      }
+      setSelectedIds(new Set());
+      const refreshed = await fetch(`/api/admin/laws/duplicates?categoryId=${encodeURIComponent(categoryId)}`, {
+        credentials: "include",
+      });
+      const refreshedData = await refreshed.json().catch(() => ({}));
+      if (!refreshed.ok || !refreshedData?.ok) {
+        setError("Dedupe completed, but failed to refresh the duplicate list.");
+        return;
+      }
+      setGroups(Array.isArray(refreshedData.duplicates) ? refreshedData.duplicates : []);
+    } catch {
+      setError("Network error while deduplicating.");
+    } finally {
+      setDedupingAll(false);
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-4 flex items-center justify-between gap-2">
@@ -134,7 +172,7 @@ export default function AdminLawDuplicatesPage() {
         <div>
           <h1 className="text-xl font-semibold">Check duplicates</h1>
           <p className="text-sm text-muted-foreground">
-            Shows duplicate titles within a single country and category only. Select duplicates to remove; they go to Recently deleted and can be restored.
+            Shows duplicate titles within each country for one category (same law in different countries is allowed). Delete one by one, or mass-dedupe while keeping Claude-cleaned records (or latest if none are Claude-cleaned).
           </p>
         </div>
       </div>
@@ -170,6 +208,15 @@ export default function AdminLawDuplicatesPage() {
               Delete selected duplicates
               {selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
             </button>
+            <button
+              type="button"
+              onClick={() => void handleMassDedupe()}
+              disabled={dedupingAll}
+              className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {dedupingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <CopyCheck className="h-4 w-4" />}
+              {dedupingAll ? "Deduplicating all…" : "Mass dedupe all duplicates"}
+            </button>
           </div>
 
           <div className="space-y-4">
@@ -182,7 +229,7 @@ export default function AdminLawDuplicatesPage() {
                   <div>
                     <div className="text-sm font-medium">{group.title}</div>
                     <div className="text-xs text-muted-foreground">
-                      {group.count} duplicates in this country & category
+                      {group.count} duplicates in {group.laws[0]?.country_name ?? "this country"} for this category
                     </div>
                   </div>
                 </div>
@@ -194,6 +241,8 @@ export default function AdminLawDuplicatesPage() {
                         <th className="p-2 text-left font-medium">Title</th>
                         <th className="p-2 text-left font-medium">Status</th>
                         <th className="p-2 text-left font-medium">Year</th>
+                        <th className="p-2 text-left font-medium">Country</th>
+                        <th className="p-2 text-left font-medium">Claude cleaned</th>
                         <th className="p-2 text-left font-medium">Source URL</th>
                         <th className="p-2 text-left font-medium">Created at</th>
                       </tr>
@@ -213,6 +262,8 @@ export default function AdminLawDuplicatesPage() {
                           <td className="p-2 align-top">{law.title}</td>
                           <td className="p-2 align-top">{law.status}</td>
                           <td className="p-2 align-top">{law.year ?? "—"}</td>
+                          <td className="p-2 align-top">{law.country_name ?? "—"}</td>
+                          <td className="p-2 align-top">{law.is_claude_cleaned ? "Yes" : "No"}</td>
                           <td className="p-2 align-top text-muted-foreground max-w-[220px] truncate">
                             {law.source_url ?? "—"}
                           </td>
