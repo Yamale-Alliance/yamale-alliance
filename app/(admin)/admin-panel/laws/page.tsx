@@ -313,12 +313,11 @@ function AdminLawsPageInner() {
         <button
           type="button"
           onClick={() => {
-            if (!countryId || !categoryId) return;
+            if (!categoryId) return;
             setDupLoading(true);
             setDupError(null);
             setDupSummary(null);
             const params = new URLSearchParams();
-            params.set("countryId", countryId);
             params.set("categoryId", categoryId);
             fetch(`/api/admin/laws/duplicates?${params.toString()}`, { credentials: "include" })
               .then((r) => r.json())
@@ -343,7 +342,7 @@ function AdminLawsPageInner() {
               })
               .finally(() => setDupLoading(false));
           }}
-          disabled={!countryId || !categoryId || dupLoading}
+          disabled={!categoryId || dupLoading}
           className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-accent disabled:opacity-50"
         >
           {dupLoading ? (
@@ -351,11 +350,11 @@ function AdminLawsPageInner() {
           ) : (
             <CopyCheck className="h-3.5 w-3.5" />
           )}
-          {dupLoading ? "Checking duplicates…" : "Check duplicates in this country & category"}
+          {dupLoading ? "Checking duplicates…" : "Check duplicates in this category (within each country)"}
         </button>
-        {!countryId || !categoryId ? (
+        {!categoryId ? (
           <span className="text-xs text-muted-foreground">
-            Select both a country and category to check for duplicates.
+            Select a category to check duplicates within each country.
           </span>
         ) : dupError ? (
           <span className="text-xs text-destructive">{dupError}</span>
@@ -368,7 +367,6 @@ function AdminLawsPageInner() {
                 type="button"
                 onClick={() => {
                   const params = new URLSearchParams();
-                  params.set("countryId", countryId);
                   params.set("categoryId", categoryId);
                   params.set("returnTo", currentListUrl);
                   router.push(`/admin-panel/laws/duplicates?${params.toString()}`);
