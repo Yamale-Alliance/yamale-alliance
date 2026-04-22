@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin";
 import { normaliseLawTitle } from "@/lib/admin-law-utils";
+import { isLawTreatyType } from "@/lib/law-treaty-type";
 import {
   processPdfUrlToMarkdown,
   suggestMetadataFromPlain,
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
     const rawTitle = typeof body.title === "string" ? body.title : "";
     const title = normaliseLawTitle(rawTitle);
     const status = typeof body.status === "string" ? body.status.trim() : "In force";
+    const treatyTypeRaw = typeof body.treatyType === "string" ? body.treatyType.trim() : "Not a treaty";
     const yearRaw = body.year;
     const year =
       typeof yearRaw === "number" && !Number.isNaN(yearRaw)
@@ -101,6 +103,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    if (!isLawTreatyType(treatyTypeRaw)) {
+      return NextResponse.json({ error: "Invalid treaty type" }, { status: 400 });
+    }
 
     const supabase = getSupabaseServer();
     const law = await saveLawFromPdfUrlImport({
@@ -114,6 +119,7 @@ export async function POST(request: NextRequest) {
       categoryId,
       title,
       status,
+      treatyType: treatyTypeRaw,
       year: year !== null && !Number.isNaN(year) ? year : null,
       markdownOverride: markdownOverride.length >= 50 ? markdownOverride : undefined,
       auditSource: "url-import",

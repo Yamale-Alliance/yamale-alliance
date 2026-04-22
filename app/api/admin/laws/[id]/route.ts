@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin";
 import { recordAuditLog } from "@/lib/admin-audit";
+import { isLawTreatyType } from "@/lib/law-treaty-type";
 import type { Database } from "@/lib/database.types";
 
 type LawRow = Database["public"]["Tables"]["laws"]["Row"];
@@ -25,7 +26,7 @@ export async function GET(
     const { data, error } = await supabase
       .from("laws")
       .select(
-        "id, title, country_id, applies_to_all_countries, category_id, year, status, source_url, source_name, content, content_plain"
+        "id, title, country_id, applies_to_all_countries, category_id, year, status, treaty_type, source_url, source_name, content, content_plain"
       )
       .eq("id", id)
       .single();
@@ -94,6 +95,13 @@ export async function PUT(
     if (body.category_id !== undefined) updates.category_id = body.category_id || null;
     if (body.year !== undefined) updates.year = body.year ? Number(body.year) : null;
     if (typeof body.status === "string") updates.status = body.status.trim() || "In force";
+    if (body.treaty_type !== undefined) {
+      const treatyType = body.treaty_type ? String(body.treaty_type).trim() : "";
+      if (!isLawTreatyType(treatyType)) {
+        return NextResponse.json({ error: "Invalid treaty type" }, { status: 400 });
+      }
+      updates.treaty_type = treatyType;
+    }
     if (typeof body.source_url === "string") updates.source_url = body.source_url.trim() || null;
     if (typeof body.source_name === "string") updates.source_name = body.source_name.trim() || null;
 
@@ -111,7 +119,9 @@ export async function PUT(
     const { data, error } = await (supabase.from("laws") as any)
       .update(updates)
       .eq("id", id)
-      .select("id, title, country_id, applies_to_all_countries, category_id, year, status, source_url, source_name")
+      .select(
+        "id, title, country_id, applies_to_all_countries, category_id, year, status, treaty_type, source_url, source_name"
+      )
       .single();
 
     if (error) {

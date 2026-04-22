@@ -10,6 +10,7 @@ import {
 } from "@/lib/law-url-import";
 import { extractLawMetadataWithClaude, isClaudeConfiguredForImport } from "@/lib/claude-law-metadata";
 import { recordAuditLog } from "@/lib/admin-audit";
+import { isLawTreatyType } from "@/lib/law-treaty-type";
 import type { AdminAuth } from "@/lib/admin";
 import type { Database } from "@/lib/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -87,6 +88,7 @@ export async function saveLawFromPdfUrlImport(params: {
   categoryId: string;
   title: string;
   status: string;
+  treatyType?: string;
   year: number | null;
   markdownOverride?: string;
   auditSource: LawUrlImportAuditSource;
@@ -102,6 +104,7 @@ export async function saveLawFromPdfUrlImport(params: {
     categoryId,
     title,
     status,
+    treatyType,
     year,
     markdownOverride,
     auditSource,
@@ -121,6 +124,11 @@ export async function saveLawFromPdfUrlImport(params: {
   }
   if (!VALID_LAW_STATUSES.includes(status as (typeof VALID_LAW_STATUSES)[number])) {
     throw new Error(`Invalid status. Use one of: ${VALID_LAW_STATUSES.join(", ")}`);
+  }
+  const effectiveTreatyType =
+    typeof treatyType === "string" && treatyType.trim() ? treatyType.trim() : "Not a treaty";
+  if (!isLawTreatyType(effectiveTreatyType)) {
+    throw new Error("Invalid treaty type");
   }
   if (year !== null && (Number.isNaN(year) || year < 1900 || year > 2100)) {
     throw new Error("Invalid year");
@@ -157,6 +165,7 @@ export async function saveLawFromPdfUrlImport(params: {
           title,
           source_url: sourceUrl,
           source_name: sourceName,
+          treaty_type: effectiveTreatyType,
           year: year ?? null,
           status,
           content: contentTrimmed,
@@ -170,6 +179,7 @@ export async function saveLawFromPdfUrlImport(params: {
         title,
         source_url: sourceUrl,
         source_name: sourceName,
+        treaty_type: effectiveTreatyType,
         year: year ?? null,
         status,
         content: contentTrimmed,

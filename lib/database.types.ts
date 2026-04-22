@@ -50,6 +50,7 @@ export interface Database {
           title: string;
           source_url: string | null;
           source_name: string | null;
+          treaty_type: string;
           year: number | null;
           status: string;
           content: string | null;
@@ -66,6 +67,7 @@ export interface Database {
           title: string;
           source_url?: string | null;
           source_name?: string | null;
+          treaty_type?: string;
           year?: number | null;
           status?: string;
           content?: string | null;

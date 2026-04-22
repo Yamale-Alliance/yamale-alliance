@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Search, Sparkles, Trash2 } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
+import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
 
 type Country = { id: string; name: string };
 type Category = { id: string; name: string };
@@ -17,6 +18,7 @@ type LawForEdit = {
   category_id: string;
   year: number | null;
   status: string;
+  treaty_type: string;
   source_url: string | null;
   source_name: string | null;
   content: string | null;
@@ -42,6 +44,7 @@ export default function AdminLawEditPage() {
   const [categoryId, setCategoryId] = useState("");
   const [year, setYear] = useState("");
   const [status, setStatus] = useState("In force");
+  const [treatyType, setTreatyType] = useState<LawTreatyType>("Not a treaty");
   const [sourceUrl, setSourceUrl] = useState("");
   const [sourceName, setSourceName] = useState("");
   const [text, setText] = useState("");
@@ -87,6 +90,7 @@ export default function AdminLawEditPage() {
         setCategoryId(lawData.category_id ?? "");
         setYear(lawData.year != null ? String(lawData.year) : "");
         setStatus(lawData.status ?? "In force");
+        setTreatyType((lawData.treaty_type as LawTreatyType) ?? "Not a treaty");
         setSourceUrl(lawData.source_url ?? "");
         setSourceName(lawData.source_name ?? "");
         setText(lawData.content_plain ?? lawData.content ?? "");
@@ -212,6 +216,7 @@ export default function AdminLawEditPage() {
           category_id: categoryId || null,
           year: year.trim() ? Number(year.trim()) : null,
           status: status.trim() || "In force",
+          treaty_type: treatyType,
           source_url: sourceUrl.trim() || null,
           source_name: sourceName.trim() || null,
           content: text,
@@ -381,6 +386,20 @@ export default function AdminLawEditPage() {
                 <option value="In force">In force</option>
                 <option value="Amended">Amended</option>
                 <option value="Repealed">Repealed</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Treaty type</label>
+              <select
+                value={treatyType}
+                onChange={(e) => setTreatyType(e.target.value as LawTreatyType)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                {LAW_TREATY_TYPES.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="sm:col-span-2">

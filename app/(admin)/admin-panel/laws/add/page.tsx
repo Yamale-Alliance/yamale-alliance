@@ -8,6 +8,7 @@ import {
   parseFlatSheetFromMatrix,
   type BulkUrlSheetItem,
 } from "@/lib/bulk-url-sheet-parse";
+import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
 
 type Country = { id: string; name: string };
 type Category = { id: string; name: string };
@@ -22,6 +23,7 @@ export default function AdminLawsAddPage() {
   const [appliesToAll, setAppliesToAll] = useState(false);
   const [categoryId, setCategoryId] = useState("");
   const [status, setStatus] = useState("In force");
+  const [treatyType, setTreatyType] = useState<LawTreatyType>("Not a treaty");
   const [title, setTitle] = useState("");
   const [year, setYear] = useState("");
   const [mode, setMode] = useState<InputMode>("upload");
@@ -155,6 +157,7 @@ export default function AdminLawsAddPage() {
             categoryId,
             title: title.trim(),
             status,
+            treatyType,
             year: (() => {
               if (!year.trim()) return null;
               const y = parseInt(year, 10);
@@ -218,6 +221,7 @@ export default function AdminLawsAddPage() {
     }
     formData.set("categoryId", categoryId);
     formData.set("status", status);
+    formData.set("treatyType", treatyType);
     formData.set("title", title.trim());
     if (year.trim()) formData.set("year", year.trim());
 
@@ -591,6 +595,21 @@ export default function AdminLawsAddPage() {
             <option value="In force">In force</option>
             <option value="Amended">Amended</option>
             <option value="Repealed">Repealed</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Treaty type</label>
+          <select
+            value={treatyType}
+            onChange={(e) => setTreatyType(e.target.value as LawTreatyType)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            {LAW_TREATY_TYPES.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
           </select>
         </div>
 

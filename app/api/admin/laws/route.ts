@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin";
 import { recordAuditLog } from "@/lib/admin-audit";
 import { extractTextFromPdf } from "@/lib/pdf-extract";
 import { sanitizeLawContent, VALID_LAW_STATUSES, normaliseLawTitle } from "@/lib/admin-law-utils";
+import { isLawTreatyType } from "@/lib/law-treaty-type";
 import type { Database } from "@/lib/database.types";
 
 // Allow up to 5 minutes for PDF extraction and OCR (large or scanned PDFs)
@@ -47,11 +48,13 @@ export async function POST(request: NextRequest) {
     const status = formData.get("status") as string | null;
     const rawTitle = formData.get("title") as string | null;
     const yearStr = formData.get("year") as string | null;
+    const treatyTypeRaw = formData.get("treatyType");
     const file = formData.get("file") as File | null;
     const content = formData.get("content") as string | null;
     const forceOcr = formData.get("forceOcr") === "true";
 
     const title = normaliseLawTitle(rawTitle);
+    const treatyType = typeof treatyTypeRaw === "string" ? treatyTypeRaw.trim() : "Not a treaty";
 
     if (!categoryId?.trim() || !title) {
       return NextResponse.json(
@@ -70,6 +73,9 @@ export async function POST(request: NextRequest) {
         { error: `Invalid status. Use one of: ${VALID_LAW_STATUSES.join(", ")}` },
         { status: 400 }
       );
+    }
+    if (!isLawTreatyType(treatyType)) {
+      return NextResponse.json({ error: "Invalid treaty type" }, { status: 400 });
     }
 
     const year = yearStr?.trim() ? parseInt(yearStr, 10) : null;
@@ -117,6 +123,7 @@ export async function POST(request: NextRequest) {
             title,
             source_url: null,
             source_name: null,
+            treaty_type: treatyType,
             year: year ?? null,
             status: (status ?? "In force").trim(),
             content: contentTrimmed,
@@ -130,6 +137,7 @@ export async function POST(request: NextRequest) {
           title,
           source_url: null,
           source_name: null,
+          treaty_type: treatyType,
           year: year ?? null,
           status: (status ?? "In force").trim(),
           content: contentTrimmed,
