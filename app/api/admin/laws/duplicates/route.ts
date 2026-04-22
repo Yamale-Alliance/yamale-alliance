@@ -5,6 +5,23 @@ import { recordAuditLog } from "@/lib/admin-audit";
 import type { Database } from "@/lib/database.types";
 
 type LawRow = Database["public"]["Tables"]["laws"]["Row"];
+type LawArchiveRow = Pick<
+  LawRow,
+  | "id"
+  | "country_id"
+  | "applies_to_all_countries"
+  | "category_id"
+  | "title"
+  | "source_url"
+  | "source_name"
+  | "year"
+  | "status"
+  | "content"
+  | "content_plain"
+  | "metadata"
+  | "created_at"
+  | "updated_at"
+>;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const FETCH_PAGE_SIZE = 2000;
 const MUTATION_CHUNK_SIZE = 500;
@@ -194,10 +211,11 @@ export async function POST(req: NextRequest) {
           { status: 500 }
         );
       }
+      const archiveRows = (toArchive ?? []) as LawArchiveRow[];
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error: archiveErr } = await (supabase.from("deleted_laws") as any).insert(
-        (toArchive ?? []).map((existingLaw) => ({
+        archiveRows.map((existingLaw) => ({
           id: existingLaw.id,
           country_id: existingLaw.country_id,
           applies_to_all_countries: existingLaw.applies_to_all_countries,

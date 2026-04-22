@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin";
+import type { Database } from "@/lib/database.types";
 
 const ACTION_GROUPS: Record<string, string[]> = {
   create: ["law.add", "admin.add", "marketplace_item.add"],
@@ -8,6 +9,11 @@ const ACTION_GROUPS: Record<string, string[]> = {
   delete: ["law.delete", "law.delete_batch", "lawyer.removed", "marketplace_item.delete"],
   role: ["admin.role", "user.tier"],
 };
+
+type AuditAdminRow = Pick<
+  Database["public"]["Tables"]["admin_audit_log"]["Row"],
+  "admin_id" | "admin_email"
+>;
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
@@ -46,14 +52,18 @@ export async function GET(request: NextRequest) {
     ]);
 
     const { data, error, count } = entriesRes;
+    const { data: adminRows, error: adminsError } = adminsRes;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+    if (adminsError) {
+      return NextResponse.json({ error: adminsError.message }, { status: 500 });
+    }
 
     const uniqueAdmins: { id: string; email: string | null }[] = [];
     const seen = new Set<string>();
-    for (const row of adminsRes.data ?? []) {
+    for (const row of (adminRows ?? []) as AuditAdminRow[]) {
       const id = row.admin_id;
       if (!id || seen.has(id)) continue;
       seen.add(id);

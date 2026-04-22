@@ -157,11 +157,12 @@ export async function GET(request: NextRequest) {
   }
 
   const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
+  const body = new Uint8Array(buffer);
   const dateStr = new Date().toISOString().slice(0, 10);
   const filenameScope = selectedRegionKey ? "single-region" : "all-regions";
   const filename = `laws-export-${filenameScope}-${dateStr}.xlsx`;
 
-  return new NextResponse(buffer, {
+  return new NextResponse(body, {
     status: 200,
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
