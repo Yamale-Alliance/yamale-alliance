@@ -40,12 +40,14 @@ export async function GET(
         error.code === "PGRST204";
       if (missingTreatyColumn) {
         // Backward-compat: local DB may not have migration 064 yet.
-        const legacy = await supabase.from("laws").select(legacySelect).eq("id", id).single();
-        if (legacy.error || !legacy.data) {
+        const legacyRes = await supabase.from("laws").select(legacySelect).eq("id", id).single();
+        const legacyData = legacyRes.data as LawRow | null;
+        const legacyError = legacyRes.error;
+        if (legacyError || !legacyData) {
           return NextResponse.json({ error: "Law not found" }, { status: 404 });
         }
         const law = {
-          ...(legacy.data as LawRow),
+          ...legacyData,
           treaty_type: "Not a treaty",
         };
         return NextResponse.json({ law, warning: "Missing treaty_type column; run migration 064." });
