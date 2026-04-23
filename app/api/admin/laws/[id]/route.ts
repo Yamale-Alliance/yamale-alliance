@@ -23,15 +23,41 @@ export async function GET(
 
   try {
     const supabase = getSupabaseServer();
+    const fullSelect =
+      "id, title, country_id, applies_to_all_countries, category_id, year, status, treaty_type, source_url, source_name, content, content_plain";
+    const legacySelect =
+      "id, title, country_id, applies_to_all_countries, category_id, year, status, source_url, source_name, content, content_plain";
+
     const { data, error } = await supabase
       .from("laws")
-      .select(
-        "id, title, country_id, applies_to_all_countries, category_id, year, status, treaty_type, source_url, source_name, content, content_plain"
-      )
+      .select(fullSelect)
       .eq("id", id)
       .single();
 
-    if (error || !data) {
+    if (error) {
+      const missingTreatyColumn =
+        error.message?.toLowerCase().includes("treaty_type") ||
+        error.code === "PGRST204";
+      if (missingTreatyColumn) {
+        // Backward-compat: local DB may not have migration 064 yet.
+        const legacy = await supabase.from("laws").select(legacySelect).eq("id", id).single();
+        if (legacy.error || !legacy.data) {
+          return NextResponse.json({ error: "Law not found" }, { status: 404 });
+        }
+        const law = {
+          ...(legacy.data as LawRow),
+          treaty_type: "Not a treaty",
+        };
+        return NextResponse.json({ law, warning: "Missing treaty_type column; run migration 064." });
+      }
+      if (error.code === "PGRST116") {
+        return NextResponse.json({ error: "Law not found" }, { status: 404 });
+      }
+      console.error("Admin law GET query error:", error);
+      return NextResponse.json({ error: "Failed to load law" }, { status: 500 });
+    }
+
+    if (!data) {
       return NextResponse.json({ error: "Law not found" }, { status: 404 });
     }
 
