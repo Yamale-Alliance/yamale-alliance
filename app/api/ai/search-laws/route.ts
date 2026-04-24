@@ -6,6 +6,18 @@ import {
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { chunkLawContent } from "@/lib/embeddings/chunking";
 
+function extractSearchTokens(query: string): string[] {
+  const stopWords = new Set(["the", "and", "for", "with", "that", "this", "from", "law", "laws", "database"]);
+  const unique = new Set(
+    query
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .map((t) => t.trim())
+      .filter((t) => t.length >= 3 && !stopWords.has(t))
+  );
+  return Array.from(unique).slice(0, 8);
+}
+
 /**
  * Semantic search in legal library for RAG
  * Searches laws by country, category, and text content
@@ -57,7 +69,7 @@ export async function POST(request: NextRequest) {
         "id, title, content, content_plain, year, status, country_id, category_id, countries(name), categories(name)"
       )
       .not("content", "is", null)
-      .limit(Math.min(limit || 5, 20)); // Max 20 results
+      .limit(Math.min((limit || 5) * 8, 80)); // gather candidates, rank in-memory
 
     if (categoryId) lawsQuery = lawsQuery.eq("category_id", categoryId);
 
@@ -83,7 +95,18 @@ export async function POST(request: NextRequest) {
 
     // Use chunking strategy: paragraph/sentence-aware, then take first chunks per law (max 2000 chars)
     const maxCharsPerLaw = 2000;
-    const chunks = (laws || []).map((law: any) => {
+    const tokens = extractSearchTokens(query);
+    const rankedLaws = [...(laws || [])].sort((a: any, b: any) => {
+      const titleA = String(a.title ?? "").toLowerCase();
+      const titleB = String(b.title ?? "").toLowerCase();
+      const contentA = String(a.content_plain ?? a.content ?? "").toLowerCase();
+      const contentB = String(b.content_plain ?? b.content ?? "").toLowerCase();
+      const score = (title: string, content: string) =>
+        tokens.reduce((sum, token) => sum + (title.includes(token) ? 3 : 0) + (content.includes(token) ? 1 : 0), 0);
+      return score(titleB, contentB) - score(titleA, contentA);
+    });
+
+    const chunks = rankedLaws.slice(0, Math.min(limit || 5, 20)).map((law: any) => {
       const fullText = law.content_plain || law.content || "";
       const textChunks = chunkLawContent(fullText, { maxChunkChars: 800, overlapChars: 120 });
       let content = "";
