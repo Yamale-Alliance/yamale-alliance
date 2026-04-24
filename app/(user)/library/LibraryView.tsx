@@ -10,6 +10,7 @@ import { useAlertDialog } from "@/components/ui/use-confirm";
 
 const PAGE_SIZE = 12;
 type SortOption = "title-asc" | "title-desc" | "country" | "category" | "newest";
+type DocumentType = "Law" | "Decree" | "Regulation" | "Code" | "Directive" | "Treaty" | "Agreement" | "Other";
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: "title-asc", label: "Title (A–Z)" },
   { value: "title-desc", label: "Title (Z–A)" },
@@ -21,6 +22,9 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 const RECENTLY_ADDED_DAYS = 3;
 const RECENTLY_UPDATED_DAYS = 90;
 const RECENTLY_OPENED_KEY = "yamale-library-recently-opened";
+const SEARCH_DEBOUNCE_MS = 250;
+const DOCUMENT_TYPES: DocumentType[] = ["Law", "Decree", "Regulation", "Code", "Directive", "Treaty", "Agreement", "Other"];
+const TREATY_FILTERS = ["", "Bilateral", "Multilateral", "Not a treaty"] as const;
 
 type LawStatus = "In force" | "Amended" | "Repealed";
 
@@ -32,6 +36,10 @@ type Law = {
   applies_globally: boolean;
   category: string;
   status: LawStatus;
+  year?: number | null;
+  source_name?: string | null;
+  treaty_type?: string;
+  document_type: DocumentType;
   created_at?: string;
   updated_at?: string;
 };
@@ -106,16 +114,96 @@ function StatusBadge({ status }: { status: LawStatus }) {
 }
 
 function mapRowToLaw(row: LibraryLawRow): Law {
+  const title = row.title ?? "";
+  const source = row.source_name ?? "";
+  const typeSource = `${title} ${source}`.toLowerCase();
+  const document_type: DocumentType =
+    typeSource.includes("decree") ? "Decree" :
+    typeSource.includes("regulation") ? "Regulation" :
+    typeSource.includes("directive") ? "Directive" :
+    typeSource.includes("agreement") ? "Agreement" :
+    typeSource.includes("treaty") ? "Treaty" :
+    typeSource.includes("code") ? "Code" :
+    typeSource.includes("law") ? "Law" :
+    "Other";
   return {
     id: row.id,
-    name: row.title,
+    name: title,
     country: row.applies_to_all_countries ? "All countries" : row.countries?.name ?? "",
     applies_globally: !!row.applies_to_all_countries,
     category: row.categories?.name ?? "",
     status: (STATUSES.includes(row.status as LawStatus) ? row.status : "In force") as LawStatus,
+    year: row.year ?? null,
+    source_name: row.source_name ?? null,
+    treaty_type: row.treaty_type ?? "Not a treaty",
+    document_type,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
+}
+
+function tokenizeSearch(input: string): string[] {
+  return input
+    .toLowerCase()
+    .replace(/[^\w\s:-]/g, " ")
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 2);
+}
+
+function parseSearchQuery(input: string): {
+  freeText: string;
+  tokens: string[];
+  country?: string;
+  category?: string;
+  classification?: string;
+  documentType?: string;
+  yearFrom?: number;
+  yearTo?: number;
+} {
+  const parts = input.trim().split(/\s+/);
+  const filters: Record<string, string> = {};
+  const remaining: string[] = [];
+  for (const part of parts) {
+    const idx = part.indexOf(":");
+    if (idx > 0) {
+      const key = part.slice(0, idx).toLowerCase();
+      const value = part.slice(idx + 1).trim();
+      if (value) filters[key] = value;
+      continue;
+    }
+    remaining.push(part);
+  }
+  const freeText = remaining.join(" ").trim();
+  const parsed = {
+    freeText,
+    tokens: tokenizeSearch(freeText),
+    country: filters.country || filters.jurisdiction,
+    category: filters.category,
+    classification: filters.classification || filters.treaty,
+    documentType: filters.type || filters.document,
+    yearFrom: Number.parseInt(filters.from || filters.yearfrom || "", 10),
+    yearTo: Number.parseInt(filters.to || filters.yearto || "", 10),
+  };
+  return {
+    ...parsed,
+    yearFrom: Number.isFinite(parsed.yearFrom) ? parsed.yearFrom : undefined,
+    yearTo: Number.isFinite(parsed.yearTo) ? parsed.yearTo : undefined,
+  };
+}
+
+function scoreLawMatch(law: Law, tokens: string[]) {
+  if (tokens.length === 0) return 1;
+  const haystack = `${law.name} ${law.category} ${law.country} ${law.document_type} ${law.treaty_type ?? ""}`.toLowerCase();
+  let score = 0;
+  for (const token of tokens) {
+    if (law.name.toLowerCase().includes(token)) score += 5;
+    else if (law.category.toLowerCase().includes(token)) score += 3;
+    else if (law.country.toLowerCase().includes(token)) score += 2;
+    else if (haystack.includes(token)) score += 1;
+    else return 0;
+  }
+  return score;
 }
 
 function getRecentlyOpenedIds(): Set<string> {
@@ -141,6 +229,10 @@ type Props = {
   initialCategory: string;
   initialStatus: string;
   initialSearch: string;
+  initialDocumentType?: string;
+  initialTreatyType?: string;
+  initialYearFrom?: string;
+  initialYearTo?: string;
   initialPage?: string;
   initialSort?: string;
 };
@@ -159,6 +251,10 @@ export function LibraryView({
   initialCategory,
   initialStatus,
   initialSearch,
+  initialDocumentType = "",
+  initialTreatyType = "",
+  initialYearFrom = "",
+  initialYearTo = "",
   initialPage = "",
   initialSort = "title-asc",
 }: Props) {
@@ -169,9 +265,16 @@ export function LibraryView({
   const [paidLawIds, setPaidLawIds] = useState<Set<string>>(() => new Set());
   const isAdmin = (user?.publicMetadata?.role as string | undefined) === "admin";
   const [search, setSearch] = useState(initialSearch);
+  const [searchInput, setSearchInput] = useState(initialSearch);
   const [country, setCountry] = useState(initialCountry);
   const [category, setCategory] = useState(initialCategory);
   const [status, setStatus] = useState(initialStatus);
+  const [documentType, setDocumentType] = useState(initialDocumentType);
+  const [treatyType, setTreatyType] = useState(initialTreatyType);
+  const [yearFrom, setYearFrom] = useState(initialYearFrom);
+  const [yearTo, setYearTo] = useState(initialYearTo);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [laws, setLaws] = useState<Law[]>(() => initialLaws.map(mapRowToLaw));
   const [lawCount, setLawCount] = useState(
     () => initialLawCount ?? initialLaws.length
@@ -188,7 +291,8 @@ export function LibraryView({
   const [currentPage, setCurrentPage] = useState(() => parsePage(initialPage) || 1);
   const { alert: showAlert, alertDialog } = useAlertDialog();
 
-  const hasFilters = !!(country || category || status || search.trim());
+  const hasFilters = !!(country || category || status || search.trim() || documentType || treatyType || yearFrom || yearTo);
+  const hasServerFilters = !!(country || category || status);
   const currentTier =
     ((user?.publicMetadata?.tier ?? user?.publicMetadata?.subscriptionTier) as string | undefined) || "free";
 
@@ -265,30 +369,56 @@ export function LibraryView({
   }, []);
 
   const updateUrl = useCallback(
-    (updates: { country?: string; category?: string; status?: string; q?: string; page?: number; sort?: string }) => {
+    (updates: { country?: string; category?: string; status?: string; q?: string; page?: number; sort?: string; documentType?: string; treatyType?: string; yearFrom?: string; yearTo?: string }) => {
       const params = new URLSearchParams();
       const c = updates.country ?? country;
       const cat = updates.category ?? category;
       const s = updates.status ?? status;
       const q = updates.q ?? search;
+      const docType = updates.documentType ?? documentType;
+      const treaty = updates.treatyType ?? treatyType;
+      const yFrom = updates.yearFrom ?? yearFrom;
+      const yTo = updates.yearTo ?? yearTo;
       const page = updates.page ?? currentPage;
       const sort = updates.sort ?? sortBy;
       if (c) params.set("country", c);
       if (cat) params.set("category", cat);
       if (s) params.set("status", s);
       if (q.trim()) params.set("q", q.trim());
+      if (docType) params.set("documentType", docType);
+      if (treaty) params.set("classification", treaty);
+      if (yFrom) params.set("yearFrom", yFrom);
+      if (yTo) params.set("yearTo", yTo);
       if (page > 1) params.set("page", String(page));
       if (sort && sort !== "title-asc") params.set("sort", sort);
       const query = params.toString();
       router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
     },
-    [country, category, status, search, currentPage, sortBy, pathname, router]
+    [country, category, status, search, documentType, treatyType, yearFrom, yearTo, currentPage, sortBy, pathname, router]
   );
 
-  const hadInitialFilters = !!(initialCountry || initialCategory || initialStatus || initialSearch);
+  const hadInitialFilters = !!(initialCountry || initialCategory || initialStatus || initialSearch || initialDocumentType || initialTreatyType || initialYearFrom || initialYearTo);
 
   useEffect(() => {
-    if (!hasFilters) {
+    if (searchInput === search) return;
+    const timer = setTimeout(() => {
+      setSearch(searchInput);
+      setCurrentPage(1);
+      updateUrl({ q: searchInput, page: 1 });
+      if (searchInput.trim()) {
+        fetch("/api/search/analytics", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ event: "query", query: searchInput.trim() }),
+          keepalive: true,
+        }).catch(() => {});
+      }
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchInput, updateUrl]);
+
+  useEffect(() => {
+    if (!hasServerFilters) {
       setLaws(initialLaws.map(mapRowToLaw));
       setLawCount(initialLawCount ?? initialLaws.length);
       setError(null);
@@ -329,7 +459,6 @@ export function LibraryView({
       })
       .finally(() => setLoadingLaws(false));
   }, [
-    search,
     country,
     category,
     status,
@@ -337,7 +466,7 @@ export function LibraryView({
     categories,
     initialLaws,
     initialLawCount,
-    hasFilters,
+    hasServerFilters,
   ]);
 
 
@@ -357,9 +486,27 @@ export function LibraryView({
     updateUrl({ status: v, page: 1 });
   };
   const handleSearchChange = (v: string) => {
-    setSearch(v);
+    setSearchInput(v);
+  };
+  const handleDocumentTypeChange = (v: string) => {
+    setDocumentType(v);
     setCurrentPage(1);
-    updateUrl({ q: v, page: 1 });
+    updateUrl({ documentType: v, page: 1 });
+  };
+  const handleTreatyTypeChange = (v: string) => {
+    setTreatyType(v);
+    setCurrentPage(1);
+    updateUrl({ treatyType: v, page: 1 });
+  };
+  const handleYearFromChange = (v: string) => {
+    setYearFrom(v);
+    setCurrentPage(1);
+    updateUrl({ yearFrom: v, page: 1 });
+  };
+  const handleYearToChange = (v: string) => {
+    setYearTo(v);
+    setCurrentPage(1);
+    updateUrl({ yearTo: v, page: 1 });
   };
   const handleSortChange = (v: string) => {
     const next = v as SortOption;
@@ -376,6 +523,11 @@ export function LibraryView({
     setCategory("");
     setStatus("");
     setSearch("");
+    setSearchInput("");
+    setDocumentType("");
+    setTreatyType("");
+    setYearFrom("");
+    setYearTo("");
     setCurrentPage(1);
     router.replace(pathname, { scroll: false });
   };
@@ -415,20 +567,55 @@ export function LibraryView({
     [isSignedIn, router, paidLawIds, showAlert]
   );
 
+  const searchSuggestions = useMemo(() => {
+    if (!searchInput.trim()) return [];
+    const needle = searchInput.toLowerCase();
+    const raw = [
+      ...laws.map((l) => l.name),
+      ...countries.map((c) => `country:${c.name}`),
+      ...categories.map((c) => `category:${c.name}`),
+      ...DOCUMENT_TYPES.map((d) => `type:${d}`),
+      "classification:Bilateral",
+      "classification:Multilateral",
+      "classification:Not a treaty",
+    ];
+    return Array.from(new Set(raw.filter((s) => s.toLowerCase().includes(needle)))).slice(0, 8);
+  }, [searchInput, laws, countries, categories]);
+
   const filteredLaws = useMemo(() => {
+    const parsed = parseSearchQuery(search);
+    const freeTokens = parsed.tokens;
+    const minYear = Number.parseInt(yearFrom, 10);
+    const maxYear = Number.parseInt(yearTo, 10);
     return laws.filter((law) => {
-      const matchSearch =
-        !search || law.name.toLowerCase().includes(search.toLowerCase());
+      const relevance = scoreLawMatch(law, freeTokens);
+      const matchSearch = !search || relevance > 0;
       const matchCountry = !country || law.country === country || law.applies_globally;
       const matchCategory = !category || law.category === category;
       const matchStatus = !status || law.status === status;
-      return matchSearch && matchCountry && matchCategory && matchStatus;
+      const matchDocType = !documentType || law.document_type === documentType;
+      const lawTreaty = (law.treaty_type ?? "Not a treaty").toLowerCase();
+      const matchTreaty = !treatyType || lawTreaty === treatyType.toLowerCase();
+      const matchYearFrom = !Number.isFinite(minYear) || (typeof law.year === "number" && law.year >= minYear);
+      const matchYearTo = !Number.isFinite(maxYear) || (typeof law.year === "number" && law.year <= maxYear);
+      const matchQueryCountry = !parsed.country || law.country.toLowerCase().includes(parsed.country.toLowerCase());
+      const matchQueryCategory = !parsed.category || law.category.toLowerCase().includes(parsed.category.toLowerCase());
+      const matchQueryDocType = !parsed.documentType || law.document_type.toLowerCase().includes(parsed.documentType.toLowerCase());
+      const matchQueryClassification = !parsed.classification || lawTreaty.includes(parsed.classification.toLowerCase());
+      const matchQueryYearFrom = !parsed.yearFrom || (typeof law.year === "number" && law.year >= parsed.yearFrom);
+      const matchQueryYearTo = !parsed.yearTo || (typeof law.year === "number" && law.year <= parsed.yearTo);
+      return matchSearch && matchCountry && matchCategory && matchStatus && matchDocType && matchTreaty && matchYearFrom && matchYearTo && matchQueryCountry && matchQueryCategory && matchQueryDocType && matchQueryClassification && matchQueryYearFrom && matchQueryYearTo;
     });
-  }, [laws, search, country, category, status]);
+  }, [laws, search, country, category, status, documentType, treatyType, yearFrom, yearTo]);
 
   const sortedLaws = useMemo(() => {
     const list = [...filteredLaws];
+    const searchTokens = tokenizeSearch(search);
     list.sort((a, b) => {
+      if (searchTokens.length) {
+        const scoreDiff = scoreLawMatch(b, searchTokens) - scoreLawMatch(a, searchTokens);
+        if (scoreDiff !== 0) return scoreDiff;
+      }
       switch (sortBy) {
         case "title-asc":
           return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
@@ -458,6 +645,10 @@ export function LibraryView({
       if (category) params.set("category", category);
       if (status) params.set("status", status);
       if (search.trim()) params.set("q", search.trim());
+      if (documentType) params.set("documentType", documentType);
+      if (treatyType) params.set("classification", treatyType);
+      if (yearFrom) params.set("yearFrom", yearFrom);
+      if (yearTo) params.set("yearTo", yearTo);
       if (sortBy !== "title-asc") params.set("sort", sortBy);
       router.replace(params.toString() ? `${pathname}?${params.toString()}` : pathname, { scroll: false });
     }
@@ -469,7 +660,7 @@ export function LibraryView({
     return sortedLaws.slice(start, start + PAGE_SIZE);
   }, [sortedLaws, safePage]);
 
-  const showingSearch = search.trim().length > 0;
+  const showingSearch = search.trim().length > 0 || !!documentType || !!treatyType || !!yearFrom || !!yearTo;
   const resultsTotal = showingSearch ? sortedLaws.length : lawCount;
 
   const categoryNames = useMemo(() => [...new Set(laws.map((l) => l.category))].filter(Boolean).sort(), [laws]);
@@ -539,9 +730,9 @@ export function LibraryView({
     <div className="min-h-screen">
       {alertDialog}
       {/* Header — gradient, modern filters */}
-      <div className="relative overflow-hidden border-b border-border/50 bg-gradient-to-b from-primary/5 to-transparent">
+      <div className="relative border-b border-border/50 bg-gradient-to-b from-primary/5 to-transparent">
         <div
-          className="absolute inset-0 -z-10 opacity-50 dark:opacity-30"
+          className="pointer-events-none absolute inset-0 -z-10 overflow-hidden opacity-50 dark:opacity-30"
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23c18c43' fill-opacity='0.06' fill-rule='evenodd'%3E%3Cpath d='M0 40L40 0H20L0 20m40 20V20L20 40'/%3E%3C/g%3E%3C/svg%3E")`,
           }}
@@ -560,18 +751,49 @@ export function LibraryView({
           </div>
 
           <div className="mt-6 space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <div className="relative z-30 isolate">
+              <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="search"
-                placeholder="Search by law, category..."
-                value={search}
+                placeholder="Search by law title, country, or category"
+                value={searchInput}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className="w-full rounded-xl border border-border/80 bg-background py-3 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 120)}
+                className="relative z-10 w-full rounded-xl border border-border/80 bg-background py-3 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                autoComplete="off"
+                aria-autocomplete="list"
+                aria-expanded={showSuggestions && searchSuggestions.length > 0}
               />
+              {showSuggestions && searchSuggestions.length > 0 && (
+                <ul
+                  role="listbox"
+                  className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-64 overflow-y-auto overflow-x-hidden rounded-xl border border-border bg-card py-1 text-card-foreground shadow-2xl dark:border-border/80 dark:shadow-black/40"
+                >
+                  {searchSuggestions.map((item) => (
+                    <li key={item} role="option">
+                      <button
+                        type="button"
+                        onMouseDown={() => {
+                          setSearchInput(item);
+                          fetch("/api/search/analytics", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ event: "suggestion_click", suggestion: item }),
+                            keepalive: true,
+                          }).catch(() => {});
+                        }}
+                        className="flex w-full items-center px-3 py-2.5 text-left text-sm text-card-foreground transition hover:bg-muted/80 active:bg-muted"
+                      >
+                        <span className="min-w-0 flex-1 truncate">{item}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="relative z-0 flex flex-wrap items-center gap-3">
               <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground sm:text-sm">
                 <Filter className="h-4 w-4" />
                 Filters
@@ -618,6 +840,13 @@ export function LibraryView({
                   </option>
                 ))}
               </select>
+              <button
+                type="button"
+                onClick={() => setShowAdvancedFilters((v) => !v)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
+              >
+                Advanced
+              </button>
               {hasFilters && (
                 <button
                   type="button"
@@ -641,6 +870,46 @@ export function LibraryView({
                 </Link>
               )}
             </div>
+            {showAdvancedFilters && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <select
+                  value={documentType}
+                  onChange={(e) => handleDocumentTypeChange(e.target.value)}
+                  className="rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">All document types</option>
+                  {DOCUMENT_TYPES.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+                <select
+                  value={treatyType}
+                  onChange={(e) => handleTreatyTypeChange(e.target.value)}
+                  className="rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">All classifications</option>
+                  {TREATY_FILTERS.filter(Boolean).map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="Year from"
+                  value={yearFrom}
+                  onChange={(e) => handleYearFromChange(e.target.value)}
+                  className="rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="Year to"
+                  value={yearTo}
+                  onChange={(e) => handleYearToChange(e.target.value)}
+                  className="rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -708,6 +977,10 @@ export function LibraryView({
                             ...(category && { category }),
                             ...(status && { status }),
                             ...(search.trim() && { q: search.trim() }),
+                            ...(documentType && { documentType }),
+                            ...(treatyType && { classification: treatyType }),
+                            ...(yearFrom && { yearFrom }),
+                            ...(yearTo && { yearTo }),
                             ...(safePage > 1 && { page: String(safePage) }),
                             ...(sortBy !== "title-asc" && { sort: sortBy }),
                           }).toString()
@@ -720,6 +993,14 @@ export function LibraryView({
                   >
                     <Link
                       href={lawHref}
+                      onClick={() => {
+                        fetch("/api/search/analytics", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ event: "result_click", lawId: law.id, query: search.trim() || null }),
+                          keepalive: true,
+                        }).catch(() => {});
+                      }}
                       className="flex min-w-0 flex-1 flex-col"
                     >
                       <h2 className="font-semibold text-foreground group-hover:text-primary">{law.name}</h2>
