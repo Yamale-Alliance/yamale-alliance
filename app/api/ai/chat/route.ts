@@ -6,7 +6,6 @@ import {
 } from "@/lib/law-country-scope";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { chunkLawContent } from "@/lib/embeddings/chunking";
 import {
   getAiUsage,
   getAiQueryLimitForTier,
@@ -137,8 +136,15 @@ function extractQueryHints(query: string): { country?: string; category?: string
     }
   }
   
-  // Category mapping (check for full names first)
+  // Category mapping (specific phrases first; avoid broad substring collisions
+  // like "trademark" matching "trade").
   const categoryMap: Record<string, string> = {
+    "trademark": "Intellectual Property Law",
+    "trademarks": "Intellectual Property Law",
+    "mark registration": "Intellectual Property Law",
+    "industrial property": "Intellectual Property Law",
+    "patent": "Intellectual Property Law",
+    "copyright": "Intellectual Property Law",
     "corporate law": "Corporate Law",
     "corporate": "Corporate Law",
     "sociétés commerciales": "Corporate Law",
@@ -154,7 +160,6 @@ function extractQueryHints(query: string): { country?: string; category?: string
     "data protection": "Data Protection and Privacy Law",
     "privacy": "Data Protection and Privacy Law",
     "international trade": "International Trade Laws",
-    "trade": "International Trade Laws",
     "anti-bribery": "Anti-Bribery and Corruption Law",
     "corruption": "Anti-Bribery and Corruption Law",
     "dispute resolution": "Dispute Resolution",
@@ -162,8 +167,11 @@ function extractQueryHints(query: string): { country?: string; category?: string
   };
   
   let foundCategory: string | undefined;
-  for (const [key, value] of Object.entries(categoryMap)) {
-    if (lowerQuery.includes(key)) {
+  const orderedCategoryEntries = Object.entries(categoryMap).sort((a, b) => b[0].length - a[0].length);
+  for (const [key, value] of orderedCategoryEntries) {
+    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`\\b${escaped}\\b`, "i");
+    if (re.test(lowerQuery)) {
       foundCategory = value;
       break;
     }
@@ -173,6 +181,22 @@ function extractQueryHints(query: string): { country?: string; category?: string
     country: foundCountry,
     category: foundCategory,
   };
+}
+
+function extractHintsFromConversation(
+  messages: Array<{ role: "user" | "assistant"; content: string }>
+): { country?: string; category?: string } {
+  let country: string | undefined;
+  let category: string | undefined;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (!msg?.content?.trim()) continue;
+    const hints = extractQueryHints(msg.content);
+    if (!country && hints.country) country = hints.country;
+    if (!category && hints.category) category = hints.category;
+    if (country && category) break;
+  }
+  return { country, category };
 }
 
 /**
@@ -186,13 +210,118 @@ function isLikelyLegalQuestion(query: string): boolean {
   );
 }
 
+function isDetailedRequest(query: string): boolean {
+  const q = query.toLowerCase();
+  return (
+    q.includes("detailed") ||
+    q.includes("more information") ||
+    q.includes("more detail") ||
+    q.includes("full details") ||
+    q.includes("explain in detail") ||
+    q.includes("article by article") ||
+    q.includes("section by section")
+  );
+}
+
+function extractSpecificLawHint(query: string): string | null {
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
+  const patterns = [
+    /more info on this\s+(.+)/i,
+    /more information on this\s+(.+)/i,
+    /more info on\s+(.+)/i,
+    /more information on\s+(.+)/i,
+    /tell me more about\s+(.+)/i,
+    /give me more info on\s+(.+)/i,
+  ];
+  for (const p of patterns) {
+    const m = query.match(p);
+    if (m?.[1]?.trim()) {
+      let v = m[1].trim();
+      v = v.replace(/\s+from\s+[a-z\s'-]+$/i, "").trim();
+      return v;
+    }
+  }
+  // fallback: if query looks like a direct named-law prompt
+  if (q.includes("law no") || q.includes("decree") || q.includes("article")) return query.trim();
+  return null;
+}
+
+function isTrademarkIntent(query: string): boolean {
+  return /\btrademark\b|\btrademarks\b|\bmark registration\b/i.test(query);
+}
+
+async function listTrademarkLawTitlesByCountry(
+  country: string
+): Promise<Array<{ title: string; year?: number | null }>> {
+  const supabase = getSupabaseServer() as any;
+  const { data: countryRow } = await supabase
+    .from("countries")
+    .select("id")
+    .eq("name", country.trim())
+    .limit(1)
+    .maybeSingle();
+  const countryId = countryRow?.id as string | undefined;
+  if (!countryId) return [];
+
+  const { data } = await supabase
+    .from("laws")
+    .select("title, year")
+    .eq("country_id", countryId)
+    .or("title.ilike.%trademark%,title.ilike.%trademarks%,title.ilike.%mark%")
+    .order("title")
+    .limit(12);
+  return (data ?? []) as Array<{ title: string; year?: number | null }>;
+}
+
+function extractRequestedArticle(query: string): number | null {
+  const m = query.toLowerCase().match(/\barticle\s+(\d{1,3})\b/);
+  if (!m) return null;
+  const n = Number.parseInt(m[1], 10);
+  return Number.isNaN(n) ? null : n;
+}
+
+function extractSearchTokens(query: string): string[] {
+  const stopWords = new Set([
+    "the",
+    "and",
+    "for",
+    "with",
+    "that",
+    "this",
+    "from",
+    "your",
+    "have",
+    "does",
+    "what",
+    "where",
+    "when",
+    "which",
+    "about",
+    "into",
+    "there",
+    "database",
+    "law",
+    "laws",
+  ]);
+  const unique = new Set(
+    query
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .map((t) => t.trim())
+      .filter((t) => t.length >= 3 && !stopWords.has(t))
+  );
+  return Array.from(unique).slice(0, 8);
+}
+
 /**
  * Search legal library for relevant content (RAG)
  */
 async function searchLegalLibrary(
   query: string,
   country?: string,
-  category?: string
+  category?: string,
+  detailedMode = false
 ): Promise<Array<{ title: string; country: string; category: string; content: string; year?: number }>> {
   try {
     const supabase = getSupabaseServer() as any;
@@ -222,23 +351,33 @@ async function searchLegalLibrary(
       categoryId = categoryRow?.id ?? null;
     }
 
+    const specificLawHint = extractSpecificLawHint(query);
     let lawsQuery = supabase
       .from("laws")
       .select(
         "id, title, content, content_plain, year, status, country_id, category_id, countries(name), categories(name)"
       )
       .not("content", "is", null)
-      .limit(3);
+      .limit(30);
 
     if (categoryId) {
       lawsQuery = lawsQuery.eq("category_id", categoryId);
     }
 
-    // Only require title/content to match the query when we have no country/category hint.
-    // When user asks e.g. "what does Loi sur les sociétés commerciales Madagascar state", we
-    // already filter by country + category; requiring the full sentence in content would return nothing.
-    const hasHint = searchCountry || searchCategory;
-    if (query.trim() && !hasHint) {
+    const hasHint = Boolean(searchCountry || searchCategory);
+    if (specificLawHint) {
+      const specificTokens = specificLawHint
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .map((t) => t.trim())
+        .filter((t) => t.length >= 3)
+        .slice(0, 8);
+      const tokenOr = specificTokens
+        .map((t) => `title.ilike.%${escapeIlikePattern(t)}%`)
+        .join(",");
+      if (tokenOr) lawsQuery = lawsQuery.or(tokenOr);
+      if (countryId) lawsQuery = lawsQuery.or(lawsOrGlobalForCountry(countryId));
+    } else if (query.trim() && !hasHint) {
       const searchTerms = query.trim().toLowerCase();
       const escapedTerms = escapeIlikePattern(searchTerms);
       if (countryId) {
@@ -258,57 +397,63 @@ async function searchLegalLibrary(
       return [];
     }
 
-    // Use chunking strategy: paragraph/sentence-aware chunks, then take the chunks
-    // that are most relevant to the user's query (not just the first N chars),
-    // so that specific articles (e.g. "Chapter III, Article 8") are more likely
-    // to be included in the context.
-    const maxCharsPerLaw = 2500;
-    const queryLower = query.toLowerCase();
-    const queryTokens = queryLower
-      .split(/\W+/)
-      .filter((t) => t.length >= 3);
+    const queryTokens = extractSearchTokens(query);
+    const rankedLaws = [...laws].sort((a: any, b: any) => {
+      const titleA = String(a.title ?? "").toLowerCase();
+      const titleB = String(b.title ?? "").toLowerCase();
+      const contentA = String(a.content_plain ?? a.content ?? "").toLowerCase();
+      const contentB = String(b.content_plain ?? b.content ?? "").toLowerCase();
 
-    function scoreChunk(text: string): number {
-      const t = text.toLowerCase();
-      let score = 0;
-      for (const token of queryTokens) {
-        if (t.includes(token)) score++;
-      }
-      return score;
-    }
+      const score = (title: string, content: string) =>
+        queryTokens.reduce((sum, token) => {
+          const inTitle = title.includes(token) ? 3 : 0;
+          const inContent = content.includes(token) ? 1 : 0;
+          return sum + inTitle + inContent;
+        }, 0);
 
-    return laws.map((law: any) => {
+      return score(titleB, contentB) - score(titleA, contentA);
+    });
+
+    const lawsForResponse =
+      specificLawHint && rankedLaws.length > 0
+        ? [rankedLaws[0]] // focus on the requested named law instead of mixing multiple laws
+        : rankedLaws.slice(0, detailedMode ? 10 : 6);
+
+    // Use full-text retrieval so answers are grounded in complete law text
+    // rather than truncated excerpts.
+
+    const requestedArticle = extractRequestedArticle(query);
+
+    return lawsForResponse.map((law: any) => {
       const fullText = law.content_plain || law.content || "";
-      const chunks = chunkLawContent(fullText, { maxChunkChars: 800, overlapChars: 120 });
-
-      // Score chunks by how many query tokens they contain
-      const scored = chunks.map((c: any) => ({
-        text: c.text,
-        score: scoreChunk(c.text),
-      }));
-
-      // Sort by score (desc), but keep original order among equally scored chunks
-      scored.sort((a, b) => b.score - a.score);
-
-      let content = "";
-      for (const c of scored) {
-        if (content.length + c.text.length + 2 <= maxCharsPerLaw) {
-          content += (content ? "\n\n" : "") + c.text;
-        } else {
-          const remaining = maxCharsPerLaw - content.length - 2;
-          if (remaining > 200) content += "\n\n" + c.text.slice(0, remaining);
-          break;
+      if (requestedArticle !== null) {
+        const articleRe = new RegExp(`\\barticle\\s+${requestedArticle}\\b`, "i");
+        const hitIdx = fullText.search(articleRe);
+        if (hitIdx >= 0) {
+          return {
+            title: law.title,
+            country: law.countries?.name || "",
+            category: law.categories?.name || "",
+            // Full text allows the model to verify requested article details in context.
+            content: fullText,
+            year: law.year,
+          };
         }
       }
-
-      // Fallback: if, for some reason, nothing was selected, use the first part of the text
-      if (!content) content = fullText.slice(0, maxCharsPerLaw);
-
+      if (specificLawHint && detailedMode) {
+        return {
+          title: law.title,
+          country: law.countries?.name || "",
+          category: law.categories?.name || "",
+          content: fullText,
+          year: law.year,
+        };
+      }
       return {
         title: law.title,
         country: law.countries?.name || "",
         category: law.categories?.name || "",
-        content,
+        content: fullText,
         year: law.year,
       };
     });
@@ -391,11 +536,42 @@ export async function POST(request: NextRequest) {
     const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
     const userQuery = lastUserMessage?.content || "";
 
-    // If the user appears to be asking about a specific law but we don't
-    // detect any country, ask them to clarify the country instead of guessing
-    // from another jurisdiction or general knowledge.
-    const hints = extractQueryHints(userQuery);
-    if (!hints.country && isLikelyLegalQuestion(userQuery)) {
+    // If user asks a legal follow-up, inherit country/category context from the
+    // current chat before asking for clarification.
+    const currentHints = extractQueryHints(userQuery);
+    const conversationHints = extractHintsFromConversation(messages);
+    const effectiveHints = {
+      country: currentHints.country ?? conversationHints.country,
+      category: currentHints.category ?? conversationHints.category,
+    };
+    const specificLawHint = extractSpecificLawHint(userQuery);
+    const trademarkIntent = isTrademarkIntent(userQuery);
+
+    if (trademarkIntent && !effectiveHints.country) {
+      return NextResponse.json({
+        content:
+          "Please specify the country you want for trademark law search.\n\n" +
+          "Example: \"Give me trademark laws for Tunisia.\"",
+        sources: ["Yamalé AI · African Legal Research"],
+      });
+    }
+
+    if (effectiveHints.country && trademarkIntent && !specificLawHint) {
+      const options = await listTrademarkLawTitlesByCountry(effectiveHints.country);
+      if (options.length > 1) {
+        return NextResponse.json({
+          content:
+            `I found multiple trademark-related laws in ${effectiveHints.country}. Please specify which one you want:\n\n` +
+            options.map((o, i) => `${i + 1}. ${o.title}${o.year ? ` (${o.year})` : ""}`).join("\n"),
+          sources: [
+            ...options.map((o) => `${o.title} (${effectiveHints.country})`),
+            "Yamalé AI · African Legal Research",
+          ],
+        });
+      }
+    }
+
+    if (!effectiveHints.country && isLikelyLegalQuestion(userQuery)) {
       return NextResponse.json({
         content:
           "I couldn't tell which country's law you mean from your question.\n\n" +
@@ -407,7 +583,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Search legal library for relevant content (RAG)
-    const legalContext = await searchLegalLibrary(userQuery);
+    const detailedMode = isDetailedRequest(userQuery);
+    const legalContext = await searchLegalLibrary(
+      userQuery,
+      effectiveHints.country,
+      effectiveHints.category,
+      detailedMode
+    );
 
     // Build Claude messages format
     const claudeMessages: ClaudeMessage[] = [];
@@ -469,16 +651,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Build system prompt
-    let systemPrompt = `You are a legal research assistant specializing in African law, AfCFTA (African Continental Free Trade Area), and compliance matters. 
+    let systemPrompt = `You are a legal research assistant for the Yamalé legal library.
 
-Your responses should:
-- Be grounded in verified legal sources when possible
-- Clearly indicate when information is indicative or general guidance
-- Cite relevant laws, regulations, or legal frameworks when known
-- Advise users to consult qualified legal professionals for specific situations
-- Focus on African jurisdictions and AfCFTA-related matters
-
-Always remind users that your responses are indicative and not a substitute for professional legal advice.`;
+Core rule: when library documents are provided, answer ONLY from those documents.
+Do not add outside knowledge, web references, or generic legal templates.
+If something is not in the provided excerpts, say "Not stated in the provided library excerpt."`;
 
     // Add legal context if available
     if (legalContext.length > 0) {
@@ -489,7 +666,26 @@ Always remind users that your responses are indicative and not a substitute for 
               law.year ? `\nYear: ${law.year}` : ""
             }\nContent:\n${law.content}\n---\n`
         )
-        .join("\n")}\n\nIMPORTANT: (1) Base your answer primarily on these legal documents from the database. When the user asks about a specific law, use the content above as the main source. (2) Do not cite them as \"Document 1\", \"Based on Document 2\", or similar—instead refer to the law by its title or country (e.g. \"Under the Loi sur les sociétés commerciales...\" or \"Malagasy law provides that...\"). (3) Use your knowledge to interpret the text, fix obvious typos or OCR errors, and clarify wording where the source is unclear—but stay grounded in what the documents say. (4) If the documents do not cover the question, say so and then give general guidance from your knowledge of African law.`;
+        .join("\n")}\n\nIMPORTANT: (1) Base your answer strictly on these legal documents from the library database. (2) Do not cite them as \"Document 1\", \"Based on Document 2\", or similar—instead refer to the law by its title or country. (3) Do NOT use outside/general knowledge when answering this request. (4) If the documents do not cover the question, explicitly say they are not found in the current library results and ask the user to refine filters/query; do not invent statutes or web references. (5) For each substantive point, include a short quote/snippet from the provided text that supports it.`;
+      systemPrompt +=
+        "\n\nDefault answer style (unless user asks otherwise): provide a practical summary in clear sections focused on what the law says. Use this order: (a) What this law is about, (b) Who it applies to, (c) Main obligations/prohibitions, (d) Enforcement/oversight, (e) Penalties/remedies if present, (f) Practical takeaway. Avoid long publication metadata (gazette volume, legal notice chronology, revision history) unless the user explicitly asks for citation history or amendment timeline.";
+      if (detailedMode) {
+        systemPrompt +=
+          "\n\nThe user asked for detail. Give a detailed, structured response using headings and bullet points. Include specific procedural/legal points found in the provided text and quote short snippets for each point. Do not provide generic overviews.";
+      }
+      if (extractSpecificLawHint(userQuery)) {
+        systemPrompt +=
+          "\n\nThe user asked about a specific named law. Prioritize that law's text only. Do not summarize at high level. Instead, extract every concrete legal rule visible in the excerpt and present it as a numbered list: (a) short quote, (b) plain-language explanation, (c) practical implication. If text is partial, state that only after listing all extracted rules.";
+        systemPrompt +=
+          "\n\nDo not claim an article is blank or missing unless the excerpt explicitly indicates it is blank. If you cannot locate a specific article in the provided excerpt, say: 'I could not locate that article in the provided excerpt.'";
+      }
+      const requestedArticle = extractRequestedArticle(userQuery);
+      if (requestedArticle !== null) {
+        systemPrompt += `\n\nThe user asked about Article ${requestedArticle}. If Article ${requestedArticle} text is present in the provided library excerpts, quote and explain that exact article directly. Do not claim the article is missing unless it truly does not appear in the excerpts.`;
+      }
+    } else {
+      systemPrompt +=
+        "\n\nNo library documents were retrieved for this turn. Say that clearly and ask the user to refine country/category/law title. Do not fabricate legal content.";
     }
 
     const modelId = await resolveModelIdForRequest(tier, requestedModel);
@@ -504,7 +700,7 @@ Always remind users that your responses are indicative and not a substitute for 
       },
       body: JSON.stringify({
         model: modelId,
-        max_tokens: 2048,
+        max_tokens: detailedMode ? 3200 : 2048,
         messages: claudeMessages,
         system: systemPrompt,
       }),
