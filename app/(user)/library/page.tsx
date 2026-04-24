@@ -9,6 +9,10 @@ export default async function LibraryPage({ searchParams }: { searchParams: Sear
   const category = typeof params.category === "string" ? decodeURIComponent(params.category) : "";
   const status = typeof params.status === "string" ? params.status : "";
   const q = typeof params.q === "string" ? params.q : "";
+  const documentType = typeof params.documentType === "string" ? params.documentType : "";
+  const classification = typeof params.classification === "string" ? params.classification : "";
+  const yearFrom = typeof params.yearFrom === "string" ? params.yearFrom : "";
+  const yearTo = typeof params.yearTo === "string" ? params.yearTo : "";
   const pageParam = typeof params.page === "string" ? params.page : "";
   const sortParam = typeof params.sort === "string" ? params.sort : "";
 
@@ -35,6 +39,10 @@ export default async function LibraryPage({ searchParams }: { searchParams: Sear
       initialCategory={category}
       initialStatus={status}
       initialSearch={q}
+      initialDocumentType={documentType}
+      initialTreatyType={classification}
+      initialYearFrom={yearFrom}
+      initialYearTo={yearTo}
       initialPage={pageParam}
       initialSort={sortParam}
     />
