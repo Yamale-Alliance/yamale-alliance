@@ -9,7 +9,10 @@ export type LibraryCategory = { id: string; name: string };
 export type LibraryLawRow = {
   id: string;
   title: string;
+  year?: number | null;
+  source_name?: string | null;
   status: string;
+  treaty_type?: string | null;
   country_id: string | null;
   applies_to_all_countries: boolean;
   category_id: string;
@@ -96,7 +99,7 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
     let lawsQuery = supabase
       .from("laws")
       .select(
-        "id, title, source_url, source_name, year, status, country_id, applies_to_all_countries, category_id, created_at, updated_at, countries(name), categories(name)"
+        "id, title, source_name, year, status, treaty_type, country_id, applies_to_all_countries, category_id, created_at, updated_at, countries(name), categories(name)"
       )
       .order("created_at", { ascending: false })
       .order("title")
