@@ -20,6 +20,8 @@ import {
   Users,
   Loader2,
   ChevronDown,
+  Copy,
+  Check,
 } from "lucide-react";
 import { canShareByEmail, canDownloadConversations } from "@/lib/plan-limits";
 
@@ -147,6 +149,7 @@ export default function AIResearchPage() {
   const [allowedModelIds, setAllowedModelIds] = useState<string[]>([]);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [exampleQuestions, setExampleQuestions] = useState<string[]>(() => pickRandomExampleQuestions(4));
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
   const tierFromMetadata: Tier =
     user?.publicMetadata ? getTierFromUser(user.publicMetadata as Record<string, unknown>) : "free";
@@ -384,6 +387,18 @@ export default function AIResearchPage() {
       // ignore
     }
   }, [getChatTranscript]);
+
+  const handleCopyMessage = useCallback(async (messageId: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedMessageId(messageId);
+      setTimeout(() => {
+        setCopiedMessageId((prev) => (prev === messageId ? null : prev));
+      }, 1500);
+    } catch {
+      // ignore clipboard errors
+    }
+  }, []);
 
   const handleDownloadChat = useCallback(() => {
     const text = getChatTranscript();
@@ -878,6 +893,28 @@ export default function AIResearchPage() {
                           <p className="mt-2 text-xs opacity-80">
                             {msg.sources.join(" · ")}
                           </p>
+                        )}
+                        {msg.role === "assistant" && (
+                          <div className="mt-2 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => void handleCopyMessage(msg.id, msg.content)}
+                              className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-background/60 px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted"
+                              aria-label="Copy response"
+                            >
+                              {copiedMessageId === msg.id ? (
+                                <>
+                                  <Check className="h-3.5 w-3.5" />
+                                  Copied
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-3.5 w-3.5" />
+                                  Copy
+                                </>
+                              )}
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
