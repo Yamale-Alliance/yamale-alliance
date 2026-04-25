@@ -5,6 +5,7 @@ import { useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Search, Star, Loader2, Lock } from "lucide-react";
+import type { CheckoutPaymentProvider } from "@/components/checkout/PaymentMethodPicker";
 
 const BRAND = {
   dark: "#221913",
@@ -24,6 +25,20 @@ type Lawyer = {
 };
 
 const SEARCH_PRICE = 5;
+const PAWAPAY_SUPPORTED_COUNTRIES = [
+  "Benin",
+  "Cameroon",
+  "Côte d'Ivoire",
+  "Democratic Republic of the Congo",
+  "Gabon",
+  "Kenya",
+  "Republic of the Congo",
+  "Rwanda",
+  "Senegal",
+  "Sierra Leone",
+  "Uganda",
+  "Zambia",
+] as const;
 
 const EXPERTISE_OPTIONS = [
   "All Practice Areas",
@@ -76,9 +91,14 @@ export default function LawyersPage() {
   const [searchPayLoading, setSearchPayLoading] = useState(false);
   const [searchPayError, setSearchPayError] = useState<string | null>(null);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
+  const [showPaymentChoice, setShowPaymentChoice] = useState(false);
+  const [showPawapayCountryPrompt, setShowPawapayCountryPrompt] = useState(false);
+  const [pawapayCountry, setPawapayCountry] = useState<string>(PAWAPAY_SUPPORTED_COUNTRIES[0]);
   const searchParams = useSearchParams();
   const confirmedSessionRef = useRef<string | null>(null);
   const { isLoaded: userLoaded, isSignedIn } = useUser();
+  const stripeAvailable = Boolean(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
   const refetchUnlocked = (): Promise<void> => {
     return fetch("/api/lawyers/unlocked", { credentials: "include" })
@@ -91,7 +111,7 @@ export default function LawyersPage() {
       .catch(() => {});
   };
 
-  const handlePayForSearch = async () => {
+  const handlePayForSearch = async (provider: CheckoutPaymentProvider) => {
     if (selectedExpertise === "all") return;
     if (!userLoaded || !isSignedIn) {
       setSearchPayError("Sign in to unlock contact details.");
@@ -99,6 +119,7 @@ export default function LawyersPage() {
     }
     setSearchPayLoading(true);
     setSearchPayError(null);
+    setPaymentProvider(provider);
     try {
       const res = await fetch("/api/stripe/lawyer-search-unlock", {
         method: "POST",
@@ -106,6 +127,8 @@ export default function LawyersPage() {
         body: JSON.stringify({
           country: selectedCountry,
           expertise: selectedExpertise,
+          provider,
+          paymentCountry: provider === "pawapay" ? pawapayCountry : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -227,12 +250,17 @@ export default function LawyersPage() {
     setSelectedExpertise("all");
     setSelectedLanguage("all");
     setHasSearched(false);
+    setShowPaymentChoice(false);
+    setShowPawapayCountryPrompt(false);
   };
 
   const expertiseRequired = selectedExpertise === "all";
+  const selectedCountrySupportsPawapay =
+    selectedCountry === "all" || PAWAPAY_SUPPORTED_COUNTRIES.includes(selectedCountry as (typeof PAWAPAY_SUPPORTED_COUNTRIES)[number]);
   const runSearch = () => {
     if (expertiseRequired) return;
     setHasSearched(true);
+    setShowPaymentChoice(true);
   };
 
   return (
@@ -420,15 +448,84 @@ export default function LawyersPage() {
               </div>
               <div className="flex flex-col items-end gap-2">
                 {searchPayError && <p className="text-xs text-red-600 sm:text-sm">{searchPayError}</p>}
-                <button
-                  type="button"
-                  onClick={handlePayForSearch}
-                  disabled={searchPayLoading}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[rgba(154,99,42,0.95)] to-[rgba(193,140,67,0.95)] px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-105 disabled:opacity-60"
-                >
-                  {searchPayLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Pay ${SEARCH_PRICE} & unlock all
-                </button>
+                {showPaymentChoice ? (
+                  <div className="flex flex-col items-end gap-2">
+                    <p className="text-xs text-muted-foreground">Choose payment method to proceed</p>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!selectedCountrySupportsPawapay) return;
+                          setShowPawapayCountryPrompt(true);
+                        }}
+                        disabled={searchPayLoading || !selectedCountrySupportsPawapay}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-700 to-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:brightness-105 disabled:opacity-60 sm:text-sm"
+                      >
+                        {searchPayLoading && paymentProvider === "pawapay" && <Loader2 className="h-4 w-4 animate-spin" />}
+                        Proceed with pawaPay
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePayForSearch("stripe")}
+                        disabled={searchPayLoading || !stripeAvailable}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#635BFF]/50 bg-[#635BFF]/10 px-4 py-2 text-xs font-semibold text-[#635BFF] transition hover:bg-[#635BFF]/20 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
+                      >
+                        {searchPayLoading && paymentProvider === "stripe" && <Loader2 className="h-4 w-4 animate-spin" />}
+                        Proceed with Stripe
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowPaymentChoice(false)}
+                        disabled={searchPayLoading}
+                        className="inline-flex items-center justify-center rounded-xl border border-border/70 bg-background/80 px-3 py-2 text-xs font-medium text-muted-foreground transition hover:border-primary/60 hover:bg-primary/5 hover:text-foreground"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    {!selectedCountrySupportsPawapay && selectedCountry !== "all" && (
+                      <p className="text-xs text-amber-700 dark:text-amber-400">
+                        pawaPay is not available for {selectedCountry}. Please proceed with Stripe.
+                      </p>
+                    )}
+                    {showPawapayCountryPrompt && selectedCountrySupportsPawapay && (
+                      <div className="mt-2 w-full rounded-xl border border-emerald-600/30 bg-emerald-50 p-3 dark:bg-emerald-900/20">
+                        <label className="mb-2 block text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                          Select mobile money country
+                        </label>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <select
+                            value={pawapayCountry}
+                            onChange={(e) => setPawapayCountry(e.target.value)}
+                            className="w-full rounded-lg border border-emerald-700/30 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                          >
+                            {PAWAPAY_SUPPORTED_COUNTRIES.map((c) => (
+                              <option key={c} value={c}>
+                                {c}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => handlePayForSearch("pawapay")}
+                            disabled={searchPayLoading}
+                            className="inline-flex items-center justify-center rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
+                          >
+                            Continue
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowPaymentChoice(true)}
+                    disabled={searchPayLoading}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[rgba(154,99,42,0.95)] to-[rgba(193,140,67,0.95)] px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-105 disabled:opacity-60"
+                  >
+                    Choose payment method
+                  </button>
+                )}
               </div>
             </div>
           );
