@@ -11,8 +11,32 @@ import { getStripe } from "@/lib/stripe-server";
 type DepositCallback = {
   depositId?: string;
   status?: string;
-  metadata?: Record<string, string>;
+  metadata?: unknown;
 };
+
+function normalizeMetadata(value: unknown): Record<string, string> {
+  if (!value) return {};
+  if (Array.isArray(value)) {
+    const merged: Record<string, string> = {};
+    for (const item of value) {
+      if (!item || typeof item !== "object") continue;
+      for (const [k, v] of Object.entries(item as Record<string, unknown>)) {
+        if (!k) continue;
+        merged[k] = typeof v === "string" ? v : String(v ?? "");
+      }
+    }
+    return merged;
+  }
+  if (typeof value === "object") {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (!k) continue;
+      out[k] = typeof v === "string" ? v : String(v ?? "");
+    }
+    return out;
+  }
+  return {};
+}
 
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
@@ -51,6 +75,17 @@ export async function POST(request: NextRequest) {
             quantity: 1,
             stripe_session_id: session.id,
           });
+        } else if (
+          (md.kind === "payg_document" || md.kind === "payg_ai_query" || md.kind === "payg_afcfta_report") &&
+          md.clerk_user_id
+        ) {
+          const itemType = md.kind === "payg_document" ? "document" : md.kind === "payg_ai_query" ? "ai_query" : "afcfta_report";
+          await (supabase.from("pay_as_you_go_purchases") as any).insert({
+            user_id: md.clerk_user_id,
+            item_type: itemType,
+            quantity: 1,
+            stripe_session_id: session.id,
+          });
         }
       }
       return NextResponse.json({ received: true });
@@ -73,7 +108,7 @@ export async function POST(request: NextRequest) {
   }
 
   const depositId = callback.depositId;
-  const metadata = callback.metadata ?? {};
+  const metadata = normalizeMetadata(callback.metadata);
   const clerkUserId = metadata.clerk_user_id;
   const kind = metadata.kind;
   if (!depositId || !clerkUserId) {
