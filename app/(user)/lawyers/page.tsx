@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { Search, Star, Loader2, Lock } from "lucide-react";
 import type { CheckoutPaymentProvider } from "@/components/checkout/PaymentMethodPicker";
@@ -25,6 +26,7 @@ type Lawyer = {
 };
 
 const SEARCH_PRICE = 5;
+const SEARCH_STATE_STORAGE_KEY = "lawyers:lastSearchState";
 const PAWAPAY_SUPPORTED_COUNTRIES = [
   "Benin",
   "Cameroon",
@@ -100,6 +102,27 @@ export default function LawyersPage() {
   const { isLoaded: userLoaded, isSignedIn } = useUser();
   const stripeAvailable = Boolean(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
+  const persistSearchState = (next?: {
+    country?: string;
+    city?: string;
+    expertise?: string;
+    language?: string;
+    hasSearched?: boolean;
+  }) => {
+    try {
+      const payload = {
+        country: next?.country ?? selectedCountry,
+        city: next?.city ?? selectedCity,
+        expertise: next?.expertise ?? selectedExpertise,
+        language: next?.language ?? selectedLanguage,
+        hasSearched: next?.hasSearched ?? hasSearched,
+      };
+      localStorage.setItem(SEARCH_STATE_STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      // ignore storage errors
+    }
+  };
+
   const refetchUnlocked = (): Promise<void> => {
     return fetch("/api/lawyers/unlocked", { credentials: "include" })
       .then((res) => res.json())
@@ -126,7 +149,9 @@ export default function LawyersPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           country: selectedCountry,
+          city: selectedCity,
           expertise: selectedExpertise,
+          language: selectedLanguage,
           provider,
           paymentCountry: provider === "pawapay" ? pawapayCountry : undefined,
         }),
@@ -137,6 +162,7 @@ export default function LawyersPage() {
         return;
       }
       if (data.url) {
+        persistSearchState({ hasSearched: true });
         window.location.href = data.url;
         return;
       }
@@ -151,7 +177,47 @@ export default function LawyersPage() {
   useEffect(() => {
     const sessionId = searchParams.get("session_id");
     const returnCountry = searchParams.get("country");
+    const returnCity = searchParams.get("city");
     const returnExpertise = searchParams.get("expertise");
+    const returnLanguage = searchParams.get("language");
+
+    if (!sessionId && !returnCountry && !returnExpertise && !returnCity && !returnLanguage) {
+      try {
+        const raw = localStorage.getItem(SEARCH_STATE_STORAGE_KEY);
+        if (!raw) return;
+        const restored = JSON.parse(raw) as {
+          country?: string;
+          city?: string;
+          expertise?: string;
+          language?: string;
+          hasSearched?: boolean;
+        };
+        if (restored.country) setSelectedCountry(restored.country);
+        if (restored.city) setSelectedCity(restored.city);
+        if (restored.expertise) setSelectedExpertise(restored.expertise);
+        if (restored.language) setSelectedLanguage(restored.language);
+        if (restored.hasSearched) {
+          setHasSearched(true);
+          setShowPaymentChoice(true);
+        }
+      } catch {
+        // ignore restore errors
+      }
+      return;
+    }
+
+    if (returnCountry != null) setSelectedCountry(returnCountry || "all");
+    if (returnCity != null) setSelectedCity(returnCity || "");
+    if (returnExpertise != null) setSelectedExpertise(returnExpertise || "all");
+    if (returnLanguage != null) setSelectedLanguage(returnLanguage || "all");
+    if (returnExpertise != null && returnExpertise !== "all") setHasSearched(true);
+    persistSearchState({
+      country: returnCountry ?? "all",
+      city: returnCity ?? "",
+      expertise: returnExpertise ?? "all",
+      language: returnLanguage ?? "all",
+      hasSearched: returnExpertise != null ? returnExpertise !== "all" : false,
+    });
 
     if (sessionId && !confirmingPayment && confirmedSessionRef.current !== sessionId) {
       confirmedSessionRef.current = sessionId;
@@ -170,12 +236,18 @@ export default function LawyersPage() {
         .then(async (data) => {
           if (data.ok) {
             if (returnCountry) setSelectedCountry(returnCountry);
+            if (returnCity) setSelectedCity(returnCity);
             if (returnExpertise) setSelectedExpertise(returnExpertise);
+            if (returnLanguage) setSelectedLanguage(returnLanguage);
             setHasSearched(true);
+            setShowPaymentChoice(true);
             await refetchUnlocked();
             const keep = new URLSearchParams();
             if (returnCountry) keep.set("country", returnCountry);
             if (returnExpertise) keep.set("expertise", returnExpertise);
+            if (returnCity) keep.set("city", returnCity);
+            if (returnLanguage) keep.set("language", returnLanguage);
+            if (searchParams.get("canceled") === "1") keep.set("canceled", "1");
             const path = keep.toString() ? `/lawyers?${keep.toString()}` : "/lawyers";
             window.history.replaceState({}, "", path);
           }
@@ -185,11 +257,6 @@ export default function LawyersPage() {
       return;
     }
 
-    if (!sessionId && returnCountry != null && returnExpertise != null) {
-      setSelectedCountry(returnCountry || "all");
-      setSelectedExpertise(returnExpertise || "all");
-      setHasSearched(true);
-    }
   }, [searchParams]);
 
   useEffect(() => {
@@ -252,6 +319,13 @@ export default function LawyersPage() {
     setHasSearched(false);
     setShowPaymentChoice(false);
     setShowPawapayCountryPrompt(false);
+    persistSearchState({
+      country: "all",
+      city: "",
+      expertise: "all",
+      language: "all",
+      hasSearched: false,
+    });
   };
 
   const expertiseRequired = selectedExpertise === "all";
@@ -261,6 +335,7 @@ export default function LawyersPage() {
     if (expertiseRequired) return;
     setHasSearched(true);
     setShowPaymentChoice(true);
+    persistSearchState({ hasSearched: true });
   };
 
   return (
@@ -312,6 +387,14 @@ export default function LawyersPage() {
                 <span className="rounded-full bg-muted px-3 py-1 font-medium text-foreground">
                   ${SEARCH_PRICE} per search
                 </span>
+              </div>
+              <div>
+                <Link
+                  href="/lawyers/unlocked"
+                  className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-medium text-foreground transition hover:border-primary/60 hover:bg-primary/5"
+                >
+                  View unlocked lawyers
+                </Link>
               </div>
             </div>
 
@@ -537,6 +620,11 @@ export default function LawyersPage() {
             <span className="font-semibold text-foreground">
               {filteredLawyers.length} verified lawyer{filteredLawyers.length !== 1 ? "s" : ""}
             </span>
+          </div>
+        )}
+        {searchParams.get("canceled") === "1" && (
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200 sm:text-sm">
+            Payment was canceled. Your search is still here, and you can continue checkout anytime.
           </div>
         )}
 
