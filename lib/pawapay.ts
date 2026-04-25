@@ -1,4 +1,5 @@
 type PawaPayMetadata = Record<string, string>;
+type PawaPayMetadataWire = Array<Record<string, string | number | boolean>>;
 
 type PaymentPageSessionInput = {
   depositId: string;
@@ -21,8 +22,15 @@ type PawaPayDepositData = {
   failureReason?: { failureCode?: string; failureMessage?: string };
 };
 
+type ActiveConfCurrency = { currency?: string };
+type ActiveConfProvider = { currencies?: ActiveConfCurrency[] };
+type ActiveConfCountry = { country?: string; providers?: ActiveConfProvider[] };
+type ActiveConfResponse = { countries?: ActiveConfCountry[] };
+
 const apiToken = process.env.PAWAPAY_API_TOKEN ?? "";
 const baseUrl = (process.env.PAWAPAY_BASE_URL || "https://api.sandbox.pawapay.io").replace(/\/+$/, "");
+let activeConfCache: { at: number; data: ActiveConfResponse } | null = null;
+const ACTIVE_CONF_TTL_MS = 5 * 60 * 1000;
 
 /** True when `PAWAPAY_API_TOKEN` is set — required for all pawaPay Payment Page flows. */
 export function isPawapayConfigured(): boolean {
@@ -39,6 +47,54 @@ function toAmountString(amountCents: number): string {
   return (amountCents / 100).toFixed(2);
 }
 
+function toPawaSafeText(value: string, maxLen: number): string {
+  return value
+    .replace(/[^\p{L}\p{N}\s.,:;!?()\-_/]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLen);
+}
+
+function toPawaCustomerMessage(value: string): string {
+  const normalized = value
+    .replace(/[^a-zA-Z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const sliced = normalized.slice(0, 22);
+  return sliced.length >= 4 ? sliced : "Yamale Payment";
+}
+
+function toPawaMetadataWire(metadata?: PawaPayMetadata): PawaPayMetadataWire | undefined {
+  if (!metadata) return undefined;
+  const entries = Object.entries(metadata).filter(([k, v]) => k.trim() && String(v).trim());
+  if (entries.length === 0) return undefined;
+  return entries.map(([k, v]) => ({ [k]: String(v) }));
+}
+
+function fromPawaMetadataWire(value: unknown): Record<string, string> {
+  if (!value) return {};
+  if (Array.isArray(value)) {
+    const merged: Record<string, string> = {};
+    for (const item of value) {
+      if (!item || typeof item !== "object") continue;
+      for (const [k, v] of Object.entries(item as Record<string, unknown>)) {
+        if (!k) continue;
+        merged[k] = typeof v === "string" ? v : String(v ?? "");
+      }
+    }
+    return merged;
+  }
+  if (typeof value === "object") {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (!k) continue;
+      out[k] = typeof v === "string" ? v : String(v ?? "");
+    }
+    return out;
+  }
+  return {};
+}
+
 async function pawapayFetch(path: string, init?: RequestInit): Promise<Response> {
   requireToken();
   const headers = new Headers(init?.headers || {});
@@ -47,19 +103,76 @@ async function pawapayFetch(path: string, init?: RequestInit): Promise<Response>
   return fetch(`${baseUrl}${path}`, { ...init, headers, cache: "no-store" });
 }
 
+async function getActiveConfiguration(): Promise<ActiveConfResponse | null> {
+  const now = Date.now();
+  if (activeConfCache && now - activeConfCache.at < ACTIVE_CONF_TTL_MS) {
+    return activeConfCache.data;
+  }
+  const res = await pawapayFetch("/v2/active-conf", { method: "GET" });
+  if (!res.ok) return null;
+  const data = (await res.json().catch(() => null)) as ActiveConfResponse | null;
+  if (!data) return null;
+  activeConfCache = { at: now, data };
+  return data;
+}
+
+async function assertCountryCurrencyConfigured(country: string, currency: string): Promise<void> {
+  const conf = await getActiveConfiguration();
+  if (!conf?.countries?.length) return;
+
+  const targetCountry = conf.countries.find((c) => (c.country || "").toUpperCase() === country.toUpperCase());
+  if (!targetCountry) {
+    const available = conf.countries
+      .map((c) => (c.country || "").toUpperCase())
+      .filter(Boolean)
+      .sort()
+      .join(", ");
+    throw new Error(`pawaPay account is not configured for country ${country}. Available countries: ${available || "none"}.`);
+  }
+
+  const supportedCurrencies = new Set<string>();
+  for (const provider of targetCountry.providers || []) {
+    for (const cur of provider.currencies || []) {
+      const code = (cur.currency || "").toUpperCase();
+      if (code) supportedCurrencies.add(code);
+    }
+  }
+
+  if (supportedCurrencies.size > 0 && !supportedCurrencies.has(currency.toUpperCase())) {
+    throw new Error(
+      `pawaPay country ${country} does not support currency ${currency}. Supported currencies: ${Array.from(supportedCurrencies).sort().join(", ")}.`
+    );
+  }
+}
+
 export async function createPaymentPageSession(input: PaymentPageSessionInput): Promise<{ redirectUrl: string }> {
+  const normalizedCountry = (input.country || "").trim().toUpperCase();
+  if (!normalizedCountry) {
+    throw new Error(
+      "pawaPay fixed-amount Payment Page requires country (ISO 3166-1 alpha-3). Set PAWAPAY_COUNTRY, e.g. RWA."
+    );
+  }
+  if (!/^[A-Z]{3}$/.test(normalizedCountry)) {
+    throw new Error("Invalid pawaPay country format. Use ISO 3166-1 alpha-3 (e.g. RWA, GHA, KEN).");
+  }
+  const normalizedCurrency = input.currency.toUpperCase();
+  await assertCountryCurrencyConfigured(normalizedCountry, normalizedCurrency);
+
   const payload: Record<string, unknown> = {
     depositId: input.depositId,
     returnUrl: input.returnUrl,
     amountDetails: {
       amount: toAmountString(input.amountCents),
-      currency: input.currency.toUpperCase(),
+      currency: normalizedCurrency,
     },
+    country: normalizedCountry,
   };
-  if (input.reason) payload.reason = input.reason.slice(0, 50);
-  if (input.customerMessage) payload.customerMessage = input.customerMessage;
-  if (input.country) payload.country = input.country;
-  if (input.metadata && Object.keys(input.metadata).length > 0) payload.metadata = input.metadata;
+  if (input.reason) payload.reason = toPawaSafeText(input.reason, 50);
+  payload.customerMessage = toPawaCustomerMessage(
+    input.customerMessage || process.env.PAWAPAY_CUSTOMER_MESSAGE || "Yamale Payment"
+  );
+  const metadataWire = toPawaMetadataWire(input.metadata);
+  if (metadataWire) payload.metadata = metadataWire;
 
   const res = await pawapayFetch("/v2/paymentpage", {
     method: "POST",
@@ -78,7 +191,11 @@ export async function getDepositStatus(depositId: string): Promise<PawaPayDeposi
   if (!res.ok) return null;
   const payload = (await res.json().catch(() => null)) as { status?: string; data?: PawaPayDepositData } | null;
   if (!payload || payload.status !== "FOUND" || !payload.data) return null;
-  return payload.data;
+  const normalized: PawaPayDepositData = {
+    ...payload.data,
+    metadata: fromPawaMetadataWire((payload.data as { metadata?: unknown }).metadata),
+  };
+  return normalized;
 }
 
 export function isDepositCompleted(status?: string | null): boolean {
@@ -94,4 +211,29 @@ export function getPlanAmountCents(planId: string, interval: "monthly" | "annual
   if (!raw) return null;
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+}
+
+/**
+ * Convert a USD-cent amount (platform base pricing) into minor units of the
+ * configured pawaPay currency.
+ *
+ * - If PAWAPAY_CURRENCY=USD, returns the input unchanged.
+ * - Otherwise requires PAWAPAY_USD_EXCHANGE_RATE (target currency per 1 USD).
+ *   Example for KES: PAWAPAY_USD_EXCHANGE_RATE=130
+ */
+export function convertUsdCentsToPawapayMinor(usdCents: number, currencyInput?: string): number {
+  const currency = (currencyInput || process.env.PAWAPAY_CURRENCY || "USD").toUpperCase();
+  if (currency === "USD") return usdCents;
+
+  const specificRateKey = `PAWAPAY_USD_EXCHANGE_RATE_${currency}`;
+  const rateRaw = process.env[specificRateKey] ?? process.env.PAWAPAY_USD_EXCHANGE_RATE;
+  const rate = Number(rateRaw);
+  if (!Number.isFinite(rate) || rate <= 0) {
+    throw new Error(
+      `Missing/invalid ${specificRateKey} (or PAWAPAY_USD_EXCHANGE_RATE) for currency ${currency}. ` +
+        "Set target-per-USD rate (e.g. 130 for KES)."
+    );
+  }
+
+  return Math.max(1, Math.round(usdCents * rate));
 }
