@@ -45,6 +45,8 @@ export async function POST(request: NextRequest) {
     const lawyerIds = body.lawyerIds as unknown;
     const country = typeof body.country === "string" ? body.country.trim() : "";
     const paymentCountry = typeof body.paymentCountry === "string" ? body.paymentCountry.trim() : "";
+    const city = typeof body.city === "string" ? body.city.trim() : "";
+    const language = typeof body.language === "string" ? body.language.trim() : "";
     const expertise = typeof body.expertise === "string" ? body.expertise.trim() : "";
     const provider = (body.provider as CheckoutProvider | undefined) || "pawapay";
 
@@ -55,6 +57,16 @@ export async function POST(request: NextRequest) {
     const origin = request.headers.get("origin") || request.nextUrl.origin;
     const returnOrigin = getPublicReturnOrigin(request);
     const countryLabel = country === "all" ? "All countries" : country;
+    const buildReturnQuery = (sessionToken: string, extra?: { canceled?: boolean }) => {
+      const params = new URLSearchParams();
+      params.set("session_id", sessionToken);
+      params.set("country", country || "all");
+      params.set("expertise", expertise);
+      if (city) params.set("city", city);
+      if (language && language !== "all") params.set("language", language);
+      if (extra?.canceled) params.set("canceled", "1");
+      return params.toString();
+    };
 
     if (provider === "stripe") {
       if (!isStripeSecretConfigured()) {
@@ -86,8 +98,8 @@ export async function POST(request: NextRequest) {
           country: country || "all",
           expertise,
         },
-        success_url: `${origin}/lawyers?session_id={CHECKOUT_SESSION_ID}&country=${encodeURIComponent(country || "all")}&expertise=${encodeURIComponent(expertise)}`,
-        cancel_url: `${origin}/lawyers?canceled=1`,
+        success_url: `${origin}/lawyers?${buildReturnQuery("{CHECKOUT_SESSION_ID}")}`,
+        cancel_url: `${origin}/lawyers?${buildReturnQuery("canceled", { canceled: true })}`,
         payment_method_types: ["card"],
       });
 
@@ -145,8 +157,8 @@ export async function POST(request: NextRequest) {
           country: country || "all",
           expertise,
         },
-        success_url: `${origin}/lawyers?session_id={CHECKOUT_SESSION_ID}&country=${encodeURIComponent(country || "all")}&expertise=${encodeURIComponent(expertise)}`,
-        cancel_url: `${origin}/lawyers?canceled=1`,
+        success_url: `${origin}/lawyers?${buildReturnQuery("{CHECKOUT_SESSION_ID}")}`,
+        cancel_url: `${origin}/lawyers?${buildReturnQuery("canceled", { canceled: true })}`,
         payment_method_types: ["card"],
       });
 
@@ -192,7 +204,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const successUrl = `${returnOrigin}/lawyers`;
+    const successUrl = `${returnOrigin}/lawyers?${buildReturnQuery(depositId)}`;
     const pawapayAmountMinor = convertUsdCentsToPawapayMinor(SEARCH_UNLOCK_USD_CENTS, countryConfig.currency);
     const { redirectUrl } = await createPaymentPageSession({
       depositId,
