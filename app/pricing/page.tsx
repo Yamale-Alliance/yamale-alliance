@@ -5,6 +5,7 @@ import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { useAlertDialog } from "@/components/ui/use-confirm";
+import { PaymentMethodPicker, type CheckoutPaymentProvider } from "@/components/checkout/PaymentMethodPicker";
 
 type BillingInterval = "monthly" | "annual";
 
@@ -149,17 +150,19 @@ export default function PricingPage() {
   const [billing, setBilling] = useState<BillingInterval>("annual");
   const [tiers, setTiers] = useState<Tier[]>(FALLBACK_TIERS);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
   const isAnnual = billing === "annual";
   const { alert: showAlert, alertDialog } = useAlertDialog();
+  const stripeAvailable = Boolean(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
-  const handleCheckout = async (planId: string) => {
+  const handleCheckout = async (planId: string, provider: CheckoutPaymentProvider = paymentProvider) => {
     if (planId === "free") return;
     
     // Check if user is signed in
     if (!isLoaded) return; // Wait for auth to load
     if (!isSignedIn) {
       // Redirect to sign-in with return URL
-      const returnUrl = encodeURIComponent(`/pricing?plan=${planId}&interval=${billing}`);
+      const returnUrl = encodeURIComponent(`/pricing?plan=${planId}&interval=${billing}&provider=${provider}`);
       router.push(`/sign-in?redirect_url=${returnUrl}`);
       return;
     }
@@ -170,13 +173,13 @@ export default function PricingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ planId, interval: billing }),
+        body: JSON.stringify({ planId, interval: billing, provider }),
       });
       const data = await res.json();
       if (!res.ok) {
         // If 401, redirect to sign-in
         if (res.status === 401) {
-          const returnUrl = encodeURIComponent(`/pricing?plan=${planId}&interval=${billing}`);
+          const returnUrl = encodeURIComponent(`/pricing?plan=${planId}&interval=${billing}&provider=${provider}`);
           router.push(`/sign-in?redirect_url=${returnUrl}`);
           return;
         }
@@ -191,12 +194,12 @@ export default function PricingPage() {
     }
   };
   
-  const handleDayPassCheckout = async () => {
+  const handleDayPassCheckout = async (provider: CheckoutPaymentProvider = paymentProvider) => {
     // Check if user is signed in
     if (!isLoaded) return; // Wait for auth to load
     if (!isSignedIn) {
       // Redirect to sign-in with return URL
-      const returnUrl = encodeURIComponent("/pricing?day_pass=true");
+      const returnUrl = encodeURIComponent(`/pricing?day_pass=true&provider=${provider}`);
       router.push(`/sign-in?redirect_url=${returnUrl}`);
       return;
     }
@@ -207,12 +210,13 @@ export default function PricingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
+        body: JSON.stringify({ provider }),
       });
       const data = await res.json();
       if (!res.ok) {
         // If 401, redirect to sign-in
         if (res.status === 401) {
-          const returnUrl = encodeURIComponent("/pricing?day_pass=true");
+          const returnUrl = encodeURIComponent(`/pricing?day_pass=true&provider=${provider}`);
           router.push(`/sign-in?redirect_url=${returnUrl}`);
           return;
         }
@@ -227,10 +231,13 @@ export default function PricingPage() {
     }
   };
 
-  const handlePayAsYouGoCheckout = async (itemType: "document" | "ai_query" | "afcfta_report") => {
+  const handlePayAsYouGoCheckout = async (
+    itemType: "document" | "ai_query" | "afcfta_report",
+    provider: CheckoutPaymentProvider = paymentProvider
+  ) => {
     if (!isLoaded) return;
     if (!isSignedIn) {
-      const returnUrl = encodeURIComponent(`/pricing?payg=${itemType}`);
+      const returnUrl = encodeURIComponent(`/pricing?payg=${itemType}&provider=${provider}`);
       router.push(`/sign-in?redirect_url=${returnUrl}`);
       return;
     }
@@ -246,11 +253,12 @@ export default function PricingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
+        body: JSON.stringify({ provider }),
       });
       const data = await res.json();
       if (!res.ok) {
         if (res.status === 401) {
-          const returnUrl = encodeURIComponent(`/pricing?payg=${itemType}`);
+          const returnUrl = encodeURIComponent(`/pricing?payg=${itemType}&provider=${provider}`);
           router.push(`/sign-in?redirect_url=${returnUrl}`);
           return;
         }
@@ -282,6 +290,11 @@ export default function PricingPage() {
     const plan = params.get("plan");
     const interval = params.get("interval") as BillingInterval | null;
     const dayPass = params.get("day_pass");
+    const providerParam = params.get("provider");
+    const provider: CheckoutPaymentProvider =
+      providerParam === "stripe" && stripeAvailable ? "stripe" : "pawapay";
+
+    setPaymentProvider(provider);
 
     if (plan && ["basic", "pro", "team"].includes(plan)) {
       // Set billing interval if specified
@@ -290,7 +303,7 @@ export default function PricingPage() {
       }
       // Trigger checkout after a brief delay to ensure state is set
       const timeoutId = setTimeout(() => {
-        handleCheckout(plan);
+        handleCheckout(plan, provider);
       }, 100);
       // Clean up URL
       window.history.replaceState({}, "", "/pricing");
@@ -298,7 +311,7 @@ export default function PricingPage() {
     } else if (dayPass === "true") {
       // Trigger day pass checkout
       const timeoutId = setTimeout(() => {
-        handleDayPassCheckout();
+        handleDayPassCheckout(provider);
       }, 100);
       // Clean up URL
       window.history.replaceState({}, "", "/pricing");
@@ -307,7 +320,7 @@ export default function PricingPage() {
       const payg = params.get("payg");
       if (payg && ["document", "ai_query", "afcfta_report"].includes(payg)) {
         const timeoutId = setTimeout(() => {
-          handlePayAsYouGoCheckout(payg as "document" | "ai_query" | "afcfta_report");
+          handlePayAsYouGoCheckout(payg as "document" | "ai_query" | "afcfta_report", provider);
         }, 100);
         window.history.replaceState({}, "", "/pricing");
         return () => clearTimeout(timeoutId);
@@ -365,6 +378,13 @@ export default function PricingPage() {
                 Save 17%
               </span>
             </div>
+          </div>
+          <div className="mx-auto mt-8 max-w-2xl rounded-2xl border border-[rgba(227,186,101,0.25)] bg-[rgba(34,25,19,0.45)] p-4 backdrop-blur">
+            <PaymentMethodPicker
+              value={paymentProvider}
+              onChange={setPaymentProvider}
+              stripeAvailable={stripeAvailable}
+            />
           </div>
         </div>
       </section>
@@ -622,7 +642,7 @@ export default function PricingPage() {
               </p>
               <button
                 type="button"
-                onClick={handleDayPassCheckout}
+                onClick={() => handleDayPassCheckout()}
                 disabled={checkoutLoading !== null}
                 className="rounded-xl border border-white/20 bg-white px-6 py-3 font-bold text-sm text-[#603b1c] shadow-xl transition hover:bg-white/95 hover:shadow-2xl disabled:opacity-70 sm:px-8 sm:py-4 sm:text-lg"
               >
