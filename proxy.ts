@@ -46,7 +46,9 @@ export default clerkMiddleware(async (auth, request) => {
     (url.pathname === "/api/laws" ||
       url.pathname.startsWith("/api/laws/") ||
       url.pathname === "/api/pricing");
-  if (process.env.ENABLE_BASIC_AUTH === "true" && !isPublicApi) {
+  const isWebhookCallback =
+    url.pathname === "/api/stripe/webhook";
+  if (process.env.ENABLE_BASIC_AUTH === "true" && !isPublicApi && !isWebhookCallback) {
     if (!checkBasicAuth(request)) {
       return new NextResponse("Authentication required", {
         status: 401,
