@@ -31,7 +31,14 @@ export function PaymentMethodPicker({ value, onChange, stripeAvailable = true }:
             <span className="text-lg font-bold tracking-tight text-emerald-700 dark:text-emerald-400">
               pawaPay
             </span>
-            <Smartphone className="h-6 w-6 shrink-0 text-emerald-700/90 dark:text-emerald-400/90" aria-hidden />
+            <div className="flex items-center gap-2">
+              {value === "pawapay" && (
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+                  Selected
+                </span>
+              )}
+              <Smartphone className="h-6 w-6 shrink-0 text-emerald-700/90 dark:text-emerald-400/90" aria-hidden />
+            </div>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
             Pay with mobile money (MTN, Orange, and other local wallets where supported).
@@ -56,7 +63,14 @@ export function PaymentMethodPicker({ value, onChange, stripeAvailable = true }:
               alt="Stripe"
               className="h-7 w-auto max-w-[100px] object-contain dark:brightness-110"
             />
-            <CreditCard className="h-6 w-6 shrink-0 text-[#635BFF]" aria-hidden />
+            <div className="flex items-center gap-2">
+              {value === "stripe" && (
+                <span className="rounded-full bg-[#635BFF]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#635BFF]">
+                  Selected
+                </span>
+              )}
+              <CreditCard className="h-6 w-6 shrink-0 text-[#635BFF]" aria-hidden />
+            </div>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
             Pay with Visa, Mastercard, and other major cards (processed securely by Stripe).
