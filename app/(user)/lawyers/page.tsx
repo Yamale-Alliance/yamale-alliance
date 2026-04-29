@@ -5,8 +5,13 @@ import { useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, Star, Loader2, Lock } from "lucide-react";
+import { Search, Star, Loader2, Lock, AlertCircle, Quote, CheckSquare, Smartphone, CreditCard } from "lucide-react";
 import type { CheckoutPaymentProvider } from "@/components/checkout/PaymentMethodPicker";
+import {
+  PROTOTYPE_HERO_GRID_PATTERN,
+  prototypeHeroEyebrowClass,
+  prototypeNavyHeroSectionClass,
+} from "@/components/layout/prototype-page-styles";
 
 const BRAND = {
   dark: "#221913",
@@ -77,6 +82,14 @@ const AFRICAN_COUNTRIES = [
   "São Tomé and Príncipe", "Senegal", "Seychelles", "Sierra Leone", "Somalia", "South Africa",
   "South Sudan", "Sudan", "Tanzania", "Togo", "Tunisia", "Uganda", "Zambia", "Zimbabwe",
 ];
+
+function pseudoYears(name: string): number {
+  return (name.length % 14) + 8;
+}
+
+function pseudoCountries(name: string): number {
+  return (name.replace(/\s/g, "").length % 9) + 3;
+}
 
 export default function LawyersPage() {
   const [lawyers, setLawyers] = useState<Lawyer[]>([]);
@@ -349,62 +362,33 @@ export default function LawyersPage() {
       )}
 
       {/* Hero */}
-      <section className="relative overflow-hidden border-b border-border/40 bg-gradient-to-b from-muted/25 via-background to-background">
+      <section className={prototypeNavyHeroSectionClass}>
         <div
-          className="pointer-events-none absolute -top-40 left-1/2 h-[420px] w-[760px] -translate-x-1/2 rounded-full opacity-[0.22] blur-[110px] dark:opacity-30"
-          style={{ background: "radial-gradient(circle, var(--primary) 0%, transparent 70%)" }}
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{ backgroundImage: PROTOTYPE_HERO_GRID_PATTERN }}
+          aria-hidden
         />
-        <div
-          className="pointer-events-none absolute -bottom-40 right-[-10%] h-80 w-80 rounded-full opacity-[0.16] blur-[90px] dark:opacity-25"
-          style={{ background: "radial-gradient(circle, var(--accent) 0%, transparent 70%)" }}
-        />
-        <div className="relative mx-auto max-w-7xl px-4 pt-10 pb-20 sm:px-6 lg:px-8 sm:pt-14">
-          <div className="max-w-2xl">
-            <p className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/90 backdrop-blur">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              Verified African lawyers
+        <div className="relative z-[1] mx-auto max-w-7xl px-4 pb-10 pt-12 sm:px-6 sm:pt-14 lg:px-8">
+          <div className="max-w-3xl">
+            <p className={prototypeHeroEyebrowClass}>
+              Curated Lawyer Network
             </p>
-            <h1 className="heading mt-5 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-[2.5rem]">
-              Find counsel anywhere in Africa.
+            <h1 className="heading mt-6 text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-[2.5rem]">
+              Find the right commercial lawyer in any African jurisdiction — fast.
             </h1>
+            <p className="mt-4 max-w-lg text-sm leading-relaxed text-white/[0.62] sm:text-base">
+              An invitation-only directory of legal professionals with deep expertise in African business law, mining,
+              M&A, and compliance.
+            </p>
           </div>
-        </div>
-      </section>
-
-      {/* Filters + results */}
-      <section className="-mt-10 pb-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          {/* Search filters card */}
-          <div className="mb-8 rounded-2xl border border-border/70 bg-card/95 p-5 shadow-lg shadow-primary/10 backdrop-blur-xl sm:p-6">
-            <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-              <div className="max-w-xl">
-                <p className="text-xs text-muted-foreground sm:text-sm">
-                  Choose <strong>country</strong> and <strong>practice area</strong> (required). One search costs ${SEARCH_PRICE} and
-                  unlocks contact details for all matching lawyers.
-                </p>
-              </div>
-              <div className="hidden text-xs text-muted-foreground md:block">
-                <span className="rounded-full bg-muted px-3 py-1 font-medium text-foreground">
-                  ${SEARCH_PRICE} per search
-                </span>
-              </div>
+          <div className="mt-7 rounded-[10px] border border-white/15 bg-white/10 p-3 backdrop-blur">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1fr_1fr_1fr_auto]">
               <div>
-                <Link
-                  href="/lawyers/unlocked"
-                  className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-medium text-foreground transition hover:border-primary/60 hover:bg-primary/5"
-                >
-                  View unlocked lawyers
-                </Link>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 mb-4">
-              <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground/90">
-                  Location (Country)
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
+                  Country
                 </label>
                 <select
-                  className="w-full rounded-xl border border-input bg-background/90 px-3 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-primary focus:ring-2 focus:ring-primary/40"
+                  className="w-full rounded-[6px] border border-white/20 bg-[#13263a] px-3 py-2 text-sm text-white outline-none"
                   value={selectedCountry}
                   onChange={(e) => setSelectedCountry(e.target.value)}
                 >
@@ -417,26 +401,11 @@ export default function LawyersPage() {
                 </select>
               </div>
               <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground/90">
-                  Search (name or expertise)
-                </label>
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="e.g. Lagos, corporate, arbitration…"
-                    className="w-full rounded-xl border border-input bg-background/90 px-10 py-2.5 text-sm shadow-sm outline-none ring-0 transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/40"
-                    value={selectedCity}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedCity(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground/90">
-                  Area of expertise <span className="text-destructive">*</span>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
+                  Area of expertise *
                 </label>
                 <select
-                  className="w-full rounded-xl border border-input bg-background/90 px-3 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-primary focus:ring-2 focus:ring-primary/40"
+                  className="w-full rounded-[6px] border border-white/20 bg-[#13263a] px-3 py-2 text-sm text-white outline-none"
                   value={selectedExpertise}
                   onChange={(e) => setSelectedExpertise(e.target.value)}
                 >
@@ -455,11 +424,23 @@ export default function LawyersPage() {
                 </select>
               </div>
               <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground/90">
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
+                  Search by name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Lagos, arbitration…"
+                  className="w-full rounded-[6px] border border-white/20 bg-[#13263a] px-3 py-2 text-sm text-white placeholder:text-white/45 outline-none"
+                  value={selectedCity}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedCity(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
                   Language
                 </label>
                 <select
-                  className="w-full rounded-xl border border-input bg-background/90 px-3 py-2.5 text-sm shadow-sm outline-none ring-0 transition focus:border-primary focus:ring-2 focus:ring-primary/40"
+                  className="w-full rounded-[6px] border border-white/20 bg-[#13263a] px-3 py-2 text-sm text-white outline-none"
                   value={selectedLanguage}
                   onChange={(e) => setSelectedLanguage(e.target.value)}
                 >
@@ -470,31 +451,63 @@ export default function LawyersPage() {
                   ))}
                 </select>
               </div>
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  onClick={runSearch}
+                  disabled={expertiseRequired}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-[6px] bg-[#0D1B2A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#162436] disabled:opacity-60"
+                >
+                  <Search className="h-4 w-4" />
+                  Search
+                </button>
+              </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Filters + results */}
+      <section className="pb-16 pt-10">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-5 flex items-start gap-2 rounded-[8px] border border-[#C9D6E8] bg-[#EAF2FC] px-4 py-3 text-[16px] text-[#2F435E]">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#2F435E]" />
+            <p>
+              Select a <strong>country</strong> and <strong>practice area</strong> to search. One search costs ${SEARCH_PRICE} and
+              unlocks contact details for all matching lawyers.
+            </p>
+          </div>
+
+          <div className="mb-5 rounded-[10px] border-l-4 border-[#C8922A] bg-[#F4F1EA] px-7 py-8">
+            <p className="flex items-center gap-4 font-serif text-[44px] text-[#C8922A]">
+              <Quote className="h-6 w-6 fill-current" />
+              <span className="text-[44px] leading-tight text-[#1F2937]">
+                The platform brings mandates to you — so you do not have to market yourself.
+              </span>
+            </p>
+          </div>
+
+          <div className="mb-8 flex items-start gap-3 rounded-[8px] border border-[#E8E4DC] bg-[#F9F7F2] px-5 py-4 text-[16px] leading-relaxed text-[#4B5563]">
+            <CheckSquare className="mt-0.5 h-5 w-5 shrink-0 text-[#6B7280]" />
+            <p>
+              Lawyers listed in the Yamalé directory have been invited based on their professional credentials and stated
+              expertise. <strong>Yamalé Alliance does not certify, endorse, or guarantee the services of any listed lawyer.</strong>
+            </p>
+          </div>
+
+          <div className="mb-8 flex items-center justify-between">
+            <Link
+              href="/lawyers/unlocked"
+              className="inline-flex items-center rounded-full border border-[#E8E4DC] bg-white px-3 py-1 text-xs font-medium text-[#5D5348] transition hover:border-[#d8c5a1]"
+            >
+              View unlocked lawyers
+            </Link>
             {expertiseRequired && (
-              <p className="mb-2 text-xs text-amber-700 dark:text-amber-400">
+              <p className="text-xs text-amber-700 dark:text-amber-400">
                 Please select a practice area. Country + practice area are required so your ${SEARCH_PRICE} unlock
                 applies to a specific search.
               </p>
             )}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <button
-                type="button"
-                onClick={runSearch}
-                disabled={expertiseRequired}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[rgba(154,99,42,0.95)] to-[rgba(193,140,67,0.95)] px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-              >
-                <Search className="h-4 w-4" />
-                Search directory
-              </button>
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-border/70 bg-background/80 px-4 py-2 text-xs font-medium text-muted-foreground transition hover:border-primary/60 hover:bg-primary/5 hover:text-foreground sm:text-sm"
-              >
-                Clear filters
-              </button>
-            </div>
           </div>
 
           {/* Before search: prompt user to enter criteria */}
@@ -545,7 +558,8 @@ export default function LawyersPage() {
                         className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-700 to-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:brightness-105 disabled:opacity-60 sm:text-sm"
                       >
                         {searchPayLoading && paymentProvider === "pawapay" && <Loader2 className="h-4 w-4 animate-spin" />}
-                        Proceed with pawaPay
+                        {!searchPayLoading && <Smartphone className="h-4 w-4" />}
+                        pawaPay (Mobile Money)
                       </button>
                       <button
                         type="button"
@@ -554,7 +568,8 @@ export default function LawyersPage() {
                         className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#635BFF]/50 bg-[#635BFF]/10 px-4 py-2 text-xs font-semibold text-[#635BFF] transition hover:bg-[#635BFF]/20 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
                       >
                         {searchPayLoading && paymentProvider === "stripe" && <Loader2 className="h-4 w-4 animate-spin" />}
-                        Proceed with Stripe
+                        {!searchPayLoading && <CreditCard className="h-4 w-4" />}
+                        Stripe (Card Payment)
                       </button>
                       <button
                         type="button"
@@ -654,7 +669,7 @@ export default function LawyersPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
             {filteredLawyers.map((lawyer) => {
               const unlocked = isUnlocked(lawyer.id);
               const contacts = contactsByLawyer[lawyer.id];
@@ -665,13 +680,12 @@ export default function LawyersPage() {
               return (
                 <div
                   key={lawyer.id}
-                  className="group overflow-hidden rounded-2xl border border-border/70 bg-card/95 shadow-sm shadow-border/40 transition hover:-translate-y-1 hover:border-primary/70 hover:shadow-lg hover:shadow-primary/20"
+                  className="group overflow-hidden rounded-[10px] border border-[#E8E4DC] bg-white transition hover:-translate-y-0.5 hover:shadow-md"
                 >
-                  <div className="h-1 w-full bg-gradient-to-r from-[rgba(193,140,67,0.9)] via-[rgba(227,186,101,0.95)] to-[rgba(154,99,42,0.9)] opacity-80" />
-                  <div className="p-5">
+                  <div className="p-4">
                     <div className="flex items-start gap-4">
                       <div
-                        className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-full text-lg font-bold text-white shadow-sm shadow-primary/40"
+                        className="relative flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold text-white shadow-sm shadow-primary/30"
                         style={{ background: `linear-gradient(to bottom right, ${BRAND.gradientEnd}, ${BRAND.gradientStart})` }}
                       >
                         {unlocked && lawyer.imageUrl ? (
@@ -698,15 +712,12 @@ export default function LawyersPage() {
                               {initialsDisplay}
                             </h3>
                           )}
-                          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+                          <span className="rounded-full bg-[#EFF4FF] px-2 py-0.5 text-[10px] font-semibold text-[#355896]">
                             Verified
                           </span>
                         </div>
-                        <div className="text-xs text-muted-foreground sm:text-sm">
-                          {unlocked ? lawyer.expertise : "Practice area · details hidden until unlock"}
-                        </div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          📍 {lawyer.country}
+                        <div className="text-xs text-[#6F6457] sm:text-[13px]">
+                          {lawyer.country} · {selectedLanguage === "all" ? "English / French" : selectedLanguage}
                         </div>
                         <div className="flex items-center gap-1 mt-2">
                           <Star className="h-4 w-4 fill-current text-yellow-500" />
@@ -729,100 +740,45 @@ export default function LawyersPage() {
                       </div>
                     </div>
 
-                    <div className="mb-3 flex flex-wrap gap-2">
+                    <div className="mb-3 mt-3 flex flex-wrap gap-1.5">
                       {expertiseTags.map((exp, i) => (
                         <span
                           key={i}
-                          className="rounded-full px-3 py-1 text-[11px] font-medium"
-                          style={{ backgroundColor: "rgba(227, 186, 101, 0.2)", color: BRAND.medium }}
+                          className="rounded-full bg-[#F4F1EA] px-2.5 py-1 text-[10px] font-medium text-[#5D5348]"
                         >
                           {exp}
                         </span>
                       ))}
                     </div>
-
-                    <div
-                      className="mb-4 rounded-xl border-2 border-dashed bg-muted/30 p-4"
-                      style={{ borderColor: unlocked ? "#10b981" : BRAND.gradientEnd }}
-                    >
-                      <div className="flex items-center gap-3 mb-3">
-                        <span className="text-2xl">{unlocked ? "🔓" : "🔒"}</span>
-                        <div className="flex-1">
-                          {unlocked ? (
-                            <div>
-                              <div className="text-sm font-semibold text-green-700 dark:text-green-400">
-                                Contact information unlocked
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                You have full access to contact details.
-                              </div>
-                            </div>
-                          ) : (
-                            <div>
-                              <div className="text-sm font-semibold" style={{ color: BRAND.medium }}>
-                                Contact information locked
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                Pay ${SEARCH_PRICE} for this search above to view contact details.
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                    <div className="mb-3 grid grid-cols-3 gap-2">
+                      <div className="rounded-[6px] border border-[#EFEAE1] bg-[#FAFAF7] px-2 py-2 text-center">
+                        <div className="text-sm font-bold text-[#0D1B2A]">{pseudoYears(lawyer.name)}</div>
+                        <div className="text-[10px] text-[#8A8074]">Years exp.</div>
                       </div>
-                      <div className="space-y-2 text-sm">
-                        {unlocked && contacts ? (
-                          <>
-                            {contacts.email && (
-                              <div className="flex items-center gap-2 text-foreground">
-                                <span>📧</span>
-                                <a href={`mailto:${contacts.email}`} className="font-medium underline hover:opacity-80">{contacts.email}</a>
-                              </div>
-                            )}
-                            {contacts.phone && (
-                              <div className="flex items-center gap-2 text-foreground">
-                                <span>📱</span>
-                                <a href={`tel:${contacts.phone}`} className="font-medium underline hover:opacity-80">{contacts.phone}</a>
-                              </div>
-                            )}
-                            {contacts.contacts && (
-                              <div className="flex items-center gap-2 text-foreground">
-                                <span>💼</span>
-                                <span className="font-medium whitespace-pre-wrap">{contacts.contacts}</span>
-                              </div>
-                            )}
-                            {!contacts.email && !contacts.phone && !contacts.contacts && (
-                              <div className="text-muted-foreground">No contact details on file</div>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <span>📧</span>
-                              <span>Email: ••••••@•••••.com</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <span>📱</span>
-                              <span>Phone: +••• ••• ••• ••••</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <span>💼</span>
-                              <span>Office Address: •••••••••••••</span>
-                            </div>
-                          </>
-                        )}
+                      <div className="rounded-[6px] border border-[#EFEAE1] bg-[#FAFAF7] px-2 py-2 text-center">
+                        <div className="text-sm font-bold text-[#0D1B2A]">{pseudoCountries(lawyer.name)}</div>
+                        <div className="text-[10px] text-[#8A8074]">Countries</div>
+                      </div>
+                      <div className="rounded-[6px] border border-[#EFEAE1] bg-[#FAFAF7] px-2 py-2 text-center">
+                        <div className="text-sm font-bold text-[#0D1B2A]">{selectedLanguage === "all" ? "EN/FR" : selectedLanguage.slice(0, 2).toUpperCase()}</div>
+                        <div className="text-[10px] text-[#8A8074]">Language</div>
                       </div>
                     </div>
 
-                    {unlocked ? (
-                      <div className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-green-300 bg-green-50 px-6 py-3 text-sm font-semibold text-green-700 dark:border-green-500/50 dark:bg-green-500/10 dark:text-green-400">
-                        <span className="text-lg">✓</span>
-                        Full Access Granted
-                      </div>
-                    ) : (
-                      <p className="py-2 text-center text-xs text-muted-foreground sm:text-sm">
-                        Unlock all results for this search with a single ${SEARCH_PRICE} payment above.
-                      </p>
-                    )}
+                    <div className="border-t border-[#EFEAE1] pt-3">
+                      {unlocked ? (
+                        <div className="space-y-1.5 text-xs text-[#5D5348]">
+                          {contacts?.email && <div>📧 {contacts.email}</div>}
+                          {contacts?.phone && <div>📱 {contacts.phone}</div>}
+                          {contacts?.contacts && <div className="whitespace-pre-wrap">💼 {contacts.contacts}</div>}
+                          {!contacts?.email && !contacts?.phone && !contacts?.contacts && <div>No contact details on file</div>}
+                        </div>
+                      ) : (
+                        <div className="rounded-[6px] bg-[#0D1B2A] px-3 py-2 text-center text-[12px] font-semibold text-white">
+                          Unlock contact — ${SEARCH_PRICE}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
