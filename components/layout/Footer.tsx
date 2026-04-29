@@ -1,10 +1,11 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
 import { ArrowUpRight, Mail } from "lucide-react";
 
 const productLinks = [
   { href: "/library", label: "Legal Library" },
-  { href: "/afcfta", label: "AfCFTA Tools" },
+  { href: "/afcfta/compliance-check", label: "AfCFTA Tools" },
   { href: "/ai-research", label: "AI Research" },
   { href: "/marketplace", label: "The Yamale Vault" },
   { href: "/lawyers", label: "Find a Lawyer" },
@@ -21,11 +22,11 @@ const legalLinks = [
   { href: "/terms", label: "Terms" },
 ];
 
-function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
+function FooterLink({ href, children }: { href: string; children: ReactNode }) {
   return (
     <Link
       href={href}
-      className="inline-block rounded-lg px-2 py-1 text-sm text-muted-foreground transition hover:bg-primary/15 hover:text-foreground"
+      className="text-[14px] text-white/55 transition hover:text-primary dark:text-white/55 dark:hover:text-primary"
     >
       {children}
     </Link>
@@ -41,10 +42,8 @@ function LinkGroup({
 }) {
   return (
     <div>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/90 mb-3">
-        {title}
-      </p>
-      <ul className="flex flex-col gap-y-1.5">
+      <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.12em] text-white/35">{title}</p>
+      <ul className="flex flex-col gap-2.5">
         {links.map(({ href, label }) => (
           <li key={href}>
             <FooterLink href={href}>{label}</FooterLink>
@@ -55,67 +54,56 @@ function LinkGroup({
   );
 }
 
+/** Yamalé prototype footer — navy block + muted links (yamale_prototype.html). */
 export function Footer() {
   return (
-    <footer
-      className="mt-auto relative overflow-hidden"
-      role="contentinfo"
-    >
-      {/* Gradient / brand block */}
-      <div className="relative border-t border-border/50 bg-gradient-to-b from-muted/20 via-background to-background dark:from-muted/10 dark:via-background dark:to-background">
-        {/* Subtle grid pattern */}
-        <div
-          className="absolute inset-0 opacity-[0.03] dark:opacity-[0.06]"
-          style={{
-            backgroundImage: `linear-gradient(var(--foreground) 1px, transparent 1px),
-                              linear-gradient(90deg, var(--foreground) 1px, transparent 1px)`,
-            backgroundSize: "48px 48px",
-          }}
-        />
-        <div className="relative mx-auto max-w-7xl px-4 pt-16 pb-12 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-12 lg:flex-row lg:items-end lg:justify-between lg:gap-16">
-            {/* Brand + statement */}
-            <div className="max-w-xl">
-              <Link
-                href="/"
-                className="inline-block transition opacity-90 hover:opacity-100"
-                aria-label="Yamalé home"
-              >
-                <PlatformLogo height={64} width={220} className="h-16 w-auto" />
-              </Link>
-              <p className="heading mt-6 text-2xl font-medium tracking-tight text-foreground sm:text-3xl lg:text-[2rem] lg:leading-tight">
-                African law, accessible and verifiable.
-              </p>
-              <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
-                National and regional law, AfCFTA compliance, and AI-powered legal research—in one place.
-              </p>
-            </div>
-            {/* Link groups */}
-            <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 sm:gap-10">
-              <LinkGroup title="Product" links={productLinks} />
-              <LinkGroup title="Company" links={companyLinks} />
-              <LinkGroup title="Legal" links={legalLinks} />
-            </div>
+    <footer className="mt-auto" role="contentinfo">
+      <div className="bg-[#0D1B2A] px-4 pb-12 pt-14 text-white sm:px-8">
+        <div className="mx-auto grid max-w-[1280px] gap-12 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] lg:gap-10">
+          <div className="max-w-md">
+            <Link href="/" className="inline-block opacity-95 transition hover:opacity-100" aria-label="Yamalé home">
+              <PlatformLogo height={64} width={220} className="h-14 w-auto max-w-[220px]" />
+            </Link>
+            <p className="heading mt-6 text-2xl font-semibold tracking-tight text-white sm:text-[1.75rem] sm:leading-snug">
+              African law, accessible to those who shape the continent&apos;s future.
+            </p>
+            <p className="mt-3 text-[14px] leading-relaxed text-white/45">
+              National and regional law, AfCFTA compliance, and AI-powered legal research—in one place.
+            </p>
           </div>
+          <LinkGroup title="Product" links={productLinks} />
+          <LinkGroup title="Company" links={companyLinks} />
+          <LinkGroup title="Legal" links={legalLinks} />
+        </div>
+
+        <div className="mx-auto mt-10 max-w-[920px] border-t border-white/[0.08] pt-8 text-[12px] leading-[1.7] text-white/40">
+          <p>
+            <strong className="font-semibold text-white/[0.65]">Important:</strong> Yamalé Legal Platform provides legal information for reference purposes only. Content is not legal advice and does not create an attorney-client relationship. Laws change frequently — always verify current status with official sources or{" "}
+            <Link href="/lawyers" className="text-[#E8B84B] underline underline-offset-2 hover:text-[#E8B84B]/90">
+              qualified legal counsel
+            </Link>{" "}
+            before making decisions.
+          </p>
+          <p className="mt-3">
+            By using this platform, you agree to our <FooterLink href="/terms">Terms</FooterLink> and{" "}
+            <FooterLink href="/privacy">Privacy Policy</FooterLink>. We collect usage data to improve the platform. We do not sell personal data to third parties.
+          </p>
         </div>
       </div>
 
-      {/* CTA + bottom bar */}
-      <div className="border-t border-border/60 bg-background/95 backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-between sm:gap-4">
-            <a
-              href="mailto:it@yamalealliance.org"
-              className="group flex items-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-5 py-2.5 text-sm font-medium text-foreground shadow-sm transition hover:border-primary/60 hover:bg-primary/20 hover:shadow-md hover:shadow-primary/10"
-            >
-              <Mail className="h-4 w-4 text-primary" />
-              <span>it@yamalealliance.org</span>
-              <ArrowUpRight className="h-4 w-4 text-primary opacity-70 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </a>
-            <p className="text-xs text-muted-foreground">
-              © {new Date().getFullYear()} Yamalé Legal Platform
-            </p>
-          </div>
+      <div className="border-t border-white/10 bg-[#0D1B2A] px-4 py-8 sm:px-8">
+        <div className="mx-auto flex max-w-[1280px] flex-col items-center gap-6 sm:flex-row sm:justify-between sm:gap-4">
+          <a
+            href="mailto:it@yamalealliance.org"
+            className="group inline-flex items-center gap-2 rounded-[6px] border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-medium text-white/90 transition hover:border-primary/50 hover:bg-white/10"
+          >
+            <Mail className="h-4 w-4 text-primary" />
+            <span>it@yamalealliance.org</span>
+            <ArrowUpRight className="h-4 w-4 text-primary opacity-80 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+          </a>
+          <p className="text-center text-xs text-white/45 sm:text-left">
+            © {new Date().getFullYear()} Yamalé Alliance · Dakar, Senegal
+          </p>
         </div>
       </div>
     </footer>
