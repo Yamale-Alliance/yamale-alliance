@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Loader2, Mail, Phone } from "lucide-react";
+import {
+  PROTOTYPE_HERO_GRID_PATTERN,
+  prototypeHeroEyebrowClass,
+  prototypeNavyHeroSectionClass,
+} from "@/components/layout/prototype-page-styles";
 
 type UnlockedLawyer = {
   id: string;
@@ -36,17 +41,25 @@ export default function UnlockedLawyersPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <section className="border-b border-border/40 bg-gradient-to-b from-muted/20 to-background">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Lawyers Directory</p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-foreground">Unlocked lawyers</h1>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+      <section className={prototypeNavyHeroSectionClass}>
+        <div
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{ backgroundImage: PROTOTYPE_HERO_GRID_PATTERN }}
+          aria-hidden
+        />
+        <div className="relative z-[1] mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+          <p className={prototypeHeroEyebrowClass}>
+            <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#E8B84B] shadow-[0_0_0_4px_rgba(200,146,42,0.2)]" />
+            Lawyers Directory
+          </p>
+          <h1 className="heading mt-6 text-3xl font-bold tracking-tight text-white">Unlocked lawyers</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/[0.62]">
             Lawyers whose contact details you have already paid to unlock.
           </p>
-          <div className="mt-4">
+          <div className="mt-6">
             <Link
               href="/lawyers"
-              className="inline-flex items-center rounded-full border border-border/70 bg-background/80 px-3 py-1 text-xs font-medium text-foreground transition hover:border-primary/60 hover:bg-primary/5"
+              className="inline-flex items-center rounded-[6px] border border-white/25 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/18"
             >
               Back to lawyers search
             </Link>
