@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
@@ -9,19 +9,19 @@ import { useUser } from "@clerk/nextjs";
 import {
   Send,
   Lock,
-  Pencil,
+  Plus,
   Search,
   Menu,
   Trash2,
   Share2,
   Download,
   X,
-  Zap,
+  Sparkles,
   Users,
   Loader2,
-  ChevronDown,
   Copy,
   Check,
+  AlertTriangle,
 } from "lucide-react";
 import { canShareByEmail, canDownloadConversations } from "@/lib/plan-limits";
 
@@ -81,6 +81,8 @@ type ChatSession = {
 
 const STORAGE_KEY = "yamale-ai-chats";
 const MAX_SESSIONS = 50;
+const AI_RESEARCH_NOTICE_VERSION = "v1";
+const AI_RESEARCH_NOTICE_KEY = `yamale-ai-research-notice:${AI_RESEARCH_NOTICE_VERSION}`;
 
 function getTierFromUser(metadata: Record<string, unknown> | undefined): Tier {
   const t = metadata?.tier ?? metadata?.subscriptionTier;
@@ -150,6 +152,9 @@ export default function AIResearchPage() {
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [exampleQuestions, setExampleQuestions] = useState<string[]>(() => pickRandomExampleQuestions(4));
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [noticeCheckDone, setNoticeCheckDone] = useState(false);
+  const [hasAcknowledgedNotice, setHasAcknowledgedNotice] = useState(false);
+  const [shellTopOffset, setShellTopOffset] = useState(56);
 
   const tierFromMetadata: Tier =
     user?.publicMetadata ? getTierFromUser(user.publicMetadata as Record<string, unknown>) : "free";
@@ -248,6 +253,46 @@ export default function AIResearchPage() {
     if (!user) return;
     fetchModels();
   }, [user, fetchModels]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const updateShellOffset = () => {
+      const header = document.querySelector("header");
+      if (!header) {
+        setShellTopOffset(56);
+        return;
+      }
+      const rect = header.getBoundingClientRect();
+      setShellTopOffset(Math.max(48, Math.round(rect.bottom)));
+    };
+
+    updateShellOffset();
+    window.addEventListener("resize", updateShellOffset);
+    window.addEventListener("scroll", updateShellOffset, { passive: true });
+    window.visualViewport?.addEventListener("resize", updateShellOffset);
+    return () => {
+      window.removeEventListener("resize", updateShellOffset);
+      window.removeEventListener("scroll", updateShellOffset);
+      window.visualViewport?.removeEventListener("resize", updateShellOffset);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setHasAcknowledgedNotice(true);
+      setNoticeCheckDone(true);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(AI_RESEARCH_NOTICE_KEY);
+      const acknowledgedUsers = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+      setHasAcknowledgedNotice(Boolean(acknowledgedUsers[user.id]));
+    } catch {
+      setHasAcknowledgedNotice(false);
+    } finally {
+      setNoticeCheckDone(true);
+    }
+  }, [user]);
 
   const activeModelName =
     models.find((m) => m.id === (selectedModelId ?? defaultModelId ?? ""))?.display_name ??
@@ -413,7 +458,7 @@ export default function AIResearchPage() {
 
   const sendMessage = async (text: string) => {
     const trimmed = text.trim();
-    if (!trimmed || (atLimit && limit !== null)) return;
+    if (!trimmed || (atLimit && limit !== null) || !hasAcknowledgedNotice) return;
 
     const userMessage: Message = {
       id: `user-${Date.now()}`,
@@ -557,24 +602,38 @@ export default function AIResearchPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!hasAcknowledgedNotice) return;
     await sendMessage(input);
+  };
+
+  const acknowledgeNotice = () => {
+    if (!user) return;
+    try {
+      const raw = localStorage.getItem(AI_RESEARCH_NOTICE_KEY);
+      const acknowledgedUsers = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+      acknowledgedUsers[user.id] = true;
+      localStorage.setItem(AI_RESEARCH_NOTICE_KEY, JSON.stringify(acknowledgedUsers));
+    } catch {
+      // ignore
+    }
+    setHasAcknowledgedNotice(true);
   };
 
   if (!user) {
     return (
-      <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4">
+      <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-background px-4">
         <p className="text-sm text-muted-foreground">Sign in to use AI Legal Research.</p>
       </div>
     );
   }
 
-  if (!effectiveTierLoaded || confirmingPayment) {
+  if (!effectiveTierLoaded || confirmingPayment || !noticeCheckDone) {
     return (
-      <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4">
+      <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-background px-4">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-2" />
+          <Loader2 className="mx-auto mb-2 h-8 w-8 animate-spin text-primary" />
           {confirmingPayment && (
             <p className="text-sm text-muted-foreground">Confirming payment...</p>
           )}
@@ -587,17 +646,17 @@ export default function AIResearchPage() {
   if (tier === "free" && !canQuery && payAsYouGoCount === 0) {
     return (
       <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center bg-background px-4 py-12">
-        <div className="w-full max-w-md rounded-2xl border border-border/70 bg-card/95 p-8 text-center shadow-sm shadow-primary/10">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-muted/60">
-            <Lock className="h-7 w-7 text-muted-foreground" />
+        <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-lg shadow-[rgba(13,27,42,0.06)]">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-primary/25 bg-primary/10">
+            <Lock className="h-7 w-7 text-primary" />
           </div>
-          <h1 className="mt-6 text-xl font-semibold tracking-tight">AI Legal Research</h1>
+          <h1 className="heading mt-6 text-xl font-semibold tracking-tight text-card-foreground">AI Legal Research</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Available on Basic, Pro, and Team plans.
           </p>
           <Link
             href="/pricing"
-            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+            className="mt-6 inline-flex items-center gap-2 rounded-[6px] bg-[#0D1B2A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#162436]"
           >
             View plans
           </Link>
@@ -606,159 +665,147 @@ export default function AIResearchPage() {
     );
   }
 
+  const planUsageLabel =
+    limit === null ? `Unlimited · ${TIER_LABELS[tier]}` : `${used} / ${limit} · ${TIER_LABELS[tier]}`;
+
   return (
     <>
-      {/* Fixed full-viewport container below header - prevents footer from showing */}
+      {/* Yamalé prototype — AI Research: 280px navy sidebar + cream/white main */}
       <div
-        className="fixed left-0 right-0 top-14 z-10 flex h-[calc(100vh-3.5rem)] bg-gradient-to-b from-muted/20 via-background to-background"
-        style={{ height: "calc(100vh - 3.5rem)" }}
+        className="fixed inset-x-0 z-10 grid grid-cols-1 overflow-hidden bg-[#FAFAF7] md:grid-cols-[280px_minmax(0,1fr)]"
+        style={{ top: shellTopOffset, height: `calc(100dvh - ${shellTopOffset}px)` }}
       >
-        {/* Sidebar - partial width on mobile, opaque like desktop */}
         <aside
-          className={`absolute inset-y-0 left-0 z-20 flex h-full flex-col border-r border-border/70 bg-card shadow-lg transition-transform duration-200 md:relative md:z-auto md:transition-[width] ${
-            sidebarOpen
-              ? "translate-x-0 w-3/4 max-w-xs md:w-64 md:shrink-0"
-              : "-translate-x-full w-3/4 max-w-xs md:w-0 md:shrink-0 md:overflow-hidden"
+          className={`absolute inset-y-0 left-0 z-20 flex h-full min-h-0 w-[min(100%,280px)] flex-col bg-[#0D1B2A] text-white shadow-2xl transition-transform duration-200 md:relative md:z-auto md:w-[280px] md:max-w-none md:translate-x-0 md:shadow-none ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
           }`}
         >
-          {/* Mobile-only sidebar header - safe area top so not under status bar */}
-          <div className="flex items-center justify-between border-b border-border px-3 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:py-2 md:pt-2">
-            <span className="text-sm font-semibold text-foreground">Your chats</span>
+          <div className="flex items-center justify-between border-b border-white/[0.08] px-5 py-4 pt-[max(1rem,env(safe-area-inset-top))] md:hidden">
+            <span className="text-[13px] font-semibold text-white/90">Research history</span>
             <button
               type="button"
               onClick={() => setSidebarOpen(false)}
-              className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white"
               aria-label="Close chat list"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="flex flex-col gap-2 p-3">
+          <div className="border-b border-white/[0.08] px-5 py-5">
             <button
               type="button"
-              onClick={newChat}
-              className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2.5 text-sm font-semibold text-foreground shadow-sm shadow-primary/10 transition hover:border-primary/50 hover:bg-primary/20 hover:shadow-md"
+              onClick={() => {
+                newChat();
+                setSidebarOpen(false);
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-[6px] bg-[#C8922A] px-4 py-2.5 text-[13.5px] font-semibold text-white transition hover:bg-[#b07e22]"
             >
-              <Pencil className="h-4 w-4 text-primary" />
-              New chat
+              <Plus className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden />
+              New research query
             </button>
             {tier === "team" && (
               <Link
                 href="/ai-research/team"
-                className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted/80"
+                className="mt-3 flex items-center justify-center gap-2 rounded-[6px] border border-white/15 px-3 py-2 text-[13px] font-medium text-white/80 transition hover:bg-white/10"
               >
                 <Users className="h-4 w-4" />
                 Manage team
               </Link>
             )}
+          </div>
+          <div className="border-b border-white/[0.08] px-5 pb-4 pt-2">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
               <input
                 type="text"
                 value={searchChats}
                 onChange={(e) => setSearchChats(e.target.value)}
-                placeholder="Search chats"
-                className="w-full rounded-xl border border-border/70 bg-background/90 py-2 pl-9 pr-3 text-sm shadow-sm outline-none ring-0 transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/40"
+                placeholder="Search previous queries…"
+                className="w-full rounded-[6px] border border-white/10 bg-white/[0.07] py-2.5 pl-10 pr-3 text-[13px] text-white/80 outline-none ring-0 placeholder:text-white/35 focus:border-white/20"
               />
             </div>
           </div>
-          <div className="flex flex-1 flex-col overflow-hidden min-h-0">
-            <p className="px-3 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Your chats
-            </p>
-            <nav className="flex-1 overflow-y-auto px-2 pb-2">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <p className="px-5 pb-2.5 pt-4 text-[10px] font-bold uppercase tracking-[0.12em] text-white/30">Recent</p>
+            <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4">
               {filteredSessions.map((s) => (
-                <div
-                  key={s.id}
-                  className={`group mb-1 flex items-center gap-1 rounded-xl px-2 transition ${
-                    currentId === s.id
-                      ? "bg-primary/15 border border-primary/30 shadow-sm"
-                      : "border border-transparent hover:border-border/50 hover:bg-muted/50"
-                  }`}
-                >
+                <div key={s.id} className="group mb-0.5 flex items-stretch gap-0.5">
                   <button
                     type="button"
-                    onClick={() => selectChat(s.id)}
-                    className={`min-w-0 flex-1 py-2.5 pl-2 text-left text-sm ${
-                      currentId === s.id ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      selectChat(s.id);
+                      setSidebarOpen(false);
+                    }}
+                    className={`min-w-0 flex-1 truncate rounded-[6px] px-2.5 py-2 text-left text-[13px] transition ${
+                      currentId === s.id
+                        ? "bg-white/[0.09] font-medium text-white"
+                        : "text-white/60 hover:bg-white/[0.07] hover:text-white/90"
                     }`}
                   >
-                    <span className="line-clamp-2">{s.title || "New chat"}</span>
+                    {s.title || "New chat"}
                   </button>
                   <button
                     type="button"
                     onClick={(e) => deleteChat(s.id, e)}
-                    className="shrink-0 rounded p-1.5 text-muted-foreground opacity-0 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                    className="shrink-0 rounded p-1.5 text-white/40 opacity-0 transition hover:bg-red-500/20 hover:text-red-200 group-hover:opacity-100"
                     aria-label="Delete chat"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               ))}
               {filteredSessions.length === 0 && (
-                <p className="px-3 py-4 text-xs text-muted-foreground">
-                  {searchChats.trim() ? "No matching chats." : "No chats yet."}
+                <p className="px-2 py-4 text-[13px] text-white/40">
+                  {searchChats.trim() ? "No matching queries." : "No queries yet."}
                 </p>
               )}
             </nav>
           </div>
-          <div className="border-t border-border/70 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] space-y-2">
-            <div className="rounded-xl border border-border/70 bg-gradient-to-br from-muted/40 to-muted/20 px-3 py-2.5 shadow-sm">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <Zap className="h-3.5 w-3.5 text-amber-500 fill-current" />
-                  AI queries
-                </span>
-                {limit !== null ? (
-                  <span className="text-xs tabular-nums font-semibold text-foreground">
-                    {used} / {limit}
-                  </span>
-                ) : (
-                  <span className="text-xs font-semibold text-primary">Unlimited</span>
-                )}
+          <div className="border-t border-white/[0.08] px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div className="flex items-center justify-between gap-2 rounded-[6px] bg-white/[0.06] px-3 py-2.5">
+              <span className="text-[12px] text-white/50">AI queries</span>
+              <span className="text-right text-[12px] font-bold text-[#E8B84B]">{planUsageLabel}</span>
+            </div>
+            {limit !== null && (
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-[#C8922A] transition-all duration-500"
+                  style={{ width: `${Math.min(100, (used / limit) * 100)}%` }}
+                />
               </div>
-              {limit !== null && (
-                <div className="h-2 w-full rounded-full bg-muted/80 overflow-hidden shadow-inner">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-primary via-primary/90 to-primary transition-all duration-500 shadow-sm"
-                    style={{
-                      width: `${Math.min(100, (used / limit) * 100)}%`,
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-            <div className="text-center">
-              <span className="inline-flex items-center rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-semibold text-foreground">
-                {TIER_LABELS[tier]} plan
-              </span>
-            </div>
+            )}
           </div>
         </aside>
 
-        {/* Mobile sidebar backdrop - darker for better contrast */}
         {sidebarOpen && (
           <div
-            className="absolute inset-0 z-10 bg-black/60 md:hidden"
+            className="absolute inset-0 z-10 bg-black/55 md:hidden"
             aria-hidden
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
-        {/* Main area */}
-        <div className="flex min-w-0 flex-1 flex-col">
-          {/* Top bar */}
-          <div className="relative z-20 flex shrink-0 items-center justify-between gap-4 border-b border-border/70 bg-card/80 px-4 py-2 backdrop-blur">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen((o) => !o)}
-              className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-              aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-            <h1 className="text-sm font-semibold tracking-tight text-foreground">AI Legal Research</h1>
-            <div className="flex items-center gap-2">
+        <div className="relative z-[1] flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#FAFAF7]">
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#E8E4DC] bg-[#FAFAF7] px-4 py-3 md:px-8 md:py-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen((o) => !o)}
+                className="shrink-0 rounded-lg p-2 text-[#0D1B2A]/60 hover:bg-[#0D1B2A]/[0.06] hover:text-[#0D1B2A] md:hidden"
+                aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+              <div className="min-w-0">
+                <h1 className="heading truncate text-[15px] font-semibold tracking-tight text-[#0D1B2A] md:text-base">
+                  AI Legal Research
+                </h1>
+                <p className="hidden truncate text-[12px] text-[#0D1B2A]/45 sm:block">
+                  Yamalé AI · African law and compliance
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
               {messages.length > 0 && (
                 <>
                   {canShareByEmail(tier) && (
@@ -766,10 +813,10 @@ export default function AIResearchPage() {
                       <button
                         type="button"
                         onClick={() => setShareOpen((o) => !o)}
-                        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                        className="flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-[13px] text-[#0D1B2A]/55 hover:bg-[#0D1B2A]/[0.06] hover:text-[#0D1B2A]"
                       >
                         <Share2 className="h-4 w-4" />
-                        Share
+                        <span className="hidden sm:inline">Share</span>
                       </button>
                       {shareOpen && (
                         <>
@@ -778,18 +825,18 @@ export default function AIResearchPage() {
                             aria-hidden
                             onClick={() => setShareOpen(false)}
                           />
-                          <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-border bg-card py-1 shadow-lg">
+                          <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-[6px] border border-[#E8E4DC] bg-white py-1 shadow-lg">
                             <button
                               type="button"
                               onClick={handleShareEmail}
-                              className="w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                              className="w-full px-3 py-2 text-left text-sm hover:bg-[#FAFAF7]"
                             >
                               Share by email
                             </button>
                             <button
                               type="button"
                               onClick={handleCopyChat}
-                              className="w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                              className="w-full px-3 py-2 text-left text-sm hover:bg-[#FAFAF7]"
                             >
                               Copy chat
                             </button>
@@ -802,48 +849,50 @@ export default function AIResearchPage() {
                     <button
                       type="button"
                       onClick={handleDownloadChat}
-                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                      className="flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-[13px] text-[#0D1B2A]/55 hover:bg-[#0D1B2A]/[0.06] hover:text-[#0D1B2A]"
                     >
                       <Download className="h-4 w-4" />
-                      Download
+                      <span className="hidden sm:inline">Download</span>
                     </button>
                   )}
                 </>
               )}
-              <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+              <span className="rounded-full border border-[#E8E4DC] bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#0D1B2A]/50">
                 {tier === "free" && payAsYouGoCount > 0 ? "Limited" : TIER_LABELS[tier]}
               </span>
             </div>
           </div>
 
-          {/* Messages - scrollable */}
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <div className="mx-auto max-w-3xl px-4 py-6">
+          <div className="flex shrink-0 items-start gap-2 border-b border-[#E8E4DC] bg-[#FFFDF8] px-4 py-2.5 md:px-8">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#C8922A]" aria-hidden />
+            <p className="text-[12px] leading-snug text-[#0D1B2A]/55">
+              <span className="font-semibold text-[#0D1B2A]/70">Disclaimer:</span> Yamalé AI provides indicative
+              research only. It is not legal advice. Always verify with qualified counsel before acting.
+            </p>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <div className="mx-auto max-w-[760px] px-4 py-8 md:px-8 md:py-10">
               {messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20">
-                  <div className="relative mb-6">
-                    <div
-                      className="absolute -inset-4 h-24 w-24 rounded-full opacity-20 blur-xl"
-                      style={{ background: "radial-gradient(circle, var(--primary) 0%, transparent 70%)" }}
-                    />
-                    <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/20 to-primary/10">
-                      <Zap className="h-8 w-8 text-primary" />
-                    </div>
+                <div className="text-center">
+                  <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full border border-[#E8E4DC] bg-white shadow-sm">
+                    <Sparkles className="h-7 w-7 text-[#C8922A]" strokeWidth={1.5} aria-hidden />
                   </div>
-                  <h2 className="heading text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-                    What can I help with?
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#C8922A]">Yamalé AI</p>
+                  <h2 className="heading mb-3 text-[26px] font-semibold tracking-tight text-[#0D1B2A] md:text-[30px]">
+                    What would you like to research?
                   </h2>
-                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
+                  <p className="mx-auto mb-10 max-w-md text-[14px] leading-relaxed text-[#0D1B2A]/45">
                     Ask about African law, AfCFTA, or compliance. Responses are indicative only.
                   </p>
-                  <div className="mt-10 flex flex-wrap justify-center gap-3">
+                  <div className="mx-auto grid max-w-lg grid-cols-1 gap-2.5 sm:grid-cols-2">
                     {exampleQuestions.map((q) => (
                       <button
                         key={q}
                         type="button"
                         onClick={() => sendMessage(q).catch(() => {})}
                         disabled={atLimit || isLoading}
-                        className="rounded-xl border border-border/70 bg-background/80 px-4 py-2.5 text-sm font-medium text-foreground shadow-sm transition hover:border-primary/50 hover:bg-primary/10 hover:shadow-md disabled:opacity-50"
+                        className="rounded-[6px] border border-[#E8E4DC] bg-white px-4 py-3 text-left text-[13px] leading-snug text-[#0D1B2A]/70 transition hover:border-[#C8922A]/40 hover:bg-[#FFFDF8] disabled:opacity-50"
                       >
                         {q}
                       </button>
@@ -855,17 +904,32 @@ export default function AIResearchPage() {
                   {messages.map((msg) => (
                     <div
                       key={msg.id}
-                      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                      className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
                     >
+                      {msg.role === "assistant" ? (
+                        <div
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#0D1B2A] text-[11px] font-bold text-white"
+                          aria-hidden
+                        >
+                          Y
+                        </div>
+                      ) : (
+                        <div
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#C8922A]/15 text-[11px] font-bold text-[#0D1B2A]"
+                          aria-hidden
+                        >
+                          You
+                        </div>
+                      )}
                       <div
-                        className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm ${
+                        className={`min-w-0 max-w-[min(100%,560px)] rounded-[10px] border px-4 py-3 shadow-sm ${
                           msg.role === "user"
-                            ? "bg-gradient-to-br from-primary to-primary/90 text-primary-foreground shadow-primary/20"
-                            : "border border-border/70 bg-card/95 backdrop-blur-sm text-foreground shadow-border/20"
+                            ? "border-[#C8922A]/25 bg-[#FFFDF8] text-[#0D1B2A]"
+                            : "border-[#E8E4DC] bg-white text-[#0D1B2A]"
                         }`}
                       >
                         {msg.role === "assistant" ? (
-                          <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-semibold prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-strong:font-semibold prose-a:text-primary prose-a:underline hover:prose-a:opacity-90">
+                          <div className="prose prose-sm max-w-none text-[#0D1B2A] prose-headings:font-semibold prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-strong:font-semibold prose-a:text-[#C8922A] prose-a:underline hover:prose-a:opacity-90">
                             <ReactMarkdown
                               remarkPlugins={[remarkGfm]}
                               components={{
@@ -885,13 +949,13 @@ export default function AIResearchPage() {
                             </ReactMarkdown>
                           </div>
                         ) : (
-                          <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                          <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-[#0D1B2A]/85">
                             {msg.content}
                           </p>
                         )}
                         {msg.sources && msg.sources.length > 0 && (
-                          <p className="mt-2 text-xs opacity-80">
-                            {msg.sources.join(" · ")}
+                          <p className="mt-2 border-t border-[#E8E4DC]/80 pt-2 text-[11px] text-[#0D1B2A]/45">
+                            Sources: {msg.sources.join(" · ")}
                           </p>
                         )}
                         {msg.role === "assistant" && (
@@ -899,7 +963,7 @@ export default function AIResearchPage() {
                             <button
                               type="button"
                               onClick={() => void handleCopyMessage(msg.id, msg.content)}
-                              className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-background/60 px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted"
+                              className="inline-flex items-center gap-1 rounded-[6px] border border-[#E8E4DC] bg-[#FAFAF7] px-2 py-1 text-[11px] text-[#0D1B2A]/50 hover:bg-white hover:text-[#0D1B2A]"
                               aria-label="Copy response"
                             >
                               {copiedMessageId === msg.id ? (
@@ -920,10 +984,16 @@ export default function AIResearchPage() {
                     </div>
                   ))}
                   {isLoading && (
-                    <div className="flex justify-start">
-                      <div className="rounded-2xl border border-border/70 bg-card/95 backdrop-blur-sm px-4 py-3 shadow-sm">
-                        <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+                    <div className="flex gap-3">
+                      <div
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#0D1B2A] text-[11px] font-bold text-white"
+                        aria-hidden
+                      >
+                        Y
+                      </div>
+                      <div className="rounded-[10px] border border-[#E8E4DC] bg-white px-4 py-3 shadow-sm">
+                        <span className="flex items-center gap-2 text-[13px] text-[#0D1B2A]/45">
+                          <Loader2 className="h-4 w-4 animate-spin text-[#C8922A]" />
                           Searching…
                         </span>
                       </div>
@@ -935,50 +1005,53 @@ export default function AIResearchPage() {
             </div>
           </div>
 
-          {/* Input bar: input, model selector, send (Claude-style) */}
-          <div className="shrink-0 border-t border-border/70 bg-background/95 backdrop-blur p-4">
-            <div className="mx-auto max-w-3xl">
+          <div className="shrink-0 border-t border-[#E8E4DC] bg-white px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-8">
+            <div className="mx-auto max-w-[760px]">
               <form onSubmit={handleSubmit}>
-                <div className="flex flex-col rounded-2xl border border-border/70 bg-card/95 backdrop-blur-xl shadow-lg shadow-primary/10 transition focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/30">
-                  <input
-                    type="text"
+                <div className="flex items-end gap-2 rounded-[8px] border border-[#E8E4DC] bg-[#FAFAF7] p-2 shadow-inner focus-within:border-[#C8922A]/35 focus-within:ring-2 focus-within:ring-[#C8922A]/15">
+                  <textarea
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder="How can I help you today?"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        if (input.trim() && !atLimit && !isLoading) {
+                          void sendMessage(input);
+                        }
+                      }
+                    }}
+                    placeholder="Describe your legal question…"
                     disabled={atLimit}
-                    className="w-full bg-transparent px-4 pt-4 pb-2 text-sm outline-none placeholder:text-muted-foreground/70 disabled:opacity-50"
+                    rows={2}
+                    className="min-h-[44px] flex-1 resize-none bg-transparent px-2 py-2 text-[14px] text-[#0D1B2A] outline-none placeholder:text-[#0D1B2A]/35 disabled:opacity-50"
                   />
-                  <div className="flex items-center justify-end gap-2 px-2 pb-2 pt-0">
-                    <div className="text-[11px] font-medium text-muted-foreground">
-                      {activeModelName}
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={!input.trim() || atLimit || isLoading}
-                      className="shrink-0 rounded-xl bg-gradient-to-r from-primary to-primary/90 p-2.5 text-primary-foreground shadow-sm shadow-primary/20 transition hover:brightness-105 disabled:opacity-50"
-                      aria-label="Send"
-                    >
-                      <Send className="h-5 w-5" />
-                    </button>
-                  </div>
+                  <button
+                    type="submit"
+                    disabled={!input.trim() || atLimit || isLoading}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[6px] bg-[#0D1B2A] text-white transition hover:bg-[#162436] disabled:opacity-40"
+                    aria-label="Send"
+                  >
+                    <Send className="h-4 w-4" strokeWidth={2} />
+                  </button>
                 </div>
+                <p className="mt-2 text-center text-[11px] text-[#0D1B2A]/35">
+                  {activeModelName} · Enter to send, Shift+Enter for new line
+                </p>
               </form>
               {showPayAsYouGoPrompt && (
-                <div className="mt-3 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-center">
-                  <p className="text-sm font-medium text-foreground mb-2">
-                    You've used your pay-as-you-go query.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-2 justify-center items-center">
+                <div className="mt-3 rounded-[6px] border border-[#C8922A]/30 bg-[#FFFDF8] px-4 py-3 text-center">
+                  <p className="mb-2 text-sm font-medium text-[#0D1B2A]">You have used your pay-as-you-go query.</p>
+                  <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
                     <Link
                       href="/pricing"
-                      className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+                      className="inline-flex items-center gap-2 rounded-[6px] bg-[#0D1B2A] px-4 py-2 text-sm font-medium text-white hover:bg-[#162436]"
                       onClick={() => setShowPayAsYouGoPrompt(false)}
                     >
                       Purchase more queries
                     </Link>
                     <Link
                       href="/pricing"
-                      className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                      className="inline-flex items-center gap-2 rounded-[6px] border border-[#E8E4DC] bg-white px-4 py-2 text-sm font-medium text-[#0D1B2A] hover:bg-[#FAFAF7]"
                       onClick={() => setShowPayAsYouGoPrompt(false)}
                     >
                       Upgrade plan
@@ -986,7 +1059,7 @@ export default function AIResearchPage() {
                     <button
                       type="button"
                       onClick={() => setShowPayAsYouGoPrompt(false)}
-                      className="text-xs text-muted-foreground hover:text-foreground"
+                      className="text-xs text-[#0D1B2A]/45 hover:text-[#0D1B2A]"
                     >
                       Dismiss
                     </button>
@@ -994,7 +1067,7 @@ export default function AIResearchPage() {
                 </div>
               )}
               {atLimit && !showPayAsYouGoPrompt && (
-                <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-sm font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100">
+                <p className="mt-3 rounded-[6px] border border-amber-200 bg-amber-50 px-3 py-2 text-center text-sm font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100">
                   Limit reached.{" "}
                   <Link href="/pricing" className="underline underline-offset-2 hover:no-underline">
                     Upgrade for more
@@ -1005,8 +1078,52 @@ export default function AIResearchPage() {
           </div>
         </div>
       </div>
-      {/* Spacer so page content doesn't overlap with fixed chat */}
-      <div className="h-[calc(100vh-3.5rem)] shrink-0" aria-hidden />
+      {!hasAcknowledgedNotice && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[#0D1B2A]/45 px-4 py-6">
+          <div className="w-full max-w-3xl overflow-y-auto rounded-[18px] border border-[#E8E4DC] bg-white p-5 shadow-2xl md:max-h-[88dvh] md:p-7">
+            <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#C8922A]">AI Legal Research</p>
+            <h2 className="heading mt-2 text-[42px] font-semibold tracking-tight text-[#0D1B2A]">
+              Before you use AI Legal Research
+            </h2>
+            <p className="mt-4 max-w-3xl text-[15px] leading-relaxed text-[#0D1B2A]/78">
+              This tool uses Claude, an AI developed by Anthropic (United States), to answer questions about African
+              law. It searches and retrieves exclusively from the Yamale Legal Library and does not access the internet
+              or any external source. All responses are drawn from African legal texts within our controlled database.
+            </p>
+            <div className="mt-5 rounded-xl bg-[#F4F1EA] p-5">
+              <ul className="space-y-2 text-[15px] leading-relaxed text-[#0D1B2A]/78">
+                <li>• Queries you submit are processed on Anthropic&apos;s servers in the United States</li>
+                <li>• Anthropic does not use your queries to train its AI models</li>
+                <li>• Responses are for reference only and are not legal advice</li>
+              </ul>
+            </div>
+            <div className="mt-4 rounded-xl border-l-4 border-[#C8922A] bg-[#F4F1EA] p-5">
+              <p className="text-[15px] font-semibold text-[#674B12]">If you are a lawyer or legal professional</p>
+              <p className="mt-2 text-[15px] leading-relaxed text-[#674B12]/95">
+                Do not enter confidential client information, matter-specific facts, or privileged communications. Use
+                this tool for general legal research only.
+              </p>
+            </div>
+            <p className="mt-5 text-[14px] leading-relaxed text-[#0D1B2A]/55">
+              By clicking &quot;I Acknowledge,&quot; you confirm that you have read this notice and consent to the
+              processing of your query data as described in the Yamale Privacy Policy (Version 1.0), including the
+              transfer of query data to Anthropic&apos;s servers in the United States.
+            </p>
+            <button
+              type="button"
+              onClick={acknowledgeNotice}
+              className="mt-5 inline-flex w-full items-center justify-center rounded-[10px] bg-[#0D1B2A] px-6 py-3 text-[18px] font-semibold text-white transition hover:bg-[#162436]"
+            >
+              I Acknowledge
+            </button>
+            <div className="mt-4 text-center">
+              <Link href="/privacy" className="text-[17px] font-medium text-[#C8922A] hover:text-[#b88424]">
+                Read our full AI data policy →
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
