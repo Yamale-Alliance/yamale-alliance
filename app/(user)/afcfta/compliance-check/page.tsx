@@ -26,6 +26,11 @@ import {
 import { InfoIcon } from "@/components/ui/InfoIcon";
 import { buildAfCFTAReportPdf, loadImageAsDataUrl } from "@/lib/afcfta-report-pdf";
 import {
+  PROTOTYPE_HERO_GRID_PATTERN,
+  prototypeHeroEyebrowClass,
+  prototypeNavyHeroSectionClass,
+} from "@/components/layout/prototype-page-styles";
+import {
   getProductCategory,
   getExportRequirements,
   getImportRequirements,
@@ -76,6 +81,14 @@ const STEPS: Array<{ id: StepId; label: string; icon: typeof Table }> = [
   { id: "tariff", label: "Savings", icon: TrendingDown },
   { id: "checklist", label: "Checklist", icon: CheckSquare },
 ];
+const STEP_SUBLABELS: Record<StepId, string> = {
+  start: "Product & route",
+  production: "Cost breakdown",
+  origin: "Rules of origin",
+  ntb: "Non-tariff barriers",
+  tariff: "Tariff savings",
+  checklist: "Final checklist",
+};
 
 /** Tariff row from API for Savings step (by country + HS code) */
 type SavingsTariffRow = {
@@ -695,7 +708,53 @@ export default function ComplianceCheckPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-muted/20 via-background to-background">
+    <div className="min-h-screen bg-background">
+      <section className={prototypeNavyHeroSectionClass}>
+        <div
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{ backgroundImage: PROTOTYPE_HERO_GRID_PATTERN }}
+          aria-hidden
+        />
+        <div className="relative z-[1] mx-auto max-w-7xl px-4 pb-14 pt-12 sm:px-6 sm:pt-16 lg:px-8">
+          <p className={prototypeHeroEyebrowClass}>
+            <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#E8B84B] shadow-[0_0_0_4px_rgba(200,146,42,0.2)]" />
+            AfCFTA Compliance
+          </p>
+          <h1 className="heading mt-6 max-w-4xl text-4xl font-bold leading-[1.12] tracking-[-0.01em] text-white sm:text-5xl lg:text-6xl">
+            The AfCFTA compliance infrastructure your business - or your ministry - needs.
+          </h1>
+          <p className="mt-5 max-w-3xl text-lg leading-relaxed text-white/[0.65]">
+            The first tool that walks you through every step and document required to legally ship goods across African
+            borders under the Continental Free Trade Area.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <span className="rounded-full border border-[rgba(200,146,42,0.35)] bg-[rgba(200,146,42,0.16)] px-4 py-1 text-xs font-semibold text-[#E8B84B]">
+              54 countries
+            </span>
+            <span className="rounded-full border border-white/20 bg-white/10 px-4 py-1 text-xs font-medium text-white/80">
+              First-of-its-kind tool
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-border/60 bg-muted/35 py-5">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-4 sm:px-6 md:grid-cols-2 lg:px-8">
+          <div className="rounded-2xl border border-border/70 bg-card px-6 py-5 shadow-sm">
+            <p className="heading text-2xl leading-snug text-foreground">
+              <span className="mr-2 align-middle text-[#C8922A]">&quot;</span>
+              Understand the rules of every African market - at a price that makes sense.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-border/70 bg-card px-6 py-5 shadow-sm">
+            <p className="heading text-2xl leading-snug text-foreground">
+              <span className="mr-2 align-middle text-[#C8922A]">&quot;</span>
+              The AfCFTA compliance infrastructure your ministry - or your business - needs.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         {AFCFTA_COMING_SOON_READ_ONLY && (
           <div
@@ -712,61 +771,18 @@ export default function ComplianceCheckPage() {
             </div>
           </div>
         )}
-        <div className="mb-8 rounded-2xl border border-border bg-card p-6 shadow-lg">
-          <div className="relative mb-6">
-            <div className="absolute top-5 left-0 right-0 h-1 bg-muted" />
-            <div
-              className="absolute top-5 left-0 h-1 transition-all duration-500 rounded-full"
-              style={{ width: `${progressPercent}%`, background: `linear-gradient(90deg, ${ORG_PRIMARY}, ${ORG_ACCENT})` }}
-            />
-            <div className="relative flex justify-between">
-              {STEPS.map((step, idx) => {
-                const StepIcon = step.icon;
-                const isActive = activeStep === step.id;
-                const isCompleted = idx < stepIndex;
-                return (
-                  <button
-                    key={step.id}
-                    type="button"
-                    onClick={() => {
-                      if (AFCFTA_COMING_SOON_READ_ONLY) {
-                        setActiveStep(step.id);
-                        return;
-                      }
-                      if (!isFreeTier && activeStep === "start" && idx > 0 && !isStartValid) return;
-                      setActiveStep(step.id);
-                    }}
-                    className="flex flex-col items-center flex-1 group"
-                  >
-                    <div
-                      className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all ${
-                        isCompleted
-                          ? "border-[var(--primary)] bg-[var(--primary)] text-primary-foreground"
-                          : isActive
-                            ? "text-white scale-110"
-                            : "border-muted bg-background text-muted-foreground"
-                      }`}
-                      style={isActive ? { borderColor: ORG_ACCENT, backgroundColor: ORG_ACCENT } : undefined}
-                    >
-                      {isCompleted ? (
-                        <CheckCircle2 className="h-5 w-5" />
-                      ) : (
-                        <StepIcon className="h-5 w-5" />
-                      )}
-                    </div>
-                    <span
-                      className={`mt-2 text-xs font-semibold text-center max-w-[4rem] ${
-                        isActive ? "" : isCompleted ? "text-foreground" : "text-muted-foreground"
-                      }`}
-                      style={isActive ? { color: ORG_ACCENT } : undefined}
-                    >
-                      {step.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+        <div className="mb-8 rounded-2xl border border-border/70 bg-card px-4 py-4 text-sm text-muted-foreground shadow-sm sm:px-5">
+          <p>
+            <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-xs">
+              i
+            </span>
+            The AfCFTA Passport provides general guidance on cross-border trade compliance under the African Continental
+            Free Trade Area. Requirements shown are based on available official sources and are updated regularly.
+            However, implementation of AfCFTA rules varies by country and border crossing.{" "}
+            <strong className="text-foreground">
+              Always confirm current requirements with the relevant customs authority before shipping.
+            </strong>
+          </p>
         </div>
 
         {/* Product / trade summary bar (golden banner) when not on Start */}
@@ -795,7 +811,50 @@ export default function ComplianceCheckPage() {
           </div>
         )}
 
-        <div className="space-y-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start">
+          <aside className="rounded-2xl border border-border bg-card p-5 shadow-sm lg:sticky lg:top-24">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">Compliance journey</p>
+            <div className="mt-4 space-y-2">
+              {STEPS.map((step, idx) => {
+                const isActive = activeStep === step.id;
+                const isCompleted = idx < stepIndex;
+                const canJump = AFCFTA_COMING_SOON_READ_ONLY || idx <= stepIndex + 1;
+                return (
+                  <button
+                    key={step.id}
+                    type="button"
+                    onClick={() => {
+                      if (!canJump) return;
+                      setActiveStep(step.id);
+                    }}
+                    className={`flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition ${
+                      isActive
+                        ? "border-[#C8922A]/40 bg-[#C8922A]/10"
+                        : "border-transparent hover:border-border hover:bg-muted/40"
+                    }`}
+                  >
+                    <span
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+                        isActive
+                          ? "bg-[#0D1B2A] text-white"
+                          : isCompleted
+                            ? "bg-[#C8922A] text-white"
+                            : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {idx + 1}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-base font-semibold text-foreground">{step.label}</span>
+                      <span className="block text-sm text-muted-foreground">{STEP_SUBLABELS[step.id]}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
+
+          <div className="space-y-6">
           {/* Step 1: Start Your Compliance Check */}
           {activeStep === "start" && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1726,6 +1785,7 @@ export default function ComplianceCheckPage() {
                   </button>
               )}
             </div>
+          </div>
           </div>
         </div>
       </div>
