@@ -22,6 +22,11 @@ import {
 } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { useConfirm, useAlertDialog } from "@/components/ui/use-confirm";
+import {
+  PROTOTYPE_HERO_GRID_PATTERN,
+  prototypeNavyHeroSectionClass,
+} from "@/components/layout/prototype-page-styles";
+import { LawyerMatchBanner } from "@/components/library/LawyerMatchBanner";
 
 type LawStatus = "In force" | "Amended" | "Repealed";
 
@@ -988,24 +993,29 @@ export default function LawDetailPage({
   const isRtl = isPrimarilyArabic(rawContent);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,var(--primary)/8%,transparent)] print:bg-white">
-      <header className="border-b border-border/80 bg-card/80 px-4 py-8 backdrop-blur-md sm:px-6 print:hidden">
-        <div className="mx-auto max-w-6xl">
+    <div className="min-h-screen bg-background print:bg-white">
+      <header className={`print:hidden ${prototypeNavyHeroSectionClass} px-4 py-10 backdrop-blur-md sm:px-8`}>
+        <div
+          className="pointer-events-none absolute inset-0 z-0 opacity-[0.92]"
+          style={{ backgroundImage: PROTOTYPE_HERO_GRID_PATTERN }}
+          aria-hidden
+        />
+        <div className="relative z-[1] mx-auto max-w-6xl">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <Link
                 href={returnTo && returnTo.startsWith("/library") ? returnTo : "/library"}
-                className="group inline-flex items-center gap-2 rounded-full border border-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-all duration-200 hover:border-border hover:bg-muted/50 hover:text-foreground"
+                className="group inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-sm font-medium text-white/70 transition-all duration-200 hover:border-white/35 hover:bg-white/10 hover:text-white"
                 title="Back to the African Legal Library"
               >
                 <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" /> Back to Library
               </Link>
-              <h1 className="mt-6 font-extrabold leading-[1.15] tracking-tight text-foreground text-2xl sm:text-3xl md:text-4xl md:tracking-[-0.02em]">
+              <h1 className="heading mt-6 text-2xl font-bold leading-[1.15] tracking-tight text-white sm:text-3xl md:text-4xl md:tracking-[-0.02em]">
                 {law.title}
               </h1>
               <div className="mt-4 flex items-center gap-3" aria-hidden>
-                <div className="h-1 w-12 rounded-full bg-primary" />
-                <div className="h-px flex-1 max-w-24 bg-gradient-to-r from-primary/60 to-transparent" />
+                <div className="h-1 w-12 rounded-full bg-[#E8B84B]" />
+                <div className="h-px max-w-24 flex-1 bg-gradient-to-r from-[#E8B84B]/70 to-transparent" />
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -1013,7 +1023,7 @@ export default function LawDetailPage({
                 <button
                   type="button"
                   onClick={() => setMobileContentsOpen(true)}
-                  className="lg:hidden shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className="lg:hidden shrink-0 rounded-lg p-2 text-white/75 hover:bg-white/10 hover:text-white"
                   aria-label="Open contents"
                   title="Open contents sidebar"
                 >
@@ -1024,12 +1034,12 @@ export default function LawDetailPage({
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-2">
             {(law.applies_to_all_countries || law.countries?.name) && (
-              <span className="rounded-full bg-primary/15 px-3.5 py-1.5 text-xs font-semibold tracking-wide text-primary">
+              <span className="rounded-full border border-[rgba(200,146,42,0.35)] bg-[rgba(200,146,42,0.12)] px-3.5 py-1.5 text-xs font-semibold tracking-wide text-[#E8B84B]">
                 {law.applies_to_all_countries ? "All countries" : (law.countries?.name ?? "")}
               </span>
             )}
             {law.categories?.name && (
-              <span className="rounded-full bg-muted/80 px-3.5 py-1.5 text-xs font-medium text-muted-foreground">
+              <span className="rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-medium text-white/75">
                 {law.categories.name}
               </span>
             )}
@@ -1038,19 +1048,19 @@ export default function LawDetailPage({
                 href={law.source_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-full border border-border/80 bg-background/80 px-3.5 py-1.5 text-xs font-medium text-foreground transition-all duration-200 hover:border-primary/40 hover:bg-muted/50"
+                className="rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/18"
               >
                 Source
               </a>
             )}
           </div>
           {isAdmin && (
-            <div className="mt-4 flex flex-col gap-2 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="mt-4 flex flex-col gap-2 rounded-xl border border-[rgba(200,146,42,0.35)] bg-[rgba(255,255,255,0.06)] px-4 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center">
               <button
                 type="button"
                 onClick={() => void handleFixOcr()}
                 disabled={fixOcrLoading || !rawContent.trim()}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#C8922A] px-4 py-2 text-sm font-medium text-white hover:bg-[#b07e22] disabled:opacity-50"
               >
                 {fixOcrLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -1059,11 +1069,11 @@ export default function LawDetailPage({
                 )}
                 Fix OCR and clean noise
               </button>
-              <p className="text-xs text-muted-foreground sm:max-w-xl">
+              <p className="text-xs text-white/55 sm:max-w-xl">
                 Admin only. Sends this law through Claude to tidy OCR errors and remove junk lines, then saves. Reloads the text below when done.
               </p>
               {fixOcrBanner && (
-                <p className="w-full text-sm text-foreground sm:order-last">{fixOcrBanner}</p>
+                <p className="w-full text-sm text-white/90 sm:order-last">{fixOcrBanner}</p>
               )}
             </div>
           )}
@@ -1071,17 +1081,17 @@ export default function LawDetailPage({
           {isTeamPlan && (
             <div className="mt-4">
               {summaryLoading ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 text-sm text-white/65">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span>Loading summary...</span>
                 </div>
               ) : summary ? (
-                <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 p-5 shadow-sm">
-                  <h3 className="mb-2.5 text-sm font-bold uppercase tracking-wider text-foreground">AI Summary</h3>
-                  <p className="text-sm leading-relaxed text-foreground/90">{summary.summary_text}</p>
+                <div className="rounded-2xl border border-border bg-card p-5 shadow-md">
+                  <h3 className="mb-2.5 text-sm font-bold uppercase tracking-wider text-card-foreground">AI Summary</h3>
+                  <p className="text-sm leading-relaxed text-card-foreground/90">{summary.summary_text}</p>
                 </div>
               ) : (
-                <div className="rounded-2xl border border-border/80 bg-muted/20 p-5 text-sm text-muted-foreground">
+                <div className="rounded-2xl border border-border/80 bg-card p-5 text-sm text-muted-foreground shadow-sm">
                   <p>No summary available for this law yet.</p>
                 </div>
               )}
@@ -1139,6 +1149,9 @@ export default function LawDetailPage({
 
       <div className="min-h-screen bg-gradient-to-b from-muted/10 via-background to-muted/20 print:bg-white">
         <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+          {!law.applies_to_all_countries && law.countries?.name && law.categories?.name && (
+            <LawyerMatchBanner country={law.countries.name} category={law.categories.name} lawTitle={law.title} />
+          )}
           <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
           {/* Desktop: sidebar. Mobile: hidden (use hamburger + drawer) */}
           {hasContent && sections.length >= 1 && (
