@@ -448,12 +448,6 @@ export default function ComplianceCheckPage() {
       .catch(() => setReportUsage(null));
   }, [activeStep]);
 
-  // Scroll to top when changing steps so the new step content is visible
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [activeStep]);
-
   const stepIndex = STEPS.findIndex((s) => s.id === activeStep);
   const progressPercent = ((stepIndex + 1) / STEPS.length) * 100;
 
