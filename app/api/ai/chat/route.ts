@@ -322,7 +322,7 @@ async function searchLegalLibrary(
   country?: string,
   category?: string,
   detailedMode = false
-): Promise<Array<{ title: string; country: string; category: string; content: string; year?: number }>> {
+): Promise<Array<{ id: string; title: string; country: string; category: string; status?: string; content: string; year?: number }>> {
   try {
     const supabase = getSupabaseServer() as any;
     const hints = extractQueryHints(query);
@@ -431,9 +431,11 @@ async function searchLegalLibrary(
         const hitIdx = fullText.search(articleRe);
         if (hitIdx >= 0) {
           return {
+            id: law.id,
             title: law.title,
             country: law.countries?.name || "",
             category: law.categories?.name || "",
+            status: law.status || undefined,
             // Full text allows the model to verify requested article details in context.
             content: fullText,
             year: law.year,
@@ -442,17 +444,21 @@ async function searchLegalLibrary(
       }
       if (specificLawHint && detailedMode) {
         return {
+          id: law.id,
           title: law.title,
           country: law.countries?.name || "",
           category: law.categories?.name || "",
+          status: law.status || undefined,
           content: fullText,
           year: law.year,
         };
       }
       return {
+        id: law.id,
         title: law.title,
         country: law.countries?.name || "",
         category: law.categories?.name || "",
+        status: law.status || undefined,
         content: fullText,
         year: law.year,
       };
@@ -803,9 +809,49 @@ If something is not in the provided excerpts, say "Not stated in the provided li
         ]
       : ["Claude AI · African Legal Research"];
 
+    const sourceCards = legalContext.map((law) => ({
+      lawId: law.id,
+      title: law.title,
+      country: law.country,
+      category: law.category,
+      status: law.status || "In force",
+      snippet: law.content.slice(0, 220).replace(/\s+/g, " ").trim(),
+    }));
+
+    let lawyerNudge: { country: string; category: string; count: number; href: string } | null = null;
+    const nudgeCountry = effectiveHints.country ?? legalContext[0]?.country;
+    const nudgeCategory = effectiveHints.category ?? legalContext[0]?.category;
+    if (nudgeCountry && nudgeCategory) {
+      try {
+        const supabase = getSupabaseServer();
+        const safeCategory = nudgeCategory.replace(/[%_]/g, "\\$&");
+        const { count } = await (supabase.from("lawyers") as any)
+          .select("id", { count: "exact", head: true })
+          .eq("status", "approved")
+          .eq("country", nudgeCountry)
+          .ilike("expertise", `%${safeCategory}%`);
+        if ((count ?? 0) > 0) {
+          const q = new URLSearchParams({
+            country: nudgeCountry,
+            expertise: nudgeCategory,
+          });
+          lawyerNudge = {
+            country: nudgeCountry,
+            category: nudgeCategory,
+            count: count ?? 0,
+            href: `/lawyers?${q.toString()}`,
+          };
+        }
+      } catch {
+        // ignore nudge errors
+      }
+    }
+
     return NextResponse.json({
       content: assistantText,
       sources,
+      sourceCards,
+      lawyerNudge,
     });
   } catch (err) {
     console.error("AI chat API error:", err);
