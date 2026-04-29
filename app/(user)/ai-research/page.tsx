@@ -70,6 +70,20 @@ type Message = {
   role: "user" | "assistant";
   content: string;
   sources?: string[];
+  sourceCards?: Array<{
+    lawId: string;
+    title: string;
+    country: string;
+    category: string;
+    status: string;
+    snippet: string;
+  }>;
+  lawyerNudge?: {
+    country: string;
+    category: string;
+    count: number;
+    href: string;
+  } | null;
 };
 
 type ChatSession = {
@@ -544,6 +558,8 @@ export default function AIResearchPage() {
         role: "assistant",
         content: data.content || "I apologize, but I couldn't generate a response.",
         sources: data.sources || ["Claude AI · African Legal Research"],
+        sourceCards: Array.isArray(data.sourceCards) ? data.sourceCards : [],
+        lawyerNudge: data.lawyerNudge ?? null,
       };
 
       const id = sessionIdToUpdate;
@@ -957,6 +973,41 @@ export default function AIResearchPage() {
                           <p className="mt-2 border-t border-[#E8E4DC]/80 pt-2 text-[11px] text-[#0D1B2A]/45">
                             Sources: {msg.sources.join(" · ")}
                           </p>
+                        )}
+                        {msg.sourceCards && msg.sourceCards.length > 0 && (
+                          <div className="mt-3 space-y-2 border-t border-[#E8E4DC]/80 pt-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#0D1B2A]/45">
+                              {msg.sourceCards.length} laws from the Yamale Legal Library
+                            </p>
+                            {msg.sourceCards.map((card, idx) => (
+                              <div key={`${msg.id}-${card.lawId}-${idx}`} className="rounded-[8px] border border-[#E8E4DC] bg-[#FAFAF7] p-3">
+                                <p className="text-[13px] font-semibold text-[#0D1B2A]">{idx + 1}. {card.title}</p>
+                                <p className="mt-0.5 text-[11px] text-[#6E6357]">
+                                  {card.country} · {card.category} · {card.status}
+                                </p>
+                                <p className="mt-1 text-[12px] text-[#0D1B2A]/70">&quot;{card.snippet}...&quot;</p>
+                                <Link
+                                  href={`/library/${card.lawId}?returnTo=${encodeURIComponent("/ai-research")}`}
+                                  className="mt-2 inline-flex text-[12px] font-semibold text-[#C8922A] hover:text-[#b88424]"
+                                >
+                                  View law →
+                                </Link>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {msg.lawyerNudge && (
+                          <div className="mt-3 rounded-[8px] border border-[#E8E4DC] bg-[#F9F7F2] p-3">
+                            <p className="text-[12px] font-semibold text-[#0D1B2A]">
+                              Need a {msg.lawyerNudge.country} {msg.lawyerNudge.category.toLowerCase()} lawyer?
+                            </p>
+                            <p className="mt-1 text-[12px] text-[#5D5348]">
+                              {msg.lawyerNudge.count} verified lawyers in the Yamale Network specialize in this area.
+                            </p>
+                            <Link href={msg.lawyerNudge.href} className="mt-2 inline-flex text-[12px] font-semibold text-[#C8922A] hover:text-[#b88424]">
+                              Browse lawyers →
+                            </Link>
+                          </div>
                         )}
                         {msg.role === "assistant" && (
                           <div className="mt-2 flex justify-end">
