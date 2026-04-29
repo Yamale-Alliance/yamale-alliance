@@ -1,235 +1,240 @@
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
-import { BookOpen, FileCheck, Search, Scale, ShoppingBag, ArrowRight, CheckCircle2 } from "lucide-react";
-import { PlatformLogo } from "@/components/platform/PlatformLogo";
-import { HeroButtons } from "@/components/home/HeroButtons";
+import { BookOpen, Search, ArrowRight, ChevronRight } from "lucide-react";
+import { PROTOTYPE_HERO_GRID_PATTERN } from "@/components/layout/prototype-page-styles";
+
 export default async function Home() {
   const { userId } = await auth();
   const isSignedIn = !!userId;
 
   return (
-    <div className="min-h-screen">
-      {/* Hero — maximal gradient orbs, spotlight, premium badge & type */}
-      <section className="relative overflow-hidden border-b border-border/30">
+    <div className="min-h-screen bg-[#FAFAF7]">
+      {/* ─── Hero (prototype: PAGE 1 — HOME) ─── */}
+      <section className="relative flex min-h-[580px] items-center overflow-hidden bg-[#0D1B2A]">
         <div
-          className="absolute -top-40 left-1/2 h-[480px] w-[800px] -translate-x-1/2 rounded-full opacity-[0.18] blur-[100px] dark:opacity-25"
-          style={{ background: "radial-gradient(circle, var(--primary) 0%, transparent 70%)" }}
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{ backgroundImage: PROTOTYPE_HERO_GRID_PATTERN }}
+          aria-hidden
         />
-        <div
-          className="absolute right-0 top-1/2 h-72 w-72 -translate-y-1/2 translate-x-1/4 rounded-full opacity-[0.12] blur-[80px] dark:opacity-18"
-          style={{ background: "radial-gradient(circle, var(--primary) 0%, transparent 70%)" }}
-        />
-        <div
-          className="absolute bottom-0 left-1/4 h-64 w-64 rounded-full opacity-[0.1] blur-[70px] dark:opacity-15"
-          style={{ background: "radial-gradient(circle, var(--muted) 0%, transparent 70%)" }}
-        />
-        <div
-          className="absolute inset-0 -z-10 opacity-[0.5] dark:opacity-[0.35]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E")`,
-          }}
-        />
-        <div
-          className="absolute inset-0 -z-20 opacity-30 dark:opacity-20"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23c18c43' fill-opacity='0.12' fill-rule='evenodd'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}
-        />
-
-        <div className="relative mx-auto max-w-5xl px-4 pt-24 pb-6 text-center sm:pt-32 sm:pb-8 md:pt-40 md:pb-10">
-          <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl lg:text-[2.85rem] lg:leading-[1.12] lg:tracking-tighter">
-            African law,{" "}
-            <span className="bg-gradient-to-r from-primary via-amber-600 to-amber-500 bg-clip-text text-transparent dark:via-amber-400">
-              accessible and verifiable
-            </span>
-          </h1>
-          <div className="mx-auto mt-2 h-1 w-24 rounded-full bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
-          <p className="mx-auto mt-4 max-w-2xl text-base leading-snug text-muted-foreground sm:mt-5 sm:text-lg">
-            Your trusted source for national and regional law, AfCFTA tools, and
-            AI-powered research—grounded in verified sources.
-          </p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3 sm:mt-7 sm:gap-4">
-            <HeroButtons isSignedIn={isSignedIn} />
-          </div>
+        <div className="pointer-events-none absolute -bottom-16 -right-10 z-0 h-[480px] w-[480px] text-white opacity-[0.06]" aria-hidden>
+          <svg viewBox="0 0 300 360" className="h-full w-full" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M145 10 C120 10 100 25 88 45 C75 65 72 90 68 110 C62 140 50 155 45 175 C38 200 40 225 50 248 C62 274 82 292 100 310 C118 328 135 345 152 355 C160 360 168 358 175 350 C185 338 188 320 192 302 C198 278 205 255 218 235 C230 218 245 205 252 188 C262 165 258 138 248 118 C238 98 222 85 210 68 C198 50 192 30 175 18 C165 12 155 10 145 10Z" />
+          </svg>
         </div>
 
-        {/* Trust strip — pill bar with gradient */}
-        <div className="relative border-t border-border/40 bg-gradient-to-r from-primary/5 via-background/80 to-primary/5 backdrop-blur-md">
-          <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-x-8 gap-y-3 px-4 py-4 text-xs font-semibold text-muted-foreground sm:gap-x-10 sm:py-5 sm:text-sm">
-            <span className="flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-primary">
-              <CheckCircle2 className="h-4 w-4 shrink-0" />
-              Legal Library
-            </span>
-            <span className="flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-primary">
-              <CheckCircle2 className="h-4 w-4 shrink-0" />
-              AfCFTA Tools
-            </span>
-            <span className="flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-primary">
-              <CheckCircle2 className="h-4 w-4 shrink-0" />
-              AI Research
-            </span>
-            <span className="flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-primary">
-              <CheckCircle2 className="h-4 w-4 shrink-0" />
-              Verified sources
-            </span>
+        <div className="relative z-[1] mx-auto w-full max-w-[1280px] px-4 py-16 sm:px-8 sm:py-20">
+          <h1 className="heading max-w-[680px] text-[2.75rem] font-bold leading-[1.1] tracking-[-0.02em] text-white sm:text-5xl md:text-[56px] lg:text-[62px]">
+            Law Without Barriers.
+            <br />
+            <em className="not-italic text-[#E8B84B]">Business Without Borders.</em>
+          </h1>
+
+          <div className="mt-7 inline-flex items-center gap-2.5 rounded-full border border-[rgba(200,146,42,0.22)] bg-[rgba(200,146,42,0.08)] px-3.5 py-2 text-[13px] font-semibold tracking-[0.02em] text-[#E8B84B]">
+            <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#E8B84B] shadow-[0_0_0_4px_rgba(200,146,42,0.2)]" />
+            African-built. African-governed. Reinvesting in Africa&apos;s legal future.
+          </div>
+
+          <p className="mt-7 max-w-[520px] text-lg leading-relaxed text-white/[0.65]">
+            The first unified platform for African legal research — covering all 54 countries, AfCFTA compliance, AI-powered queries, and a curated network of African legal professionals.
+          </p>
+
+          <div className="mt-10 flex flex-wrap gap-3">
+            <Link
+              href="/library"
+              className="inline-flex items-center gap-2 rounded-[6px] bg-[#C8922A] px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-[#b07e22]"
+            >
+              <BookOpen className="h-4 w-4" strokeWidth={2} />
+              Browse Legal Library
+            </Link>
+            <Link
+              href="/ai-research"
+              className="inline-flex items-center gap-2 rounded-[6px] border-[1.5px] border-white/40 bg-transparent px-6 py-3 text-base font-semibold text-white transition hover:border-white hover:bg-white hover:text-[#0D1B2A]"
+            >
+              <Search className="h-4 w-4" strokeWidth={2} />
+              Try AI Research
+            </Link>
+            {isSignedIn && (
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2 rounded-[6px] border border-white/25 px-5 py-3 text-sm font-semibold text-white/90 transition hover:bg-white/10"
+              >
+                Dashboard
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            )}
+          </div>
+
+          <div className="mt-14 flex flex-wrap gap-x-10 gap-y-8 border-t border-white/10 pt-10 md:gap-x-14">
+            <div>
+              <div className="heading text-[28px] font-bold leading-none text-[#E8B84B] md:text-[32px]">54</div>
+              <div className="mt-1 text-[13px] text-white/50">African countries covered</div>
+            </div>
+            <div>
+              <div className="heading text-[28px] font-bold leading-none text-[#E8B84B] md:text-[32px]">850+</div>
+              <div className="mt-1 text-[13px] text-white/50">Laws &amp; regulations</div>
+            </div>
+            <div>
+              <div className="heading text-[28px] font-bold leading-none text-[#E8B84B] md:text-[32px]">12</div>
+              <div className="mt-1 text-[13px] text-white/50">Legal domains</div>
+            </div>
+            <div>
+              <div className="heading text-[28px] font-bold leading-none text-[#E8B84B] md:text-[32px]">AfCFTA</div>
+              <div className="mt-1 text-[13px] text-white/50">Passport tool — first of its kind</div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Features — gradient borders, shine, stronger cards */}
-      <section className="relative overflow-hidden border-b border-border/40 bg-gradient-to-b from-muted/30 via-muted/10 to-background">
-        <div className="absolute inset-0 -z-10 opacity-40 dark:opacity-25" style={{ backgroundImage: `radial-gradient(ellipse 60% 50% at 50% 0%, var(--primary) 0%, transparent 50%)` }} />
-        <div className="mx-auto max-w-6xl px-4 py-20 sm:py-24 md:py-28">
-          <div className="text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary sm:text-sm">What we offer</p>
-            <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl">
-              Everything you need in one place
+      {/* Trust bar */}
+      <div className="border-b border-[#E2DDD5] bg-[#0D1B2A] px-4 py-6 sm:px-8">
+        <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-12 gap-y-4">
+          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-white/40">Trusted by</span>
+          <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm font-semibold text-white/60">
+            <span>Law firms</span>
+            <span>Governments</span>
+            <span>Mining companies</span>
+            <span>AfCFTA operators</span>
+            <span>Development institutions</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Features */}
+      <section className="border-b border-[#E2DDD5] bg-[#FAFAF7] px-4 py-20 sm:px-8">
+        <div className="mx-auto max-w-[1280px]">
+          <div className="mx-auto mb-12 max-w-[560px] text-center">
+            <p className="mb-4 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.5px] text-[#C8922A]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#C8922A]" />
+              Platform
+            </p>
+            <h2 className="heading text-3xl font-bold tracking-tight text-[#0D1B2A] sm:text-4xl">
+              Everything you need to navigate African law
             </h2>
-            <p className="mx-auto mt-5 max-w-xl text-muted-foreground">
-              One platform for legal reference, compliance, and research across Africa.
+            <p className="mt-4 text-base leading-relaxed text-[#3D4E60]">
+              Five integrated tools — from raw legislation to expert connections — built for legal professionals, investors, and governments operating across the continent.
             </p>
           </div>
 
-          <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-6 lg:gap-6">
-            {/* Featured: Legal Library */}
-            <Link
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <FeatureCard
               href="/library"
-              className="group relative overflow-hidden rounded-[1.75rem] border-2 border-primary/40 bg-gradient-to-br from-primary/20 via-card to-primary/10 p-8 shadow-xl transition-all duration-300 hover:-translate-y-2 hover:border-primary/60 hover:shadow-2xl hover:shadow-primary/20 lg:col-span-2 shine-hover"
-            >
-              <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-primary/25 blur-3xl transition group-hover:bg-primary/35" />
-              <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/25 text-primary shadow-inner ring-2 ring-primary/20 transition group-hover:bg-primary/35 group-hover:ring-primary/40">
-                <BookOpen className="h-8 w-8" />
-              </div>
-              <h3 className="relative mt-6 text-xl font-extrabold text-foreground">Legal Library</h3>
-              <p className="relative mt-3 text-sm leading-relaxed text-muted-foreground">
-                Browse African legal materials by jurisdiction and domain. Find what you need, fast.
-              </p>
-              <span className="relative mt-6 inline-flex items-center gap-2 text-sm font-bold text-primary">
-                Explore library
-                <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
-              </span>
-            </Link>
-
-            <Link
+              title="Legal Library"
+              description="Every African country's business laws, free to read, in one place. Search all 54 jurisdictions by domain and status."
+              cta="Browse the library"
+            />
+            <FeatureCard
               href="/afcfta/compliance-check"
-              className="group relative overflow-hidden rounded-[1.75rem] border-2 border-border/80 bg-card p-6 shadow-lg transition-all duration-300 hover:-translate-y-2 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/15 lg:col-span-2 shine-hover"
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 text-primary ring-2 ring-primary/10 transition group-hover:ring-primary/30">
-                <FileCheck className="h-8 w-8" />
-              </div>
-              <h3 className="mt-5 font-extrabold text-foreground">AfCFTA Compliance</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Step-by-step tools for cross-border trade and investment.
-              </p>
-              <span className="mt-5 inline-flex items-center gap-1 text-sm font-bold text-primary">
-                Get started
-                <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
-              </span>
-            </Link>
-
-            <Link
+              title="AfCFTA Passport"
+              description="The AfCFTA compliance infrastructure your business — or your ministry — needs. The first step-by-step tool for cross-border trade."
+              cta="Start your passport"
+            />
+            <FeatureCard
               href="/ai-research"
-              className="group relative overflow-hidden rounded-[1.75rem] border-2 border-border/80 bg-card p-6 shadow-lg transition-all duration-300 hover:-translate-y-2 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/15 lg:col-span-2 shine-hover"
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 text-primary ring-2 ring-primary/10 transition group-hover:ring-primary/30">
-                <Search className="h-8 w-8" />
-              </div>
-              <h3 className="mt-5 font-extrabold text-foreground">AI Legal Research</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Natural-language queries with citations to verified sources.
-              </p>
-              <span className="mt-5 inline-flex items-center gap-1 text-sm font-bold text-primary">
-                Try it
-                <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
-              </span>
-            </Link>
-
-            <Link
+              title="AI Legal Research"
+              description="Ask complex legal questions in natural language. Responses are drawn from African legal texts within the Yamalé Legal Library — not generic AI output."
+              cta="Ask a question"
+            />
+            <FeatureCard
               href="/marketplace"
-              className="group relative overflow-hidden rounded-[1.75rem] border-2 border-border/80 bg-card p-6 shadow-lg transition-all duration-300 hover:-translate-y-2 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/15 lg:col-span-3 shine-hover"
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 text-primary ring-2 ring-primary/10 transition group-hover:ring-primary/30">
-                <ShoppingBag className="h-8 w-8" />
-              </div>
-              <h3 className="mt-5 font-extrabold text-foreground">The Yamale Vault</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Books, courses, and templates for legal and compliance.
-              </p>
-              <span className="mt-5 inline-flex items-center gap-1 text-sm font-bold text-primary">
-                Browse
-                <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
-              </span>
-            </Link>
-
-            <Link
+              title="The Yamalé Vault"
+              description="Courses, webinars, documents, and templates in mining law, M&A, corporate law, and tax — specialized expertise, on demand."
+              cta="Explore the Vault"
+            />
+            <FeatureCard
               href="/lawyers"
-              className="group relative overflow-hidden rounded-[1.75rem] border-2 border-border/80 bg-card p-6 shadow-lg transition-all duration-300 hover:-translate-y-2 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/15 lg:col-span-3 shine-hover"
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 text-primary ring-2 ring-primary/10 transition group-hover:ring-primary/30">
-                <Scale className="h-8 w-8" />
-              </div>
-              <h3 className="mt-5 font-extrabold text-foreground">Find a Lawyer</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Connect with verified legal professionals when you need advice.
-              </p>
-              <span className="mt-5 inline-flex items-center gap-1 text-sm font-bold text-primary">
-                Find
-                <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
-              </span>
-            </Link>
+              title="Find a Lawyer"
+              description="Find the right commercial lawyer in any African jurisdiction — fast. Curated, invitation-only directory."
+              cta="Search directory"
+              className="sm:col-span-2 lg:col-span-1"
+            />
           </div>
         </div>
       </section>
 
-      {/* CTA — gradient border, multiple glows */}
-      <section className="relative overflow-hidden py-20 sm:py-24">
-        <div className="absolute inset-0 -z-20 opacity-[0.12] dark:opacity-[0.18]" style={{ backgroundImage: `radial-gradient(ellipse 90% 70% at 50% 100%, var(--primary) 0%, transparent 55%)` }} />
-        <div className="absolute left-1/2 top-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.06] blur-[120px] dark:opacity-10" style={{ background: "radial-gradient(circle, var(--primary) 0%, transparent 70%)" }} />
+      {/* Social enterprise strip */}
+      <section className="relative overflow-hidden border-t-[3px] border-[#C8922A] bg-gradient-to-br from-[#0D1B2A] to-[#1E3148] px-4 py-[72px] sm:px-8">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-100"
+          style={{
+            background:
+              "radial-gradient(ellipse at top right, rgba(200,146,42,0.10), transparent 50%), radial-gradient(ellipse at bottom left, rgba(200,146,42,0.06), transparent 55%)",
+          }}
+          aria-hidden
+        />
+        <div className="relative z-[1] mx-auto max-w-[1080px] text-center">
+          <p className="mb-6 inline-flex items-center gap-3 text-[11.5px] font-bold uppercase tracking-[2px] text-[#E8B84B]">
+            <span className="h-px w-8 bg-[#C8922A]/50" />
+            Our identity
+            <span className="h-px w-8 bg-[#C8922A]/50" />
+          </p>
+          <h2 className="heading mx-auto max-w-[900px] text-3xl font-bold leading-snug tracking-tight text-white sm:text-[40px]">
+            African-built. African-governed.
+            <br />
+            <em className="not-italic text-[#E8B84B]">Reinvesting in Africa&apos;s legal future.</em>
+          </h2>
+          <p className="mx-auto mt-7 max-w-[820px] text-base leading-[1.75] text-white/[0.75]">
+            Yamalé is two entities, one mission. A committed share of platform revenue flows annually from the for-profit platform to the{" "}
+            <strong className="font-semibold text-[#E8B84B]">Yamalé Alliance</strong> nonprofit — funding{" "}
+            <strong className="font-semibold text-[#E8B84B]">Government Representation in Complex Negotiations</strong>,{" "}
+            <strong className="font-semibold text-[#E8B84B]">Community Rights Advocacy in Extractive Industries</strong>, and{" "}
+            <strong className="font-semibold text-[#E8B84B]">Government Systems Strengthening</strong>. Every subscriber is, in a small way, building Africa&apos;s legal infrastructure.
+          </p>
+        </div>
+      </section>
+
+      {/* Pricing CTA */}
+      <section className="relative overflow-hidden border-b border-[#E2DDD5] bg-[#FAFAF7] py-16 sm:py-20">
         <div className="mx-auto max-w-4xl px-4">
-          <div className="relative overflow-hidden rounded-[2rem] border-2 border-primary/50 bg-card/95 p-10 shadow-2xl shadow-primary/20 backdrop-blur-md sm:p-14 dark:shadow-primary/15 gradient-border">
-            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-primary/25 blur-3xl" aria-hidden />
-            <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-primary/15 blur-2xl" aria-hidden />
-            <div className="relative text-center">
-              <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl">
-                See which plan fits your practice
-              </h2>
-              <p className="mx-auto mt-6 max-w-lg text-lg text-muted-foreground">
-                Compare pricing for the legal library, AfCFTA tools, AI research, and The Yamale Vault so you can choose the right level for your team.
-              </p>
-              <ul className="mx-auto mt-8 flex max-w-md flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm font-medium text-muted-foreground">
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
-                  Transparent pricing for every stage
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
-                  Start on free, upgrade as you grow
-                </li>
-              </ul>
-              <div className="mt-10">
-                {isSignedIn ? (
-                  <Link
-                    href="/pricing"
-                    className="group inline-flex items-center gap-2 rounded-2xl bg-primary px-10 py-4 text-base font-bold text-primary-foreground shadow-xl shadow-primary/35 transition-all duration-300 hover:scale-[1.05] hover:shadow-2xl hover:shadow-primary/40"
-                  >
-                    View pricing
-                    <ArrowRight className="h-5 w-5 transition group-hover:translate-x-1" />
-                  </Link>
-                ) : (
-                  <Link
-                    href="/pricing"
-                    className="group inline-flex items-center gap-2 rounded-2xl bg-primary px-10 py-4 text-base font-bold text-primary-foreground shadow-xl shadow-primary/35 transition-all duration-300 hover:scale-[1.05] hover:shadow-2xl hover:shadow-primary/40"
-                  >
-                    View pricing
-                    <ArrowRight className="h-5 w-5 transition group-hover:translate-x-1" />
-                  </Link>
-                )}
-              </div>
+          <div className="rounded-[20px] border border-[#E2DDD5] bg-white p-10 shadow-[0_4px_16px_rgba(13,27,42,0.08)] sm:p-14">
+            <h2 className="heading text-center text-3xl font-bold tracking-tight text-[#0D1B2A] sm:text-4xl">
+              Free to read. Affordable to use.
+            </h2>
+            <p className="mx-auto mt-5 max-w-lg text-center text-lg text-[#3D4E60]">
+              Compare plans for the legal library, AfCFTA tools, AI research, and The Yamalé Vault — pay with mobile money or card.
+            </p>
+            <div className="mt-10 flex justify-center">
+              <Link
+                href="/pricing"
+                className="inline-flex items-center gap-2 rounded-[6px] bg-[#C8922A] px-10 py-4 text-base font-semibold text-white transition hover:bg-[#b07e22]"
+              >
+                View pricing
+                <ArrowRight className="h-5 w-5" />
+              </Link>
             </div>
           </div>
         </div>
       </section>
     </div>
+  );
+}
+
+function FeatureCard({
+  href,
+  title,
+  description,
+  cta,
+  className = "",
+}: {
+  href: string;
+  title: string;
+  description: string;
+  cta: string;
+  className?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`group relative overflow-hidden rounded-[12px] border border-[#E2DDD5] bg-white p-7 shadow-[0_1px_3px_rgba(13,27,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(13,27,42,0.08)] ${className}`}
+    >
+      <span className="absolute left-0 right-0 top-0 h-[3px] origin-left scale-x-0 bg-[#C8922A] transition group-hover:scale-x-100" />
+      <h3 className="heading text-[17px] font-bold tracking-tight text-[#0D1B2A]">{title}</h3>
+      <p className="mt-2 text-sm leading-relaxed text-[#3D4E60]">{description}</p>
+      <span className="mt-4 inline-flex items-center gap-1 text-[13px] font-semibold text-[#C8922A]">
+        {cta}
+        <span aria-hidden className="transition group-hover:translate-x-0.5">
+          →
+        </span>
+      </span>
+    </Link>
   );
 }
