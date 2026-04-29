@@ -1,0 +1,12 @@
+/** Yamalé prototype — shared page shells (navy heroes, cream backgrounds). */
+
+/** Background grid pattern from prototype hero (::before). Matches homepage. */
+export const PROTOTYPE_HERO_GRID_PATTERN =
+  "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23C8922A' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")";
+
+export const prototypeNavyHeroSectionClass =
+  "relative overflow-hidden border-b border-border bg-[#0D1B2A]";
+
+/** Eyebrow pill on dark heroes */
+export const prototypeHeroEyebrowClass =
+  "inline-flex items-center gap-2 rounded-full border border-[rgba(200,146,42,0.22)] bg-[rgba(200,146,42,0.08)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#E8B84B]";
