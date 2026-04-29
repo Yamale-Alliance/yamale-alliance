@@ -20,6 +20,11 @@ import {
 import { useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
 import { useAlertDialog } from "@/components/ui/use-confirm";
+import {
+  PROTOTYPE_HERO_GRID_PATTERN,
+  prototypeHeroEyebrowClass,
+  prototypeNavyHeroSectionClass,
+} from "@/components/layout/prototype-page-styles";
 
 const BRAND = {
   dark: "#221913",
@@ -32,17 +37,16 @@ const BRAND = {
 type ProductCategory = "book" | "course" | "template" | "guide";
 
 type BrowseMode =
-  | { kind: "hub" }
   | { kind: "all" }
   | { kind: "type"; type: ProductCategory };
 
 function parseBrowseMode(categoryParam: string | null): BrowseMode {
-  if (!categoryParam) return { kind: "hub" };
+  if (!categoryParam) return { kind: "all" };
   if (categoryParam === "all") return { kind: "all" };
   if (categoryParam === "book" || categoryParam === "course" || categoryParam === "template" || categoryParam === "guide") {
     return { kind: "type", type: categoryParam };
   }
-  return { kind: "hub" };
+  return { kind: "all" };
 }
 
 type Product = {
@@ -94,6 +98,17 @@ function TileCategoryIcon({ icon, className }: { icon: "all" | ProductCategory; 
   return <CategoryIcon type={icon} className={className ?? "h-8 w-8"} />;
 }
 
+function inferTopic(product: Product): string {
+  const text = `${product.title} ${product.description ?? ""} ${product.author}`.toLowerCase();
+  if (text.includes("afcfta") || text.includes("origin") || text.includes("customs")) return "AfCFTA Trade";
+  if (text.includes("tax") || text.includes("vat")) return "Tax";
+  if (text.includes("labour") || text.includes("employment")) return "Labour";
+  if (text.includes("mining") || text.includes("extractive")) return "Mining";
+  if (text.includes("compliance") || text.includes("due diligence")) return "Compliance";
+  if (text.includes("company") || text.includes("corporate") || text.includes("m&a")) return "Corporate";
+  return "General";
+}
+
 export default function MarketplacePage() {
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
@@ -102,6 +117,7 @@ export default function MarketplacePage() {
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
   const [cartCount, setCartCount] = useState(0);
   const [cartItemIds, setCartItemIds] = useState<Set<string>>(new Set());
+  const [selectedTopic, setSelectedTopic] = useState("all");
   const { isSignedIn } = useUser();
   const confirmedCartSessionRef = useRef<string | null>(null);
   const { alert: showAlert, alertDialog } = useAlertDialog();
@@ -215,7 +231,6 @@ export default function MarketplacePage() {
   };
 
   const filtered = useMemo(() => {
-    if (browse.kind === "hub") return [];
     return items.filter((p) => {
       const matchSearch =
         !search ||
@@ -226,10 +241,19 @@ export default function MarketplacePage() {
     });
   }, [items, browse, search]);
 
+  const topicOptions = useMemo(() => {
+    const topics = new Set<string>(["all"]);
+    for (const product of items) topics.add(inferTopic(product));
+    return Array.from(topics);
+  }, [items]);
+
+  const filteredByTopic = useMemo(() => {
+    if (selectedTopic === "all") return filtered;
+    return filtered.filter((product) => inferTopic(product) === selectedTopic);
+  }, [filtered, selectedTopic]);
+
   const browseTitle =
-    browse.kind === "hub"
-      ? ""
-      : browse.kind === "all"
+    browse.kind === "all"
         ? "All resources"
         : TYPE_TILES.find((t) => t.param === browse.type)?.label ?? browse.type;
 
@@ -311,50 +335,45 @@ export default function MarketplacePage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#FAFAF7]">
       {alertDialog}
-      {/* Hero — outer shell ignores pointer events so pulled-up browse UI stays clickable in overlap */}
-      <section className="relative overflow-hidden border-b border-border/40 bg-gradient-to-b from-muted/30 via-background to-background pointer-events-none">
+      <section className={`relative overflow-hidden ${prototypeNavyHeroSectionClass}`}>
         <div
-          className="pointer-events-none absolute -top-32 left-1/2 h-[420px] w-[720px] -translate-x-1/2 rounded-full opacity-[0.22] blur-[100px] dark:opacity-30"
-          style={{ background: "radial-gradient(circle, var(--primary) 0%, transparent 70%)" }}
+          className="absolute inset-0 z-0"
+          style={{ backgroundImage: PROTOTYPE_HERO_GRID_PATTERN }}
+          aria-hidden
         />
-        <div
-          className="pointer-events-none absolute -bottom-40 right-[-10%] h-80 w-80 rounded-full opacity-[0.16] blur-[90px] dark:opacity-25"
-          style={{ background: "radial-gradient(circle, var(--accent) 0%, transparent 70%)" }}
-        />
-        <div className="pointer-events-none relative mx-auto max-w-7xl px-4 pt-10 pb-20 sm:px-6 lg:px-8 sm:pt-14">
-          <div className="pointer-events-auto flex flex-col items-start justify-between gap-8 md:flex-row md:items-end">
-            <div className="max-w-xl">
-              <p className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground/90 backdrop-blur">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                Curated African legal knowledge
+        <div className="relative mx-auto max-w-7xl px-4 pb-14 pt-12 sm:px-6 sm:pt-14 lg:px-8">
+          <div className="flex flex-col items-start justify-between gap-8 md:flex-row md:items-end">
+            <div className="max-w-2xl">
+              <p className={prototypeHeroEyebrowClass}>
+                The Yamalé Vault
               </p>
-              <h1 className="heading mt-5 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-[2.5rem]">
+              <h1 className="heading mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-[2.6rem]">
                 The Yamale Vault
               </h1>
-              <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
-                Books, courses, and templates built for African legal practice—discover resources
-                you can actually use in court, negotiations, and compliance work.
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/[0.7] sm:text-base">
+                Premium legal education and practical resources built for African legal professionals. Learn, download,
+                and apply with confidence.
               </p>
             </div>
             {isSignedIn && (
               <div className="flex items-center gap-3">
                 <Link
                   href="/marketplace/purchased"
-                  className="inline-flex items-center gap-2 rounded-xl border border-primary/40 bg-background/80 px-4 py-2.5 text-sm font-medium text-foreground shadow-sm shadow-primary/20 backdrop-blur transition hover:border-primary/70 hover:bg-primary/10 hover:shadow-md"
+                  className="inline-flex items-center gap-2 rounded-[6px] border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15"
                 >
-                  <Package className="h-5 w-5 text-primary" />
+                  <Package className="h-5 w-5 text-[#E8B84B]" />
                   <span>Purchased</span>
                 </Link>
                 <Link
                   href="/marketplace/cart"
-                  className="relative inline-flex items-center gap-2 rounded-xl border border-primary/40 bg-background/80 px-4 py-2.5 text-sm font-medium text-foreground shadow-sm shadow-primary/20 backdrop-blur transition hover:border-primary/70 hover:bg-primary/10 hover:shadow-md"
+                  className="relative inline-flex items-center gap-2 rounded-[6px] border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15"
                 >
-                  <ShoppingCart className="h-5 w-5 text-primary" />
+                  <ShoppingCart className="h-5 w-5 text-[#E8B84B]" />
                   <span>Cart</span>
                   {cartCount > 0 && (
-                    <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                    <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#C8922A] text-[10px] font-bold text-white">
                       {cartCount > 9 ? "9+" : cartCount}
                     </span>
                   )}
@@ -364,201 +383,120 @@ export default function MarketplacePage() {
           </div>
         </div>
       </section>
-
-      {/* Category hub tiles or browse (search + grid); isolate stacking above hero overlap */}
-      <section className="relative z-20 -mt-10 pb-16">
+      <section className="pb-16 pt-9">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="rounded-[8px] border border-[#E8E4DC] bg-[#F4F1EA] p-4 text-sm leading-relaxed text-[#5D5348]">
+            Content in The Yamale Vault including courses, webinars, templates, and documents is provided for
+            educational and informational purposes. It does not constitute legal advice for any specific situation.
+            <strong> Templates should be reviewed by qualified legal counsel before use.</strong> Yamale Alliance is not
+            responsible for outcomes arising from use without independent legal review.
+          </div>
+
+          <div className="mt-6 flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-[#7B6E5C]">Format</span>
+              {TYPE_TILES.map((tile) => {
+                const active =
+                  (browse.kind === "all" && tile.param === "all") ||
+                  (browse.kind === "type" && tile.param === browse.type);
+                return (
+                  <Link
+                    key={tile.param}
+                    href={`/marketplace?category=${encodeURIComponent(tile.param)}`}
+                    scroll={false}
+                    className={`rounded-[6px] border px-3 py-1.5 text-xs font-semibold transition ${
+                      active
+                        ? "border-[#C8922A] bg-[#C8922A] text-white"
+                        : "border-[#E8E4DC] bg-white text-[#5D5348] hover:border-[#d8c5a1]"
+                    }`}
+                  >
+                    {tile.label}
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-[#7B6E5C]">Topic</span>
+              {topicOptions.map((topic) => (
+                <button
+                  type="button"
+                  key={topic}
+                  onClick={() => setSelectedTopic(topic)}
+                  className={`rounded-[6px] border px-3 py-1.5 text-xs font-semibold transition ${
+                    selectedTopic === topic
+                      ? "border-[#C8922A] bg-[#C8922A] text-white"
+                      : "border-[#E8E4DC] bg-white text-[#5D5348] hover:border-[#d8c5a1]"
+                  }`}
+                >
+                  {topic === "all" ? "All topics" : topic}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative max-w-xl">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b8173]" />
+              <input
+                type="search"
+                placeholder="Search resources..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-[8px] border border-[#E8E4DC] bg-white py-2.5 pl-10 pr-4 text-sm text-[#2B241D] outline-none transition placeholder:text-[#a79f95] focus:border-[#C8922A]"
+              />
+            </div>
+          </div>
+
           {loading ? (
             <div className="flex justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <Loader2 className="h-8 w-8 animate-spin text-[#8b8173]" />
             </div>
-          ) : browse.kind === "hub" ? (
-            <div className="rounded-2xl border border-border/70 bg-card/95 p-6 shadow-lg shadow-primary/10 backdrop-blur-xl sm:p-8">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground/90">
-                Browse by type
-              </p>
-              <h2 className="mt-2 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-                Choose a category
-              </h2>
-              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                Tap a tile to see everything in that section of The Yamale Vault.
-              </p>
-              <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                {TYPE_TILES.map((tile) => {
-                  const n = tileCount(tile.param);
-                  return (
-                    <Link
-                      key={tile.param}
-                      href={`/marketplace?category=${encodeURIComponent(tile.param)}`}
-                      className="group relative flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-background/80 p-6 shadow-sm shadow-border/30 transition hover:-translate-y-1 hover:border-primary/60 hover:shadow-lg hover:shadow-primary/15"
-                    >
-                      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[rgba(193,140,67,0.85)] via-[rgba(227,186,101,0.9)] to-[rgba(154,99,42,0.9)] opacity-70 transition group-hover:opacity-100" />
-                      <div
-                        className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl text-white shadow-md shadow-primary/25"
-                        style={{
-                          background: `linear-gradient(135deg, ${BRAND.gradientStart}, ${BRAND.gradientEnd})`,
-                        }}
-                      >
-                        <TileCategoryIcon icon={tile.icon} className="h-7 w-7" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-foreground">{tile.label}</h3>
-                      <p className="mt-1 flex-1 text-sm text-muted-foreground">{tile.blurb}</p>
-                      <p className="mt-4 text-xs font-medium text-primary/90">
-                        {n} {n === 1 ? "item" : "items"}
-                        <span className="ml-1 text-muted-foreground transition group-hover:text-foreground">→</span>
-                      </p>
-                    </Link>
-                  );
-                })}
-              </div>
+          ) : filteredByTopic.length === 0 ? (
+            <div className="mt-8 rounded-[10px] border border-dashed border-[#d8d2c8] bg-white px-8 py-12 text-center">
+              <h3 className="text-xl font-semibold text-[#2B241D]">No resources match your filters</h3>
+              <p className="mt-2 text-sm text-[#7B6E5C]">Try another format, topic, or broader search keyword.</p>
             </div>
           ) : (
-            <>
-              {/* Sticky below main header (h-16) so this stays clickable while scrolling; z-30 under header z-50 */}
-              <div className="sticky top-16 z-30 mb-6 flex min-h-[3.25rem] items-center justify-between gap-3 rounded-2xl border border-border/50 bg-card/95 p-2 pl-2 pr-3 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.25)] backdrop-blur-xl dark:bg-card/90 dark:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.5)]">
-                <Link
-                  href="/marketplace"
-                  scroll
-                  className="group relative inline-flex min-h-11 min-w-0 shrink-0 cursor-pointer items-center gap-3 rounded-xl px-2 py-1.5 text-sm font-semibold text-foreground transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                >
-                  <span
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[rgba(154,99,42,0.2)] to-[rgba(193,140,67,0.25)] text-primary shadow-inner ring-1 ring-primary/20 transition group-hover:-translate-x-0.5 group-hover:ring-primary/40"
-                    aria-hidden
-                  >
-                    <ArrowLeft className="h-5 w-5" strokeWidth={2.25} />
-                  </span>
-                  <span className="hidden sm:inline">All categories</span>
-                  <span className="sm:hidden">Back</span>
-                </Link>
-                <div className="min-w-0 flex-1 text-right sm:pl-4">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/90">
-                    {browseTitle}
-                  </p>
-                  <p className="truncate text-sm font-semibold text-foreground sm:text-base">
-                    {browse.kind === "all"
-                      ? "Full catalog"
-                      : `All ${browseTitle.toLowerCase()}`}
-                  </p>
-                </div>
-              </div>
-
-              <div className="relative z-10 mb-8 rounded-2xl border border-border/70 bg-card/95 p-5 shadow-lg shadow-primary/10 backdrop-blur-xl sm:p-6">
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground/90">
-                  Search in this category
-                </label>
-                <div className="relative max-w-xl">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    type="search"
-                    placeholder="Search by title, author, jurisdiction, or topic..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full rounded-xl border border-input bg-background/90 pl-10 pr-4 py-2.5 text-sm shadow-sm outline-none ring-0 transition placeholder:text-muted-foreground/70 focus:border-primary focus:ring-2 focus:ring-primary/40"
-                  />
-                </div>
-              </div>
-
-              <div className="mb-4 flex items-center justify-between text-xs text-muted-foreground">
-                <span>
-                  Showing <span className="font-semibold text-foreground">{filtered.length}</span> item
-                  {filtered.length !== 1 ? "s" : ""}
-                </span>
-              </div>
-
-              {filtered.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border/80 bg-card/80 px-8 py-12 text-center shadow-sm">
-                  <div className="mb-4 text-5xl">📚</div>
-                  <h3 className="text-xl font-semibold text-foreground">
-                    No resources match your search
-                  </h3>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Try broadening your keywords or pick another category from the hub.
-                  </p>
-                  <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setSearch("")}
-                      className="inline-flex items-center justify-center rounded-xl border border-primary/60 bg-primary/10 px-5 py-2 text-sm font-medium text-foreground transition hover:border-primary hover:bg-primary/20"
-                    >
-                      Clear search
-                    </button>
-                    <Link
-                      href="/marketplace"
-                      scroll
-                      className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full border border-border/60 bg-muted/40 px-6 py-2.5 text-sm font-semibold text-foreground shadow-sm ring-1 ring-border/40 transition hover:bg-primary/10 hover:ring-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                    >
-                      <ArrowLeft className="h-4 w-4 shrink-0" />
-                      Back to categories
-                    </Link>
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                  {filtered.map((product) => {
+            <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+              {filteredByTopic.map((product) => {
                     const priceLabel = product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(2)}`;
 
                     return (
                       <Link
                         key={product.id}
                         href={`/marketplace/${product.id}`}
-                        className="group relative block overflow-hidden rounded-2xl border border-border/70 bg-card/95 shadow-sm shadow-border/40 transition hover:-translate-y-1 hover:border-primary/70 hover:shadow-lg hover:shadow-primary/20"
+                        className="group block overflow-hidden rounded-[8px] border border-[#E8E4DC] bg-white transition hover:-translate-y-0.5 hover:shadow-md"
                       >
-                        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[rgba(193,140,67,0.85)] via-[rgba(227,186,101,0.9)] to-[rgba(154,99,42,0.9)] opacity-70" />
-                        <div className="p-5 pt-6">
-                          <div className="flex items-start gap-4">
-                            {/* Icon / Thumbnail */}
-                            <div
-                              className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl text-white shadow-sm shadow-primary/30"
-                              style={{
-                                background: `linear-gradient(135deg, ${BRAND.gradientStart}, ${BRAND.gradientEnd})`,
-                              }}
-                            >
-                              {product.image_url ? (
-                                <Image
-                                  src={product.image_url}
-                                  alt=""
-                                  width={64}
-                                  height={64}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <CategoryIcon type={product.type} className="h-7 w-7" />
-                              )}
+                        <div
+                          className="relative h-36 border-b border-[#E8E4DC]"
+                          style={{ background: `linear-gradient(135deg, ${BRAND.gradientStart}, ${BRAND.gradientEnd})` }}
+                        >
+                          {product.image_url ? (
+                            <Image src={product.image_url} alt="" fill className="object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-white/95">
+                              <CategoryIcon type={product.type} className="h-9 w-9" />
                             </div>
-
-                            {/* Title / Author / Meta */}
-                            <div className="min-w-0 flex-1">
-                              <div className="mb-1 flex flex-wrap items-center gap-2">
-                                <h3 className="truncate text-sm font-semibold text-foreground sm:text-base">
-                                  {product.title}
-                                </h3>
-                                {product.owned && (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-green-600 dark:bg-green-500/20 dark:text-green-300">
-                                    <Check className="h-3 w-3" aria-hidden />
-                                    Owned
-                                  </span>
-                                )}
-                                <span className="rounded-full bg-muted/30 px-2 py-0.5 text-[11px] font-medium capitalize text-muted-foreground">
-                                  {product.type}
-                                </span>
-                              </div>
-                              {product.author && (
-                                <p className="text-xs text-muted-foreground">by {product.author}</p>
-                              )}
-                              {product.description && (
-                                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                                  {product.description}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Price / CTA bar */}
-                          <div className="mt-4 flex items-center gap-3 border-t border-border/70 pt-3">
-                            <span className="text-sm font-semibold text-foreground">
-                              {priceLabel}
+                          )}
+                          <div className="absolute left-3 top-3">
+                            <span className="rounded-full bg-[#0D1B2A] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.04em] text-white">
+                              {product.type === "course" ? "Course" : product.type === "guide" ? "Guide" : product.type === "template" ? "Template" : "Book"}
                             </span>
-                            <div className="ml-auto flex items-center gap-2">
+                          </div>
+                          <div className="absolute right-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-[#0D1B2A]">
+                            {priceLabel}
+                          </div>
+                        </div>
+                        <div className="p-4">
+                          <h3 className="line-clamp-2 text-[14px] font-bold leading-snug text-[#0D1B2A]">{product.title}</h3>
+                          <p className="mt-1 text-[12px] text-[#7B6E5C]">
+                            {product.author || "Yamale Faculty"} {product.owned ? "· Owned" : ""}
+                          </p>
+                          <div className="mt-1 text-[11px] text-[#9A8F81]">
+                            {product.type === "course" ? "Structured modules" : product.type === "template" ? "Instant download" : "Reference material"}
+                          </div>
+                          <div className="mt-3 flex items-center justify-between border-t border-[#EFEAE1] pt-3">
+                            <span className="text-[12px] font-medium text-[#7B6E5C]">{inferTopic(product)}</span>
+                            <div className="flex items-center gap-2">
                               {isSignedIn && !product.owned && product.price_cents > 0 && (
                                 <>
                                   {cartItemIds.has(product.id) ? (
@@ -566,55 +504,42 @@ export default function MarketplacePage() {
                                       type="button"
                                       onClick={(e) => handleRemoveFromCart(product.id, e)}
                                       disabled={addingToCart === product.id}
-                                      className="inline-flex items-center gap-1.5 rounded-full border border-destructive/60 px-3 py-1 text-[11px] font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-50"
-                                      aria-label="Remove from cart"
+                                      className="rounded-[6px] border border-red-300 px-2 py-1 text-[11px] font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-50"
                                     >
-                                      {addingToCart === product.id ? (
-                                        <Loader2 className="h-3 w-3 animate-spin" />
-                                      ) : (
-                                        <X className="h-3 w-3" />
-                                      )}
-                                      Remove
+                                      {addingToCart === product.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
                                     </button>
                                   ) : (
                                     <button
                                       type="button"
                                       onClick={(e) => handleAddToCart(product.id, e)}
                                       disabled={addingToCart === product.id}
-                                      className="inline-flex items-center gap-1.5 rounded-full border border-border/80 px-3 py-1 text-[11px] font-medium text-foreground transition hover:border-primary hover:bg-primary/10 disabled:opacity-50"
-                                      aria-label="Add to cart"
+                                      className="rounded-[6px] border border-[#E8E4DC] px-2 py-1 text-[11px] font-medium text-[#5D5348] transition hover:bg-[#FAFAF7] disabled:opacity-50"
                                     >
-                                      {addingToCart === product.id ? (
-                                        <Loader2 className="h-3 w-3 animate-spin" />
-                                      ) : (
-                                        <ShoppingCart className="h-3 w-3" />
-                                      )}
-                                      Add
+                                      {addingToCart === product.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Add"}
                                     </button>
                                   )}
                                   <button
                                     type="button"
                                     onClick={(e) => handleBuyNow(product.id, e)}
-                                    className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[rgba(154,99,42,0.95)] to-[rgba(193,140,67,0.95)] px-3 py-1 text-[11px] font-medium text-primary-foreground shadow-sm transition hover:brightness-105"
-                                    aria-label="Buy now"
+                                    className="rounded-[6px] bg-[#0D1B2A] px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-[#162436]"
                                   >
-                                    <Zap className="h-3 w-3" />
-                                    Buy now
+                                    Buy
                                   </button>
                                 </>
                               )}
-                              <span className="text-[11px] font-semibold text-primary/90 group-hover:translate-x-0.5 group-hover:text-primary transition">
-                                View details →
-                              </span>
+                              {product.owned && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700">
+                                  <Check className="h-3 w-3" />
+                                  Owned
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
                       </Link>
                     );
                   })}
-                </div>
-              )}
-            </>
+            </div>
           )}
         </div>
       </section>
