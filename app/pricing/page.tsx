@@ -6,6 +6,11 @@ import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { useAlertDialog } from "@/components/ui/use-confirm";
 import { PaymentMethodPicker, type CheckoutPaymentProvider } from "@/components/checkout/PaymentMethodPicker";
+import {
+  PROTOTYPE_HERO_GRID_PATTERN,
+  prototypeHeroEyebrowClass,
+  prototypeNavyHeroSectionClass,
+} from "@/components/layout/prototype-page-styles";
 
 type BillingInterval = "monthly" | "annual";
 
@@ -117,32 +122,6 @@ const FAQ_ITEMS = [
     a: "You can purchase additional usage at the pay-as-you-go rates shown for your tier, or upgrade to a higher tier for more included usage.",
   },
 ];
-
-function ToggleSwitch({
-  value,
-  onChange,
-}: {
-  value: BillingInterval;
-  onChange: (v: BillingInterval) => void;
-}) {
-  const isAnnual = value === "annual";
-  return (
-    <div
-      className={`relative w-[64px] h-[34px] rounded-full cursor-pointer transition-all duration-300 shadow-lg ${
-        isAnnual
-          ? "bg-gradient-to-r from-[#9a632a] to-[#c18c43]"
-          : "bg-gray-300 dark:bg-gray-600"
-      }`}
-      onClick={() => onChange(isAnnual ? "monthly" : "annual")}
-    >
-      <div
-        className={`absolute top-[3px] left-[3px] h-7 w-7 bg-white rounded-full transition-transform duration-300 shadow-md ${
-          isAnnual ? "translate-x-[30px]" : ""
-        }`}
-      />
-    </div>
-  );
-}
 
 export default function PricingPage() {
   const { isLoaded, isSignedIn } = useUser();
@@ -330,56 +309,45 @@ export default function PricingPage() {
   }, [isLoaded, isSignedIn]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#FAFAF7]">
       {alertDialog}
       {/* Hero Section */}
-      <section className="relative overflow-hidden border-b border-border/40 bg-gradient-to-b from-[#221913] via-[#603b1c] to-[#221913]">
+      <section className={prototypeNavyHeroSectionClass}>
         <div
-          className="pointer-events-none absolute -top-40 left-1/2 h-[500px] w-[800px] -translate-x-1/2 rounded-full opacity-[0.25] blur-[120px]"
-          style={{ background: "radial-gradient(circle, var(--primary) 0%, transparent 70%)" }}
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{ backgroundImage: PROTOTYPE_HERO_GRID_PATTERN }}
+          aria-hidden
         />
-        <div
-          className="pointer-events-none absolute -bottom-40 right-[-10%] h-96 w-96 rounded-full opacity-[0.2] blur-[100px]"
-          style={{ background: "radial-gradient(circle, var(--accent) 0%, transparent 70%)" }}
-        />
-        <div className="relative max-w-6xl mx-auto px-6 py-20 text-center">
-          <p className="inline-flex items-center gap-2 rounded-full border border-[rgba(227,186,101,0.3)] bg-[rgba(227,186,101,0.1)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#e3ba65] backdrop-blur mb-6">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#e3ba65]" />
-            Flexible pricing for everyone
-          </p>
-          <h1 className="heading text-4xl font-bold mb-4 text-white sm:text-5xl lg:text-6xl">
-            Simple, Transparent Pricing
+        <div className="relative z-[1] mx-auto max-w-[760px] px-6 py-16 text-center sm:py-20">
+          <p className={`mx-auto mb-6 ${prototypeHeroEyebrowClass}`}>Pricing</p>
+          <h1 className="heading mb-4 text-4xl font-bold text-white sm:text-5xl">
+            Free to read. Affordable to use.
           </h1>
-          <p className="text-lg mb-10 text-white/90 sm:text-xl">
-            Choose your plan and pay as you go for extras
+          <p className="mx-auto mb-8 max-w-2xl text-[17px] text-white/[0.65]">
+            Pay with mobile money or credit card. Invoice-ready for institutions. Pay only for what you need.
           </p>
 
-          {/* Billing Toggle */}
-          <div className="flex items-center justify-center gap-4">
-            <span
-              className={`text-base font-semibold transition-all sm:text-lg ${
-                !isAnnual ? "opacity-100 scale-105" : "opacity-70"
+          <div className="mx-auto inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/10 p-1">
+            <button
+              type="button"
+              onClick={() => setBilling("monthly")}
+              className={`rounded-full px-5 py-2 text-sm font-medium transition ${
+                !isAnnual ? "bg-[#C8922A] text-white" : "text-white/70 hover:text-white"
               }`}
-              style={{ color: !isAnnual ? "#e3ba65" : "rgba(255,255,255,0.8)" }}
             >
               Monthly
-            </span>
-            <ToggleSwitch value={billing} onChange={setBilling} />
-            <div className="flex items-center gap-2">
-              <span
-                className={`text-base font-semibold transition-all sm:text-lg ${
-                  isAnnual ? "opacity-100 scale-105" : "opacity-70"
-                }`}
-                style={{ color: isAnnual ? "#e3ba65" : "rgba(255,255,255,0.8)" }}
-              >
-                Annual
-              </span>
-              <span className="rounded-full border border-[rgba(227,186,101,0.4)] bg-[rgba(227,186,101,0.15)] px-3 py-1 text-[11px] font-bold text-[#e3ba65] backdrop-blur shadow-sm">
-                Save 17%
-              </span>
-            </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setBilling("annual")}
+              className={`rounded-full px-5 py-2 text-sm font-medium transition ${
+                isAnnual ? "bg-[#C8922A] text-white" : "text-white/70 hover:text-white"
+              }`}
+            >
+              Annual <span className="ml-1 text-[11px] opacity-90">Save 17%</span>
+            </button>
           </div>
-          <div className="mx-auto mt-8 max-w-2xl rounded-2xl border border-[rgba(227,186,101,0.25)] bg-[rgba(34,25,19,0.45)] p-4 backdrop-blur">
+          <div className="mx-auto mt-6 max-w-2xl rounded-xl border border-[rgba(200,146,42,0.28)] bg-[rgba(13,27,42,0.55)] p-4 backdrop-blur">
             <PaymentMethodPicker
               value={paymentProvider}
               onChange={setPaymentProvider}
@@ -390,17 +358,15 @@ export default function PricingPage() {
       </section>
 
       {/* Subscription Plans */}
-      <section className="max-w-7xl mx-auto px-4 -mt-10 pb-16 sm:px-6 lg:px-8">
-        <div className="rounded-2xl border border-border/70 bg-card/95 shadow-lg shadow-primary/10 backdrop-blur-xl px-6 py-8 text-center mb-10">
-          <h2 className="heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            Subscription Plans
-          </h2>
-          <p className="mt-3 text-base text-muted-foreground sm:text-lg">
-            Full access to the platform with included usage
+      <section className="mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-6 lg:px-8">
+        <div className="mb-10 rounded-[10px] border-l-4 border-[#C8922A] bg-[#F4F1EA] px-6 py-5">
+          <p className="flex items-start gap-3">
+            <span className="text-3xl leading-none text-[#C8922A]">&ldquo;</span>
+            <span className="heading text-2xl text-[#0D1B2A]">Everything you need to do business in Africa — in one place.</span>
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
           {tiers.map((tier) => {
             const price =
               tier.priceMonthly === 0
@@ -417,38 +383,34 @@ export default function PricingPage() {
             return (
               <div
                 key={tier.id}
-                className={`group relative flex flex-col rounded-2xl border-2 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
+                className={`group relative flex flex-col rounded-[10px] border transition-all duration-300 hover:-translate-y-1 ${
                   tier.highlighted
-                    ? "border-primary/60 bg-card/95 shadow-lg shadow-primary/20 ring-2 ring-primary/10 pt-6"
-                    : "border-border/70 bg-card/95 shadow-md backdrop-blur-sm"
+                    ? "border-[#0D1B2A] bg-[#0D1B2A] text-white shadow-xl"
+                    : "border-[#E8E4DC] bg-white shadow-sm"
                 }`}
               >
                 {tier.highlighted && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10 whitespace-nowrap rounded-full border border-primary/40 bg-gradient-to-r from-[rgba(96,59,28,0.95)] to-[rgba(154,99,42,0.95)] px-5 py-1.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg">
+                  <div className="absolute -top-3 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#C8922A] px-4 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-lg">
                     Most Popular
                   </div>
                 )}
-                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[rgba(193,140,67,0.9)] via-[rgba(227,186,101,0.95)] to-[rgba(154,99,42,0.9)] opacity-70" />
-
-                <div className="p-6 sm:p-8 flex-1 flex flex-col pt-8">
-                  <h3 className="heading text-xl font-bold mb-3 text-foreground sm:text-2xl">
+                <div className="p-6 sm:p-7 flex-1 flex flex-col">
+                  <h3 className={`heading text-xl font-bold mb-2 sm:text-2xl ${tier.highlighted ? "text-white" : "text-foreground"}`}>
                     {tier.name}
                   </h3>
                   <div className="mb-4">
                     <span
-                      className={`text-4xl font-bold sm:text-5xl ${
-                        tier.highlighted ? "text-primary" : "text-foreground"
-                      }`}
+                      className={`text-4xl font-bold sm:text-5xl ${tier.highlighted ? "text-[#E8B84B]" : "text-foreground"}`}
                     >
                       ${price}
                     </span>
-                    <span className="text-muted-foreground ml-1">{period}</span>
+                    <span className={`${tier.highlighted ? "text-white/65" : "text-muted-foreground"} ml-1`}>{period}</span>
                   </div>
                   {tier.description && (
-                    <p className="text-muted-foreground mb-3 text-sm">{tier.description}</p>
+                    <p className={`${tier.highlighted ? "text-white/65" : "text-muted-foreground"} mb-3 text-sm`}>{tier.description}</p>
                   )}
                   {annualNote && (
-                    <p className="text-xs mb-4 text-primary/90 font-medium">
+                    <p className={`text-xs mb-4 font-medium ${tier.highlighted ? "text-white/70" : "text-primary/90"}`}>
                       {annualNote}
                     </p>
                   )}
@@ -456,27 +418,27 @@ export default function PricingPage() {
                     type="button"
                     onClick={() => handleCheckout(tier.id)}
                     disabled={checkoutLoading !== null}
-                    className={`w-full py-3 px-6 rounded-xl font-semibold transition-all duration-200 mt-auto disabled:opacity-70 ${
+                    className={`w-full py-3 px-6 rounded-[6px] font-semibold transition-all duration-200 mt-auto disabled:opacity-70 ${
                       tier.highlighted
-                        ? "bg-gradient-to-r from-[rgba(154,99,42,0.95)] to-[rgba(193,140,67,0.95)] text-primary-foreground shadow-md shadow-primary/30 hover:brightness-105"
-                        : "border-2 border-primary/60 bg-primary/10 text-foreground hover:border-primary hover:bg-primary/20 hover:shadow-md"
+                        ? "bg-[#C8922A] text-white hover:bg-[#b07e22]"
+                        : "border border-[#E8E4DC] bg-[#FAFAF7] text-[#0D1B2A] hover:border-[#d8c5a1]"
                     }`}
                   >
                     {checkoutLoading === tier.id ? "Redirecting…" : tier.cta}
                   </button>
                 </div>
 
-                <div className="px-6 sm:px-8 pb-6 sm:pb-8 border-t border-border/70">
-                  <div className="text-sm font-semibold mb-4 mt-6 text-muted-foreground">
-                    What's included:
+                <div className={`px-6 sm:px-7 pb-6 sm:pb-7 border-t ${tier.highlighted ? "border-white/10" : "border-border/70"}`}>
+                  <div className={`text-sm font-semibold mb-4 mt-5 ${tier.highlighted ? "text-white/70" : "text-muted-foreground"}`}>
+                    What is included:
                   </div>
                   <ul className="space-y-2.5 text-sm">
                     {tier.features.map((feature, i) => (
                       <li key={i} className="flex items-start gap-3">
-                        <Check className="h-5 w-5 shrink-0 text-primary mt-0.5" strokeWidth={3} />
+                        <Check className={`h-5 w-5 shrink-0 mt-0.5 ${tier.highlighted ? "text-[#E8B84B]" : "text-primary"}`} strokeWidth={3} />
                         <span
                           dangerouslySetInnerHTML={{ __html: feature }}
-                          className="text-foreground leading-relaxed"
+                          className={`leading-relaxed ${tier.highlighted ? "text-white/90" : "text-foreground"}`}
                         />
                       </li>
                     ))}
@@ -488,192 +450,156 @@ export default function PricingPage() {
         </div>
 
         {/* Institutional CTA */}
-        <div className="mt-8 rounded-2xl border border-border/70 bg-card/95 p-6 shadow-lg shadow-primary/10 backdrop-blur-xl sm:p-8">
+        <div className="mt-8 rounded-[10px] border border-[#E8E4DC] bg-white p-6 shadow-sm sm:p-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
-              <h3 className="heading text-xl font-bold mb-2 text-foreground sm:text-2xl">
+              <h3 className="heading text-xl font-bold mb-2 text-[#0D1B2A] sm:text-2xl">
                 Institutional Plans
               </h3>
-              <p className="text-muted-foreground mb-2">
+              <p className="text-[#5D5348] mb-2">
                 For universities, governments, and large organizations
               </p>
-              <p className="text-sm text-primary/90 font-medium">
+              <p className="text-sm text-[#C8922A] font-medium">
                 Starting at $1,000/year • Unlimited users • Custom training
               </p>
             </div>
             <button
               type="button"
-              className="rounded-xl border border-primary/40 bg-gradient-to-r from-[rgba(96,59,28,0.95)] to-[rgba(154,99,42,0.95)] px-6 py-3 font-semibold text-sm text-primary-foreground shadow-md shadow-primary/30 transition hover:brightness-105 whitespace-nowrap sm:px-8 sm:py-4 sm:text-lg"
+              className="whitespace-nowrap rounded-[6px] bg-[#0D1B2A] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#162436] sm:px-8 sm:py-4 sm:text-lg"
             >
               Contact Sales
             </button>
           </div>
         </div>
-      </section>
 
-      {/* Pay-as-You-Go Section */}
-      <section className="border-t border-border/40 bg-gradient-to-b from-muted/20 via-background to-background py-16 sm:py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="heading text-3xl font-bold mb-4 text-foreground sm:text-4xl">
-              Pay-as-You-Go Pricing
-            </h2>
-            <p className="text-base text-muted-foreground sm:text-xl">
-              One simple price for everyone. Buy exactly what you need, when you need it.
-            </p>
-          </div>
-
-          {/* Flat Pay-as-You-Go Pricing */}
-          <div className="mb-12">
-            <div className="rounded-2xl border border-border/70 bg-card/95 p-6 shadow-lg shadow-primary/10 backdrop-blur-xl sm:p-10">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <button
-                  type="button"
-                  onClick={() => handlePayAsYouGoCheckout("document")}
-                  disabled={checkoutLoading !== null}
-                  className="group relative overflow-hidden rounded-xl border border-border/70 bg-background/80 p-6 text-center transition hover:border-primary/50 hover:shadow-md hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                  <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[rgba(193,140,67,0.9)] via-[rgba(227,186,101,0.95)] to-[rgba(154,99,42,0.9)] opacity-70" />
-                  <div className="text-4xl mb-3 sm:text-5xl">📄</div>
-                  <div className="text-lg font-bold mb-2 text-foreground sm:text-xl">
-                    Documents
-                  </div>
-                  <div className="text-4xl font-bold mb-2 text-primary sm:text-5xl">
-                    $3
-                  </div>
-                  <div className="text-sm text-muted-foreground">per document</div>
-                  <div className="text-xs text-muted-foreground/80 mt-2">
-                    Download & keep forever
-                  </div>
-                  {checkoutLoading === "payg-document" && (
-                    <div className="mt-3 text-xs text-primary font-medium">Redirecting…</div>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handlePayAsYouGoCheckout("ai_query")}
-                  disabled={checkoutLoading !== null}
-                  className="group relative overflow-hidden rounded-xl border border-border/70 bg-background/80 p-6 text-center transition hover:border-primary/50 hover:shadow-md hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                  <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[rgba(193,140,67,0.9)] via-[rgba(227,186,101,0.95)] to-[rgba(154,99,42,0.9)] opacity-70" />
-                  <div className="text-4xl mb-3 sm:text-5xl">🤖</div>
-                  <div className="text-lg font-bold mb-2 text-foreground sm:text-xl">
-                    AI Queries
-                  </div>
-                  <div className="text-4xl font-bold mb-2 text-primary sm:text-5xl">
-                    $1
-                  </div>
-                  <div className="text-sm text-muted-foreground">per query</div>
-                  <div className="text-xs text-muted-foreground/80 mt-2">
-                    Full answer with citations
-                  </div>
-                  {checkoutLoading === "payg-ai_query" && (
-                    <div className="mt-3 text-xs text-primary font-medium">Redirecting…</div>
-                  )}
-                </button>
-
-                <div className="group relative overflow-hidden rounded-xl border border-border/70 bg-background/80 p-6 text-center transition hover:border-primary/50 hover:shadow-md">
-                  <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[rgba(193,140,67,0.9)] via-[rgba(227,186,101,0.95)] to-[rgba(154,99,42,0.9)] opacity-70" />
-                  <div className="text-4xl mb-3 sm:text-5xl">🔍</div>
-                  <div className="text-lg font-bold mb-2 text-foreground sm:text-xl">
-                    Lawyer Directory Search
-                  </div>
-                  <div className="text-4xl font-bold mb-2 text-primary sm:text-5xl">
-                    $5
-                  </div>
-                  <div className="text-sm text-muted-foreground">per search</div>
-                  <div className="text-xs text-muted-foreground/80 mt-2">
-                    Unlocks direct email &amp; phone for matching lawyers
-                  </div>
-                  <div className="text-xs text-muted-foreground/60 mt-3 italic">
-                    Purchase from lawyer directory page
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handlePayAsYouGoCheckout("afcfta_report")}
-                  disabled={checkoutLoading !== null}
-                  className="group relative overflow-hidden rounded-xl border border-border/70 bg-background/80 p-6 text-center transition hover:border-primary/50 hover:shadow-md hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                  <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[rgba(193,140,67,0.9)] via-[rgba(227,186,101,0.95)] to-[rgba(154,99,42,0.9)] opacity-70" />
-                  <div className="text-4xl mb-3 sm:text-5xl">📊</div>
-                  <div className="text-lg font-bold mb-2 text-foreground sm:text-xl">
-                    AfCFTA Reports
-                  </div>
-                  <div className="text-4xl font-bold mb-2 text-primary sm:text-5xl">
-                    $15
-                  </div>
-                  <div className="text-sm text-muted-foreground">per report</div>
-                  <div className="text-xs text-muted-foreground/80 mt-2">
-                    Full compliance analysis
-                  </div>
-                  {checkoutLoading === "payg-afcfta_report" && (
-                    <div className="mt-3 text-xs text-primary font-medium">Redirecting…</div>
-                  )}
-                </button>
-              </div>
-
-              <div className="mt-8 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-center text-sm text-muted-foreground">
-                <p>
-                  💡 <strong className="text-foreground">Tip:</strong> Subscribers get these items included
-                  in their monthly allowance. When you exceed your included amount, pay-as-you-go kicks in automatically.
-                </p>
-              </div>
+        <div className="mt-4 rounded-[14px] border border-[#DCD8D0] bg-white px-7 py-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-[170px_1fr_1fr_1fr] md:items-start md:gap-5">
+            <div className="pt-1 text-[12px] font-semibold uppercase tracking-[0.14em] text-[#7B6E5C]">Payment Methods</div>
+            <div>
+              <div className="text-[18px] font-semibold leading-tight text-[#0D1B2A]">Mobile Money</div>
+              <div className="mt-1 text-[14px] text-[#7B6E5C]">M-Pesa · Orange Money · MTN · Airtel · Wave</div>
             </div>
-          </div>
-
-          {/* Day Pass */}
-          <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-[#221913] via-[#603b1c] to-[#9a632a] p-8 text-center shadow-xl sm:p-10">
-            <div
-              className="pointer-events-none absolute -top-20 right-[-10%] h-64 w-64 rounded-full opacity-20 blur-3xl"
-              style={{ background: "radial-gradient(circle, var(--accent) 0%, transparent 70%)" }}
-            />
-            <div className="relative">
-              <h3 className="heading text-2xl font-bold mb-4 text-white sm:text-3xl">
-                24-Hour Day Pass
-              </h3>
-              <div className="text-4xl font-bold mb-4 text-[#e3ba65] sm:text-5xl">
-                $9.99
-              </div>
-              <p className="text-base mb-6 max-w-2xl mx-auto text-[#e3ba65]/95 sm:text-xl">
-                Get full Pro-level access for 24 hours including 20 AI queries, 10 downloads, and 2 reports
-              </p>
-              <button
-                type="button"
-                onClick={() => handleDayPassCheckout()}
-                disabled={checkoutLoading !== null}
-                className="rounded-xl border border-white/20 bg-white px-6 py-3 font-bold text-sm text-[#603b1c] shadow-xl transition hover:bg-white/95 hover:shadow-2xl disabled:opacity-70 sm:px-8 sm:py-4 sm:text-lg"
-              >
-                {checkoutLoading === "day-pass" ? "Redirecting…" : "Get Day Pass"}
-              </button>
-              <p className="text-xs mt-4 text-[#e3ba65]/90 sm:text-sm">
-                Perfect for one-time research or testing the platform
-              </p>
+            <div>
+              <div className="text-[18px] font-semibold leading-tight text-[#0D1B2A]">Credit / debit card</div>
+              <div className="mt-1 text-[14px] text-[#7B6E5C]">Visa · Mastercard</div>
+            </div>
+            <div>
+              <div className="text-[18px] font-semibold leading-tight text-[#0D1B2A]">Bank transfer</div>
+              <div className="mt-1 text-[14px] text-[#7B6E5C]">Invoice-ready for institutions</div>
             </div>
           </div>
         </div>
       </section>
 
+      {/* Pay-as-You-Go Section */}
+      <section className="border-t border-[#E8E4DC] bg-[#FAFAF7] py-14 sm:py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto mb-8 max-w-2xl text-center">
+            <p className={prototypeHeroEyebrowClass}>Pay-as-you-go</p>
+            <h2 className="heading mt-2 text-3xl font-bold text-[#0D1B2A] sm:text-4xl">Add what you need, when you need it.</h2>
+            <p className="mt-2 text-[15px] text-[#5D5348]">
+              No subscription? No problem. Use these on the Free tier - or top up any plan.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => handlePayAsYouGoCheckout("document")}
+              disabled={checkoutLoading !== null}
+              className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-[#E1DDD5] bg-white px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
+            >
+              <div className="pr-6">
+                <div className="text-[33px] font-semibold leading-tight text-[#0D1B2A]">Print a law</div>
+                <div className="mt-1 text-[15px] leading-relaxed text-[#4B5563]">
+                  Download a full law as a clean, print-ready PDF - including amendments and metadata.
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-[46px] font-bold leading-none text-[#C8922A]">$3</div>
+                <div className="mt-1 text-[11px] text-[#8A8074]">per law</div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleDayPassCheckout()}
+              disabled={checkoutLoading !== null}
+              className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-[#E1DDD5] bg-white px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
+            >
+              <div className="pr-6">
+                <div className="text-[33px] font-semibold leading-tight text-[#0D1B2A]">Daily pass</div>
+                <div className="mt-1 text-[15px] leading-relaxed text-[#4B5563]">
+                  Full platform access for 24 hours with expanded usage across the platform.
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-[46px] font-bold leading-none text-[#C8922A]">$9.99</div>
+                <div className="mt-1 text-[11px] text-[#8A8074]">per day</div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handlePayAsYouGoCheckout("afcfta_report")}
+              disabled={checkoutLoading !== null}
+              className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-[#E1DDD5] bg-white px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
+            >
+              <div className="pr-6">
+                <div className="text-[33px] font-semibold leading-tight text-[#0D1B2A]">Additional AfCFTA Passport route</div>
+                <div className="mt-1 text-[15px] leading-relaxed text-[#4B5563]">
+                  One origin-to-destination country pair with checklist, rules of origin, and tariff data.
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-[46px] font-bold leading-none text-[#C8922A]">$15</div>
+                <div className="mt-1 text-[11px] text-[#8A8074]">per route</div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handlePayAsYouGoCheckout("ai_query")}
+              disabled={checkoutLoading !== null}
+              className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-[#E1DDD5] bg-white px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
+            >
+              <div className="pr-6">
+                <div className="text-[33px] font-semibold leading-tight text-[#0D1B2A]">AI research query pack</div>
+                <div className="mt-1 text-[15px] leading-relaxed text-[#4B5563]">
+                  Additional AI research query with citations back to the Yamalé Legal Library.
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-[46px] font-bold leading-none text-[#C8922A]">$1</div>
+                <div className="mt-1 text-[11px] text-[#8A8074]">per query</div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* FAQ */}
-      <section className="border-t border-border/40 bg-gradient-to-b from-background via-muted/10 to-background py-16 sm:py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="heading text-3xl font-bold text-center mb-12 text-foreground sm:text-4xl">
-            Frequently Asked Questions
+      <section className="border-t border-[#E8E4DC] bg-[#FAFAF7] py-14 sm:py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="heading mb-8 text-3xl font-bold text-[#0D1B2A] sm:text-4xl">
+            Frequently asked
           </h2>
-          <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
             {FAQ_ITEMS.map((item, i) => (
               <div
                 key={i}
-                className="rounded-xl border border-border/70 bg-card/95 p-5 shadow-sm backdrop-blur-sm transition hover:border-primary/50 hover:shadow-md sm:p-6"
+                className="rounded-[8px] border border-[#E8E4DC] bg-white p-5 shadow-sm transition hover:shadow-md sm:p-6"
               >
-                <h3 className="font-bold text-base mb-2 text-muted-foreground sm:text-lg">
+                <h3 className="font-bold text-base mb-2 text-[#5D5348] sm:text-lg">
                   {item.q}
                 </h3>
-                <p className="text-sm text-foreground sm:text-base">{item.a}</p>
+                <p className="text-sm text-[#0D1B2A] sm:text-base">{item.a}</p>
               </div>
             ))}
+          </div>
+          <div className="mt-8 rounded-[8px] border border-[#E8E4DC] bg-[#F9F7F2] px-5 py-4 text-[13px] leading-relaxed text-[#6F6457]">
+            Prices shown are in USD. Subscriptions renew automatically unless canceled. Yamalé Alliance reserves the
+            right to modify pricing with notice. The platform is provided as-is and does not constitute legal advice.
           </div>
         </div>
       </section>
