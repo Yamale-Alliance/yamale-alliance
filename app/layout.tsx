@@ -1,18 +1,24 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ClerkProvider } from "@clerk/nextjs";
+import { Inter, Playfair_Display } from "next/font/google";
 import localFont from "next/font/local";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { LayoutWithSettings, LayoutWithSettingsFallback } from "@/components/platform/LayoutWithSettings";
 import "./globals.css";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
   display: "swap",
-  preload: true,
 });
+
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  variable: "--font-playfair",
+  display: "swap",
+});
+
 const geistMono = localFont({
   src: "./fonts/GeistMonoVF.woff",
   variable: "--font-geist-mono",
@@ -22,8 +28,9 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Yamalé Legal Platform",
-  description: "African legal research and compliance platform",
+  title: "Yamalé Legal Platform — Law Without Barriers. Business Without Borders.",
+  description:
+    "The first unified platform for African legal research — covering all 54 countries, AfCFTA compliance, AI-powered queries, and a curated network of African legal professionals.",
 };
 
 export default function RootLayout({
@@ -48,7 +55,7 @@ export default function RootLayout({
           />
         </head>
         <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+          className={`${inter.variable} ${playfair.variable} ${geistMono.variable} antialiased`}
         >
           <ThemeProvider>
             <Suspense fallback={<LayoutWithSettingsFallback>{children}</LayoutWithSettingsFallback>}>
