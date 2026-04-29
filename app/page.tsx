@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
-import { BookOpen, Search, ArrowRight, ChevronRight } from "lucide-react";
+import { BookOpen, Search, ChevronRight } from "lucide-react";
 import { PROTOTYPE_HERO_GRID_PATTERN } from "@/components/layout/prototype-page-styles";
 
 export default async function Home() {
@@ -182,28 +182,6 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Pricing CTA */}
-      <section className="relative overflow-hidden border-b border-[#E2DDD5] bg-[#FAFAF7] py-16 sm:py-20">
-        <div className="mx-auto max-w-4xl px-4">
-          <div className="rounded-[20px] border border-[#E2DDD5] bg-white p-10 shadow-[0_4px_16px_rgba(13,27,42,0.08)] sm:p-14">
-            <h2 className="heading text-center text-3xl font-bold tracking-tight text-[#0D1B2A] sm:text-4xl">
-              Free to read. Affordable to use.
-            </h2>
-            <p className="mx-auto mt-5 max-w-lg text-center text-lg text-[#3D4E60]">
-              Compare plans for the legal library, AfCFTA tools, AI research, and The Yamalé Vault — pay with mobile money or card.
-            </p>
-            <div className="mt-10 flex justify-center">
-              <Link
-                href="/pricing"
-                className="inline-flex items-center gap-2 rounded-[6px] bg-[#C8922A] px-10 py-4 text-base font-semibold text-white transition hover:bg-[#b07e22]"
-              >
-                View pricing
-                <ArrowRight className="h-5 w-5" />
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
   );
 }
