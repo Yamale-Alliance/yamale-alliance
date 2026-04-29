@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { Loader2 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { prototypeNavHeaderClass, prototypeNavInnerClass, prototypeNavLinkClass } from "./prototype-nav-styles";
 import { userNavLinks } from "./nav-config";
 
 function isActivePath(pathname: string | null, href: string): boolean {
@@ -30,8 +31,8 @@ type UserRole = "user" | "lawyer" | "admin";
 function HeaderNavSkeleton() {
   const pathname = usePathname();
   return (
-    <header className="sticky top-0 z-50 border-b border-border/60 bg-background/95 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+    <header className={prototypeNavHeaderClass}>
+      <div className={prototypeNavInnerClass}>
         <Link href="/" className="font-semibold text-foreground">
           <span className="tracking-tight">Yamalé</span>
         </Link>
@@ -39,13 +40,7 @@ function HeaderNavSkeleton() {
           {userNavLinks.map(({ href, label }) => {
             const active = isActivePath(pathname, href);
             return (
-              <Link
-                key={href}
-                href={href}
-                className={`rounded-lg px-3 py-2 text-sm font-medium transition hover:bg-primary/10 ${
-                  active ? "bg-primary/15 font-semibold text-primary" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
+              <Link key={href} href={href} className={prototypeNavLinkClass(active)}>
                 {label}
               </Link>
             );
