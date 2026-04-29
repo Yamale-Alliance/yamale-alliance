@@ -21,6 +21,11 @@ const config: Config = {
         "primary-foreground": "var(--primary-foreground)",
         accent: "var(--accent)",
         input: "var(--border)",
+        surface: "var(--surface)",
+        navy: {
+          DEFAULT: "var(--brand-navy)",
+          mid: "var(--brand-navy-mid)",
+        },
       },
     },
   },
