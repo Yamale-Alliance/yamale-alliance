@@ -1043,16 +1043,6 @@ export default function LawDetailPage({
                 {law.categories.name}
               </span>
             )}
-            {law.source_url && (
-              <a
-                href={law.source_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-xs font-medium text-white transition hover:bg-white/18"
-              >
-                Source
-              </a>
-            )}
           </div>
           {isAdmin && (
             <div className="mt-4 flex flex-col gap-2 rounded-xl border border-[rgba(200,146,42,0.35)] bg-[rgba(255,255,255,0.06)] px-4 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center">
@@ -1204,21 +1194,18 @@ export default function LawDetailPage({
                 <p className="mt-5 text-base text-muted-foreground">
                   Full text for this law is not yet available.
                 </p>
-                {law.source_url && (
-                  <a
-                    href={law.source_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-5 inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-                  >
-                    View source
-                  </a>
-                )}
               </div>
             )}
 
             {hasContent && (
-              <article className="w-full overflow-hidden rounded-3xl border border-border/80 bg-card shadow-2xl shadow-black/[0.08] ring-1 ring-black/[0.05] dark:ring-white/10 transition-shadow duration-300 hover:shadow-black/[0.12] print:shadow-none print:ring-0 print:border print:bg-white" dir={isRtl ? "rtl" : undefined} lang={isRtl ? "ar" : undefined}>
+              <article
+                className="w-full overflow-hidden rounded-3xl border border-border/80 bg-card shadow-2xl shadow-black/[0.08] ring-1 ring-black/[0.05] dark:ring-white/10 transition-shadow duration-300 hover:shadow-black/[0.12] print:shadow-none print:ring-0 print:border print:bg-white select-none"
+                dir={isRtl ? "rtl" : undefined}
+                lang={isRtl ? "ar" : undefined}
+                onCopy={(e) => e.preventDefault()}
+                onCut={(e) => e.preventDefault()}
+                onContextMenu={(e) => e.preventDefault()}
+              >
                 {/* Accent strip */}
                 <div className="h-2 w-full bg-gradient-to-r from-primary via-primary to-amber-500/80" aria-hidden />
                 <div className={`mx-auto w-full max-w-4xl px-6 py-8 sm:px-12 sm:py-10 md:px-16 md:py-14 ${isRtl ? "text-right" : ""}`} dir={isRtl ? "rtl" : undefined} lang={isRtl ? "ar" : undefined}>
