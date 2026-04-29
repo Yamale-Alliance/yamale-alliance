@@ -8,6 +8,7 @@ import { useState, useMemo } from "react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { CartDrawer } from "@/components/cart/CartDrawer";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
+import { prototypeNavHeaderClass, prototypeNavInnerClass, prototypeNavLinkClass } from "./prototype-nav-styles";
 import { userNavLinks } from "./nav-config";
 import type { LucideIcon } from "lucide-react";
 
@@ -29,8 +30,8 @@ export function UserHeader() {
   );
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/60 bg-background/95 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+    <header className={prototypeNavHeaderClass}>
+      <div className={prototypeNavInnerClass}>
         <Link href="/" className="flex items-center transition-opacity hover:opacity-90">
           <PlatformLogo height={72} width={240} className="h-18 sm:h-20" />
         </Link>
@@ -40,13 +41,7 @@ export function UserHeader() {
           {links.map(({ href, label }) => {
             const active = isActivePath(pathname, href);
             return (
-              <Link
-                key={href}
-                href={href}
-                className={`rounded-lg px-3 py-2 text-sm font-medium transition hover:bg-primary/10 ${
-                  active ? "bg-primary/15 font-semibold text-primary" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
+              <Link key={href} href={href} className={prototypeNavLinkClass(active)}>
                 {label}
               </Link>
             );
