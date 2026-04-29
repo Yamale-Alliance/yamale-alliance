@@ -1,45 +1,55 @@
-@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Inter:wght@300;400;500;600;700;800&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Yamalé prototype palette — navy / cream / gold (yamale_prototype.html).
+ * Semantic vars map to Tailwind theme-* utilities where listed below.
+ */
 :root {
-  /* Light theme using brand palette */
-  --background: #ffffff;
-  --foreground: #221913;
-  --muted: #e3ba65;
-  --muted-foreground: #603b1c;
+  --background: #fafaf7;
+  --foreground: #0d1b2a;
+  --muted: #f4f1eb;
+  --muted-foreground: #3d4e60;
   --card: #ffffff;
-  --card-foreground: #221913;
-  --border: #e3ba65;
-  --primary: #c18c43;
-  --primary-foreground: #221913;
-  --accent: #603b1c;
+  --card-foreground: #0d1b2a;
+  --border: #e2ddd5;
+  --primary: #c8922a;
+  --primary-foreground: #ffffff;
+  --accent: #162436;
+  --surface: #f4f1eb;
+  --brand-navy: #0d1b2a;
+  --brand-navy-mid: #162436;
 }
 
 .dark {
-  /* Dark theme using brand palette */
-  --background: #221913;
-  --foreground: #e3ba65;
-  --muted: #603b1c;
-  --muted-foreground: #e3ba65;
-  --card: #221913;
-  --card-foreground: #e3ba65;
-  --border: #9a632a;
-  --primary: #e3ba65;
-  --primary-foreground: #221913;
-  --accent: #c18c43;
+  --background: #0d1b2a;
+  --foreground: #f4f1eb;
+  --muted: #162436;
+  --muted-foreground: #9aacbf;
+  --card: #162436;
+  --card-foreground: #f4f1eb;
+  --border: #2a3f56;
+  --primary: #e8b84b;
+  --primary-foreground: #0d1b2a;
+  --accent: #e8b84b;
+  --surface: #1e3148;
+  --brand-navy: #f4f1eb;
+  --brand-navy-mid: #e8eef5;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
-h1, h2, h3, h4, .heading {
-  font-family: 'Libre Baskerville', serif;
+h1,
+h2,
+h3,
+h4,
+.heading {
+  font-family: var(--font-playfair), ui-serif, Georgia, serif;
 }
 
 @layer utilities {
@@ -80,7 +90,7 @@ h1, h2, h3, h4, .heading {
     left: -100%;
     width: 60%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
     transition: left 0.6s ease;
   }
   .shine-hover:hover::after {
@@ -89,6 +99,11 @@ h1, h2, h3, h4, .heading {
 }
 
 @keyframes gradient-shift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
 }
