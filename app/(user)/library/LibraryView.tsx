@@ -3,7 +3,23 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Search, BookOpen, ArrowRight, Filter, X, Bookmark, Sparkles, Calendar, FileEdit, Eye, BookmarkCheck, ChevronLeft, ChevronRight, Printer, Loader2 } from "lucide-react";
+import {
+  Search,
+  ArrowRight,
+  Filter,
+  X,
+  Bookmark,
+  Sparkles,
+  Calendar,
+  FileEdit,
+  Eye,
+  BookmarkCheck,
+  ChevronLeft,
+  ChevronRight,
+  Printer,
+  Loader2,
+  Info,
+} from "lucide-react";
 import type { LibraryCountry, LibraryCategory, LibraryLawRow } from "@/lib/library-data";
 import { useUser } from "@clerk/nextjs";
 import { useAlertDialog } from "@/components/ui/use-confirm";
@@ -727,82 +743,84 @@ export function LibraryView({
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-[#FAFAF7]">
       {alertDialog}
-      {/* Header — gradient, modern filters */}
-      <div className="relative border-b border-border/50 bg-gradient-to-b from-primary/5 to-transparent">
-        <div
-          className="pointer-events-none absolute inset-0 -z-10 overflow-hidden opacity-50 dark:opacity-30"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23c18c43' fill-opacity='0.06' fill-rule='evenodd'%3E%3Cpath d='M0 40L40 0H20L0 20m40 20V20L20 40'/%3E%3C/g%3E%3C/svg%3E")`,
-          }}
-        />
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-                <BookOpen className="h-6 w-6 text-primary" />
-                African Legal Library
-              </h1>
-              <p className="mt-2 text-muted-foreground">
-                Browse by jurisdiction and domain. No sign-in required.
-              </p>
-            </div>
+      <section className="bg-gradient-to-br from-[#0D1B2A] to-[#1E3148] px-4 pb-14 pt-12 sm:px-8">
+        <div className="mx-auto max-w-[1280px]">
+          <p className="mb-4 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.5px] text-[#E8B84B]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#E8B84B]" />
+            Legal Library
+          </p>
+          <h1 className="heading max-w-[820px] text-3xl font-bold text-white sm:text-4xl">
+            Every African country&apos;s business laws — free to read, in one place.
+          </h1>
+          <p className="mt-2 max-w-[760px] text-[15px] text-white/60">
+            Browse and search legislation from all 54 African countries. Reading is free — sign in with any email to begin.
+          </p>
+          <div className="relative z-30 mt-7 isolate">
+            <Search className="pointer-events-none absolute left-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[#7A8899]" />
+            <input
+              type="search"
+              placeholder="Search by law name, category, or keyword…"
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 120)}
+              className="w-full rounded-[12px] border-0 bg-white py-3.5 pl-12 pr-4 text-sm text-[#0D1B2A] shadow-[0_12px_40px_rgba(13,27,42,0.12)] outline-none"
+              autoComplete="off"
+              aria-autocomplete="list"
+              aria-expanded={showSuggestions && searchSuggestions.length > 0}
+            />
+            {showSuggestions && searchSuggestions.length > 0 && (
+              <ul role="listbox" className="absolute left-0 right-0 top-full z-50 mt-2 max-h-64 overflow-y-auto rounded-xl border border-[#E2DDD5] bg-white py-1 shadow-2xl">
+                {searchSuggestions.map((item) => (
+                  <li key={item} role="option">
+                    <button
+                      type="button"
+                      onMouseDown={() => {
+                        setSearchInput(item);
+                        fetch("/api/search/analytics", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ event: "suggestion_click", suggestion: item }),
+                          keepalive: true,
+                        }).catch(() => {});
+                      }}
+                      className="flex w-full items-center px-3 py-2.5 text-left text-sm text-[#0D1B2A] transition hover:bg-[#F4F1EB]"
+                    >
+                      <span className="truncate">{item}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
+          <p className="mt-3 text-xs text-white/50">All 54 African countries · 8 legal domains</p>
+        </div>
+      </section>
 
-          <div className="mt-6 space-y-4">
-            <div className="relative z-30 isolate">
-              <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="search"
-                placeholder="Search by law title, country, or category"
-                value={searchInput}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                onFocus={() => setShowSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 120)}
-                className="relative z-10 w-full rounded-xl border border-border/80 bg-background py-3 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                autoComplete="off"
-                aria-autocomplete="list"
-                aria-expanded={showSuggestions && searchSuggestions.length > 0}
-              />
-              {showSuggestions && searchSuggestions.length > 0 && (
-                <ul
-                  role="listbox"
-                  className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-64 overflow-y-auto overflow-x-hidden rounded-xl border border-border bg-card py-1 text-card-foreground shadow-2xl dark:border-border/80 dark:shadow-black/40"
-                >
-                  {searchSuggestions.map((item) => (
-                    <li key={item} role="option">
-                      <button
-                        type="button"
-                        onMouseDown={() => {
-                          setSearchInput(item);
-                          fetch("/api/search/analytics", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ event: "suggestion_click", suggestion: item }),
-                            keepalive: true,
-                          }).catch(() => {});
-                        }}
-                        className="flex w-full items-center px-3 py-2.5 text-left text-sm text-card-foreground transition hover:bg-muted/80 active:bg-muted"
-                      >
-                        <span className="min-w-0 flex-1 truncate">{item}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+      <div className="mx-auto max-w-[1280px] px-4 pt-7 sm:px-8">
+        <div className="rounded-r-[12px] border-l-[3px] border-[#C8922A] bg-[#F4F1EB] px-6 py-5">
+          <p className="heading flex items-start gap-3 text-xl leading-snug text-[#0D1B2A] sm:text-[1.35rem]">
+            <span className="font-serif text-4xl leading-none text-[#C8922A]" aria-hidden>
+              &ldquo;
+            </span>
+            <span>
+              From Cairo to Cape Town — every business law you need, in one search. No paywall to read.
+            </span>
+          </p>
+        </div>
+      </div>
 
-            <div className="relative z-0 flex flex-wrap items-center gap-3">
-              <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground sm:text-sm">
-                <Filter className="h-4 w-4" />
-                Filters
+      <div className="sticky top-[88px] z-20 mt-6 border-y border-[#E2DDD5] bg-white px-4 py-4 sm:px-8">
+        <div className="mx-auto max-w-[1280px] space-y-3">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex flex-wrap items-end gap-3">
+              <span className="inline-flex items-center gap-1.5 pb-2 text-xs font-semibold uppercase tracking-wide text-[#7A8899]">
+                <Filter className="h-4 w-4" aria-hidden />
+                Filter:
               </span>
-              <select
-                value={country}
-                onChange={(e) => handleCountryChange(e.target.value)}
-                className="rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-              >
+              <select value={country} onChange={(e) => handleCountryChange(e.target.value)} className="rounded-[6px] border border-[#E2DDD5] bg-white px-3 py-2 text-sm text-[#3D4E60]">
                 <option value="">All countries</option>
                 {countries.map((c) => (
                   <option key={c.id} value={c.name}>
@@ -810,11 +828,7 @@ export function LibraryView({
                   </option>
                 ))}
               </select>
-              <select
-                value={category}
-                onChange={(e) => handleCategoryChange(e.target.value)}
-                className="rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-              >
+              <select value={category} onChange={(e) => handleCategoryChange(e.target.value)} className="rounded-[6px] border border-[#E2DDD5] bg-white px-3 py-2 text-sm text-[#3D4E60]">
                 <option value="">All categories</option>
                 {categories.length > 0
                   ? categories.map((c) => (
@@ -828,11 +842,7 @@ export function LibraryView({
                       </option>
                     ))}
               </select>
-              <select
-                value={status}
-                onChange={(e) => handleStatusChange(e.target.value)}
-                className="rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-              >
+              <select value={status} onChange={(e) => handleStatusChange(e.target.value)} className="rounded-[6px] border border-[#E2DDD5] bg-white px-3 py-2 text-sm text-[#3D4E60]">
                 <option value="">All statuses</option>
                 {STATUSES.map((s) => (
                   <option key={s} value={s}>
@@ -840,82 +850,74 @@ export function LibraryView({
                   </option>
                 ))}
               </select>
-              <button
-                type="button"
-                onClick={() => setShowAdvancedFilters((v) => !v)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
-              >
-                Advanced
-              </button>
-              {hasFilters && (
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                >
-                  <X className="h-4 w-4" />
-                  Clear
-                </button>
-              )}
-              {bookmarkedIds.size > 0 && (
-                <Link
-                  href="/library/bookmarks"
-                  className="inline-flex items-center gap-2 rounded-xl border border-primary/50 bg-gradient-to-r from-primary/15 via-primary/10 to-primary/15 px-4 py-2.5 text-sm font-semibold text-primary shadow-sm shadow-primary/10 transition-all hover:border-primary/70 hover:bg-primary/20 hover:shadow-md hover:shadow-primary/20"
-                >
-                  <BookmarkCheck className="h-4 w-4" />
-                  <span className="hidden sm:inline">Bookmarked</span>
-                  <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs font-bold text-primary">
-                    {bookmarkedIds.size}
-                  </span>
-                </Link>
-              )}
             </div>
-            {showAdvancedFilters && (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="flex flex-col gap-2 sm:items-end">
+              <p className="text-xs text-[#7A8899]">
+                {resultsTotal.toLocaleString()} results
+                {totalPages > 0 ? (
+                  <>
+                    {" "}
+                    · Page {safePage} of {totalPages}
+                  </>
+                ) : null}
+              </p>
+              <label className="flex flex-col gap-1 text-xs text-[#7A8899] sm:items-end">
+                <span className="sr-only">Sort results</span>
                 <select
-                  value={documentType}
-                  onChange={(e) => handleDocumentTypeChange(e.target.value)}
-                  className="rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  value={sortBy}
+                  onChange={(e) => handleSortChange(e.target.value)}
+                  className="min-w-[200px] rounded-[6px] border border-[#E2DDD5] bg-white px-3 py-2 text-sm text-[#3D4E60]"
                 >
-                  <option value="">All document types</option>
-                  {DOCUMENT_TYPES.map((t) => (
-                    <option key={t} value={t}>{t}</option>
+                  {SORT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      Sort: {opt.label}
+                    </option>
                   ))}
                 </select>
-                <select
-                  value={treatyType}
-                  onChange={(e) => handleTreatyTypeChange(e.target.value)}
-                  className="rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                >
-                  <option value="">All classifications</option>
-                  {TREATY_FILTERS.filter(Boolean).map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  placeholder="Year from"
-                  value={yearFrom}
-                  onChange={(e) => handleYearFromChange(e.target.value)}
-                  className="rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  placeholder="Year to"
-                  value={yearTo}
-                  onChange={(e) => handleYearToChange(e.target.value)}
-                  className="rounded-xl border border-border/80 bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
-              </div>
+              </label>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => setShowAdvancedFilters((v) => !v)} className="rounded-[6px] border border-[#E2DDD5] px-3 py-2 text-sm text-[#3D4E60]">
+              Advanced
+            </button>
+            {hasFilters && (
+              <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1 rounded-[6px] border border-[#E2DDD5] px-3 py-2 text-sm text-[#3D4E60]">
+                <X className="h-3.5 w-3.5" aria-hidden /> Clear
+              </button>
+            )}
+            {bookmarkedIds.size > 0 && (
+              <Link href="/library/bookmarks" className="inline-flex items-center gap-1 rounded-[6px] border border-[#C8922A]/40 bg-[#F9F3E8] px-3 py-2 text-sm font-semibold text-[#7A5718]">
+                <BookmarkCheck className="h-3.5 w-3.5" aria-hidden /> Bookmarked ({bookmarkedIds.size})
+              </Link>
             )}
           </div>
         </div>
+        {showAdvancedFilters && (
+          <div className="mx-auto mt-3 grid max-w-[1280px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <select value={documentType} onChange={(e) => handleDocumentTypeChange(e.target.value)} className="rounded-[6px] border border-[#E2DDD5] bg-white px-3 py-2 text-sm text-[#3D4E60]">
+              <option value="">All document types</option>
+              {DOCUMENT_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+            <select value={treatyType} onChange={(e) => handleTreatyTypeChange(e.target.value)} className="rounded-[6px] border border-[#E2DDD5] bg-white px-3 py-2 text-sm text-[#3D4E60]">
+              <option value="">All classifications</option>
+              {TREATY_FILTERS.filter(Boolean).map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+            <input type="number" inputMode="numeric" placeholder="Year from" value={yearFrom} onChange={(e) => handleYearFromChange(e.target.value)} className="rounded-[6px] border border-[#E2DDD5] bg-white px-3 py-2 text-sm text-[#3D4E60]" />
+            <input type="number" inputMode="numeric" placeholder="Year to" value={yearTo} onChange={(e) => handleYearToChange(e.target.value)} className="rounded-[6px] border border-[#E2DDD5] bg-white px-3 py-2 text-sm text-[#3D4E60]" />
+          </div>
+        )}
       </div>
 
-      {/* Results */}
-      <div className="mx-auto max-w-6xl px-4 py-8">
+      <div className="mx-auto max-w-[1280px] px-4 py-8 sm:px-8">
         {loadingLaws && (
           <div className="space-y-4">
             <div className="h-5 w-28 animate-pulse rounded-lg bg-muted" />
@@ -938,34 +940,12 @@ export function LibraryView({
         )}
         {!loadingLaws && !error && (
           <>
-            <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-wrap items-center gap-3">
-                <p className="text-sm font-medium text-muted-foreground">
-                  {resultsTotal.toLocaleString()} result{resultsTotal !== 1 ? "s" : ""}
-                  {totalPages > 1 && (
-                    <span className="ml-1 text-muted-foreground">
-                      (page {safePage} of {totalPages})
-                    </span>
-                  )}
-                </p>
-                <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>Sort:</span>
-                  <select
-                    value={sortBy}
-                    onChange={(e) => handleSortChange(e.target.value)}
-                    className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  >
-                    {SORT_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+            {totalPages > 1 && (
+              <div className="mb-5 flex justify-end">
+                <PageSelector />
               </div>
-              {totalPages > 1 && <PageSelector />}
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            )}
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {paginatedLaws.map((law) => {
                 const lawHref =
                   (hasFilters || sortBy !== "title-asc" || safePage > 1)
@@ -989,7 +969,7 @@ export function LibraryView({
                 return (
                   <div
                     key={law.id}
-                    className="group flex flex-col rounded-2xl border border-border/80 bg-card p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10"
+                    className="group flex flex-col rounded-[12px] border border-[#E2DDD5] bg-white p-[22px] shadow-[0_1px_3px_rgba(13,27,42,0.06)] transition-all hover:-translate-y-0.5 hover:border-[#C5BFBA] hover:shadow-[0_4px_16px_rgba(13,27,42,0.08)]"
                   >
                     <Link
                       href={lawHref}
@@ -1003,8 +983,8 @@ export function LibraryView({
                       }}
                       className="flex min-w-0 flex-1 flex-col"
                     >
-                      <h2 className="font-semibold text-foreground group-hover:text-primary">{law.name}</h2>
-                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                      <h2 className="text-[15px] font-bold leading-[1.35] text-[#0D1B2A]">{law.name}</h2>
+                      <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[12.5px] text-[#7A8899]">
                         <span>{law.country}</span>
                         <span>·</span>
                         <span>{law.category}</span>
@@ -1016,14 +996,14 @@ export function LibraryView({
                         isAdmin={isAdmin}
                       />
                     </Link>
-                    <div className="mt-4 flex items-center gap-2">
+                    <div className="mt-4 flex items-center gap-2 border-t border-[#E2DDD5] pt-3">
                       <StatusBadge status={law.status} />
                       <div className="ml-auto flex items-center gap-2 opacity-0 transition group-hover:opacity-100">
                         <button
                           type="button"
                           onClick={() => handlePrintPayment(law.id)}
                           disabled={printLoadingId === law.id}
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#7A8899] hover:bg-[#F4F1EB] hover:text-[#0D1B2A] disabled:opacity-50"
                           title="Print or download ($3) — payment required"
                         >
                           {printLoadingId === law.id ? (
@@ -1035,7 +1015,7 @@ export function LibraryView({
                         </button>
                         <Link
                           href={lawHref}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-[#C8922A] hover:underline"
                         >
                           View
                           <ArrowRight className="h-3.5 w-3.5" />
@@ -1047,10 +1027,40 @@ export function LibraryView({
               })}
             </div>
             {sortedLaws.length === 0 && (
-              <p className="py-12 text-center text-muted-foreground">
+              <p className="py-12 text-center text-[#7A8899]">
                 No laws match your filters. Try adjusting your search or filters.
               </p>
             )}
+            <aside className="mt-12 rounded-xl border border-[#E2DDD5] bg-[#F4F1EB] px-5 py-5 sm:px-6">
+              <div className="flex gap-3 sm:gap-4">
+                <Info className="mt-0.5 h-5 w-5 shrink-0 text-[#7A8899]" aria-hidden />
+                <div className="min-w-0 text-sm leading-relaxed text-[#3D4E60]">
+                  <p className="font-semibold text-[#0D1B2A]">About this library.</p>
+                  <p className="mt-2">
+                    The Yamalé Legal Library covers all 54 African countries across 8 legal domains and is continuously
+                    expanding. Content is provided for reference only and may not reflect the most current version of each
+                    law. Where coverage is incomplete, we indicate it clearly. Notice a missing law? Use the{" "}
+                    <a
+                      href="mailto:it@yamalealliance.org?subject=Suggest%20a%20law"
+                      className="font-medium text-[#0D1B2A] underline decoration-[#C8922A] underline-offset-2 hover:text-[#C8922A]"
+                    >
+                      Suggest a law
+                    </a>{" "}
+                    feature to flag it, or{" "}
+                    <Link href="/terms" className="font-medium text-[#0D1B2A] underline decoration-[#C8922A] underline-offset-2 hover:text-[#C8922A]">
+                      read the full accuracy notice →
+                    </Link>{" "}
+                    Need help interpreting a specific law?{" "}
+                    <Link
+                      href="/lawyers"
+                      className="font-semibold text-[#C8922A] underline decoration-[#C8922A] underline-offset-2 hover:text-[#b07e22]"
+                    >
+                      Browse the Yamalé Lawyer Network →
+                    </Link>
+                  </p>
+                </div>
+              </div>
+            </aside>
             {totalPages > 1 && sortedLaws.length > 0 && (
               <div className="mt-8 flex justify-center">
                 <PageSelector />
