@@ -496,8 +496,8 @@ export default function PricingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mx-auto mb-8 max-w-2xl text-center">
             <p className={prototypeHeroEyebrowClass}>Pay-as-you-go</p>
-            <h2 className="heading mt-2 text-3xl font-bold text-foreground sm:text-4xl">Add what you need, when you need it.</h2>
-            <p className="mt-2 text-[15px] text-muted-foreground">
+            <h2 className="heading mt-2 text-2xl font-bold text-foreground sm:text-3xl">Add what you need, when you need it.</h2>
+            <p className="mt-2 text-sm text-muted-foreground sm:text-[15px]">
               No subscription? No problem. Use these on the Free tier - or top up any plan.
             </p>
           </div>
@@ -509,15 +509,15 @@ export default function PricingPage() {
               disabled={checkoutLoading !== null}
               className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
             >
-              <div className="pr-6">
-                <div className="text-[33px] font-semibold leading-tight text-foreground">Print a law</div>
-                <div className="mt-1 text-[15px] leading-relaxed text-muted-foreground">
+              <div className="pr-4 sm:pr-6">
+                <div className="text-xl font-semibold leading-tight text-foreground sm:text-[28px]">Print a law</div>
+                <div className="mt-1 text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
                   Download a full law as a clean, print-ready PDF - including amendments and metadata.
                 </div>
               </div>
               <div className="shrink-0 text-right">
-                <div className="text-[46px] font-bold leading-none text-[#C8922A]">$3</div>
-                <div className="mt-1 text-[11px] text-muted-foreground">per law</div>
+                <div className="text-3xl font-bold leading-none text-[#C8922A] sm:text-[40px]">$3</div>
+                <div className="mt-1 text-[10px] text-muted-foreground sm:text-[11px]">per law</div>
               </div>
             </button>
 
@@ -527,15 +527,15 @@ export default function PricingPage() {
               disabled={checkoutLoading !== null}
               className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
             >
-              <div className="pr-6">
-                <div className="text-[33px] font-semibold leading-tight text-foreground">Daily pass</div>
-                <div className="mt-1 text-[15px] leading-relaxed text-muted-foreground">
+              <div className="pr-4 sm:pr-6">
+                <div className="text-xl font-semibold leading-tight text-foreground sm:text-[28px]">Daily pass</div>
+                <div className="mt-1 text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
                   Full platform access for 24 hours with expanded usage across the platform.
                 </div>
               </div>
               <div className="shrink-0 text-right">
-                <div className="text-[46px] font-bold leading-none text-[#C8922A]">$9.99</div>
-                <div className="mt-1 text-[11px] text-muted-foreground">per day</div>
+                <div className="text-3xl font-bold leading-none text-[#C8922A] sm:text-[40px]">$9.99</div>
+                <div className="mt-1 text-[10px] text-muted-foreground sm:text-[11px]">per day</div>
               </div>
             </button>
 
@@ -545,15 +545,15 @@ export default function PricingPage() {
               disabled={checkoutLoading !== null}
               className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
             >
-              <div className="pr-6">
-                <div className="text-[33px] font-semibold leading-tight text-foreground">Additional AfCFTA Passport route</div>
-                <div className="mt-1 text-[15px] leading-relaxed text-muted-foreground">
+              <div className="pr-4 sm:pr-6">
+                <div className="text-xl font-semibold leading-tight text-foreground sm:text-[28px]">Additional AfCFTA Passport route</div>
+                <div className="mt-1 text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
                   One origin-to-destination country pair with checklist, rules of origin, and tariff data.
                 </div>
               </div>
               <div className="shrink-0 text-right">
-                <div className="text-[46px] font-bold leading-none text-[#C8922A]">$15</div>
-                <div className="mt-1 text-[11px] text-muted-foreground">per route</div>
+                <div className="text-3xl font-bold leading-none text-[#C8922A] sm:text-[40px]">$15</div>
+                <div className="mt-1 text-[10px] text-muted-foreground sm:text-[11px]">per route</div>
               </div>
             </button>
 
@@ -563,15 +563,15 @@ export default function PricingPage() {
               disabled={checkoutLoading !== null}
               className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
             >
-              <div className="pr-6">
-                <div className="text-[33px] font-semibold leading-tight text-foreground">AI research query pack</div>
-                <div className="mt-1 text-[15px] leading-relaxed text-muted-foreground">
+              <div className="pr-4 sm:pr-6">
+                <div className="text-xl font-semibold leading-tight text-foreground sm:text-[28px]">AI research query pack</div>
+                <div className="mt-1 text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
                   Additional AI research query with citations back to the Yamalé Legal Library.
                 </div>
               </div>
               <div className="shrink-0 text-right">
-                <div className="text-[46px] font-bold leading-none text-[#C8922A]">$1</div>
-                <div className="mt-1 text-[11px] text-muted-foreground">per query</div>
+                <div className="text-3xl font-bold leading-none text-[#C8922A] sm:text-[40px]">$1</div>
+                <div className="mt-1 text-[10px] text-muted-foreground sm:text-[11px]">per query</div>
               </div>
             </button>
           </div>
