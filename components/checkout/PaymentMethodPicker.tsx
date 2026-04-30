@@ -11,7 +11,7 @@ type Props = {
   stripeAvailable?: boolean;
 };
 
-/** Choose pawaPay (mobile money) or Stripe (cards) before redirecting to payment. */
+/** Choose mobile money or card before redirecting to payment. */
 export function PaymentMethodPicker({ value, onChange, stripeAvailable = true }: Props) {
   return (
     <div className="space-y-3">
@@ -27,9 +27,8 @@ export function PaymentMethodPicker({ value, onChange, stripeAvailable = true }:
           }`}
         >
           <div className="mb-2 flex w-full items-center justify-between gap-2">
-            {/* Wordmark-style label; replace with /public/payment-logos/pawapay.svg if you add an official asset */}
             <span className="text-lg font-bold tracking-tight text-emerald-700 dark:text-emerald-400">
-              pawaPay
+              Mobile Money
             </span>
             <div className="flex items-center gap-2">
               {value === "pawapay" && (
@@ -41,7 +40,7 @@ export function PaymentMethodPicker({ value, onChange, stripeAvailable = true }:
             </div>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Pay with mobile money (MTN, Orange, and other local wallets where supported).
+            Pay with mobile money where supported.
           </p>
         </button>
 
@@ -58,11 +57,9 @@ export function PaymentMethodPicker({ value, onChange, stripeAvailable = true }:
           }`}
         >
           <div className="mb-2 flex w-full items-center justify-between gap-2">
-            <img
-              src="https://upload.wikimedia.org/wikipedia/commons/b/ba/Stripe_Logo%2C_revised_2016.svg"
-              alt="Stripe"
-              className="h-7 w-auto max-w-[100px] object-contain dark:brightness-110"
-            />
+            <span className="text-lg font-bold tracking-tight text-[#635BFF]">
+              Card
+            </span>
             <div className="flex items-center gap-2">
               {value === "stripe" && (
                 <span className="rounded-full bg-[#635BFF]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#635BFF]">
@@ -73,7 +70,7 @@ export function PaymentMethodPicker({ value, onChange, stripeAvailable = true }:
             </div>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Pay with Visa, Mastercard, and other major cards (processed securely by Stripe).
+            Pay with major debit or credit cards.
           </p>
           {!stripeAvailable && (
             <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-400">
