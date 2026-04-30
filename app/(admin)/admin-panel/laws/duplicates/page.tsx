@@ -10,7 +10,6 @@ type DuplicateLaw = {
   title: string;
   year: number | null;
   status: string;
-  source_url: string | null;
   created_at: string;
   updated_at: string | null;
   country_id: string | null;
@@ -243,7 +242,6 @@ export default function AdminLawDuplicatesPage() {
                         <th className="p-2 text-left font-medium">Year</th>
                         <th className="p-2 text-left font-medium">Country</th>
                         <th className="p-2 text-left font-medium">Claude cleaned</th>
-                        <th className="p-2 text-left font-medium">Source URL</th>
                         <th className="p-2 text-left font-medium">Created at</th>
                       </tr>
                     </thead>
@@ -264,9 +262,6 @@ export default function AdminLawDuplicatesPage() {
                           <td className="p-2 align-top">{law.year ?? "—"}</td>
                           <td className="p-2 align-top">{law.country_name ?? "—"}</td>
                           <td className="p-2 align-top">{law.is_claude_cleaned ? "Yes" : "No"}</td>
-                          <td className="p-2 align-top text-muted-foreground max-w-[220px] truncate">
-                            {law.source_url ?? "—"}
-                          </td>
                           <td className="p-2 align-top text-muted-foreground">
                             {law.created_at
                               ? new Date(law.created_at).toLocaleDateString()
