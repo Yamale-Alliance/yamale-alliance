@@ -21,7 +21,6 @@ import {
   Loader2,
   Copy,
   Check,
-  AlertTriangle,
 } from "lucide-react";
 import { canShareByEmail, canDownloadConversations } from "@/lib/plan-limits";
 
@@ -688,7 +687,7 @@ export default function AIResearchPage() {
     <>
       {/* Yamalé prototype — AI Research: 280px navy sidebar + cream/white main */}
       <div
-        className="fixed inset-x-0 z-10 grid grid-cols-1 overflow-hidden bg-[#FAFAF7] md:grid-cols-[280px_minmax(0,1fr)]"
+        className="fixed inset-x-0 z-10 grid grid-cols-1 overflow-hidden bg-background md:grid-cols-[280px_minmax(0,1fr)]"
         style={{ top: shellTopOffset, height: `calc(100dvh - ${shellTopOffset}px)` }}
       >
         <aside
@@ -801,23 +800,26 @@ export default function AIResearchPage() {
           />
         )}
 
-        <div className="relative z-[1] flex min-h-0 min-w-0 flex-col overflow-hidden bg-[#FAFAF7]">
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#E8E4DC] bg-[#FAFAF7] px-4 py-3 md:px-8 md:py-4">
+        <div className="relative z-[1] flex min-h-0 min-w-0 flex-col overflow-hidden bg-background">
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-4 py-2 md:px-8 md:py-2.5">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
                 onClick={() => setSidebarOpen((o) => !o)}
-                className="shrink-0 rounded-lg p-2 text-[#0D1B2A]/60 hover:bg-[#0D1B2A]/[0.06] hover:text-[#0D1B2A] md:hidden"
+                className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground md:hidden"
                 aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
               >
                 <Menu className="h-5 w-5" />
               </button>
               <div className="min-w-0">
-                <h1 className="heading truncate text-[15px] font-semibold tracking-tight text-[#0D1B2A] md:text-base">
+                <h1 className="heading truncate text-[14px] font-semibold tracking-tight text-foreground md:text-[15px]">
                   AI Legal Research
                 </h1>
-                <p className="hidden truncate text-[12px] text-[#0D1B2A]/45 sm:block">
+                <p className="hidden truncate text-[11px] leading-tight text-muted-foreground sm:block">
                   Yamalé AI · African law and compliance
+                </p>
+                <p className="hidden text-[10px] leading-tight text-muted-foreground/90 sm:block">
+                  Indicative research only. Not legal advice.
                 </p>
               </div>
             </div>
@@ -841,18 +843,18 @@ export default function AIResearchPage() {
                             aria-hidden
                             onClick={() => setShareOpen(false)}
                           />
-                          <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-[6px] border border-[#E8E4DC] bg-white py-1 shadow-lg">
+                          <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-[6px] border border-border bg-card py-1 shadow-lg">
                             <button
                               type="button"
                               onClick={handleShareEmail}
-                              className="w-full px-3 py-2 text-left text-sm hover:bg-[#FAFAF7]"
+                              className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
                             >
                               Share by email
                             </button>
                             <button
                               type="button"
                               onClick={handleCopyChat}
-                              className="w-full px-3 py-2 text-left text-sm hover:bg-[#FAFAF7]"
+                              className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
                             >
                               Copy chat
                             </button>
@@ -873,32 +875,24 @@ export default function AIResearchPage() {
                   )}
                 </>
               )}
-              <span className="rounded-full border border-[#E8E4DC] bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#0D1B2A]/50">
+              <span className="rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {tier === "free" && payAsYouGoCount > 0 ? "Limited" : TIER_LABELS[tier]}
               </span>
             </div>
-          </div>
-
-          <div className="flex shrink-0 items-start gap-2 border-b border-[#E8E4DC] bg-[#FFFDF8] px-4 py-2.5 md:px-8">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#C8922A]" aria-hidden />
-            <p className="text-[12px] leading-snug text-[#0D1B2A]/55">
-              <span className="font-semibold text-[#0D1B2A]/70">Disclaimer:</span> Yamalé AI provides indicative
-              research only. It is not legal advice. Always verify with qualified counsel before acting.
-            </p>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             <div className="mx-auto max-w-[760px] px-4 py-8 md:px-8 md:py-10">
               {messages.length === 0 ? (
                 <div className="text-center">
-                  <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full border border-[#E8E4DC] bg-white shadow-sm">
+                  <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full border border-border bg-card shadow-sm">
                     <Sparkles className="h-7 w-7 text-[#C8922A]" strokeWidth={1.5} aria-hidden />
                   </div>
                   <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#C8922A]">Yamalé AI</p>
-                  <h2 className="heading mb-3 text-[26px] font-semibold tracking-tight text-[#0D1B2A] md:text-[30px]">
+                  <h2 className="heading mb-3 text-[26px] font-semibold tracking-tight text-foreground md:text-[30px]">
                     What would you like to research?
                   </h2>
-                  <p className="mx-auto mb-10 max-w-md text-[14px] leading-relaxed text-[#0D1B2A]/45">
+                  <p className="mx-auto mb-10 max-w-md text-[14px] leading-relaxed text-muted-foreground">
                     Ask about African law, AfCFTA, or compliance. Responses are indicative only.
                   </p>
                   <div className="mx-auto grid max-w-lg grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -908,7 +902,7 @@ export default function AIResearchPage() {
                         type="button"
                         onClick={() => sendMessage(q).catch(() => {})}
                         disabled={atLimit || isLoading}
-                        className="rounded-[6px] border border-[#E8E4DC] bg-white px-4 py-3 text-left text-[13px] leading-snug text-[#0D1B2A]/70 transition hover:border-[#C8922A]/40 hover:bg-[#FFFDF8] disabled:opacity-50"
+                        className="rounded-[6px] border border-border bg-card px-4 py-3 text-left text-[13px] leading-snug text-muted-foreground transition hover:border-[#C8922A]/40 hover:bg-muted disabled:opacity-50"
                       >
                         {q}
                       </button>
@@ -941,11 +935,11 @@ export default function AIResearchPage() {
                         className={`min-w-0 max-w-[min(100%,560px)] rounded-[10px] border px-4 py-3 shadow-sm ${
                           msg.role === "user"
                             ? "border-[#C8922A]/25 bg-[#FFFDF8] text-[#0D1B2A]"
-                            : "border-[#E8E4DC] bg-white text-[#0D1B2A]"
+                            : "border-border bg-card text-foreground"
                         }`}
                       >
                         {msg.role === "assistant" ? (
-                          <div className="prose prose-sm max-w-none text-[#0D1B2A] prose-headings:font-semibold prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-strong:font-semibold prose-a:text-[#C8922A] prose-a:underline hover:prose-a:opacity-90">
+                          <div className="prose prose-sm max-w-none text-foreground dark:prose-invert prose-headings:font-semibold prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-strong:font-semibold prose-a:text-[#C8922A] prose-a:underline hover:prose-a:opacity-90">
                             <ReactMarkdown
                               remarkPlugins={[remarkGfm]}
                               components={{
@@ -965,12 +959,12 @@ export default function AIResearchPage() {
                             </ReactMarkdown>
                           </div>
                         ) : (
-                          <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-[#0D1B2A]/85">
+                          <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-foreground/85">
                             {msg.content}
                           </p>
                         )}
                         {msg.sources && msg.sources.length > 0 && (
-                          <p className="mt-2 border-t border-[#E8E4DC]/80 pt-2 text-[11px] text-[#0D1B2A]/45">
+                          <p className="mt-2 border-t border-border/80 pt-2 text-[11px] text-muted-foreground">
                             Sources: {msg.sources.join(" · ")}
                           </p>
                         )}
@@ -980,12 +974,12 @@ export default function AIResearchPage() {
                               {msg.sourceCards.length} laws from the Yamale Legal Library
                             </p>
                             {msg.sourceCards.map((card, idx) => (
-                              <div key={`${msg.id}-${card.lawId}-${idx}`} className="rounded-[8px] border border-[#E8E4DC] bg-[#FAFAF7] p-3">
-                                <p className="text-[13px] font-semibold text-[#0D1B2A]">{idx + 1}. {card.title}</p>
-                                <p className="mt-0.5 text-[11px] text-[#6E6357]">
+                              <div key={`${msg.id}-${card.lawId}-${idx}`} className="rounded-[8px] border border-border bg-muted/50 p-3">
+                                <p className="text-[13px] font-semibold text-foreground">{idx + 1}. {card.title}</p>
+                                <p className="mt-0.5 text-[11px] text-muted-foreground">
                                   {card.country} · {card.category} · {card.status}
                                 </p>
-                                <p className="mt-1 text-[12px] text-[#0D1B2A]/70">&quot;{card.snippet}...&quot;</p>
+                                <p className="mt-1 text-[12px] text-foreground/70">&quot;{card.snippet}...&quot;</p>
                                 <Link
                                   href={`/library/${card.lawId}?returnTo=${encodeURIComponent("/ai-research")}`}
                                   className="mt-2 inline-flex text-[12px] font-semibold text-[#C8922A] hover:text-[#b88424]"
@@ -1042,8 +1036,8 @@ export default function AIResearchPage() {
                       >
                         Y
                       </div>
-                      <div className="rounded-[10px] border border-[#E8E4DC] bg-white px-4 py-3 shadow-sm">
-                        <span className="flex items-center gap-2 text-[13px] text-[#0D1B2A]/45">
+                      <div className="rounded-[10px] border border-border bg-card px-4 py-3 shadow-sm">
+                        <span className="flex items-center gap-2 text-[13px] text-muted-foreground">
                           <Loader2 className="h-4 w-4 animate-spin text-[#C8922A]" />
                           Searching…
                         </span>
@@ -1056,10 +1050,10 @@ export default function AIResearchPage() {
             </div>
           </div>
 
-          <div className="shrink-0 border-t border-[#E8E4DC] bg-white px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:px-8">
+          <div className="shrink-0 border-t border-border bg-card px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-8">
             <div className="mx-auto max-w-[760px]">
               <form onSubmit={handleSubmit}>
-                <div className="flex items-end gap-2 rounded-[8px] border border-[#E8E4DC] bg-[#FAFAF7] p-2 shadow-inner focus-within:border-[#C8922A]/35 focus-within:ring-2 focus-within:ring-[#C8922A]/15">
+                <div className="flex items-end gap-2 rounded-[8px] border border-border bg-background p-1.5 shadow-inner focus-within:border-[#C8922A]/35 focus-within:ring-2 focus-within:ring-[#C8922A]/15">
                   <textarea
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
@@ -1074,18 +1068,18 @@ export default function AIResearchPage() {
                     placeholder="Describe your legal question…"
                     disabled={atLimit}
                     rows={2}
-                    className="min-h-[44px] flex-1 resize-none bg-transparent px-2 py-2 text-[14px] text-[#0D1B2A] outline-none placeholder:text-[#0D1B2A]/35 disabled:opacity-50"
+                    className="min-h-[38px] flex-1 resize-none bg-transparent px-2 py-1.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-50"
                   />
                   <button
                     type="submit"
                     disabled={!input.trim() || atLimit || isLoading}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[6px] bg-[#0D1B2A] text-white transition hover:bg-[#162436] disabled:opacity-40"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] bg-[#0D1B2A] text-white transition hover:bg-[#162436] disabled:opacity-40"
                     aria-label="Send"
                   >
-                    <Send className="h-4 w-4" strokeWidth={2} />
+                    <Send className="h-3.5 w-3.5" strokeWidth={2} />
                   </button>
                 </div>
-                <p className="mt-2 text-center text-[11px] text-[#0D1B2A]/35">
+                <p className="mt-1.5 text-center text-[10px] text-muted-foreground">
                   {activeModelName} · Enter to send, Shift+Enter for new line
                 </p>
               </form>
