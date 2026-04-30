@@ -1125,46 +1125,50 @@ export default function AIResearchPage() {
       </div>
       {!hasAcknowledgedNotice && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[#0D1B2A]/45 px-4 py-6">
-          <div className="w-full max-w-3xl overflow-y-auto rounded-[18px] border border-[#E8E4DC] bg-white p-5 shadow-2xl md:max-h-[88dvh] md:p-7">
-            <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#C8922A]">AI Legal Research</p>
-            <h2 className="heading mt-2 text-[42px] font-semibold tracking-tight text-[#0D1B2A]">
-              Before you use AI Legal Research
-            </h2>
-            <p className="mt-4 max-w-3xl text-[15px] leading-relaxed text-[#0D1B2A]/78">
-              This tool uses Claude, an AI developed by Anthropic (United States), to answer questions about African
-              law. It searches and retrieves exclusively from the Yamale Legal Library and does not access the internet
-              or any external source. All responses are drawn from African legal texts within our controlled database.
-            </p>
-            <div className="mt-5 rounded-xl bg-[#F4F1EA] p-5">
-              <ul className="space-y-2 text-[15px] leading-relaxed text-[#0D1B2A]/78">
-                <li>• Queries you submit are processed on Anthropic&apos;s servers in the United States</li>
-                <li>• Anthropic does not use your queries to train its AI models</li>
-                <li>• Responses are for reference only and are not legal advice</li>
-              </ul>
-            </div>
-            <div className="mt-4 rounded-xl border-l-4 border-[#C8922A] bg-[#F4F1EA] p-5">
-              <p className="text-[15px] font-semibold text-[#674B12]">If you are a lawyer or legal professional</p>
-              <p className="mt-2 text-[15px] leading-relaxed text-[#674B12]/95">
-                Do not enter confidential client information, matter-specific facts, or privileged communications. Use
-                this tool for general legal research only.
+          <div className="flex max-h-[88dvh] w-full max-w-3xl flex-col rounded-[18px] border border-[#E8E4DC] bg-white p-4 shadow-2xl sm:p-6">
+            <div className="overflow-y-auto pr-1">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#C8922A] sm:text-[12px]">AI Legal Research</p>
+              <h2 className="heading mt-2 text-[28px] font-semibold tracking-tight text-[#0D1B2A] sm:text-[36px]">
+                Before you use AI Legal Research
+              </h2>
+              <p className="mt-3 max-w-3xl text-[14px] leading-relaxed text-[#0D1B2A]/78 sm:mt-4 sm:text-[15px]">
+                This tool uses Claude, an AI developed by Anthropic (United States), to answer questions about African
+                law. It searches and retrieves exclusively from the Yamale Legal Library and does not access the internet
+                or any external source. All responses are drawn from African legal texts within our controlled database.
+              </p>
+              <div className="mt-4 rounded-xl bg-[#F4F1EA] p-4 sm:mt-5 sm:p-5">
+                <ul className="space-y-2 text-[14px] leading-relaxed text-[#0D1B2A]/78 sm:text-[15px]">
+                  <li>• Queries you submit are processed on Anthropic&apos;s servers in the United States</li>
+                  <li>• Anthropic does not use your queries to train its AI models</li>
+                  <li>• Responses are for reference only and are not legal advice</li>
+                </ul>
+              </div>
+              <div className="mt-4 rounded-xl border-l-4 border-[#C8922A] bg-[#F4F1EA] p-4 sm:p-5">
+                <p className="text-[14px] font-semibold text-[#674B12] sm:text-[15px]">If you are a lawyer or legal professional</p>
+                <p className="mt-2 text-[14px] leading-relaxed text-[#674B12]/95 sm:text-[15px]">
+                  Do not enter confidential client information, matter-specific facts, or privileged communications. Use
+                  this tool for general legal research only.
+                </p>
+              </div>
+              <p className="mt-4 text-[13px] leading-relaxed text-[#0D1B2A]/55 sm:mt-5 sm:text-[14px]">
+                By clicking &quot;I Acknowledge,&quot; you confirm that you have read this notice and consent to the
+                processing of your query data as described in the Yamale Privacy Policy (Version 1.0), including the
+                transfer of query data to Anthropic&apos;s servers in the United States.
               </p>
             </div>
-            <p className="mt-5 text-[14px] leading-relaxed text-[#0D1B2A]/55">
-              By clicking &quot;I Acknowledge,&quot; you confirm that you have read this notice and consent to the
-              processing of your query data as described in the Yamale Privacy Policy (Version 1.0), including the
-              transfer of query data to Anthropic&apos;s servers in the United States.
-            </p>
-            <button
-              type="button"
-              onClick={acknowledgeNotice}
-              className="mt-5 inline-flex w-full items-center justify-center rounded-[10px] bg-[#0D1B2A] px-6 py-3 text-[18px] font-semibold text-white transition hover:bg-[#162436]"
-            >
-              I Acknowledge
-            </button>
-            <div className="mt-4 text-center">
-              <Link href="/privacy" className="text-[17px] font-medium text-[#C8922A] hover:text-[#b88424]">
-                Read our full AI data policy →
-              </Link>
+            <div className="mt-4 border-t border-[#E8E4DC] pt-4">
+              <button
+                type="button"
+                onClick={acknowledgeNotice}
+                className="inline-flex w-full items-center justify-center rounded-[10px] bg-[#0D1B2A] px-5 py-3 text-base font-semibold text-white transition hover:bg-[#162436] sm:px-6 sm:text-[18px]"
+              >
+                I Acknowledge
+              </button>
+              <div className="mt-3 text-center">
+                <Link href="/privacy" className="text-sm font-medium text-[#C8922A] hover:text-[#b88424] sm:text-base">
+                  Read our full AI data policy →
+                </Link>
+              </div>
             </div>
           </div>
         </div>
