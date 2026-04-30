@@ -743,7 +743,7 @@ export function LibraryView({
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAF7]">
+    <div className="min-h-screen bg-background">
       {alertDialog}
       <section className="bg-gradient-to-br from-[#0D1B2A] to-[#1E3148] px-4 pb-14 pt-12 sm:px-8">
         <div className="mx-auto max-w-[1280px]">
@@ -758,7 +758,7 @@ export function LibraryView({
             Browse and search legislation from all 54 African countries. Reading is free — sign in with any email to begin.
           </p>
           <div className="relative z-30 mt-7 isolate">
-            <Search className="pointer-events-none absolute left-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[#7A8899]" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="search"
               placeholder="Search by law name, category, or keyword…"
@@ -766,13 +766,13 @@ export function LibraryView({
               onChange={(e) => handleSearchChange(e.target.value)}
               onFocus={() => setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 120)}
-              className="w-full rounded-[12px] border-0 bg-white py-3.5 pl-12 pr-4 text-sm text-[#0D1B2A] shadow-[0_12px_40px_rgba(13,27,42,0.12)] outline-none"
+              className="w-full rounded-[12px] border border-border bg-card py-3.5 pl-12 pr-4 text-sm text-foreground shadow-[0_12px_40px_rgba(13,27,42,0.12)] outline-none dark:shadow-[0_12px_40px_rgba(0,0,0,0.35)]"
               autoComplete="off"
               aria-autocomplete="list"
               aria-expanded={showSuggestions && searchSuggestions.length > 0}
             />
             {showSuggestions && searchSuggestions.length > 0 && (
-              <ul role="listbox" className="absolute left-0 right-0 top-full z-50 mt-2 max-h-64 overflow-y-auto rounded-xl border border-[#E2DDD5] bg-white py-1 shadow-2xl">
+              <ul role="listbox" className="absolute left-0 right-0 top-full z-50 mt-2 max-h-64 overflow-y-auto rounded-xl border border-border bg-card py-1 shadow-2xl">
                 {searchSuggestions.map((item) => (
                   <li key={item} role="option">
                     <button
@@ -786,7 +786,7 @@ export function LibraryView({
                           keepalive: true,
                         }).catch(() => {});
                       }}
-                      className="flex w-full items-center px-3 py-2.5 text-left text-sm text-[#0D1B2A] transition hover:bg-[#F4F1EB]"
+                      className="flex w-full items-center px-3 py-2.5 text-left text-sm text-foreground transition hover:bg-muted"
                     >
                       <span className="truncate">{item}</span>
                     </button>
@@ -800,8 +800,8 @@ export function LibraryView({
       </section>
 
       <div className="mx-auto max-w-[1280px] px-4 pt-7 sm:px-8">
-        <div className="rounded-r-[12px] border-l-[3px] border-[#C8922A] bg-[#F4F1EB] px-6 py-5">
-          <p className="heading flex items-start gap-3 text-xl leading-snug text-[#0D1B2A] sm:text-[1.35rem]">
+        <div className="rounded-r-[12px] border-l-[3px] border-[#C8922A] bg-muted px-6 py-5">
+          <p className="heading flex items-start gap-3 text-xl leading-snug text-foreground sm:text-[1.35rem]">
             <span className="font-serif text-4xl leading-none text-[#C8922A]" aria-hidden>
               &ldquo;
             </span>
@@ -812,15 +812,19 @@ export function LibraryView({
         </div>
       </div>
 
-      <div className="sticky top-[88px] z-20 mt-6 border-y border-[#E2DDD5] bg-white px-4 py-4 sm:px-8">
+      <div className="mt-6 border-y border-border bg-card px-4 py-4 sm:px-8 md:sticky md:top-[88px] md:z-20">
         <div className="mx-auto max-w-[1280px] space-y-3">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="flex flex-wrap items-end gap-3">
-              <span className="inline-flex items-center gap-1.5 pb-2 text-xs font-semibold uppercase tracking-wide text-[#7A8899]">
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:pb-2">
                 <Filter className="h-4 w-4" aria-hidden />
                 Filter:
               </span>
-              <select value={country} onChange={(e) => handleCountryChange(e.target.value)} className="rounded-[6px] border border-[#E2DDD5] bg-white px-3 py-2 text-sm text-[#3D4E60]">
+              <select
+                value={country}
+                onChange={(e) => handleCountryChange(e.target.value)}
+                className="w-full rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground sm:w-auto sm:min-w-[220px]"
+              >
                 <option value="">All countries</option>
                 {countries.map((c) => (
                   <option key={c.id} value={c.name}>
@@ -828,7 +832,11 @@ export function LibraryView({
                   </option>
                 ))}
               </select>
-              <select value={category} onChange={(e) => handleCategoryChange(e.target.value)} className="rounded-[6px] border border-[#E2DDD5] bg-white px-3 py-2 text-sm text-[#3D4E60]">
+              <select
+                value={category}
+                onChange={(e) => handleCategoryChange(e.target.value)}
+                className="w-full rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground sm:w-auto sm:min-w-[220px]"
+              >
                 <option value="">All categories</option>
                 {categories.length > 0
                   ? categories.map((c) => (
@@ -842,7 +850,11 @@ export function LibraryView({
                       </option>
                     ))}
               </select>
-              <select value={status} onChange={(e) => handleStatusChange(e.target.value)} className="rounded-[6px] border border-[#E2DDD5] bg-white px-3 py-2 text-sm text-[#3D4E60]">
+              <select
+                value={status}
+                onChange={(e) => handleStatusChange(e.target.value)}
+                className="w-full rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground sm:w-auto sm:min-w-[170px]"
+              >
                 <option value="">All statuses</option>
                 {STATUSES.map((s) => (
                   <option key={s} value={s}>
@@ -852,7 +864,7 @@ export function LibraryView({
               </select>
             </div>
             <div className="flex flex-col gap-2 sm:items-end">
-              <p className="text-xs text-[#7A8899]">
+              <p className="text-xs text-muted-foreground">
                 {resultsTotal.toLocaleString()} results
                 {totalPages > 0 ? (
                   <>
@@ -861,12 +873,12 @@ export function LibraryView({
                   </>
                 ) : null}
               </p>
-              <label className="flex flex-col gap-1 text-xs text-[#7A8899] sm:items-end">
+              <label className="flex flex-col gap-1 text-xs text-muted-foreground sm:items-end">
                 <span className="sr-only">Sort results</span>
                 <select
                   value={sortBy}
                   onChange={(e) => handleSortChange(e.target.value)}
-                  className="min-w-[200px] rounded-[6px] border border-[#E2DDD5] bg-white px-3 py-2 text-sm text-[#3D4E60]"
+                  className="w-full rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground sm:min-w-[220px]"
                 >
                   {SORT_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -878,16 +890,27 @@ export function LibraryView({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => setShowAdvancedFilters((v) => !v)} className="rounded-[6px] border border-[#E2DDD5] px-3 py-2 text-sm text-[#3D4E60]">
+            <button
+              type="button"
+              onClick={() => setShowAdvancedFilters((v) => !v)}
+              className="w-full rounded-[6px] border border-border px-3 py-2 text-sm text-foreground sm:w-auto"
+            >
               Advanced
             </button>
             {hasFilters && (
-              <button type="button" onClick={clearFilters} className="inline-flex items-center gap-1 rounded-[6px] border border-[#E2DDD5] px-3 py-2 text-sm text-[#3D4E60]">
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="inline-flex w-full items-center justify-center gap-1 rounded-[6px] border border-border px-3 py-2 text-sm text-foreground sm:w-auto"
+              >
                 <X className="h-3.5 w-3.5" aria-hidden /> Clear
               </button>
             )}
             {bookmarkedIds.size > 0 && (
-              <Link href="/library/bookmarks" className="inline-flex items-center gap-1 rounded-[6px] border border-[#C8922A]/40 bg-[#F9F3E8] px-3 py-2 text-sm font-semibold text-[#7A5718]">
+              <Link
+                href="/library/bookmarks"
+                className="inline-flex w-full items-center justify-center gap-1 rounded-[6px] border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary sm:w-auto"
+              >
                 <BookmarkCheck className="h-3.5 w-3.5" aria-hidden /> Bookmarked ({bookmarkedIds.size})
               </Link>
             )}
@@ -895,7 +918,7 @@ export function LibraryView({
         </div>
         {showAdvancedFilters && (
           <div className="mx-auto mt-3 grid max-w-[1280px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <select value={documentType} onChange={(e) => handleDocumentTypeChange(e.target.value)} className="rounded-[6px] border border-[#E2DDD5] bg-white px-3 py-2 text-sm text-[#3D4E60]">
+            <select value={documentType} onChange={(e) => handleDocumentTypeChange(e.target.value)} className="rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground">
               <option value="">All document types</option>
               {DOCUMENT_TYPES.map((t) => (
                 <option key={t} value={t}>
@@ -903,7 +926,7 @@ export function LibraryView({
                 </option>
               ))}
             </select>
-            <select value={treatyType} onChange={(e) => handleTreatyTypeChange(e.target.value)} className="rounded-[6px] border border-[#E2DDD5] bg-white px-3 py-2 text-sm text-[#3D4E60]">
+            <select value={treatyType} onChange={(e) => handleTreatyTypeChange(e.target.value)} className="rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground">
               <option value="">All classifications</option>
               {TREATY_FILTERS.filter(Boolean).map((t) => (
                 <option key={t} value={t}>
@@ -911,8 +934,8 @@ export function LibraryView({
                 </option>
               ))}
             </select>
-            <input type="number" inputMode="numeric" placeholder="Year from" value={yearFrom} onChange={(e) => handleYearFromChange(e.target.value)} className="rounded-[6px] border border-[#E2DDD5] bg-white px-3 py-2 text-sm text-[#3D4E60]" />
-            <input type="number" inputMode="numeric" placeholder="Year to" value={yearTo} onChange={(e) => handleYearToChange(e.target.value)} className="rounded-[6px] border border-[#E2DDD5] bg-white px-3 py-2 text-sm text-[#3D4E60]" />
+            <input type="number" inputMode="numeric" placeholder="Year from" value={yearFrom} onChange={(e) => handleYearFromChange(e.target.value)} className="rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground" />
+            <input type="number" inputMode="numeric" placeholder="Year to" value={yearTo} onChange={(e) => handleYearToChange(e.target.value)} className="rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground" />
           </div>
         )}
       </div>
@@ -969,7 +992,7 @@ export function LibraryView({
                 return (
                   <div
                     key={law.id}
-                    className="group flex flex-col rounded-[12px] border border-[#E2DDD5] bg-white p-[22px] shadow-[0_1px_3px_rgba(13,27,42,0.06)] transition-all hover:-translate-y-0.5 hover:border-[#C5BFBA] hover:shadow-[0_4px_16px_rgba(13,27,42,0.08)]"
+                    className="group flex flex-col rounded-[12px] border border-border bg-card p-[22px] shadow-[0_1px_3px_rgba(13,27,42,0.06)] transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-[0_4px_16px_rgba(13,27,42,0.08)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.45)]"
                   >
                     <Link
                       href={lawHref}
@@ -983,8 +1006,8 @@ export function LibraryView({
                       }}
                       className="flex min-w-0 flex-1 flex-col"
                     >
-                      <h2 className="text-[15px] font-bold leading-[1.35] text-[#0D1B2A]">{law.name}</h2>
-                      <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[12.5px] text-[#7A8899]">
+                      <h2 className="text-[15px] font-bold leading-[1.35] text-foreground">{law.name}</h2>
+                      <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[12.5px] text-muted-foreground">
                         <span>{law.country}</span>
                         <span>·</span>
                         <span>{law.category}</span>
@@ -996,14 +1019,14 @@ export function LibraryView({
                         isAdmin={isAdmin}
                       />
                     </Link>
-                    <div className="mt-4 flex items-center gap-2 border-t border-[#E2DDD5] pt-3">
+                    <div className="mt-4 flex items-center gap-2 border-t border-border pt-3">
                       <StatusBadge status={law.status} />
                       <div className="ml-auto flex items-center gap-2 opacity-0 transition group-hover:opacity-100">
                         <button
                           type="button"
                           onClick={() => handlePrintPayment(law.id)}
                           disabled={printLoadingId === law.id}
-                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#7A8899] hover:bg-[#F4F1EB] hover:text-[#0D1B2A] disabled:opacity-50"
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
                           title="Print or download ($3) — payment required"
                         >
                           {printLoadingId === law.id ? (
@@ -1027,15 +1050,15 @@ export function LibraryView({
               })}
             </div>
             {sortedLaws.length === 0 && (
-              <p className="py-12 text-center text-[#7A8899]">
+              <p className="py-12 text-center text-muted-foreground">
                 No laws match your filters. Try adjusting your search or filters.
               </p>
             )}
-            <aside className="mt-12 rounded-xl border border-[#E2DDD5] bg-[#F4F1EB] px-5 py-5 sm:px-6">
+            <aside className="mt-12 rounded-xl border border-border bg-muted px-5 py-5 sm:px-6">
               <div className="flex gap-3 sm:gap-4">
-                <Info className="mt-0.5 h-5 w-5 shrink-0 text-[#7A8899]" aria-hidden />
-                <div className="min-w-0 text-sm leading-relaxed text-[#3D4E60]">
-                  <p className="font-semibold text-[#0D1B2A]">About this library.</p>
+                <Info className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+                <div className="min-w-0 text-sm leading-relaxed text-muted-foreground">
+                  <p className="font-semibold text-foreground">About this library.</p>
                   <p className="mt-2">
                     The Yamalé Legal Library covers all 54 African countries across 8 legal domains and is continuously
                     expanding. Content is provided for reference only and may not reflect the most current version of each
