@@ -335,7 +335,7 @@ export default function MarketplacePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAF7]">
+    <div className="min-h-screen bg-background">
       {alertDialog}
       <section className={`relative overflow-hidden ${prototypeNavyHeroSectionClass}`}>
         <div
@@ -385,7 +385,7 @@ export default function MarketplacePage() {
       </section>
       <section className="pb-16 pt-9">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="rounded-[8px] border border-[#E8E4DC] bg-[#F4F1EA] p-4 text-sm leading-relaxed text-[#5D5348]">
+          <div className="rounded-[8px] border border-border bg-muted p-4 text-sm leading-relaxed text-muted-foreground">
             Content in The Yamale Vault including courses, webinars, templates, and documents is provided for
             educational and informational purposes. It does not constitute legal advice for any specific situation.
             <strong> Templates should be reviewed by qualified legal counsel before use.</strong> Yamale Alliance is not
@@ -394,7 +394,7 @@ export default function MarketplacePage() {
 
           <div className="mt-6 flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-[#7B6E5C]">Format</span>
+              <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Format</span>
               {TYPE_TILES.map((tile) => {
                 const active =
                   (browse.kind === "all" && tile.param === "all") ||
@@ -407,7 +407,7 @@ export default function MarketplacePage() {
                     className={`rounded-[6px] border px-3 py-1.5 text-xs font-semibold transition ${
                       active
                         ? "border-[#C8922A] bg-[#C8922A] text-white"
-                        : "border-[#E8E4DC] bg-white text-[#5D5348] hover:border-[#d8c5a1]"
+                        : "border-border bg-card text-muted-foreground hover:border-[#d8c5a1]"
                     }`}
                   >
                     {tile.label}
@@ -417,7 +417,7 @@ export default function MarketplacePage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-[#7B6E5C]">Topic</span>
+              <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Topic</span>
               {topicOptions.map((topic) => (
                 <button
                   type="button"
@@ -426,7 +426,7 @@ export default function MarketplacePage() {
                   className={`rounded-[6px] border px-3 py-1.5 text-xs font-semibold transition ${
                     selectedTopic === topic
                       ? "border-[#C8922A] bg-[#C8922A] text-white"
-                      : "border-[#E8E4DC] bg-white text-[#5D5348] hover:border-[#d8c5a1]"
+                      : "border-border bg-card text-muted-foreground hover:border-[#d8c5a1]"
                   }`}
                 >
                   {topic === "all" ? "All topics" : topic}
@@ -435,25 +435,25 @@ export default function MarketplacePage() {
             </div>
 
             <div className="relative max-w-xl">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b8173]" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="search"
                 placeholder="Search resources..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-[8px] border border-[#E8E4DC] bg-white py-2.5 pl-10 pr-4 text-sm text-[#2B241D] outline-none transition placeholder:text-[#a79f95] focus:border-[#C8922A]"
+                className="w-full rounded-[8px] border border-border bg-card py-2.5 pl-10 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-[#C8922A]"
               />
             </div>
           </div>
 
           {loading ? (
             <div className="flex justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-[#8b8173]" />
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : filteredByTopic.length === 0 ? (
-            <div className="mt-8 rounded-[10px] border border-dashed border-[#d8d2c8] bg-white px-8 py-12 text-center">
-              <h3 className="text-xl font-semibold text-[#2B241D]">No resources match your filters</h3>
-              <p className="mt-2 text-sm text-[#7B6E5C]">Try another format, topic, or broader search keyword.</p>
+            <div className="mt-8 rounded-[10px] border border-dashed border-border bg-card px-8 py-12 text-center">
+              <h3 className="text-xl font-semibold text-foreground">No resources match your filters</h3>
+              <p className="mt-2 text-sm text-muted-foreground">Try another format, topic, or broader search keyword.</p>
             </div>
           ) : (
             <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
@@ -464,10 +464,10 @@ export default function MarketplacePage() {
                       <Link
                         key={product.id}
                         href={`/marketplace/${product.id}`}
-                        className="group block overflow-hidden rounded-[8px] border border-[#E8E4DC] bg-white transition hover:-translate-y-0.5 hover:shadow-md"
+                        className="group block overflow-hidden rounded-[8px] border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md"
                       >
                         <div
-                          className="relative h-36 border-b border-[#E8E4DC]"
+                          className="relative h-36 border-b border-border"
                           style={{ background: `linear-gradient(135deg, ${BRAND.gradientStart}, ${BRAND.gradientEnd})` }}
                         >
                           {product.image_url ? (
@@ -487,15 +487,15 @@ export default function MarketplacePage() {
                           </div>
                         </div>
                         <div className="p-4">
-                          <h3 className="line-clamp-2 text-[14px] font-bold leading-snug text-[#0D1B2A]">{product.title}</h3>
-                          <p className="mt-1 text-[12px] text-[#7B6E5C]">
+                          <h3 className="line-clamp-2 text-[14px] font-bold leading-snug text-foreground">{product.title}</h3>
+                          <p className="mt-1 text-[12px] text-muted-foreground">
                             {product.author || "Yamale Faculty"} {product.owned ? "· Owned" : ""}
                           </p>
-                          <div className="mt-1 text-[11px] text-[#9A8F81]">
+                          <div className="mt-1 text-[11px] text-muted-foreground/80">
                             {product.type === "course" ? "Structured modules" : product.type === "template" ? "Instant download" : "Reference material"}
                           </div>
-                          <div className="mt-3 flex items-center justify-between border-t border-[#EFEAE1] pt-3">
-                            <span className="text-[12px] font-medium text-[#7B6E5C]">{inferTopic(product)}</span>
+                          <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+                            <span className="text-[12px] font-medium text-muted-foreground">{inferTopic(product)}</span>
                             <div className="flex items-center gap-2">
                               {isSignedIn && !product.owned && product.price_cents > 0 && (
                                 <>
@@ -513,7 +513,7 @@ export default function MarketplacePage() {
                                       type="button"
                                       onClick={(e) => handleAddToCart(product.id, e)}
                                       disabled={addingToCart === product.id}
-                                      className="rounded-[6px] border border-[#E8E4DC] px-2 py-1 text-[11px] font-medium text-[#5D5348] transition hover:bg-[#FAFAF7] disabled:opacity-50"
+                                      className="rounded-[6px] border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
                                     >
                                       {addingToCart === product.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Add"}
                                     </button>
