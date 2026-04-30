@@ -214,16 +214,10 @@ function AdminLawsPageInner() {
             Fix OCR (AI)
           </Link>
           <Link
-            href="/admin-panel/laws/bulk-url"
+            href="/admin-panel/laws/treaty-bulk"
             className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
           >
-            Bulk URLs (CSV)
-          </Link>
-          <Link
-            href="/admin-panel/laws/bulk"
-            className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
-          >
-            Bulk PDFs
+            Treaty bulk (XLSX)
           </Link>
           <Link
             href={`/admin-panel/laws/deleted?returnTo=${encodeURIComponent(currentListUrl)}`}
