@@ -898,7 +898,9 @@ export default function ComplianceCheckPage() {
                       placeholder="e.g. 012222"
                       readOnly={inputsLocked}
                       className={`w-full rounded-lg border border-input px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 ${
-                        inputsLocked ? "bg-muted/50 cursor-not-allowed" : "bg-background"
+                        inputsLocked
+                          ? "cursor-not-allowed bg-white text-[#0D1B2A] placeholder:text-[#6B7280]"
+                          : "bg-background text-foreground placeholder:text-muted-foreground"
                       }`}
                     />
                     <p className="mt-1 text-xs text-muted-foreground">Enter the 6-digit code for your product</p>
@@ -950,7 +952,7 @@ export default function ComplianceCheckPage() {
                       readOnly
                       value={productName}
                       placeholder="Enter an HS code above and blur to load from tariff schedule"
-                      className="w-full rounded-lg border border-input bg-muted/50 px-4 py-3 text-sm text-foreground cursor-not-allowed focus:outline-none"
+                      className="w-full rounded-lg border border-input bg-white px-4 py-3 text-sm text-[#0D1B2A] placeholder:text-[#6B7280] cursor-not-allowed focus:outline-none"
                     />
                     <p className="mt-1 text-xs text-muted-foreground">Filled automatically when the HS code is found in the AfCFTA tariff schedule.</p>
                   </div>
@@ -970,7 +972,7 @@ export default function ComplianceCheckPage() {
                           setOriginCountry("");
                         }}
                         disabled={inputsLocked}
-                        className="rounded-lg border border-input bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                        className="rounded-lg border border-input bg-background px-4 py-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                       >
                         <option value="">Continent</option>
                         {CONTINENTS.map((c) => (
@@ -984,7 +986,7 @@ export default function ComplianceCheckPage() {
                           setOriginCountry(e.target.value);
                         }}
                         disabled={inputsLocked || !originContinent}
-                        className="rounded-lg border border-input bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                        className="rounded-lg border border-input bg-background px-4 py-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                       >
                         <option value="">Country</option>
                         {getFilteredCountries(originContinent).map((c) => (
@@ -1007,7 +1009,7 @@ export default function ComplianceCheckPage() {
                           setDestCountry("");
                         }}
                         disabled={inputsLocked}
-                        className="rounded-lg border border-input bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                        className="rounded-lg border border-input bg-background px-4 py-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                       >
                         <option value="">Continent</option>
                         {CONTINENTS.map((c) => (
@@ -1021,7 +1023,7 @@ export default function ComplianceCheckPage() {
                           setDestCountry(e.target.value);
                         }}
                         disabled={inputsLocked || !destContinent}
-                        className="rounded-lg border border-input bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                        className="rounded-lg border border-input bg-background px-4 py-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                       >
                         <option value="">Country</option>
                         {getFilteredCountries(destContinent).map((c) => (
@@ -1112,7 +1114,11 @@ export default function ComplianceCheckPage() {
                                   updateProductionRow(row.id, "description", e.target.value);
                                 }}
                                 placeholder="e.g. Coffee Beans"
-                                className={`w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow ${inputsLocked ? "cursor-not-allowed bg-muted/50" : "bg-background"}`}
+                                className={`w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow ${
+                                  inputsLocked
+                                    ? "cursor-not-allowed bg-white text-[#0D1B2A] placeholder:text-[#6B7280]"
+                                    : "bg-background text-foreground placeholder:text-muted-foreground"
+                                }`}
                               />
                             </td>
                             <td className="p-2">
@@ -1123,7 +1129,7 @@ export default function ComplianceCheckPage() {
                                   if (inputsLocked) return;
                                   updateProductionRow(row.id, "sourceCountry", e.target.value);
                                 }}
-                                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow disabled:cursor-not-allowed disabled:opacity-60"
+                                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 <option value="">Select country</option>
                                 {AFCFTA_COUNTRIES.map((c) => (
@@ -1155,7 +1161,11 @@ export default function ComplianceCheckPage() {
                                   updateProductionRow(row.id, "cost", e.target.value);
                                 }}
                                 placeholder="0"
-                                className={`w-full rounded-lg border border-input px-3 py-2 text-sm text-right focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow ${inputsLocked ? "cursor-not-allowed bg-muted/50" : "bg-background"}`}
+                                className={`w-full rounded-lg border border-input px-3 py-2 text-sm text-right focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow ${
+                                  inputsLocked
+                                    ? "cursor-not-allowed bg-white text-[#0D1B2A] placeholder:text-[#6B7280]"
+                                    : "bg-background text-foreground placeholder:text-muted-foreground"
+                                }`}
                               />
                             </td>
                             <td className="p-2">
@@ -1532,7 +1542,11 @@ export default function ComplianceCheckPage() {
                           setShipmentValue(e.target.value.replace(/[^0-9,]/g, ""));
                         }}
                         placeholder="e.g., 50000"
-                        className={`w-full max-w-xs rounded-lg border border-input px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 ${inputsLocked ? "cursor-not-allowed bg-muted/50" : "bg-background"}`}
+                        className={`w-full max-w-xs rounded-lg border border-input px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                          inputsLocked
+                            ? "cursor-not-allowed bg-white text-[#0D1B2A] placeholder:text-[#6B7280]"
+                            : "bg-background text-foreground placeholder:text-muted-foreground"
+                        }`}
                       />
                       <div className="mt-4 rounded-lg bg-green-100 dark:bg-green-950/40 px-4 py-4">
                         <p className="text-sm text-foreground">
