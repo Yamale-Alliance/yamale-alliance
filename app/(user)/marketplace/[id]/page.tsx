@@ -401,7 +401,7 @@ export default function MarketplaceItemPage() {
   const priceDisplay = free ? "Free" : `$${(item.price_cents / 100).toFixed(2)}`;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       <div className="border-b border-border bg-card/50 px-4 py-6">
         <div className="mx-auto max-w-3xl">
           <Link
