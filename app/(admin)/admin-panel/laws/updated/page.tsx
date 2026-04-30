@@ -21,8 +21,6 @@ const FIELD_LABELS: Record<string, string> = {
   applies_to_all_countries: "Global scope",
   status: "Status",
   year: "Year",
-  source_url: "Source URL",
-  source_name: "Source name",
   content: "Content",
 };
 
