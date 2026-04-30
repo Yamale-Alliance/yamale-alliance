@@ -309,7 +309,7 @@ export default function PricingPage() {
   }, [isLoaded, isSignedIn]);
 
   return (
-    <div className="min-h-screen bg-[#FAFAF7]">
+    <div className="min-h-screen bg-background">
       {alertDialog}
       {/* Hero Section */}
       <section className={prototypeNavyHeroSectionClass}>
@@ -359,10 +359,10 @@ export default function PricingPage() {
 
       {/* Subscription Plans */}
       <section className="mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-6 lg:px-8">
-        <div className="mb-10 rounded-[10px] border-l-4 border-[#C8922A] bg-[#F4F1EA] px-6 py-5">
+        <div className="mb-10 rounded-[10px] border-l-4 border-[#C8922A] bg-muted px-6 py-5">
           <p className="flex items-start gap-3">
             <span className="text-3xl leading-none text-[#C8922A]">&ldquo;</span>
-            <span className="heading text-2xl text-[#0D1B2A]">Everything you need to do business in Africa — in one place.</span>
+            <span className="heading text-2xl text-foreground">Everything you need to do business in Africa — in one place.</span>
           </p>
         </div>
 
@@ -386,7 +386,7 @@ export default function PricingPage() {
                 className={`group relative flex flex-col rounded-[10px] border transition-all duration-300 hover:-translate-y-1 ${
                   tier.highlighted
                     ? "border-[#0D1B2A] bg-[#0D1B2A] text-white shadow-xl"
-                    : "border-[#E8E4DC] bg-white shadow-sm"
+                    : "border-border bg-card shadow-sm"
                 }`}
               >
                 {tier.highlighted && (
@@ -421,7 +421,7 @@ export default function PricingPage() {
                     className={`w-full py-3 px-6 rounded-[6px] font-semibold transition-all duration-200 mt-auto disabled:opacity-70 ${
                       tier.highlighted
                         ? "bg-[#C8922A] text-white hover:bg-[#b07e22]"
-                        : "border border-[#E8E4DC] bg-[#FAFAF7] text-[#0D1B2A] hover:border-[#d8c5a1]"
+                        : "border border-border bg-background text-foreground hover:border-[#d8c5a1]"
                     }`}
                   >
                     {checkoutLoading === tier.id ? "Redirecting…" : tier.cta}
@@ -450,13 +450,13 @@ export default function PricingPage() {
         </div>
 
         {/* Institutional CTA */}
-        <div className="mt-8 rounded-[10px] border border-[#E8E4DC] bg-white p-6 shadow-sm sm:p-8">
+        <div className="mt-8 rounded-[10px] border border-border bg-card p-6 shadow-sm sm:p-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
-              <h3 className="heading text-xl font-bold mb-2 text-[#0D1B2A] sm:text-2xl">
+              <h3 className="heading text-xl font-bold mb-2 text-foreground sm:text-2xl">
                 Institutional Plans
               </h3>
-              <p className="text-[#5D5348] mb-2">
+              <p className="text-muted-foreground mb-2">
                 For universities, governments, and large organizations
               </p>
               <p className="text-sm text-[#C8922A] font-medium">
@@ -472,32 +472,32 @@ export default function PricingPage() {
           </div>
         </div>
 
-        <div className="mt-4 rounded-[14px] border border-[#DCD8D0] bg-white px-7 py-5">
+        <div className="mt-4 rounded-[14px] border border-border bg-card px-7 py-5">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-[170px_1fr_1fr_1fr] md:items-start md:gap-5">
-            <div className="pt-1 text-[12px] font-semibold uppercase tracking-[0.14em] text-[#7B6E5C]">Payment Methods</div>
+            <div className="pt-1 text-[12px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Payment Methods</div>
             <div>
-              <div className="text-[18px] font-semibold leading-tight text-[#0D1B2A]">Mobile Money</div>
-              <div className="mt-1 text-[14px] text-[#7B6E5C]">M-Pesa · Orange Money · MTN · Airtel · Wave</div>
+              <div className="text-[18px] font-semibold leading-tight text-foreground">Mobile Money</div>
+              <div className="mt-1 text-[14px] text-muted-foreground">M-Pesa · Orange Money · MTN · Airtel · Wave</div>
             </div>
             <div>
-              <div className="text-[18px] font-semibold leading-tight text-[#0D1B2A]">Credit / debit card</div>
-              <div className="mt-1 text-[14px] text-[#7B6E5C]">Visa · Mastercard</div>
+              <div className="text-[18px] font-semibold leading-tight text-foreground">Credit / debit card</div>
+              <div className="mt-1 text-[14px] text-muted-foreground">Visa · Mastercard</div>
             </div>
             <div>
-              <div className="text-[18px] font-semibold leading-tight text-[#0D1B2A]">Bank transfer</div>
-              <div className="mt-1 text-[14px] text-[#7B6E5C]">Invoice-ready for institutions</div>
+              <div className="text-[18px] font-semibold leading-tight text-foreground">Bank transfer</div>
+              <div className="mt-1 text-[14px] text-muted-foreground">Invoice-ready for institutions</div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Pay-as-You-Go Section */}
-      <section className="border-t border-[#E8E4DC] bg-[#FAFAF7] py-14 sm:py-16">
+      <section className="border-t border-border bg-background py-14 sm:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mx-auto mb-8 max-w-2xl text-center">
             <p className={prototypeHeroEyebrowClass}>Pay-as-you-go</p>
-            <h2 className="heading mt-2 text-3xl font-bold text-[#0D1B2A] sm:text-4xl">Add what you need, when you need it.</h2>
-            <p className="mt-2 text-[15px] text-[#5D5348]">
+            <h2 className="heading mt-2 text-3xl font-bold text-foreground sm:text-4xl">Add what you need, when you need it.</h2>
+            <p className="mt-2 text-[15px] text-muted-foreground">
               No subscription? No problem. Use these on the Free tier - or top up any plan.
             </p>
           </div>
@@ -507,17 +507,17 @@ export default function PricingPage() {
               type="button"
               onClick={() => handlePayAsYouGoCheckout("document")}
               disabled={checkoutLoading !== null}
-              className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-[#E1DDD5] bg-white px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
+              className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
             >
               <div className="pr-6">
-                <div className="text-[33px] font-semibold leading-tight text-[#0D1B2A]">Print a law</div>
-                <div className="mt-1 text-[15px] leading-relaxed text-[#4B5563]">
+                <div className="text-[33px] font-semibold leading-tight text-foreground">Print a law</div>
+                <div className="mt-1 text-[15px] leading-relaxed text-muted-foreground">
                   Download a full law as a clean, print-ready PDF - including amendments and metadata.
                 </div>
               </div>
               <div className="shrink-0 text-right">
                 <div className="text-[46px] font-bold leading-none text-[#C8922A]">$3</div>
-                <div className="mt-1 text-[11px] text-[#8A8074]">per law</div>
+                <div className="mt-1 text-[11px] text-muted-foreground">per law</div>
               </div>
             </button>
 
@@ -525,17 +525,17 @@ export default function PricingPage() {
               type="button"
               onClick={() => handleDayPassCheckout()}
               disabled={checkoutLoading !== null}
-              className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-[#E1DDD5] bg-white px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
+              className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
             >
               <div className="pr-6">
-                <div className="text-[33px] font-semibold leading-tight text-[#0D1B2A]">Daily pass</div>
-                <div className="mt-1 text-[15px] leading-relaxed text-[#4B5563]">
+                <div className="text-[33px] font-semibold leading-tight text-foreground">Daily pass</div>
+                <div className="mt-1 text-[15px] leading-relaxed text-muted-foreground">
                   Full platform access for 24 hours with expanded usage across the platform.
                 </div>
               </div>
               <div className="shrink-0 text-right">
                 <div className="text-[46px] font-bold leading-none text-[#C8922A]">$9.99</div>
-                <div className="mt-1 text-[11px] text-[#8A8074]">per day</div>
+                <div className="mt-1 text-[11px] text-muted-foreground">per day</div>
               </div>
             </button>
 
@@ -543,17 +543,17 @@ export default function PricingPage() {
               type="button"
               onClick={() => handlePayAsYouGoCheckout("afcfta_report")}
               disabled={checkoutLoading !== null}
-              className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-[#E1DDD5] bg-white px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
+              className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
             >
               <div className="pr-6">
-                <div className="text-[33px] font-semibold leading-tight text-[#0D1B2A]">Additional AfCFTA Passport route</div>
-                <div className="mt-1 text-[15px] leading-relaxed text-[#4B5563]">
+                <div className="text-[33px] font-semibold leading-tight text-foreground">Additional AfCFTA Passport route</div>
+                <div className="mt-1 text-[15px] leading-relaxed text-muted-foreground">
                   One origin-to-destination country pair with checklist, rules of origin, and tariff data.
                 </div>
               </div>
               <div className="shrink-0 text-right">
                 <div className="text-[46px] font-bold leading-none text-[#C8922A]">$15</div>
-                <div className="mt-1 text-[11px] text-[#8A8074]">per route</div>
+                <div className="mt-1 text-[11px] text-muted-foreground">per route</div>
               </div>
             </button>
 
@@ -561,17 +561,17 @@ export default function PricingPage() {
               type="button"
               onClick={() => handlePayAsYouGoCheckout("ai_query")}
               disabled={checkoutLoading !== null}
-              className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-[#E1DDD5] bg-white px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
+              className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
             >
               <div className="pr-6">
-                <div className="text-[33px] font-semibold leading-tight text-[#0D1B2A]">AI research query pack</div>
-                <div className="mt-1 text-[15px] leading-relaxed text-[#4B5563]">
+                <div className="text-[33px] font-semibold leading-tight text-foreground">AI research query pack</div>
+                <div className="mt-1 text-[15px] leading-relaxed text-muted-foreground">
                   Additional AI research query with citations back to the Yamalé Legal Library.
                 </div>
               </div>
               <div className="shrink-0 text-right">
                 <div className="text-[46px] font-bold leading-none text-[#C8922A]">$1</div>
-                <div className="mt-1 text-[11px] text-[#8A8074]">per query</div>
+                <div className="mt-1 text-[11px] text-muted-foreground">per query</div>
               </div>
             </button>
           </div>
@@ -579,25 +579,25 @@ export default function PricingPage() {
       </section>
 
       {/* FAQ */}
-      <section className="border-t border-[#E8E4DC] bg-[#FAFAF7] py-14 sm:py-16">
+      <section className="border-t border-border bg-background py-14 sm:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="heading mb-8 text-3xl font-bold text-[#0D1B2A] sm:text-4xl">
+          <h2 className="heading mb-8 text-3xl font-bold text-foreground sm:text-4xl">
             Frequently asked
           </h2>
           <div className="grid gap-4 md:grid-cols-2">
             {FAQ_ITEMS.map((item, i) => (
               <div
                 key={i}
-                className="rounded-[8px] border border-[#E8E4DC] bg-white p-5 shadow-sm transition hover:shadow-md sm:p-6"
+                className="rounded-[8px] border border-border bg-card p-5 shadow-sm transition hover:shadow-md sm:p-6"
               >
-                <h3 className="font-bold text-base mb-2 text-[#5D5348] sm:text-lg">
+                <h3 className="font-bold text-base mb-2 text-muted-foreground sm:text-lg">
                   {item.q}
                 </h3>
-                <p className="text-sm text-[#0D1B2A] sm:text-base">{item.a}</p>
+                <p className="text-sm text-foreground sm:text-base">{item.a}</p>
               </div>
             ))}
           </div>
-          <div className="mt-8 rounded-[8px] border border-[#E8E4DC] bg-[#F9F7F2] px-5 py-4 text-[13px] leading-relaxed text-[#6F6457]">
+          <div className="mt-8 rounded-[8px] border border-border bg-muted px-5 py-4 text-[13px] leading-relaxed text-muted-foreground">
             Prices shown are in USD. Subscriptions renew automatically unless canceled. Yamalé Alliance reserves the
             right to modify pricing with notice. The platform is provided as-is and does not constitute legal advice.
           </div>
