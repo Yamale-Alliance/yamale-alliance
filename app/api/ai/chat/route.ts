@@ -119,6 +119,7 @@ function extractQueryHints(query: string): { country?: string; category?: string
     "angola": "Angola",
     "ethiopia": "Ethiopia",
     "rwanda": "Rwanda",
+    "senegal": "Senegal",
     "madagascar": "Madagascar",
     "mali": "Mali",
     "sierra leone": "Sierra Leone",
@@ -160,6 +161,8 @@ function extractQueryHints(query: string): { country?: string; category?: string
     "data protection": "Data Protection and Privacy Law",
     "privacy": "Data Protection and Privacy Law",
     "international trade": "International Trade Laws",
+    "rules of origin": "International Trade Laws",
+    "afcfta": "International Trade Laws",
     "anti-bribery": "Anti-Bribery and Corruption Law",
     "corruption": "Anti-Bribery and Corruption Law",
     "dispute resolution": "Dispute Resolution",
@@ -224,6 +227,21 @@ function isDetailedRequest(query: string): boolean {
 }
 
 function extractSpecificLawHint(query: string): string | null {
+  const looksLikeNamedLawTitle = (value: string): boolean => {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return false;
+
+    // Generic category-level prompts should not collapse retrieval to a single law.
+    const genericCategoryLawPattern =
+      /\b(corporate|tax|labou?r|employment|trade|customs|privacy|data protection|intellectual property|environmental|criminal|civil)\s+laws?\b/i;
+    if (genericCategoryLawPattern.test(normalized)) return false;
+    if (/\blaws?\s+in\s+[a-z]/i.test(normalized)) return false;
+    if (/\blaws?\s+of\s+[a-z]/i.test(normalized)) return false;
+
+    // Treat as specific only when it resembles a named instrument.
+    return /\b(act|code|regulation|regulations|decree|ordinance|order|proclamation|constitution|bill)\b/i.test(value);
+  };
+
   const q = query.trim().toLowerCase();
   if (!q) return null;
   const patterns = [
@@ -239,7 +257,8 @@ function extractSpecificLawHint(query: string): string | null {
     if (m?.[1]?.trim()) {
       let v = m[1].trim();
       v = v.replace(/\s+from\s+[a-z\s'-]+$/i, "").trim();
-      return v;
+      if (looksLikeNamedLawTitle(v)) return v;
+      return null;
     }
   }
   // fallback: if query looks like a direct named-law prompt
@@ -380,12 +399,18 @@ async function searchLegalLibrary(
     } else if (query.trim() && !hasHint) {
       const searchTerms = query.trim().toLowerCase();
       const escapedTerms = escapeIlikePattern(searchTerms);
+      const tokenOr = extractSearchTokens(query)
+        .flatMap((t) => [
+          `title.ilike.%${escapeIlikePattern(t)}%`,
+          `content.ilike.%${escapeIlikePattern(t)}%`,
+        ])
+        .join(",");
       if (countryId) {
-        lawsQuery = lawsQuery.or(lawsCountryOrGlobalWithTextSearch(countryId, escapedTerms));
-      } else {
         lawsQuery = lawsQuery.or(
-          `title.ilike.%${escapedTerms}%,content.ilike.%${escapedTerms}%`
+          tokenOr || lawsCountryOrGlobalWithTextSearch(countryId, escapedTerms)
         );
+      } else {
+        lawsQuery = lawsQuery.or(tokenOr || `title.ilike.%${escapedTerms}%,content.ilike.%${escapedTerms}%`);
       }
     } else if (countryId) {
       lawsQuery = lawsQuery.or(lawsOrGlobalForCountry(countryId));
@@ -424,45 +449,57 @@ async function searchLegalLibrary(
 
     const requestedArticle = extractRequestedArticle(query);
 
-    return lawsForResponse.map((law: any) => {
+    const shouldKeepFullTextForSpecificLaw = Boolean(specificLawHint && detailedMode);
+    const maxCharsPerLaw = shouldKeepFullTextForSpecificLaw ? 60000 : detailedMode ? 9000 : 4500;
+    const maxCharsTotal = shouldKeepFullTextForSpecificLaw ? 140000 : detailedMode ? 36000 : 18000;
+    let remainingChars = maxCharsTotal;
+
+    const compacted: Array<{ id: string; title: string; country: string; category: string; status?: string; content: string; year?: number }> = [];
+
+    for (const law of lawsForResponse as any[]) {
+      if (remainingChars <= 0) break;
       const fullText = law.content_plain || law.content || "";
+      let selectedContent = fullText;
+
+      if (!shouldKeepFullTextForSpecificLaw) {
+        const perLawCap = Math.min(maxCharsPerLaw, remainingChars);
+        selectedContent = fullText.slice(0, perLawCap);
+      } else if (fullText.length > remainingChars) {
+        // In specific-law detailed mode, still respect global budget to avoid hard API failures.
+        selectedContent = fullText.slice(0, remainingChars);
+      }
+
       if (requestedArticle !== null) {
         const articleRe = new RegExp(`\\barticle\\s+${requestedArticle}\\b`, "i");
-        const hitIdx = fullText.search(articleRe);
+        const hitIdx = selectedContent.search(articleRe);
         if (hitIdx >= 0) {
-          return {
+          compacted.push({
             id: law.id,
             title: law.title,
             country: law.countries?.name || "",
             category: law.categories?.name || "",
             status: law.status || undefined,
-            // Full text allows the model to verify requested article details in context.
-            content: fullText,
+            content: selectedContent,
             year: law.year,
-          };
+          });
+          remainingChars -= selectedContent.length;
+          continue;
         }
       }
-      if (specificLawHint && detailedMode) {
-        return {
-          id: law.id,
-          title: law.title,
-          country: law.countries?.name || "",
-          category: law.categories?.name || "",
-          status: law.status || undefined,
-          content: fullText,
-          year: law.year,
-        };
-      }
-      return {
+
+      compacted.push({
         id: law.id,
         title: law.title,
         country: law.countries?.name || "",
         category: law.categories?.name || "",
         status: law.status || undefined,
-        content: fullText,
+        content: selectedContent,
         year: law.year,
-      };
-    });
+      });
+      remainingChars -= selectedContent.length;
+    }
+
+    return compacted;
   } catch (err) {
     console.error("Legal library search error:", err);
     return [];
@@ -691,7 +728,7 @@ If something is not in the provided excerpts, say "Not stated in the provided li
       }
     } else {
       systemPrompt +=
-        "\n\nNo library documents were retrieved for this turn. Say that clearly and ask the user to refine country/category/law title. Do not fabricate legal content.";
+        "\n\nNo library documents were retrieved for this turn. Say that clearly in 2-4 short sentences and ask the user to refine country/category/law title. Do not claim you reviewed all library documents; state only that no relevant documents were retrieved for this query. Do not provide external legal guidance (agencies, filing bodies, or legal frameworks not present in retrieved docs). Do not fabricate legal content.";
     }
 
     const modelId = await resolveModelIdForRequest(tier, requestedModel);
@@ -804,7 +841,7 @@ If something is not in the provided excerpts, say "Not stated in the provided li
     // Build sources list from retrieved legal documents
     const sources = legalContext.length > 0
       ? [
-          ...legalContext.map((law) => `${law.title} (${law.country})`),
+          ...Array.from(new Set(legalContext.map((law) => `${law.title} (${law.country})`))),
           "Claude AI · African Legal Research",
         ]
       : ["Claude AI · African Legal Research"];
