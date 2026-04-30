@@ -373,7 +373,7 @@ export default function LawyersPage() {
             <p className={prototypeHeroEyebrowClass}>
               Curated Lawyer Network
             </p>
-            <h1 className="heading mt-6 text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-[2.5rem]">
+            <h1 className="heading mt-6 text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-[2rem]">
               Find the right commercial lawyer in any African jurisdiction — fast.
             </h1>
             <p className="mt-4 max-w-lg text-sm leading-relaxed text-white/[0.62] sm:text-base">
