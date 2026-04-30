@@ -8,7 +8,7 @@ export default async function Home() {
   const isSignedIn = !!userId;
 
   return (
-    <div className="min-h-screen bg-[#FAFAF7]">
+    <div className="min-h-screen bg-background">
       {/* ─── Hero (prototype: PAGE 1 — HOME) ─── */}
       <section className="relative flex min-h-[580px] items-center overflow-hidden bg-[#0D1B2A]">
         <div
@@ -86,7 +86,7 @@ export default async function Home() {
       </section>
 
       {/* Trust bar */}
-      <div className="border-b border-[#E2DDD5] bg-[#0D1B2A] px-4 py-6 sm:px-8">
+      <div className="border-b border-border bg-[#0D1B2A] px-4 py-6 sm:px-8">
         <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-12 gap-y-4">
           <span className="text-xs font-semibold uppercase tracking-[0.08em] text-white/40">Trusted by</span>
           <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm font-semibold text-white/60">
@@ -100,17 +100,17 @@ export default async function Home() {
       </div>
 
       {/* Features */}
-      <section className="border-b border-[#E2DDD5] bg-[#FAFAF7] px-4 py-20 sm:px-8">
+      <section className="border-b border-border bg-background px-4 py-20 sm:px-8">
         <div className="mx-auto max-w-[1280px]">
           <div className="mx-auto mb-12 max-w-[560px] text-center">
             <p className="mb-4 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.5px] text-[#C8922A]">
               <span className="h-1.5 w-1.5 rounded-full bg-[#C8922A]" />
               Platform
             </p>
-            <h2 className="heading text-3xl font-bold tracking-tight text-[#0D1B2A] sm:text-4xl">
+            <h2 className="heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
               Everything you need to navigate African law
             </h2>
-            <p className="mt-4 text-base leading-relaxed text-[#3D4E60]">
+            <p className="mt-4 text-base leading-relaxed text-muted-foreground">
               Five integrated tools — from raw legislation to expert connections — built for legal professionals, investors, and governments operating across the continent.
             </p>
           </div>
@@ -202,11 +202,11 @@ function FeatureCard({
   return (
     <Link
       href={href}
-      className={`group relative overflow-hidden rounded-[12px] border border-[#E2DDD5] bg-white p-7 shadow-[0_1px_3px_rgba(13,27,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(13,27,42,0.08)] ${className}`}
+      className={`group relative overflow-hidden rounded-[12px] border border-border bg-card p-7 shadow-[0_1px_3px_rgba(13,27,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(13,27,42,0.08)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.35)] dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.45)] ${className}`}
     >
       <span className="absolute left-0 right-0 top-0 h-[3px] origin-left scale-x-0 bg-[#C8922A] transition group-hover:scale-x-100" />
-      <h3 className="heading text-[17px] font-bold tracking-tight text-[#0D1B2A]">{title}</h3>
-      <p className="mt-2 text-sm leading-relaxed text-[#3D4E60]">{description}</p>
+      <h3 className="heading text-[17px] font-bold tracking-tight text-foreground">{title}</h3>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
       <span className="mt-4 inline-flex items-center gap-1 text-[13px] font-semibold text-[#C8922A]">
         {cta}
         <span aria-hidden className="transition group-hover:translate-x-0.5">
