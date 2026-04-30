@@ -470,25 +470,25 @@ export default function LawyersPage() {
       {/* Filters + results */}
       <section className="pb-16 pt-10">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-5 flex items-start gap-2 rounded-[8px] border border-[#C9D6E8] bg-[#EAF2FC] px-4 py-3 text-[16px] text-[#2F435E]">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#2F435E]" />
+          <div className="mb-5 flex items-start gap-2 rounded-[8px] border border-border bg-card px-4 py-3 text-[16px] text-foreground">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             <p>
               Select a <strong>country</strong> and <strong>practice area</strong> to search. One search costs ${SEARCH_PRICE} and
               unlocks contact details for all matching lawyers.
             </p>
           </div>
 
-          <div className="mb-5 rounded-[10px] border-l-4 border-[#C8922A] bg-[#F4F1EA] px-7 py-8">
+          <div className="mb-5 rounded-[10px] border-l-4 border-[#C8922A] bg-muted px-7 py-8">
             <p className="flex items-center gap-4 font-serif text-[44px] text-[#C8922A]">
               <Quote className="h-6 w-6 fill-current" />
-              <span className="text-[44px] leading-tight text-[#1F2937]">
+              <span className="text-[44px] leading-tight text-foreground">
                 The platform brings mandates to you — so you do not have to market yourself.
               </span>
             </p>
           </div>
 
-          <div className="mb-8 flex items-start gap-3 rounded-[8px] border border-[#E8E4DC] bg-[#F9F7F2] px-5 py-4 text-[16px] leading-relaxed text-[#4B5563]">
-            <CheckSquare className="mt-0.5 h-5 w-5 shrink-0 text-[#6B7280]" />
+          <div className="mb-8 flex items-start gap-3 rounded-[8px] border border-border bg-card px-5 py-4 text-[16px] leading-relaxed text-muted-foreground">
+            <CheckSquare className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
             <p>
               Lawyers listed in the Yamalé directory have been invited based on their professional credentials and stated
               expertise. <strong>Yamalé Alliance does not certify, endorse, or guarantee the services of any listed lawyer.</strong>
@@ -498,7 +498,7 @@ export default function LawyersPage() {
           <div className="mb-8 flex items-center justify-between">
             <Link
               href="/lawyers/unlocked"
-              className="inline-flex items-center rounded-full border border-[#E8E4DC] bg-white px-3 py-1 text-xs font-medium text-[#5D5348] transition hover:border-[#d8c5a1]"
+              className="inline-flex items-center rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground transition hover:border-[#d8c5a1]"
             >
               View unlocked lawyers
             </Link>
@@ -559,7 +559,7 @@ export default function LawyersPage() {
                       >
                         {searchPayLoading && paymentProvider === "pawapay" && <Loader2 className="h-4 w-4 animate-spin" />}
                         {!searchPayLoading && <Smartphone className="h-4 w-4" />}
-                        pawaPay (Mobile Money)
+                        Mobile Money
                       </button>
                       <button
                         type="button"
@@ -569,7 +569,7 @@ export default function LawyersPage() {
                       >
                         {searchPayLoading && paymentProvider === "stripe" && <Loader2 className="h-4 w-4 animate-spin" />}
                         {!searchPayLoading && <CreditCard className="h-4 w-4" />}
-                        Stripe (Card Payment)
+                        Card
                       </button>
                       <button
                         type="button"
@@ -582,7 +582,7 @@ export default function LawyersPage() {
                     </div>
                     {!selectedCountrySupportsPawapay && selectedCountry !== "all" && (
                       <p className="text-xs text-amber-700 dark:text-amber-400">
-                        pawaPay is not available for {selectedCountry}. Please proceed with Stripe.
+                        Mobile money is not available for {selectedCountry}. Please proceed with card payment.
                       </p>
                     )}
                     {showPawapayCountryPrompt && selectedCountrySupportsPawapay && (
@@ -680,7 +680,7 @@ export default function LawyersPage() {
               return (
                 <div
                   key={lawyer.id}
-                  className="group overflow-hidden rounded-[10px] border border-[#E8E4DC] bg-white transition hover:-translate-y-0.5 hover:shadow-md"
+                  className="group overflow-hidden rounded-[10px] border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md"
                 >
                   <div className="p-4">
                     <div className="flex items-start gap-4">
@@ -712,11 +712,11 @@ export default function LawyersPage() {
                               {initialsDisplay}
                             </h3>
                           )}
-                          <span className="rounded-full bg-[#EFF4FF] px-2 py-0.5 text-[10px] font-semibold text-[#355896]">
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                             Verified
                           </span>
                         </div>
-                        <div className="text-xs text-[#6F6457] sm:text-[13px]">
+                        <div className="text-xs text-muted-foreground sm:text-[13px]">
                           {lawyer.country} · {selectedLanguage === "all" ? "English / French" : selectedLanguage}
                         </div>
                         <div className="flex items-center gap-1 mt-2">
@@ -744,30 +744,30 @@ export default function LawyersPage() {
                       {expertiseTags.map((exp, i) => (
                         <span
                           key={i}
-                          className="rounded-full bg-[#F4F1EA] px-2.5 py-1 text-[10px] font-medium text-[#5D5348]"
+                          className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
                         >
                           {exp}
                         </span>
                       ))}
                     </div>
                     <div className="mb-3 grid grid-cols-3 gap-2">
-                      <div className="rounded-[6px] border border-[#EFEAE1] bg-[#FAFAF7] px-2 py-2 text-center">
-                        <div className="text-sm font-bold text-[#0D1B2A]">{pseudoYears(lawyer.name)}</div>
-                        <div className="text-[10px] text-[#8A8074]">Years exp.</div>
+                      <div className="rounded-[6px] border border-border bg-background px-2 py-2 text-center">
+                        <div className="text-sm font-bold text-foreground">{pseudoYears(lawyer.name)}</div>
+                        <div className="text-[10px] text-muted-foreground">Years exp.</div>
                       </div>
-                      <div className="rounded-[6px] border border-[#EFEAE1] bg-[#FAFAF7] px-2 py-2 text-center">
-                        <div className="text-sm font-bold text-[#0D1B2A]">{pseudoCountries(lawyer.name)}</div>
-                        <div className="text-[10px] text-[#8A8074]">Countries</div>
+                      <div className="rounded-[6px] border border-border bg-background px-2 py-2 text-center">
+                        <div className="text-sm font-bold text-foreground">{pseudoCountries(lawyer.name)}</div>
+                        <div className="text-[10px] text-muted-foreground">Countries</div>
                       </div>
-                      <div className="rounded-[6px] border border-[#EFEAE1] bg-[#FAFAF7] px-2 py-2 text-center">
-                        <div className="text-sm font-bold text-[#0D1B2A]">{selectedLanguage === "all" ? "EN/FR" : selectedLanguage.slice(0, 2).toUpperCase()}</div>
-                        <div className="text-[10px] text-[#8A8074]">Language</div>
+                      <div className="rounded-[6px] border border-border bg-background px-2 py-2 text-center">
+                        <div className="text-sm font-bold text-foreground">{selectedLanguage === "all" ? "EN/FR" : selectedLanguage.slice(0, 2).toUpperCase()}</div>
+                        <div className="text-[10px] text-muted-foreground">Language</div>
                       </div>
                     </div>
 
-                    <div className="border-t border-[#EFEAE1] pt-3">
+                    <div className="border-t border-border pt-3">
                       {unlocked ? (
-                        <div className="space-y-1.5 text-xs text-[#5D5348]">
+                        <div className="space-y-1.5 text-xs text-muted-foreground">
                           {contacts?.email && <div>📧 {contacts.email}</div>}
                           {contacts?.phone && <div>📱 {contacts.phone}</div>}
                           {contacts?.contacts && <div className="whitespace-pre-wrap">💼 {contacts.contacts}</div>}
