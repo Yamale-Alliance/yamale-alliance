@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
+import { useTheme } from "@/components/theme/ThemeProvider";
 
 // Cache logo URL so it persists across client-side navigations (avoids flash of "Yamalé" on route change)
 let cachedLogoUrl: string | null = null;
@@ -37,6 +38,7 @@ interface PlatformLogoProps {
 
 export function PlatformLogo({ className = "", height = 44, width = 160, fallback = "Yamalé" }: PlatformLogoProps) {
   const { logoUrl: initialLogoUrl } = usePlatformSettings();
+  const { theme } = useTheme();
   const [logoUrl, setLogoUrl] = useState<string | null>(() => initialLogoUrl ?? getCachedLogo());
   const [loading, setLoading] = useState(() => !(initialLogoUrl ?? getCachedLogo()));
 
@@ -92,6 +94,15 @@ export function PlatformLogo({ className = "", height = 44, width = 160, fallbac
   }
 
   if (logoUrl) {
+    const isSvgLogo = /\.svg(?:$|[?#])/i.test(logoUrl) || logoUrl.includes("image/svg+xml");
+    const darkSvgStyle =
+      theme === "dark" && isSvgLogo
+        ? ({
+            // Helps hide white SVG backgrounds on dark headers without editing the source file.
+            mixBlendMode: "multiply",
+          } as const)
+        : undefined;
+
     return (
       <Image
         src={logoUrl}
@@ -99,7 +110,7 @@ export function PlatformLogo({ className = "", height = 44, width = 160, fallbac
         height={height}
         width={width}
         className={className}
-        style={{ objectFit: "contain", height: `${height}px`, width: "auto" }}
+        style={{ objectFit: "contain", height: `${height}px`, width: "auto", ...darkSvgStyle }}
         unoptimized
       />
     );
