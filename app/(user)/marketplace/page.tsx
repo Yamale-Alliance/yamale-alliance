@@ -25,6 +25,7 @@ import {
   prototypeHeroEyebrowClass,
   prototypeNavyHeroSectionClass,
 } from "@/components/layout/prototype-page-styles";
+import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
 
 const BRAND = {
   dark: "#221913",
@@ -61,6 +62,8 @@ type Product = {
   sort_order: number;
   owned?: boolean;
   video_url?: string | null;
+  file_format?: string | null;
+  file_name?: string | null;
 };
 
 const TYPE_TILES: {
@@ -463,7 +466,11 @@ export default function MarketplacePage() {
                     return (
                       <Link
                         key={product.id}
-                        href={`/marketplace/${product.id}`}
+                        href={
+                          isMarketplaceZip(product)
+                            ? `/marketplace/${product.id}/package`
+                            : `/marketplace/${product.id}`
+                        }
                         className="group block overflow-hidden rounded-[8px] border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md"
                       >
                         <div
@@ -497,7 +504,13 @@ export default function MarketplacePage() {
                           <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
                             <span className="text-[12px] font-medium text-muted-foreground">{inferTopic(product)}</span>
                             <div className="flex items-center gap-2">
-                              {isSignedIn && !product.owned && product.price_cents > 0 && (
+                              {isMarketplaceZip(product) && !product.owned && (
+                                <span className="rounded-[6px] border border-[#C8922A]/40 bg-[#C8922A]/10 px-2 py-1 text-[11px] font-semibold text-[#b8893b]">
+                                  View package
+                                  {product.price_cents === 0 ? " · Free" : ""}
+                                </span>
+                              )}
+                              {isSignedIn && !product.owned && product.price_cents > 0 && !isMarketplaceZip(product) && (
                                 <>
                                   {cartItemIds.has(product.id) ? (
                                     <button
