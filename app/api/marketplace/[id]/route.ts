@@ -20,7 +20,7 @@ export async function GET(
     const { data, error } = await supabase
       .from("marketplace_items")
       .select(
-        "id, type, title, author, description, price_cents, currency, image_url, published, sort_order, file_path, file_name, file_format, video_url, created_at"
+        "id, type, title, author, description, price_cents, currency, image_url, published, sort_order, file_path, file_name, file_format, video_url, landing_page_html, created_at"
       )
       .eq("id", id)
       .single();
