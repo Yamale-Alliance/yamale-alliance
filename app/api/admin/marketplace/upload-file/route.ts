@@ -4,7 +4,8 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 
 const BUCKET = "marketplace-files";
 const PREFIX = "items/";
-const MAX_MB = 50;
+const MAX_MB_DEFAULT = 50;
+const MAX_MB_ZIP = 200;
 const ALLOWED_EXTENSIONS = [
   "pdf",
   "epub",
@@ -17,6 +18,7 @@ const ALLOWED_EXTENSIONS = [
   "xls",
   "xlsx",
   "csv",
+  "zip",
 ] as const;
 const ALLOWED_MIMES: Record<string, string> = {
   "application/pdf": "pdf",
@@ -30,6 +32,8 @@ const ALLOWED_MIMES: Record<string, string> = {
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
   "application/rtf": "rtf",
   "application/vnd.oasis.opendocument.text": "odt",
+  "application/zip": "zip",
+  "application/x-zip-compressed": "zip",
 };
 
 /** POST: upload a file for a marketplace item. Admin only. Returns { path, file_name, file_format }. */
@@ -56,8 +60,9 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
-  if (file.size > MAX_MB * 1024 * 1024) {
-    return NextResponse.json({ error: `File must be under ${MAX_MB} MB` }, { status: 400 });
+  const maxMb = ext === "zip" ? MAX_MB_ZIP : MAX_MB_DEFAULT;
+  if (file.size > maxMb * 1024 * 1024) {
+    return NextResponse.json({ error: `File must be under ${maxMb} MB` }, { status: 400 });
   }
 
   const supabase = getSupabaseServer();
