@@ -152,6 +152,7 @@ export interface Database {
           file_name: string | null;
           file_format: string | null;
           video_url: string | null;
+          landing_page_html: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -170,6 +171,7 @@ export interface Database {
           file_name?: string | null;
           file_format?: string | null;
           video_url?: string | null;
+          landing_page_html?: string | null;
           created_at?: string;
           updated_at?: string;
         };
