@@ -20,10 +20,16 @@ export async function POST(request: NextRequest) {
     }
 
     let provider: "pawapay" | "stripe" = "pawapay";
+    let successPath = "/marketplace";
     try {
       const body = await request.json().catch(() => ({}));
       if (body?.provider === "stripe" || body?.provider === "pawapay") {
         provider = body.provider;
+      }
+      const sp = body?.success_path ?? body?.successPath;
+      if (typeof sp === "string" && sp.startsWith("/marketplace/") && !sp.startsWith("//") && !sp.includes("://")) {
+        const pathOnly = sp.split("?")[0];
+        if (pathOnly.length <= 240) successPath = pathOnly;
       }
     } catch {
       // no body
@@ -114,8 +120,8 @@ export async function POST(request: NextRequest) {
           kind: "marketplace_cart",
           item_ids: itemIdsCsv,
         },
-        success_url: `${origin}/marketplace?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}/marketplace/cart?canceled=1`,
+        success_url: `${origin}${successPath}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}${successPath}?canceled=1`,
         payment_method_types: ["card"],
       });
 
@@ -129,7 +135,7 @@ export async function POST(request: NextRequest) {
       depositId,
       amountCents,
       currency,
-      returnUrl: `${origin}/marketplace?session_id=${encodeURIComponent(depositId)}`,
+      returnUrl: `${origin}${successPath}?checkout=success&session_id=${encodeURIComponent(depositId)}`,
       reason: "The Yamale Vault cart",
       customerMessage: "The Yamale Vault cart checkout",
       country: process.env.PAWAPAY_COUNTRY,
