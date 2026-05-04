@@ -6,6 +6,7 @@ import Link from "next/link";
 import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, Eye, Star, ShoppingCart, Zap, X, Download } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { FileViewer } from "@/components/marketplace/FileViewer";
+import { MarketplaceLandingIframe } from "@/components/marketplace/MarketplaceLandingIframe";
 
 const BRAND = {
   dark: "#221913",
@@ -30,6 +31,7 @@ type Item = {
   file_name?: string | null;
   file_format?: string | null;
   video_url?: string | null;
+  landing_page_html?: string | null;
 };
 
 function TypeIcon({ type }: { type: string }) {
@@ -221,6 +223,16 @@ export default function MarketplaceItemPage() {
       .catch(() => setIsInCart(false));
   }, [isSignedIn, id]);
 
+  useEffect(() => {
+    if (loading || !item || !id) return;
+    const zip =
+      item.file_format?.toLowerCase() === "zip" ||
+      (item.file_name?.toLowerCase().endsWith(".zip") ?? false);
+    if (zip) {
+      router.replace(`/marketplace/${id}/package`);
+    }
+  }, [loading, item, id, router]);
+
   const handlePurchase = async () => {
     if (!item || item.price_cents <= 0) return;
     if (!isLoaded) return;
@@ -400,41 +412,75 @@ export default function MarketplaceItemPage() {
   const free = Number(item.price_cents) === 0 || item.price_cents == 0;
   const priceDisplay = free ? "Free" : `$${(item.price_cents / 100).toFixed(2)}`;
 
+  const fileFmt = item.file_format?.toLowerCase() ?? "";
+  const fileNameLower = item.file_name?.toLowerCase() ?? "";
+  const isZip = fileFmt === "zip" || fileNameLower.endsWith(".zip");
+
+  const landingHtml = item.landing_page_html?.trim();
+
+  if (isZip) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <div className="border-b border-border bg-card/50 px-4 py-6">
-        <div className="mx-auto max-w-3xl">
-          <Link
-            href="/marketplace"
-            className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to The Yamale Vault
-          </Link>
-          <div className="flex items-start gap-4">
-            <div className="rounded-xl bg-muted p-4">
-              <TypeIcon type={item.type} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground capitalize">
-                {item.type}
-              </span>
-              <h1 className="mt-2 text-2xl font-semibold tracking-tight">{item.title}</h1>
-              {item.author && (
-                <p className="mt-1 text-muted-foreground">by {item.author}</p>
-              )}
-              {reviews.totalReviews > 0 && reviews.averageRating !== null && (
-                <div className="mt-2 flex items-center gap-1">
-                  <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                  <span className="text-sm font-medium">{reviews.averageRating.toFixed(1)}</span>
-                  <span className="text-sm text-muted-foreground">
-                    ({reviews.totalReviews} review{reviews.totalReviews !== 1 ? "s" : ""})
-                  </span>
-                </div>
-              )}
+      {landingHtml ? (
+        <div className="sticky top-0 z-20 border-b border-border bg-background/90 px-4 py-2.5 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
+          <div className="mx-auto flex max-w-7xl items-center gap-3 sm:gap-4">
+            <Link
+              href="/marketplace"
+              className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4 shrink-0" />{" "}
+              <span className="hidden sm:inline">Back to The Yamale Vault</span>
+              <span className="sm:hidden">Vault</span>
+            </Link>
+            <span className="min-w-0 truncate text-sm text-muted-foreground" title={item.title}>
+              {item.title}
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="border-b border-border bg-card/50 px-4 py-6">
+          <div className="mx-auto max-w-3xl">
+            <Link
+              href="/marketplace"
+              className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back to The Yamale Vault
+            </Link>
+            <div className="flex items-start gap-4">
+              <div className="rounded-xl bg-muted p-4">
+                <TypeIcon type={item.type} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground capitalize">
+                  {item.type}
+                </span>
+                <h1 className="mt-2 text-2xl font-semibold tracking-tight">{item.title}</h1>
+                {item.author && (
+                  <p className="mt-1 text-muted-foreground">by {item.author}</p>
+                )}
+                {reviews.totalReviews > 0 && reviews.averageRating !== null && (
+                  <div className="mt-2 flex items-center gap-1">
+                    <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                    <span className="text-sm font-medium">{reviews.averageRating.toFixed(1)}</span>
+                    <span className="text-sm text-muted-foreground">
+                      ({reviews.totalReviews} review{reviews.totalReviews !== 1 ? "s" : ""})
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {landingHtml ? <MarketplaceLandingIframe html={landingHtml} title={item.title} /> : null}
 
       <div className="mx-auto max-w-3xl px-4 py-8">
         {checkoutStatus === "success" && (
@@ -591,7 +637,17 @@ export default function MarketplaceItemPage() {
           </div>
           {(owned || free) && item.has_file && (
             <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-border pt-6">
-              {free ? (
+              {isZip ? (
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  disabled={downloading}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  Download ZIP
+                </button>
+              ) : free ? (
                 <button
                   type="button"
                   onClick={handleDownload}
@@ -631,7 +687,7 @@ export default function MarketplaceItemPage() {
         )}
       </div>
 
-      {viewerUrl && item && (
+      {viewerUrl && item && !isZip && (
         <FileViewer
           fileUrl={viewerUrl}
           fileName={item.file_name ?? null}
