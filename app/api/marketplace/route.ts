@@ -8,7 +8,9 @@ export async function GET() {
     const supabase = getSupabaseServer();
     const { data: rows, error } = await supabase
       .from("marketplace_items")
-      .select("id, type, title, author, description, price_cents, currency, image_url, sort_order, video_url")
+      .select(
+        "id, type, title, author, description, price_cents, currency, image_url, sort_order, video_url, file_format, file_name"
+      )
       .eq("published", true)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: false });
@@ -29,6 +31,8 @@ export async function GET() {
       image_url: string | null;
       sort_order: number;
       video_url: string | null;
+      file_format: string | null;
+      file_name: string | null;
     };
     const items: Row[] = (rows ?? []) as Row[];
     const { userId } = await auth();
