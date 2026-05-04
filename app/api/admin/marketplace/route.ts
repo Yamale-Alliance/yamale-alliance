@@ -3,6 +3,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin";
 import { recordAuditLog } from "@/lib/admin-audit";
 import type { Database } from "@/lib/database.types";
+import { parseLandingPageHtmlInput } from "@/lib/marketplace-landing-page";
 
 type Insert = Database["public"]["Tables"]["marketplace_items"]["Insert"];
 const VALID_TYPES = ["book", "course", "template", "guide"] as const;
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
       file_name = null,
       file_format = null,
       video_url = null,
+      landing_page_html,
     } = body as {
       type?: string;
       title?: string;
@@ -65,7 +67,16 @@ export async function POST(request: NextRequest) {
       file_name?: string | null;
       file_format?: string | null;
       video_url?: string | null;
+      landing_page_html?: string | null;
     };
+
+    let landingHtml: string | null = null;
+    try {
+      landingHtml = parseLandingPageHtmlInput(landing_page_html);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Invalid landing_page_html";
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
 
     if (!type || !VALID_TYPES.includes(type as (typeof VALID_TYPES)[number])) {
       return NextResponse.json(
@@ -92,6 +103,7 @@ export async function POST(request: NextRequest) {
       file_name: typeof file_name === "string" && file_name ? file_name : null,
       file_format: typeof file_format === "string" && file_format ? file_format : null,
       video_url: typeof video_url === "string" && video_url ? video_url.trim() : null,
+      landing_page_html: landingHtml,
     };
 
     const supabase = getSupabaseServer();
