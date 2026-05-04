@@ -178,9 +178,9 @@ export default function CartPage() {
               </Link>
             </div>
           ) : (
-            <div className="grid gap-6 lg:grid-cols-3">
+            <div className="grid min-w-0 gap-6 lg:grid-cols-3">
               {/* Cart Items */}
-              <div className="lg:col-span-2 space-y-4">
+              <div className="min-w-0 lg:col-span-2 space-y-4">
                 <div className="rounded-2xl border border-border/70 bg-card/95 p-5 shadow-lg shadow-primary/10 backdrop-blur-xl sm:p-6">
                   <div className="mb-4 flex items-center gap-2">
                     <Package className="h-5 w-5 text-primary" />
@@ -243,8 +243,8 @@ export default function CartPage() {
               </div>
 
               {/* Order Summary */}
-              <div className="lg:col-span-1">
-                <div className="sticky top-6 rounded-2xl border border-border/70 bg-card/95 p-5 shadow-lg shadow-primary/10 backdrop-blur-xl sm:p-6">
+              <div className="min-w-0 lg:col-span-1">
+                <div className="sticky top-6 w-full min-w-0 rounded-2xl border border-border/70 bg-card/95 p-5 shadow-lg shadow-primary/10 backdrop-blur-xl sm:p-6">
                   <h2 className="mb-4 text-lg font-semibold tracking-tight text-foreground">Order Summary</h2>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
@@ -280,7 +280,7 @@ export default function CartPage() {
                     )}
                   </button>
                   <p className="mt-4 text-center text-xs text-muted-foreground">
-                    Secure checkout — you will confirm payment on pawaPay or Stripe.
+                    Secure checkout — you will confirm payment on the provider screen (mobile money or card).
                   </p>
                 </div>
               </div>
