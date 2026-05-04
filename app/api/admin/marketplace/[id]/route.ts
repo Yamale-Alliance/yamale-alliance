@@ -3,6 +3,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin";
 import { recordAuditLog } from "@/lib/admin-audit";
 import type { Database } from "@/lib/database.types";
+import { parseLandingPageHtmlInput } from "@/lib/marketplace-landing-page";
 
 type Update = Database["public"]["Tables"]["marketplace_items"]["Update"];
 const VALID_TYPES = ["book", "course", "template", "guide"] as const;
@@ -58,6 +59,7 @@ export async function PUT(
       file_name,
       file_format,
       video_url,
+      landing_page_html,
     } = body;
 
     const updates: Update = {};
@@ -81,6 +83,14 @@ export async function PUT(
     if (video_url !== undefined) {
       const trimmed = typeof video_url === "string" ? video_url.trim() : String(video_url);
       updates.video_url = trimmed || null;
+    }
+    if (landing_page_html !== undefined) {
+      try {
+        updates.landing_page_html = parseLandingPageHtmlInput(landing_page_html);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Invalid landing_page_html";
+        return NextResponse.json({ error: msg }, { status: 400 });
+      }
     }
     updates.updated_at = new Date().toISOString();
 
