@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Package, ArrowLeft, Loader2, Eye, BookOpen, GraduationCap, FileText, Check, ArrowRight } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
+import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
 
 const BRAND = {
   dark: "#221913",
@@ -186,7 +187,11 @@ export default function PurchasedItemsPage() {
                   return (
                     <Link
                       key={product.id}
-                      href={`/marketplace/${product.id}`}
+                      href={
+                        isMarketplaceZip(product)
+                          ? `/marketplace/${product.id}/package`
+                          : `/marketplace/${product.id}`
+                      }
                       className="group relative block overflow-hidden rounded-2xl border border-border/70 bg-card/95 shadow-sm shadow-border/40 transition-all duration-200 hover:-translate-y-1 hover:border-primary/70 hover:shadow-lg hover:shadow-primary/20"
                     >
                       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[rgba(193,140,67,0.85)] via-[rgba(227,186,101,0.9)] to-[rgba(154,99,42,0.9)] opacity-70" />
