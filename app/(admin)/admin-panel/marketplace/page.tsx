@@ -22,6 +22,7 @@ type MarketplaceItem = {
   file_format: string | null;
   created_at: string;
   video_url?: string | null;
+  landing_page_html?: string | null;
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -44,7 +45,8 @@ function TypeIcon({ type }: { type: string }) {
   }
 }
 
-const ALLOWED_FILE_EXT = "pdf,epub,doc,docx,txt,md,rtf,odt,xls,xlsx,csv";
+const MARKETPLACE_FILE_ACCEPT =
+  ".pdf,.epub,.doc,.docx,.txt,.md,.rtf,.odt,.xls,.xlsx,.csv,.zip,application/zip";
 
 export default function AdminMarketplacePage() {
   const router = useRouter();
@@ -64,6 +66,11 @@ export default function AdminMarketplacePage() {
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const editImageInputRef = useRef<HTMLInputElement>(null);
+  const landingHtmlFileAddRef = useRef<HTMLInputElement>(null);
+  const landingHtmlFileEditRef = useRef<HTMLInputElement>(null);
+
+  const [landingPageHtmlAdd, setLandingPageHtmlAdd] = useState("");
+  const [editLandingHtml, setEditLandingHtml] = useState("");
 
   type PurchaseRow = {
     id: string;
@@ -181,6 +188,10 @@ export default function AdminMarketplacePage() {
     fetchPurchases();
   }, [origin]);
 
+  useEffect(() => {
+    if (editing) setEditLandingHtml(editing.landing_page_html ?? "");
+  }, [editing?.id]);
+
   // Open Add item view on refresh when ?view=add is in the URL
   useEffect(() => {
     const view = searchParams?.get("view");
@@ -216,6 +227,7 @@ export default function AdminMarketplacePage() {
           file_name: pendingFile?.file_name ?? null,
           file_format: pendingFile?.file_format ?? null,
           video_url: (form.elements.namedItem("video_url") as HTMLInputElement)?.value?.trim() || null,
+          landing_page_html: landingPageHtmlAdd.trim() || null,
         }),
       });
       const data = await res.json();
@@ -229,6 +241,7 @@ export default function AdminMarketplacePage() {
       updateViewInUrl(false);
       setPendingFile(null);
       setPendingImageUrl(null);
+      setLandingPageHtmlAdd("");
       form.reset();
     } catch {
       setError("Network error");
@@ -263,6 +276,7 @@ export default function AdminMarketplacePage() {
           file_name: removeFile ? null : (pendingFile ? pendingFile.file_name : editing.file_name),
           file_format: removeFile ? null : (pendingFile ? pendingFile.file_format : editing.file_format),
           video_url: (form.elements.namedItem("video_url") as HTMLInputElement)?.value?.trim() || null,
+          landing_page_html: editLandingHtml.trim() || null,
         }),
       });
       const data = await res.json();
@@ -338,7 +352,7 @@ export default function AdminMarketplacePage() {
         <div>
           <h1 className="text-2xl font-semibold">The Yamale Vault</h1>
           <p className="mt-1 text-muted-foreground">
-            Books, courses, and templates. Prices are set here and charged via pawaPay at checkout.
+            Books, courses, and templates. Prices are set here and charged at checkout (mobile money or card).
           </p>
         </div>
         <Link
@@ -438,12 +452,54 @@ export default function AdminMarketplacePage() {
               )}
             </div>
             <div className="sm:col-span-2">
-              <label className="mb-1 block text-sm font-medium">File (PDF, EPUB, etc.)</label>
-              <p className="mb-2 text-xs text-muted-foreground">Optional. Purchasers can view and download.</p>
+              <label className="mb-1 block text-sm font-medium">Custom landing page HTML (optional)</label>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Paste a full HTML document (as from a single .html file). Shown on the public product page above purchase
+                details. Trusted admin content only — max ~500k characters. Tier-one packages often use this for a rich sales
+                page. For in-page nav, use <code className="rounded bg-muted px-1">href=&quot;#pricing&quot;</code> (and matching{" "}
+                <code className="rounded bg-muted px-1">id=&quot;pricing&quot;</code> on the section);{" "}
+                <code className="rounded bg-muted px-1">href=&quot;/pricing&quot;</code> and full{" "}
+                <code className="rounded bg-muted px-1">https://…/pricing</code> links are rewritten to{" "}
+                <code className="rounded bg-muted px-1">#pricing</code> so the iframe does not load the main app.
+              </p>
+              <textarea
+                value={landingPageHtmlAdd}
+                onChange={(e) => setLandingPageHtmlAdd(e.target.value)}
+                rows={6}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 font-mono text-xs"
+                placeholder="<!DOCTYPE html> … or paste body markup"
+              />
+              <input
+                ref={landingHtmlFileAddRef}
+                type="file"
+                accept=".html,text/html"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) {
+                    f.text().then(setLandingPageHtmlAdd).catch(() => setError("Could not read HTML file"));
+                  }
+                  e.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => landingHtmlFileAddRef.current?.click()}
+                className="mt-2 text-xs font-medium text-primary hover:underline"
+              >
+                Load from .html file
+              </button>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium">File (PDF, EPUB, ZIP, etc.)</label>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Optional. Purchasers can view (PDF/video) or download. ZIP uploads allowed up to 200&nbsp;MB; other types up
+                to 50&nbsp;MB.
+              </p>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept={ALLOWED_FILE_EXT}
+                accept={MARKETPLACE_FILE_ACCEPT}
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
@@ -650,7 +706,7 @@ export default function AdminMarketplacePage() {
 
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-card p-6">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-border bg-card p-6">
             <h2 className="text-lg font-medium">Edit item</h2>
             <form onSubmit={handleUpdate} className="mt-4 grid gap-4">
               <div>
@@ -731,7 +787,44 @@ export default function AdminMarketplacePage() {
                 )}
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">File (PDF, EPUB, etc.)</label>
+                <label className="mb-1 block text-sm font-medium">Custom landing page HTML (optional)</label>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Full HTML document shown on the public item page. Clear the textarea to remove. Section links should use{" "}
+                  <code className="rounded bg-muted px-1">#pricing</code>;{" "}
+                  <code className="rounded bg-muted px-1">/pricing</code> and full{" "}
+                  <code className="rounded bg-muted px-1">https://…/pricing</code> URLs are rewritten to{" "}
+                  <code className="rounded bg-muted px-1">#pricing</code> so the iframe does not embed the main site.
+                </p>
+                <textarea
+                  value={editLandingHtml}
+                  onChange={(e) => setEditLandingHtml(e.target.value)}
+                  rows={8}
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 font-mono text-xs"
+                  placeholder="Paste HTML…"
+                />
+                <input
+                  ref={landingHtmlFileEditRef}
+                  type="file"
+                  accept=".html,text/html"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      f.text().then(setEditLandingHtml).catch(() => setError("Could not read HTML file"));
+                    }
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => landingHtmlFileEditRef.current?.click()}
+                  className="mt-2 text-xs font-medium text-primary hover:underline"
+                >
+                  Replace from .html file
+                </button>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">File (PDF, EPUB, ZIP, etc.)</label>
                 {editing.file_path && !removeFile && !pendingFile ? (
                   <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
                     <FileText className="h-4 w-4 text-muted-foreground" />
@@ -750,7 +843,7 @@ export default function AdminMarketplacePage() {
                     <input
                       ref={editFileInputRef}
                       type="file"
-                      accept={ALLOWED_FILE_EXT}
+                      accept={MARKETPLACE_FILE_ACCEPT}
                       className="hidden"
                       onChange={(e) => {
                         const f = e.target.files?.[0];
