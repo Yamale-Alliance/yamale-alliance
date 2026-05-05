@@ -14,6 +14,7 @@ import { isLawTreatyType } from "@/lib/law-treaty-type";
 import type { AdminAuth } from "@/lib/admin";
 import type { Database } from "@/lib/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { normalizeCategoryIdList, syncLawCategories } from "@/lib/law-categories-sync";
 
 export type LawUrlImportAuditSource = "url-import" | "bulk-url-import";
 
@@ -86,6 +87,8 @@ export async function saveLawFromPdfUrlImport(params: {
   countryIds?: string[];
   appliesToAllCountries?: boolean;
   categoryId: string;
+  /** When set, law appears under all listed categories (first is primary on laws.category_id). */
+  categoryIds?: string[];
   title: string;
   status: string;
   treatyType?: string;
@@ -102,6 +105,7 @@ export async function saveLawFromPdfUrlImport(params: {
     countryIds,
     appliesToAllCountries,
     categoryId,
+    categoryIds: categoryIdsParam,
     title,
     status,
     treatyType,
@@ -114,8 +118,13 @@ export async function saveLawFromPdfUrlImport(params: {
   const cid = (countryId ?? "").trim();
   const normalizedCountryIds = [...new Set((countryIds ?? []).map((id) => id.trim()).filter(Boolean))];
   const effectiveCountryIds = normalizedCountryIds.length > 0 ? normalizedCountryIds : cid ? [cid] : [];
-  if (!categoryId || !title) {
-    throw new Error("Saving requires categoryId and title.");
+  const categoryIdsResolved = normalizeCategoryIdList(
+    categoryIdsParam && categoryIdsParam.length > 0 ? categoryIdsParam : [categoryId]
+  );
+  const primaryCategoryId = categoryIdsResolved[0] ?? "";
+
+  if (!primaryCategoryId || !title) {
+    throw new Error("Saving requires at least one category and title.");
   }
   if (!global && effectiveCountryIds.length === 0) {
     throw new Error(
@@ -161,7 +170,7 @@ export async function saveLawFromPdfUrlImport(params: {
         {
           applies_to_all_countries: true,
           country_id: null,
-          category_id: categoryId,
+          category_id: primaryCategoryId,
           title,
           source_url: sourceUrl,
           source_name: sourceName,
@@ -175,7 +184,7 @@ export async function saveLawFromPdfUrlImport(params: {
     : effectiveCountryIds.map((countryIdValue) => ({
         applies_to_all_countries: false,
         country_id: countryIdValue,
-        category_id: categoryId,
+        category_id: primaryCategoryId,
         title,
         source_url: sourceUrl,
         source_name: sourceName,
@@ -208,5 +217,10 @@ export async function saveLawFromPdfUrlImport(params: {
     id: row.id,
     title: row.title,
   }));
+
+  for (const row of inserted) {
+    await syncLawCategories(supabase, row.id, categoryIdsResolved);
+  }
+
   return { laws: inserted, recordsCreated: inserted.length };
 }
