@@ -74,6 +74,9 @@ export async function POST(request: NextRequest) {
           .filter(Boolean)
       : [];
     const categoryId = typeof body.categoryId === "string" ? body.categoryId.trim() : "";
+    const categoryIds = Array.isArray(body.categoryIds)
+      ? body.categoryIds.filter((v): v is string => typeof v === "string").map((v) => v.trim()).filter(Boolean)
+      : [];
     const rawTitle = typeof body.title === "string" ? body.title : "";
     const title = normaliseLawTitle(rawTitle);
     const status = typeof body.status === "string" ? body.status.trim() : "In force";
@@ -88,9 +91,9 @@ export async function POST(request: NextRequest) {
 
     const markdownOverride = typeof body.markdown === "string" ? body.markdown.trim() : "";
 
-    if (!categoryId || !title) {
+    if ((!categoryId && categoryIds.length === 0) || !title) {
       return NextResponse.json(
-        { error: "Saving requires categoryId and title (run preview first or fill manually)." },
+        { error: "Saving requires at least one category and title (run preview first or fill manually)." },
         { status: 400 }
       );
     }
@@ -116,7 +119,8 @@ export async function POST(request: NextRequest) {
       countryId: appliesToAllCountries ? undefined : countryId,
       countryIds: appliesToAllCountries ? undefined : countryIds,
       appliesToAllCountries,
-      categoryId,
+      categoryId: categoryId || categoryIds[0] || "",
+      categoryIds: categoryIds.length > 0 ? categoryIds : undefined,
       title,
       status,
       treatyType: treatyTypeRaw,
