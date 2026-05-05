@@ -5,6 +5,7 @@ import { recordAuditLog } from "@/lib/admin-audit";
 import { extractTextFromPdf } from "@/lib/pdf-extract";
 import { sanitizeLawContent, VALID_LAW_STATUSES, normaliseLawTitle } from "@/lib/admin-law-utils";
 import type { Database } from "@/lib/database.types";
+import { syncLawCategories } from "@/lib/law-categories-sync";
 
 /** Large PDF batches can take several minutes. */
 export const maxDuration = 300;
@@ -161,6 +162,19 @@ export async function POST(request: NextRequest) {
 
       if (insertError) {
         failed.push({ index: i, title, error: insertError.message });
+        continue;
+      }
+
+      try {
+        await syncLawCategories(supabase, data.id as string, [categoryId]);
+      } catch (syncErr) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from("laws") as any).delete().eq("id", data.id);
+        failed.push({
+          index: i,
+          title,
+          error: syncErr instanceof Error ? syncErr.message : "Category link failed",
+        });
         continue;
       }
 
