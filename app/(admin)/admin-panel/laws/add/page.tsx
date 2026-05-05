@@ -16,7 +16,7 @@ export default function AdminLawsAddPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [countryIds, setCountryIds] = useState<string[]>([]);
   const [appliesToAll, setAppliesToAll] = useState(false);
-  const [categoryId, setCategoryId] = useState("");
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [status, setStatus] = useState("In force");
   const [treatyType, setTreatyType] = useState<LawTreatyType>("Not a treaty");
   const [title, setTitle] = useState("");
@@ -83,7 +83,7 @@ export default function AdminLawsAddPage() {
       }
       if (data.suggested?.title) setTitle(data.suggested.title);
       if (data.suggested?.countryId) setCountryIds([data.suggested.countryId]);
-      if (data.suggested?.categoryId) setCategoryId(data.suggested.categoryId);
+      if (data.suggested?.categoryId) setCategoryIds([data.suggested.categoryId]);
       if (data.suggested?.year != null) setYear(String(data.suggested.year));
       setUrlImportReady(true);
       let msg = data.usedClaude
@@ -116,8 +116,8 @@ export default function AdminLawsAddPage() {
       setError("Select at least one country, or enable “All countries” for treaties and regional instruments.");
       return;
     }
-    if (!categoryId) {
-      setError("Category is required.");
+    if (categoryIds.length === 0) {
+      setError("Select at least one category.");
       return;
     }
 
@@ -133,7 +133,8 @@ export default function AdminLawsAddPage() {
             url: sourceUrl.trim(),
             appliesToAllCountries: appliesToAll,
             countryIds: appliesToAll ? undefined : countryIds,
-            categoryId,
+            categoryId: categoryIds[0],
+            categoryIds,
             title: title.trim(),
             status,
             treatyType,
@@ -153,6 +154,7 @@ export default function AdminLawsAddPage() {
           return;
         }
         setSuccessMessage("Law added from URL import.");
+        setCategoryIds([]);
         setTitle("");
         setYear("");
         setPastedContent("");
@@ -198,7 +200,7 @@ export default function AdminLawsAddPage() {
     } else {
       countryIds.forEach((countryId) => formData.append("countryIds", countryId));
     }
-    formData.set("categoryId", categoryId);
+    categoryIds.forEach((cid) => formData.append("categoryIds", cid));
     formData.set("status", status);
     formData.set("treatyType", treatyType);
     formData.set("title", title.trim());
@@ -240,6 +242,7 @@ export default function AdminLawsAddPage() {
         return;
       }
       setSuccessMessage("Law added successfully. You can add another below.");
+      setCategoryIds([]);
       setTitle("");
       setYear("");
       setPastedContent("");
@@ -418,20 +421,36 @@ export default function AdminLawsAddPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Category *</label>
-          <select
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            required
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-            <option value="">Select category</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <label className="block text-sm font-medium mb-1">Categories *</label>
+          <p className="mb-2 text-xs text-muted-foreground">
+            The law appears in the library under every category you tick. The first selected is the primary label used in
+            some views.
+          </p>
+          <div className="max-h-48 overflow-y-auto rounded-md border border-input bg-background p-3">
+            <div className="space-y-2">
+              {categories.map((c) => {
+                const checked = categoryIds.includes(c.id);
+                return (
+                  <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setCategoryIds((prev) => (prev.includes(c.id) ? prev : [...prev, c.id]));
+                        } else {
+                          setCategoryIds((prev) => prev.filter((id) => id !== c.id));
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-input"
+                    />
+                    <span>{c.name}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">{categoryIds.length} selected</p>
         </div>
 
         <div>
