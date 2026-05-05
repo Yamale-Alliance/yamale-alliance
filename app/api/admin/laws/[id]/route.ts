@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin";
 import { recordAuditLog } from "@/lib/admin-audit";
 import { isLawTreatyType } from "@/lib/law-treaty-type";
 import type { Database } from "@/lib/database.types";
+import { fetchCategoryIdsForLaw, syncLawCategories } from "@/lib/law-categories-sync";
 
 type LawRow = Database["public"]["Tables"]["laws"]["Row"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -50,7 +51,13 @@ export async function GET(
           ...legacyData,
           treaty_type: "Not a treaty",
         };
-        return NextResponse.json({ law, warning: "Missing treaty_type column; run migration 064." });
+        let category_ids: string[] = law.category_id ? [law.category_id] : [];
+        try {
+          category_ids = await fetchCategoryIdsForLaw(supabase, id);
+        } catch {
+          /* law_categories table may not exist yet */
+        }
+        return NextResponse.json({ law: { ...law, category_ids }, warning: "Missing treaty_type column; run migration 064." });
       }
       if (error.code === "PGRST116") {
         return NextResponse.json({ error: "Law not found" }, { status: 404 });
@@ -64,7 +71,13 @@ export async function GET(
     }
 
     const law = data as LawRow;
-    return NextResponse.json({ law });
+    let category_ids: string[] = [law.category_id];
+    try {
+      category_ids = await fetchCategoryIdsForLaw(supabase, id);
+    } catch {
+      category_ids = law.category_id ? [law.category_id] : [];
+    }
+    return NextResponse.json({ law: { ...law, category_ids } });
   } catch (err) {
     console.error("Admin law GET error:", err);
     return NextResponse.json({ error: "Failed to load law" }, { status: 500 });
@@ -120,7 +133,13 @@ export async function PUT(
         updates.applies_to_all_countries = false;
       }
     }
-    if (body.category_id !== undefined) updates.category_id = body.category_id || null;
+    const categoryIdsPayload = Array.isArray(body.category_ids)
+      ? (body.category_ids as unknown[]).filter((v): v is string => typeof v === "string").map((v) => v.trim()).filter(Boolean)
+      : null;
+
+    if (body.category_id !== undefined && !(categoryIdsPayload && categoryIdsPayload.length > 0)) {
+      updates.category_id = body.category_id || null;
+    }
     if (body.year !== undefined) updates.year = body.year ? Number(body.year) : null;
     if (typeof body.status === "string") updates.status = body.status.trim() || "In force";
     if (body.treaty_type !== undefined) {
@@ -139,22 +158,51 @@ export async function PUT(
       updates.content_plain = trimmed;
     }
 
-    if (Object.keys(updates).length <= 1) {
+    const nonTsKeys = Object.keys(updates).filter((k) => k !== "updated_at");
+    const hasLawColumnUpdates = nonTsKeys.length > 0;
+    const hasCategorySync = Boolean(categoryIdsPayload && categoryIdsPayload.length > 0);
+
+    if (!hasLawColumnUpdates && !hasCategorySync) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error } = await (supabase.from("laws") as any)
-      .update(updates)
-      .eq("id", id)
+    if (hasLawColumnUpdates) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: updateErr } = await (supabase.from("laws") as any).update(updates).eq("id", id);
+      if (updateErr) {
+        console.error("Admin law PUT error:", updateErr);
+        return NextResponse.json({ error: updateErr.message }, { status: 500 });
+      }
+    }
+
+    if (hasCategorySync && categoryIdsPayload) {
+      try {
+        await syncLawCategories(supabase, id, categoryIdsPayload);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Category sync failed";
+        return NextResponse.json({ error: msg }, { status: 500 });
+      }
+    }
+
+    const { data, error } = await supabase
+      .from("laws")
       .select(
         "id, title, country_id, applies_to_all_countries, category_id, year, status, treaty_type, source_url, source_name"
       )
+      .eq("id", id)
       .single();
 
     if (error) {
-      console.error("Admin law PUT error:", error);
+      console.error("Admin law PUT reload error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const lawRow = data as LawRow;
+    let category_ids: string[] = lawRow.category_id ? [lawRow.category_id] : [];
+    try {
+      category_ids = await fetchCategoryIdsForLaw(supabase, id);
+    } catch {
+      category_ids = lawRow.category_id ? [lawRow.category_id] : [];
     }
 
     await recordAuditLog(supabase, {
@@ -163,10 +211,13 @@ export async function PUT(
       action: "law.update",
       entityType: "law",
       entityId: id,
-      details: { fields: Object.keys(updates).filter((k) => k !== "updated_at"), title: data?.title },
+      details: {
+        fields: [...nonTsKeys, ...(hasCategorySync ? ["category_ids"] : [])],
+        title: lawRow?.title,
+      },
     });
 
-    return NextResponse.json({ ok: true, law: data });
+    return NextResponse.json({ ok: true, law: { ...lawRow, category_ids } });
   } catch (err) {
     console.error("Admin law PUT error:", err);
     return NextResponse.json({ error: "Failed to update law" }, { status: 500 });
