@@ -5,6 +5,8 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, Eye, Star, ShoppingCart, Zap, X, Download } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
+import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
+import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { FileViewer } from "@/components/marketplace/FileViewer";
 import { MarketplaceLandingIframe } from "@/components/marketplace/MarketplaceLandingIframe";
 
@@ -93,6 +95,7 @@ export default function MarketplaceItemPage() {
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [savingRating, setSavingRating] = useState(false);
   const [ratingError, setRatingError] = useState<string | null>(null);
+  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
 
   const checkoutStatus = searchParams?.get("checkout");
   const sessionId = searchParams?.get("session_id") ?? null;
@@ -247,7 +250,7 @@ export default function MarketplaceItemPage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId: item.id }),
+        body: JSON.stringify({ itemId: item.id, paymentCountry: pawapayPaymentCountry }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -569,7 +572,17 @@ export default function MarketplaceItemPage() {
               </p>
             </div>
             {!owned && (
-              <div className="flex gap-2">
+              <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
+                {!free && (
+                  <div className="w-full max-w-xs sm:max-w-sm">
+                    <PawapayCountrySelect
+                      label="Mobile money country"
+                      value={pawapayPaymentCountry}
+                      onChange={setPawapayPaymentCountry}
+                    />
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2">
                 {free ? (
                   <button
                     type="button"
@@ -632,6 +645,7 @@ export default function MarketplaceItemPage() {
                     </button>
                   </>
                 )}
+                </div>
               </div>
             )}
           </div>
