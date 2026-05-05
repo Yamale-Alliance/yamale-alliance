@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { BookOpen, FileCheck, Search, Store } from "lucide-react";
+import { BookOpen, CreditCard, FileCheck, Search, Store } from "lucide-react";
 import { CheckoutSuccessBanner } from "./CheckoutSuccessBanner";
 
 const quickLinks = [
@@ -8,6 +8,7 @@ const quickLinks = [
   { href: "/afcfta", label: "AfCFTA Compliance", icon: FileCheck },
   { href: "/ai-research", label: "AI Research", icon: Search },
   { href: "/marketplace", label: "The Yamale Vault", icon: Store },
+  { href: "/account", label: "Account & billing", icon: CreditCard },
 ];
 
 export function UserDashboard() {
