@@ -9,6 +9,8 @@ import {
   PaymentMethodPicker,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
+import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
+import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { LawFirmDevelopmentZipLanding } from "@/components/marketplace/law-firm-development-package/LawFirmDevelopmentZipLanding";
 import { GenericZipPackageLanding } from "@/components/marketplace/GenericZipPackageLanding";
 import { ZipPackageContentsDialog } from "@/components/marketplace/ZipPackageContentsDialog";
@@ -40,8 +42,11 @@ export default function MarketplaceZipPackagePage() {
   const id = params?.id as string;
   const { isLoaded, isSignedIn } = useUser();
 
-  const stripeAvailable = Boolean(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+  const lomiAvailable =
+    process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
+    Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
+  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
 
   const [item, setItem] = useState<Item | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,10 +61,10 @@ export default function MarketplaceZipPackagePage() {
   const confirmedPaymentSessionRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!stripeAvailable && paymentProvider === "stripe") {
+    if (!lomiAvailable && paymentProvider === "lomi") {
       setPaymentProvider("pawapay");
     }
-  }, [stripeAvailable, paymentProvider]);
+  }, [lomiAvailable, paymentProvider]);
 
   useEffect(() => {
     if (!id) return;
@@ -234,6 +239,7 @@ export default function MarketplaceZipPackagePage() {
         body: JSON.stringify({
           provider: paymentProvider,
           success_path: `/marketplace/${id}/package`,
+          ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
         }),
       });
       const data = await res.json();
@@ -399,8 +405,18 @@ export default function MarketplaceZipPackagePage() {
                 <PaymentMethodPicker
                   value={paymentProvider}
                   onChange={setPaymentProvider}
-                  stripeAvailable={stripeAvailable}
+                  lomiAvailable={lomiAvailable}
                 />
+                {paymentProvider === "pawapay" && (
+                  <div className="mt-4">
+                    <PawapayCountrySelect
+                      label="Mobile money country"
+                      value={pawapayPaymentCountry}
+                      onChange={setPawapayPaymentCountry}
+                      selectClassName="w-full rounded-lg border border-white/20 bg-black/40 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#C8922A]/40"
+                    />
+                  </div>
+                )}
               </div>
               <button
                 type="button"
