@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDepositStatus, isDepositCompleted } from "@/lib/pawapay";
+import { getCompletedLomiCheckoutMetadata } from "@/lib/lomi-checkout";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 /**
@@ -19,6 +20,30 @@ export async function POST(request: NextRequest) {
     const sessionId = body.session_id as string | undefined;
     if (!sessionId || typeof sessionId !== "string") {
       return NextResponse.json({ error: "session_id required" }, { status: 400 });
+    }
+
+    const lomiMd = await getCompletedLomiCheckoutMetadata(sessionId);
+    if (lomiMd) {
+      if (lomiMd.clerk_user_id !== userId) {
+        return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
+      }
+      const kind = lomiMd.kind;
+      const marketplaceItemId = lomiMd.marketplace_item_id;
+      if (kind !== "marketplace" || !marketplaceItemId) {
+        return NextResponse.json({ error: "Not a marketplace session" }, { status: 400 });
+      }
+
+      const supabase = getSupabaseServer();
+      await (supabase.from("marketplace_purchases") as any).upsert(
+        {
+          user_id: userId,
+          marketplace_item_id: marketplaceItemId,
+          stripe_session_id: sessionId,
+        },
+        { onConflict: "user_id,marketplace_item_id" }
+      );
+
+      return NextResponse.json({ ok: true, marketplace_item_id: marketplaceItemId, provider: "lomi" });
     }
 
     const deposit = await getDepositStatus(sessionId);
