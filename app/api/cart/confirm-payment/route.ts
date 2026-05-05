@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDepositStatus, isDepositCompleted } from "@/lib/pawapay";
-import { getStripe, isStripeSecretConfigured } from "@/lib/stripe-server";
+import { getCompletedLomiCheckoutMetadata } from "@/lib/lomi-checkout";
 import {
   clearUserShoppingCart,
   parseCartItemIdsMetadata,
@@ -10,7 +10,7 @@ import {
 
 /**
  * After checkout redirect: confirm payment and record purchases.
- * Supports pawaPay deposit IDs and Stripe Checkout session IDs (`cs_...`).
+ * Supports pawaPay deposit IDs and Lomi checkout session IDs.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -25,24 +25,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "session_id required" }, { status: 400 });
     }
 
-    // Stripe Checkout
-    if (sessionId.startsWith("cs_")) {
-      if (!isStripeSecretConfigured()) {
-        return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
-      }
-      const stripe = getStripe();
-      const session = await stripe.checkout.sessions.retrieve(sessionId);
-      if (session.payment_status !== "paid") {
-        return NextResponse.json({ error: "Payment not completed" }, { status: 400 });
-      }
-      const clerkUserId = session.metadata?.clerk_user_id;
-      if (clerkUserId !== userId) {
+    const lomiMd = await getCompletedLomiCheckoutMetadata(sessionId);
+    if (lomiMd) {
+      if (lomiMd.clerk_user_id !== userId) {
         return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
       }
-      if (session.metadata?.kind !== "marketplace_cart") {
+      if (lomiMd.kind !== "marketplace_cart") {
         return NextResponse.json({ error: "Not a marketplace cart session" }, { status: 400 });
       }
-      const ids = parseCartItemIdsMetadata(session.metadata?.item_ids);
+      const ids = parseCartItemIdsMetadata(lomiMd.item_ids);
       if (ids.length === 0) {
         return NextResponse.json({ error: "No items found in cart session" }, { status: 400 });
       }
@@ -52,10 +43,9 @@ export async function POST(request: NextRequest) {
         sessionId,
       });
       await clearUserShoppingCart(userId);
-      return NextResponse.json({ ok: true, marketplace_item_ids: ids, provider: "stripe" });
+      return NextResponse.json({ ok: true, marketplace_item_ids: ids, provider: "lomi" });
     }
 
-    // pawaPay deposit
     const deposit = await getDepositStatus(sessionId);
     if (!deposit || !isDepositCompleted(deposit.status)) {
       return NextResponse.json({ error: "Payment not completed" }, { status: 400 });
