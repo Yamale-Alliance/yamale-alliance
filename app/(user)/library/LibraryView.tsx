@@ -23,6 +23,8 @@ import {
 import type { LibraryCountry, LibraryCategory, LibraryLawRow } from "@/lib/library-data";
 import { useUser } from "@clerk/nextjs";
 import { useAlertDialog } from "@/components/ui/use-confirm";
+import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
+import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 
 const PAGE_SIZE = 12;
 type SortOption = "title-asc" | "title-desc" | "country" | "category" | "newest";
@@ -278,6 +280,7 @@ export function LibraryView({
   const pathname = usePathname();
   const { user, isSignedIn } = useUser();
   const [printLoadingId, setPrintLoadingId] = useState<string | null>(null);
+  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const [paidLawIds, setPaidLawIds] = useState<Set<string>>(() => new Set());
   const isAdmin = (user?.publicMetadata?.role as string | undefined) === "admin";
   const [search, setSearch] = useState(initialSearch);
@@ -566,7 +569,7 @@ export function LibraryView({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ return_path: `/library/${lawId}` }),
+          body: JSON.stringify({ return_path: `/library/${lawId}`, paymentCountry: pawapayPaymentCountry }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -580,7 +583,7 @@ export function LibraryView({
         setPrintLoadingId(null);
       }
     },
-    [isSignedIn, router, paidLawIds, showAlert]
+    [isSignedIn, router, paidLawIds, showAlert, pawapayPaymentCountry]
   );
 
   const searchSuggestions = useMemo(() => {
@@ -887,6 +890,14 @@ export function LibraryView({
                   ))}
                 </select>
               </label>
+              {isSignedIn && (
+                <PawapayCountrySelect
+                  label="Mobile money (for paid print)"
+                  value={pawapayPaymentCountry}
+                  onChange={setPawapayPaymentCountry}
+                  className="w-full sm:min-w-[220px]"
+                />
+              )}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
