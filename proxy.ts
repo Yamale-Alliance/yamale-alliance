@@ -16,7 +16,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/laws(.*)", // public laws API for Library
   "/api/pricing", // public pricing data for pricing page
   "/api/marketplace(.*)", // public marketplace list and detail
-  "/api/stripe/webhook", // Stripe webhooks (verified by signature)
+  "/api/lomi/webhook", // Lomi + pawaPay payment callbacks (verified by signature where configured)
 ]);
 
 // Basic HTTP Authentication
@@ -47,7 +47,7 @@ export default clerkMiddleware(async (auth, request) => {
       url.pathname.startsWith("/api/laws/") ||
       url.pathname === "/api/pricing");
   const isWebhookCallback =
-    url.pathname === "/api/stripe/webhook";
+    url.pathname === "/api/lomi/webhook";
   if (process.env.ENABLE_BASIC_AUTH === "true" && !isPublicApi && !isWebhookCallback) {
     if (!checkBasicAuth(request)) {
       return new NextResponse("Authentication required", {
