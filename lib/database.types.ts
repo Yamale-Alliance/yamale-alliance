@@ -691,6 +691,58 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["deleted_laws"]["Insert"]>;
       };
+      support_tickets: {
+        Row: {
+          id: string;
+          clerk_user_id: string;
+          contact_name: string;
+          contact_email: string;
+          title: string;
+          status: string;
+          created_at: string;
+          updated_at: string;
+          resolved_at: string | null;
+          closed_at: string | null;
+          reopen_until: string | null;
+          archived_at: string | null;
+          last_activity_at: string;
+        };
+        Insert: {
+          id?: string;
+          clerk_user_id: string;
+          contact_name: string;
+          contact_email: string;
+          title: string;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+          resolved_at?: string | null;
+          closed_at?: string | null;
+          reopen_until?: string | null;
+          archived_at?: string | null;
+          last_activity_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["support_tickets"]["Insert"]>;
+      };
+      support_ticket_messages: {
+        Row: {
+          id: string;
+          ticket_id: string;
+          author_role: string;
+          clerk_user_id: string | null;
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          ticket_id: string;
+          author_role: string;
+          clerk_user_id?: string | null;
+          body: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["support_ticket_messages"]["Insert"]>;
+      };
     };
   };
 }
