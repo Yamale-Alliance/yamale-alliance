@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   escapeIlikePattern,
+  lawTextIlikeOr,
+  lawsCountryOrGlobalWithAnyEscapedTerms,
   lawsCountryOrGlobalWithTextSearch,
+  lawsGlobalTextIlikeOrTerms,
   lawsOrGlobalForCountry,
 } from "@/lib/law-country-scope";
+import {
+  normalizeSearchQueryForAi,
+  resolveLibrarySearchIntent,
+  compareRegistrationOffTopicTitles,
+  prioritizeTokensForLibrarySearch,
+  escapeSupplementalTermsForFetch,
+} from "@/lib/ai-library-search-intent";
+import { pickContentExcerpt } from "@/lib/ai-law-excerpt";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import {
@@ -146,12 +157,21 @@ function extractQueryHints(query: string): { country?: string; category?: string
     "industrial property": "Intellectual Property Law",
     "patent": "Intellectual Property Law",
     "copyright": "Intellectual Property Law",
+    "company registration": "Corporate Law",
+    "business registration": "Corporate Law",
+    "register a company": "Corporate Law",
+    "incorporate a company": "Corporate Law",
     "corporate law": "Corporate Law",
     "corporate": "Corporate Law",
     "sociétés commerciales": "Corporate Law",
     "loi sur les sociétés": "Corporate Law",
     "tax law": "Tax Law",
     "tax": "Tax Law",
+    "minimum wage": "Labor/Employment Law",
+    "wage": "Labor/Employment Law",
+    "wages": "Labor/Employment Law",
+    "remuneration": "Labor/Employment Law",
+    "salary": "Labor/Employment Law",
     "labor law": "Labor/Employment Law",
     "employment law": "Labor/Employment Law",
     "labor": "Labor/Employment Law",
@@ -208,8 +228,9 @@ function extractHintsFromConversation(
  */
 function isLikelyLegalQuestion(query: string): boolean {
   const q = query.toLowerCase();
-  return /\blaw\b|\bcode\b|\bact\b|\bregulation\b|\bstatute\b|\bordonnance\b|\bproclamation\b|\bcorporate governance\b|\bcompanies act\b/.test(
-    q
+  return (
+    /\blaw\b|\bcode\b|\bact\b|\bregulation\b|\bstatute\b|\bordonnance\b|\bproclamation\b|\bcorporate governance\b|\bcompanies act\b/.test(q) ||
+    /\b(wage|wages|salary|remuneration|employee|employer|contract|director|compliance|penalt(y|ies)|tax|minimum wage)\b/.test(q)
   );
 }
 
@@ -287,6 +308,7 @@ async function listTrademarkLawTitlesByCountry(
     .from("laws")
     .select("title, year")
     .eq("country_id", countryId)
+    .neq("status", "Repealed")
     .or("title.ilike.%trademark%,title.ilike.%trademarks%,title.ilike.%mark%")
     .order("title")
     .limit(12);
@@ -333,20 +355,241 @@ function extractSearchTokens(query: string): string[] {
   return Array.from(unique).slice(0, 8);
 }
 
+/** Tokens that widen ILIKE to almost every English law; drop from PostgREST OR clauses. */
+const AI_SEARCH_NOISE_TOKENS = new Set([
+  "are",
+  "was",
+  "were",
+  "been",
+  "being",
+  "have",
+  "has",
+  "had",
+  "can",
+  "could",
+  "should",
+  "would",
+  "will",
+  "shall",
+  "may",
+  "might",
+  "must",
+  "also",
+  "cover",
+  "covers",
+  "covered",
+  "step",
+  "steps",
+  "get",
+  "gets",
+  "got",
+  "give",
+  "gives",
+  "gave",
+  "tell",
+  "told",
+  "more",
+  "information",
+  "detail",
+  "details",
+  "please",
+  "need",
+  "needs",
+  "want",
+  "wants",
+  "help",
+  "helps",
+  "helped",
+  "using",
+  "used",
+  "make",
+  "made",
+  "just",
+  "only",
+  "each",
+  "such",
+  "same",
+  "into",
+  "onto",
+  "upon",
+  "they",
+  "them",
+  "their",
+  "there",
+  "here",
+  "this",
+  "these",
+  "those",
+  "than",
+  "then",
+  "while",
+  "what",
+  "your",
+  "you",
+  "how",
+  "why",
+  "who",
+  "ask",
+  "asked",
+  "about",
+  "able",
+  "well",
+  "back",
+  "even",
+  "much",
+  "some",
+  "any",
+  "very",
+  "another",
+  "thing",
+  "things",
+  "like",
+  "ways",
+  "answer",
+  "answers",
+  "giving",
+  "called",
+  "regarding",
+  "related",
+  "provide",
+  "provides",
+  "provided",
+]);
+
+function filterSubstantiveSearchTokens(tokens: string[]): string[] {
+  return tokens.filter((t) => {
+    const x = t.toLowerCase();
+    return x.length >= 4 && !AI_SEARCH_NOISE_TOKENS.has(x);
+  });
+}
+
+function buildShortPhraseEscapedCandidates(tokens: string[], primaryIntentId: string): string[] {
+  const t = prioritizeTokensForLibrarySearch(filterSubstantiveSearchTokens(tokens), primaryIntentId);
+  if (t.length === 0) return [];
+  const phrases: string[] = [];
+  const head4 = t.slice(0, Math.min(4, t.length)).join(" ");
+  const head3 = t.slice(0, Math.min(3, t.length)).join(" ");
+  const head2 = t.slice(0, Math.min(2, t.length)).join(" ");
+  if (head4.length >= 6) phrases.push(head4);
+  if (head3.length >= 5 && head3 !== head4) phrases.push(head3);
+  if (head2.length >= 4 && head2 !== head3) phrases.push(head2);
+  phrases.push(t[0]!);
+  return Array.from(
+    new Set(phrases.map((p) => escapeIlikePattern(p.toLowerCase())).filter((p) => p.length >= 3))
+  ).slice(0, 5);
+}
+
+const LAWS_AI_SELECT =
+  "id, title, content, content_plain, year, status, metadata, country_id, category_id, countries(name), categories(name)";
+
+function normalizeLawStatus(status: string | undefined | null): "in force" | "amended" | "repealed" | "other" {
+  const s = String(status ?? "").trim().toLowerCase();
+  if (s.includes("repeal")) return "repealed";
+  if (s.includes("amend")) return "amended";
+  if (s.includes("force") || s === "in force") return "in force";
+  return "other";
+}
+
+/** Optional UUID of the in-force instrument that supersedes an amended row (admin can set in law metadata JSON). */
+function getSuccessorIdFromMetadata(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  const m = metadata as Record<string, unknown>;
+  for (const key of ["replaced_by_law_id", "superseding_law_id", "amended_by_law_id", "successor_law_id"]) {
+    const v = m[key];
+    if (typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v.trim())) return v.trim();
+  }
+  return null;
+}
+
+function tokenSetOverlap(titleA: string, titleB: string): number {
+  const tok = (s: string) =>
+    new Set(
+      s
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .map((t) => t.trim())
+        .filter((t) => t.length > 3)
+    );
+  const A = tok(titleA);
+  let n = 0;
+  for (const t of tok(titleB)) {
+    if (A.has(t)) n++;
+  }
+  return n;
+}
+
+async function fetchSuccessorForAmendedLaw(supabase: any, law: any): Promise<any | null> {
+  if (normalizeLawStatus(law.status) !== "amended") return null;
+
+  const succId = getSuccessorIdFromMetadata(law.metadata);
+  if (succId) {
+    const { data } = await supabase
+      .from("laws")
+      .select(LAWS_AI_SELECT)
+      .eq("id", succId)
+      .neq("status", "Repealed")
+      .maybeSingle();
+    if (data && normalizeLawStatus(data.status) !== "repealed") return data;
+  }
+
+  if (!law.country_id || !law.category_id) return null;
+  const { data: candidates } = await supabase
+    .from("laws")
+    .select(LAWS_AI_SELECT)
+    .eq("country_id", law.country_id)
+    .eq("category_id", law.category_id)
+    .eq("status", "In force")
+    .neq("id", law.id)
+    .not("content", "is", null)
+    .limit(40);
+
+  let best: any = null;
+  let bestScore = 0;
+  for (const c of candidates ?? []) {
+    const sc = tokenSetOverlap(String(law.title ?? ""), String(c.title ?? ""));
+    if (sc > bestScore) {
+      bestScore = sc;
+      best = c;
+    }
+  }
+  return bestScore >= 2 ? best : null;
+}
+
+async function enrichLawsResolveAmended(supabase: any, laws: any[]): Promise<any[]> {
+  const resolved = await Promise.all(
+    laws.map(async (law) => {
+      if (normalizeLawStatus(law.status) === "repealed") return null;
+      if (normalizeLawStatus(law.status) !== "amended") return law;
+      const succ = await fetchSuccessorForAmendedLaw(supabase, law);
+      return succ ?? law;
+    })
+  );
+  const out: any[] = [];
+  const seen = new Set<string>();
+  for (const row of resolved) {
+    if (!row) continue;
+    if (seen.has(row.id)) continue;
+    seen.add(row.id);
+    out.push(row);
+  }
+  return out;
+}
+
 /**
  * Search legal library for relevant content (RAG)
+ * Category is taken only from the **current query** (hints), never from stale chat context,
+ * so retrieval is not locked to e.g. Corporate Law when the user asks a cross-cutting question.
  */
 async function searchLegalLibrary(
   query: string,
   country?: string,
-  category?: string,
   detailedMode = false
 ): Promise<Array<{ id: string; title: string; country: string; category: string; status?: string; content: string; year?: number }>> {
   try {
     const supabase = getSupabaseServer() as any;
     const hints = extractQueryHints(query);
     const searchCountry = country || hints.country;
-    const searchCategory = category || hints.category;
+    const searchCategory = hints.category;
 
     // Resolve country/category names to IDs so we can filter reliably (Supabase nested .eq("countries.name") can be unreliable)
     let countryId: string | null = null;
@@ -371,19 +614,33 @@ async function searchLegalLibrary(
     }
 
     const specificLawHint = extractSpecificLawHint(query);
+    const qForTokens = normalizeSearchQueryForAi(query);
+    const resolvedIntent = resolveLibrarySearchIntent(qForTokens);
+    const rawTokens = extractSearchTokens(qForTokens);
+    const expandedLower = [...resolvedIntent.mergedLexiconExtra];
+    const mergedForRank = prioritizeTokensForLibrarySearch(
+      Array.from(new Set([...rawTokens.map((t) => t.toLowerCase()), ...expandedLower])),
+      resolvedIntent.primaryId
+    );
+    const denySet = new Set(resolvedIntent.substantiveTokenDenylist.map((t) => t.toLowerCase()));
+    let substantive = filterSubstantiveSearchTokens(mergedForRank).filter((t) => !denySet.has(t.toLowerCase()));
+    const phraseCandidates = buildShortPhraseEscapedCandidates(mergedForRank, resolvedIntent.primaryId);
+    const tokenEscList = Array.from(
+      new Set(substantive.map((t) => escapeIlikePattern(t.toLowerCase())).filter((t) => t.length >= 3))
+    ).slice(0, resolvedIntent.useWideTokenSlice ? 8 : 6);
+    const rankingTokens = Array.from(new Set([...substantive, ...expandedLower])).slice(0, 20);
+
     let lawsQuery = supabase
       .from("laws")
-      .select(
-        "id, title, content, content_plain, year, status, country_id, category_id, countries(name), categories(name)"
-      )
+      .select(LAWS_AI_SELECT)
       .not("content", "is", null)
-      .limit(30);
+      .neq("status", "Repealed")
+      .limit(100);
 
     if (categoryId) {
       lawsQuery = lawsQuery.eq("category_id", categoryId);
     }
 
-    const hasHint = Boolean(searchCountry || searchCategory);
     if (specificLawHint) {
       const specificTokens = specificLawHint
         .toLowerCase()
@@ -396,56 +653,149 @@ async function searchLegalLibrary(
         .join(",");
       if (tokenOr) lawsQuery = lawsQuery.or(tokenOr);
       if (countryId) lawsQuery = lawsQuery.or(lawsOrGlobalForCountry(countryId));
-    } else if (query.trim() && !hasHint) {
-      const searchTerms = query.trim().toLowerCase();
-      const escapedTerms = escapeIlikePattern(searchTerms);
-      const tokenOr = extractSearchTokens(query)
-        .flatMap((t) => [
-          `title.ilike.%${escapeIlikePattern(t)}%`,
-          `content.ilike.%${escapeIlikePattern(t)}%`,
-        ])
-        .join(",");
+    } else if (query.trim()) {
       if (countryId) {
-        lawsQuery = lawsQuery.or(
-          tokenOr || lawsCountryOrGlobalWithTextSearch(countryId, escapedTerms)
-        );
+        const orParts: string[] = [];
+        if (tokenEscList.length > 0) {
+          orParts.push(lawsCountryOrGlobalWithAnyEscapedTerms(countryId, tokenEscList));
+        }
+        for (const p of phraseCandidates) {
+          orParts.push(lawsCountryOrGlobalWithTextSearch(countryId, p));
+        }
+        if (orParts.length > 0) {
+          lawsQuery = lawsQuery.or(orParts.join(","));
+        } else if (query.trim()) {
+          lawsQuery = lawsQuery.or(lawsOrGlobalForCountry(countryId));
+        }
       } else {
-        lawsQuery = lawsQuery.or(tokenOr || `title.ilike.%${escapedTerms}%,content.ilike.%${escapedTerms}%`);
+        const gParts: string[] = [];
+        if (tokenEscList.length > 0) {
+          gParts.push(lawsGlobalTextIlikeOrTerms(tokenEscList));
+        }
+        for (const p of phraseCandidates) {
+          gParts.push(`or(${lawTextIlikeOr(p)})`);
+        }
+        if (gParts.length > 0) {
+          lawsQuery = lawsQuery.or(gParts.join(","));
+        } else if (query.trim()) {
+          const w = rawTokens
+            .map((t) => t.toLowerCase())
+            .find((t) => t.length >= 5 && !AI_SEARCH_NOISE_TOKENS.has(t));
+          if (w) {
+            lawsQuery = lawsQuery.or(`or(${lawTextIlikeOr(escapeIlikePattern(w))})`);
+          }
+        }
       }
     } else if (countryId) {
       lawsQuery = lawsQuery.or(lawsOrGlobalForCountry(countryId));
     }
 
-    const { data: laws, error } = await lawsQuery;
+    let { data: laws, error } = await lawsQuery;
 
-    if (error || !laws || laws.length === 0) {
+    if (error) {
+      console.error("AI laws PostgREST search:", error.message ?? error);
+    }
+
+    let lawsRows = (laws ?? []) as any[];
+    if ((!lawsRows.length || error) && countryId && !specificLawHint) {
+      const { data: fb, error: fbErr } = await supabase
+        .from("laws")
+        .select(LAWS_AI_SELECT)
+        .not("content", "is", null)
+        .neq("status", "Repealed")
+        .or(lawsOrGlobalForCountry(countryId))
+        .limit(140);
+      if (!fbErr && fb?.length) {
+        lawsRows = fb as any[];
+        error = null;
+      }
+    } else if (!lawsRows.length && !countryId && qForTokens.trim() && !specificLawHint && tokenEscList.length > 0) {
+      const g = lawsGlobalTextIlikeOrTerms(tokenEscList.slice(0, 4));
+      const { data: fb2, error: fb2Err } = await supabase
+        .from("laws")
+        .select(LAWS_AI_SELECT)
+        .not("content", "is", null)
+        .neq("status", "Repealed")
+        .or(g)
+        .limit(100);
+      if (!fb2Err && fb2?.length) {
+        lawsRows = fb2 as any[];
+      }
+    }
+
+    const supEsc = escapeSupplementalTermsForFetch(resolvedIntent.supplementalTermsRaw);
+    if (supEsc.length > 0 && !specificLawHint) {
+      let extraLaws: any[] | null = null;
+      let exErr: any = null;
+      if (countryId) {
+        const r = await supabase
+          .from("laws")
+          .select(LAWS_AI_SELECT)
+          .not("content", "is", null)
+          .neq("status", "Repealed")
+          .or(lawsCountryOrGlobalWithAnyEscapedTerms(countryId, supEsc))
+          .limit(60);
+        extraLaws = r.data;
+        exErr = r.error;
+      } else {
+        const gOr = lawsGlobalTextIlikeOrTerms(supEsc);
+        if (gOr) {
+          const r = await supabase
+            .from("laws")
+            .select(LAWS_AI_SELECT)
+            .not("content", "is", null)
+            .neq("status", "Repealed")
+            .or(gOr)
+            .limit(60);
+          extraLaws = r.data;
+          exErr = r.error;
+        }
+      }
+      if (!exErr && extraLaws?.length) {
+        const have = new Set(lawsRows.map((r: any) => String(r.id)));
+        for (const row of extraLaws) {
+          const id = String((row as any).id);
+          if (!have.has(id)) {
+            have.add(id);
+            (lawsRows as any[]).push(row);
+          }
+        }
+      }
+    }
+
+    if (!lawsRows.length) {
       return [];
     }
 
-    const queryTokens = extractSearchTokens(query);
-    const rankedLaws = [...laws].sort((a: any, b: any) => {
+    const filtered = lawsRows.filter((row) => normalizeLawStatus(row.status) !== "repealed");
+
+    const rankedLaws = [...filtered].sort((a: any, b: any) => {
+      const off = compareRegistrationOffTopicTitles(a, b, resolvedIntent);
+      if (off !== 0) return off;
       const titleA = String(a.title ?? "").toLowerCase();
       const titleB = String(b.title ?? "").toLowerCase();
       const contentA = String(a.content_plain ?? a.content ?? "").toLowerCase();
       const contentB = String(b.content_plain ?? b.content ?? "").toLowerCase();
 
-      const score = (title: string, content: string) =>
-        queryTokens.reduce((sum, token) => {
+      const baseScore = (title: string, content: string) =>
+        rankingTokens.reduce((sum, token) => {
           const inTitle = title.includes(token) ? 3 : 0;
           const inContent = content.includes(token) ? 1 : 0;
           return sum + inTitle + inContent;
         }, 0);
 
-      return score(titleB, contentB) - score(titleA, contentA);
+      const total = (law: any, title: string, content: string) =>
+        baseScore(title, content) + resolvedIntent.rankBoost(law, rankingTokens);
+
+      return total(b, titleB, contentB) - total(a, titleA, contentA);
     });
 
-    const lawsForResponse =
-      specificLawHint && rankedLaws.length > 0
-        ? [rankedLaws[0]] // focus on the requested named law instead of mixing multiple laws
-        : rankedLaws.slice(0, detailedMode ? 10 : 6);
+    const enrichedRanked = await enrichLawsResolveAmended(supabase, rankedLaws);
 
-    // Use full-text retrieval so answers are grounded in complete law text
-    // rather than truncated excerpts.
+    const lawsForResponse =
+      specificLawHint && enrichedRanked.length > 0
+        ? [enrichedRanked[0]]
+        : enrichedRanked.slice(0, detailedMode ? 14 : 8);
 
     const requestedArticle = extractRequestedArticle(query);
 
@@ -463,16 +813,28 @@ async function searchLegalLibrary(
 
       if (!shouldKeepFullTextForSpecificLaw) {
         const perLawCap = Math.min(maxCharsPerLaw, remainingChars);
-        selectedContent = fullText.slice(0, perLawCap);
+        selectedContent = pickContentExcerpt(
+          fullText,
+          rankingTokens.length ? rankingTokens : [qForTokens.trim().toLowerCase(), query.trim().toLowerCase()].filter(Boolean),
+          perLawCap
+        );
+        if (selectedContent.length > perLawCap) {
+          selectedContent = selectedContent.slice(0, perLawCap);
+        }
       } else if (fullText.length > remainingChars) {
-        // In specific-law detailed mode, still respect global budget to avoid hard API failures.
         selectedContent = fullText.slice(0, remainingChars);
       }
 
       if (requestedArticle !== null) {
         const articleRe = new RegExp(`\\barticle\\s+${requestedArticle}\\b`, "i");
-        const hitIdx = selectedContent.search(articleRe);
+        const hitIdx = fullText.search(articleRe);
         if (hitIdx >= 0) {
+          const span = Math.min(maxCharsPerLaw, remainingChars);
+          const half = Math.floor(span / 2);
+          const start = Math.max(0, Math.min(hitIdx - half, fullText.length - span));
+          selectedContent = fullText.slice(start, start + span);
+          if (start > 0) selectedContent = `…${selectedContent}`;
+          if (start + span < fullText.length) selectedContent = `${selectedContent}…`;
           compacted.push({
             id: law.id,
             title: law.title,
@@ -614,25 +976,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!effectiveHints.country && isLikelyLegalQuestion(userQuery)) {
+    // Search legal library for relevant content (RAG)
+    const detailedMode = isDetailedRequest(userQuery);
+    const legalContext = await searchLegalLibrary(userQuery, effectiveHints.country, detailedMode);
+
+    if (
+      legalContext.length === 0 &&
+      !effectiveHints.country &&
+      isLikelyLegalQuestion(userQuery)
+    ) {
       return NextResponse.json({
         content:
-          "I couldn't tell which country's law you mean from your question.\n\n" +
-          "Please re-ask your question and include the country explicitly, for example:\n" +
-          "- \"In Rwanda, what does the Capital Market Corporate Governance Code N°___, 2024 provide?\"\n" +
+          "I searched the library but could not match your question to specific laws without a country.\n\n" +
+          "Please re-ask and name the country (or region) you care about, for example:\n" +
+          "- \"What is the minimum wage in Kenya?\"\n" +
           "- \"Under Ghanaian corporate law, what does the Companies Act say about directors' duties?\"",
         sources: ["Yamalé AI · African Legal Research"],
       });
     }
-
-    // Search legal library for relevant content (RAG)
-    const detailedMode = isDetailedRequest(userQuery);
-    const legalContext = await searchLegalLibrary(
-      userQuery,
-      effectiveHints.country,
-      effectiveHints.category,
-      detailedMode
-    );
 
     // Build Claude messages format
     const claudeMessages: ClaudeMessage[] = [];
@@ -698,7 +1059,11 @@ export async function POST(request: NextRequest) {
 
 Core rule: when library documents are provided, answer ONLY from those documents.
 Do not add outside knowledge, web references, or generic legal templates.
-If something is not in the provided excerpts, say "Not stated in the provided library excerpt."`;
+If something is not in the provided excerpts, say "Not stated in the provided library excerpt."
+
+Status handling (metadata in the library):
+- Instruments marked **Repealed** are excluded from retrieval; do not treat repealed texts as current law.
+- For **Amended** instruments, the system may substitute the best-matching **In force** successor in the same country/category when one is linked in metadata (\`replaced_by_law_id\`, \`superseding_law_id\`, etc.) or inferred from titles. If the excerpt is clearly an older amended version and no successor text is present, say so and answer only from what is shown.`;
 
     // Add legal context if available
     if (legalContext.length > 0) {
@@ -709,7 +1074,7 @@ If something is not in the provided excerpts, say "Not stated in the provided li
               law.year ? `\nYear: ${law.year}` : ""
             }\nContent:\n${law.content}\n---\n`
         )
-        .join("\n")}\n\nIMPORTANT: (1) Base your answer strictly on these legal documents from the library database. (2) Do not cite them as \"Document 1\", \"Based on Document 2\", or similar—instead refer to the law by its title or country. (3) Do NOT use outside/general knowledge when answering this request. (4) If the documents do not cover the question, explicitly say they are not found in the current library results and ask the user to refine filters/query; do not invent statutes or web references. (5) For each substantive point, include a short quote/snippet from the provided text that supports it.`;
+        .join("\n")}\n\nIMPORTANT: (1) Base your answer strictly on these legal documents from the library database. (2) Do not cite them as \"Document 1\", \"Based on Document 2\", or similar—instead refer to the law by its title or country. (3) Do NOT use outside/general knowledge when answering this request. (4) If the documents do not cover the question, explicitly say they are not found in the current library results and ask the user to refine filters/query; do not invent statutes or web references. (5) For each substantive point, include a short quote/snippet from the provided text that supports it. (6) Titles may be in French or another language: infer the subject from headings and body text (e.g. OHADA, acte uniforme, code du travail, code pénal) and do not dismiss an instrument solely because the title does not match the user's English wording. (7) When several instruments are listed, prefer excerpts that directly address the user's topic (e.g. company formation and OHADA-style commercial acts for business registration; labor codes for employment; fiscal statutes for tax; environmental codes for pollution or climate; criminal codes for penal questions) over generic constitutional texts or unrelated bilateral treaties unless those instruments clearly contain the requested rules.`;
       systemPrompt +=
         "\n\nDefault answer style (unless user asks otherwise): provide a practical summary in clear sections focused on what the law says. Use this order: (a) What this law is about, (b) Who it applies to, (c) Main obligations/prohibitions, (d) Enforcement/oversight, (e) Penalties/remedies if present, (f) Practical takeaway. Avoid long publication metadata (gazette volume, legal notice chronology, revision history) unless the user explicitly asks for citation history or amendment timeline.";
       if (detailedMode) {
@@ -857,7 +1222,7 @@ If something is not in the provided excerpts, say "Not stated in the provided li
 
     let lawyerNudge: { country: string; category: string; count: number; href: string } | null = null;
     const nudgeCountry = effectiveHints.country ?? legalContext[0]?.country;
-    const nudgeCategory = effectiveHints.category ?? legalContext[0]?.category;
+    const nudgeCategory = currentHints.category ?? legalContext[0]?.category;
     if (nudgeCountry && nudgeCategory) {
       try {
         const supabase = getSupabaseServer();
