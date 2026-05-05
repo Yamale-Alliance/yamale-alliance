@@ -14,7 +14,7 @@ export async function GET(
     const { data, error } = await supabase
       .from("laws")
       .select(
-        "id, title, source_url, source_name, year, status, content, content_plain, country_id, applies_to_all_countries, category_id, countries(name), categories(name)"
+        "id, title, source_url, source_name, year, status, content, content_plain, country_id, applies_to_all_countries, category_id, countries(name), categories!laws_category_id_fkey(name)"
       )
       .eq("id", id)
       .single();
