@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { createPaymentPageSession, isPawapayConfigured } from "@/lib/pawapay";
-import { getStripe, isStripeSecretConfigured } from "@/lib/stripe-server";
+import {
+  convertUsdCentsToPawapayMinor,
+  createPaymentPageSession,
+  isPawapayConfigured,
+  resolvePawapayReturnOrigin,
+} from "@/lib/pawapay";
+import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
+import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
 
 const AI_QUERY_PRICE_CENTS = 100; // $1 per query
-type CheckoutProvider = "pawapay" | "stripe";
+type CheckoutProvider = "pawapay" | "lomi";
 
 /**
  * Create pawaPay Payment Page session for purchasing one AI query.
@@ -18,52 +24,57 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}));
     const provider = (body.provider as CheckoutProvider | undefined) || "pawapay";
-    const origin = request.headers.get("origin") || request.nextUrl.origin;
+    const requestOrigin = request.headers.get("origin") || request.nextUrl.origin;
+    const origin = requestOrigin;
+    const pawCurrency = (process.env.PAWAPAY_CURRENCY || "USD").toUpperCase();
 
-    if (provider === "stripe") {
-      if (!isStripeSecretConfigured()) {
-        return NextResponse.json({ error: "Stripe card checkout is not configured." }, { status: 503 });
+    if (provider === "lomi") {
+      if (!isLomiConfigured()) {
+        return NextResponse.json({ error: "Lomi checkout is not configured." }, { status: 503 });
       }
-      const stripe = getStripe();
-      const session = await stripe.checkout.sessions.create({
-        mode: "payment",
-        line_items: [
+      const currencyCode = toLomiCurrency(pawCurrency);
+      if (!currencyCode) {
+        return NextResponse.json(
           {
-            quantity: 1,
-            price_data: {
-              currency: (process.env.PAWAPAY_CURRENCY || "USD").toLowerCase(),
-              unit_amount: AI_QUERY_PRICE_CENTS,
-              product_data: { name: "AI query" },
-            },
+            error:
+              "Lomi checkout supports USD, EUR, or XOF. Set PAWAPAY_CURRENCY accordingly or use mobile money.",
           },
-        ],
-        client_reference_id: userId,
+          { status: 400 }
+        );
+      }
+      const amountMinor = convertUsdCentsToPawapayMinor(AI_QUERY_PRICE_CENTS, currencyCode);
+      const { checkoutUrl } = await createLomiHostedCheckoutSession({
+        amount: amountMinor,
+        currency_code: currencyCode,
         metadata: { clerk_user_id: userId, kind: "payg_ai_query" },
+        title: "AI query",
         success_url: `${origin}/ai-research?session_id={CHECKOUT_SESSION_ID}&payg=ai_query`,
         cancel_url: `${origin}/pricing?canceled=1`,
-        payment_method_types: ["card"],
       });
-      if (!session.url) {
-        return NextResponse.json({ error: "Could not create Stripe checkout URL" }, { status: 500 });
-      }
-      return NextResponse.json({ url: session.url, provider: "stripe" });
+      return NextResponse.json({ url: checkoutUrl, provider: "lomi" });
     }
+
     if (!isPawapayConfigured()) {
       return NextResponse.json({ error: "PawaPay mobile money is not configured." }, { status: 503 });
     }
+    const gate = requirePawapayPaymentCountry(body as Record<string, unknown>);
+    if (!gate.ok) return gate.response;
+    const amountMinor = convertUsdCentsToPawapayMinor(AI_QUERY_PRICE_CENTS, gate.country.currency);
     const depositId = crypto.randomUUID();
-    const returnUrl = `${origin}/ai-research?session_id=${encodeURIComponent(depositId)}&payg=ai_query`;
+    const returnBase = resolvePawapayReturnOrigin(requestOrigin);
+    const returnUrl = `${returnBase}/ai-research?session_id=${encodeURIComponent(depositId)}&payg=ai_query`;
     const { redirectUrl } = await createPaymentPageSession({
       depositId,
-      amountCents: AI_QUERY_PRICE_CENTS,
-      currency: (process.env.PAWAPAY_CURRENCY || "USD").toUpperCase(),
+      amountCents: amountMinor,
+      currency: gate.country.currency,
       returnUrl,
       reason: "AI query",
       customerMessage: "One AI query - Full answer with citations",
-      country: process.env.PAWAPAY_COUNTRY,
+      country: gate.country.iso3,
       metadata: {
         clerk_user_id: userId,
         kind: "payg_ai_query",
+        payment_country: gate.country.label,
       },
     });
 
