@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { Plus, FileText, Loader2, Trash2, CopyCheck, Trash, History, Download } from "lucide-react";
+import { Plus, FileText, Loader2, Trash2, CopyCheck, Trash, History, Download, Scale } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
+import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
 
 type Country = { id: string; name: string; region: string | null };
 type Category = { id: string; name: string; slug: string | null };
@@ -13,6 +14,7 @@ type Law = {
   title: string;
   year: number | null;
   status: string;
+  treaty_type?: string | null;
   country_id: string | null;
   applies_to_all_countries?: boolean;
   category_id: string;
@@ -56,6 +58,9 @@ function AdminLawsPageInner() {
   const [dupSummary, setDupSummary] = useState<{ groups: number; laws: number } | null>(null);
   const [exportScope, setExportScope] = useState<string>("all");
   const [exporting, setExporting] = useState(false);
+  const [bulkTreatyType, setBulkTreatyType] = useState<LawTreatyType>("Multilateral");
+  const [bulkTreatySaving, setBulkTreatySaving] = useState(false);
+  const [bulkTreatyError, setBulkTreatyError] = useState<string | null>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
   const { confirm, confirmDialog } = useConfirm();
 
@@ -66,6 +71,7 @@ function AdminLawsPageInner() {
     if (status) params.set("status", status);
     setLoading(true);
     setDeleteError(null);
+    setBulkTreatyError(null);
     return fetch(`${window.location.origin}/api/laws?${params}`, { credentials: "include" })
       .then((r) => r.json())
       .then((data) => {
@@ -122,6 +128,42 @@ function AdminLawsPageInner() {
       else next.add(id);
       return next;
     });
+  };
+
+  const handleBulkTreatyType = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const ok = await confirm({
+      title: "Update treaty type",
+      description: `Set treaty type to “${bulkTreatyType}” for ${ids.length} law(s)?`,
+      confirmLabel: "Update",
+      cancelLabel: "Cancel",
+    });
+    if (!ok) return;
+    setBulkTreatySaving(true);
+    setBulkTreatyError(null);
+    try {
+      const res = await fetch("/api/admin/laws/batch-update", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, treaty_type: bulkTreatyType }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        updated?: number;
+      };
+      if (!res.ok) {
+        setBulkTreatyError(typeof data.error === "string" ? data.error : "Update failed.");
+        return;
+      }
+      setSelectedIds(new Set());
+      await loadLaws();
+    } catch {
+      setBulkTreatyError("Network error.");
+    } finally {
+      setBulkTreatySaving(false);
+    }
   };
 
   const handleDeleteSelected = async () => {
@@ -398,17 +440,50 @@ function AdminLawsPageInner() {
       </div>
 
       {!loading && laws.length > 0 && (
-        <div className="mt-4 flex flex-wrap items-center gap-3">
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="flex flex-wrap items-end gap-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Treaty type for selection</label>
+              <select
+                value={bulkTreatyType}
+                onChange={(e) => setBulkTreatyType(e.target.value as LawTreatyType)}
+                className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                {LAW_TREATY_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={() => void handleBulkTreatyType()}
+              disabled={selectedCount === 0 || bulkTreatySaving}
+              className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+            >
+              {bulkTreatySaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Scale className="h-4 w-4" />
+              )}
+              Apply to selected{selectedCount > 0 ? ` (${selectedCount})` : ""}
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => void handleDeleteSelected()}
             disabled={selectedCount === 0 || deleting}
-            className="inline-flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/15 disabled:pointer-events-none disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/15 disabled:pointer-events-none disabled:opacity-50 sm:ml-auto"
           >
             {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
             Delete selected{selectedCount > 0 ? ` (${selectedCount})` : ""}
           </button>
-          {deleteError && <span className="text-sm text-destructive">{deleteError}</span>}
+          {(bulkTreatyError || deleteError) && (
+            <span className="text-sm text-destructive w-full sm:w-auto">
+              {bulkTreatyError ?? deleteError}
+            </span>
+          )}
         </div>
       )}
 
@@ -443,6 +518,7 @@ function AdminLawsPageInner() {
                   <th className="text-left p-3 font-medium">Title</th>
                   <th className="text-left p-3 font-medium">Country</th>
                   <th className="text-left p-3 font-medium">Category</th>
+                  <th className="text-left p-3 font-medium">Treaty</th>
                   <th className="text-left p-3 font-medium">Status</th>
                   <th className="text-left p-3 font-medium">Year</th>
                 </tr>
@@ -471,6 +547,7 @@ function AdminLawsPageInner() {
                       {law.applies_to_all_countries ? "All countries" : law.countries?.name ?? "—"}
                     </td>
                     <td className="p-3 text-muted-foreground">{law.categories?.name ?? "—"}</td>
+                    <td className="p-3 text-muted-foreground">{law.treaty_type ?? "—"}</td>
                     <td className="p-3">{law.status}</td>
                     <td className="p-3">{law.year ?? "—"}</td>
                   </tr>
