@@ -1,34 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { convertUsdCentsToPawapayMinor, createPaymentPageSession, isPawapayConfigured } from "@/lib/pawapay";
+import {
+  convertUsdCentsToPawapayMinor,
+  createPaymentPageSession,
+  isPawapayConfigured,
+  isPawapayLiveApi,
+  resolvePawapayReturnOrigin,
+} from "@/lib/pawapay";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { getStripe, isStripeSecretConfigured } from "@/lib/stripe-server";
+import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
+import { PAWAPAY_COUNTRY_BY_NAME } from "@/lib/pawapay-payment-countries";
 
 const SEARCH_UNLOCK_USD_CENTS = 500; // $5 per search
-type CheckoutProvider = "pawapay" | "stripe";
-
-const PAWAPAY_COUNTRY_BY_NAME: Record<string, { iso3: string; currency: string }> = {
-  Benin: { iso3: "BEN", currency: "XOF" },
-  Cameroon: { iso3: "CMR", currency: "XAF" },
-  "Côte d'Ivoire": { iso3: "CIV", currency: "XOF" },
-  "Democratic Republic of the Congo": { iso3: "COD", currency: "CDF" },
-  Gabon: { iso3: "GAB", currency: "XAF" },
-  Kenya: { iso3: "KEN", currency: "KES" },
-  "Republic of the Congo": { iso3: "COG", currency: "XAF" },
-  Rwanda: { iso3: "RWA", currency: "RWF" },
-  Senegal: { iso3: "SEN", currency: "XOF" },
-  "Sierra Leone": { iso3: "SLE", currency: "SLE" },
-  Uganda: { iso3: "UGA", currency: "UGX" },
-  Zambia: { iso3: "ZMB", currency: "ZMW" },
-};
-
-function getPublicReturnOrigin(request: NextRequest): string {
-  const configured = (process.env.PAWAPAY_RETURN_BASE_URL || "").trim();
-  if (configured) {
-    return configured.replace(/\/+$/, "");
-  }
-  return (request.headers.get("origin") || request.nextUrl.origin).replace(/\/+$/, "");
-}
+type CheckoutProvider = "pawapay" | "lomi";
 
 /**
  * Create pawaPay Payment Page session for unlocking all lawyers in the current search.
@@ -55,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     const origin = request.headers.get("origin") || request.nextUrl.origin;
-    const returnOrigin = getPublicReturnOrigin(request);
+    const returnOrigin = resolvePawapayReturnOrigin(origin);
     const countryLabel = country === "all" ? "All countries" : country;
     const buildReturnQuery = (sessionToken: string, extra?: { canceled?: boolean }) => {
       const params = new URLSearchParams();
@@ -68,49 +52,35 @@ export async function POST(request: NextRequest) {
       return params.toString();
     };
 
-    if (provider === "stripe") {
-      if (!isStripeSecretConfigured()) {
+    if (provider === "lomi") {
+      if (!isLomiConfigured()) {
         return NextResponse.json(
-          { error: "Stripe card checkout is not configured. Choose mobile money or set STRIPE_SECRET_KEY." },
+          { error: "Lomi checkout is not configured. Choose mobile money or set LOMI_API_KEY." },
           { status: 503 }
         );
       }
-      const stripe = getStripe();
-      const currency = "usd";
-      const checkoutSession = await stripe.checkout.sessions.create({
-        mode: "payment",
-        line_items: [
-          {
-            quantity: 1,
-            price_data: {
-              currency,
-              unit_amount: SEARCH_UNLOCK_USD_CENTS,
-              product_data: {
-                name: `Lawyer search unlock — ${countryLabel} · ${expertise}`,
-              },
-            },
-          },
-        ],
-        client_reference_id: userId,
+      const currencyCode = toLomiCurrency("USD");
+      if (!currencyCode) {
+        return NextResponse.json({ error: "Lomi lawyer search unlock expects USD pricing." }, { status: 500 });
+      }
+      const { checkoutUrl, sessionId } = await createLomiHostedCheckoutSession({
+        amount: SEARCH_UNLOCK_USD_CENTS,
+        currency_code: currencyCode,
         metadata: {
           clerk_user_id: userId,
           kind: "payg_lawyer_search",
           country: country || "all",
           expertise,
         },
+        title: `Lawyer search unlock — ${countryLabel} · ${expertise}`,
         success_url: `${origin}/lawyers?${buildReturnQuery("{CHECKOUT_SESSION_ID}")}`,
         cancel_url: `${origin}/lawyers?${buildReturnQuery("canceled", { canceled: true })}`,
-        payment_method_types: ["card"],
       });
-
-      if (!checkoutSession.url) {
-        return NextResponse.json({ error: "Could not create Stripe checkout URL" }, { status: 500 });
-      }
 
       const supabase = getSupabaseServer();
       await (supabase.from("lawyer_search_purchases") as any).upsert(
         {
-          stripe_session_id: checkoutSession.id,
+          stripe_session_id: sessionId,
           user_id: userId,
           lawyer_ids: Array.isArray(lawyerIds) ? lawyerIds : [],
           country: country || "all",
@@ -119,57 +89,41 @@ export async function POST(request: NextRequest) {
         { onConflict: "stripe_session_id" }
       );
 
-      return NextResponse.json({ url: checkoutSession.url, provider: "stripe" });
+      return NextResponse.json({ url: checkoutUrl, provider: "lomi" });
     }
 
-    // No pawaPay: fallback to Stripe Checkout (cards) when STRIPE_SECRET_KEY is set.
     if (!isPawapayConfigured()) {
-      if (!isStripeSecretConfigured()) {
+      if (!isLomiConfigured()) {
         return NextResponse.json(
           {
             error:
-              "Payments are not configured. Set PAWAPAY_API_TOKEN (mobile money) or STRIPE_SECRET_KEY (cards) in your environment.",
+              "Payments are not configured. Set PAWAPAY_API_TOKEN (mobile money) or LOMI_API_KEY (hosted card checkout) in your environment.",
           },
           { status: 503 }
         );
       }
-
-      const stripe = getStripe();
-      const currency = "usd";
-      const checkoutSession = await stripe.checkout.sessions.create({
-        mode: "payment",
-        line_items: [
-          {
-            quantity: 1,
-            price_data: {
-              currency,
-              unit_amount: SEARCH_UNLOCK_USD_CENTS,
-              product_data: {
-                name: `Lawyer search unlock — ${countryLabel} · ${expertise}`,
-              },
-            },
-          },
-        ],
-        client_reference_id: userId,
+      const currencyCode = toLomiCurrency("USD");
+      if (!currencyCode) {
+        return NextResponse.json({ error: "Lomi lawyer search unlock expects USD pricing." }, { status: 500 });
+      }
+      const { checkoutUrl, sessionId } = await createLomiHostedCheckoutSession({
+        amount: SEARCH_UNLOCK_USD_CENTS,
+        currency_code: currencyCode,
         metadata: {
           clerk_user_id: userId,
           kind: "payg_lawyer_search",
           country: country || "all",
           expertise,
         },
+        title: `Lawyer search unlock — ${countryLabel} · ${expertise}`,
         success_url: `${origin}/lawyers?${buildReturnQuery("{CHECKOUT_SESSION_ID}")}`,
         cancel_url: `${origin}/lawyers?${buildReturnQuery("canceled", { canceled: true })}`,
-        payment_method_types: ["card"],
       });
-
-      if (!checkoutSession.url) {
-        return NextResponse.json({ error: "Could not create Stripe checkout URL" }, { status: 500 });
-      }
 
       const supabase = getSupabaseServer();
       await (supabase.from("lawyer_search_purchases") as any).upsert(
         {
-          stripe_session_id: checkoutSession.id,
+          stripe_session_id: sessionId,
           user_id: userId,
           lawyer_ids: Array.isArray(lawyerIds) ? lawyerIds : [],
           country: country || "all",
@@ -178,12 +132,11 @@ export async function POST(request: NextRequest) {
         { onConflict: "stripe_session_id" }
       );
 
-      return NextResponse.json({ url: checkoutSession.url, provider: "stripe" });
+      return NextResponse.json({ url: checkoutUrl, provider: "lomi" });
     }
 
     const depositId = crypto.randomUUID();
-    const usingLivePawapay = (process.env.PAWAPAY_BASE_URL || "").includes("api.pawapay.io");
-    if (usingLivePawapay && !/^https:\/\//i.test(returnOrigin)) {
+    if (isPawapayLiveApi() && !/^https:\/\//i.test(returnOrigin)) {
       return NextResponse.json(
         {
           error:
