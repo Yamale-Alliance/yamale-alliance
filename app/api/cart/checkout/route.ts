@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { createPaymentPageSession } from "@/lib/pawapay";
-import { getStripe, isStripeSecretConfigured } from "@/lib/stripe-server";
+import { createPaymentPageSession, isPawapayConfigured, resolvePawapayReturnOrigin } from "@/lib/pawapay";
+import { amountMinorForPawapayCountry } from "@/lib/pawapay-deposit-amount";
+import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
+import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
 
 type PricedLine = {
   currency: string;
@@ -11,7 +13,7 @@ type PricedLine = {
   quantity: number;
 };
 
-/** POST: create checkout — pawaPay (mobile money) or Stripe (cards). Body: { provider?: "pawapay" | "stripe" } */
+/** POST: create checkout — pawaPay (mobile money) or Lomi (hosted checkout). Body: { provider?, success_path?, paymentCountry? } */
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await auth();
@@ -19,20 +21,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Sign in required" }, { status: 401 });
     }
 
-    let provider: "pawapay" | "stripe" = "pawapay";
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    let provider: "pawapay" | "lomi" = "pawapay";
     let successPath = "/marketplace";
-    try {
-      const body = await request.json().catch(() => ({}));
-      if (body?.provider === "stripe" || body?.provider === "pawapay") {
-        provider = body.provider;
-      }
-      const sp = body?.success_path ?? body?.successPath;
-      if (typeof sp === "string" && sp.startsWith("/marketplace/") && !sp.startsWith("//") && !sp.includes("://")) {
-        const pathOnly = sp.split("?")[0];
-        if (pathOnly.length <= 240) successPath = pathOnly;
-      }
-    } catch {
-      // no body
+    if (body?.provider === "lomi" || body?.provider === "pawapay") {
+      provider = body.provider;
+    }
+    const sp = body?.success_path ?? body?.successPath;
+    if (typeof sp === "string" && sp.startsWith("/marketplace/") && !sp.startsWith("//") && !sp.includes("://")) {
+      const pathOnly = sp.split("?")[0];
+      if (pathOnly.length <= 240) successPath = pathOnly;
     }
 
     const supabase = getSupabaseServer();
@@ -82,67 +80,82 @@ export async function POST(request: NextRequest) {
     const itemIdsList = cartItems.map((item: any) => item.marketplace_item_id as string);
     const itemIdsCsv = itemIdsList.join(",");
     const itemIdsJson = JSON.stringify(itemIdsList);
-    const origin = request.headers.get("origin") || request.nextUrl.origin;
+    const requestOrigin = request.headers.get("origin") || request.nextUrl.origin;
+    const origin = requestOrigin;
 
-    if (provider === "stripe") {
-      if (!isStripeSecretConfigured()) {
+    if (provider === "lomi") {
+      if (!isLomiConfigured()) {
         return NextResponse.json(
-          { error: "Card checkout is not configured. Add STRIPE_SECRET_KEY or choose mobile money." },
+          { error: "Lomi checkout is not configured. Add LOMI_API_KEY or choose mobile money." },
           { status: 503 }
         );
       }
 
-      const stripe = getStripe();
-      const lineItems = pricedItems.map((line) => ({
-        quantity: line.quantity,
-        price_data: {
-          currency: currency.toLowerCase(),
-          unit_amount: line.price_cents,
-          product_data: {
-            name: line.title.slice(0, 120),
-          },
-        },
-      }));
-
-      if (itemIdsCsv.length > 500) {
+      const currencyCode = toLomiCurrency(currency);
+      if (!currencyCode) {
         return NextResponse.json(
-          { error: "Cart is too large for card checkout. Remove some items or use mobile money." },
+          {
+            error:
+              "Lomi checkout supports USD, EUR, or XOF only. Use mobile money for other currencies, or change cart currency.",
+          },
           { status: 400 }
         );
       }
 
-      const session = await stripe.checkout.sessions.create({
-        mode: "payment",
-        line_items: lineItems,
-        client_reference_id: userId,
+      if (itemIdsCsv.length > 500) {
+        return NextResponse.json(
+          { error: "Cart is too large for hosted checkout metadata. Remove some items or use mobile money." },
+          { status: 400 }
+        );
+      }
+
+      const { checkoutUrl } = await createLomiHostedCheckoutSession({
+        amount: amountCents,
+        currency_code: currencyCode,
         metadata: {
           clerk_user_id: userId,
           kind: "marketplace_cart",
           item_ids: itemIdsCsv,
         },
+        title: "The Yamale Vault cart",
+        description: "Marketplace cart checkout",
         success_url: `${origin}${successPath}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}${successPath}?canceled=1`,
-        payment_method_types: ["card"],
       });
 
-      // Do not clear cart until payment succeeds (webhook or confirm-payment).
-      return NextResponse.json({ url: session.url, provider: "stripe" });
+      return NextResponse.json({ url: checkoutUrl, provider: "lomi" });
     }
 
-    // pawaPay (default)
+    if (!isPawapayConfigured()) {
+      return NextResponse.json({ error: "PawaPay mobile money is not configured." }, { status: 503 });
+    }
+
+    const gate = requirePawapayPaymentCountry(body);
+    if (!gate.ok) return gate.response;
+
+    let amountMinor: number;
+    try {
+      amountMinor = amountMinorForPawapayCountry(amountCents, currency, gate.country.currency);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Currency mismatch";
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+
     const depositId = crypto.randomUUID();
+    const returnBase = resolvePawapayReturnOrigin(requestOrigin);
     const { redirectUrl } = await createPaymentPageSession({
       depositId,
-      amountCents,
-      currency,
-      returnUrl: `${origin}${successPath}?checkout=success&session_id=${encodeURIComponent(depositId)}`,
+      amountCents: amountMinor,
+      currency: gate.country.currency,
+      returnUrl: `${returnBase}${successPath}?checkout=success&session_id=${encodeURIComponent(depositId)}`,
       reason: "The Yamale Vault cart",
       customerMessage: "The Yamale Vault cart checkout",
-      country: process.env.PAWAPAY_COUNTRY,
+      country: gate.country.iso3,
       metadata: {
         clerk_user_id: userId,
         kind: "marketplace_cart",
         item_ids: itemIdsJson,
+        payment_country: gate.country.label,
       },
     });
 
