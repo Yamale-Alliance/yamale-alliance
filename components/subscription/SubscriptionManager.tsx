@@ -423,7 +423,18 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
             <h2 className="text-lg font-semibold">Payment method</h2>
             <p className="mt-1 text-sm text-muted-foreground">Mobile money or card / wallets via Lomi — choose before paying.</p>
             <div className="mt-4 max-w-xl">
-              <PaymentMethodPicker value={paymentProvider} onChange={setPaymentProvider} lomiAvailable={lomiAvailable} />
+              <PaymentMethodPicker
+                value={paymentProvider}
+                onChange={setPaymentProvider}
+                lomiAvailable={lomiAvailable}
+                lomiComingSoon
+                onLomiComingSoonClick={() => {
+                  void showAlert(
+                    "Credit card payments are coming soon. For now, please use Mobile Money.",
+                    "Coming soon"
+                  );
+                }}
+              />
               {paymentProvider === "pawapay" && (
                 <div className="mt-4">
                   <PawapayCountrySelect

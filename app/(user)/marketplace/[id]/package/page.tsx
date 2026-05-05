@@ -45,6 +45,7 @@ export default function MarketplaceZipPackagePage() {
   const lomiAvailable =
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
     Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
+  const lomiComingSoon = true;
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
 
@@ -61,10 +62,10 @@ export default function MarketplaceZipPackagePage() {
   const confirmedPaymentSessionRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!lomiAvailable && paymentProvider === "lomi") {
+    if ((!lomiAvailable || lomiComingSoon) && paymentProvider === "lomi") {
       setPaymentProvider("pawapay");
     }
-  }, [lomiAvailable, paymentProvider]);
+  }, [lomiAvailable, lomiComingSoon, paymentProvider]);
 
   useEffect(() => {
     if (!id) return;
@@ -406,6 +407,10 @@ export default function MarketplaceZipPackagePage() {
                   value={paymentProvider}
                   onChange={setPaymentProvider}
                   lomiAvailable={lomiAvailable}
+                  lomiComingSoon={lomiComingSoon}
+                  onLomiComingSoonClick={() => {
+                    setError("Credit card payments are coming soon. For now, please use Mobile Money.");
+                  }}
                 />
                 {paymentProvider === "pawapay" && (
                   <div className="mt-4">

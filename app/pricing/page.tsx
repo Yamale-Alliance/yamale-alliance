@@ -138,6 +138,7 @@ export default function PricingPage() {
   const lomiAvailable =
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
     Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
+  const lomiComingSoon = true;
 
   /** Subscription checkout happens under Account (plan, billing period, payment method). */
   const goToSubscriptionCheckout = (planId: string) => {
@@ -256,7 +257,7 @@ export default function PricingPage() {
     const dayPass = params.get("day_pass");
     const providerParam = params.get("provider");
     const provider: CheckoutPaymentProvider =
-      providerParam === "lomi" && lomiAvailable ? "lomi" : "pawapay";
+      providerParam === "lomi" && lomiAvailable && !lomiComingSoon ? "lomi" : "pawapay";
 
     setPaymentProvider(provider);
 
@@ -486,6 +487,13 @@ export default function PricingPage() {
                 value={paymentProvider}
                 onChange={setPaymentProvider}
                 lomiAvailable={lomiAvailable}
+                lomiComingSoon={lomiComingSoon}
+                onLomiComingSoonClick={() => {
+                  void showAlert(
+                    "Credit card payments are coming soon. For now, please use Mobile Money.",
+                    "Coming soon"
+                  );
+                }}
               />
             </div>
             {paymentProvider === "pawapay" && (

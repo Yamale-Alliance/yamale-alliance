@@ -48,6 +48,7 @@ export default function CartPage() {
   const lomiAvailable =
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
     Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
+  const lomiComingSoon = true;
   const [removing, setRemoving] = useState<string | null>(null);
   const { alert: showAlert, alertDialog } = useAlertDialog();
 
@@ -273,6 +274,13 @@ export default function CartPage() {
                     value={paymentProvider}
                     onChange={setPaymentProvider}
                     lomiAvailable={lomiAvailable}
+                    lomiComingSoon={lomiComingSoon}
+                    onLomiComingSoonClick={() => {
+                      void showAlert(
+                        "Credit card payments are coming soon. For now, please use Mobile Money.",
+                        "Coming soon"
+                      );
+                    }}
                   />
                   {paymentProvider === "pawapay" && (
                     <div className="mt-4">
