@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { createPaymentPageSession, isPawapayConfigured } from "@/lib/pawapay";
-import { getStripe, isStripeSecretConfigured } from "@/lib/stripe-server";
+import {
+  convertUsdCentsToPawapayMinor,
+  createPaymentPageSession,
+  isPawapayConfigured,
+  resolvePawapayReturnOrigin,
+} from "@/lib/pawapay";
+import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
+import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
 
 const AFCFTA_REPORT_PRICE_CENTS = 1500; // $15 per report
 const AFCFTA_REPORTS_DISABLED = true;
-type CheckoutProvider = "pawapay" | "stripe";
+type CheckoutProvider = "pawapay" | "lomi";
 
 /**
  * Create pawaPay Payment Page session for purchasing one AfCFTA report.
@@ -28,52 +34,57 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}));
     const provider = (body.provider as CheckoutProvider | undefined) || "pawapay";
-    const origin = request.headers.get("origin") || request.nextUrl.origin;
+    const requestOrigin = request.headers.get("origin") || request.nextUrl.origin;
+    const origin = requestOrigin;
+    const pawCurrency = (process.env.PAWAPAY_CURRENCY || "USD").toUpperCase();
 
-    if (provider === "stripe") {
-      if (!isStripeSecretConfigured()) {
-        return NextResponse.json({ error: "Stripe card checkout is not configured." }, { status: 503 });
+    if (provider === "lomi") {
+      if (!isLomiConfigured()) {
+        return NextResponse.json({ error: "Lomi checkout is not configured." }, { status: 503 });
       }
-      const stripe = getStripe();
-      const session = await stripe.checkout.sessions.create({
-        mode: "payment",
-        line_items: [
+      const currencyCode = toLomiCurrency(pawCurrency);
+      if (!currencyCode) {
+        return NextResponse.json(
           {
-            quantity: 1,
-            price_data: {
-              currency: (process.env.PAWAPAY_CURRENCY || "USD").toLowerCase(),
-              unit_amount: AFCFTA_REPORT_PRICE_CENTS,
-              product_data: { name: "AfCFTA report" },
-            },
+            error:
+              "Lomi checkout supports USD, EUR, or XOF. Set PAWAPAY_CURRENCY accordingly or use mobile money.",
           },
-        ],
-        client_reference_id: userId,
+          { status: 400 }
+        );
+      }
+      const amountMinor = convertUsdCentsToPawapayMinor(AFCFTA_REPORT_PRICE_CENTS, currencyCode);
+      const { checkoutUrl } = await createLomiHostedCheckoutSession({
+        amount: amountMinor,
+        currency_code: currencyCode,
         metadata: { clerk_user_id: userId, kind: "payg_afcfta_report" },
+        title: "AfCFTA report",
         success_url: `${origin}/dashboard?session_id={CHECKOUT_SESSION_ID}&payg=afcfta_report`,
         cancel_url: `${origin}/pricing?canceled=1`,
-        payment_method_types: ["card"],
       });
-      if (!session.url) {
-        return NextResponse.json({ error: "Could not create Stripe checkout URL" }, { status: 500 });
-      }
-      return NextResponse.json({ url: session.url, provider: "stripe" });
+      return NextResponse.json({ url: checkoutUrl, provider: "lomi" });
     }
+
     if (!isPawapayConfigured()) {
       return NextResponse.json({ error: "PawaPay mobile money is not configured." }, { status: 503 });
     }
+    const gate = requirePawapayPaymentCountry(body as Record<string, unknown>);
+    if (!gate.ok) return gate.response;
+    const amountMinor = convertUsdCentsToPawapayMinor(AFCFTA_REPORT_PRICE_CENTS, gate.country.currency);
     const depositId = crypto.randomUUID();
-    const returnUrl = `${origin}/dashboard?session_id=${encodeURIComponent(depositId)}&payg=afcfta_report`;
+    const returnBase = resolvePawapayReturnOrigin(requestOrigin);
+    const returnUrl = `${returnBase}/dashboard?session_id=${encodeURIComponent(depositId)}&payg=afcfta_report`;
     const { redirectUrl } = await createPaymentPageSession({
       depositId,
-      amountCents: AFCFTA_REPORT_PRICE_CENTS,
-      currency: (process.env.PAWAPAY_CURRENCY || "USD").toUpperCase(),
+      amountCents: amountMinor,
+      currency: gate.country.currency,
       returnUrl,
       reason: "AfCFTA report",
       customerMessage: "One AfCFTA report - Full compliance analysis",
-      country: process.env.PAWAPAY_COUNTRY,
+      country: gate.country.iso3,
       metadata: {
         clerk_user_id: userId,
         kind: "payg_afcfta_report",
+        payment_country: gate.country.label,
       },
     });
 
