@@ -16,6 +16,7 @@ type LawForEdit = {
   country_id: string | null;
   applies_to_all_countries?: boolean;
   category_id: string;
+  category_ids?: string[];
   year: number | null;
   status: string;
   treaty_type: string;
@@ -39,7 +40,7 @@ export default function AdminLawEditPage() {
   const [title, setTitle] = useState("");
   const [countryId, setCountryId] = useState("");
   const [appliesToAll, setAppliesToAll] = useState(false);
-  const [categoryId, setCategoryId] = useState("");
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [year, setYear] = useState("");
   const [status, setStatus] = useState("In force");
   const [treatyType, setTreatyType] = useState<LawTreatyType>("Not a treaty");
@@ -83,7 +84,13 @@ export default function AdminLawEditPage() {
         setTitle(lawData.title ?? "");
         setAppliesToAll(!!lawData.applies_to_all_countries);
         setCountryId(lawData.country_id ?? "");
-        setCategoryId(lawData.category_id ?? "");
+        setCategoryIds(
+          Array.isArray(lawData.category_ids) && lawData.category_ids.length > 0
+            ? lawData.category_ids
+            : lawData.category_id
+              ? [lawData.category_id]
+              : []
+        );
         setYear(lawData.year != null ? String(lawData.year) : "");
         setStatus(lawData.status ?? "In force");
         setTreatyType((lawData.treaty_type as LawTreatyType) ?? "Not a treaty");
@@ -195,6 +202,10 @@ export default function AdminLawEditPage() {
       setError("Select a country, or enable “All countries” for treaties and regional instruments.");
       return;
     }
+    if (categoryIds.length === 0) {
+      setError("Select at least one category.");
+      return;
+    }
     setSaving(true);
     setError(null);
     setStatusMsg(null);
@@ -207,7 +218,7 @@ export default function AdminLawEditPage() {
           title: title.trim(),
           applies_to_all_countries: appliesToAll,
           country_id: appliesToAll ? null : countryId.trim(),
-          category_id: categoryId || null,
+          category_ids: categoryIds,
           year: year.trim() ? Number(year.trim()) : null,
           status: status.trim() || "In force",
           treaty_type: treatyType,
@@ -222,10 +233,15 @@ export default function AdminLawEditPage() {
       }
       setStatusMsg("Changes saved.");
       if (data.law) {
-        const u = data.law as Partial<LawForEdit>;
+        const u = data.law as Partial<LawForEdit> & { category_ids?: string[] };
         setLaw((prev) => (prev ? { ...prev, ...u } : null));
         if (typeof u.applies_to_all_countries === "boolean") setAppliesToAll(u.applies_to_all_countries);
         if (u.country_id !== undefined) setCountryId(u.country_id ?? "");
+        if (Array.isArray(u.category_ids) && u.category_ids.length > 0) {
+          setCategoryIds(u.category_ids);
+        } else if (u.category_id) {
+          setCategoryIds([u.category_id]);
+        }
       }
     } catch {
       setError("Network error. Please try again.");
@@ -343,18 +359,37 @@ export default function AdminLawEditPage() {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">Category</label>
-              <select
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">Select category</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Categories *</label>
+              <p className="mb-2 text-xs text-muted-foreground">
+                The law is listed under each selected category in the library. The first ticked is the primary label in
+                some views.
+              </p>
+              <div className="max-h-40 overflow-y-auto rounded-md border border-input bg-background p-3">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {categories.map((c) => {
+                    const checked = categoryIds.includes(c.id);
+                    return (
+                      <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setCategoryIds((prev) => (prev.includes(c.id) ? prev : [...prev, c.id]));
+                            } else {
+                              setCategoryIds((prev) => prev.filter((x) => x !== c.id));
+                            }
+                          }}
+                          className="h-4 w-4 rounded border-input"
+                        />
+                        <span>{c.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">{categoryIds.length} selected</p>
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">Year</label>
