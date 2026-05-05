@@ -17,7 +17,10 @@ import {
   Search,
   FileCheck,
   CreditCard,
+  MessageSquare,
 } from "lucide-react";
+
+const SUPPORT_CENTER_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
 
 const navItems = [
   { href: "/admin-panel", label: "Overview", icon: LayoutDashboard },
@@ -25,6 +28,11 @@ const navItems = [
   { href: "/admin-panel/users", label: "Users", icon: Users },
   { href: "/admin-panel/ai-usage", label: "AI Usage", icon: Cpu },
   { href: "/admin-panel/subscriptions", label: "Subscriptions", icon: CreditCard },
+  {
+    href: "/admin-panel/support",
+    label: SUPPORT_CENTER_LIVE ? "Support requests" : "Support requests (coming soon)",
+    icon: MessageSquare,
+  },
   { href: "/admin-panel/lawyers", label: "Lawyers", icon: Briefcase },
   { href: "/admin-panel/lawyer-searches", label: "Lawyer Searches", icon: Search },
   { href: "/admin-panel/laws", label: "Laws", icon: BookOpen },
