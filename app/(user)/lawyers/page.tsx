@@ -12,6 +12,7 @@ import {
   prototypeHeroEyebrowClass,
   prototypeNavyHeroSectionClass,
 } from "@/components/layout/prototype-page-styles";
+import { PAWAPAY_SUPPORTED_PAYMENT_COUNTRIES as PAWAPAY_SUPPORTED_COUNTRIES } from "@/lib/pawapay-payment-countries";
 
 const BRAND = {
   dark: "#221913",
@@ -32,20 +33,6 @@ type Lawyer = {
 
 const SEARCH_PRICE = 5;
 const SEARCH_STATE_STORAGE_KEY = "lawyers:lastSearchState";
-const PAWAPAY_SUPPORTED_COUNTRIES = [
-  "Benin",
-  "Cameroon",
-  "Côte d'Ivoire",
-  "Democratic Republic of the Congo",
-  "Gabon",
-  "Kenya",
-  "Republic of the Congo",
-  "Rwanda",
-  "Senegal",
-  "Sierra Leone",
-  "Uganda",
-  "Zambia",
-] as const;
 
 const EXPERTISE_OPTIONS = [
   "All Practice Areas",
@@ -113,7 +100,9 @@ export default function LawyersPage() {
   const searchParams = useSearchParams();
   const confirmedSessionRef = useRef<string | null>(null);
   const { isLoaded: userLoaded, isSignedIn } = useUser();
-  const stripeAvailable = Boolean(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+  const lomiAvailable =
+    process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
+    Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
 
   const persistSearchState = (next?: {
     country?: string;
@@ -563,11 +552,11 @@ export default function LawyersPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handlePayForSearch("stripe")}
-                        disabled={searchPayLoading || !stripeAvailable}
+                        onClick={() => handlePayForSearch("lomi")}
+                        disabled={searchPayLoading || !lomiAvailable}
                         className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#635BFF]/50 bg-[#635BFF]/10 px-4 py-2 text-xs font-semibold text-[#635BFF] transition hover:bg-[#635BFF]/20 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
                       >
-                        {searchPayLoading && paymentProvider === "stripe" && <Loader2 className="h-4 w-4 animate-spin" />}
+                        {searchPayLoading && paymentProvider === "lomi" && <Loader2 className="h-4 w-4 animate-spin" />}
                         {!searchPayLoading && <CreditCard className="h-4 w-4" />}
                         Card
                       </button>
