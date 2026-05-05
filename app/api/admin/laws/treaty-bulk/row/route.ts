@@ -7,6 +7,7 @@ import { sanitizeLawContent, VALID_LAW_STATUSES, normaliseLawTitle } from "@/lib
 import { fetchPdfFromUrl } from "@/lib/treaty-bulk-pdf-fetch";
 import { extractTextFromPdf } from "@/lib/pdf-extract";
 import type { Database } from "@/lib/database.types";
+import { syncLawCategories } from "@/lib/law-categories-sync";
 
 const INTERNATIONAL_TRADE_CATEGORY = "International Trade Laws";
 
@@ -208,6 +209,18 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       return NextResponse.json({ ok: false, error: insertError.message }, { status: 400 });
+    }
+    try {
+      await syncLawCategories(supabase, data.id as string, [catRes.id]);
+    } catch (syncErr) {
+      console.error("Treaty bulk row POST category sync error:", syncErr);
+      return NextResponse.json(
+        {
+          ok: false,
+          error: syncErr instanceof Error ? syncErr.message : "Failed to save category assignments",
+        },
+        { status: 500 }
+      );
     }
 
     await recordAuditLog(supabase, {

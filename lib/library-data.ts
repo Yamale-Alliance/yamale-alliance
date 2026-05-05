@@ -76,6 +76,7 @@ function applyFiltersToCachedData(base: LibraryData, filters?: LibraryFilters): 
 
 const CACHE_TTL_MS = 60 * 1000; // 1 minute
 const FETCH_TIMEOUT_MS = 35 * 1000; // 35s max wait so page never hangs on slower DB responses
+const MAX_CATEGORY_ID_FILTER_IDS = 700;
 let cachedData: LibraryData | null = null;
 let cacheTimestamp = 0;
 
@@ -91,13 +92,25 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
     let categoryLawIds: string[] | null = null;
     let useLegacyCategoryColumn = false;
     if (filters?.categoryId) {
-      try {
-        categoryLawIds = await fetchLawIdsForCategory(supabase, filters.categoryId);
-      } catch {
-        categoryLawIds = null;
+      // Country-scoped category filtering should remain resilient even when some older
+      // rows were not backfilled into law_categories yet.
+      if (filters.countryId) {
         useLegacyCategoryColumn = true;
+      } else {
+        try {
+          categoryLawIds = await fetchLawIdsForCategory(supabase, filters.categoryId);
+        } catch {
+          categoryLawIds = null;
+          useLegacyCategoryColumn = true;
+        }
+        // Large `in(id, ...)` filters can exceed PostgREST URL/query limits and fail.
+        // Fall back to the stable primary-column filter in that case.
+        if (categoryLawIds && categoryLawIds.length > MAX_CATEGORY_ID_FILTER_IDS) {
+          categoryLawIds = null;
+          useLegacyCategoryColumn = true;
+        }
       }
-      if (categoryLawIds !== null && categoryLawIds.length === 0) {
+      if (!useLegacyCategoryColumn && categoryLawIds !== null && categoryLawIds.length === 0) {
         const [countriesRes, categoriesRes] = await Promise.all([
           supabase.from("countries").select("id, name, region").order("name"),
           supabase.from("categories").select("id, name, slug").order("name"),
