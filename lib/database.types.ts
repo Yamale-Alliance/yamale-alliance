@@ -41,6 +41,17 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["categories"]["Insert"]>;
       };
+      law_categories: {
+        Row: {
+          law_id: string;
+          category_id: string;
+        };
+        Insert: {
+          law_id: string;
+          category_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["law_categories"]["Insert"]>;
+      };
       laws: {
         Row: {
           id: string;
