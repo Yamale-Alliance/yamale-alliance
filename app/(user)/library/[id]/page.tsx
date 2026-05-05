@@ -27,6 +27,8 @@ import {
   prototypeNavyHeroSectionClass,
 } from "@/components/layout/prototype-page-styles";
 import { LawyerMatchBanner } from "@/components/library/LawyerMatchBanner";
+import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
+import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 
 type LawStatus = "In force" | "Amended" | "Repealed";
 
@@ -682,6 +684,7 @@ export default function LawDetailPage({
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [printLoading, setPrintLoading] = useState(false);
+  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const [summary, setSummary] = useState<{ summary_text: string; generated_at: string } | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number; clientX: number; clientY: number } | null>(null);
@@ -886,7 +889,10 @@ export default function LawDetailPage({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ return_path: `/library/${resolvedId}` }),
+        body: JSON.stringify({
+          return_path: `/library/${resolvedId}`,
+          paymentCountry: pawapayPaymentCountry,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -936,7 +942,7 @@ export default function LawDetailPage({
 
   // After successful pay-as-you-go document payment: open print dialog once, then clean URL.
   // Also remember that this law has been paid for (in localStorage) so future prints
-  // do not go back to Stripe from this browser.
+  // do not go back to checkout from this browser.
   const hasTriggeredPrint = useRef(false);
   useEffect(() => {
     if (!law || hasTriggeredPrint.current || typeof window === "undefined") return;
@@ -1343,6 +1349,17 @@ export default function LawDetailPage({
               <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
                 Fix OCR (admin)
               </span>
+            </div>
+          )}
+
+          {isSignedIn && !hasPaidForThisLaw && (
+            <div className="w-[min(14rem,calc(100vw-3rem))] border-t border-border px-1 py-2">
+              <PawapayCountrySelect
+                label="Mobile money country"
+                value={pawapayPaymentCountry}
+                onChange={setPawapayPaymentCountry}
+                selectClassName="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground"
+              />
             </div>
           )}
 
