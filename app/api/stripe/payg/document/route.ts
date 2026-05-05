@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { createPaymentPageSession, isPawapayConfigured } from "@/lib/pawapay";
-import { getStripe, isStripeSecretConfigured } from "@/lib/stripe-server";
+import {
+  convertUsdCentsToPawapayMinor,
+  createPaymentPageSession,
+  isPawapayConfigured,
+  resolvePawapayReturnOrigin,
+} from "@/lib/pawapay";
+import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
+import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
 
 const DOCUMENT_PRICE_CENTS = 300; // $3 per document
-type CheckoutProvider = "pawapay" | "stripe";
+type CheckoutProvider = "pawapay" | "lomi";
 
 /**
  * Create pawaPay Payment Page session for purchasing one document download.
@@ -16,58 +22,65 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Sign in required" }, { status: 401 });
     }
 
-    const origin = request.headers.get("origin") || request.nextUrl.origin;
+    const requestOrigin = request.headers.get("origin") || request.nextUrl.origin;
+    const origin = requestOrigin;
     const body = await request.json().catch(() => ({}));
     const provider = (body.provider as CheckoutProvider | undefined) || "pawapay";
+    const pawCurrency = (process.env.PAWAPAY_CURRENCY || "USD").toUpperCase();
     const depositId = crypto.randomUUID();
     let successPath = `/library?session_id=${encodeURIComponent(depositId)}&payg=document`;
     const returnPath = body?.return_path;
     if (typeof returnPath === "string" && returnPath.startsWith("/") && !returnPath.startsWith("//")) {
       successPath = `${returnPath}${returnPath.includes("?") ? "&" : "?"}session_id=${encodeURIComponent(depositId)}&payg=document`;
     }
-    if (provider === "stripe") {
-      if (!isStripeSecretConfigured()) {
-        return NextResponse.json({ error: "Stripe card checkout is not configured." }, { status: 503 });
+
+    if (provider === "lomi") {
+      if (!isLomiConfigured()) {
+        return NextResponse.json({ error: "Lomi checkout is not configured." }, { status: 503 });
       }
-      const stripe = getStripe();
-      const session = await stripe.checkout.sessions.create({
-        mode: "payment",
-        line_items: [
+      const currencyCode = toLomiCurrency(pawCurrency);
+      if (!currencyCode) {
+        return NextResponse.json(
           {
-            quantity: 1,
-            price_data: {
-              currency: (process.env.PAWAPAY_CURRENCY || "USD").toLowerCase(),
-              unit_amount: DOCUMENT_PRICE_CENTS,
-              product_data: { name: "Document download" },
-            },
+            error:
+              "Lomi checkout supports USD, EUR, or XOF. Set PAWAPAY_CURRENCY accordingly or use mobile money.",
           },
-        ],
-        client_reference_id: userId,
-        metadata: { clerk_user_id: userId, kind: "payg_document" },
-        success_url: `${origin}${successPath.replace(encodeURIComponent(depositId), "{CHECKOUT_SESSION_ID}")}`,
-        cancel_url: `${origin}/library?canceled=1`,
-        payment_method_types: ["card"],
-      });
-      if (!session.url) {
-        return NextResponse.json({ error: "Could not create Stripe checkout URL" }, { status: 500 });
+          { status: 400 }
+        );
       }
-      return NextResponse.json({ url: session.url, provider: "stripe" });
+      const successUrl = `${origin}${successPath.replace(encodeURIComponent(depositId), "{CHECKOUT_SESSION_ID}")}`;
+      const amountMinor = convertUsdCentsToPawapayMinor(DOCUMENT_PRICE_CENTS, currencyCode);
+      const { checkoutUrl } = await createLomiHostedCheckoutSession({
+        amount: amountMinor,
+        currency_code: currencyCode,
+        metadata: { clerk_user_id: userId, kind: "payg_document" },
+        title: "Document download",
+        success_url: successUrl,
+        cancel_url: `${origin}/library?canceled=1`,
+      });
+      return NextResponse.json({ url: checkoutUrl, provider: "lomi" });
     }
+
     if (!isPawapayConfigured()) {
       return NextResponse.json({ error: "PawaPay mobile money is not configured." }, { status: 503 });
     }
-    const returnUrl = `${origin}${successPath}`;
+    const gate = requirePawapayPaymentCountry(body as Record<string, unknown>);
+    if (!gate.ok) return gate.response;
+    const amountMinor = convertUsdCentsToPawapayMinor(DOCUMENT_PRICE_CENTS, gate.country.currency);
+    const returnBase = resolvePawapayReturnOrigin(requestOrigin);
+    const returnUrl = `${returnBase}${successPath}`;
     const { redirectUrl } = await createPaymentPageSession({
       depositId,
-      amountCents: DOCUMENT_PRICE_CENTS,
-      currency: (process.env.PAWAPAY_CURRENCY || "USD").toUpperCase(),
+      amountCents: amountMinor,
+      currency: gate.country.currency,
       returnUrl,
       reason: "Document download",
       customerMessage: "One document download - Download and keep forever",
-      country: process.env.PAWAPAY_COUNTRY,
+      country: gate.country.iso3,
       metadata: {
         clerk_user_id: userId,
         kind: "payg_document",
+        payment_country: gate.country.label,
       },
     });
 
