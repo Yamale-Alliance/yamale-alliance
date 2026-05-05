@@ -6,6 +6,7 @@ import { extractTextFromPdf } from "@/lib/pdf-extract";
 import { sanitizeLawContent, VALID_LAW_STATUSES, normaliseLawTitle } from "@/lib/admin-law-utils";
 import { isLawTreatyType } from "@/lib/law-treaty-type";
 import type { Database } from "@/lib/database.types";
+import { normalizeCategoryIdList, syncLawCategories } from "@/lib/law-categories-sync";
 
 // Allow up to 5 minutes for PDF extraction and OCR (large or scanned PDFs)
 export const maxDuration = 300;
@@ -44,7 +45,15 @@ export async function POST(request: NextRequest) {
       .filter(Boolean);
     const fallbackCountryId = (formData.get("countryId") as string | null)?.trim() || "";
     const appliesToAll = formData.get("appliesToAll") === "true";
-    const categoryId = formData.get("categoryId") as string | null;
+    const categoryIdSingle = (formData.get("categoryId") as string | null)?.trim() || "";
+    const categoryIdsMulti = formData
+      .getAll("categoryIds")
+      .map((v) => (typeof v === "string" ? v.trim() : ""))
+      .filter(Boolean);
+    const categoryIds = normalizeCategoryIdList(
+      categoryIdsMulti.length > 0 ? categoryIdsMulti : categoryIdSingle ? [categoryIdSingle] : []
+    );
+    const primaryCategoryId = categoryIds[0] ?? "";
     const status = formData.get("status") as string | null;
     const rawTitle = formData.get("title") as string | null;
     const yearStr = formData.get("year") as string | null;
@@ -56,9 +65,9 @@ export async function POST(request: NextRequest) {
     const title = normaliseLawTitle(rawTitle);
     const treatyType = typeof treatyTypeRaw === "string" ? treatyTypeRaw.trim() : "Not a treaty";
 
-    if (!categoryId?.trim() || !title) {
+    if (!primaryCategoryId || !title) {
       return NextResponse.json(
-        { error: "Missing required fields: categoryId, title" },
+        { error: "Missing required fields: at least one category, title" },
         { status: 400 }
       );
     }
@@ -119,7 +128,7 @@ export async function POST(request: NextRequest) {
           {
             applies_to_all_countries: true,
             country_id: null,
-            category_id: categoryId.trim(),
+            category_id: primaryCategoryId,
             title,
             source_url: null,
             source_name: null,
@@ -133,7 +142,7 @@ export async function POST(request: NextRequest) {
       : effectiveCountryIds.map((countryId) => ({
           applies_to_all_countries: false,
           country_id: countryId,
-          category_id: categoryId.trim(),
+          category_id: primaryCategoryId,
           title,
           source_url: null,
           source_name: null,
@@ -152,6 +161,18 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       return NextResponse.json(
         { error: insertError.message },
+        { status: 500 }
+      );
+    }
+
+    try {
+      for (const row of (data ?? []) as Array<{ id: string }>) {
+        await syncLawCategories(supabase, row.id, categoryIds);
+      }
+    } catch (syncErr) {
+      console.error("Admin laws: law_categories sync failed:", syncErr);
+      return NextResponse.json(
+        { error: syncErr instanceof Error ? syncErr.message : "Failed to save category assignments" },
         { status: 500 }
       );
     }
