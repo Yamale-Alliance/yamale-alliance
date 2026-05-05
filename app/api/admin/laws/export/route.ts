@@ -28,7 +28,7 @@ async function fetchAllLawsForExport(): Promise<{ data: LawExportRow[]; error: s
     const pageEnd = pageStart + EXPORT_PAGE_SIZE - 1;
     const { data, error } = await supabase
       .from("laws")
-      .select("title, applies_to_all_countries, countries(name, region), categories(name)")
+      .select("title, applies_to_all_countries, countries(name, region), categories!laws_category_id_fkey(name)")
       .order("title", { ascending: true })
       .range(pageStart, pageEnd)
       .returns<LawExportRow[]>();
