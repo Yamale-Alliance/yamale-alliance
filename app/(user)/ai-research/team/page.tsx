@@ -13,6 +13,8 @@ import {
   CreditCard,
 } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
+import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
+import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 
 type Member = { userId: string; email: string; addedAt: string };
 
@@ -31,6 +33,7 @@ export default function ManageTeamPage() {
   const [error, setError] = useState<string | null>(null);
   const [extraSeats, setExtraSeats] = useState(1);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const [confirming, setConfirming] = useState(false);
   const confirmedRef = useRef<string | null>(null);
   const { confirm, confirmDialog } = useConfirm();
@@ -176,7 +179,7 @@ export default function ManageTeamPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ seats: n }),
+        body: JSON.stringify({ seats: n, paymentCountry: pawapayPaymentCountry }),
       });
       const data = await res.json();
       if (data.url) {
@@ -305,6 +308,13 @@ export default function ManageTeamPage() {
             <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
               Add more seats for $6 each. How many do you need?
             </p>
+            <div className="mt-4 max-w-sm">
+              <PawapayCountrySelect
+                label="Mobile money country"
+                value={pawapayPaymentCountry}
+                onChange={setPawapayPaymentCountry}
+              />
+            </div>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <input
                 type="number"
