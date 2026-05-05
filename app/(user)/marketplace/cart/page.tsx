@@ -10,6 +10,8 @@ import {
   PaymentMethodPicker,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
+import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
+import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { useAlertDialog } from "@/components/ui/use-confirm";
 
 const BRAND = {
@@ -42,6 +44,10 @@ export default function CartPage() {
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
+  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
+  const lomiAvailable =
+    process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
+    Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
   const [removing, setRemoving] = useState<string | null>(null);
   const { alert: showAlert, alertDialog } = useAlertDialog();
 
@@ -83,7 +89,10 @@ export default function CartPage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: paymentProvider }),
+        body: JSON.stringify({
+          provider: paymentProvider,
+          ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
+        }),
       });
       const data = await res.json();
       if (res.ok && data.url) {
@@ -141,7 +150,7 @@ export default function CartPage() {
               Review & checkout
             </h1>
             <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
-              Review your cart and choose how to pay: mobile money with pawaPay or cards with Stripe.
+              Review your cart and choose how to pay: mobile money with pawaPay or hosted checkout with Lomi.
             </p>
           </div>
         </div>
@@ -260,7 +269,20 @@ export default function CartPage() {
                       </div>
                     </div>
                   </div>
-                  <PaymentMethodPicker value={paymentProvider} onChange={setPaymentProvider} />
+                  <PaymentMethodPicker
+                    value={paymentProvider}
+                    onChange={setPaymentProvider}
+                    lomiAvailable={lomiAvailable}
+                  />
+                  {paymentProvider === "pawapay" && (
+                    <div className="mt-4">
+                      <PawapayCountrySelect
+                        label="Mobile money country"
+                        value={pawapayPaymentCountry}
+                        onChange={setPawapayPaymentCountry}
+                      />
+                    </div>
+                  )}
                   <button
                     type="button"
                     onClick={handleCheckout}
