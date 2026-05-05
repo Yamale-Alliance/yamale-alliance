@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getDepositStatus, isDepositCompleted } from "@/lib/pawapay";
+import { getCompletedLomiCheckoutMetadata } from "@/lib/lomi-checkout";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 /**
@@ -21,24 +22,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "session_id required" }, { status: 400 });
     }
 
-    const deposit = await getDepositStatus(sessionId);
-    if (!deposit || !isDepositCompleted(deposit.status)) {
-      return NextResponse.json({ error: "Payment not completed" }, { status: 400 });
+    let resolvedKind: string | undefined;
+
+    const lomiMd = await getCompletedLomiCheckoutMetadata(sessionId);
+    if (lomiMd) {
+      if (lomiMd.clerk_user_id !== userId) {
+        return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
+      }
+      resolvedKind = lomiMd.kind;
+    } else {
+      const deposit = await getDepositStatus(sessionId);
+      if (!deposit || !isDepositCompleted(deposit.status)) {
+        return NextResponse.json({ error: "Payment not completed" }, { status: 400 });
+      }
+
+      const clerkUserId = deposit.metadata?.clerk_user_id;
+      if (clerkUserId !== userId) {
+        return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
+      }
+
+      resolvedKind = deposit.metadata?.kind;
     }
 
-    const clerkUserId = deposit.metadata?.clerk_user_id;
-    if (clerkUserId !== userId) {
-      return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
-    }
-
-    const kind = deposit.metadata?.kind;
-    if (kind !== "payg_ai_query") {
+    if (resolvedKind !== "payg_ai_query") {
       return NextResponse.json({ error: "Not an AI query purchase session" }, { status: 400 });
     }
 
     const supabase = getSupabaseServer();
-    
-    // Check if purchase already recorded (idempotent)
+
     const { data: existing, error: checkError } = await (supabase.from("pay_as_you_go_purchases") as any)
       .select("id")
       .eq("stripe_session_id", sessionId)
@@ -49,13 +60,15 @@ export async function POST(request: NextRequest) {
     }
 
     if (!existing) {
-      // Record the purchase
-      const { data: inserted, error: insertError } = await (supabase.from("pay_as_you_go_purchases") as any).insert({
-        user_id: userId,
-        item_type: "ai_query",
-        quantity: 1,
-        stripe_session_id: sessionId,
-      }).select().single();
+      const { data: inserted, error: insertError } = await (supabase.from("pay_as_you_go_purchases") as any)
+        .insert({
+          user_id: userId,
+          item_type: "ai_query",
+          quantity: 1,
+          stripe_session_id: sessionId,
+        })
+        .select()
+        .single();
 
       if (insertError) {
         console.error("Error inserting pay-as-you-go purchase:", insertError);
@@ -67,7 +80,6 @@ export async function POST(request: NextRequest) {
       console.log("Pay-as-you-go purchase already exists for session:", sessionId);
     }
 
-    // Verify the purchase was recorded
     const { data: verify } = await (supabase.from("pay_as_you_go_purchases") as any)
       .select("id, quantity")
       .eq("user_id", userId)
@@ -75,11 +87,11 @@ export async function POST(request: NextRequest) {
       .eq("stripe_session_id", sessionId)
       .maybeSingle();
 
-    return NextResponse.json({ 
-      ok: true, 
+    return NextResponse.json({
+      ok: true,
       kind: "payg_ai_query",
       recorded: !!verify,
-      purchaseId: verify?.id 
+      purchaseId: verify?.id,
     });
   } catch (err) {
     console.error("AI query confirm payment error:", err);
