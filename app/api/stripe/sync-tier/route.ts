@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { clerkClient } from "@clerk/nextjs/server";
-import { getDepositStatus, isDepositCompleted } from "@/lib/pawapay";
+import { pollPawaPayDepositUntilComplete } from "@/lib/pawapay";
+import { getCompletedLomiCheckoutMetadata } from "@/lib/lomi-checkout";
+import { fulfillSubscriptionPlanPayment } from "@/lib/subscription-state";
 
-/** After checkout redirect: set user tier from pawaPay deposit metadata. */
+/** After checkout redirect: set user tier and subscription period from pawaPay or Lomi session metadata. */
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await auth();
@@ -14,52 +15,50 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const sessionId = body.session_id as string | undefined;
     if (!sessionId || typeof sessionId !== "string") {
-      return NextResponse.json(
-        { error: "Missing session_id" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing session_id" }, { status: 400 });
     }
 
-    const deposit = await getDepositStatus(sessionId);
-    if (!deposit || !isDepositCompleted(deposit.status)) {
-      return NextResponse.json(
-        { error: "Payment not completed yet" },
-        { status: 400 }
-      );
-    }
+    let planId: string | null = null;
+    let interval: string | undefined;
+    let changeType: string | undefined;
 
-    const sessionUserId = deposit.metadata?.clerk_user_id;
-    if (sessionUserId !== userId) {
-      return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
-    }
+    const lomiMd = await getCompletedLomiCheckoutMetadata(sessionId);
+    if (lomiMd) {
+      if (lomiMd.clerk_user_id !== userId) {
+        return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
+      }
+      planId = lomiMd.plan_id ?? null;
+      interval = lomiMd.interval;
+      changeType = lomiMd.change_type;
+    } else {
+      const polled = await pollPawaPayDepositUntilComplete(sessionId);
+      if (!polled.ok) {
+        return NextResponse.json({ error: polled.message }, { status: 400 });
+      }
+      const deposit = polled.deposit;
+      const sessionUserId = deposit.metadata?.clerk_user_id;
+      if (sessionUserId !== userId) {
+        return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
+      }
 
-    const planId = deposit.metadata?.plan_id ?? null;
+      planId = deposit.metadata?.plan_id ?? null;
+      interval = deposit.metadata?.interval;
+      changeType = deposit.metadata?.change_type;
+    }
 
     if (!planId || !["basic", "pro", "team"].includes(planId)) {
-      return NextResponse.json(
-        { error: "Could not determine plan from session" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Could not determine plan from session" }, { status: 400 });
     }
 
-    const clerk = await clerkClient();
-    const user = await clerk.users.getUser(userId);
-    const existing = (user.publicMetadata ?? {}) as Record<string, unknown>;
-    const nextMeta: Record<string, unknown> = { ...existing, tier: planId };
-    if (planId === "team") {
-      nextMeta.team_admin = true;
-      nextMeta.team_extra_seats = (existing.team_extra_seats as number) ?? 0;
-    }
-    await clerk.users.updateUserMetadata(userId, {
-      publicMetadata: nextMeta,
+    await fulfillSubscriptionPlanPayment(userId, {
+      plan_id: planId,
+      interval,
+      change_type: changeType,
     });
 
     return NextResponse.json({ ok: true, tier: planId });
   } catch (err) {
     console.error("pawaPay sync-tier error:", err);
-    return NextResponse.json(
-      { error: "Failed to sync plan" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to sync plan" }, { status: 500 });
   }
 }
