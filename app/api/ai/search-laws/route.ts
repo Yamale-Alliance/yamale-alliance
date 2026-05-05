@@ -5,6 +5,7 @@ import {
   lawsCountryOrGlobalWithTextSearch,
 } from "@/lib/law-country-scope";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { fetchLawIdsForCategory } from "@/lib/law-categories-sync";
 import { chunkLawContent } from "@/lib/embeddings/chunking";
 
 function extractSearchTokens(query: string): string[] {
@@ -67,13 +68,23 @@ export async function POST(request: NextRequest) {
     let lawsQuery = supabase
       .from("laws")
       .select(
-        "id, title, content, content_plain, year, status, country_id, category_id, countries(name), categories(name)"
+        "id, title, content, content_plain, year, status, country_id, category_id, countries(name), categories!laws_category_id_fkey(name)"
       )
       .not("content", "is", null)
       .neq("status", "Repealed")
       .limit(Math.min((limit || 5) * 8, 80)); // gather candidates, rank in-memory
 
-    if (categoryId) lawsQuery = lawsQuery.eq("category_id", categoryId);
+    if (categoryId) {
+      try {
+        const ids = await fetchLawIdsForCategory(supabase, categoryId);
+        if (ids.length === 0) {
+          return NextResponse.json({ chunks: [], total: 0 });
+        }
+        lawsQuery = lawsQuery.in("id", ids);
+      } catch {
+        lawsQuery = lawsQuery.eq("category_id", categoryId);
+      }
+    }
 
     const searchTerms = query.trim().toLowerCase();
     const escapedTerms = escapeIlikePattern(searchTerms);
