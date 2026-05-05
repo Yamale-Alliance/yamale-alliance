@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { useAlertDialog } from "@/components/ui/use-confirm";
 import { PaymentMethodPicker, type CheckoutPaymentProvider } from "@/components/checkout/PaymentMethodPicker";
+import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
+import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import {
   PROTOTYPE_HERO_GRID_PATTERN,
   prototypeHeroEyebrowClass,
@@ -126,51 +128,28 @@ const FAQ_ITEMS = [
 export default function PricingPage() {
   const { isLoaded, isSignedIn } = useUser();
   const router = useRouter();
-  const [billing, setBilling] = useState<BillingInterval>("annual");
+  const [billing, setBilling] = useState<BillingInterval>("monthly");
   const [tiers, setTiers] = useState<Tier[]>(FALLBACK_TIERS);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
+  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const isAnnual = billing === "annual";
   const { alert: showAlert, alertDialog } = useAlertDialog();
-  const stripeAvailable = Boolean(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+  const lomiAvailable =
+    process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
+    Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
 
-  const handleCheckout = async (planId: string, provider: CheckoutPaymentProvider = paymentProvider) => {
+  /** Subscription checkout happens under Account (plan, billing period, payment method). */
+  const goToSubscriptionCheckout = (planId: string) => {
     if (planId === "free") return;
-    
-    // Check if user is signed in
-    if (!isLoaded) return; // Wait for auth to load
+    if (!isLoaded) return;
     if (!isSignedIn) {
-      // Redirect to sign-in with return URL
-      const returnUrl = encodeURIComponent(`/pricing?plan=${planId}&interval=${billing}&provider=${provider}`);
-      router.push(`/sign-in?redirect_url=${returnUrl}`);
+      router.push(
+        `/sign-in?redirect_url=${encodeURIComponent(`/account/subscription?plan=${planId}&interval=${billing}`)}`
+      );
       return;
     }
-
-    setCheckoutLoading(planId);
-    try {
-      const res = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ planId, interval: billing, provider }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        // If 401, redirect to sign-in
-        if (res.status === 401) {
-          const returnUrl = encodeURIComponent(`/pricing?plan=${planId}&interval=${billing}&provider=${provider}`);
-          router.push(`/sign-in?redirect_url=${returnUrl}`);
-          return;
-        }
-        await showAlert(data.error || "Checkout failed", "Checkout");
-        return;
-      }
-      if (data.url) window.location.href = data.url;
-    } catch {
-      await showAlert("Something went wrong. Please try again.", "Checkout");
-    } finally {
-      setCheckoutLoading(null);
-    }
+    router.push(`/account/subscription?plan=${planId}&interval=${billing}`);
   };
   
   const handleDayPassCheckout = async (provider: CheckoutPaymentProvider = paymentProvider) => {
@@ -189,7 +168,10 @@ export default function PricingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ provider }),
+        body: JSON.stringify({
+          provider,
+          ...(provider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -232,7 +214,10 @@ export default function PricingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ provider }),
+        body: JSON.stringify({
+          provider,
+          ...(provider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -271,20 +256,15 @@ export default function PricingPage() {
     const dayPass = params.get("day_pass");
     const providerParam = params.get("provider");
     const provider: CheckoutPaymentProvider =
-      providerParam === "stripe" && stripeAvailable ? "stripe" : "pawapay";
+      providerParam === "lomi" && lomiAvailable ? "lomi" : "pawapay";
 
     setPaymentProvider(provider);
 
     if (plan && ["basic", "pro", "team"].includes(plan)) {
-      // Set billing interval if specified
-      if (interval === "monthly" || interval === "annual") {
-        setBilling(interval);
-      }
-      // Trigger checkout after a brief delay to ensure state is set
+      const iv = interval === "monthly" || interval === "annual" ? interval : "monthly";
       const timeoutId = setTimeout(() => {
-        handleCheckout(plan, provider);
-      }, 100);
-      // Clean up URL
+        router.replace(`/account/subscription?plan=${plan}&interval=${iv}`);
+      }, 50);
       window.history.replaceState({}, "", "/pricing");
       return () => clearTimeout(timeoutId);
     } else if (dayPass === "true") {
@@ -347,13 +327,9 @@ export default function PricingPage() {
               Annual <span className="ml-1 text-[11px] opacity-90">Save 17%</span>
             </button>
           </div>
-          <div className="mx-auto mt-6 max-w-2xl rounded-xl border border-[rgba(200,146,42,0.28)] bg-[rgba(13,27,42,0.55)] p-4 backdrop-blur">
-            <PaymentMethodPicker
-              value={paymentProvider}
-              onChange={setPaymentProvider}
-              stripeAvailable={stripeAvailable}
-            />
-          </div>
+          <p className="mx-auto mt-6 max-w-xl text-[15px] text-white/[0.75]">
+            Choose a plan below, then complete billing and payment on the subscription checkout page.
+          </p>
         </div>
       </section>
 
@@ -416,7 +392,7 @@ export default function PricingPage() {
                   )}
                   <button
                     type="button"
-                    onClick={() => handleCheckout(tier.id)}
+                    onClick={() => goToSubscriptionCheckout(tier.id)}
                     disabled={checkoutLoading !== null}
                     className={`w-full py-3 px-6 rounded-[6px] font-semibold transition-all duration-200 mt-auto disabled:opacity-70 ${
                       tier.highlighted
@@ -500,6 +476,28 @@ export default function PricingPage() {
             <p className="mt-2 text-sm text-muted-foreground sm:text-[15px]">
               No subscription? No problem. Use these on the Free tier - or top up any plan.
             </p>
+          </div>
+
+          <div className="mx-auto mb-8 max-w-2xl rounded-xl border border-border bg-card p-4">
+            <p className="text-sm font-medium text-foreground">Pay-as-you-go payment method</p>
+            <p className="mt-1 text-xs text-muted-foreground">Used for one-off purchases below (not for subscription plans).</p>
+            <div className="mt-4">
+              <PaymentMethodPicker
+                value={paymentProvider}
+                onChange={setPaymentProvider}
+                lomiAvailable={lomiAvailable}
+              />
+            </div>
+            {paymentProvider === "pawapay" && (
+              <div className="mt-4">
+                <PawapayCountrySelect
+                  id="pricing-pawapay-country"
+                  label="Mobile money country"
+                  value={pawapayPaymentCountry}
+                  onChange={setPawapayPaymentCountry}
+                />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
