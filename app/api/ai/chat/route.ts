@@ -17,6 +17,7 @@ import {
 import { pickContentExcerpt } from "@/lib/ai-law-excerpt";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { fetchLawIdsForCategory } from "@/lib/law-categories-sync";
 import {
   getAiUsage,
   getAiQueryLimitForTier,
@@ -480,7 +481,7 @@ function buildShortPhraseEscapedCandidates(tokens: string[], primaryIntentId: st
 }
 
 const LAWS_AI_SELECT =
-  "id, title, content, content_plain, year, status, metadata, country_id, category_id, countries(name), categories(name)";
+  "id, title, content, content_plain, year, status, metadata, country_id, category_id, countries(name), categories!laws_category_id_fkey(name)";
 
 function normalizeLawStatus(status: string | undefined | null): "in force" | "amended" | "repealed" | "other" {
   const s = String(status ?? "").trim().toLowerCase();
@@ -638,7 +639,15 @@ async function searchLegalLibrary(
       .limit(100);
 
     if (categoryId) {
-      lawsQuery = lawsQuery.eq("category_id", categoryId);
+      try {
+        const ids = await fetchLawIdsForCategory(supabase, categoryId);
+        if (ids.length === 0) {
+          return [];
+        }
+        lawsQuery = lawsQuery.in("id", ids);
+      } catch {
+        lawsQuery = lawsQuery.eq("category_id", categoryId);
+      }
     }
 
     if (specificLawHint) {
