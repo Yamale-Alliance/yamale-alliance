@@ -1,5 +1,6 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { escapeIlikePattern, lawsOrGlobalForCountry } from "@/lib/law-country-scope";
+import { fetchLawIdsForCategory } from "@/lib/law-categories-sync";
 
 /** Max laws returned in one response (pagination is client-side within this set). */
 const LAWS_LIMIT = 20_000;
@@ -16,6 +17,8 @@ export type LibraryLawRow = {
   country_id: string | null;
   applies_to_all_countries: boolean;
   category_id: string;
+  /** All category IDs this law is filed under (library filters). */
+  all_category_ids?: string[];
   countries: { name: string } | null;
   categories: { name: string } | null;
   created_at?: string;
@@ -50,7 +53,10 @@ function applyFiltersToCachedData(base: LibraryData, filters?: LibraryFilters): 
     const matchCountry =
       !filters.countryId || law.country_id === filters.countryId || law.applies_to_all_countries;
     if (!matchCountry) return false;
-    const matchCategory = !filters.categoryId || law.category_id === filters.categoryId;
+    const matchCategory =
+      !filters.categoryId ||
+      law.category_id === filters.categoryId ||
+      (law.all_category_ids?.includes(filters.categoryId) ?? false);
     if (!matchCategory) return false;
     const matchStatus = !filters.status || law.status === filters.status;
     if (!matchStatus) return false;
@@ -82,11 +88,45 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
   const key = cacheKey(filters);
   const supabase = getSupabaseServer();
   return (async () => {
+    let categoryLawIds: string[] | null = null;
+    let useLegacyCategoryColumn = false;
+    if (filters?.categoryId) {
+      try {
+        categoryLawIds = await fetchLawIdsForCategory(supabase, filters.categoryId);
+      } catch {
+        categoryLawIds = null;
+        useLegacyCategoryColumn = true;
+      }
+      if (categoryLawIds !== null && categoryLawIds.length === 0) {
+        const [countriesRes, categoriesRes] = await Promise.all([
+          supabase.from("countries").select("id, name, region").order("name"),
+          supabase.from("categories").select("id, name, slug").order("name"),
+        ]);
+        if (countriesRes.error) throw countriesRes.error;
+        if (categoriesRes.error) throw categoriesRes.error;
+        const empty: LibraryData = {
+          countries: sortCountriesAlphabetically((countriesRes.data ?? []) as LibraryCountry[]),
+          categories: (categoriesRes.data ?? []) as LibraryCategory[],
+          laws: [],
+          lawCount: 0,
+        };
+        if (key === "__initial__") {
+          cachedData = empty;
+          cacheTimestamp = Date.now();
+        }
+        return empty;
+      }
+    }
+
     // `count: "exact"` can be expensive on larger datasets and was causing
     // transient 20s timeouts. `planned` is much faster and good enough for UI totals.
     let countQuery = supabase.from("laws").select("id", { count: "planned", head: true });
     if (filters?.countryId) countQuery = countQuery.or(lawsOrGlobalForCountry(filters.countryId));
-    if (filters?.categoryId) countQuery = countQuery.eq("category_id", filters.categoryId);
+    if (useLegacyCategoryColumn && filters?.categoryId) {
+      countQuery = countQuery.eq("category_id", filters.categoryId);
+    } else if (categoryLawIds && categoryLawIds.length > 0) {
+      countQuery = countQuery.in("id", categoryLawIds);
+    }
     if (filters?.status) countQuery = countQuery.eq("status", filters.status);
     // Note: PostgREST rejects `.or(categories.name.ilike.…)` on a count/head query
     // because `categories` is not joined. Matching by category name is applied
@@ -99,13 +139,17 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
     let lawsQuery = supabase
       .from("laws")
       .select(
-        "id, title, source_name, year, status, treaty_type, country_id, applies_to_all_countries, category_id, created_at, updated_at, countries(name), categories(name)"
+        "id, title, source_name, year, status, treaty_type, country_id, applies_to_all_countries, category_id, created_at, updated_at, countries(name), categories!laws_category_id_fkey(name)"
       )
       .order("created_at", { ascending: false })
       .order("title")
       .limit(LAWS_LIMIT);
     if (filters?.countryId) lawsQuery = lawsQuery.or(lawsOrGlobalForCountry(filters.countryId));
-    if (filters?.categoryId) lawsQuery = lawsQuery.eq("category_id", filters.categoryId);
+    if (useLegacyCategoryColumn && filters?.categoryId) {
+      lawsQuery = lawsQuery.eq("category_id", filters.categoryId);
+    } else if (categoryLawIds && categoryLawIds.length > 0) {
+      lawsQuery = lawsQuery.in("id", categoryLawIds);
+    }
     if (filters?.status) lawsQuery = lawsQuery.eq("status", filters.status);
     if (filters?.q?.trim()) {
       const term = escapeIlikePattern(filters.q.trim());
@@ -126,10 +170,37 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
 
   const lawCount = typeof countRes.count === "number" ? countRes.count : (lawsRes.data ?? []).length;
 
+  const rawLaws = (lawsRes.data ?? []) as LibraryLawRow[];
+  const ids = rawLaws.map((l) => l.id);
+  let catMap = new Map<string, string[]>();
+  if (ids.length > 0) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: lcRows, error: lcErr } = await (supabase as any)
+        .from("law_categories")
+        .select("law_id, category_id")
+        .in("law_id", ids);
+      if (!lcErr && lcRows) {
+        for (const r of lcRows as { law_id: string; category_id: string }[]) {
+          const arr = catMap.get(r.law_id) ?? [];
+          arr.push(r.category_id);
+          catMap.set(r.law_id, arr);
+        }
+      }
+    } catch {
+      catMap = new Map();
+    }
+  }
+
+  const laws: LibraryLawRow[] = rawLaws.map((law) => ({
+    ...law,
+    all_category_ids: catMap.get(law.id) ?? (law.category_id ? [law.category_id] : []),
+  }));
+
   const data: LibraryData = {
     countries: sortCountriesAlphabetically((countriesRes.data ?? []) as LibraryCountry[]),
     categories: (categoriesRes.data ?? []) as LibraryCategory[],
-    laws: (lawsRes.data ?? []) as LibraryLawRow[],
+    laws,
     lawCount,
   };
 
