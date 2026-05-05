@@ -26,6 +26,8 @@ import {
   prototypeNavyHeroSectionClass,
 } from "@/components/layout/prototype-page-styles";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
+import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
+import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 
 const BRAND = {
   dark: "#221913",
@@ -122,6 +124,7 @@ export default function MarketplacePage() {
   const [cartItemIds, setCartItemIds] = useState<Set<string>>(new Set());
   const [selectedTopic, setSelectedTopic] = useState("all");
   const { isSignedIn } = useUser();
+  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const confirmedCartSessionRef = useRef<string | null>(null);
   const { alert: showAlert, alertDialog } = useAlertDialog();
 
@@ -324,7 +327,7 @@ export default function MarketplacePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ itemId: productId }),
+        body: JSON.stringify({ itemId: productId, paymentCountry: pawapayPaymentCountry }),
       });
       const data = await res.json();
       if (res.ok && data.url) {
@@ -447,6 +450,15 @@ export default function MarketplacePage() {
                 className="w-full rounded-[8px] border border-border bg-card py-2.5 pl-10 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-[#C8922A]"
               />
             </div>
+            {isSignedIn && (
+              <div className="max-w-xl">
+                <PawapayCountrySelect
+                  label="Mobile money country (for Buy now with mobile money)"
+                  value={pawapayPaymentCountry}
+                  onChange={setPawapayPaymentCountry}
+                />
+              </div>
+            )}
           </div>
 
           {loading ? (
