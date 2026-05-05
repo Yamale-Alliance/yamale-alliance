@@ -3,15 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton, useUser } from "@clerk/nextjs";
-import { Menu, X } from "lucide-react";
+import { CircleUser, Menu, X } from "lucide-react";
 import { useState, useMemo } from "react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { CartDrawer } from "@/components/cart/CartDrawer";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
 import { prototypeNavHeaderClass, prototypeNavInnerClass, prototypeNavLinkClass } from "./prototype-nav-styles";
 import { userNavLinks } from "./nav-config";
-import type { LucideIcon } from "lucide-react";
-
 function isActivePath(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
   if (href === "/") return pathname === "/";
@@ -46,6 +44,13 @@ export function UserHeader() {
               </Link>
             );
           })}
+          <Link
+            href="/account"
+            className={`${prototypeNavLinkClass(isActivePath(pathname, "/account"))} inline-flex items-center gap-1.5`}
+          >
+            <CircleUser className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
+            Account
+          </Link>
         </nav>
 
         {/* Desktop right */}
@@ -119,6 +124,25 @@ export function UserHeader() {
               ) : (
                 <div className="px-4 py-2 text-sm text-muted-foreground">No navigation items</div>
               )}
+              <Link
+                href="/account"
+                onClick={() => setMobileOpen(false)}
+                className={`group mt-1 flex items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-medium transition-all duration-200 hover:bg-primary/10 hover:shadow-sm hover:scale-[1.02] ${
+                  isActivePath(pathname, "/account")
+                    ? "bg-gradient-to-r from-primary/20 to-primary/10 font-semibold text-primary shadow-sm"
+                    : "text-foreground hover:text-primary"
+                }`}
+              >
+                <CircleUser
+                  className={`h-5 w-5 shrink-0 transition-colors ${
+                    isActivePath(pathname, "/account")
+                      ? "text-primary"
+                      : "text-muted-foreground group-hover:text-primary"
+                  }`}
+                  aria-hidden
+                />
+                Account
+              </Link>
             </nav>
           </div>
         </>
