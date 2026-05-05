@@ -37,14 +37,20 @@ export async function POST(request: NextRequest) {
     if (!expertise || expertise === "all") {
       return NextResponse.json({ error: "A specific practice area (expertise) is required to unlock a search" }, { status: 400 });
     }
+    if (!country || country === "all") {
+      return NextResponse.json(
+        { error: "A specific country is required to unlock a search" },
+        { status: 400 }
+      );
+    }
 
     const origin = request.headers.get("origin") || request.nextUrl.origin;
     const returnOrigin = resolvePawapayReturnOrigin(origin);
-    const countryLabel = country === "all" ? "All countries" : country;
+    const countryLabel = country;
     const buildReturnQuery = (sessionToken: string, extra?: { canceled?: boolean }) => {
       const params = new URLSearchParams();
       params.set("session_id", sessionToken);
-      params.set("country", country || "all");
+      params.set("country", country);
       params.set("expertise", expertise);
       if (city) params.set("city", city);
       if (language && language !== "all") params.set("language", language);
@@ -69,7 +75,7 @@ export async function POST(request: NextRequest) {
         metadata: {
           clerk_user_id: userId,
           kind: "payg_lawyer_search",
-          country: country || "all",
+          country,
           expertise,
         },
         title: `Lawyer search unlock — ${countryLabel} · ${expertise}`,
@@ -83,7 +89,7 @@ export async function POST(request: NextRequest) {
           stripe_session_id: sessionId,
           user_id: userId,
           lawyer_ids: Array.isArray(lawyerIds) ? lawyerIds : [],
-          country: country || "all",
+          country,
           expertise,
         },
         { onConflict: "stripe_session_id" }
@@ -112,7 +118,7 @@ export async function POST(request: NextRequest) {
         metadata: {
           clerk_user_id: userId,
           kind: "payg_lawyer_search",
-          country: country || "all",
+          country,
           expertise,
         },
         title: `Lawyer search unlock — ${countryLabel} · ${expertise}`,
@@ -126,7 +132,7 @@ export async function POST(request: NextRequest) {
           stripe_session_id: sessionId,
           user_id: userId,
           lawyer_ids: Array.isArray(lawyerIds) ? lawyerIds : [],
-          country: country || "all",
+          country,
           expertise,
         },
         { onConflict: "stripe_session_id" }
@@ -169,7 +175,7 @@ export async function POST(request: NextRequest) {
       metadata: {
         clerk_user_id: userId,
         kind: "payg_lawyer_search",
-        country: country || "all",
+        country,
         expertise,
         payment_country: paymentCountry,
       },
@@ -177,7 +183,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = getSupabaseServer();
     await (supabase.from("lawyer_search_purchases") as any).upsert(
-      { stripe_session_id: depositId, user_id: userId, lawyer_ids: Array.isArray(lawyerIds) ? lawyerIds : [], country: country || "all", expertise },
+      { stripe_session_id: depositId, user_id: userId, lawyer_ids: Array.isArray(lawyerIds) ? lawyerIds : [], country, expertise },
       { onConflict: "stripe_session_id" }
     );
 

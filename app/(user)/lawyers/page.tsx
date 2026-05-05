@@ -85,7 +85,7 @@ export default function LawyersPage() {
   const [contactsByLawyer, setContactsByLawyer] = useState<Record<string, { email: string | null; phone: string | null; contacts: string | null }>>({});
   const [reviewsByLawyer, setReviewsByLawyer] = useState<Record<string, { averageRating: number; totalReviews: number }>>({});
   const [dayPassActive, setDayPassActive] = useState(false);
-  const [selectedCountry, setSelectedCountry] = useState("all");
+  const [selectedCountry, setSelectedCountry] = useState("");
   const [selectedCity, setSelectedCity] = useState("");
   const [selectedExpertise, setSelectedExpertise] = useState("all");
   const [selectedLanguage, setSelectedLanguage] = useState("all");
@@ -103,6 +103,7 @@ export default function LawyersPage() {
   const lomiAvailable =
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
     Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
+  const lomiComingSoon = true;
 
   const persistSearchState = (next?: {
     country?: string;
@@ -137,7 +138,10 @@ export default function LawyersPage() {
   };
 
   const handlePayForSearch = async (provider: CheckoutPaymentProvider) => {
-    if (selectedExpertise === "all") return;
+    if (selectedExpertise === "all" || selectedCountry === "") {
+      setSearchPayError("Please select one country and one practice area.");
+      return;
+    }
     if (!userLoaded || !isSignedIn) {
       setSearchPayError("Sign in to unlock contact details.");
       return;
@@ -208,13 +212,13 @@ export default function LawyersPage() {
       return;
     }
 
-    if (returnCountry != null) setSelectedCountry(returnCountry || "all");
+    if (returnCountry != null) setSelectedCountry(returnCountry || "");
     if (returnCity != null) setSelectedCity(returnCity || "");
     if (returnExpertise != null) setSelectedExpertise(returnExpertise || "all");
     if (returnLanguage != null) setSelectedLanguage(returnLanguage || "all");
     if (returnExpertise != null && returnExpertise !== "all") setHasSearched(true);
     persistSearchState({
-      country: returnCountry ?? "all",
+      country: returnCountry ?? "",
       city: returnCity ?? "",
       expertise: returnExpertise ?? "all",
       language: returnLanguage ?? "all",
@@ -281,7 +285,7 @@ export default function LawyersPage() {
 
   const filteredLawyers = useMemo(() => {
     return lawyers.filter((lawyer) => {
-      if (selectedCountry !== "all" && lawyer.country !== selectedCountry) return false;
+      if (selectedCountry && lawyer.country !== selectedCountry) return false;
       if (selectedCity.trim() && !lawyer.name.toLowerCase().includes(selectedCity.toLowerCase()) && !lawyer.expertise.toLowerCase().includes(selectedCity.toLowerCase())) return false;
       if (selectedExpertise !== "all" && !lawyer.expertise.toLowerCase().includes(selectedExpertise.toLowerCase())) return false;
       return true;
@@ -322,7 +326,7 @@ export default function LawyersPage() {
     setShowPaymentChoice(false);
     setShowPawapayCountryPrompt(false);
     persistSearchState({
-      country: "all",
+      country: "",
       city: "",
       expertise: "all",
       language: "all",
@@ -331,10 +335,12 @@ export default function LawyersPage() {
   };
 
   const expertiseRequired = selectedExpertise === "all";
+  const countryRequired = selectedCountry === "";
   const selectedCountrySupportsPawapay =
-    selectedCountry === "all" || PAWAPAY_SUPPORTED_COUNTRIES.includes(selectedCountry as (typeof PAWAPAY_SUPPORTED_COUNTRIES)[number]);
+    selectedCountry !== "" &&
+    PAWAPAY_SUPPORTED_COUNTRIES.includes(selectedCountry as (typeof PAWAPAY_SUPPORTED_COUNTRIES)[number]);
   const runSearch = () => {
-    if (expertiseRequired) return;
+    if (expertiseRequired || countryRequired) return;
     setHasSearched(true);
     setShowPaymentChoice(true);
     persistSearchState({ hasSearched: true });
@@ -381,7 +387,7 @@ export default function LawyersPage() {
                   value={selectedCountry}
                   onChange={(e) => setSelectedCountry(e.target.value)}
                 >
-                  <option value="all">All countries</option>
+                  <option value="">Select a country</option>
                   {AFRICAN_COUNTRIES.map((c) => (
                     <option key={c} value={c}>
                       {c}
@@ -444,7 +450,7 @@ export default function LawyersPage() {
                 <button
                   type="button"
                   onClick={runSearch}
-                  disabled={expertiseRequired}
+                  disabled={expertiseRequired || countryRequired}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-[6px] bg-[#0D1B2A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#162436] disabled:opacity-60"
                 >
                   <Search className="h-4 w-4" />
@@ -497,6 +503,11 @@ export default function LawyersPage() {
                 applies to a specific search.
               </p>
             )}
+            {!expertiseRequired && countryRequired && (
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                Please select one country and one practice area before searching.
+              </p>
+            )}
           </div>
 
           {/* Before search: prompt user to enter criteria */}
@@ -528,7 +539,7 @@ export default function LawyersPage() {
                 <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
                   Pay ${SEARCH_PRICE} to unlock contact details for all{" "}
                   {filteredLawyers.length} lawyer{filteredLawyers.length !== 1 ? "s" : ""} in this search (
-                  {selectedCountry === "all" ? "All countries" : selectedCountry} + {selectedExpertise}).
+                  {selectedCountry} + {selectedExpertise}).
                 </p>
               </div>
               <div className="flex flex-col items-end gap-2">
@@ -552,13 +563,19 @@ export default function LawyersPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handlePayForSearch("lomi")}
-                        disabled={searchPayLoading || !lomiAvailable}
+                        onClick={() =>
+                          setSearchPayError(
+                            "Credit card payments are coming soon. For now, please use Mobile Money."
+                          )
+                        }
+                        disabled={searchPayLoading}
                         className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#635BFF]/50 bg-[#635BFF]/10 px-4 py-2 text-xs font-semibold text-[#635BFF] transition hover:bg-[#635BFF]/20 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
                       >
-                        {searchPayLoading && paymentProvider === "lomi" && <Loader2 className="h-4 w-4 animate-spin" />}
+                        {searchPayLoading && paymentProvider === "lomi" && (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        )}
                         {!searchPayLoading && <CreditCard className="h-4 w-4" />}
-                        Card
+                        Card (coming soon)
                       </button>
                       <button
                         type="button"
@@ -569,7 +586,7 @@ export default function LawyersPage() {
                         Cancel
                       </button>
                     </div>
-                    {!selectedCountrySupportsPawapay && selectedCountry !== "all" && (
+                    {!selectedCountrySupportsPawapay && selectedCountry !== "" && !lomiComingSoon && (
                       <p className="text-xs text-amber-700 dark:text-amber-400">
                         Mobile money is not available for {selectedCountry}. Please proceed with card payment.
                       </p>
@@ -640,12 +657,12 @@ export default function LawyersPage() {
           <div className="rounded-2xl border border-dashed border-border/80 bg-card/90 p-12 text-center shadow-sm">
             <div className="mb-4 text-5xl">🔍</div>
             <h3 className="text-xl font-semibold text-foreground">
-              {selectedCountry !== "all"
+              {selectedCountry
                 ? "No lawyers from this country yet"
                 : "No lawyers found"}
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              {selectedCountry !== "all"
+              {selectedCountry
                 ? `We don't have any lawyers from ${selectedCountry} in our directory yet. Try another country or check back later.`
                 : "Try adjusting your search filters to see more results."}
             </p>
