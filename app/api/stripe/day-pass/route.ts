@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { createPaymentPageSession, isPawapayConfigured } from "@/lib/pawapay";
-import { getStripe, isStripeSecretConfigured } from "@/lib/stripe-server";
+import {
+  convertUsdCentsToPawapayMinor,
+  createPaymentPageSession,
+  isPawapayConfigured,
+  resolvePawapayReturnOrigin,
+} from "@/lib/pawapay";
+import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
+import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
 
 const DAY_PASS_CENTS = 2500; // $25
 const DAY_PASS_CURRENCY = (process.env.PAWAPAY_CURRENCY || "USD").toUpperCase();
-type CheckoutProvider = "pawapay" | "stripe";
+type CheckoutProvider = "pawapay" | "lomi";
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,63 +22,67 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}));
     const provider = (body.provider as CheckoutProvider | undefined) || "pawapay";
-    const origin = request.headers.get("origin") || request.nextUrl.origin;
+    const requestOrigin = request.headers.get("origin") || request.nextUrl.origin;
+    const origin = requestOrigin;
 
-    if (provider === "stripe") {
-      if (!isStripeSecretConfigured()) {
-        return NextResponse.json({ error: "Stripe card checkout is not configured." }, { status: 503 });
+    if (provider === "lomi") {
+      if (!isLomiConfigured()) {
+        return NextResponse.json({ error: "Lomi checkout is not configured." }, { status: 503 });
       }
-      const dayPassPriceId = process.env.STRIPE_PRICE_DAY_PASS;
-      if (!dayPassPriceId) {
-        return NextResponse.json({ error: "STRIPE_PRICE_DAY_PASS is not configured." }, { status: 500 });
+      const currencyCode = toLomiCurrency(DAY_PASS_CURRENCY);
+      if (!currencyCode) {
+        return NextResponse.json(
+          {
+            error:
+              "Lomi checkout supports USD, EUR, or XOF. Set PAWAPAY_CURRENCY accordingly or use mobile money.",
+          },
+          { status: 400 }
+        );
       }
-      const stripe = getStripe();
-      const session = await stripe.checkout.sessions.create({
-        mode: "payment",
-        line_items: [{ price: dayPassPriceId, quantity: 1 }],
-        client_reference_id: userId,
+      const amountMinor = convertUsdCentsToPawapayMinor(DAY_PASS_CENTS, currencyCode);
+      const { checkoutUrl } = await createLomiHostedCheckoutSession({
+        amount: amountMinor,
+        currency_code: currencyCode,
         metadata: {
           clerk_user_id: userId,
           plan_id: "day-pass",
           kind: "day-pass",
         },
+        title: "24-hour day pass",
         success_url: `${origin}/lawyers?day_pass=1&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}/pricing?canceled=1`,
-        payment_method_types: ["card"],
       });
-      if (!session.url) {
-        return NextResponse.json({ error: "Could not create Stripe checkout URL" }, { status: 500 });
-      }
-      return NextResponse.json({ url: session.url, provider: "stripe" });
+      return NextResponse.json({ url: checkoutUrl, provider: "lomi" });
     }
 
     if (!isPawapayConfigured()) {
       return NextResponse.json({ error: "PawaPay mobile money is not configured." }, { status: 503 });
     }
+    const gate = requirePawapayPaymentCountry(body as Record<string, unknown>);
+    if (!gate.ok) return gate.response;
+    const amountMinor = convertUsdCentsToPawapayMinor(DAY_PASS_CENTS, gate.country.currency);
     const depositId = crypto.randomUUID();
-    const returnUrl = `${origin}/lawyers?day_pass=1&session_id=${encodeURIComponent(depositId)}`;
+    const returnBase = resolvePawapayReturnOrigin(requestOrigin);
+    const returnUrl = `${returnBase}/lawyers?day_pass=1&session_id=${encodeURIComponent(depositId)}`;
     const { redirectUrl } = await createPaymentPageSession({
       depositId,
-      amountCents: DAY_PASS_CENTS,
-      currency: DAY_PASS_CURRENCY,
+      amountCents: amountMinor,
+      currency: gate.country.currency,
       returnUrl,
       reason: "24-hour day pass",
       customerMessage: "Full Pro-level access for 24 hours",
-      country: process.env.PAWAPAY_COUNTRY,
+      country: gate.country.iso3,
       metadata: {
         clerk_user_id: userId,
         plan_id: "day-pass",
         kind: "day-pass",
+        payment_country: gate.country.label,
       },
     });
 
     return NextResponse.json({ url: redirectUrl, provider: "pawapay" });
   } catch (err) {
     console.error("pawaPay day-pass checkout error:", err);
-    return NextResponse.json(
-      { error: "Checkout failed" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
   }
 }
-
