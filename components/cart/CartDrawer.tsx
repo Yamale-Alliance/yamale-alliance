@@ -9,6 +9,8 @@ import {
   PaymentMethodPicker,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
+import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
+import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { useAlertDialog } from "@/components/ui/use-confirm";
 
 type CartItem = {
@@ -32,6 +34,10 @@ export function CartDrawer() {
   const [loading, setLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
+  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
+  const lomiAvailable =
+    process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
+    Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
   const { isSignedIn } = useUser();
   const router = useRouter();
   const { alert: showAlert, alertDialog } = useAlertDialog();
@@ -65,7 +71,10 @@ export function CartDrawer() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: paymentProvider }),
+        body: JSON.stringify({
+          provider: paymentProvider,
+          ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
+        }),
       });
       const data = await res.json();
       if (res.ok && data.url) {
@@ -169,7 +178,18 @@ export function CartDrawer() {
                   <span>Total</span>
                   <span>${(total / 100).toFixed(2)}</span>
                 </div>
-                <PaymentMethodPicker value={paymentProvider} onChange={setPaymentProvider} />
+                <PaymentMethodPicker
+                  value={paymentProvider}
+                  onChange={setPaymentProvider}
+                  lomiAvailable={lomiAvailable}
+                />
+                {paymentProvider === "pawapay" && (
+                  <PawapayCountrySelect
+                    label="Mobile money country"
+                    value={pawapayPaymentCountry}
+                    onChange={setPawapayPaymentCountry}
+                  />
+                )}
                 <Link
                   href="/marketplace/cart"
                   onClick={() => setOpen(false)}
