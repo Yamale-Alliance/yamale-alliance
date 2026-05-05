@@ -37,6 +37,47 @@ export function isPawapayConfigured(): boolean {
   return !!apiToken.trim();
 }
 
+/** True when the configured API host is production (stricter `returnUrl` rules). */
+export function isPawapayLiveApi(): boolean {
+  return (process.env.PAWAPAY_BASE_URL || "").includes("api.pawapay.io");
+}
+
+/**
+ * Public origin for pawaPay Payment Page `returnUrl` (scheme + host + port, no path).
+ * - Uses `PAWAPAY_RETURN_BASE_URL` when set (HTTPS app URL in production).
+ * - Otherwise uses the request origin. Replaces host `0.0.0.0` with `localhost` because
+ *   pawaPay rejects all-zero hosts (common with `next dev -H 0.0.0.0`).
+ */
+export function resolvePawapayReturnOrigin(requestOrigin: string): string {
+  const configured = (process.env.PAWAPAY_RETURN_BASE_URL || "").trim();
+  const raw = (configured || requestOrigin || "").replace(/\/+$/, "");
+  if (!raw) {
+    throw new Error("Cannot resolve pawaPay return URL origin (missing Origin and PAWAPAY_RETURN_BASE_URL).");
+  }
+  try {
+    const u = new URL(raw);
+    if (u.hostname === "0.0.0.0") {
+      u.hostname = "localhost";
+    }
+    return u.origin;
+  } catch {
+    throw new Error(`Invalid pawaPay return URL origin: ${raw}`);
+  }
+}
+
+function normalizePawapayReturnUrl(returnUrl: string): string {
+  try {
+    const u = new URL(returnUrl);
+    if (u.hostname === "0.0.0.0") {
+      u.hostname = "localhost";
+      return u.href;
+    }
+  } catch {
+    // leave as-is; API will validate
+  }
+  return returnUrl;
+}
+
 function requireToken() {
   if (!apiToken) {
     throw new Error("Missing PAWAPAY_API_TOKEN");
@@ -149,7 +190,7 @@ export async function createPaymentPageSession(input: PaymentPageSessionInput): 
   const normalizedCountry = (input.country || "").trim().toUpperCase();
   if (!normalizedCountry) {
     throw new Error(
-      "pawaPay fixed-amount Payment Page requires country (ISO 3166-1 alpha-3). Set PAWAPAY_COUNTRY, e.g. RWA."
+      "pawaPay Payment Page requires country (ISO 3166-1 alpha-3). Pass the user's selected country from checkout."
     );
   }
   if (!/^[A-Z]{3}$/.test(normalizedCountry)) {
@@ -160,7 +201,7 @@ export async function createPaymentPageSession(input: PaymentPageSessionInput): 
 
   const payload: Record<string, unknown> = {
     depositId: input.depositId,
-    returnUrl: input.returnUrl,
+    returnUrl: normalizePawapayReturnUrl(input.returnUrl),
     amountDetails: {
       amount: toAmountString(input.amountCents),
       currency: normalizedCurrency,
@@ -202,15 +243,42 @@ export function isDepositCompleted(status?: string | null): boolean {
   return String(status || "").toUpperCase() === "COMPLETED";
 }
 
-export function getPlanAmountCents(planId: string, interval: "monthly" | "annual"): number | null {
-  const key =
-    interval === "annual"
-      ? `PAWAPAY_PLAN_${planId.toUpperCase()}_ANNUAL_CENTS`
-      : `PAWAPAY_PLAN_${planId.toUpperCase()}_MONTHLY_CENTS`;
-  const raw = process.env[key];
-  if (!raw) return null;
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+export type PollPawaPayDepositResult =
+  | { ok: true; deposit: PawaPayDepositData }
+  | { ok: false; reason: "pending" | "failed"; message: string };
+
+/**
+ * Poll GET /deposits/:id until COMPLETED or a terminal failure.
+ * The Payment Page may redirect back before the deposit status is readable as COMPLETED.
+ */
+export async function pollPawaPayDepositUntilComplete(
+  depositId: string,
+  options?: { maxAttempts?: number; delayMs?: number }
+): Promise<PollPawaPayDepositResult> {
+  const maxAttempts = Math.min(30, Math.max(1, options?.maxAttempts ?? 12));
+  const delayMs = Math.min(5000, Math.max(100, options?.delayMs ?? 750));
+  let last: PawaPayDepositData | null = null;
+  for (let i = 0; i < maxAttempts; i++) {
+    last = await getDepositStatus(depositId);
+    if (last && isDepositCompleted(last.status)) {
+      return { ok: true, deposit: last };
+    }
+    if (last) {
+      const st = String(last.status || "").toUpperCase();
+      if (["FAILED", "REJECTED", "CANCELLED", "DECLINED"].includes(st)) {
+        return { ok: false, reason: "failed", message: `Payment was not completed (${st}).` };
+      }
+    }
+    if (i < maxAttempts - 1) {
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  return {
+    ok: false,
+    reason: "pending",
+    message:
+      "We could not confirm payment with pawaPay yet. If you finished in your wallet, wait a few seconds and tap Retry. If pawaPay showed success but this message stays, check the pawaPay dashboard or contact support — your plan only activates after we receive COMPLETED from pawaPay.",
+  };
 }
 
 /**
