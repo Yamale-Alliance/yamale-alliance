@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   escapeIlikePattern,
+  lawTextIlikeOr,
   lawsCountryOrGlobalWithTextSearch,
 } from "@/lib/law-country-scope";
 import { getSupabaseServer } from "@/lib/supabase/server";
@@ -69,6 +70,7 @@ export async function POST(request: NextRequest) {
         "id, title, content, content_plain, year, status, country_id, category_id, countries(name), categories(name)"
       )
       .not("content", "is", null)
+      .neq("status", "Repealed")
       .limit(Math.min((limit || 5) * 8, 80)); // gather candidates, rank in-memory
 
     if (categoryId) lawsQuery = lawsQuery.eq("category_id", categoryId);
@@ -78,9 +80,7 @@ export async function POST(request: NextRequest) {
     if (countryId) {
       lawsQuery = lawsQuery.or(lawsCountryOrGlobalWithTextSearch(countryId, escapedTerms));
     } else {
-      lawsQuery = lawsQuery.or(
-        `title.ilike.%${escapedTerms}%,content.ilike.%${escapedTerms}%`
-      );
+      lawsQuery = lawsQuery.or(`or(${lawTextIlikeOr(escapedTerms)})`);
     }
 
     const { data: laws, error } = await lawsQuery;
