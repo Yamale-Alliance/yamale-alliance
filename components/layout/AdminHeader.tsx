@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
-import { Menu, X, Shield } from "lucide-react";
+import { CircleUser, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
@@ -19,17 +19,18 @@ function isActivePath(pathname: string | null, href: string): boolean {
 export function AdminHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-  const isOnAdmin = pathname?.startsWith("/admin-panel") ?? false;
+  const accountActive = isActivePath(pathname, "/account");
 
-  const adminPanelLink = !isOnAdmin && (
+  const accountNavLink = (
     <Link
-      href="/admin-panel"
-      className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-500/20 dark:text-red-400"
+      href="/account"
+      className={`${prototypeNavLinkClass(accountActive)} inline-flex max-w-[11rem] items-center gap-1.5 sm:max-w-none`}
     >
-      <Shield className="h-4 w-4" />
-      Admin Panel
-      <span className="rounded-md bg-red-500 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-        Admin
+      <CircleUser className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
+      <span className="inline min-w-0 truncate sm:whitespace-normal">
+        <span className="whitespace-nowrap">Account</span>
+        <span className="text-muted-foreground"> / </span>
+        <span className="whitespace-nowrap text-muted-foreground">Admin</span>
       </span>
     </Link>
   );
@@ -51,7 +52,7 @@ export function AdminHeader() {
               </Link>
             );
           })}
-          {adminPanelLink}
+          {accountNavLink}
         </nav>
 
         {/* Desktop right */}
@@ -120,19 +121,25 @@ export function AdminHeader() {
                   </Link>
                 );
               })}
-              {!isOnAdmin && (
-                <Link
-                  href="/admin-panel"
-                  onClick={() => setMobileOpen(false)}
-                  className="mt-2 flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-600 dark:text-red-400"
-                >
-                  <Shield className="h-4 w-4" />
-                  Admin Panel
-                  <span className="rounded-md bg-red-500 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
-                    Admin
-                  </span>
-                </Link>
-              )}
+              <Link
+                href="/account"
+                onClick={() => setMobileOpen(false)}
+                className={`group mt-1 flex items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-medium transition-all duration-200 hover:bg-primary/10 hover:shadow-sm hover:scale-[1.02] ${
+                  accountActive
+                    ? "bg-gradient-to-r from-primary/20 to-primary/10 font-semibold text-primary shadow-sm"
+                    : "text-foreground hover:text-primary"
+                }`}
+              >
+                <CircleUser
+                  className={`h-5 w-5 shrink-0 transition-colors ${
+                    accountActive ? "text-primary" : "text-muted-foreground group-hover:text-primary"
+                  }`}
+                  aria-hidden
+                />
+                <span>
+                  Account <span className="text-muted-foreground">/</span> Admin
+                </span>
+              </Link>
             </nav>
           </div>
         </>
