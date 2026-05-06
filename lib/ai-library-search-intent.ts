@@ -270,6 +270,20 @@ function boostConstitutional(law: LawTextFields, tokens: string[]): number {
   return Math.min(b, 50);
 }
 
+function boostRegionalTradeRulesOfOrigin(law: LawTextFields, tokens: string[]): number {
+  const title = String(law.title ?? "").toLowerCase();
+  const blob = `${title}\n${String(law.content_plain ?? law.content ?? "").toLowerCase()}`;
+  let b = 0;
+  if (/afcfta|afcta|african continental free trade/.test(blob)) b += 28;
+  if (/ecowas|etls|economic community of west african states/.test(blob)) b += 28;
+  if (/rules?\s+of\s+origin|origin criteria|certificate of origin|proof of origin/.test(blob)) b += 35;
+  if (/wholly obtained|substantial transformation|change in tariff|cth|cts|regional value/.test(blob)) b += 14;
+  for (const tok of tokens) {
+    if (tok.length >= 4 && /afcfta|ecowas|origin|tariff|cumulation|etls|certificate/.test(tok) && blob.includes(tok)) b += 3;
+  }
+  return Math.min(b, 70);
+}
+
 type IntentDef = {
   id: string;
   /** Higher wins as primary when multiple intents match (for token ordering). */
@@ -283,6 +297,36 @@ type IntentDef = {
 };
 
 const INTENTS: IntentDef[] = [
+  {
+    id: "regional_trade_rules_of_origin",
+    specificity: 92,
+    test: (q) =>
+      /\b(afcfta|afcta|ecowas|etls|rules?\s+of\s+origin|origin\s+criteria|certificate\s+of\s+origin|proof\s+of\s+origin|cumulation|change\s+in\s+tariff)\b/i.test(
+        q
+      ),
+    lexiconExtra: [
+      "afcfta",
+      "afcta",
+      "ecowas",
+      "etls",
+      "rules of origin",
+      "origin criteria",
+      "certificate of origin",
+      "proof of origin",
+      "cumulation",
+      "tariff heading",
+      "regional value content",
+    ],
+    supplementalTerms: [
+      "afcfta rules of origin",
+      "afcfta protocol on rules of origin",
+      "ecowas rules of origin",
+      "ecowas trade liberalisation scheme",
+      "certificate of origin",
+    ],
+    substantiveTokenDenylist: ["between", "differ"],
+    boost: boostRegionalTradeRulesOfOrigin,
+  },
   {
     id: "investment_treaty",
     specificity: 88,
@@ -508,6 +552,8 @@ export function prioritizeTokensForLibrarySearch(tokens: string[], primaryId: st
       if (/land|foncier|cadastre|tenure|immobilier|expropri|property/.test(x)) s += 24;
     } else if (primaryId === "investment_treaty") {
       if (/invest|treaty|accord|acuerdo|promotion|protection|bilateral|expropri/.test(x)) s += 24;
+    } else if (primaryId === "regional_trade_rules_of_origin") {
+      if (/afcfta|afcta|ecowas|etls|origin|tariff|cumulation|certificate|proof/.test(x)) s += 30;
     } else if (primaryId === "public_holidays") {
       if (/holiday|observance|féri|ferie|national|statutory/.test(x)) s += 28;
     } else if (primaryId === "constitutional") {
