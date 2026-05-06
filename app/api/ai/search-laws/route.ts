@@ -20,6 +20,18 @@ function extractSearchTokens(query: string): string[] {
   return Array.from(unique).slice(0, 8);
 }
 
+function isCountryCatalogLawRequest(query: string): boolean {
+  const q = query.toLowerCase();
+  if (!/\blaws?\b/.test(q)) return false;
+  return (
+    /\bwhat\s+laws?\s+do\s+you\s+have\b/.test(q) ||
+    /\blist\s+(all\s+)?laws?\b/.test(q) ||
+    /\bshow\s+(me\s+)?(all\s+)?laws?\b/.test(q) ||
+    /\bwhich\s+laws?\s+(are|exist|do\s+you\s+have)\b/.test(q) ||
+    /\blaws?\s+(in|about|for|from)\b/.test(q)
+  );
+}
+
 /**
  * Semantic search in legal library for RAG
  * Searches laws by country, category, and text content
@@ -27,7 +39,7 @@ function extractSearchTokens(query: string): string[] {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { query, country, category, limit = 5 } = body as {
+    const { query, country, category, limit = 20 } = body as {
       query: string;
       country?: string;
       category?: string;
@@ -62,7 +74,17 @@ export async function POST(request: NextRequest) {
         .eq("name", category.trim())
         .limit(1)
         .maybeSingle();
-      categoryId = categoryRow?.id ?? null;
+      if (categoryRow?.id) {
+        categoryId = categoryRow.id;
+      } else {
+        const { data: fuzzyCategoryRow } = await supabase
+          .from("categories")
+          .select("id")
+          .ilike("name", `%${category.trim()}%`)
+          .limit(1)
+          .maybeSingle();
+        categoryId = fuzzyCategoryRow?.id ?? null;
+      }
     }
 
     let lawsQuery = supabase
@@ -72,7 +94,7 @@ export async function POST(request: NextRequest) {
       )
       .not("content", "is", null)
       .neq("status", "Repealed")
-      .limit(Math.min((limit || 5) * 8, 80)); // gather candidates, rank in-memory
+      .limit(Math.min((limit || 20) * 10, 250)); // gather candidates, rank in-memory
 
     if (categoryId) {
       try {
@@ -88,7 +110,10 @@ export async function POST(request: NextRequest) {
 
     const searchTerms = query.trim().toLowerCase();
     const escapedTerms = escapeIlikePattern(searchTerms);
-    if (countryId) {
+    const countryCatalogRequest = Boolean(countryId) && isCountryCatalogLawRequest(query);
+    if (countryCatalogRequest && countryId) {
+      lawsQuery = lawsQuery.or(`country_id.eq.${countryId},applies_to_all_countries.eq.true`);
+    } else if (countryId) {
       lawsQuery = lawsQuery.or(lawsCountryOrGlobalWithTextSearch(countryId, escapedTerms));
     } else {
       lawsQuery = lawsQuery.or(`or(${lawTextIlikeOr(escapedTerms)})`);
@@ -117,20 +142,21 @@ export async function POST(request: NextRequest) {
       return score(titleB, contentB) - score(titleA, contentA);
     });
 
-    const chunks = rankedLaws.slice(0, Math.min(limit || 5, 20)).map((law: any) => {
+    const perLawCap = countryCatalogRequest ? 900 : maxCharsPerLaw;
+    const chunks = rankedLaws.slice(0, Math.min(limit || 20, 40)).map((law: any) => {
       const fullText = law.content_plain || law.content || "";
       const textChunks = chunkLawContent(fullText, { maxChunkChars: 800, overlapChars: 120 });
       let content = "";
       for (const c of textChunks) {
-        if (content.length + c.text.length + 2 <= maxCharsPerLaw) {
+        if (content.length + c.text.length + 2 <= perLawCap) {
           content += (content ? "\n\n" : "") + c.text;
         } else {
-          const remaining = maxCharsPerLaw - content.length - 2;
+          const remaining = perLawCap - content.length - 2;
           if (remaining > 100) content += "\n\n" + c.text.slice(0, remaining);
           break;
         }
       }
-      if (!content) content = fullText.slice(0, maxCharsPerLaw);
+      if (!content) content = fullText.slice(0, perLawCap);
       return {
         lawId: law.id,
         title: law.title,
