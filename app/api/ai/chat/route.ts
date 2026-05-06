@@ -37,6 +37,7 @@ if (!CLAUDE_API_KEY) {
 
 /** Cached models list; refreshed on 404. */
 let cachedModels: Array<{ id: string }> | null = null;
+let cachedCountryNames: string[] | null = null;
 
 async function fetchModels(): Promise<Array<{ id: string }>> {
   if (cachedModels?.length) return cachedModels;
@@ -91,6 +92,238 @@ async function resolveModelIdForRequest(
 
 function clearModelCache() {
   cachedModels = null;
+}
+
+async function getAllCountryNames(): Promise<string[]> {
+  if (cachedCountryNames?.length) return cachedCountryNames;
+  const supabase = getSupabaseServer() as any;
+  const { data, error } = await supabase
+    .from("countries")
+    .select("name")
+    .order("name")
+    .limit(400);
+  if (error) return [];
+  const names: string[] = Array.from(
+    new Set<string>(
+      (data ?? [])
+        .map((r: any) => String(r?.name ?? "").trim())
+        .filter((x: string) => x.length >= 3)
+    )
+  );
+  cachedCountryNames = names;
+  return names;
+}
+
+/**
+ * Allow common English / French demonym suffixes so "Beninese", "Togolese",
+ * "Moroccan", "Algerian", "Sénégalaise" all resolve to the right country.
+ * Each suffix is a known demonym pattern, so unrelated words like "malicious"
+ * cannot accidentally collide with short country names like "Mali".
+ */
+const COUNTRY_DEMONYM_SUFFIX = "(?:n|ns|s|ese|lese|ian|ians|ans?|aise|enne|ois|i)?";
+
+function buildCountryMatchRegex(countryNameLower: string): RegExp {
+  const escaped = countryNameLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\b${escaped}${COUNTRY_DEMONYM_SUFFIX}\\b`, "i");
+}
+
+async function detectCountryFromQueryUsingDatabase(query: string): Promise<string | undefined> {
+  const q = query.trim().toLowerCase();
+  if (!q) return undefined;
+  const names = await getAllCountryNames();
+  if (!names.length) return undefined;
+  const ordered = [...names].sort((a, b) => b.length - a.length);
+  for (const name of ordered) {
+    if (buildCountryMatchRegex(name.toLowerCase()).test(q)) return name;
+  }
+  return undefined;
+}
+
+/**
+ * Find every country name from the library that appears in the query.
+ * Greedy longest-match first so e.g. "Côte d'Ivoire" wins over "Ivoire".
+ * Used for bilateral / multi-country treaty retrieval.
+ */
+async function findAllCountriesInQuery(query: string): Promise<string[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const names = await getAllCountryNames();
+  if (!names.length) return [];
+  const ordered = [...names].sort((a, b) => b.length - a.length);
+  const found: string[] = [];
+  const seen = new Set<string>();
+  for (const name of ordered) {
+    if (seen.has(name)) continue;
+    if (buildCountryMatchRegex(name.toLowerCase()).test(q)) {
+      seen.add(name);
+      found.push(name);
+    }
+  }
+  return found;
+}
+
+/**
+ * Supranational and multilateral frameworks that apply across multiple
+ * countries by design. When detected, the AI should NOT ask the user to
+ * pick a single country — these frameworks are answered from their own text.
+ */
+type SupranationalFramework = {
+  id: string;
+  canonicalName: string;
+  detect: RegExp;
+  titleSearchTerms: string[];
+  description: string;
+};
+
+const SUPRANATIONAL_FRAMEWORKS: SupranationalFramework[] = [
+  {
+    id: "ohada",
+    canonicalName: "OHADA Uniform Acts",
+    detect: /\b(ohada|acte\s+uniforme|uniform\s+act\s+(?:on|relating|organising|organizing))\b/i,
+    titleSearchTerms: ["ohada", "acte uniforme", "uniform act"],
+    description:
+      "OHADA Uniform Acts apply uniformly across all 17 OHADA member states; no single country must be specified.",
+  },
+  {
+    id: "afcfta",
+    canonicalName: "African Continental Free Trade Area (AfCFTA)",
+    detect: /\b(afcfta|afcta|african\s+continental\s+free\s+trade)\b/i,
+    titleSearchTerms: ["afcfta", "african continental free trade", "continental free trade"],
+    description: "AfCFTA is a continental framework across African Union member states.",
+  },
+  {
+    id: "ecowas",
+    canonicalName: "ECOWAS / CEDEAO",
+    detect: /\b(ecowas|cedeao|economic\s+community\s+of\s+west\s+african|etls|trade\s+liberalisation\s+scheme)\b/i,
+    titleSearchTerms: [
+      "ecowas",
+      "cedeao",
+      "economic community of west african",
+      "trade liberalisation scheme",
+    ],
+    description: "ECOWAS instruments apply across West African States.",
+  },
+  {
+    id: "eac",
+    canonicalName: "East African Community (EAC)",
+    detect: /\b(\beac\b|east\s+african\s+community)\b/i,
+    titleSearchTerms: ["east african community"],
+    description: "EAC instruments apply across East African Community member states.",
+  },
+  {
+    id: "comesa",
+    canonicalName: "COMESA",
+    detect: /\b(comesa|common\s+market\s+for\s+eastern\s+and\s+southern\s+africa)\b/i,
+    titleSearchTerms: ["comesa", "common market for eastern and southern africa"],
+    description: "COMESA instruments apply across COMESA member states.",
+  },
+  {
+    id: "sadc",
+    canonicalName: "SADC",
+    detect: /\b(sadc|southern\s+african\s+development\s+community)\b/i,
+    titleSearchTerms: ["sadc", "southern african development community"],
+    description: "SADC instruments apply across SADC member states.",
+  },
+  {
+    id: "cemac",
+    canonicalName: "CEMAC",
+    detect: /\b(cemac|communaut[eé]\s+[eé]conomique\s+et\s+mon[eé]taire\s+de\s+l['' ]afrique\s+centrale)\b/i,
+    titleSearchTerms: ["cemac"],
+    description: "CEMAC instruments apply across Central African Economic and Monetary Community member states.",
+  },
+  {
+    id: "uemoa_waemu",
+    canonicalName: "UEMOA / WAEMU",
+    detect: /\b(uemoa|waemu|union\s+[eé]conomique\s+et\s+mon[eé]taire\s+ouest\s+africaine)\b/i,
+    titleSearchTerms: ["uemoa", "waemu", "union économique et monétaire"],
+    description: "UEMOA/WAEMU instruments apply across West African Economic and Monetary Union member states.",
+  },
+  {
+    id: "au",
+    canonicalName: "African Union",
+    detect:
+      /\b(african\s+union\b|au\s+treaty|au\s+convention|au\s+protocol|maputo\s+protocol|charter\s+of\s+the\s+african\s+union|african\s+charter\s+on)\b/i,
+    titleSearchTerms: ["african union", "maputo protocol", "african charter"],
+    description: "African Union instruments apply continent-wide.",
+  },
+  {
+    id: "berne",
+    canonicalName: "Berne Convention",
+    detect: /\b(berne\s+convention)\b/i,
+    titleSearchTerms: ["berne convention", "literary and artistic works"],
+    description: "Berne Convention is a multilateral copyright treaty.",
+  },
+  {
+    id: "trips",
+    canonicalName: "TRIPS Agreement",
+    detect: /\btrips\b/i,
+    titleSearchTerms: ["trips"],
+    description: "TRIPS is a WTO multilateral intellectual-property agreement.",
+  },
+  {
+    id: "madrid",
+    canonicalName: "Madrid Protocol / Madrid Agreement",
+    detect: /\b(madrid\s+(?:protocol|agreement|system))\b/i,
+    titleSearchTerms: ["madrid protocol", "madrid agreement"],
+    description: "Madrid System is a WIPO international trademark registration system.",
+  },
+  {
+    id: "paris_convention",
+    canonicalName: "Paris Convention",
+    detect: /\bparis\s+convention\b/i,
+    titleSearchTerms: ["paris convention"],
+    description: "Paris Convention is a multilateral industrial-property treaty.",
+  },
+  {
+    id: "pct",
+    canonicalName: "Patent Cooperation Treaty (PCT)",
+    detect: /\b(patent\s+cooperation\s+treaty|\bpct\b)\b/i,
+    titleSearchTerms: ["patent cooperation treaty"],
+    description: "PCT is a WIPO international patent system.",
+  },
+  {
+    id: "oapi",
+    canonicalName: "OAPI",
+    detect:
+      /\b(oapi|organisation\s+africaine\s+de\s+la\s+propri[eé]t[eé]\s+intellectuelle|african\s+intellectual\s+property\s+organization)\b/i,
+    titleSearchTerms: ["oapi", "organisation africaine de la propriété"],
+    description: "OAPI is the African Intellectual Property Organization.",
+  },
+  {
+    id: "aripo",
+    canonicalName: "ARIPO",
+    detect: /\b(aripo|african\s+regional\s+intellectual\s+property)\b/i,
+    titleSearchTerms: ["aripo", "african regional intellectual property"],
+    description: "ARIPO is the African Regional Intellectual Property Organization.",
+  },
+];
+
+function detectSupranationalFrameworks(query: string): SupranationalFramework[] {
+  if (!query?.trim()) return [];
+  return SUPRANATIONAL_FRAMEWORKS.filter((f) => f.detect.test(query));
+}
+
+/**
+ * Extract proper-noun pairs joined by a hyphen / en-dash / em-dash, which is
+ * the canonical way bilateral treaties are titled in the library — e.g.
+ *   "Algeria-Netherlands bilateral investment treaty"  →  ["Algeria", "Netherlands"]
+ *   "Côte d'Ivoire – Japan reciprocal protection"       →  ["Côte d'Ivoire", "Japan"]
+ *
+ * This works even when one side (e.g. Netherlands) is not present in the
+ * `countries` table, so the bilateral title-AND retrieval still fires for
+ * non-African counterparty treaties.
+ */
+function extractHyphenatedProperNounPairs(query: string): string[] {
+  if (!query?.trim()) return [];
+  const out: string[] = [];
+  const properNoun = "[A-ZÀ-ÖØ-Ý][\\p{L}'’]+(?:\\s+[A-ZÀ-ÖØ-Ý][\\p{L}'’]+)?";
+  const re = new RegExp(`\\b(${properNoun})\\s*[-–—]\\s*(${properNoun})\\b`, "gu");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(query)) !== null) {
+    if (m[1]) out.push(m[1].trim());
+    if (m[2]) out.push(m[2].trim());
+  }
+  return Array.from(new Set(out.map((s) => s.replace(/\s+/g, " ").trim()))).filter((s) => s.length >= 3);
 }
 
 type ClaudeMessageContent = {
@@ -464,6 +697,160 @@ function filterSubstantiveSearchTokens(tokens: string[]): string[] {
   });
 }
 
+function isCountryCatalogLawRequest(query: string): boolean {
+  const q = query.toLowerCase();
+  if (!/\blaws?\b/.test(q)) return false;
+  return (
+    /\bwhat\s+laws?\s+do\s+you\s+have\b/.test(q) ||
+    /\blist\s+(all\s+)?laws?\b/.test(q) ||
+    /\bshow\s+(me\s+)?(all\s+)?laws?\b/.test(q) ||
+    /\bwhich\s+laws?\s+(are|exist|do\s+you\s+have)\b/.test(q) ||
+    /\blaws?\s+(in|about|for|from)\b/.test(q)
+  );
+}
+
+function isCountryLawCountRequest(query: string): boolean {
+  const q = query.toLowerCase();
+  const asksHowMany = /\bhow\s+many\b/.test(q) || /\bcount\b/.test(q) || /\btotal\b/.test(q) || /\bnumber\s+of\b/.test(q);
+  const asksLaws = /\blaws?\b|\binstruments?\b|\bacts?\b|\bstatutes?\b/.test(q);
+  const asksCountryScope = /\bin\b|\bfor\b|\babout\b|\bof\b/.test(q);
+  return asksHowMany && asksLaws && asksCountryScope;
+}
+
+function isGlobalLawCountRequest(query: string): boolean {
+  const q = query.toLowerCase();
+  const asksHowMany = /\bhow\s+many\b/.test(q) || /\bcount\b/.test(q) || /\btotal\b/.test(q) || /\bnumber\s+of\b/.test(q);
+  const asksLaws = /\blaws?\b|\binstruments?\b|\bacts?\b|\bstatutes?\b/.test(q);
+  const asksGlobal =
+    /\ball\s+countries\b/.test(q) ||
+    /\bentire\s+database\b/.test(q) ||
+    /\bwhole\s+database\b/.test(q) ||
+    /\bacross\s+all\s+countries\b/.test(q) ||
+    /\bin\s+the\s+database\b/.test(q) ||
+    /\bglobal\b/.test(q);
+  return asksHowMany && asksLaws && asksGlobal;
+}
+
+function isAllCountriesBreakdownRequest(query: string): boolean {
+  const q = query.toLowerCase();
+  const asksCount = /\bcount\b|\bhow\s+many\b|\btotal\b|\bnumber\s+of\b/.test(q);
+  const asksLaws = /\blaws?\b|\binstruments?\b|\bacts?\b|\bstatutes?\b/.test(q);
+  const asksPerCountry =
+    /\beach\s+country\b/.test(q) ||
+    /\bper\s+country\b/.test(q) ||
+    /\bcountry\s+by\s+country\b/.test(q) ||
+    /\ball\s+countries\b/.test(q) ||
+    /\b54\s+countries\b/.test(q) ||
+    /\bcount\s+all\s+the\s+countries\b/.test(q);
+  return asksCount && asksLaws && asksPerCountry;
+}
+
+async function getCountryLawCounts(countryName: string): Promise<{
+  country: string;
+  total: number;
+  inForce: number;
+  amended: number;
+  repealed: number;
+} | null> {
+  const supabase = getSupabaseServer() as any;
+  const { data: countryRow } = await supabase
+    .from("countries")
+    .select("id,name")
+    .eq("name", countryName.trim())
+    .limit(1)
+    .maybeSingle();
+  const countryId = countryRow?.id as string | undefined;
+  if (!countryId) return null;
+
+  const [totalRes, inForceRes, amendedRes, repealedRes] = await Promise.all([
+    supabase.from("laws").select("id", { count: "exact", head: true }).eq("country_id", countryId),
+    supabase
+      .from("laws")
+      .select("id", { count: "exact", head: true })
+      .eq("country_id", countryId)
+      .ilike("status", "%in force%"),
+    supabase
+      .from("laws")
+      .select("id", { count: "exact", head: true })
+      .eq("country_id", countryId)
+      .ilike("status", "%amend%"),
+    supabase
+      .from("laws")
+      .select("id", { count: "exact", head: true })
+      .eq("country_id", countryId)
+      .ilike("status", "%repeal%"),
+  ]);
+
+  return {
+    country: String(countryRow?.name ?? countryName),
+    total: totalRes.count ?? 0,
+    inForce: inForceRes.count ?? 0,
+    amended: amendedRes.count ?? 0,
+    repealed: repealedRes.count ?? 0,
+  };
+}
+
+async function getGlobalLawCounts(): Promise<{
+  total: number;
+  inForce: number;
+  amended: number;
+  repealed: number;
+}> {
+  const supabase = getSupabaseServer() as any;
+  const [totalRes, inForceRes, amendedRes, repealedRes] = await Promise.all([
+    supabase.from("laws").select("id", { count: "exact", head: true }),
+    supabase.from("laws").select("id", { count: "exact", head: true }).ilike("status", "%in force%"),
+    supabase.from("laws").select("id", { count: "exact", head: true }).ilike("status", "%amend%"),
+    supabase.from("laws").select("id", { count: "exact", head: true }).ilike("status", "%repeal%"),
+  ]);
+  return {
+    total: totalRes.count ?? 0,
+    inForce: inForceRes.count ?? 0,
+    amended: amendedRes.count ?? 0,
+    repealed: repealedRes.count ?? 0,
+  };
+}
+
+async function getAllCountriesLawCounts(): Promise<
+  Array<{ country: string; total: number; inForce: number; amended: number; repealed: number }>
+> {
+  const supabase = getSupabaseServer() as any;
+  const { data: countries, error } = await supabase.from("countries").select("id,name").order("name");
+  if (error || !countries?.length) return [];
+
+  const counts = await Promise.all(
+    (countries as Array<{ id: string; name: string }>).map(async (country) => {
+      const [totalRes, inForceRes, amendedRes, repealedRes] = await Promise.all([
+        supabase.from("laws").select("id", { count: "exact", head: true }).eq("country_id", country.id),
+        supabase
+          .from("laws")
+          .select("id", { count: "exact", head: true })
+          .eq("country_id", country.id)
+          .ilike("status", "%in force%"),
+        supabase
+          .from("laws")
+          .select("id", { count: "exact", head: true })
+          .eq("country_id", country.id)
+          .ilike("status", "%amend%"),
+        supabase
+          .from("laws")
+          .select("id", { count: "exact", head: true })
+          .eq("country_id", country.id)
+          .ilike("status", "%repeal%"),
+      ]);
+      return {
+        country: country.name,
+        total: totalRes.count ?? 0,
+        inForce: inForceRes.count ?? 0,
+        amended: amendedRes.count ?? 0,
+        repealed: repealedRes.count ?? 0,
+      };
+    })
+  );
+
+  return counts.sort((a, b) => b.total - a.total || a.country.localeCompare(b.country));
+}
+
 function buildShortPhraseEscapedCandidates(tokens: string[], primaryIntentId: string): string[] {
   const t = prioritizeTokensForLibrarySearch(filterSubstantiveSearchTokens(tokens), primaryIntentId);
   if (t.length === 0) return [];
@@ -589,7 +976,8 @@ async function searchLegalLibrary(
   try {
     const supabase = getSupabaseServer() as any;
     const hints = extractQueryHints(query);
-    const searchCountry = country || hints.country;
+    const dbDetectedCountry = !country && !hints.country ? await detectCountryFromQueryUsingDatabase(query) : undefined;
+    const searchCountry = country || hints.country || dbDetectedCountry;
     const searchCategory = hints.category;
 
     // Resolve country/category names to IDs so we can filter reliably (Supabase nested .eq("countries.name") can be unreliable)
@@ -611,13 +999,114 @@ async function searchLegalLibrary(
         .eq("name", searchCategory)
         .limit(1)
         .maybeSingle();
-      categoryId = categoryRow?.id ?? null;
+      if (categoryRow?.id) {
+        categoryId = categoryRow.id;
+      } else {
+        const { data: fuzzyCategoryRow } = await supabase
+          .from("categories")
+          .select("id")
+          .ilike("name", `%${searchCategory}%`)
+          .limit(1)
+          .maybeSingle();
+        categoryId = fuzzyCategoryRow?.id ?? null;
+      }
     }
 
     const specificLawHint = extractSpecificLawHint(query);
     const qForTokens = normalizeSearchQueryForAi(query);
     const resolvedIntent = resolveLibrarySearchIntent(qForTokens);
     const rawTokens = extractSearchTokens(qForTokens);
+    const countryCatalogRequest = Boolean(countryId) && isCountryCatalogLawRequest(query);
+
+    // ── Metadata-aware retrieval (title-first) ────────────────────────────────
+    // Pull documents whose TITLE matches:
+    //   (a) any supranational framework named in the query (OHADA, AfCFTA, …),
+    //   (b) every named entity in a bilateral / multi-country query (e.g.
+    //       "Algeria-Netherlands BIT" → title contains "algeria" AND "netherlands").
+    //       The named entities come from BOTH the DB countries list AND
+    //       hyphenated proper-noun pairs in the query, so non-African
+    //       counterparties (Netherlands, Germany, Japan, Turkey, …) still match.
+    // These rows are merged into the candidate set and given a strong ranking
+    // boost so they outrank loose keyword matches like Berne / unrelated treaties.
+    const supranationalMatches = detectSupranationalFrameworks(query);
+    const countriesInQuery = await findAllCountriesInQuery(query);
+    const treatyHyphenatedHints = extractHyphenatedProperNounPairs(query);
+    const bilateralTitleTokens = Array.from(
+      new Set(
+        [
+          ...countriesInQuery.map((c) => c.toLowerCase()),
+          ...treatyHyphenatedHints.map((t) => t.toLowerCase()),
+        ].filter((t) => t.length >= 3)
+      )
+    );
+    const isBilateralOrMultiCountryQuery = bilateralTitleTokens.length >= 2;
+
+    const titleMatchedLaws: any[] = [];
+    if (supranationalMatches.length > 0) {
+      // Per-framework parallel queries so one busy framework (e.g. AfCFTA, which
+      // is duplicated across all 54 signatory countries) cannot starve another
+      // (e.g. ECOWAS) out of the candidate set via a shared LIMIT. Limit is
+      // generous because we dedupe by title downstream — most of these rows
+      // collapse to a handful of unique instruments.
+      const perFrameworkResults = await Promise.all(
+        supranationalMatches.map(async (m) => {
+          const orParts = m.titleSearchTerms
+            .map((t) => `title.ilike.%${escapeIlikePattern(t.toLowerCase())}%`)
+            .filter((p) => p.length > 0);
+          if (orParts.length === 0) return [] as any[];
+          const { data } = await supabase
+            .from("laws")
+            .select(LAWS_AI_SELECT)
+            .not("content", "is", null)
+            .neq("status", "Repealed")
+            .or(orParts.join(","))
+            .limit(80);
+          return (data ?? []) as any[];
+        })
+      );
+      for (const arr of perFrameworkResults) {
+        if (arr?.length) titleMatchedLaws.push(...arr);
+      }
+    }
+
+    if (isBilateralOrMultiCountryQuery) {
+      // First try: title contains ALL named entities (true bilateral instrument).
+      let bilateralQuery = supabase
+        .from("laws")
+        .select(LAWS_AI_SELECT)
+        .not("content", "is", null)
+        .neq("status", "Repealed");
+      for (const t of bilateralTitleTokens.slice(0, 3)) {
+        bilateralQuery = bilateralQuery.ilike("title", `%${escapeIlikePattern(t)}%`);
+      }
+      const { data: bilatRows } = await bilateralQuery.limit(50);
+      if (bilatRows?.length) {
+        titleMatchedLaws.push(...(bilatRows as any[]));
+      } else {
+        // Fallback: title contains ANY of the named entities.
+        const orParts = bilateralTitleTokens
+          .slice(0, 4)
+          .map((t) => `title.ilike.%${escapeIlikePattern(t)}%`);
+        if (orParts.length > 0) {
+          const { data: anyRows } = await supabase
+            .from("laws")
+            .select(LAWS_AI_SELECT)
+            .not("content", "is", null)
+            .neq("status", "Repealed")
+            .or(orParts.join(","))
+            .limit(60);
+          if (anyRows?.length) titleMatchedLaws.push(...(anyRows as any[]));
+        }
+      }
+    }
+
+    // Dedupe titleMatchedLaws by id.
+    const titleMatchedById = new Map<string, any>();
+    for (const r of titleMatchedLaws) {
+      const id = String((r as any).id);
+      if (!titleMatchedById.has(id)) titleMatchedById.set(id, r);
+    }
+    const titleMatchedIds = new Set(titleMatchedById.keys());
     const expandedLower = [...resolvedIntent.mergedLexiconExtra];
     const mergedForRank = prioritizeTokensForLibrarySearch(
       Array.from(new Set([...rawTokens.map((t) => t.toLowerCase()), ...expandedLower])),
@@ -625,6 +1114,10 @@ async function searchLegalLibrary(
     );
     const denySet = new Set(resolvedIntent.substantiveTokenDenylist.map((t) => t.toLowerCase()));
     let substantive = filterSubstantiveSearchTokens(mergedForRank).filter((t) => !denySet.has(t.toLowerCase()));
+    if (countryCatalogRequest) {
+      // For inventory-style prompts ("what laws do you have in Zambia"), do not gate by text.
+      substantive = [];
+    }
     const phraseCandidates = buildShortPhraseEscapedCandidates(mergedForRank, resolvedIntent.primaryId);
     const tokenEscList = Array.from(
       new Set(substantive.map((t) => escapeIlikePattern(t.toLowerCase())).filter((t) => t.length >= 3))
@@ -636,7 +1129,7 @@ async function searchLegalLibrary(
       .select(LAWS_AI_SELECT)
       .not("content", "is", null)
       .neq("status", "Repealed")
-      .limit(100);
+      .limit(250);
 
     if (categoryId) {
       try {
@@ -663,7 +1156,9 @@ async function searchLegalLibrary(
       if (tokenOr) lawsQuery = lawsQuery.or(tokenOr);
       if (countryId) lawsQuery = lawsQuery.or(lawsOrGlobalForCountry(countryId));
     } else if (query.trim()) {
-      if (countryId) {
+      if (countryCatalogRequest && countryId) {
+        lawsQuery = lawsQuery.or(lawsOrGlobalForCountry(countryId));
+      } else if (countryId) {
         const orParts: string[] = [];
         if (tokenEscList.length > 0) {
           orParts.push(lawsCountryOrGlobalWithAnyEscapedTerms(countryId, tokenEscList));
@@ -713,7 +1208,7 @@ async function searchLegalLibrary(
         .not("content", "is", null)
         .neq("status", "Repealed")
         .or(lawsOrGlobalForCountry(countryId))
-        .limit(140);
+        .limit(250);
       if (!fbErr && fb?.length) {
         lawsRows = fb as any[];
         error = null;
@@ -726,7 +1221,7 @@ async function searchLegalLibrary(
         .not("content", "is", null)
         .neq("status", "Repealed")
         .or(g)
-        .limit(100);
+        .limit(200);
       if (!fb2Err && fb2?.length) {
         lawsRows = fb2 as any[];
       }
@@ -743,7 +1238,7 @@ async function searchLegalLibrary(
           .not("content", "is", null)
           .neq("status", "Repealed")
           .or(lawsCountryOrGlobalWithAnyEscapedTerms(countryId, supEsc))
-          .limit(60);
+          .limit(120);
         extraLaws = r.data;
         exErr = r.error;
       } else {
@@ -755,7 +1250,7 @@ async function searchLegalLibrary(
             .not("content", "is", null)
             .neq("status", "Repealed")
             .or(gOr)
-            .limit(60);
+            .limit(120);
           extraLaws = r.data;
           exErr = r.error;
         }
@@ -770,6 +1265,27 @@ async function searchLegalLibrary(
           }
         }
       }
+    }
+
+    // Merge title-matched (metadata-aware) candidates into lawsRows ahead of token-only matches.
+    if (titleMatchedById.size > 0) {
+      const merged: any[] = [];
+      const seen = new Set<string>();
+      for (const r of titleMatchedById.values()) {
+        const id = String((r as any).id);
+        if (!seen.has(id)) {
+          seen.add(id);
+          merged.push(r);
+        }
+      }
+      for (const r of lawsRows) {
+        const id = String((r as any).id);
+        if (!seen.has(id)) {
+          seen.add(id);
+          merged.push(r);
+        }
+      }
+      lawsRows = merged;
     }
 
     if (!lawsRows.length) {
@@ -793,24 +1309,112 @@ async function searchLegalLibrary(
           return sum + inTitle + inContent;
         }, 0);
 
+      const metadataBoost = (law: any, title: string): number => {
+        let bonus = 0;
+        if (titleMatchedIds.has(String(law.id))) bonus += 60;
+        if (isBilateralOrMultiCountryQuery && bilateralTitleTokens.length >= 2) {
+          const allHit = bilateralTitleTokens.every((t) => title.includes(t));
+          if (allHit) bonus += 110;
+        }
+        if (supranationalMatches.length > 0) {
+          const titleHit = supranationalMatches.some((m) =>
+            m.titleSearchTerms.some((t) => title.includes(t.toLowerCase()))
+          );
+          if (titleHit) bonus += 70;
+        }
+        return bonus;
+      };
+
       const total = (law: any, title: string, content: string) =>
-        baseScore(title, content) + resolvedIntent.rankBoost(law, rankingTokens);
+        baseScore(title, content) + resolvedIntent.rankBoost(law, rankingTokens) + metadataBoost(law, title);
 
       return total(b, titleB, contentB) - total(a, titleA, contentA);
     });
 
     const enrichedRanked = await enrichLawsResolveAmended(supabase, rankedLaws);
 
-    const lawsForResponse =
-      specificLawHint && enrichedRanked.length > 0
-        ? [enrichedRanked[0]]
-        : enrichedRanked.slice(0, detailedMode ? 14 : 8);
+    // For supranational / bilateral framework queries, the same instrument is
+    // often duplicated once per signatory country (AfCFTA × 54, ECOWAS Common
+    // Investment Code × 12, etc.). Collapse these by lowercase title so the
+    // candidate set carries one representative per unique instrument and
+    // multiple frameworks can fit in the response window.
+    const shouldDedupeByTitle =
+      supranationalMatches.length > 0 || isBilateralOrMultiCountryQuery;
+    const candidateLaws: any[] = (() => {
+      if (!shouldDedupeByTitle) return enrichedRanked;
+      const seenTitles = new Set<string>();
+      const out: any[] = [];
+      for (const law of enrichedRanked) {
+        const t = String((law as any).title ?? "").trim().toLowerCase();
+        if (!t) {
+          out.push(law);
+          continue;
+        }
+        if (seenTitles.has(t)) continue;
+        seenTitles.add(t);
+        out.push(law);
+      }
+      return out;
+    })();
+
+    const baseResponseSize = countryCatalogRequest ? 20 : detailedMode ? 14 : 8;
+    const lawsForResponse: any[] = (() => {
+      if (specificLawHint && candidateLaws.length > 0) return [candidateLaws[0]];
+      // When multiple supranational frameworks are mentioned (e.g. "AfCFTA vs
+      // ECOWAS"), guarantee each framework keeps a slot in the response so
+      // Claude can actually compare them.
+      if (supranationalMatches.length >= 2) {
+        const quotaPer = Math.max(2, Math.floor(baseResponseSize / supranationalMatches.length));
+        const counts = new Map<string, number>();
+        const seenIds = new Set<string>();
+        const picked: any[] = [];
+        const leftover: any[] = [];
+        for (const law of candidateLaws) {
+          const titleLower = String((law as any).title ?? "").toLowerCase();
+          const matchedFw = supranationalMatches.find((m) =>
+            m.titleSearchTerms.some((t) => titleLower.includes(t.toLowerCase()))
+          );
+          if (matchedFw) {
+            const c = counts.get(matchedFw.id) ?? 0;
+            if (c < quotaPer && !seenIds.has(String((law as any).id))) {
+              counts.set(matchedFw.id, c + 1);
+              seenIds.add(String((law as any).id));
+              picked.push(law);
+              continue;
+            }
+          }
+          leftover.push(law);
+        }
+        for (const law of leftover) {
+          if (picked.length >= baseResponseSize) break;
+          const id = String((law as any).id);
+          if (!seenIds.has(id)) {
+            seenIds.add(id);
+            picked.push(law);
+          }
+        }
+        return picked.slice(0, baseResponseSize);
+      }
+      return candidateLaws.slice(0, baseResponseSize);
+    })();
 
     const requestedArticle = extractRequestedArticle(query);
 
     const shouldKeepFullTextForSpecificLaw = Boolean(specificLawHint && detailedMode);
-    const maxCharsPerLaw = shouldKeepFullTextForSpecificLaw ? 60000 : detailedMode ? 9000 : 4500;
-    const maxCharsTotal = shouldKeepFullTextForSpecificLaw ? 140000 : detailedMode ? 36000 : 18000;
+    const maxCharsPerLaw = shouldKeepFullTextForSpecificLaw
+      ? 60000
+      : countryCatalogRequest
+        ? 600
+        : detailedMode
+          ? 9000
+          : 4500;
+    const maxCharsTotal = shouldKeepFullTextForSpecificLaw
+      ? 140000
+      : countryCatalogRequest
+        ? 16000
+        : detailedMode
+          ? 36000
+          : 18000;
     let remainingChars = maxCharsTotal;
 
     const compacted: Array<{ id: string; title: string; country: string; category: string; status?: string; content: string; year?: number }> = [];
@@ -954,14 +1558,95 @@ export async function POST(request: NextRequest) {
     // current chat before asking for clarification.
     const currentHints = extractQueryHints(userQuery);
     const conversationHints = extractHintsFromConversation(messages);
+    const dbDetectedCountry = !currentHints.country ? await detectCountryFromQueryUsingDatabase(userQuery) : undefined;
     const effectiveHints = {
-      country: currentHints.country ?? conversationHints.country,
+      country: currentHints.country ?? dbDetectedCountry ?? conversationHints.country,
       category: currentHints.category ?? conversationHints.category,
     };
     const specificLawHint = extractSpecificLawHint(userQuery);
     const trademarkIntent = isTrademarkIntent(userQuery);
+    const countryLawCountIntent = isCountryLawCountRequest(userQuery);
+    const globalLawCountIntent = isGlobalLawCountRequest(userQuery);
+    const allCountriesBreakdownIntent = isAllCountriesBreakdownRequest(userQuery);
+    const supranationalFrameworksInQuery = detectSupranationalFrameworks(userQuery);
+    const allCountriesInUserQuery = await findAllCountriesInQuery(userQuery);
+    const treatyHyphenatedHintsInUserQuery = extractHyphenatedProperNounPairs(userQuery);
+    const bilateralTitleTokensInUserQuery = Array.from(
+      new Set(
+        [
+          ...allCountriesInUserQuery.map((c) => c.toLowerCase()),
+          ...treatyHyphenatedHintsInUserQuery.map((t) => t.toLowerCase()),
+        ].filter((t) => t.length >= 3)
+      )
+    );
+    const skipCountryRequirement =
+      supranationalFrameworksInQuery.length > 0 || bilateralTitleTokensInUserQuery.length >= 2;
 
-    if (trademarkIntent && !effectiveHints.country) {
+    if (allCountriesBreakdownIntent) {
+      const counts = await getAllCountriesLawCounts();
+      if (!counts.length) {
+        return NextResponse.json({
+          content: "I could not compute country-by-country counts from the database right now. Please try again.",
+          sources: ["Yamalé AI · African Legal Research"],
+          sourceCards: [],
+        });
+      }
+      const lines = counts.map((row) => `- ${row.country}: ${row.total}`);
+      const grandTotal = counts.reduce((sum, row) => sum + row.total, 0);
+      return NextResponse.json({
+        content:
+          `Country-by-country law counts from the Yamalé database (${counts.length} countries, total ${grandTotal} laws):\n\n` +
+          lines.join("\n"),
+        sources: ["Yamalé Database · Laws by Country", "Yamalé AI · African Legal Research"],
+        sourceCards: [],
+      });
+    }
+
+    if (globalLawCountIntent) {
+      const counts = await getGlobalLawCounts();
+      return NextResponse.json({
+        content:
+          `According to the Yamalé database, there are ${counts.total} laws across all countries.` +
+          `\n\nBreakdown by status:` +
+          `\n- In force: ${counts.inForce}` +
+          `\n- Amended: ${counts.amended}` +
+          `\n- Repealed: ${counts.repealed}`,
+        sources: ["Yamalé Database · Laws (All Countries)", "Yamalé AI · African Legal Research"],
+        sourceCards: [],
+      });
+    }
+
+    if (countryLawCountIntent) {
+      const explicitCountryInCurrentQuery = currentHints.country ?? dbDetectedCountry;
+      if (!explicitCountryInCurrentQuery) {
+        return NextResponse.json({
+          content:
+            "Please specify the country to count laws.\n\nExample: \"How many laws are in Kenya according to the database?\"",
+          sources: ["Yamalé AI · African Legal Research"],
+          sourceCards: [],
+        });
+      }
+      const counts = await getCountryLawCounts(explicitCountryInCurrentQuery);
+      if (!counts) {
+        return NextResponse.json({
+          content: `I could not resolve "${explicitCountryInCurrentQuery}" to a country in the database.`,
+          sources: ["Yamalé AI · African Legal Research"],
+          sourceCards: [],
+        });
+      }
+      return NextResponse.json({
+        content:
+          `According to the Yamalé database, there are ${counts.total} laws for ${counts.country}.` +
+          `\n\nBreakdown by status:` +
+          `\n- In force: ${counts.inForce}` +
+          `\n- Amended: ${counts.amended}` +
+          `\n- Repealed: ${counts.repealed}`,
+        sources: [`Yamalé Database · Laws (${counts.country})`, "Yamalé AI · African Legal Research"],
+        sourceCards: [],
+      });
+    }
+
+    if (trademarkIntent && !effectiveHints.country && !skipCountryRequirement) {
       return NextResponse.json({
         content:
           "Please specify the country you want for trademark law search.\n\n" +
@@ -992,6 +1677,7 @@ export async function POST(request: NextRequest) {
     if (
       legalContext.length === 0 &&
       !effectiveHints.country &&
+      !skipCountryRequirement &&
       isLikelyLegalQuestion(userQuery)
     ) {
       return NextResponse.json({
@@ -1070,9 +1756,36 @@ Core rule: when library documents are provided, answer ONLY from those documents
 Do not add outside knowledge, web references, or generic legal templates.
 If something is not in the provided excerpts, say "Not stated in the provided library excerpt."
 
+Country specificity guidance (IMPORTANT):
+- For NATIONAL law questions (e.g. "Kenya labor law", "Tunisia tax code"), the user should specify a country and you answer from that country's documents.
+- For SUPRANATIONAL frameworks the country requirement does NOT apply — answer directly from the framework text. Examples:
+    OHADA Uniform Acts (17-state harmonised business law),
+    AfCFTA (continental free trade), ECOWAS / CEDEAO, EAC, COMESA, SADC, CEMAC, UEMOA / WAEMU,
+    African Union treaties and protocols (incl. the Maputo Protocol),
+    OAPI, ARIPO,
+    and multilateral treaties (Berne Convention, TRIPS, Madrid Protocol, Paris Convention, PCT).
+  Never tell the user to "specify a country" for these instruments. Treat their text as authoritative across all member states.
+- For BILATERAL treaties involving two named countries (e.g. "Algeria-Netherlands bilateral investment treaty"), use the bilateral document directly. Do not ask for further country clarification.
+
 Status handling (metadata in the library):
 - Instruments marked **Repealed** are excluded from retrieval; do not treat repealed texts as current law.
 - For **Amended** instruments, the system may substitute the best-matching **In force** successor in the same country/category when one is linked in metadata (\`replaced_by_law_id\`, \`superseding_law_id\`, etc.) or inferred from titles. If the excerpt is clearly an older amended version and no successor text is present, say so and answer only from what is shown.`;
+
+    if (supranationalFrameworksInQuery.length > 0) {
+      const list = supranationalFrameworksInQuery.map((m) => m.canonicalName).join(", ");
+      const expl = supranationalFrameworksInQuery.map((m) => m.description).join(" ");
+      systemPrompt += `\n\nThis query is about: ${list}. ${expl} Answer directly from the framework text in the retrieved documents. Do NOT ask the user to specify a country.`;
+    }
+
+    if (bilateralTitleTokensInUserQuery.length >= 2 && supranationalFrameworksInQuery.length === 0) {
+      const pair = (allCountriesInUserQuery.length >= 2
+        ? allCountriesInUserQuery
+        : treatyHyphenatedHintsInUserQuery
+      )
+        .slice(0, 4)
+        .join(" and ");
+      systemPrompt += `\n\nThis query references multiple parties (${pair}), which strongly suggests a bilateral or multilateral instrument. Use the document(s) whose title contains those party names directly (e.g. a law titled "Algeria - Netherlands"); do not redirect the user to pick a single country.`;
+    }
 
     // Add legal context if available
     if (legalContext.length > 0) {
