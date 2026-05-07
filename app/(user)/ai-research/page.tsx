@@ -114,6 +114,7 @@ const STORAGE_KEY = "yamale-ai-chats";
 const MAX_SESSIONS = 50;
 const AI_RESEARCH_NOTICE_VERSION = "v1";
 const AI_RESEARCH_NOTICE_KEY = `yamale-ai-research-notice:${AI_RESEARCH_NOTICE_VERSION}`;
+const AI_CHAT_TIMEOUT_MS = 110000;
 
 function getTierFromUser(metadata: Record<string, unknown> | undefined): Tier {
   const t = metadata?.tier ?? metadata?.subscriptionTier;
@@ -560,15 +561,18 @@ export default function AIResearchPage() {
       const payAsYouGoBefore = payAsYouGoCount;
 
       const effectiveModelId = allowedModelIds.includes(selectedModelId ?? "") ? selectedModelId : defaultModelId;
+      const chatController = new AbortController();
+      const chatTimeout = setTimeout(() => chatController.abort(), AI_CHAT_TIMEOUT_MS);
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
+        signal: chatController.signal,
         body: JSON.stringify({
           messages: apiMessages,
           model: effectiveModelId ?? undefined,
         }),
-      });
+      }).finally(() => clearTimeout(chatTimeout));
 
       const data = await res.json();
 
@@ -638,7 +642,12 @@ export default function AIResearchPage() {
         fetchAiUsage();
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      const isAbort = err instanceof DOMException && err.name === "AbortError";
+      const errorMessage = isAbort
+        ? "The request timed out. Please try again."
+        : err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again.";
       const errorResponse: Message = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
