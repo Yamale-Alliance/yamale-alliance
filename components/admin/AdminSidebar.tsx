@@ -17,6 +17,7 @@ import {
   CreditCard,
   MessageSquare,
   Bug,
+  MessageSquareWarning,
 } from "lucide-react";
 
 const SUPPORT_CENTER_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
@@ -33,6 +34,7 @@ const navItems = [
     icon: MessageSquare,
   },
   { href: "/admin-panel/ai-bugs", label: "AI bugs", icon: Bug },
+  { href: "/admin-panel/ai-feedback", label: "Flagged feedback", icon: MessageSquareWarning },
   { href: "/admin-panel/lawyer-searches", label: "Lawyer Searches", icon: Search },
   { href: "/admin-panel/laws", label: "Laws", icon: BookOpen },
   { href: "/admin-panel/afcfta", label: "AfCFTA", icon: FileCheck },
