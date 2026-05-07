@@ -5,6 +5,12 @@ export function lawsOrGlobalForCountry(countryId: string): string {
   return `country_id.eq.${countryId},applies_to_all_countries.eq.true`;
 }
 
+export function lawsCountryGlobalOrScopedIds(countryId: string, lawIds: string[]): string {
+  const cleaned = lawIds.map((id) => id.trim()).filter(Boolean);
+  if (cleaned.length === 0) return lawsOrGlobalForCountry(countryId);
+  return `${lawsOrGlobalForCountry(countryId)},id.in.(${cleaned.join(",")})`;
+}
+
 /** Escape `%` / `_` for PostgREST `ilike` patterns. */
 export function escapeIlikePattern(s: string): string {
   return s.replace(/%/g, "\\%").replace(/_/g, "\\_");
