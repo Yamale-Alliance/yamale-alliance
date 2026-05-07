@@ -37,7 +37,10 @@ export function pickContentExcerpt(
     while (idx !== -1) {
       // Anchor phrases are intent-specific (e.g., "capital social", "société anonyme")
       // and should dominate over generic token hits.
-      const score = p.length * 14 + (idx < text.length * 0.6 ? 4 : 0);
+      // Prefer substantive body matches over very-early table-of-contents hits.
+      const depthPenalty = idx < text.length * 0.12 ? -16 : idx < text.length * 0.22 ? -8 : 0;
+      const depthBonus = idx > text.length * 0.35 ? 6 : idx > text.length * 0.2 ? 3 : 0;
+      const score = p.length * 14 + 4 + depthPenalty + depthBonus;
       if (score > bestScore) {
         bestScore = score;
         bestIdx = idx;
