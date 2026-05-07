@@ -67,6 +67,7 @@ export interface Database {
           content: string | null;
           content_plain: string | null;
           metadata: Json;
+          language_code: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -84,6 +85,7 @@ export interface Database {
           content?: string | null;
           content_plain?: string | null;
           metadata?: Json;
+          language_code?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -784,6 +786,38 @@ export interface Database {
           resolved_at?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["ai_bug_reports"]["Insert"]>;
+      };
+      law_country_scopes: {
+        Row: {
+          id: string;
+          law_id: string;
+          country_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          law_id: string;
+          country_id: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["law_country_scopes"]["Insert"]>;
+      };
+      law_translations: {
+        Row: {
+          id: string;
+          law_id: string;
+          translated_law_id: string;
+          language_code: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          law_id: string;
+          translated_law_id: string;
+          language_code: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["law_translations"]["Insert"]>;
       };
       support_tickets: {
         Row: {
