@@ -16,6 +16,8 @@ export type ChunkOptions = {
 export type TextChunk = {
   text: string;
   index: number;
+  /** Best-effort heading inferred from first line (Article/Section/Chapter); aids citation UX when embeddings ship */
+  structuralHeading?: string;
 };
 
 const DEFAULT_OPTIONS: Required<ChunkOptions> = {
@@ -23,6 +25,17 @@ const DEFAULT_OPTIONS: Required<ChunkOptions> = {
   overlapChars: 120,
   minChunkChars: 80,
 };
+
+/** Match common civil-law / OHADA-style headings at paragraph start */
+const STRUCTURAL_HEADING_LINE_RE =
+  /^\s*(Article\s+[\d.\s\-]+|Art\.?\s*[\d.\s\-]+|Section\s+[\dIVXLC]+\b|Chapitre\s+[IVXLC\d]+|Chapter\s+[\dIVXLC]+\b|PART\s+[IVXLC\d]+)\s*[.:—\-]?\s*/im;
+
+function inferStructuralHeading(text: string): string | undefined {
+  const firstLine = text.split(/\r?\n/, 1)[0]?.trim() ?? "";
+  if (!firstLine || firstLine.length > 180) return undefined;
+  const m = firstLine.match(STRUCTURAL_HEADING_LINE_RE);
+  return m ? m[1].trim() : undefined;
+}
 
 /** Split text into sentences (rough: period/newline + space or end) */
 function splitSentences(paragraph: string): string[] {
@@ -107,5 +120,8 @@ export function chunkLawContent(
     i += 1;
   }
 
-  return merged.map((text, index) => ({ text, index }));
+  return merged.map((text, index) => {
+    const structuralHeading = inferStructuralHeading(text);
+    return structuralHeading ? { text, index, structuralHeading } : { text, index };
+  });
 }
