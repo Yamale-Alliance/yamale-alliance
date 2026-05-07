@@ -1,4 +1,21 @@
 /**
+ * Skip long browser-export headers (e.g. NamibLII share links, version banners) so
+ * token/anchor search and the first-line snippet land on the Act body.
+ */
+function trimOnlineLawLeadingChrome(source: string): string {
+  const head = source.slice(0, 4500).toLowerCase();
+  if (!head.includes("namiblii") && !head.includes("read the latest available version")) {
+    return source;
+  }
+  const m = /\n##\s+Chapter\s+1\s*\n/i.exec(source);
+  if (m && m.index >= 400 && m.index < 90_000) {
+    const next = source.slice(m.index).trimStart();
+    return next.length > 600 ? next : source;
+  }
+  return source;
+}
+
+/**
  * Prefer a window of law text around the strongest query-token hit so RAG excerpts
  * stay on-topic instead of always using the start of the document.
  */
@@ -8,7 +25,7 @@ export function pickContentExcerpt(
   maxLen: number,
   anchorPhrases: string[] = []
 ): string {
-  const text = fullText || "";
+  const text = trimOnlineLawLeadingChrome(fullText || "");
   if (!text) return "";
   if (text.length <= maxLen) return text;
 
