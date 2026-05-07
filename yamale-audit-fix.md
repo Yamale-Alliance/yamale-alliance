@@ -149,4 +149,27 @@ These follow-up patches are fully type-checked and lint-clean.
 
 ---
 
+## 4) Remaining schema-heavy audit items (implemented)
+
+- Added SQL migration `docs/sql/008_scope_language_citations.sql` covering:
+  - `law_country_scopes` (1.8)
+  - `laws.language_code` + `law_translations` (1.4)
+  - metadata object normalization baseline for citation fields (1.2)
+- Country scoping now wired into server-side filtering paths via `lib/law-country-scope-ids.ts` and updated OR helpers so scoped supranational instruments can be included in country results.
+- Law detail API/library viewer now exposes and displays translation cross-links and language badge.
+- Added citation metadata normalizer in `lib/law-citation-metadata.ts` and wired it into admin URL import flow.
+- Added summary backfill script `scripts/backfill-law-summaries.mjs` (batch inserts `law_summaries` rows for existing laws).
+- Extended chunk metadata (`lib/embeddings/chunking.ts`) with inferred `articleId`/`sectionId` fields for article-aware chunking progress.
+- Added hash/deep-link behavior on library law page plus markdown heading IDs for direct article/section anchors.
+- Added admin flagged feedback review UI:
+  - API: `app/api/admin/ai-feedback/route.ts`
+  - Page: `app/(admin)/admin-panel/ai-feedback/page.tsx`
+  - Sidebar link: `components/admin/AdminSidebar.tsx`
+
+## Production note
+
+- Logging/feedback tables still require running SQL migrations in production DB (`006` and now `008` where needed).
+
+---
+
 *End of report.*
