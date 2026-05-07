@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   escapeIlikePattern,
   lawTextIlikeOr,
+  lawsCountryGlobalOrScopedIds,
   lawsCountryOrGlobalWithTextSearch,
 } from "@/lib/law-country-scope";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { fetchLawIdsForCategory } from "@/lib/law-categories-sync";
+import { fetchLawIdsForCountryScope } from "@/lib/law-country-scope-ids";
 import { chunkLawContent } from "@/lib/embeddings/chunking";
 
 function extractSearchTokens(query: string): string[] {
@@ -111,8 +113,12 @@ export async function POST(request: NextRequest) {
     const searchTerms = query.trim().toLowerCase();
     const escapedTerms = escapeIlikePattern(searchTerms);
     const countryCatalogRequest = Boolean(countryId) && isCountryCatalogLawRequest(query);
-    if (countryCatalogRequest && countryId) {
-      lawsQuery = lawsQuery.or(`country_id.eq.${countryId},applies_to_all_countries.eq.true`);
+    const scopedCountryLawIds = countryId ? await fetchLawIdsForCountryScope(supabase, countryId) : [];
+    const countryScopeOr = countryId
+      ? lawsCountryGlobalOrScopedIds(countryId, scopedCountryLawIds)
+      : null;
+    if (countryCatalogRequest && countryScopeOr) {
+      lawsQuery = lawsQuery.or(countryScopeOr);
     } else if (countryId) {
       lawsQuery = lawsQuery.or(lawsCountryOrGlobalWithTextSearch(countryId, escapedTerms));
     } else {
