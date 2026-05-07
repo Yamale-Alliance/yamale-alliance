@@ -25,6 +25,12 @@ import {
   getCurrentMonthKey,
 } from "@/lib/ai-usage";
 import { hasUnusedPayAsYouGo, consumePayAsYouGoPurchase } from "@/lib/pay-as-you-go";
+import {
+  buildAiResearchSystemPrompt,
+  SYSTEM_PROMPT_VERSION,
+} from "@/lib/ai-system-prompt";
+import { extractCitedDocIndices, citedSlotsAsUsedFlags } from "@/lib/ai-citation-verify";
+import { insertAiQueryLog } from "@/lib/ai-query-log";
 
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
@@ -481,7 +487,55 @@ function isDetailedRequest(query: string): boolean {
   );
 }
 
+function isClearlyOffTopicForPrimaryIntent(
+  law: any,
+  primaryIntentId: string,
+  rankingTokens: string[]
+): boolean {
+  const title = String(law?.title ?? "").toLowerCase();
+  const category = String(law?.categories?.name ?? "").toLowerCase();
+  const blob = `${title}\n${String(law?.content_plain ?? law?.content ?? "").toLowerCase()}`;
+  if (primaryIntentId === "labor") {
+    const laborSignals = /(labor|labour|employment|decent work|travail|wage|salary|union|collective|dismissal|worker)/i;
+    const ipSignals = /(intellectual property|patent|trademark|copyright|industrial property)/i;
+    const hasLabor = laborSignals.test(blob) || rankingTokens.some((t) => laborSignals.test(t));
+    const looksLikeIp = ipSignals.test(title) || ipSignals.test(category);
+    return looksLikeIp && !hasLabor;
+  }
+  return false;
+}
+
+function buildExcerptAnchorTokens(query: string, primaryIntentId: string): string[] {
+  const q = query.toLowerCase();
+  const anchors: string[] = [];
+  if (/\bohada\b/.test(q) || /\bsoci[eé]t[eé]\s+anonyme\b/.test(q) || /\bsarl\b/.test(q)) {
+    anchors.push(
+      "société anonyme",
+      "societe anonyme",
+      "capital social",
+      "capital minimum",
+      "constitution de la société",
+      "formation",
+      "articles 385",
+      "part iv"
+    );
+  }
+  if (primaryIntentId === "labor") {
+    anchors.push("decent work", "employment", "worker", "wage", "collective agreement");
+  }
+  return Array.from(new Set(anchors));
+}
+
 function extractSpecificLawHint(query: string): string | null {
+  // Formal citation-style snippets (French Loi N°, Commonwealth Act/Cap, OHADA, Lusophone decreto-lei)
+  if (
+    /\b(loi\s+n[°ºo.]?\s*[\d\-–—/]+|act\s+no\.?\s*\d+|decree(?:t)?(?:\s+no\.?)?\s*[\d\-–—/]+|cap\.?\s*\d+|chapter\s+\d+|decreto-lei\s+n[°ºo.]?\s*[\d/]+|ohada\s+acte\s+uniforme)/i.test(
+      query
+    )
+  ) {
+    return query.trim();
+  }
+
   const looksLikeNamedLawTitle = (value: string): boolean => {
     const normalized = value.trim().toLowerCase();
     if (!normalized) return false;
@@ -972,7 +1026,18 @@ async function searchLegalLibrary(
   query: string,
   country?: string,
   detailedMode = false
-): Promise<Array<{ id: string; title: string; country: string; category: string; status?: string; content: string; year?: number }>> {
+): Promise<
+  Array<{
+    id: string;
+    title: string;
+    country: string;
+    category: string;
+    status?: string;
+    content: string;
+    year?: number;
+    retrievalScore?: number;
+  }>
+> {
   try {
     const supabase = getSupabaseServer() as any;
     const hints = extractQueryHints(query);
@@ -1144,11 +1209,24 @@ async function searchLegalLibrary(
     }
 
     if (specificLawHint) {
+      const specificStop = new Set([
+        "what",
+        "does",
+        "under",
+        "about",
+        "article",
+        "section",
+        "chapter",
+        "say",
+        "from",
+        "this",
+        "that",
+      ]);
       const specificTokens = specificLawHint
         .toLowerCase()
         .split(/[^a-z0-9]+/)
         .map((t) => t.trim())
-        .filter((t) => t.length >= 3)
+        .filter((t) => t.length >= 3 && !specificStop.has(t))
         .slice(0, 8);
       const tokenOr = specificTokens
         .map((t) => `title.ilike.%${escapeIlikePattern(t)}%`)
@@ -1332,6 +1410,9 @@ async function searchLegalLibrary(
     });
 
     const enrichedRanked = await enrichLawsResolveAmended(supabase, rankedLaws);
+    const intentFilteredRanked = enrichedRanked.filter(
+      (law) => !isClearlyOffTopicForPrimaryIntent(law, resolvedIntent.primaryId, rankingTokens)
+    );
 
     // For supranational / bilateral framework queries, the same instrument is
     // often duplicated once per signatory country (AfCFTA × 54, ECOWAS Common
@@ -1339,12 +1420,15 @@ async function searchLegalLibrary(
     // candidate set carries one representative per unique instrument and
     // multiple frameworks can fit in the response window.
     const shouldDedupeByTitle =
-      supranationalMatches.length > 0 || isBilateralOrMultiCountryQuery;
+      supranationalMatches.length > 0 ||
+      isBilateralOrMultiCountryQuery ||
+      resolvedIntent.primaryId === "labor";
     const candidateLaws: any[] = (() => {
-      if (!shouldDedupeByTitle) return enrichedRanked;
+      const base = intentFilteredRanked;
+      if (!shouldDedupeByTitle) return base;
       const seenTitles = new Set<string>();
       const out: any[] = [];
-      for (const law of enrichedRanked) {
+      for (const law of base) {
         const t = String((law as any).title ?? "").trim().toLowerCase();
         if (!t) {
           out.push(law);
@@ -1417,7 +1501,41 @@ async function searchLegalLibrary(
           : 18000;
     let remainingChars = maxCharsTotal;
 
-    const compacted: Array<{ id: string; title: string; country: string; category: string; status?: string; content: string; year?: number }> = [];
+    const retrievalScoreForLaw = (law: any): number => {
+      const title = String(law.title ?? "").toLowerCase();
+      const content = String(law.content_plain ?? law.content ?? "").toLowerCase();
+      const baseScore = rankingTokens.reduce((sum, token) => {
+        const inTitle = title.includes(token) ? 3 : 0;
+        const inContent = content.includes(token) ? 1 : 0;
+        return sum + inTitle + inContent;
+      }, 0);
+      let bonus = 0;
+      if (titleMatchedIds.has(String(law.id))) bonus += 60;
+      if (isBilateralOrMultiCountryQuery && bilateralTitleTokens.length >= 2) {
+        const allHit = bilateralTitleTokens.every((t) => title.includes(t));
+        if (allHit) bonus += 110;
+      }
+      if (supranationalMatches.length > 0) {
+        const titleHit = supranationalMatches.some((m) =>
+          m.titleSearchTerms.some((t) => title.includes(t.toLowerCase()))
+        );
+        if (titleHit) bonus += 70;
+      }
+      return baseScore + resolvedIntent.rankBoost(law, rankingTokens) + bonus;
+    };
+
+    const compacted: Array<{
+      id: string;
+      title: string;
+      country: string;
+      category: string;
+      status?: string;
+      content: string;
+      year?: number;
+      retrievalScore?: number;
+    }> = [];
+
+    const excerptAnchorTokens = buildExcerptAnchorTokens(query, resolvedIntent.primaryId);
 
     for (const law of lawsForResponse as any[]) {
       if (remainingChars <= 0) break;
@@ -1429,7 +1547,8 @@ async function searchLegalLibrary(
         selectedContent = pickContentExcerpt(
           fullText,
           rankingTokens.length ? rankingTokens : [qForTokens.trim().toLowerCase(), query.trim().toLowerCase()].filter(Boolean),
-          perLawCap
+          perLawCap,
+          excerptAnchorTokens
         );
         if (selectedContent.length > perLawCap) {
           selectedContent = selectedContent.slice(0, perLawCap);
@@ -1456,6 +1575,7 @@ async function searchLegalLibrary(
             status: law.status || undefined,
             content: selectedContent,
             year: law.year,
+            retrievalScore: retrievalScoreForLaw(law),
           });
           remainingChars -= selectedContent.length;
           continue;
@@ -1470,6 +1590,7 @@ async function searchLegalLibrary(
         status: law.status || undefined,
         content: selectedContent,
         year: law.year,
+        retrievalScore: retrievalScoreForLaw(law),
       });
       remainingChars -= selectedContent.length;
     }
@@ -1671,6 +1792,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Search legal library for relevant content (RAG)
+    const aiTurnStartedAt = Date.now();
     const detailedMode = isDetailedRequest(userQuery);
     const legalContext = await searchLegalLibrary(userQuery, effectiveHints.country, detailedMode);
 
@@ -1749,74 +1871,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build system prompt
-    let systemPrompt = `You are a legal research assistant for the Yamalé legal library.
+    const bilateralPartiesSummary =
+      bilateralTitleTokensInUserQuery.length >= 2 && supranationalFrameworksInQuery.length === 0
+        ? (allCountriesInUserQuery.length >= 2
+            ? allCountriesInUserQuery
+            : treatyHyphenatedHintsInUserQuery
+          )
+            .slice(0, 4)
+            .join(" and ")
+        : null;
 
-Core rule: when library documents are provided, answer ONLY from those documents.
-Do not add outside knowledge, web references, or generic legal templates.
-If something is not in the provided excerpts, say "Not stated in the provided library excerpt."
-
-Country specificity guidance (IMPORTANT):
-- For NATIONAL law questions (e.g. "Kenya labor law", "Tunisia tax code"), the user should specify a country and you answer from that country's documents.
-- For SUPRANATIONAL frameworks the country requirement does NOT apply — answer directly from the framework text. Examples:
-    OHADA Uniform Acts (17-state harmonised business law),
-    AfCFTA (continental free trade), ECOWAS / CEDEAO, EAC, COMESA, SADC, CEMAC, UEMOA / WAEMU,
-    African Union treaties and protocols (incl. the Maputo Protocol),
-    OAPI, ARIPO,
-    and multilateral treaties (Berne Convention, TRIPS, Madrid Protocol, Paris Convention, PCT).
-  Never tell the user to "specify a country" for these instruments. Treat their text as authoritative across all member states.
-- For BILATERAL treaties involving two named countries (e.g. "Algeria-Netherlands bilateral investment treaty"), use the bilateral document directly. Do not ask for further country clarification.
-
-Status handling (metadata in the library):
-- Instruments marked **Repealed** are excluded from retrieval; do not treat repealed texts as current law.
-- For **Amended** instruments, the system may substitute the best-matching **In force** successor in the same country/category when one is linked in metadata (\`replaced_by_law_id\`, \`superseding_law_id\`, etc.) or inferred from titles. If the excerpt is clearly an older amended version and no successor text is present, say so and answer only from what is shown.`;
-
-    if (supranationalFrameworksInQuery.length > 0) {
-      const list = supranationalFrameworksInQuery.map((m) => m.canonicalName).join(", ");
-      const expl = supranationalFrameworksInQuery.map((m) => m.description).join(" ");
-      systemPrompt += `\n\nThis query is about: ${list}. ${expl} Answer directly from the framework text in the retrieved documents. Do NOT ask the user to specify a country.`;
-    }
-
-    if (bilateralTitleTokensInUserQuery.length >= 2 && supranationalFrameworksInQuery.length === 0) {
-      const pair = (allCountriesInUserQuery.length >= 2
-        ? allCountriesInUserQuery
-        : treatyHyphenatedHintsInUserQuery
-      )
-        .slice(0, 4)
-        .join(" and ");
-      systemPrompt += `\n\nThis query references multiple parties (${pair}), which strongly suggests a bilateral or multilateral instrument. Use the document(s) whose title contains those party names directly (e.g. a law titled "Algeria - Netherlands"); do not redirect the user to pick a single country.`;
-    }
-
-    // Add legal context if available
-    if (legalContext.length > 0) {
-      systemPrompt += `\n\nRELEVANT LEGAL DOCUMENTS FROM THE DATABASE (library):\n\n${legalContext
-        .map(
-          (law, i) =>
-            `[Document ${i + 1}]\nTitle: ${law.title}\nCountry: ${law.country}\nCategory: ${law.category}${
-              law.year ? `\nYear: ${law.year}` : ""
-            }\nContent:\n${law.content}\n---\n`
-        )
-        .join("\n")}\n\nIMPORTANT: (1) Base your answer strictly on these legal documents from the library database. (2) Do not cite them as \"Document 1\", \"Based on Document 2\", or similar—instead refer to the law by its title or country. (3) Do NOT use outside/general knowledge when answering this request. (4) If the documents do not cover the question, explicitly say they are not found in the current library results and ask the user to refine filters/query; do not invent statutes or web references. (5) For each substantive point, include a short quote/snippet from the provided text that supports it. (6) Titles may be in French or another language: infer the subject from headings and body text (e.g. OHADA, acte uniforme, code du travail, code pénal) and do not dismiss an instrument solely because the title does not match the user's English wording. (7) When several instruments are listed, prefer excerpts that directly address the user's topic (e.g. company formation and OHADA-style commercial acts for business registration; labor codes for employment; fiscal statutes for tax; environmental codes for pollution or climate; criminal codes for penal questions) over generic constitutional texts or unrelated bilateral treaties unless those instruments clearly contain the requested rules.`;
-      systemPrompt +=
-        "\n\nDefault answer style (unless user asks otherwise): provide a practical summary in clear sections focused on what the law says. Use this order: (a) What this law is about, (b) Who it applies to, (c) Main obligations/prohibitions, (d) Enforcement/oversight, (e) Penalties/remedies if present, (f) Practical takeaway. Avoid long publication metadata (gazette volume, legal notice chronology, revision history) unless the user explicitly asks for citation history or amendment timeline.";
-      if (detailedMode) {
-        systemPrompt +=
-          "\n\nThe user asked for detail. Give a detailed, structured response using headings and bullet points. Include specific procedural/legal points found in the provided text and quote short snippets for each point. Do not provide generic overviews.";
-      }
-      if (extractSpecificLawHint(userQuery)) {
-        systemPrompt +=
-          "\n\nThe user asked about a specific named law. Prioritize that law's text only. Do not summarize at high level. Instead, extract every concrete legal rule visible in the excerpt and present it as a numbered list: (a) short quote, (b) plain-language explanation, (c) practical implication. If text is partial, state that only after listing all extracted rules.";
-        systemPrompt +=
-          "\n\nDo not claim an article is blank or missing unless the excerpt explicitly indicates it is blank. If you cannot locate a specific article in the provided excerpt, say: 'I could not locate that article in the provided excerpt.'";
-      }
-      const requestedArticle = extractRequestedArticle(userQuery);
-      if (requestedArticle !== null) {
-        systemPrompt += `\n\nThe user asked about Article ${requestedArticle}. If Article ${requestedArticle} text is present in the provided library excerpts, quote and explain that exact article directly. Do not claim the article is missing unless it truly does not appear in the excerpts.`;
-      }
-    } else {
-      systemPrompt +=
-        "\n\nNo library documents were retrieved for this turn. Say that clearly in 2-4 short sentences and ask the user to refine country/category/law title. Do not claim you reviewed all library documents; state only that no relevant documents were retrieved for this query. Do not provide external legal guidance (agencies, filing bodies, or legal frameworks not present in retrieved docs). Do not fabricate legal content.";
-    }
+    const systemPrompt = buildAiResearchSystemPrompt({
+      supranationalFrameworksInQuery: supranationalFrameworksInQuery.map((m) => ({
+        canonicalName: m.canonicalName,
+        description: m.description,
+      })),
+      bilateralPartiesSummary,
+      legalContext,
+      detailedMode,
+      specificLawHint,
+      requestedArticle: extractRequestedArticle(userQuery),
+    });
 
     const modelId = await resolveModelIdForRequest(tier, requestedModel);
 
@@ -1933,14 +2008,53 @@ Status handling (metadata in the library):
         ]
       : ["Claude AI · African Legal Research"];
 
-    const sourceCards = legalContext.map((law) => ({
+    const citationParse = extractCitedDocIndices(assistantText, legalContext.length);
+    const usedFlags = citedSlotsAsUsedFlags(citationParse.citedDocIndices, legalContext.length);
+
+    const sourceCardsRaw = legalContext.map((law, idx) => ({
       lawId: law.id,
       title: law.title,
       country: law.country,
       category: law.category,
       status: law.status || "In force",
       snippet: law.content.slice(0, 220).replace(/\s+/g, " ").trim(),
+      retrievalScore: typeof law.retrievalScore === "number" ? law.retrievalScore : undefined,
+      usedInAnswer: Boolean(usedFlags[idx]),
+      docSlot: idx + 1,
     }));
+
+    const sourceCards = [...sourceCardsRaw].sort((a, b) => {
+      if (a.usedInAnswer === b.usedInAnswer) {
+        const sa = a.retrievalScore ?? 0;
+        const sb = b.retrievalScore ?? 0;
+        return sb - sa;
+      }
+      return a.usedInAnswer ? -1 : 1;
+    });
+
+    const citationVerification = {
+      invalidDocRefs: citationParse.invalidDocRefs,
+      citedDocIndices: citationParse.citedDocIndices,
+      allDocRefsValid: citationParse.invalidDocRefs.length === 0,
+    };
+
+    const latencyMs = Date.now() - aiTurnStartedAt;
+    const supabaseLog = getSupabaseServer();
+    const queryLogId = await insertAiQueryLog(supabaseLog, {
+      user_id: userId,
+      query: userQuery,
+      country_detected: effectiveHints.country ?? dbDetectedCountry ?? null,
+      frameworks_detected:
+        supranationalFrameworksInQuery.length > 0
+          ? supranationalFrameworksInQuery.map((m) => m.canonicalName)
+          : null,
+      retrieved_law_ids: legalContext.map((l) => l.id),
+      system_prompt_version: SYSTEM_PROMPT_VERSION,
+      model: modelId,
+      response_preview: assistantText,
+      latency_ms: latencyMs,
+      citation_issues: citationVerification,
+    });
 
     let lawyerNudge: { country: string; category: string; count: number; href: string } | null = null;
     const nudgeCountry = effectiveHints.country ?? legalContext[0]?.country;
@@ -1951,7 +2065,7 @@ Status handling (metadata in the library):
         const safeCategory = nudgeCategory.replace(/[%_]/g, "\\$&");
         const { count } = await (supabase.from("lawyers") as any)
           .select("id", { count: "exact", head: true })
-          .eq("status", "approved")
+          .eq("approved", true)
           .eq("country", nudgeCountry)
           .ilike("expertise", `%${safeCategory}%`);
         if ((count ?? 0) > 0) {
@@ -1976,6 +2090,9 @@ Status handling (metadata in the library):
       sources,
       sourceCards,
       lawyerNudge,
+      systemPromptVersion: SYSTEM_PROMPT_VERSION,
+      citationVerification,
+      queryLogId,
     });
   } catch (err) {
     console.error("AI chat API error:", err);
