@@ -14,6 +14,7 @@ type FeedbackRow = {
   user_email: string | null;
   created_at: string;
   related_message_id: string | null;
+  status?: string | null;
 };
 
 export default function AiFeedbackAdminPage() {
@@ -22,7 +23,7 @@ export default function AiFeedbackAdminPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/admin/ai-feedback?rating=-1&page=1&pageSize=50", { credentials: "include" })
+    fetch("/api/admin/ai-feedback?status=open&page=1&pageSize=50", { credentials: "include" })
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to load feedback");
@@ -51,12 +52,13 @@ export default function AiFeedbackAdminPage() {
                 <span className="font-semibold">Category:</span> {row.issue_category || "Uncategorized"}
               </p>
               {row.issue_details && <p className="mt-1 text-sm text-muted-foreground">{row.issue_details}</p>}
-              <div className="mt-3 flex items-center gap-3 text-xs">
-                {row.query_log_id && (
-                  <Link href={`/admin-panel/ai-bugs`} className="text-primary hover:underline">
-                    Open AI bug triage
-                  </Link>
+              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+                {row.status && (
+                  <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground">Status: {row.status}</span>
                 )}
+                <Link href="/admin-panel/ai-bugs" className="text-primary hover:underline">
+                  Open AI bug triage
+                </Link>
                 <span className="text-muted-foreground">Message: {row.related_message_id || "n/a"}</span>
               </div>
             </article>

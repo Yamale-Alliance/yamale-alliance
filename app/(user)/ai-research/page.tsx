@@ -111,6 +111,7 @@ type ChatSession = {
 };
 
 const STORAGE_KEY = "yamale-ai-chats";
+const CURRENT_CHAT_ID_KEY = "yamale-ai-current-chat-id";
 const MAX_SESSIONS = 50;
 const AI_RESEARCH_NOTICE_VERSION = "v1";
 const AI_RESEARCH_NOTICE_KEY = `yamale-ai-research-notice:${AI_RESEARCH_NOTICE_VERSION}`;
@@ -159,8 +160,20 @@ function saveSessions(sessions: ChatSession[]) {
 export default function AIResearchPage() {
   const { user } = useUser();
   const searchParams = useSearchParams();
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [currentId, setCurrentId] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<ChatSession[]>(() =>
+    typeof window === "undefined" ? [] : loadSessions()
+  );
+  const [currentId, setCurrentId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const loaded = loadSessions();
+    try {
+      const saved = localStorage.getItem(CURRENT_CHAT_ID_KEY);
+      if (saved && loaded.some((s) => s.id === saved)) return saved;
+    } catch {
+      /* ignore */
+    }
+    return null;
+  });
   const [input, setInput] = useState("");
   const [searchChats, setSearchChats] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -175,7 +188,19 @@ export default function AIResearchPage() {
     canQuery?: boolean;
   } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const lastChatOpenedForScrollRef = useRef<string | null>(null);
   const mounted = useRef(false);
+
+  const scrollChatToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = chatScrollRef.current;
+        if (!el) return;
+        el.scrollTo({ top: el.scrollHeight, behavior });
+      });
+    });
+  }, []);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [showPayAsYouGoPrompt, setShowPayAsYouGoPrompt] = useState(false);
   const [models, setModels] = useState<Array<{ id: string; display_name?: string }>>([]);
@@ -219,7 +244,6 @@ export default function AIResearchPage() {
 
   useEffect(() => {
     if (!mounted.current) {
-      setSessions(loadSessions());
       // On mobile, start with sidebar closed so chat area has full width
       if (typeof window !== "undefined" && window.innerWidth < 768) {
         setSidebarOpen(false);
@@ -231,6 +255,35 @@ export default function AIResearchPage() {
   useEffect(() => {
     saveSessions(sessions);
   }, [sessions]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (currentId) localStorage.setItem(CURRENT_CHAT_ID_KEY, currentId);
+      else localStorage.removeItem(CURRENT_CHAT_ID_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, [currentId]);
+
+  useEffect(() => {
+    if (!isLoading) return;
+    scrollChatToBottom("auto");
+  }, [isLoading, messages.length, scrollChatToBottom]);
+
+  // When opening or switching chats, land at the end of the thread (not the top).
+  // Avoid depending on full `sessions` so new replies don’t yank scroll position mid-read.
+  useEffect(() => {
+    if (!currentId) {
+      lastChatOpenedForScrollRef.current = null;
+      return;
+    }
+    const session = sessions.find((s) => s.id === currentId);
+    if (!session?.messages.length) return;
+    const switched = lastChatOpenedForScrollRef.current !== currentId;
+    lastChatOpenedForScrollRef.current = currentId;
+    if (switched) scrollChatToBottom("auto");
+  }, [currentId, sessions, scrollChatToBottom]);
 
   const fetchAiUsage = useCallback(async () => {
     if (!user) return;
@@ -391,7 +444,16 @@ export default function AIResearchPage() {
         if (!res.ok) return;
         const json = (await res.json()) as { sessions?: ChatSession[] };
         if (!cancelled && Array.isArray(json.sessions) && json.sessions.length > 0) {
+          let savedId: string | null = null;
+          try {
+            savedId = localStorage.getItem(CURRENT_CHAT_ID_KEY);
+          } catch {
+            savedId = null;
+          }
           setSessions(json.sessions);
+          if (savedId && json.sessions.some((s) => s.id === savedId)) {
+            setCurrentId(savedId);
+          }
         }
       } catch {
         // ignore and rely on localStorage fallback
@@ -540,12 +602,14 @@ export default function AIResearchPage() {
     }
     setInput("");
     setIsLoading(true);
+    scrollChatToBottom("auto");
 
     try {
       // Build messages array for API (include conversation history)
-      const currentSessionMessages = currentId
-        ? sessions.find((s) => s.id === currentId)?.messages ?? []
-        : [];
+      const sessionForApi =
+        sessionIdToUpdate != null ? sessions.find((s) => s.id === sessionIdToUpdate) : undefined;
+      const currentSessionMessages =
+        sessionForApi?.messages.filter((m) => m.id !== userMessage.id) ?? [];
       const apiMessages = [
         ...currentSessionMessages.map((m) => ({
           role: m.role,
@@ -972,7 +1036,7 @@ export default function AIResearchPage() {
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div ref={chatScrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             <div className="mx-auto max-w-[760px] px-4 py-8 md:px-8 md:py-10">
               {messages.length === 0 ? (
                 <div className="text-center">
@@ -1220,7 +1284,12 @@ export default function AIResearchPage() {
                     </div>
                   ))}
                   {isLoading && (
-                    <div className="flex gap-3">
+                    <div
+                      className="flex gap-3"
+                      role="status"
+                      aria-live="polite"
+                      aria-label="Searching the legal library"
+                    >
                       <div
                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#0D1B2A] text-[11px] font-bold text-white"
                         aria-hidden
@@ -1229,7 +1298,7 @@ export default function AIResearchPage() {
                       </div>
                       <div className="rounded-[10px] border border-border bg-card px-4 py-3 shadow-sm">
                         <span className="flex items-center gap-2 text-[13px] text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin text-[#C8922A]" />
+                          <Loader2 className="h-4 w-4 animate-spin text-[#C8922A]" aria-hidden />
                           Searching…
                         </span>
                       </div>

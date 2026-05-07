@@ -28,11 +28,11 @@ export async function GET(
       .limit(50);
 
     let translations: Array<{ id: string; title: string; language_code: string | null }> = [];
-    const translatedIds = Array.from(
+    const translatedIds: string[] = Array.from(
       new Set(
         (translationRows ?? [])
           .map((r: { translated_law_id?: string }) => String(r?.translated_law_id ?? "").trim())
-          .filter(Boolean)
+          .filter((s: string): s is string => s.length > 0)
       )
     );
     if (translatedIds.length > 0) {
@@ -40,7 +40,9 @@ export async function GET(
         .from("laws")
         .select("id,title,language_code")
         .in("id", translatedIds);
-      const byId = new Map((translatedLaws ?? []).map((r) => [r.id, r]));
+      type TranslatedLawRow = { id: string; title: string; language_code: string | null };
+      const lawRows: TranslatedLawRow[] = (translatedLaws ?? []) as TranslatedLawRow[];
+      const byId = new Map<string, TranslatedLawRow>(lawRows.map((r) => [r.id, r]));
       translations = translatedIds
         .map((id) => {
           const row = byId.get(id);
@@ -55,7 +57,7 @@ export async function GET(
         .filter(Boolean) as Array<{ id: string; title: string; language_code: string | null }>;
     }
 
-    return NextResponse.json({ ...data, translations });
+    return NextResponse.json({ ...(data as Record<string, unknown>), translations });
   } catch (err) {
     console.error("Law by id API error:", err);
     return NextResponse.json(
