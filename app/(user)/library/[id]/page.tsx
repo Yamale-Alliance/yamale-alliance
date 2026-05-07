@@ -46,6 +46,9 @@ type LawDetail = {
   category_id: string;
   countries: { name: string } | null;
   categories: { name: string } | null;
+  language_code?: string | null;
+  metadata?: Record<string, unknown> | null;
+  translations?: Array<{ id: string; title: string; language_code: string | null }>;
 };
 
 type Section = { id: string; title: string; body: string };
@@ -73,6 +76,26 @@ function parseMarkdownTableLine(line: string): string[] {
     .split("|")
     .map((c) => c.trim())
     .filter((c) => c !== ""); // keep all cells; for "| A | B |" we get [A, B]
+}
+
+function plainTextFromNode(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(plainTextFromNode).join(" ");
+  if (node && typeof node === "object" && "props" in node) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return plainTextFromNode((node as any).props?.children);
+  }
+  return "";
+}
+
+function headingAnchorId(raw: ReactNode): string {
+  const txt = plainTextFromNode(raw).toLowerCase().trim();
+  return txt
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 90);
 }
 
 function isMarkdownTableSeparatorRow(cells: string[]): boolean {
@@ -940,6 +963,14 @@ export default function LawDetailPage({
       .finally(() => setLoading(false));
   }, [resolvedId]);
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !law?.id) return;
+    const hash = decodeURIComponent(window.location.hash || "").replace(/^#/, "");
+    if (!hash) return;
+    const el = document.getElementById(hash);
+    if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+  }, [law?.id]);
+
   // After successful pay-as-you-go document payment: open print dialog once, then clean URL.
   // Also remember that this law has been paid for (in localStorage) so future prints
   // do not go back to checkout from this browser.
@@ -1049,7 +1080,22 @@ export default function LawDetailPage({
                 {law.categories.name}
               </span>
             )}
+            {law.language_code && (
+              <span className="rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-medium text-white/75">
+                Language: {law.language_code.toUpperCase()}
+              </span>
+            )}
           </div>
+          {law.translations && law.translations.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-white/80">
+              <span className="font-semibold">Translations:</span>
+              {law.translations.map((t) => (
+                <Link key={t.id} href={`/library/${t.id}`} className="rounded-full border border-white/20 px-2.5 py-1 hover:bg-white/10">
+                  {t.title} ({(t.language_code ?? "n/a").toUpperCase()})
+                </Link>
+              ))}
+            </div>
+          )}
           {isAdmin && (
             <div className="mt-4 flex flex-col gap-2 rounded-xl border border-[rgba(200,146,42,0.35)] bg-[rgba(255,255,255,0.06)] px-4 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center">
               <button
@@ -1237,6 +1283,18 @@ export default function LawDetailPage({
                                   {children}
                                 </a>
                               ),
+                              h1: ({ children, ...props }) => {
+                                const id = headingAnchorId(children) || undefined;
+                                return <h1 id={id} className="scroll-mt-24" {...props}>{children}</h1>;
+                              },
+                              h2: ({ children, ...props }) => {
+                                const id = headingAnchorId(children) || undefined;
+                                return <h2 id={id} className="scroll-mt-24" {...props}>{children}</h2>;
+                              },
+                              h3: ({ children, ...props }) => {
+                                const id = headingAnchorId(children) || undefined;
+                                return <h3 id={id} className="scroll-mt-24" {...props}>{children}</h3>;
+                              },
                             }}
                           >
                             {preprocessMarkdownBodyForHeadingMerge(sec.body)}
