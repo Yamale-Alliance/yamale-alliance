@@ -266,10 +266,12 @@ export default function AIResearchPage() {
     }
   }, [currentId]);
 
+  // Only tie bottom-scroll to loading turning on — do NOT depend on `messages.length`,
+  // or adding the assistant reply while `isLoading` is still true re-scrolls to the foot of that reply.
   useEffect(() => {
     if (!isLoading) return;
     scrollChatToBottom("auto");
-  }, [isLoading, messages.length, scrollChatToBottom]);
+  }, [isLoading, scrollChatToBottom]);
 
   // When opening or switching chats, land at the end of the thread (not the top).
   // Avoid depending on full `sessions` so new replies don’t yank scroll position mid-read.
@@ -545,13 +547,25 @@ export default function AIResearchPage() {
     }
   }, []);
 
-  const scrollToMessageStart = useCallback((messageId: string, behavior: ScrollBehavior = "smooth") => {
-    requestAnimationFrame(() => {
+  /** Scroll chat pane so the top of the message aligns under the header (not the bottom / sources). */
+  const scrollMessageTopIntoChatPane = useCallback((messageId: string, behavior: ScrollBehavior = "smooth") => {
+    const pad = 12;
+    const maxSteps = 30;
+    let step = 0;
+    const run = () => {
+      step += 1;
+      const scrollEl = chatScrollRef.current;
       const target = document.getElementById(`msg-${messageId}`);
-      if (target) {
-        target.scrollIntoView({ behavior, block: "start" });
+      if (scrollEl && target && scrollEl.contains(target)) {
+        const sr = scrollEl.getBoundingClientRect();
+        const tr = target.getBoundingClientRect();
+        const nextTop = scrollEl.scrollTop + (tr.top - sr.top) - pad;
+        scrollEl.scrollTo({ top: Math.max(0, nextTop), behavior });
+        return;
       }
-    });
+      if (step < maxSteps) requestAnimationFrame(run);
+    };
+    requestAnimationFrame(run);
   }, []);
 
   const handleDownloadChat = useCallback(() => {
@@ -603,6 +617,8 @@ export default function AIResearchPage() {
     setInput("");
     setIsLoading(true);
     scrollChatToBottom("auto");
+
+    let pendingAssistantScrollId: string | null = null;
 
     try {
       // Build messages array for API (include conversation history)
@@ -668,13 +684,13 @@ export default function AIResearchPage() {
       };
 
       const id = sessionIdToUpdate;
+      pendingAssistantScrollId = assistantMessage.id;
       setSessions((prev) =>
         prev.map((s) =>
           s.id === id ? { ...s, messages: [...s.messages, assistantMessage], updatedAt: Date.now() } : s
         )
       );
-      scrollToMessageStart(assistantMessage.id, "smooth");
-      
+
       // Refresh usage and check if pay-as-you-go was consumed
       const usageRes = await fetch("/api/ai/usage", { credentials: "include" });
       const usageData = (await usageRes.json()) as {
@@ -719,14 +735,21 @@ export default function AIResearchPage() {
         sources: [],
       };
       const id = sessionIdToUpdate;
+      pendingAssistantScrollId = errorResponse.id;
       setSessions((prev) =>
         prev.map((s) =>
           s.id === id ? { ...s, messages: [...s.messages, errorResponse], updatedAt: Date.now() } : s
         )
       );
-      scrollToMessageStart(errorResponse.id, "smooth");
     } finally {
       setIsLoading(false);
+    }
+
+    if (pendingAssistantScrollId) {
+      const sid = pendingAssistantScrollId;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => scrollMessageTopIntoChatPane(sid, "smooth"));
+      });
     }
   };
 
