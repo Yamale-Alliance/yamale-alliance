@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users, Briefcase, BookOpen, Scale, ArrowRight, Shield, Cpu, CreditCard, MessageSquare } from "lucide-react";
+import { Users, Briefcase, BookOpen, Scale, ArrowRight, Shield, Cpu, CreditCard, MessageSquare, Bug } from "lucide-react";
 
 const SUPPORT_CENTER_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
 
@@ -12,6 +12,7 @@ const quickLinks = [
     label: SUPPORT_CENTER_LIVE ? "Support requests from users" : "Support requests (coming soon)",
     icon: MessageSquare,
   },
+  { href: "/admin-panel/ai-bugs", label: "AI bug reports & triage", icon: Bug },
   { href: "/admin-panel/subscriptions", label: "AI subscriptions & renewals", icon: CreditCard },
   { href: "/admin-panel/lawyers", label: "Lawyers directory", icon: Briefcase },
   { href: "/admin-panel/laws", label: "View and add laws", icon: BookOpen },
