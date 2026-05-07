@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   escapeIlikePattern,
+  lawsOrGlobalForCountry,
+  lawsCountryGlobalOrScopedIds,
   lawTextIlikeOr,
   lawsCountryOrGlobalWithAnyEscapedTerms,
   lawsCountryOrGlobalWithTextSearch,
   lawsGlobalTextIlikeOrTerms,
-  lawsOrGlobalForCountry,
 } from "@/lib/law-country-scope";
+import { fetchLawIdsForCountryScope } from "@/lib/law-country-scope-ids";
 import {
   normalizeSearchQueryForAi,
   resolveLibrarySearchIntent,
@@ -34,6 +36,7 @@ import { insertAiQueryLog } from "@/lib/ai-query-log";
 
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
+const CLAUDE_TIMEOUT_MS = 95000;
 const CLAUDE_MODEL_ENV = process.env.CLAUDE_MODEL;
 const MODELS_URL = "https://api.anthropic.com/v1/models";
 
@@ -500,6 +503,14 @@ function isDetailedRequest(query: string): boolean {
   );
 }
 
+function isBriefRequest(query: string): boolean {
+  const q = query.toLowerCase();
+  return (
+    /\b(in short|briefly|brief|concise|short answer|quick answer|tldr|summarize briefly)\b/.test(q) ||
+    /\bjust the answer\b/.test(q)
+  );
+}
+
 function isClearlyOffTopicForPrimaryIntent(
   law: any,
   primaryIntentId: string,
@@ -515,22 +526,97 @@ function isClearlyOffTopicForPrimaryIntent(
     const looksLikeIp = ipSignals.test(title) || ipSignals.test(category);
     return looksLikeIp && !hasLabor;
   }
+  if (primaryIntentId === "registration") {
+    const tokenBlob = rankingTokens.join(" ").toLowerCase();
+    const isOhadaCompanyQuery =
+      /\bohada\b/.test(tokenBlob) &&
+      /\b(sarl|societe|société|commercial|companies|company|gie|capital)\b/.test(tokenBlob);
+    if (isOhadaCompanyQuery) {
+      if (/\b(cooperative|coop[eé]rative|soci[eé]t[eé]s?\s+coop[eé]ratives?)\b/.test(tokenBlob)) {
+        return false;
+      }
+      // Cooperative-societies instrument is noisy for OHADA commercial companies SARL/SA prompts.
+      const cooperativeSignals = /(soci[eé]t[eé]s?\s+coop[eé]ratives?|cooperatives?)/i;
+      const looksCooperative = cooperativeSignals.test(title) || cooperativeSignals.test(category);
+      if (looksCooperative) return true;
+      if (/\bau\s+sommaire\b/i.test(title)) return true;
+    }
+  }
   return false;
+}
+
+function isOhadaCommercialCompaniesQuery(query: string): boolean {
+  const q = query.toLowerCase();
+  return (
+    /\bohada\b/.test(q) &&
+    /\b(sarl|s\.?a\.?|soci[eé]t[eé]\s+anonyme|soci[eé]t[eé]\s+[aà]\s+responsabilit[eé]\s+limit[eé]e|commercial companies|soci[eé]t[eé]s?\s+commerciales?|capital)\b/.test(
+      q
+    )
+  );
+}
+
+function isOffTopicForOhadaCommercialCompanies(law: any): boolean {
+  const title = String(law?.title ?? "").toLowerCase();
+  const category = String(law?.categories?.name ?? "").toLowerCase();
+  const blob = `${title}\n${category}`;
+  if (/\bau\s+sommaire\b/.test(blob)) return true;
+  if (/(soci[eé]t[eé]s?\s+coop[eé]ratives?|cooperatives?)/i.test(blob)) return true;
+  if (/(proc[eé]dures?\s+collectives?|apurement\s+du\s+passif|insolvency|bankruptcy)/i.test(blob)) return true;
+  if (/(m[eé]diation|mediation|arbitrage|arbitration)/i.test(blob)) return true;
+  return false;
+}
+
+function isLikelyOhadaCommercialCompaniesLaw(law: any): boolean {
+  const title = String(law?.title ?? "").toLowerCase();
+  const category = String(law?.categories?.name ?? "").toLowerCase();
+  const titleSignals =
+    /(soci[eé]t[eé]s?\s+commerciales?|commercial companies|groupement d'?int[eé]r[eê]t [ée]conomique|economic interest groups)/i;
+  const offTopicSignals =
+    /(droit du travail|labou?r|m[eé]diation|mediation|arbitrage|arbitration|dispute|proc[eé]dures?\s+collectives?|apurement\s+du\s+passif|coop[eé]ratives?)/i;
+  const categoryLooksCorporate = /corporate|company|commercial/.test(category);
+  return (titleSignals.test(title) || categoryLooksCorporate) && !offTopicSignals.test(title);
+}
+
+function isOhadaInstrument(law: any): boolean {
+  const title = String(law?.title ?? "").toLowerCase();
+  const sourceName = String(law?.source_name ?? "").toLowerCase();
+  return /\bohada\b|organisation for the harmonization of business law in africa|acte uniforme|uniform act/i.test(
+    `${title}\n${sourceName}`
+  );
 }
 
 function buildExcerptAnchorTokens(query: string, primaryIntentId: string): string[] {
   const q = query.toLowerCase();
   const anchors: string[] = [];
-  if (/\bohada\b/.test(q) || /\bsoci[eé]t[eé]\s+anonyme\b/.test(q) || /\bsarl\b/.test(q)) {
+  const mentionsOhada = /\bohada\b/.test(q);
+  const mentionsSA = /\bsoci[eé]t[eé]\s+anonyme\b|\b\bs\.?a\.?\b/.test(q);
+  const mentionsSARL = /\bsarl\b|\bsoci[eé]t[eé]\s+[aà]\s+responsabilit[eé]\s+limit[eé]e\b/.test(q);
+  if (mentionsOhada || mentionsSA || mentionsSARL) {
     anchors.push(
-      "société anonyme",
-      "societe anonyme",
+      "acte uniforme",
+      "sociétés commerciales",
+      "societes commerciales",
       "capital social",
-      "capital minimum",
-      "constitution de la société",
       "formation",
-      "articles 385",
-      "part iv"
+      "constitution de la société"
+    );
+  }
+  if (mentionsSA) {
+    anchors.push("société anonyme", "societe anonyme", "capital minimum", "articles 385", "part iv");
+  }
+  if (mentionsSARL) {
+    anchors.push(
+      "société à responsabilité limitée",
+      "societe a responsabilite limitee",
+      "capital social de la sarl",
+      "parts sociales",
+      "gérance",
+      "gerance",
+      "article 309",
+      "article 311",
+      "article 313",
+      "associés",
+      "associes"
     );
   }
   if (primaryIntentId === "labor") {
@@ -558,6 +644,24 @@ function buildExcerptAnchorTokens(query: string, primaryIntentId: string): strin
         "section 17"
       );
     }
+  }
+  const corporateDirectorQuery =
+    primaryIntentId === "registration" ||
+    /\b(director|directors|directorship|board of directors|company officer|officers of the company|fiduciary|conflict of interest|disclosure of interest|duty of care|corporate governance)\b/.test(
+      q
+    );
+  if (corporateDirectorQuery) {
+    anchors.push(
+      "## chapter 8",
+      "chapter 8",
+      "directors",
+      "register of directors",
+      "disqualification of directors",
+      "disclosure of interest",
+      "materially interested",
+      "restrictions on directors",
+      "breach of his or her duty to thecompany"
+    );
   }
   return Array.from(new Set(anchors));
 }
@@ -606,6 +710,12 @@ function extractSpecificLawHint(query: string): string | null {
       return null;
     }
   }
+  // Common named-instrument patterns that users ask in natural language.
+  const explicitNamedAct =
+    query.match(/\b([A-Z][A-Za-z'’\-\s]+?\s+Companies\s+Act(?:\s*[-,]?\s*\d{4})?)\b/i) ||
+    query.match(/\b([A-Z][A-Za-z'’\-\s]+?\s+Act(?:\s*No\.?\s*[\d/.-]+)?)\b/i);
+  if (explicitNamedAct?.[1]?.trim()) return explicitNamedAct[1].trim();
+
   // fallback: if query looks like a direct named-law prompt
   if (q.includes("law no") || q.includes("decree") || q.includes("article")) return query.trim();
   return null;
@@ -1118,6 +1228,11 @@ async function searchLegalLibrary(
     const resolvedIntent = resolveLibrarySearchIntent(qForTokens);
     const rawTokens = extractSearchTokens(qForTokens);
     const countryCatalogRequest = Boolean(countryId) && isCountryCatalogLawRequest(query);
+    const scopedCountryLawIds =
+      countryId ? await fetchLawIdsForCountryScope(supabase, countryId) : [];
+    const countryScopeOr = countryId
+      ? lawsCountryGlobalOrScopedIds(countryId, scopedCountryLawIds)
+      : null;
 
     // ── Metadata-aware retrieval (title-first) ────────────────────────────────
     // Pull documents whose TITLE matches:
@@ -1219,11 +1334,47 @@ async function searchLegalLibrary(
       // For inventory-style prompts ("what laws do you have in Zambia"), do not gate by text.
       substantive = [];
     }
-    const phraseCandidates = buildShortPhraseEscapedCandidates(mergedForRank, resolvedIntent.primaryId);
+    const phraseCandidates = buildShortPhraseEscapedCandidates(mergedForRank, resolvedIntent.primaryId).slice(0, 3);
     const tokenEscList = Array.from(
       new Set(substantive.map((t) => escapeIlikePattern(t.toLowerCase())).filter((t) => t.length >= 3))
     ).slice(0, resolvedIntent.useWideTokenSlice ? 8 : 6);
     const rankingTokens = Array.from(new Set([...substantive, ...expandedLower])).slice(0, 20);
+
+    let specificLawRows: any[] | null = null;
+    if (specificLawHint) {
+      const specificStop = new Set([
+        "what",
+        "does",
+        "under",
+        "about",
+        "article",
+        "section",
+        "chapter",
+        "say",
+        "from",
+        "this",
+        "that",
+      ]);
+      const specificTokens = specificLawHint
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .map((t) => t.trim())
+        .filter((t) => t.length >= 3 && !specificStop.has(t))
+        .slice(0, 5);
+      if (specificTokens.length > 0) {
+        let sq = supabase
+          .from("laws")
+          .select(LAWS_AI_SELECT)
+          .not("content", "is", null)
+          .neq("status", "Repealed");
+        for (const t of specificTokens) {
+          sq = sq.ilike("title", `%${escapeIlikePattern(t)}%`);
+        }
+        if (countryScopeOr) sq = sq.or(countryScopeOr);
+        const { data: rows } = await sq.limit(40);
+        if (rows?.length) specificLawRows = rows as any[];
+      }
+    }
 
     let lawsQuery = supabase
       .from("laws")
@@ -1268,10 +1419,10 @@ async function searchLegalLibrary(
         .map((t) => `title.ilike.%${escapeIlikePattern(t)}%`)
         .join(",");
       if (tokenOr) lawsQuery = lawsQuery.or(tokenOr);
-      if (countryId) lawsQuery = lawsQuery.or(lawsOrGlobalForCountry(countryId));
+      if (countryScopeOr) lawsQuery = lawsQuery.or(countryScopeOr);
     } else if (query.trim()) {
-      if (countryCatalogRequest && countryId) {
-        lawsQuery = lawsQuery.or(lawsOrGlobalForCountry(countryId));
+      if (countryCatalogRequest && countryScopeOr) {
+        lawsQuery = lawsQuery.or(countryScopeOr);
       } else if (countryId) {
         const orParts: string[] = [];
         if (tokenEscList.length > 0) {
@@ -1282,8 +1433,8 @@ async function searchLegalLibrary(
         }
         if (orParts.length > 0) {
           lawsQuery = lawsQuery.or(orParts.join(","));
-        } else if (query.trim()) {
-          lawsQuery = lawsQuery.or(lawsOrGlobalForCountry(countryId));
+        } else if (query.trim() && countryScopeOr) {
+          lawsQuery = lawsQuery.or(countryScopeOr);
         }
       } else {
         const gParts: string[] = [];
@@ -1304,24 +1455,55 @@ async function searchLegalLibrary(
           }
         }
       }
-    } else if (countryId) {
-      lawsQuery = lawsQuery.or(lawsOrGlobalForCountry(countryId));
+    } else if (countryScopeOr) {
+      lawsQuery = lawsQuery.or(countryScopeOr);
     }
 
-    let { data: laws, error } = await lawsQuery;
+    let laws: any[] | null = specificLawRows;
+    let error: any = null;
+    if (!specificLawRows?.length) {
+      const result = await lawsQuery;
+      laws = (result.data ?? null) as any[] | null;
+      error = result.error;
+    }
 
     if (error) {
       console.error("AI laws PostgREST search:", error.message ?? error);
     }
 
     let lawsRows = (laws ?? []) as any[];
-    if ((!lawsRows.length || error) && countryId && !specificLawHint) {
+    const isStatementTimeout =
+      !!error &&
+      typeof error?.message === "string" &&
+      /statement timeout|canceling statement due to statement timeout/i.test(error.message);
+    if ((!lawsRows.length || isStatementTimeout) && !specificLawHint) {
+      const narrowToken = rawTokens
+        .map((t) => t.toLowerCase().trim())
+        .find((t) => t.length >= 5 && !AI_SEARCH_NOISE_TOKENS.has(t));
+      const fallbackOr = narrowToken
+        ? `title.ilike.%${escapeIlikePattern(narrowToken)}%,content_plain.ilike.%${escapeIlikePattern(narrowToken)}%`
+        : null;
+      let fbq = supabase
+        .from("laws")
+        .select(LAWS_AI_SELECT)
+        .not("content", "is", null)
+        .neq("status", "Repealed")
+        .limit(120);
+      if (countryScopeOr) fbq = fbq.or(countryScopeOr);
+      if (fallbackOr) fbq = fbq.or(fallbackOr);
+      const { data: timeoutFallbackRows, error: timeoutFallbackErr } = await fbq;
+      if (!timeoutFallbackErr && timeoutFallbackRows?.length) {
+        lawsRows = timeoutFallbackRows as any[];
+        error = null;
+      }
+    }
+    if ((!lawsRows.length || error) && countryScopeOr && !specificLawHint) {
       const { data: fb, error: fbErr } = await supabase
         .from("laws")
         .select(LAWS_AI_SELECT)
         .not("content", "is", null)
         .neq("status", "Repealed")
-        .or(lawsOrGlobalForCountry(countryId))
+        .or(countryScopeOr)
         .limit(250);
       if (!fbErr && fb?.length) {
         lawsRows = fb as any[];
@@ -1436,6 +1618,18 @@ async function searchLegalLibrary(
           );
           if (titleHit) bonus += 70;
         }
+        if (isOhadaCommercialCompaniesQuery(query)) {
+          if (
+            /soci[eé]t[eé]s?\s+commerciales?|commercial companies|groupement d'?int[eé]r[eê]t [ée]conomique|economic interest groups/i.test(
+              title
+            )
+          ) {
+            bonus += 90;
+          }
+          if (/\bau\s+sommaire\b/.test(title)) bonus -= 120;
+          if (/(coop[eé]ratives?|cooperative)/i.test(title)) bonus -= 160;
+          if (/(proc[eé]dures?\s+collectives?|apurement\s+du\s+passif)/i.test(title)) bonus -= 140;
+        }
         return bonus;
       };
 
@@ -1446,9 +1640,15 @@ async function searchLegalLibrary(
     });
 
     const enrichedRanked = await enrichLawsResolveAmended(supabase, rankedLaws);
-    const intentFilteredRanked = enrichedRanked.filter(
+    let intentFilteredRanked = enrichedRanked.filter(
       (law) => !isClearlyOffTopicForPrimaryIntent(law, resolvedIntent.primaryId, rankingTokens)
     );
+    if (isOhadaCommercialCompaniesQuery(query)) {
+      intentFilteredRanked = intentFilteredRanked
+        .filter((law) => isOhadaInstrument(law))
+        .filter((law) => !isOffTopicForOhadaCommercialCompanies(law))
+        .filter((law) => isLikelyOhadaCommercialCompaniesLaw(law));
+    }
 
     // For supranational / bilateral framework queries, the same instrument is
     // often duplicated once per signatory country (AfCFTA × 54, ECOWAS Common
@@ -1578,19 +1778,33 @@ async function searchLegalLibrary(
       const fullText = law.content_plain || law.content || "";
       let selectedContent = fullText;
 
+      const tokenFallback = [qForTokens.trim().toLowerCase(), query.trim().toLowerCase()].filter(Boolean);
+
       if (!shouldKeepFullTextForSpecificLaw) {
         const perLawCap = Math.min(maxCharsPerLaw, remainingChars);
         selectedContent = pickContentExcerpt(
           fullText,
-          rankingTokens.length ? rankingTokens : [qForTokens.trim().toLowerCase(), query.trim().toLowerCase()].filter(Boolean),
+          rankingTokens.length ? rankingTokens : tokenFallback,
           perLawCap,
           excerptAnchorTokens
         );
         if (selectedContent.length > perLawCap) {
           selectedContent = selectedContent.slice(0, perLawCap);
         }
-      } else if (fullText.length > remainingChars) {
-        selectedContent = fullText.slice(0, remainingChars);
+      } else if (fullText.length <= remainingChars) {
+        selectedContent = fullText;
+      } else {
+        // Long acts (e.g. ~800k character NamibLII exports): a leading slice omits middle/later chapters
+        // such as Directors (Chapter 8). Prefer a budget-sized window around query anchors/tokens.
+        selectedContent = pickContentExcerpt(
+          fullText,
+          rankingTokens.length ? rankingTokens : tokenFallback,
+          remainingChars,
+          excerptAnchorTokens
+        );
+        if (selectedContent.length > remainingChars) {
+          selectedContent = selectedContent.slice(0, remainingChars);
+        }
       }
 
       if (requestedArticle !== null) {
@@ -1634,6 +1848,62 @@ async function searchLegalLibrary(
     return compacted;
   } catch (err) {
     console.error("Legal library search error:", err);
+    return [];
+  }
+}
+
+async function searchLegalLibraryQuickFallback(
+  query: string,
+  country?: string
+): Promise<
+  Array<{
+    id: string;
+    title: string;
+    country: string;
+    category: string;
+    status?: string;
+    content: string;
+    year?: number;
+    retrievalScore?: number;
+  }>
+> {
+  try {
+    const supabase = getSupabaseServer() as any;
+    const tok = query
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .map((t) => t.trim())
+      .find((t) => t.length >= 5 && !AI_SEARCH_NOISE_TOKENS.has(t));
+    const escaped = tok ? escapeIlikePattern(tok) : "";
+    let q = supabase
+      .from("laws")
+      .select(LAWS_AI_SELECT)
+      .not("content", "is", null)
+      .neq("status", "Repealed")
+      .limit(40);
+    if (country?.trim()) {
+      const { data: c } = await supabase
+        .from("countries")
+        .select("id")
+        .eq("name", country.trim())
+        .limit(1)
+        .maybeSingle();
+      if (c?.id) q = q.or(lawsOrGlobalForCountry(c.id));
+    }
+    if (escaped) q = q.or(`title.ilike.%${escaped}%,content_plain.ilike.%${escaped}%`);
+    const { data } = await q;
+    const rows = (data ?? []) as any[];
+    return rows.map((law) => ({
+      id: law.id,
+      title: law.title,
+      country: law.countries?.name || "",
+      category: law.categories?.name || "",
+      status: law.status || undefined,
+      content: String(law.content_plain || law.content || "").slice(0, 5000),
+      year: law.year,
+      retrievalScore: 0,
+    }));
+  } catch {
     return [];
   }
 }
@@ -1829,8 +2099,12 @@ export async function POST(request: NextRequest) {
 
     // Search legal library for relevant content (RAG)
     const aiTurnStartedAt = Date.now();
-    const detailedMode = isDetailedRequest(userQuery);
-    const legalContext = await searchLegalLibrary(userQuery, effectiveHints.country, detailedMode);
+    // Premium-by-default responses, unless user explicitly asks for brevity.
+    const detailedMode = isDetailedRequest(userQuery) || !isBriefRequest(userQuery);
+    let legalContext = await searchLegalLibrary(userQuery, effectiveHints.country, detailedMode);
+    if (!legalContext.length) {
+      legalContext = await searchLegalLibraryQuickFallback(userQuery, effectiveHints.country ?? undefined);
+    }
 
     if (
       legalContext.length === 0 &&
@@ -1932,6 +2206,8 @@ export async function POST(request: NextRequest) {
     const modelId = await resolveModelIdForRequest(tier, requestedModel);
 
     // Call Claude API
+    const claudeController = new AbortController();
+    const claudeTimeout = setTimeout(() => claudeController.abort(), CLAUDE_TIMEOUT_MS);
     const response = await fetch(CLAUDE_API_URL, {
       method: "POST",
       headers: {
@@ -1939,13 +2215,14 @@ export async function POST(request: NextRequest) {
         "x-api-key": CLAUDE_API_KEY,
         "anthropic-version": "2023-06-01",
       },
+      signal: claudeController.signal,
       body: JSON.stringify({
         model: modelId,
-        max_tokens: detailedMode ? 3200 : 2048,
+        max_tokens: detailedMode ? 4200 : 2200,
         messages: claudeMessages,
         system: systemPrompt,
       }),
-    });
+    }).finally(() => clearTimeout(claudeTimeout));
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -2046,8 +2323,9 @@ export async function POST(request: NextRequest) {
 
     const citationParse = extractCitedDocIndices(assistantTextRaw, legalContext.length);
     const assistantText = assistantTextRaw
-      // Keep citation logic server-side but remove [doc:N] markers from rendered prose.
-      .replace(/\s*\[doc:\s*\d+(?:\s*,\s*art:[^\]]+)?\]/gi, "")
+      // Keep citation logic server-side but remove [doc:*] clusters from rendered prose,
+      // including variants like [doc:2, arts:44-45; doc:3, art:15].
+      .replace(/\s*\[(?=[^\]]*\bdoc:\s*\d+)[^\]]+\]/gi, "")
       // Tidy trailing double spaces left by marker removal.
       .replace(/[ \t]{2,}/g, " ")
       .trim();
@@ -2137,6 +2415,12 @@ export async function POST(request: NextRequest) {
       queryLogId,
     });
   } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      return NextResponse.json(
+        { error: "AI request timed out. Please retry your question." },
+        { status: 504 }
+      );
+    }
     console.error("AI chat API error:", err);
     return NextResponse.json(
       { error: "Failed to process chat request" },
