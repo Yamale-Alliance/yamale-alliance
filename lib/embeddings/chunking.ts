@@ -18,6 +18,8 @@ export type TextChunk = {
   index: number;
   /** Best-effort heading inferred from first line (Article/Section/Chapter); aids citation UX when embeddings ship */
   structuralHeading?: string;
+  articleId?: string;
+  sectionId?: string;
 };
 
 const DEFAULT_OPTIONS: Required<ChunkOptions> = {
@@ -35,6 +37,26 @@ function inferStructuralHeading(text: string): string | undefined {
   if (!firstLine || firstLine.length > 180) return undefined;
   const m = firstLine.match(STRUCTURAL_HEADING_LINE_RE);
   return m ? m[1].trim() : undefined;
+}
+
+function toAnchorId(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80);
+}
+
+function inferArticleAndSectionIds(text: string): { articleId?: string; sectionId?: string } {
+  const firstLines = text.split(/\r?\n/).slice(0, 4).join("\n");
+  const article = firstLines.match(/\b(Article|Art\.?)\s+([\dA-Za-z.-]+)/i);
+  const section = firstLines.match(/\b(Section|Chapter|Chapitre|Part|Titre)\s+([\dA-Za-z.-]+)/i);
+  return {
+    articleId: article ? toAnchorId(`${article[1]}-${article[2]}`) : undefined,
+    sectionId: section ? toAnchorId(`${section[1]}-${section[2]}`) : undefined,
+  };
 }
 
 /** Split text into sentences (rough: period/newline + space or end) */
@@ -122,6 +144,13 @@ export function chunkLawContent(
 
   return merged.map((text, index) => {
     const structuralHeading = inferStructuralHeading(text);
-    return structuralHeading ? { text, index, structuralHeading } : { text, index };
+    const { articleId, sectionId } = inferArticleAndSectionIds(text);
+    return {
+      text,
+      index,
+      ...(structuralHeading ? { structuralHeading } : {}),
+      ...(articleId ? { articleId } : {}),
+      ...(sectionId ? { sectionId } : {}),
+    };
   });
 }
