@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Users,
-  Briefcase,
   FileText,
   Settings,
   Scale,
@@ -12,12 +11,12 @@ import {
   LayoutDashboard,
   Shield,
   X,
-  Store,
   Cpu,
   Search,
   FileCheck,
   CreditCard,
   MessageSquare,
+  Bug,
 } from "lucide-react";
 
 const SUPPORT_CENTER_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
@@ -33,11 +32,10 @@ const navItems = [
     label: SUPPORT_CENTER_LIVE ? "Support requests" : "Support requests (coming soon)",
     icon: MessageSquare,
   },
-  { href: "/admin-panel/lawyers", label: "Lawyers", icon: Briefcase },
+  { href: "/admin-panel/ai-bugs", label: "AI bugs", icon: Bug },
   { href: "/admin-panel/lawyer-searches", label: "Lawyer Searches", icon: Search },
   { href: "/admin-panel/laws", label: "Laws", icon: BookOpen },
   { href: "/admin-panel/afcfta", label: "AfCFTA", icon: FileCheck },
-  { href: "/admin-panel/marketplace", label: "The Yamale Vault", icon: Store },
   { href: "/admin-panel/pricing", label: "Pricing", icon: Scale },
   { href: "/admin-panel/content", label: "Content", icon: FileText },
   { href: "/admin-panel/settings", label: "Settings", icon: Settings },
