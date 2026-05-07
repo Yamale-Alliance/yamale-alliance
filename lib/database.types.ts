@@ -752,6 +752,39 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["ai_response_feedback"]["Insert"]>;
       };
+      ai_bug_reports: {
+        Row: {
+          id: string;
+          user_id: string;
+          user_name: string | null;
+          user_email: string | null;
+          query_log_id: string | null;
+          related_message_id: string | null;
+          issue_category: string | null;
+          issue_details: string | null;
+          conversation_snapshot: Json;
+          status: string;
+          created_at: string;
+          updated_at: string;
+          resolved_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          user_name?: string | null;
+          user_email?: string | null;
+          query_log_id?: string | null;
+          related_message_id?: string | null;
+          issue_category?: string | null;
+          issue_details?: string | null;
+          conversation_snapshot?: Json;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+          resolved_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["ai_bug_reports"]["Insert"]>;
+      };
       support_tickets: {
         Row: {
           id: string;
