@@ -23,6 +23,8 @@ import {
   Check,
   ThumbsUp,
   ThumbsDown,
+  UserCircle2,
+  ChevronDown,
 } from "lucide-react";
 import { canShareByEmail, canDownloadConversations } from "@/lib/plan-limits";
 
@@ -94,6 +96,11 @@ type Message = {
     citedDocIndices: number[];
     allDocRefsValid: boolean;
   };
+};
+
+type NegativeFeedbackModalState = {
+  messageId: string;
+  queryLogId?: string | null;
 };
 
 type ChatSession = {
@@ -177,7 +184,11 @@ export default function AIResearchPage() {
   const [exampleQuestions, setExampleQuestions] = useState<string[]>(() => pickRandomExampleQuestions(4));
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [feedbackBusyId, setFeedbackBusyId] = useState<string | null>(null);
-  const [feedbackDoneIds, setFeedbackDoneIds] = useState<Record<string, boolean>>({});
+  const [feedbackChoiceById, setFeedbackChoiceById] = useState<Record<string, 1 | -1>>({});
+  const [negativeModal, setNegativeModal] = useState<NegativeFeedbackModalState | null>(null);
+  const [negativeIssueCategory, setNegativeIssueCategory] = useState("");
+  const [negativeIssueDetails, setNegativeIssueDetails] = useState("");
+  const [negativeSubmitting, setNegativeSubmitting] = useState(false);
   const [noticeCheckDone, setNoticeCheckDone] = useState(false);
   const [hasAcknowledgedNotice, setHasAcknowledgedNotice] = useState(false);
   const [shellTopOffset, setShellTopOffset] = useState(56);
@@ -471,6 +482,15 @@ export default function AIResearchPage() {
     }
   }, []);
 
+  const scrollToMessageStart = useCallback((messageId: string, behavior: ScrollBehavior = "smooth") => {
+    requestAnimationFrame(() => {
+      const target = document.getElementById(`msg-${messageId}`);
+      if (target) {
+        target.scrollIntoView({ behavior, block: "start" });
+      }
+    });
+  }, []);
+
   const handleDownloadChat = useCallback(() => {
     const text = getChatTranscript();
     const blob = new Blob([text], { type: "text/plain" });
@@ -585,6 +605,7 @@ export default function AIResearchPage() {
           s.id === id ? { ...s, messages: [...s.messages, assistantMessage], updatedAt: Date.now() } : s
         )
       );
+      scrollToMessageStart(assistantMessage.id, "smooth");
       
       // Refresh usage and check if pay-as-you-go was consumed
       const usageRes = await fetch("/api/ai/usage", { credentials: "include" });
@@ -630,6 +651,7 @@ export default function AIResearchPage() {
           s.id === id ? { ...s, messages: [...s.messages, errorResponse], updatedAt: Date.now() } : s
         )
       );
+      scrollToMessageStart(errorResponse.id, "smooth");
     } finally {
       setIsLoading(false);
     }
@@ -640,6 +662,48 @@ export default function AIResearchPage() {
     if (!hasAcknowledgedNotice) return;
     await sendMessage(input);
   };
+
+  const submitNegativeFeedback = async () => {
+    if (!negativeModal || !currentSession) return;
+    setNegativeSubmitting(true);
+    try {
+      const conversationSnapshot = currentSession.messages.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+      }));
+      const res = await fetch("/api/ai/feedback", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          queryLogId: negativeModal.queryLogId ?? undefined,
+          relatedMessageId: negativeModal.messageId,
+          rating: -1,
+          issueCategory: negativeIssueCategory || undefined,
+          comment: negativeIssueDetails || undefined,
+          conversationSnapshot,
+        }),
+      });
+      if (res.ok) {
+        setFeedbackChoiceById((p) => ({ ...p, [negativeModal.messageId]: -1 }));
+        setNegativeModal(null);
+        setNegativeIssueCategory("");
+        setNegativeIssueDetails("");
+      }
+    } finally {
+      setNegativeSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!negativeModal) return;
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setNegativeModal(null);
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [negativeModal]);
 
   const acknowledgeNotice = () => {
     if (!user) return;
@@ -932,6 +996,7 @@ export default function AIResearchPage() {
                   {messages.map((msg) => (
                     <div
                       key={msg.id}
+                      id={`msg-${msg.id}`}
                       className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
                     >
                       {msg.role === "assistant" ? (
@@ -946,7 +1011,16 @@ export default function AIResearchPage() {
                           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#C8922A]/15 text-[11px] font-bold text-[#0D1B2A]"
                           aria-hidden
                         >
-                          You
+                          {user?.imageUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={user.imageUrl}
+                              alt="Your profile"
+                              className="h-8 w-8 rounded-full object-cover"
+                            />
+                          ) : (
+                            <UserCircle2 className="h-4 w-4" />
+                          )}
                         </div>
                       )}
                       <div
@@ -987,8 +1061,8 @@ export default function AIResearchPage() {
                           </p>
                         )}
                         {msg.sourceCards && msg.sourceCards.length > 0 && (
-                          <div className="mt-3 space-y-2 border-t border-[#E8E4DC]/80 pt-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#0D1B2A]/45">
+                          <div className="mt-3 space-y-2 border-t border-[#E8E4DC]/80 pt-3 dark:border-white/10">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#0D1B2A]/45 dark:text-white/55">
                               {msg.sourceCards.length} laws from the Yamale Legal Library
                             </p>
                             {msg.sourceCards.map((card, idx) => (
@@ -996,8 +1070,8 @@ export default function AIResearchPage() {
                                 key={`${msg.id}-${card.lawId}-${idx}`}
                                 className={`rounded-[8px] border p-3 ${
                                   card.usedInAnswer
-                                    ? "border-[#C8922A]/40 bg-[#FFFDF8]/90"
-                                    : "border-border bg-muted/50"
+                                    ? "border-[#C8922A]/40 bg-[#FFFDF8]/90 dark:border-[#C8922A]/45 dark:bg-[#2D2516]/50"
+                                    : "border-border bg-muted/50 dark:border-white/10 dark:bg-white/5"
                                 }`}
                               >
                                 <p className="flex flex-wrap items-center gap-2 text-[13px] font-semibold text-foreground">
@@ -1005,7 +1079,7 @@ export default function AIResearchPage() {
                                     {card.docSlot ?? idx + 1}. {card.title}
                                   </span>
                                   {card.usedInAnswer ? (
-                                    <span className="rounded-full bg-[#C8922A]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8a6820]">
+                                    <span className="rounded-full bg-[#C8922A]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8a6820] dark:bg-[#C8922A]/30 dark:text-[#F5D793]">
                                       Used in answer
                                     </span>
                                   ) : (
@@ -1022,10 +1096,10 @@ export default function AIResearchPage() {
                                 <p className="mt-0.5 text-[11px] text-muted-foreground">
                                   {card.country} · {card.category} · {card.status}
                                 </p>
-                                <p className="mt-1 text-[12px] text-foreground/70">&quot;{card.snippet}...&quot;</p>
+                                <p className="mt-1 text-[12px] text-foreground/70 dark:text-foreground/85">&quot;{card.snippet}...&quot;</p>
                                 <Link
                                   href={`/library/${card.lawId}?returnTo=${encodeURIComponent("/ai-research")}`}
-                                  className="mt-2 inline-flex text-[12px] font-semibold text-[#C8922A] hover:text-[#b88424]"
+                                  className="mt-2 inline-flex text-[12px] font-semibold text-[#C8922A] hover:text-[#b88424] dark:text-[#F0C45C] dark:hover:text-[#FFD67A]"
                                 >
                                   View law →
                                 </Link>
@@ -1055,74 +1129,80 @@ export default function AIResearchPage() {
                           <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
                             <button
                               type="button"
-                              disabled={Boolean(feedbackDoneIds[msg.id]) || feedbackBusyId === msg.id}
+                              disabled={feedbackBusyId === msg.id || negativeSubmitting}
                               onClick={() => {
                                 void (async () => {
-                                  if (feedbackDoneIds[msg.id]) return;
+                                  if (feedbackChoiceById[msg.id] === 1) {
+                                    setFeedbackChoiceById((p) => {
+                                      const next = { ...p };
+                                      delete next[msg.id];
+                                      return next;
+                                    });
+                                    return;
+                                  }
                                   setFeedbackBusyId(msg.id);
                                   try {
                                     const res = await fetch("/api/ai/feedback", {
                                       method: "POST",
                                       credentials: "include",
                                       headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ queryLogId: msg.queryLogId ?? undefined, rating: 1 }),
+                                      body: JSON.stringify({ queryLogId: msg.queryLogId ?? undefined, relatedMessageId: msg.id, rating: 1 }),
                                     });
-                                    if (res.ok) setFeedbackDoneIds((p) => ({ ...p, [msg.id]: true }));
+                                    if (res.ok) {
+                                      setFeedbackChoiceById((p) => ({ ...p, [msg.id]: 1 }));
+                                    }
                                   } finally {
                                     setFeedbackBusyId(null);
                                   }
                                 })();
                               }}
-                              className="inline-flex items-center gap-1 rounded-[6px] border border-[#E8E4DC] bg-[#FAFAF7] px-2 py-1 text-[11px] text-[#0D1B2A]/60 hover:bg-white hover:text-[#0D1B2A] disabled:opacity-40"
+                              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
+                                feedbackChoiceById[msg.id] === 1
+                                  ? "border-emerald-300/70 bg-emerald-50 text-emerald-700 dark:border-emerald-500/45 dark:bg-emerald-900/30 dark:text-emerald-200"
+                                  : "border-[#E8E4DC] bg-[#FAFAF7] text-[#0D1B2A]/65 hover:bg-white hover:text-[#0D1B2A] dark:border-white/15 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
+                              } disabled:opacity-40`}
                               aria-label="Helpful"
                               title="Helpful"
                             >
-                              <ThumbsUp className="h-3.5 w-3.5" />
-                              Helpful
+                              <ThumbsUp className="h-4 w-4" />
                             </button>
                             <button
                               type="button"
-                              disabled={Boolean(feedbackDoneIds[msg.id]) || feedbackBusyId === msg.id}
+                              disabled={feedbackBusyId === msg.id || negativeSubmitting}
                               onClick={() => {
-                                void (async () => {
-                                  if (feedbackDoneIds[msg.id]) return;
-                                  setFeedbackBusyId(msg.id);
-                                  try {
-                                    const res = await fetch("/api/ai/feedback", {
-                                      method: "POST",
-                                      credentials: "include",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({ queryLogId: msg.queryLogId ?? undefined, rating: -1 }),
-                                    });
-                                    if (res.ok) setFeedbackDoneIds((p) => ({ ...p, [msg.id]: true }));
-                                  } finally {
-                                    setFeedbackBusyId(null);
-                                  }
-                                })();
+                                if (feedbackChoiceById[msg.id] === -1) {
+                                  setFeedbackChoiceById((p) => {
+                                    const next = { ...p };
+                                    delete next[msg.id];
+                                    return next;
+                                  });
+                                  return;
+                                }
+                                setNegativeIssueCategory("");
+                                setNegativeIssueDetails("");
+                                setNegativeModal({ messageId: msg.id, queryLogId: msg.queryLogId ?? null });
                               }}
-                              className="inline-flex items-center gap-1 rounded-[6px] border border-[#E8E4DC] bg-[#FAFAF7] px-2 py-1 text-[11px] text-[#0D1B2A]/60 hover:bg-white hover:text-[#0D1B2A] disabled:opacity-40"
+                              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
+                                feedbackChoiceById[msg.id] === -1
+                                  ? "border-rose-300/70 bg-rose-50 text-rose-700 dark:border-rose-500/45 dark:bg-rose-900/30 dark:text-rose-200"
+                                  : "border-[#E8E4DC] bg-[#FAFAF7] text-[#0D1B2A]/65 hover:bg-white hover:text-[#0D1B2A] dark:border-white/15 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
+                              } disabled:opacity-40`}
                               aria-label="Not helpful"
                               title="Not helpful"
                             >
-                              <ThumbsDown className="h-3.5 w-3.5" />
-                              Not helpful
+                              <ThumbsDown className="h-4 w-4" />
                             </button>
                             <button
                               type="button"
                               onClick={() => void handleCopyMessage(msg.id, msg.content)}
-                              className="inline-flex items-center gap-1 rounded-[6px] border border-[#E8E4DC] bg-[#FAFAF7] px-2 py-1 text-[11px] text-[#0D1B2A]/50 hover:bg-white hover:text-[#0D1B2A]"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#FAFAF7] text-[#0D1B2A]/60 hover:bg-white hover:text-[#0D1B2A] dark:border-white/15 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
                               aria-label="Copy response"
+                              title="Copy response"
                             >
                               {copiedMessageId === msg.id ? (
-                                <>
-                                  <Check className="h-3.5 w-3.5" />
-                                  Copied
-                                </>
+                                <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-300" />
                               ) : (
-                                <>
-                                  <Copy className="h-3.5 w-3.5" />
-                                  Copy
-                                </>
+                                <Copy className="h-4 w-4" />
                               )}
                             </button>
                           </div>
@@ -1185,6 +1265,61 @@ export default function AIResearchPage() {
                   {activeModelName} · Enter to send, Shift+Enter for new line
                 </p>
               </form>
+              {negativeModal ? (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
+                  <div className="w-full max-w-2xl rounded-3xl border border-white/15 bg-[#1A1A1C] p-6 text-white shadow-2xl md:p-10">
+                    <h3 className="text-2xl font-semibold">Give negative feedback</h3>
+                    <p className="mt-6 text-sm text-white/70">What type of issue do you wish to report? (optional)</p>
+                    <div className="relative mt-2">
+                      <select
+                        value={negativeIssueCategory}
+                        onChange={(e) => setNegativeIssueCategory(e.target.value)}
+                        className="w-full appearance-none rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-lg text-white outline-none focus:border-white/35"
+                      >
+                        <option value="">Select…</option>
+                        <option value="wrong_sources">Wrong sources retrieved</option>
+                        <option value="missing_law_text">Missing/incomplete law text</option>
+                        <option value="incorrect_answer">Incorrect legal answer</option>
+                        <option value="citation_issue">Citation issue</option>
+                        <option value="ui_issue">UI issue</option>
+                        <option value="other">Other</option>
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/65" />
+                    </div>
+
+                    <p className="mt-8 text-sm text-white/70">Please provide details: (optional)</p>
+                    <textarea
+                      value={negativeIssueDetails}
+                      onChange={(e) => setNegativeIssueDetails(e.target.value)}
+                      rows={4}
+                      placeholder="What was unsatisfying about this response?"
+                      className="mt-2 w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-lg text-white outline-none placeholder:text-white/45 focus:border-white/35"
+                    />
+
+                    <p className="mt-6 text-sm italic text-white/55">
+                      Submitting this report will send the entire current conversation to the admin AI bug triage queue.
+                    </p>
+
+                    <div className="mt-8 flex justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setNegativeModal(null)}
+                        className="rounded-2xl border border-white/20 px-6 py-3 text-sm font-medium text-white/90 hover:bg-white/10"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void submitNegativeFeedback()}
+                        disabled={negativeSubmitting}
+                        className="rounded-2xl bg-white px-6 py-3 text-lg font-semibold text-black disabled:opacity-60"
+                      >
+                        {negativeSubmitting ? "Submitting…" : "Submit"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               {showPayAsYouGoPrompt && (
                 <div className="mt-3 rounded-[6px] border border-[#C8922A]/30 bg-[#FFFDF8] px-4 py-3 text-center">
                   <p className="mb-2 text-sm font-medium text-[#0D1B2A]">You have used your pay-as-you-go query.</p>
