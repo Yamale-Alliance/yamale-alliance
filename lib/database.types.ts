@@ -702,6 +702,56 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["deleted_laws"]["Insert"]>;
       };
+      ai_query_log: {
+        Row: {
+          id: string;
+          user_id: string;
+          query: string;
+          country_detected: string | null;
+          frameworks_detected: string[] | null;
+          retrieved_law_ids: string[] | null;
+          system_prompt_version: string;
+          model: string | null;
+          response_preview: string | null;
+          latency_ms: number | null;
+          citation_issues: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          query: string;
+          country_detected?: string | null;
+          frameworks_detected?: string[] | null;
+          retrieved_law_ids?: string[] | null;
+          system_prompt_version: string;
+          model?: string | null;
+          response_preview?: string | null;
+          latency_ms?: number | null;
+          citation_issues?: Json | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ai_query_log"]["Insert"]>;
+      };
+      ai_response_feedback: {
+        Row: {
+          id: string;
+          query_log_id: string | null;
+          user_id: string;
+          rating: number;
+          comment: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          query_log_id?: string | null;
+          user_id: string;
+          rating: number;
+          comment?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ai_response_feedback"]["Insert"]>;
+      };
       support_tickets: {
         Row: {
           id: string;
