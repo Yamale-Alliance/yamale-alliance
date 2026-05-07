@@ -15,6 +15,7 @@ import type { AdminAuth } from "@/lib/admin";
 import type { Database } from "@/lib/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeCategoryIdList, syncLawCategories } from "@/lib/law-categories-sync";
+import { normalizeCitationMetadata } from "@/lib/law-citation-metadata";
 
 export type LawUrlImportAuditSource = "url-import" | "bulk-url-import";
 
@@ -93,6 +94,8 @@ export async function saveLawFromPdfUrlImport(params: {
   status: string;
   treatyType?: string;
   year: number | null;
+  languageCode?: string | null;
+  citationMetadata?: Record<string, unknown> | null;
   markdownOverride?: string;
   auditSource: LawUrlImportAuditSource;
 }): Promise<{ laws: Array<{ id: string; title: string }>; recordsCreated: number }> {
@@ -110,6 +113,8 @@ export async function saveLawFromPdfUrlImport(params: {
     status,
     treatyType,
     year,
+    languageCode,
+    citationMetadata,
     markdownOverride,
     auditSource,
   } = params;
@@ -165,6 +170,7 @@ export async function saveLawFromPdfUrlImport(params: {
     sourceName = null;
   }
 
+  const normalizedCitationMetadata = normalizeCitationMetadata(citationMetadata ?? null);
   const rows: LawInsert[] = global
     ? [
         {
@@ -176,6 +182,8 @@ export async function saveLawFromPdfUrlImport(params: {
           source_name: sourceName,
           treaty_type: effectiveTreatyType,
           year: year ?? null,
+          language_code: languageCode ?? null,
+          metadata: normalizedCitationMetadata ?? undefined,
           status,
           content: contentTrimmed,
           content_plain: contentTrimmed,
@@ -190,6 +198,8 @@ export async function saveLawFromPdfUrlImport(params: {
         source_name: sourceName,
         treaty_type: effectiveTreatyType,
         year: year ?? null,
+        language_code: languageCode ?? null,
+        metadata: normalizedCitationMetadata ?? undefined,
         status,
         content: contentTrimmed,
         content_plain: contentTrimmed,
