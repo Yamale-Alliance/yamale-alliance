@@ -1,6 +1,7 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { escapeIlikePattern, lawsOrGlobalForCountry } from "@/lib/law-country-scope";
+import { escapeIlikePattern, lawsCountryGlobalOrScopedIds } from "@/lib/law-country-scope";
 import { fetchLawIdsForCategory } from "@/lib/law-categories-sync";
+import { fetchLawIdsForCountryScope } from "@/lib/law-country-scope-ids";
 
 /** Max laws returned in one response (pagination is client-side within this set). */
 const LAWS_LIMIT = 20_000;
@@ -89,6 +90,8 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
   const key = cacheKey(filters);
   const supabase = getSupabaseServer();
   return (async () => {
+    const scopedCountryLawIds =
+      filters?.countryId ? await fetchLawIdsForCountryScope(supabase, filters.countryId) : [];
     let categoryLawIds: string[] | null = null;
     let useLegacyCategoryColumn = false;
     if (filters?.categoryId) {
@@ -134,7 +137,7 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
     // `count: "exact"` can be expensive on larger datasets and was causing
     // transient 20s timeouts. `planned` is much faster and good enough for UI totals.
     let countQuery = supabase.from("laws").select("id", { count: "planned", head: true });
-    if (filters?.countryId) countQuery = countQuery.or(lawsOrGlobalForCountry(filters.countryId));
+    if (filters?.countryId) countQuery = countQuery.or(lawsCountryGlobalOrScopedIds(filters.countryId, scopedCountryLawIds));
     if (useLegacyCategoryColumn && filters?.categoryId) {
       countQuery = countQuery.eq("category_id", filters.categoryId);
     } else if (categoryLawIds && categoryLawIds.length > 0) {
@@ -157,7 +160,7 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
       .order("created_at", { ascending: false })
       .order("title")
       .limit(LAWS_LIMIT);
-    if (filters?.countryId) lawsQuery = lawsQuery.or(lawsOrGlobalForCountry(filters.countryId));
+    if (filters?.countryId) lawsQuery = lawsQuery.or(lawsCountryGlobalOrScopedIds(filters.countryId, scopedCountryLawIds));
     if (useLegacyCategoryColumn && filters?.categoryId) {
       lawsQuery = lawsQuery.eq("category_id", filters.categoryId);
     } else if (categoryLawIds && categoryLawIds.length > 0) {
