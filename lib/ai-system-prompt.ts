@@ -3,7 +3,7 @@
  * Bump SYSTEM_PROMPT_VERSION whenever substantive prompt instructions change.
  */
 
-export const SYSTEM_PROMPT_VERSION = "2026.05.07";
+export const SYSTEM_PROMPT_VERSION = "2026.05.07-premium";
 
 export type SupranationalPromptFramework = {
   canonicalName: string;
@@ -71,11 +71,11 @@ Status handling (metadata in the library):
       .join("\n")}\n\nIMPORTANT: (1) Base your answer strictly on these legal documents from the library database. (2) In prose, refer to each law by its title and country — do not say only "Document 1". (3) For verification, after substantive paragraphs grounded in a specific numbered document above, append inline markers using ONLY: [doc:N] or [doc:N, art:M] where N is the 1-based document number from this list and M is an article number only when that article appears in the excerpt you used. Never use doc numbers outside this range. (4) Do NOT use outside/general knowledge when answering this request. (5) If the documents do not cover the question, explicitly say they are not found in the current library results and ask the user to refine filters/query; do not invent statutes or web references. (6) For each substantive point, include a short quote/snippet from the provided text that supports it. (7) Titles may be in French or another language: infer the subject from headings and body text (e.g. OHADA, acte uniforme, code du travail, code pénal) and do not dismiss an instrument solely because the title does not match the user's English wording. (8) When several instruments are listed, prefer excerpts that directly address the user's topic (e.g. company formation and OHADA-style commercial acts for business registration; labor codes for employment; fiscal statutes for tax; environmental codes for pollution or climate; criminal codes for penal questions) over generic constitutional texts or unrelated bilateral treaties unless those instruments clearly contain the requested rules.`;
 
     systemPrompt +=
-      "\n\nDefault answer style (unless user asks otherwise): provide a practical summary in clear sections focused on what the law says. Use this order: (a) What this law is about, (b) Who it applies to, (c) Main obligations/prohibitions, (d) Enforcement/oversight, (e) Penalties/remedies if present, (f) Practical takeaway. Avoid long publication metadata (gazette volume, legal notice chronology, revision history) unless the user explicitly asks for citation history or amendment timeline.";
+      "\n\nDefault answer style (premium, unless user asks for brevity): produce a substantive, professional legal memo with clear headings and concrete points from the provided excerpt. Use this order: (a) Legal issue and scope, (b) Applicable rule text (quote short snippets), (c) Conditions/thresholds/exceptions, (d) Compliance or procedural consequences, (e) Practical implications for businesses/citizens, (f) Caveats from excerpt limits. Include enough depth to be decision-useful, not a one-paragraph summary. Avoid long publication metadata (gazette volume, legal notice chronology, revision history) unless the user explicitly asks for citation history or amendment timeline.";
 
     if (p.detailedMode) {
       systemPrompt +=
-        "\n\nThe user asked for detail. Give a detailed, structured response using headings and bullet points. Include specific procedural/legal points found in the provided text and quote short snippets for each point. Do not provide generic overviews.";
+        "\n\nGive a detailed, structured response using headings and bullet points. Include specific procedural/legal points found in the provided text and quote short snippets for each point. Do not provide generic overviews.";
     }
     if (p.specificLawHint) {
       systemPrompt +=
