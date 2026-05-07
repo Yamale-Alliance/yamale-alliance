@@ -21,6 +21,8 @@ import {
   Loader2,
   Copy,
   Check,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 import { canShareByEmail, canDownloadConversations } from "@/lib/plan-limits";
 
@@ -76,6 +78,9 @@ type Message = {
     category: string;
     status: string;
     snippet: string;
+    retrievalScore?: number;
+    usedInAnswer?: boolean;
+    docSlot?: number;
   }>;
   lawyerNudge?: {
     country: string;
@@ -83,6 +88,12 @@ type Message = {
     count: number;
     href: string;
   } | null;
+  queryLogId?: string | null;
+  citationVerification?: {
+    invalidDocRefs: number[];
+    citedDocIndices: number[];
+    allDocRefsValid: boolean;
+  };
 };
 
 type ChatSession = {
@@ -165,6 +176,8 @@ export default function AIResearchPage() {
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [exampleQuestions, setExampleQuestions] = useState<string[]>(() => pickRandomExampleQuestions(4));
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [feedbackBusyId, setFeedbackBusyId] = useState<string | null>(null);
+  const [feedbackDoneIds, setFeedbackDoneIds] = useState<Record<string, boolean>>({});
   const [noticeCheckDone, setNoticeCheckDone] = useState(false);
   const [hasAcknowledgedNotice, setHasAcknowledgedNotice] = useState(false);
   const [shellTopOffset, setShellTopOffset] = useState(56);
@@ -559,6 +572,11 @@ export default function AIResearchPage() {
         sources: data.sources || ["Claude AI · African Legal Research"],
         sourceCards: Array.isArray(data.sourceCards) ? data.sourceCards : [],
         lawyerNudge: data.lawyerNudge ?? null,
+        queryLogId: typeof data.queryLogId === "string" ? data.queryLogId : null,
+        citationVerification:
+          data.citationVerification && typeof data.citationVerification === "object"
+            ? data.citationVerification
+            : undefined,
       };
 
       const id = sessionIdToUpdate;
@@ -974,8 +992,33 @@ export default function AIResearchPage() {
                               {msg.sourceCards.length} laws from the Yamale Legal Library
                             </p>
                             {msg.sourceCards.map((card, idx) => (
-                              <div key={`${msg.id}-${card.lawId}-${idx}`} className="rounded-[8px] border border-border bg-muted/50 p-3">
-                                <p className="text-[13px] font-semibold text-foreground">{idx + 1}. {card.title}</p>
+                              <div
+                                key={`${msg.id}-${card.lawId}-${idx}`}
+                                className={`rounded-[8px] border p-3 ${
+                                  card.usedInAnswer
+                                    ? "border-[#C8922A]/40 bg-[#FFFDF8]/90"
+                                    : "border-border bg-muted/50"
+                                }`}
+                              >
+                                <p className="flex flex-wrap items-center gap-2 text-[13px] font-semibold text-foreground">
+                                  <span>
+                                    {card.docSlot ?? idx + 1}. {card.title}
+                                  </span>
+                                  {card.usedInAnswer ? (
+                                    <span className="rounded-full bg-[#C8922A]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8a6820]">
+                                      Used in answer
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-normal uppercase tracking-wide text-muted-foreground">
+                                      Retrieved
+                                    </span>
+                                  )}
+                                  {typeof card.retrievalScore === "number" ? (
+                                    <span className="ml-auto text-[10px] font-normal text-muted-foreground" title="Retrieval rank score">
+                                      rank {Math.round(card.retrievalScore)}
+                                    </span>
+                                  ) : null}
+                                </p>
                                 <p className="mt-0.5 text-[11px] text-muted-foreground">
                                   {card.country} · {card.category} · {card.status}
                                 </p>
@@ -1003,8 +1046,67 @@ export default function AIResearchPage() {
                             </Link>
                           </div>
                         )}
+                        {msg.role === "assistant" && msg.citationVerification && !msg.citationVerification.allDocRefsValid ? (
+                          <p className="mt-2 rounded-[6px] border border-amber-200/90 bg-amber-50/80 px-2 py-1.5 text-[11px] text-amber-900/90 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100/90">
+                            This reply contains [doc:N] markers that do not match the retrieved document list. Verify sources before relying on in-text citations.
+                          </p>
+                        ) : null}
                         {msg.role === "assistant" && (
-                          <div className="mt-2 flex justify-end">
+                          <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              disabled={Boolean(feedbackDoneIds[msg.id]) || feedbackBusyId === msg.id}
+                              onClick={() => {
+                                void (async () => {
+                                  if (feedbackDoneIds[msg.id]) return;
+                                  setFeedbackBusyId(msg.id);
+                                  try {
+                                    const res = await fetch("/api/ai/feedback", {
+                                      method: "POST",
+                                      credentials: "include",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ queryLogId: msg.queryLogId ?? undefined, rating: 1 }),
+                                    });
+                                    if (res.ok) setFeedbackDoneIds((p) => ({ ...p, [msg.id]: true }));
+                                  } finally {
+                                    setFeedbackBusyId(null);
+                                  }
+                                })();
+                              }}
+                              className="inline-flex items-center gap-1 rounded-[6px] border border-[#E8E4DC] bg-[#FAFAF7] px-2 py-1 text-[11px] text-[#0D1B2A]/60 hover:bg-white hover:text-[#0D1B2A] disabled:opacity-40"
+                              aria-label="Helpful"
+                              title="Helpful"
+                            >
+                              <ThumbsUp className="h-3.5 w-3.5" />
+                              Helpful
+                            </button>
+                            <button
+                              type="button"
+                              disabled={Boolean(feedbackDoneIds[msg.id]) || feedbackBusyId === msg.id}
+                              onClick={() => {
+                                void (async () => {
+                                  if (feedbackDoneIds[msg.id]) return;
+                                  setFeedbackBusyId(msg.id);
+                                  try {
+                                    const res = await fetch("/api/ai/feedback", {
+                                      method: "POST",
+                                      credentials: "include",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ queryLogId: msg.queryLogId ?? undefined, rating: -1 }),
+                                    });
+                                    if (res.ok) setFeedbackDoneIds((p) => ({ ...p, [msg.id]: true }));
+                                  } finally {
+                                    setFeedbackBusyId(null);
+                                  }
+                                })();
+                              }}
+                              className="inline-flex items-center gap-1 rounded-[6px] border border-[#E8E4DC] bg-[#FAFAF7] px-2 py-1 text-[11px] text-[#0D1B2A]/60 hover:bg-white hover:text-[#0D1B2A] disabled:opacity-40"
+                              aria-label="Not helpful"
+                              title="Not helpful"
+                            >
+                              <ThumbsDown className="h-3.5 w-3.5" />
+                              Not helpful
+                            </button>
                             <button
                               type="button"
                               onClick={() => void handleCopyMessage(msg.id, msg.content)}
