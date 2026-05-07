@@ -4,6 +4,16 @@ let cachedSettings: { logoUrl: string | null; faviconUrl: string | null; heroIma
 let cacheTimestamp = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+function hasMeaningfulErrorDetails(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const e = error as Record<string, unknown>;
+  const code = typeof e.code === "string" ? e.code.trim() : "";
+  const message = typeof e.message === "string" ? e.message.trim() : "";
+  const details = typeof e.details === "string" ? e.details.trim() : "";
+  const hint = typeof e.hint === "string" ? e.hint.trim() : "";
+  return Boolean(code || message || details || hint);
+}
+
 /**
  * Get platform logo URL (server-side)
  */
@@ -44,20 +54,17 @@ export async function getPlatformSettings(): Promise<{ logoUrl: string | null; f
     const { data, error } = await (supabase.from("platform_settings") as any)
       .select("logo_url, favicon_url, hero_image_url")
       .eq("id", "main")
-      .single();
+      .maybeSingle();
 
-    // Handle errors: PGRST116 is "not found" (expected if no settings exist yet)
-    // Empty error object {} also indicates "not found" - treat as non-error
+    // Missing row is expected until configured; avoid noisy logs for empty/placeholder errors.
     if (error) {
-      const isNotFound = error.code === "PGRST116" || 
-                         (typeof error === "object" && Object.keys(error).length === 0);
+      const isNotFound = (error as any)?.code === "PGRST116";
       
-      if (!isNotFound) {
-        // Only log actual errors, not "not found" cases
+      if (!isNotFound && hasMeaningfulErrorDetails(error)) {
         console.error("Platform settings error:", error);
         return { logoUrl: null, faviconUrl: null, heroImageUrl: null };
       }
-      // If not found, continue with null values (default behavior)
+      // Continue with null values on benign/empty driver responses.
     }
 
     const row = data as { logo_url?: string | null; favicon_url?: string | null; hero_image_url?: string | null } | null;
