@@ -408,6 +408,16 @@ function extractQueryHints(query: string): { country?: string; category?: string
     "tax law": "Tax Law",
     "tax": "Tax Law",
     "minimum wage": "Labor/Employment Law",
+    "working hours": "Labor/Employment Law",
+    "hours protection": "Labor/Employment Law",
+    "maximum working hours": "Labor/Employment Law",
+    "ordinary hours of work": "Labor/Employment Law",
+    "overtime": "Labor/Employment Law",
+    "rest period": "Labor/Employment Law",
+    "rest periods": "Labor/Employment Law",
+    "meal interval": "Labor/Employment Law",
+    "meal intervals": "Labor/Employment Law",
+    "night work": "Labor/Employment Law",
     "wage": "Labor/Employment Law",
     "wages": "Labor/Employment Law",
     "remuneration": "Labor/Employment Law",
@@ -453,6 +463,9 @@ function extractHintsFromConversation(
   let category: string | undefined;
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
+    // Only use user turns for follow-up context. Assistant turns can contain
+    // unrelated source titles that pollute category detection on the next query.
+    if (msg.role !== "user") continue;
     if (!msg?.content?.trim()) continue;
     const hints = extractQueryHints(msg.content);
     if (!country && hints.country) country = hints.country;
@@ -522,6 +535,29 @@ function buildExcerptAnchorTokens(query: string, primaryIntentId: string): strin
   }
   if (primaryIntentId === "labor") {
     anchors.push("decent work", "employment", "worker", "wage", "collective agreement");
+    if (/\b(hour|hours|working time|overtime|rest period|meal interval|night work|maximum working)\b/.test(q)) {
+      anchors.push(
+        "chapter two",
+        "working time",
+        "ordinary hours of work",
+        "overtime",
+        "compressed working week",
+        "averaging of hours",
+        "meal intervals",
+        "daily rest period",
+        "weekly rest period",
+        "night work",
+        "section 9",
+        "section 10",
+        "section 11",
+        "section 12",
+        "section 13",
+        "section 14",
+        "section 15",
+        "section 16",
+        "section 17"
+      );
+    }
   }
   return Array.from(new Set(anchors));
 }
@@ -1952,7 +1988,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    const assistantText = data.content?.[0]?.text || "I apologize, but I couldn't generate a response.";
+    const assistantTextRaw = data.content?.[0]?.text || "I apologize, but I couldn't generate a response.";
 
     // Record usage: queries and tokens (Anthropic returns usage.input_tokens, usage.output_tokens)
     // For free tier using pay-as-you-go, don't increment query count (only tokens)
@@ -2008,7 +2044,13 @@ export async function POST(request: NextRequest) {
         ]
       : ["Claude AI · African Legal Research"];
 
-    const citationParse = extractCitedDocIndices(assistantText, legalContext.length);
+    const citationParse = extractCitedDocIndices(assistantTextRaw, legalContext.length);
+    const assistantText = assistantTextRaw
+      // Keep citation logic server-side but remove [doc:N] markers from rendered prose.
+      .replace(/\s*\[doc:\s*\d+(?:\s*,\s*art:[^\]]+)?\]/gi, "")
+      // Tidy trailing double spaces left by marker removal.
+      .replace(/[ \t]{2,}/g, " ")
+      .trim();
     const usedFlags = citedSlotsAsUsedFlags(citationParse.citedDocIndices, legalContext.length);
 
     const sourceCardsRaw = legalContext.map((law, idx) => ({
@@ -2051,7 +2093,7 @@ export async function POST(request: NextRequest) {
       retrieved_law_ids: legalContext.map((l) => l.id),
       system_prompt_version: SYSTEM_PROMPT_VERSION,
       model: modelId,
-      response_preview: assistantText,
+      response_preview: assistantTextRaw,
       latency_ms: latencyMs,
       citation_issues: citationVerification,
     });
