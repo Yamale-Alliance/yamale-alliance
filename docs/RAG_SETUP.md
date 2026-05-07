@@ -2,6 +2,10 @@
 
 This guide explains the RAG integration that powers AI Legal Research with real legal documents from your library.
 
+**System prompt (audit / versioning):** The Legal Research assistant instructions live in `lib/ai-system-prompt.ts` as `buildAiResearchSystemPrompt()`. The string constant `SYSTEM_PROMPT_VERSION` is returned on successful `POST /api/ai/chat` responses (`systemPromptVersion`) and persisted on each row in `ai_query_log` when that table exists (see `docs/sql/006_ai_audit_tables.sql`).
+
+**Ingestion runbook:** See `docs/INGESTION.md` for URL/PDF → indexed law steps.
+
 ## How RAG Works
 
 When a user asks a question in AI Legal Research:
