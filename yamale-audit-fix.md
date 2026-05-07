@@ -125,6 +125,14 @@ The content-gap item (Namibia Companies Act not indexed) cannot be solved in cod
   - `société anonyme`, `capital social`, `capital minimum`, `constitution de la société`, `articles 385`, `part iv`, etc.
 - Net effect: for large OHADA acts, excerpt windows are now biased toward SA formation/capital chapters rather than liquidation-only tails when the query asks for SA capital.
 
+### 4) South Africa BCEA “hours protection” follow-up
+
+- Verified in live DB that **Basic Conditions of Employment Act** (`cf082b20-b67e-442e-8d0b-dc346fd8a41f`) already has full operative `content_plain` (~121k chars), including:
+  - `Chapter Two`
+  - `Ordinary hours of work`
+  - `Section 9`, `Section 10`, `overtime`, `meal intervals`, `daily rest period`, `night work`
+- Added labor-hours anchor targeting (Chapter 2 / sections 9–17 terms) so retrieval excerpts land on operative hours provisions instead of high-level TOC/schedule mentions.
+
 ### 3) Q4 structural-chunking fail in report
 
 - The QA fail is confirmed as a **content indexing gap** (Namibia Companies Act absent), not a generation/retrieval hallucination.
