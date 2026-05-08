@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fulfillPaymentFromMetadata, handlePawaPayDepositWebhook } from "@/lib/payment-webhook-fulfillment";
 import { flattenLomiMetadata, verifyLomiWebhookSignature } from "@/lib/lomi-checkout";
+import crypto from "crypto";
 
 export const runtime = "nodejs";
 
@@ -55,6 +56,16 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const expectedWebhookToken = process.env.PAWAPAY_WEBHOOK_TOKEN?.trim();
+    if (expectedWebhookToken) {
+      const tokenHeader = request.headers.get("x-webhook-token")?.trim() || "";
+      const provided = Buffer.from(tokenHeader, "utf8");
+      const expected = Buffer.from(expectedWebhookToken, "utf8");
+      if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
+        return NextResponse.json({ error: "Invalid pawaPay webhook token" }, { status: 401 });
+      }
+    }
+
     await handlePawaPayDepositWebhook(callback);
   } catch (err) {
     console.error("pawaPay webhook handler error:", err);
