@@ -1,5 +1,10 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import {
+  applySecurityHeaders,
+  attachRateLimitHeaders,
+  checkRateLimit,
+} from "@/lib/runtime-security";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -38,6 +43,15 @@ function checkBasicAuth(request: Request): boolean {
 }
 
 export default clerkMiddleware(async (auth, request) => {
+  const rateLimit = checkRateLimit(request);
+  if (rateLimit && !rateLimit.allowed) {
+    const limited = NextResponse.json(
+      { error: "Too many requests. Please slow down and retry." },
+      { status: 429 }
+    );
+    return applySecurityHeaders(attachRateLimitHeaders(limited, rateLimit));
+  }
+
   // Basic HTTP Auth check (only if enabled via env var)
   // Skip basic auth for public laws API so Library works without sign-in (incl. on mobile)
   const url = request.nextUrl ?? new URL(request.url);
@@ -50,12 +64,13 @@ export default clerkMiddleware(async (auth, request) => {
     url.pathname === "/api/lomi/webhook";
   if (process.env.ENABLE_BASIC_AUTH === "true" && !isPublicApi && !isWebhookCallback) {
     if (!checkBasicAuth(request)) {
-      return new NextResponse("Authentication required", {
+      const unauthorized = new NextResponse("Authentication required", {
         status: 401,
         headers: {
           "WWW-Authenticate": 'Basic realm="Yamalé Legal Platform"',
         },
       });
+      return applySecurityHeaders(attachRateLimitHeaders(unauthorized, rateLimit));
     }
   }
 
@@ -63,6 +78,9 @@ export default clerkMiddleware(async (auth, request) => {
   if (!isPublicRoute(request)) {
     await auth.protect();
   }
+
+  const response = NextResponse.next();
+  return applySecurityHeaders(attachRateLimitHeaders(response, rateLimit));
 });
 
 export const config = {
