@@ -182,13 +182,6 @@ export function CartDrawer() {
                   value={paymentProvider}
                   onChange={setPaymentProvider}
                   lomiAvailable={lomiAvailable}
-                  lomiComingSoon
-                  onLomiComingSoonClick={() => {
-                    void showAlert(
-                      "Credit card payments are coming soon. For now, please use Mobile Money.",
-                      "Coming soon"
-                    );
-                  }}
                 />
                 {paymentProvider === "pawapay" && (
                   <PawapayCountrySelect
