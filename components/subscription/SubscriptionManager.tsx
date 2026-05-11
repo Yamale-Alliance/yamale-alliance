@@ -427,13 +427,6 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
                 value={paymentProvider}
                 onChange={setPaymentProvider}
                 lomiAvailable={lomiAvailable}
-                lomiComingSoon
-                onLomiComingSoonClick={() => {
-                  void showAlert(
-                    "Credit card payments are coming soon. For now, please use Mobile Money.",
-                    "Coming soon"
-                  );
-                }}
               />
               {paymentProvider === "pawapay" && (
                 <div className="mt-4">
