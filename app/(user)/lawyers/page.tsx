@@ -103,7 +103,6 @@ export default function LawyersPage() {
   const lomiAvailable =
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
     Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
-  const lomiComingSoon = true;
 
   const persistSearchState = (next?: {
     country?: string;
@@ -563,19 +562,18 @@ export default function LawyersPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() =>
-                          setSearchPayError(
-                            "Credit card payments are coming soon. For now, please use Mobile Money."
-                          )
-                        }
-                        disabled={searchPayLoading}
+                        onClick={() => {
+                          if (!lomiAvailable) return;
+                          void handlePayForSearch("lomi");
+                        }}
+                        disabled={searchPayLoading || !lomiAvailable}
                         className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#635BFF]/50 bg-[#635BFF]/10 px-4 py-2 text-xs font-semibold text-[#635BFF] transition hover:bg-[#635BFF]/20 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
                       >
                         {searchPayLoading && paymentProvider === "lomi" && (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         )}
                         {!searchPayLoading && <CreditCard className="h-4 w-4" />}
-                        Card (coming soon)
+                        Card
                       </button>
                       <button
                         type="button"
@@ -586,9 +584,14 @@ export default function LawyersPage() {
                         Cancel
                       </button>
                     </div>
-                    {!selectedCountrySupportsPawapay && selectedCountry !== "" && !lomiComingSoon && (
+                    {!selectedCountrySupportsPawapay && selectedCountry !== "" && lomiAvailable && (
                       <p className="text-xs text-amber-700 dark:text-amber-400">
                         Mobile money is not available for {selectedCountry}. Please proceed with card payment.
+                      </p>
+                    )}
+                    {!lomiAvailable && (
+                      <p className="text-xs text-amber-700 dark:text-amber-400">
+                        Card checkout is not configured yet. Please use mobile money.
                       </p>
                     )}
                     {showPawapayCountryPrompt && selectedCountrySupportsPawapay && (
