@@ -4,6 +4,7 @@ import type { Database } from "./database.types";
 export type AuditAction =
   | "law.add"
   | "law.update"
+  | "law.link_shared"
   | "law.update_batch"
   | "law.delete"
   | "law.delete_batch"
