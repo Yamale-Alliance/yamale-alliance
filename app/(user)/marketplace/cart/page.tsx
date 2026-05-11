@@ -48,7 +48,7 @@ export default function CartPage() {
   const lomiAvailable =
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
     Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
-  const lomiComingSoon = true;
+  const lomiComingSoon = false;
   const [removing, setRemoving] = useState<string | null>(null);
   const { alert: showAlert, alertDialog } = useAlertDialog();
 
