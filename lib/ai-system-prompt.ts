@@ -3,7 +3,7 @@
  * Bump SYSTEM_PROMPT_VERSION whenever substantive prompt instructions change.
  */
 
-export const SYSTEM_PROMPT_VERSION = "2026.05.07-premium";
+export const SYSTEM_PROMPT_VERSION = "2026.05.11-country-accuracy-v2";
 
 export type SupranationalPromptFramework = {
   canonicalName: string;
@@ -22,6 +22,10 @@ export type BuildAiResearchSystemPromptParams = {
   supranationalFrameworksInQuery: SupranationalPromptFramework[];
   /** Preformatted "Party A and Party B" or null when not applicable */
   bilateralPartiesSummary: string | null;
+  /** Country inferred from current query / conversation, if available */
+  effectiveCountry: string | null;
+  /** Whether country should be strictly enforced for this turn */
+  strictCountryMode: boolean;
   legalContext: LegalContextDocForPrompt[];
   detailedMode: boolean;
   specificLawHint: string | null;
@@ -60,6 +64,12 @@ Status handling (metadata in the library):
     systemPrompt += `\n\nThis query references multiple parties (${p.bilateralPartiesSummary}), which strongly suggests a bilateral or multilateral instrument. Use the document(s) whose title contains those party names directly (e.g. a law titled "Algeria - Netherlands"); do not redirect the user to pick a single country.`;
   }
 
+  if (p.strictCountryMode && p.effectiveCountry) {
+    systemPrompt += `\n\nCountry lock for this turn: ${p.effectiveCountry}. Treat ${p.effectiveCountry} as the only national jurisdiction for the main legal analysis. If excerpts from other countries appear in retrieval, do not use them as governing law for the answer unless the user explicitly asked for a comparison.`;
+    systemPrompt +=
+      "\nWhen documents from multiple countries are present, prioritize and cite only the country-locked documents for conclusions. If the relevant rule is not present for that country in the provided excerpts, state that clearly instead of borrowing rules from another country.";
+  }
+
   if (p.legalContext.length > 0) {
     systemPrompt += `\n\nRELEVANT LEGAL DOCUMENTS FROM THE DATABASE (library):\n\n${p.legalContext
       .map(
@@ -68,10 +78,10 @@ Status handling (metadata in the library):
             law.year ? `\nYear: ${law.year}` : ""
           }\nContent:\n${law.content}\n---\n`
       )
-      .join("\n")}\n\nIMPORTANT: (1) Base your answer strictly on these legal documents from the library database. (2) In prose, refer to each law by its title and country — do not say only "Document 1". (3) For verification, after substantive paragraphs grounded in a specific numbered document above, append inline markers using ONLY: [doc:N] or [doc:N, art:M] where N is the 1-based document number from this list and M is an article number only when that article appears in the excerpt you used. Never use doc numbers outside this range. (4) Do NOT use outside/general knowledge when answering this request. (5) If the documents do not cover the question, explicitly say they are not found in the current library results and ask the user to refine filters/query; do not invent statutes or web references. (6) For each substantive point, include a short quote/snippet from the provided text that supports it. (7) Titles may be in French or another language: infer the subject from headings and body text (e.g. OHADA, acte uniforme, code du travail, code pénal) and do not dismiss an instrument solely because the title does not match the user's English wording. (8) When several instruments are listed, prefer excerpts that directly address the user's topic (e.g. company formation and OHADA-style commercial acts for business registration; labor codes for employment; fiscal statutes for tax; environmental codes for pollution or climate; criminal codes for penal questions) over generic constitutional texts or unrelated bilateral treaties unless those instruments clearly contain the requested rules.`;
+      .join("\n")}\n\nIMPORTANT: (1) Base your answer strictly on these legal documents from the library database. (2) In prose, refer to each law by its title and country — do not say only "Document 1". (3) For verification, after substantive paragraphs grounded in a specific numbered document above, append inline markers using ONLY: [doc:N] or [doc:N, art:M] where N is the 1-based document number from this list and M is an article number only when that article appears in the excerpt you used. Never use doc numbers outside this range. (4) Do NOT use outside/general knowledge when answering this request. (5) If the documents do not cover the question, explicitly say they are not found in the current library results and ask the user to refine filters/query; do not invent statutes or web references. (6) For each substantive point, include a short quote/snippet from the provided text that supports it. (7) Titles may be in French or another language: infer the subject from headings and body text (e.g. OHADA, acte uniforme, code du travail, code pénal) and do not dismiss an instrument solely because the title does not match the user's English wording. (8) When several instruments are listed, prefer excerpts that directly address the user's topic (e.g. company formation and OHADA-style commercial acts for business registration; labor codes for employment; fiscal statutes for tax; environmental codes for pollution or climate; criminal codes for penal questions) over generic constitutional texts or unrelated bilateral treaties unless those instruments clearly contain the requested rules. (9) Country-accuracy check before final answer: verify each legal conclusion is supported by a document from the correct jurisdiction for this query; if not, mark it as unavailable in current excerpts instead of inferring.`;
 
     systemPrompt +=
-      "\n\nDefault answer style (premium, unless user asks for brevity): produce a substantive, professional legal memo with clear headings and concrete points from the provided excerpt. Use this order: (a) Legal issue and scope, (b) Applicable rule text (quote short snippets), (c) Conditions/thresholds/exceptions, (d) Compliance or procedural consequences, (e) Practical implications for businesses/citizens, (f) Caveats from excerpt limits. Include enough depth to be decision-useful, not a one-paragraph summary. Avoid long publication metadata (gazette volume, legal notice chronology, revision history) unless the user explicitly asks for citation history or amendment timeline.";
+      "\n\nDefault answer style (premium, unless user asks for brevity): write in a clear, practical, moderately conversational tone. Be professional but not overly formal or stiff. Prefer plain language, short paragraphs, and direct wording (avoid heavy legalese unless the user asks for strict legal drafting). Structure with clear headings and concrete points from the provided excerpt in this order: (a) Legal issue and scope, (b) Applicable rule text (quote short snippets), (c) Conditions/thresholds/exceptions, (d) Compliance or procedural consequences, (e) Practical implications for businesses/citizens, (f) Caveats from excerpt limits. Include enough depth to be decision-useful, not a one-paragraph summary. Avoid long publication metadata (gazette volume, legal notice chronology, revision history) unless the user explicitly asks for citation history or amendment timeline.";
 
     if (p.detailedMode) {
       systemPrompt +=
