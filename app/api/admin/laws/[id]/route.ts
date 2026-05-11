@@ -5,6 +5,12 @@ import { recordAuditLog } from "@/lib/admin-audit";
 import { isLawTreatyType } from "@/lib/law-treaty-type";
 import type { Database } from "@/lib/database.types";
 import { fetchCategoryIdsForLaw, syncLawCategories } from "@/lib/law-categories-sync";
+import {
+  fetchSharedGroupForLaw,
+  propagateLawCategoriesAcrossSharedGroup,
+  propagateSharedLawFields,
+  toSharedLawUpdates,
+} from "@/lib/law-shared-groups";
 
 type LawRow = Database["public"]["Tables"]["laws"]["Row"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -166,6 +172,11 @@ export async function PUT(
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }
 
+    let propagatedLawIds: string[] = [];
+    const sharedGroup = await fetchSharedGroupForLaw(supabase, id).catch(() => null);
+    const otherLinkedLawIds =
+      sharedGroup?.lawIds.filter((lawId) => lawId !== id) ?? [];
+
     if (hasLawColumnUpdates) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error: updateErr } = await (supabase.from("laws") as any).update(updates).eq("id", id);
@@ -173,11 +184,26 @@ export async function PUT(
         console.error("Admin law PUT error:", updateErr);
         return NextResponse.json({ error: updateErr.message }, { status: 500 });
       }
+
+      if (otherLinkedLawIds.length > 0) {
+        const sharedUpdates = toSharedLawUpdates(updates);
+        await propagateSharedLawFields(
+          supabase,
+          id,
+          otherLinkedLawIds,
+          sharedUpdates
+        );
+        propagatedLawIds = otherLinkedLawIds;
+      }
     }
 
     if (hasCategorySync && categoryIdsPayload) {
       try {
         await syncLawCategories(supabase, id, categoryIdsPayload);
+        if (otherLinkedLawIds.length > 0) {
+          await propagateLawCategoriesAcrossSharedGroup(supabase, id, otherLinkedLawIds);
+          propagatedLawIds = Array.from(new Set([...propagatedLawIds, ...otherLinkedLawIds]));
+        }
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Category sync failed";
         return NextResponse.json({ error: msg }, { status: 500 });
@@ -214,10 +240,19 @@ export async function PUT(
       details: {
         fields: [...nonTsKeys, ...(hasCategorySync ? ["category_ids"] : [])],
         title: lawRow?.title,
+        shared_group_id: sharedGroup?.groupId ?? null,
+        propagated_law_ids: propagatedLawIds,
       },
     });
 
-    return NextResponse.json({ ok: true, law: { ...lawRow, category_ids } });
+    return NextResponse.json({
+      ok: true,
+      law: { ...lawRow, category_ids },
+      shared_link_propagation: {
+        group_id: sharedGroup?.groupId ?? null,
+        propagated_law_ids: propagatedLawIds,
+      },
+    });
   } catch (err) {
     console.error("Admin law PUT error:", err);
     return NextResponse.json({ error: "Failed to update law" }, { status: 500 });
