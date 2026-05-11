@@ -104,15 +104,38 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
   }
 
   const cspNonce = nonceUnsafeRandom();
+  // Clerk loads clerk.browser.js from *.clerk.accounts.dev and uses telemetry / CF challenges.
+  // Without these origins, script-src blocks Clerk → ClerkRuntimeError failed_to_load_clerk_js.
   response.headers.set(
     "Content-Security-Policy",
     [
       "default-src 'self'",
-      `script-src 'self' 'unsafe-inline' 'unsafe-eval' 'nonce-${cspNonce}'`,
+      [
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+        `'nonce-${cspNonce}'`,
+        "https://*.clerk.accounts.dev",
+        "https://challenges.cloudflare.com",
+        "https://*.js.stripe.com",
+        "https://js.stripe.com",
+      ].join(" "),
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data: https:",
-      "connect-src 'self' https:",
+      [
+        "connect-src 'self' https:",
+        "https://*.clerk.accounts.dev",
+        "https://clerk-telemetry.com",
+        "https://*.clerk-telemetry.com",
+      ].join(" "),
+      "worker-src 'self' blob:",
+      [
+        "frame-src 'self'",
+        "https://*.clerk.accounts.dev",
+        "https://challenges.cloudflare.com",
+        "https://*.js.stripe.com",
+        "https://js.stripe.com",
+        "https://hooks.stripe.com",
+      ].join(" "),
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
