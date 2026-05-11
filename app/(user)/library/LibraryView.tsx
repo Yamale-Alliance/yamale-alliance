@@ -27,6 +27,7 @@ import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 
 const PAGE_SIZE = 12;
+const SUPPORT_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
 type SortOption = "title-asc" | "title-desc" | "country" | "category" | "newest";
 type DocumentType = "Law" | "Decree" | "Regulation" | "Code" | "Directive" | "Treaty" | "Agreement" | "Other";
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
@@ -294,6 +295,15 @@ export function LibraryView({
   const [yearTo, setYearTo] = useState(initialYearTo);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestName, setSuggestName] = useState("");
+  const [suggestEmail, setSuggestEmail] = useState("");
+  const [suggestCountry, setSuggestCountry] = useState("");
+  const [suggestCategory, setSuggestCategory] = useState("");
+  const [suggestLawTitle, setSuggestLawTitle] = useState("");
+  const [suggestSourceUrl, setSuggestSourceUrl] = useState("");
+  const [suggestNotes, setSuggestNotes] = useState("");
+  const [suggestSubmitting, setSuggestSubmitting] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
   const [laws, setLaws] = useState<Law[]>(() => initialLaws.map(mapRowToLaw));
   const [lawCount, setLawCount] = useState(
     () => initialLawCount ?? initialLaws.length
@@ -324,6 +334,87 @@ export function LibraryView({
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    setSuggestName((prev) => prev || user.fullName || user.username || "");
+    setSuggestEmail((prev) => prev || user.primaryEmailAddress?.emailAddress || "");
+  }, [user]);
+
+  const submitLawSuggestion = useCallback(
+    async (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      setSuggestError(null);
+
+      if (!suggestLawTitle.trim() || suggestLawTitle.trim().length < 3) {
+        setSuggestError("Please add the law title (at least 3 characters).");
+        return;
+      }
+      if (!suggestCountry.trim()) {
+        setSuggestError("Please add a country.");
+        return;
+      }
+
+      setSuggestSubmitting(true);
+      try {
+        const ticketTitle = `Library law suggestion: ${suggestLawTitle.trim()}`;
+        const descriptionLines = [
+          "Missing law suggestion from Library",
+          `Law title: ${suggestLawTitle.trim()}`,
+          `Country: ${suggestCountry.trim()}`,
+          `Category: ${suggestCategory.trim() || "Not provided"}`,
+          `Source URL: ${suggestSourceUrl.trim() || "Not provided"}`,
+          "",
+          "Notes:",
+          suggestNotes.trim() || "No additional notes provided.",
+        ];
+
+        const res = await fetch("/api/support/tickets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            title: ticketTitle,
+            description: descriptionLines.join("\n"),
+            contactName: suggestName.trim(),
+            contactEmail: suggestEmail.trim(),
+          }),
+        });
+        const data = await res.json().catch(() => ({} as Record<string, unknown>));
+
+        if (!res.ok) {
+          const message =
+            typeof data.error === "string"
+              ? data.error
+              : "Could not submit your law suggestion right now.";
+          setSuggestError(message);
+          return;
+        }
+
+        setSuggestLawTitle("");
+        setSuggestCountry("");
+        setSuggestCategory("");
+        setSuggestSourceUrl("");
+        setSuggestNotes("");
+        setShowSuggestions(false);
+        await showAlert("Thanks. Your law suggestion has been submitted to our team.", "Suggestion sent");
+      } catch {
+        setSuggestError("Something went wrong. Please try again.");
+      } finally {
+        setSuggestSubmitting(false);
+      }
+    },
+    [
+      showAlert,
+      suggestCategory,
+      suggestCountry,
+      suggestEmail,
+      suggestLawTitle,
+      suggestName,
+      suggestNotes,
+      suggestSourceUrl,
+    ]
+  );
 
   useEffect(() => {
     setRecentlyOpenedIds(getRecentlyOpenedIds());
@@ -1074,14 +1165,25 @@ export function LibraryView({
                     The Yamalé Legal Library covers all 54 African countries across 8 legal domains and is continuously
                     expanding. Content is provided for reference only and may not reflect the most current version of each
                     law. Where coverage is incomplete, we indicate it clearly. Notice a missing law? Use the{" "}
-                    <a
-                      href="mailto:it@yamalealliance.org?subject=Suggest%20a%20law"
-                      className="font-medium text-[#0D1B2A] underline decoration-[#C8922A] underline-offset-2 hover:text-[#C8922A]"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!SUPPORT_LIVE) {
+                          window.location.href = "mailto:it@yamalealliance.org?subject=Suggest%20a%20law";
+                          return;
+                        }
+                        setSuggestError(null);
+                        setShowSuggestions((v) => !v);
+                      }}
+                      className="font-medium text-foreground underline decoration-[#C8922A] underline-offset-2 hover:text-[#C8922A] dark:text-[#f3e5c8] dark:hover:text-[#e3ba65]"
                     >
                       Suggest a law
-                    </a>{" "}
+                    </button>{" "}
                     feature to flag it, or{" "}
-                    <Link href="/terms" className="font-medium text-[#0D1B2A] underline decoration-[#C8922A] underline-offset-2 hover:text-[#C8922A]">
+                    <Link
+                      href="/terms"
+                      className="font-medium text-foreground underline decoration-[#C8922A] underline-offset-2 hover:text-[#C8922A] dark:text-[#f3e5c8] dark:hover:text-[#e3ba65]"
+                    >
                       read the full accuracy notice →
                     </Link>{" "}
                     Need help interpreting a specific law?{" "}
@@ -1092,6 +1194,81 @@ export function LibraryView({
                       Browse the Yamalé Lawyer Network →
                     </Link>
                   </p>
+                  {showSuggestions && SUPPORT_LIVE && (
+                    <form onSubmit={submitLawSuggestion} className="mt-4 space-y-3 rounded-lg border border-border bg-background p-4">
+                      <p className="text-sm font-semibold text-foreground">Suggest a missing law</p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <input
+                          value={suggestName}
+                          onChange={(e) => setSuggestName(e.target.value)}
+                          placeholder="Your name"
+                          required
+                          className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                        />
+                        <input
+                          type="email"
+                          value={suggestEmail}
+                          onChange={(e) => setSuggestEmail(e.target.value)}
+                          placeholder="Your email"
+                          required
+                          className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                        />
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <input
+                          value={suggestCountry}
+                          onChange={(e) => setSuggestCountry(e.target.value)}
+                          placeholder="Country (required)"
+                          required
+                          className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                        />
+                        <input
+                          value={suggestCategory}
+                          onChange={(e) => setSuggestCategory(e.target.value)}
+                          placeholder="Category (optional)"
+                          className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                        />
+                      </div>
+                      <input
+                        value={suggestLawTitle}
+                        onChange={(e) => setSuggestLawTitle(e.target.value)}
+                        placeholder="Law title (required)"
+                        required
+                        minLength={3}
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                      />
+                      <input
+                        value={suggestSourceUrl}
+                        onChange={(e) => setSuggestSourceUrl(e.target.value)}
+                        placeholder="Source URL (optional)"
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                      />
+                      <textarea
+                        value={suggestNotes}
+                        onChange={(e) => setSuggestNotes(e.target.value)}
+                        placeholder="Notes (optional): why this law should be added, publication info, etc."
+                        rows={4}
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                      />
+                      {suggestError && <p className="text-sm text-destructive">{suggestError}</p>}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="submit"
+                          disabled={suggestSubmitting}
+                          className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                        >
+                          {suggestSubmitting ? "Sending..." : "Submit suggestion"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowSuggestions(false)}
+                          className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  )}
                 </div>
               </div>
             </aside>
