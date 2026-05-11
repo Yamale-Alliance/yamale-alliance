@@ -1469,13 +1469,13 @@ export default function AIResearchPage() {
               <h2 className="heading mt-2 text-[28px] font-semibold tracking-tight text-[#0D1B2A] sm:text-[36px]">
                 Before you use AI Legal Research
               </h2>
-              <p className="mt-3 max-w-3xl text-[14px] leading-relaxed text-[#0D1B2A]/78 sm:mt-4 sm:text-[15px]">
+              <p className="mt-3 max-w-3xl text-[14px] leading-relaxed text-[#1f2937] sm:mt-4 sm:text-[15px]">
                 This tool uses Claude, an AI developed by Anthropic (United States), to answer questions about African
                 law. It searches and retrieves exclusively from the Yamale Legal Library and does not access the internet
                 or any external source. All responses are drawn from African legal texts within our controlled database.
               </p>
               <div className="mt-4 rounded-xl bg-[#F4F1EA] p-4 sm:mt-5 sm:p-5">
-                <ul className="space-y-2 text-[14px] leading-relaxed text-[#0D1B2A]/78 sm:text-[15px]">
+                <ul className="space-y-2 text-[14px] leading-relaxed text-[#1f2937] sm:text-[15px]">
                   <li>• Queries you submit are processed on Anthropic&apos;s servers in the United States</li>
                   <li>• Anthropic does not use your queries to train its AI models</li>
                   <li>• Responses are for reference only and are not legal advice</li>
@@ -1503,7 +1503,10 @@ export default function AIResearchPage() {
                 I Acknowledge
               </button>
               <div className="mt-3 text-center">
-                <Link href="/privacy" className="text-sm font-medium text-[#C8922A] hover:text-[#b88424] sm:text-base">
+                <Link
+                  href="/privacy"
+                  className="text-sm font-semibold text-[#8a6518] underline decoration-[#C8922A] underline-offset-2 hover:text-[#6e4f12] dark:text-[#e3ba65] dark:hover:text-[#f3d089] sm:text-base"
+                >
                   Read our full AI data policy →
                 </Link>
               </div>
