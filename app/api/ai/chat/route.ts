@@ -2197,6 +2197,8 @@ export async function POST(request: NextRequest) {
         description: m.description,
       })),
       bilateralPartiesSummary,
+      effectiveCountry: effectiveHints.country ?? null,
+      strictCountryMode: !skipCountryRequirement && Boolean(effectiveHints.country),
       legalContext,
       detailedMode,
       specificLawHint,
