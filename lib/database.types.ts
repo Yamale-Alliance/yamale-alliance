@@ -52,6 +52,34 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["law_categories"]["Insert"]>;
       };
+      law_shared_groups: {
+        Row: {
+          id: string;
+          name: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["law_shared_groups"]["Insert"]>;
+      };
+      law_shared_group_members: {
+        Row: {
+          group_id: string;
+          law_id: string;
+          created_at: string;
+        };
+        Insert: {
+          group_id: string;
+          law_id: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["law_shared_group_members"]["Insert"]>;
+      };
       laws: {
         Row: {
           id: string;
