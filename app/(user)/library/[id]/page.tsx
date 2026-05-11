@@ -19,7 +19,9 @@ import {
   BookmarkCheck,
   FileEdit,
   Sparkles,
+  Printer,
 } from "lucide-react";
+import * as Dialog from "@radix-ui/react-dialog";
 import { useUser } from "@clerk/nextjs";
 import { useConfirm, useAlertDialog } from "@/components/ui/use-confirm";
 import {
@@ -28,6 +30,10 @@ import {
 } from "@/components/layout/prototype-page-styles";
 import { LawyerMatchBanner } from "@/components/library/LawyerMatchBanner";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
+import {
+  PaymentMethodPicker,
+  type CheckoutPaymentProvider,
+} from "@/components/checkout/PaymentMethodPicker";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 
 type LawStatus = "In force" | "Amended" | "Repealed";
@@ -707,6 +713,8 @@ export default function LawDetailPage({
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [printLoading, setPrintLoading] = useState(false);
+  const [printCheckoutOpen, setPrintCheckoutOpen] = useState(false);
+  const [printCheckoutProvider, setPrintCheckoutProvider] = useState<CheckoutPaymentProvider>("pawapay");
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const [summary, setSummary] = useState<{ summary_text: string; generated_at: string } | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -722,6 +730,10 @@ export default function LawDetailPage({
   const [fixOcrBanner, setFixOcrBanner] = useState<string | null>(null);
   const { confirm, confirmDialog } = useConfirm();
   const { alert: showAlert, alertDialog } = useAlertDialog();
+  const lomiAvailable =
+    process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
+    Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
+  const lomiComingSoon = false;
 
   const scrollToTop = useCallback(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -856,22 +868,6 @@ export default function LawDetailPage({
       .finally(() => setSummaryLoading(false));
   }, [isTeamPlan, resolvedId]);
 
-  // Fetch law summary (Team plan only)
-  useEffect(() => {
-    if (!isTeamPlan || !resolvedId) {
-      setSummary(null);
-      return;
-    }
-    setSummaryLoading(true);
-    fetch(`/api/laws/${resolvedId}/summary`)
-      .then((r) => r.json())
-      .then((data: { summary?: { summary_text: string; generated_at: string } | null }) => {
-        setSummary(data.summary ?? null);
-      })
-      .catch(() => setSummary(null))
-      .finally(() => setSummaryLoading(false));
-  }, [isTeamPlan, resolvedId]);
-
   const toggleBookmark = async () => {
     if (!isSignedIn || !resolvedId) return;
     setBookmarkLoading(true);
@@ -894,18 +890,21 @@ export default function LawDetailPage({
     }
   };
 
-  const handlePrintPayment = async () => {
+  const handlePrintToolbarClick = () => {
     if (!resolvedId) return;
     if (hasPaidForThisLaw) {
-      if (typeof window !== "undefined") {
-        window.print();
-      }
+      if (typeof window !== "undefined") window.print();
       return;
     }
     if (!isSignedIn) {
       window.location.assign("/sign-in?redirect_url=" + encodeURIComponent(window.location.pathname));
       return;
     }
+    setPrintCheckoutOpen(true);
+  };
+
+  const submitPrintCheckout = async () => {
+    if (!resolvedId) return;
     setPrintLoading(true);
     try {
       const res = await fetch("/api/stripe/payg/document", {
@@ -914,7 +913,8 @@ export default function LawDetailPage({
         credentials: "include",
         body: JSON.stringify({
           return_path: `/library/${resolvedId}`,
-          paymentCountry: pawapayPaymentCountry,
+          provider: printCheckoutProvider,
+          ...(printCheckoutProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
         }),
       });
       const data = await res.json();
@@ -1055,17 +1055,21 @@ export default function LawDetailPage({
                 <div className="h-px max-w-24 flex-1 bg-gradient-to-r from-[#E8B84B]/70 to-transparent" />
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0 print:hidden">
               {hasContent && sections.length >= 1 && (
-                <button
-                  type="button"
-                  onClick={() => setMobileContentsOpen(true)}
-                  className="lg:hidden shrink-0 rounded-lg p-2 text-white/75 hover:bg-white/10 hover:text-white"
-                  aria-label="Open contents"
-                  title="Open contents sidebar"
-                >
-                  <Menu className="h-6 w-6" />
-                </button>
+                <div className="relative group lg:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setMobileContentsOpen(true)}
+                    className="shrink-0 rounded-lg p-2.5 text-white/75 hover:bg-white/10 hover:text-white"
+                    aria-label="Open contents"
+                  >
+                    <Menu className="h-6 w-6" />
+                  </button>
+                  <span className="pointer-events-none absolute right-full top-1/2 mr-2 -translate-y-1/2 whitespace-nowrap rounded bg-black/85 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-md transition group-hover:opacity-100">
+                    Contents
+                  </span>
+                </div>
               )}
             </div>
           </div>
@@ -1239,6 +1243,7 @@ export default function LawDetailPage({
             </nav>
           )}
 
+          <div className="flex min-w-0 flex-1 flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
           <main className="min-w-0 flex-1">
             {!hasContent && (
               <div className="rounded-2xl border border-border bg-muted/20 p-12 text-center shadow-sm">
@@ -1357,36 +1362,69 @@ export default function LawDetailPage({
             )}
           </main>
           </div>
+          </div>
         </div>
       </div>
 
       {(hasContent || isAdmin) && (
-        <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-1 rounded-2xl border border-border/80 bg-card/90 p-2 shadow-xl shadow-black/10 backdrop-blur-xl print:hidden">
+        <div className="fixed bottom-5 right-5 z-40 flex w-[3.35rem] flex-col gap-1 rounded-2xl border border-border/80 bg-card/95 p-1.5 shadow-lg shadow-black/10 backdrop-blur-xl print:hidden">
           {/* Back to Library */}
           <div className="relative group">
             <Link
               href={returnTo && returnTo.startsWith("/library") ? returnTo : "/library"}
-              className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
               aria-label="Back to Library"
             >
               <ChevronLeft className="h-5 w-5" />
             </Link>
-            <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+            <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
               Back to Library
             </span>
           </div>
+
+          {/* Print / Download */}
+          {hasContent && (
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={handlePrintToolbarClick}
+                disabled={printLoading}
+                className="inline-flex size-11 items-center justify-center rounded-lg text-[#C8922A] hover:bg-accent/80 hover:text-[#E8B84B] disabled:opacity-50"
+                aria-label={
+                  hasPaidForThisLaw
+                    ? "Print or download this document"
+                    : isSignedIn
+                      ? "Print or download — $3 (opens checkout)"
+                      : "Sign in to print or download ($3)"
+                }
+              >
+                {printLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Printer className="h-5 w-5" />
+                )}
+              </button>
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+                {hasPaidForThisLaw
+                  ? "Print or download"
+                  : isSignedIn
+                    ? "Print or download — $3"
+                    : "Sign in to print or download"}
+              </span>
+            </div>
+          )}
 
           {/* Edit (admins only) */}
           {isAdmin && (
             <div className="relative group">
               <Link
                 href={`/admin-panel/laws/${law.id}`}
-                className="inline-flex items-center justify-center rounded-md p-2 text-primary hover:bg-primary/10"
+                className="inline-flex size-11 items-center justify-center rounded-lg text-primary hover:bg-primary/10"
                 aria-label="Edit law"
               >
                 <FileEdit className="h-5 w-5" />
               </Link>
-              <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
                 Edit law (admin)
               </span>
             </div>
@@ -1399,66 +1437,16 @@ export default function LawDetailPage({
                 type="button"
                 onClick={() => void handleFixOcr()}
                 disabled={fixOcrLoading || !rawContent.trim()}
-                className="inline-flex items-center justify-center rounded-md p-2 text-primary hover:bg-primary/10 disabled:opacity-50"
+                className="inline-flex size-11 items-center justify-center rounded-lg text-primary hover:bg-primary/10 disabled:opacity-50"
                 aria-label="Fix OCR and clean noise"
               >
                 {fixOcrLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
               </button>
-              <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
                 Fix OCR (admin)
               </span>
             </div>
           )}
-
-          {isSignedIn && !hasPaidForThisLaw && (
-            <div className="w-[min(14rem,calc(100vw-3rem))] border-t border-border px-1 py-2">
-              <PawapayCountrySelect
-                label="Mobile money country"
-                value={pawapayPaymentCountry}
-                onChange={setPawapayPaymentCountry}
-                selectClassName="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground"
-              />
-            </div>
-          )}
-
-          {/* Print / Download — pay-as-you-go ($3) or direct print after payment */}
-          <div className="relative group">
-            <button
-              type="button"
-              onClick={
-                hasPaidForThisLaw
-                  ? () => {
-                      if (typeof window !== "undefined") {
-                        window.print();
-                      }
-                    }
-                  : handlePrintPayment
-              }
-              disabled={!hasPaidForThisLaw && printLoading}
-              className="inline-flex items-center justify-center gap-1.5 rounded-md px-2.5 py-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
-              aria-label={
-                hasPaidForThisLaw
-                  ? "Print or download this document"
-                  : "Print or download this document ($3)"
-              }
-            >
-              {!hasPaidForThisLaw && printLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <FileText className="h-5 w-5" />
-              )}
-              <span className="text-[11px] font-medium hidden sm:inline">
-                {hasPaidForThisLaw ? "Print" : "Print ($3)"}
-              </span>
-            </button>
-            <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
-              {isSignedIn
-                ? hasPaidForThisLaw
-                  ? "Print or download (paid)"
-                  : "Print or download — $3"
-                : "Sign in to print or download"}
-            </span>
-          </div>
 
           {/* Bookmark toggle */}
           <div className="relative group">
@@ -1466,7 +1454,7 @@ export default function LawDetailPage({
               type="button"
               onClick={isSignedIn ? toggleBookmark : () => window.location.assign("/sign-in?redirect_url=" + encodeURIComponent(window.location.pathname))}
               disabled={bookmarkLoading}
-              className="inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+              className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
               aria-label={isSignedIn ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Sign in to bookmark"}
             >
               {isSignedIn && isBookmarked ? (
@@ -1475,24 +1463,24 @@ export default function LawDetailPage({
                 <Bookmark className="h-5 w-5" />
               )}
             </button>
-            <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+            <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
               {isSignedIn ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Sign in to bookmark"}
             </span>
           </div>
 
-          <div className="my-0.5 h-px bg-border" />
+          <div className="mx-auto my-0.5 h-px w-7 bg-border" />
 
           {/* Scroll controls */}
           <div className="relative group">
             <button
               type="button"
               onClick={scrollToTop}
-              className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
               aria-label="Scroll to top"
             >
               <ArrowUp className="h-5 w-5" />
             </button>
-            <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+            <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
               Scroll to top
             </span>
           </div>
@@ -1500,17 +1488,90 @@ export default function LawDetailPage({
             <button
               type="button"
               onClick={scrollToBottom}
-              className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
               aria-label="Scroll to bottom"
             >
               <ArrowDown className="h-5 w-5" />
             </button>
-            <span className="pointer-events-none absolute right-full mr-2 top-1/2 -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+            <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
               Scroll to bottom
             </span>
           </div>
         </div>
       )}
+
+      <Dialog.Root open={printCheckoutOpen} onOpenChange={setPrintCheckoutOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-[101] flex max-h-[min(90vh,calc(100%-2rem))] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-2xl focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+            <Dialog.Title className="text-lg font-semibold tracking-tight text-foreground">
+              Print or download this law
+            </Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              One-time unlock for <span className="font-medium text-foreground">$3</span>. Choose how you want to pay, then continue to the payment page.
+            </Dialog.Description>
+            <div className="mt-5 min-w-0 space-y-4">
+              <PaymentMethodPicker
+                value={printCheckoutProvider}
+                onChange={setPrintCheckoutProvider}
+                lomiAvailable={lomiAvailable}
+                lomiComingSoon={lomiComingSoon}
+                onLomiComingSoonClick={() => {
+                  void showAlert(
+                    "Credit card payments are coming soon. For now, please use Mobile Money.",
+                    "Coming soon"
+                  );
+                }}
+              />
+              {printCheckoutProvider === "pawapay" && (
+                <PawapayCountrySelect
+                  label="Mobile money country"
+                  value={pawapayPaymentCountry}
+                  onChange={setPawapayPaymentCountry}
+                />
+              )}
+            </div>
+            <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  Cancel
+                </button>
+              </Dialog.Close>
+              <button
+                type="button"
+                onClick={() => void submitPrintCheckout()}
+                disabled={
+                  printLoading ||
+                  (printCheckoutProvider === "lomi" && !lomiAvailable && !lomiComingSoon)
+                }
+                className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {printLoading ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Preparing checkout…
+                  </span>
+                ) : (
+                  "Proceed to checkout"
+                )}
+              </button>
+            </div>
+            <Dialog.Close asChild>
+              <button
+                type="button"
+                className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </Dialog.Close>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
       {confirmDialog}
       {alertDialog}
     </div>
