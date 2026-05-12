@@ -44,6 +44,66 @@ body {
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Law library (and similar) — paper-like PDF / print output; site chrome hides via print:hidden. */
+@media print {
+  @page {
+    margin: 14mm 16mm;
+    size: auto;
+  }
+
+  html {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .law-print-document section {
+    break-inside: auto;
+  }
+
+  .law-print-document h2,
+  .law-print-document h2 *,
+  .law-print-document h3,
+  .law-print-document h3 * {
+    color: #0d1b2a !important;
+  }
+
+  .law-print-document h2,
+  .law-print-document h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .law-print-document,
+  .law-print-document .prose {
+    color: #1a1a1a !important;
+  }
+
+  .law-print-document .prose a {
+    color: #0d1b2a !important;
+    text-decoration: underline;
+    font-weight: 600;
+  }
+
+  .law-print-document table {
+    border-color: #ccc !important;
+  }
+
+  .law-print-document .rounded-xl.border {
+    box-shadow: none !important;
+  }
+}
+
 h1,
 h2,
 h3,
