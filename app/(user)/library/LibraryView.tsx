@@ -16,15 +16,15 @@ import {
   BookmarkCheck,
   ChevronLeft,
   ChevronRight,
-  Printer,
   Loader2,
   Info,
+  FileDown,
 } from "lucide-react";
 import type { LibraryCountry, LibraryCategory, LibraryLawRow } from "@/lib/library-data";
 import { useUser } from "@clerk/nextjs";
 import { useAlertDialog } from "@/components/ui/use-confirm";
-import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
+import { readPaidLawIdsFromStorage, PAID_LAWS_STORAGE_KEY } from "@/lib/library-paid-laws-storage";
 
 const PAGE_SIZE = 12;
 const SUPPORT_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
@@ -281,7 +281,6 @@ export function LibraryView({
   const pathname = usePathname();
   const { user, isSignedIn } = useUser();
   const [printLoadingId, setPrintLoadingId] = useState<string | null>(null);
-  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const [paidLawIds, setPaidLawIds] = useState<Set<string>>(() => new Set());
   const isAdmin = (user?.publicMetadata?.role as string | undefined) === "admin";
   const [search, setSearch] = useState(initialSearch);
@@ -430,6 +429,7 @@ export function LibraryView({
           setBookmarkedIds(new Set(list.map((b) => b.law_id)));
         })
         .catch(() => {});
+      setPaidLawIds(new Set(readPaidLawIdsFromStorage()));
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
@@ -462,20 +462,17 @@ export function LibraryView({
     }
   }, [currentTier, isSignedIn]);
 
-  // Hydrate paid law IDs from localStorage so we can avoid Stripe for laws
-  // that have already been purchased (from this browser).
+  // Hydrate paid law IDs from localStorage (same browser where checkout completed).
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem("yamale-paid-laws");
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        setPaidLawIds(new Set(parsed.filter((id: unknown) => typeof id === "string")));
+    setPaidLawIds(new Set(readPaidLawIdsFromStorage()));
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === PAID_LAWS_STORAGE_KEY || e.key === null) {
+        setPaidLawIds(new Set(readPaidLawIdsFromStorage()));
       }
-    } catch {
-      // ignore
-    }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   const updateUrl = useCallback(
@@ -646,7 +643,7 @@ export function LibraryView({
     async (lawId: string) => {
       if (paidLawIds.has(lawId)) {
         // Already paid for this law in this browser – go straight to law page
-        // and trigger print via ?print=1.
+        // and trigger PDF download via ?print=1.
         router.push(`/library/${lawId}?print=1`);
         return;
       }
@@ -660,7 +657,7 @@ export function LibraryView({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ return_path: `/library/${lawId}`, paymentCountry: pawapayPaymentCountry }),
+          body: JSON.stringify({ return_path: `/library/${lawId}`, paymentCountry: DEFAULT_PAWAPAY_PAYMENT_COUNTRY }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -674,7 +671,7 @@ export function LibraryView({
         setPrintLoadingId(null);
       }
     },
-    [isSignedIn, router, paidLawIds, showAlert, pawapayPaymentCountry]
+    [isSignedIn, router, paidLawIds, showAlert]
   );
 
   const searchSuggestions = useMemo(() => {
@@ -981,14 +978,6 @@ export function LibraryView({
                   ))}
                 </select>
               </label>
-              {isSignedIn && (
-                <PawapayCountrySelect
-                  label="Mobile money (for paid print)"
-                  value={pawapayPaymentCountry}
-                  onChange={setPawapayPaymentCountry}
-                  className="w-full sm:min-w-[220px]"
-                />
-              )}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -1014,6 +1003,14 @@ export function LibraryView({
                 className="inline-flex w-full items-center justify-center gap-1 rounded-[6px] border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary sm:w-auto"
               >
                 <BookmarkCheck className="h-3.5 w-3.5" aria-hidden /> Bookmarked ({bookmarkedIds.size})
+              </Link>
+            )}
+            {paidLawIds.size > 0 && (
+              <Link
+                href="/library/purchased"
+                className="inline-flex w-full items-center justify-center gap-1 rounded-[6px] border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary sm:w-auto"
+              >
+                <FileDown className="h-3.5 w-3.5" aria-hidden /> Purchased ({paidLawIds.size})
               </Link>
             )}
           </div>
@@ -1129,14 +1126,14 @@ export function LibraryView({
                           onClick={() => handlePrintPayment(law.id)}
                           disabled={printLoadingId === law.id}
                           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
-                          title="Print or download ($3) — payment required"
+                          title="Download ($3) — one-time unlock"
                         >
                           {printLoadingId === law.id ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           ) : (
-                            <Printer className="h-3.5 w-3.5" />
+                            <FileDown className="h-3.5 w-3.5" />
                           )}
-                          <span>Print ($3)</span>
+                          <span>Download ($3)</span>
                         </button>
                         <Link
                           href={lawHref}
