@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
       plan_id: planId,
       interval,
       change_type: changeType,
+      payment_provider: lomiMd ? "lomi" : "pawapay",
     });
 
     return NextResponse.json({ ok: true, tier: planId });
