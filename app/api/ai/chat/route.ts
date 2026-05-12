@@ -31,6 +31,7 @@ import {
   buildAiResearchSystemPrompt,
   SYSTEM_PROMPT_VERSION,
 } from "@/lib/ai-system-prompt";
+import { isPlatformGuideMetaQuery } from "@/lib/ai-platform-meta-query";
 import { extractCitedDocIndices, citedSlotsAsUsedFlags } from "@/lib/ai-citation-verify";
 import { insertAiQueryLog } from "@/lib/ai-query-log";
 
@@ -1980,6 +1981,7 @@ export async function POST(request: NextRequest) {
     // Get the last user message for RAG search
     const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
     const userQuery = lastUserMessage?.content || "";
+    const platformGuideMeta = isPlatformGuideMetaQuery(userQuery);
 
     // If user asks a legal follow-up, inherit country/category context from the
     // current chat before asking for clarification.
@@ -2097,16 +2099,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Search legal library for relevant content (RAG)
+    // Search legal library for relevant content (RAG) — skip for product / onboarding questions
     const aiTurnStartedAt = Date.now();
     // Premium-by-default responses, unless user explicitly asks for brevity.
     const detailedMode = isDetailedRequest(userQuery) || !isBriefRequest(userQuery);
-    let legalContext = await searchLegalLibrary(userQuery, effectiveHints.country, detailedMode);
-    if (!legalContext.length) {
+    let legalContext = platformGuideMeta
+      ? []
+      : await searchLegalLibrary(userQuery, effectiveHints.country, detailedMode);
+    if (!platformGuideMeta && !legalContext.length) {
       legalContext = await searchLegalLibraryQuickFallback(userQuery, effectiveHints.country ?? undefined);
     }
 
     if (
+      !platformGuideMeta &&
       legalContext.length === 0 &&
       !effectiveHints.country &&
       !skipCountryRequirement &&
@@ -2203,6 +2208,7 @@ export async function POST(request: NextRequest) {
       detailedMode,
       specificLawHint,
       requestedArticle: extractRequestedArticle(userQuery),
+      platformGuideMode: platformGuideMeta,
     });
 
     const modelId = await resolveModelIdForRequest(tier, requestedModel);
@@ -2315,13 +2321,15 @@ export async function POST(request: NextRequest) {
       await incrementAiUsage(userId, inputTokens, outputTokens);
     }
 
-    // Build sources list from retrieved legal documents
-    const sources = legalContext.length > 0
-      ? [
-          ...Array.from(new Set(legalContext.map((law) => `${law.title} (${law.country})`))),
-          "Claude AI · African Legal Research",
-        ]
-      : ["Claude AI · African Legal Research"];
+    // Build sources list from retrieved legal documents (omit for product / onboarding replies)
+    const sources = platformGuideMeta
+      ? []
+      : legalContext.length > 0
+        ? [
+            ...Array.from(new Set(legalContext.map((law) => `${law.title} (${law.country})`))),
+            "Claude AI · African Legal Research",
+          ]
+        : ["Claude AI · African Legal Research"];
 
     const citationParse = extractCitedDocIndices(assistantTextRaw, legalContext.length);
     const assistantText = assistantTextRaw
@@ -2370,7 +2378,7 @@ export async function POST(request: NextRequest) {
         supranationalFrameworksInQuery.length > 0
           ? supranationalFrameworksInQuery.map((m) => m.canonicalName)
           : null,
-      retrieved_law_ids: legalContext.map((l) => l.id),
+      retrieved_law_ids: platformGuideMeta ? [] : legalContext.map((l) => l.id),
       system_prompt_version: SYSTEM_PROMPT_VERSION,
       model: modelId,
       response_preview: assistantTextRaw,
@@ -2381,7 +2389,7 @@ export async function POST(request: NextRequest) {
     let lawyerNudge: { country: string; category: string; count: number; href: string } | null = null;
     const nudgeCountry = effectiveHints.country ?? legalContext[0]?.country;
     const nudgeCategory = currentHints.category ?? legalContext[0]?.category;
-    if (nudgeCountry && nudgeCategory) {
+    if (!platformGuideMeta && nudgeCountry && nudgeCategory) {
       try {
         const supabase = getSupabaseServer();
         const safeCategory = nudgeCategory.replace(/[%_]/g, "\\$&");
