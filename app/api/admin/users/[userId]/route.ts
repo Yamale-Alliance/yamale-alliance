@@ -41,6 +41,19 @@ export async function PATCH(
         );
       }
       updates.tier = tier;
+      if (tier === "free") {
+        delete updates.subscription_grant;
+        delete updates.subscription_payment_provider;
+        delete updates.subscriber_since;
+      } else if (["basic", "pro", "team"].includes(tier)) {
+        updates.subscription_grant = true;
+        delete updates.subscription_payment_provider;
+        if (
+          !(typeof existing.subscriber_since === "string" && existing.subscriber_since.trim())
+        ) {
+          updates.subscriber_since = new Date().toISOString();
+        }
+      }
     }
 
     if (role !== undefined) {
