@@ -41,9 +41,22 @@ Yamalé Alliance now supports offline mode with service worker caching, backgrou
 ## Usage
 
 ### For Users
-- **Automatic**: Service worker registers automatically on first visit
-- **Offline browsing**: Previously viewed laws and chats are available offline
+- **Automatic**: Service worker registers automatically on first visit (production builds only; disabled in `development` to avoid stale caches).
+- **Offline browsing**: Previously viewed laws and chats are available offline when cached by the service worker.
+- **Save a law for offline** (law reader): On any law page, use **Save for offline** to store a snapshot of that law in **IndexedDB** on your device. Choose how long to keep it (**7 / 30 / 90 days**); expired snapshots are removed automatically when you open the library or sync runs.
+- **Background refresh**: When you are online again, saved laws are **re-fetched** in the background (on the `online` event and when the `yamale-saved-laws` Background Sync tag runs, where supported) so text stays closer to the server copy. A direct `fetch` after save also warms the `/api/laws/[id]` cache for the service worker.
 - **Queue actions**: Failed actions (bookmarks, reviews, etc.) are queued and synced when online
+
+### Save for offline — scope
+
+| | |
+|--|--|
+| **What is stored** | JSON snapshot of the law record returned by `/api/laws/[id]` (same fields the reader uses). |
+| **Where** | Browser **IndexedDB** database `yamale-saved-laws`, object store `snapshots`. |
+| **How long** | User-selectable **7, 30, or 90 days** from save time (`expiresAt`). |
+| **If the network fails** | Opening `/library/[id]` while offline uses the snapshot when the API is unavailable. |
+| **Not included** | Paywall PDF bytes, marketplace files, or AI-generated content beyond what was already in the law record. |
+
 
 ### For Developers
 
