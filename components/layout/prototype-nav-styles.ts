@@ -1,7 +1,7 @@
 /** Yamalé prototype (yamale_prototype.html) — shared nav chrome classes. */
 
 export const prototypeNavHeaderClass =
-  "sticky top-0 z-50 border-b border-border bg-card shadow-[0_1px_3px_rgba(13,27,42,0.06),0_1px_2px_rgba(13,27,42,0.04)]";
+  "sticky top-0 z-50 border-b border-border bg-card shadow-[0_1px_3px_rgba(13,27,42,0.06),0_1px_2px_rgba(13,27,42,0.04)] print:hidden";
 
 export const prototypeNavInnerClass =
   "mx-auto flex h-[72px] max-w-[1280px] items-center justify-between gap-2 px-4 sm:h-[88px] sm:px-8";
