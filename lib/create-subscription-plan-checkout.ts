@@ -44,6 +44,7 @@ export async function createSubscriptionPlanCheckoutRedirect(params: CreatePlanC
     plan_id: planId,
     interval,
     kind: BASE_SUB_KIND,
+    payment_provider: provider,
   };
   for (const [k, v] of Object.entries(metadataExtra)) {
     if (v != null && v !== "") baseMeta[k] = v;
