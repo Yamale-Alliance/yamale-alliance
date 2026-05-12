@@ -22,8 +22,6 @@ import {
   FileDown,
   Search,
   BookOpen,
-  CloudDownload,
-  Trash2,
   ChevronUp,
   ChevronDown,
 } from "lucide-react";
@@ -47,13 +45,7 @@ import { usePlatformSettings } from "@/components/platform/PlatformSettingsConte
 import { downloadLawDocumentPdf } from "@/lib/library/law-document-pdf";
 import { mergePaidLawIdIntoStorage, readPaidLawIdsFromStorage } from "@/lib/library-paid-laws-storage";
 import { fetchDocumentExportUnlockLawIds } from "@/lib/library-document-export-unlocks-client";
-import {
-  deleteOfflineLawSnapshot,
-  getOfflineLawSnapshot,
-  OFFLINE_LAW_DEFAULT_TTL_DAYS,
-  OFFLINE_LAW_TTL_OPTIONS_DAYS,
-  saveOfflineLawSnapshot,
-} from "@/lib/library-offline-storage";
+import { getOfflineLawSnapshot } from "@/lib/library-offline-storage";
 import {
   applyLawDocumentSearchHighlights,
   clearLawDocumentSearchHighlights,
@@ -776,9 +768,6 @@ export default function LawDetailPage({
   const [fromOfflineSnapshot, setFromOfflineSnapshot] = useState(false);
   const [docSearchQuery, setDocSearchQuery] = useState("");
   const [docSearchMatchCount, setDocSearchMatchCount] = useState(0);
-  const [offlineSaved, setOfflineSaved] = useState(false);
-  const [offlineSaveBusy, setOfflineSaveBusy] = useState(false);
-  const [offlineTtlDays, setOfflineTtlDays] = useState<number>(OFFLINE_LAW_DEFAULT_TTL_DAYS);
   const docSearchRootRef = useRef<HTMLDivElement>(null);
   const docSearchHitIndexRef = useRef(0);
   const hasTriggeredPostPurchasePdf = useRef(false);
@@ -1070,33 +1059,6 @@ export default function LawDetailPage({
     hits[i]?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, []);
 
-  const handleSaveForOffline = async () => {
-    if (!law) return;
-    setOfflineSaveBusy(true);
-    try {
-      await saveOfflineLawSnapshot(
-        law.id,
-        JSON.parse(JSON.stringify(law)) as Record<string, unknown>,
-        offlineTtlDays
-      );
-      setOfflineSaved(true);
-      await showAlert(
-        `Saved on this device for ${offlineTtlDays} day${offlineTtlDays === 1 ? "" : "s"}. It is removed automatically after that. While online, we refresh the text in the background when possible.`,
-        "Saved for offline"
-      );
-    } catch {
-      await showAlert("Could not save offline. Check that storage is allowed for this site.", "Offline");
-    } finally {
-      setOfflineSaveBusy(false);
-    }
-  };
-
-  const handleRemoveOfflineSave = async () => {
-    if (!law) return;
-    await deleteOfflineLawSnapshot(law.id);
-    setOfflineSaved(false);
-  };
-
   useEffect(() => {
     let cancelled = false;
     params.then((p) => {
@@ -1105,14 +1067,6 @@ export default function LawDetailPage({
     });
     return () => { cancelled = true; };
   }, [params]);
-
-  useEffect(() => {
-    if (!law?.id || typeof window === "undefined") return;
-    void (async () => {
-      const s = await getOfflineLawSnapshot(law.id);
-      setOfflineSaved(Boolean(s));
-    })();
-  }, [law?.id]);
 
   useEffect(() => {
     if (!resolvedId) return;
@@ -1378,43 +1332,6 @@ export default function LawDetailPage({
                   <BookOpen className="h-4 w-4" />
                   {readingMode ? "Exit reading mode" : "Reading mode"}
                 </button>
-                <div className="flex items-center gap-1.5">
-                  <label htmlFor="offline-ttl" className="sr-only">
-                    Offline retention
-                  </label>
-                  <select
-                    id="offline-ttl"
-                    value={offlineTtlDays}
-                    onChange={(e) => setOfflineTtlDays(Number(e.target.value))}
-                    className="rounded-lg border border-white/20 bg-[#0d1b2a]/90 px-2 py-2 text-[11px] font-medium text-white"
-                  >
-                    {OFFLINE_LAW_TTL_OPTIONS_DAYS.map((d) => (
-                      <option key={d} value={d}>
-                        Keep offline: {d}d
-                      </option>
-                    ))}
-                  </select>
-                  {offlineSaved ? (
-                    <button
-                      type="button"
-                      onClick={() => void handleRemoveOfflineSave()}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-300/40 px-3 py-2 text-xs font-semibold text-red-100 hover:bg-red-950/40"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Remove offline
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={offlineSaveBusy}
-                      onClick={() => void handleSaveForOffline()}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-white/12 px-3 py-2 text-xs font-semibold text-white hover:bg-white/18 disabled:opacity-50"
-                    >
-                      {offlineSaveBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CloudDownload className="h-3.5 w-3.5" />}
-                      Save for offline
-                    </button>
-                  )}
-                </div>
               </div>
             </div>
           )}
@@ -1740,17 +1657,22 @@ export default function LawDetailPage({
       </div>
 
       {(hasContent || isAdmin) && (
-        <div className="fixed bottom-5 right-5 z-40 flex min-w-[3.35rem] flex-col gap-1 rounded-2xl border border-border/80 bg-card/95 p-1.5 shadow-lg shadow-black/10 backdrop-blur-xl print:hidden">
+        <div
+          className="fixed z-40 flex flex-col gap-1 rounded-2xl border border-border/80 bg-card/95 p-1.5 shadow-lg shadow-black/20 backdrop-blur-xl print:hidden max-sm:left-1/2 max-sm:max-w-[min(22rem,calc(100vw-1.25rem))] max-sm:-translate-x-1/2 max-sm:bottom-[max(0.75rem,env(safe-area-inset-bottom))] max-sm:flex-row max-sm:flex-wrap max-sm:justify-center max-sm:px-1.5 max-sm:py-1.5 sm:bottom-5 sm:right-5 sm:left-auto sm:translate-x-0 sm:min-w-[3.35rem] sm:flex-col sm:overflow-visible [&_svg]:h-4 [&_svg]:w-4 sm:[&_svg]:h-5 sm:[&_svg]:w-5"
+          role="toolbar"
+          aria-label="Law page shortcuts"
+        >
           {/* Back to Library */}
           <div className="relative group">
             <Link
               href={returnTo && returnTo.startsWith("/library") ? returnTo : "/library"}
-              className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-muted-foreground hover:bg-accent hover:text-foreground"
               aria-label="Back to Library"
+              title="Back to library"
             >
               <ChevronLeft className="h-5 w-5" />
             </Link>
-            <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+            <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
               Back to Library
             </span>
           </div>
@@ -1763,12 +1685,13 @@ export default function LawDetailPage({
                   document.getElementById("law-doc-search")?.focus({ preventScroll: false });
                   document.getElementById("law-doc-search")?.scrollIntoView({ behavior: "smooth", block: "center" });
                 }}
-                className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-muted-foreground hover:bg-accent hover:text-foreground"
                 aria-label="Search in document"
+                title="Search in document"
               >
                 <Search className="h-5 w-5" />
               </button>
-              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
                 Search in document
               </span>
             </div>
@@ -1779,12 +1702,13 @@ export default function LawDetailPage({
               <button
                 type="button"
                 onClick={() => setReadingMode((v) => !v)}
-                className={`inline-flex size-11 items-center justify-center rounded-lg ${readingMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
+                className={`inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 ${readingMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
                 aria-label={readingMode ? "Exit reading mode" : "Reading mode"}
+                title={readingMode ? "Exit reading mode" : "Reading mode"}
               >
                 <BookOpen className="h-5 w-5" />
               </button>
-              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
                 {readingMode ? "Exit reading mode" : "Reading mode"}
               </span>
             </div>
@@ -1797,7 +1721,14 @@ export default function LawDetailPage({
                 type="button"
                 onClick={() => void handleDocumentExportClick()}
                 disabled={printLoading}
-                className="inline-flex size-11 items-center justify-center rounded-lg text-[#C8922A] hover:bg-accent/80 hover:text-[#E8B84B] disabled:opacity-50"
+                title={
+                  hasPaidForThisLaw
+                    ? "Download PDF"
+                    : isSignedIn
+                      ? "Unlock download ($3)"
+                      : "Sign in to unlock download"
+                }
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-[#C8922A] hover:bg-accent/80 hover:text-[#E8B84B] disabled:opacity-50"
                 aria-label={
                   hasPaidForThisLaw
                     ? "Download"
@@ -1814,7 +1745,7 @@ export default function LawDetailPage({
                   <FileDown className="h-5 w-5 opacity-90" />
                 )}
               </button>
-              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 max-w-[14rem] whitespace-normal rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 max-w-[14rem] whitespace-normal rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
                 {hasPaidForThisLaw
                   ? "Download"
                   : isSignedIn
@@ -1829,12 +1760,13 @@ export default function LawDetailPage({
             <div className="relative group">
               <Link
                 href={`/admin-panel/laws/${law.id}`}
-                className="inline-flex size-11 items-center justify-center rounded-lg text-primary hover:bg-primary/10"
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-primary hover:bg-primary/10"
                 aria-label="Edit law"
+                title="Edit law (admin)"
               >
                 <FileEdit className="h-5 w-5" />
               </Link>
-              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
                 Edit law (admin)
               </span>
             </div>
@@ -1847,12 +1779,13 @@ export default function LawDetailPage({
                 type="button"
                 onClick={() => void handleFixOcr()}
                 disabled={fixOcrLoading || !rawContent.trim()}
-                className="inline-flex size-11 items-center justify-center rounded-lg text-primary hover:bg-primary/10 disabled:opacity-50"
+                title="Fix OCR (admin)"
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-primary hover:bg-primary/10 disabled:opacity-50"
                 aria-label="Fix OCR and clean noise"
               >
                 {fixOcrLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
               </button>
-              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
                 Fix OCR (admin)
               </span>
             </div>
@@ -1864,7 +1797,8 @@ export default function LawDetailPage({
               type="button"
               onClick={isSignedIn ? toggleBookmark : () => window.location.assign("/sign-in?redirect_url=" + encodeURIComponent(window.location.pathname))}
               disabled={bookmarkLoading}
-              className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+              title={isSignedIn ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Sign in to bookmark"}
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
               aria-label={isSignedIn ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Sign in to bookmark"}
             >
               {isSignedIn && isBookmarked ? (
@@ -1873,37 +1807,39 @@ export default function LawDetailPage({
                 <Bookmark className="h-5 w-5" />
               )}
             </button>
-            <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+            <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
               {isSignedIn ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Sign in to bookmark"}
             </span>
           </div>
 
-          <div className="mx-auto my-0.5 h-px w-7 bg-border" />
+          <div className="mx-auto my-0.5 hidden h-px w-7 bg-border sm:block" />
 
-          {/* Scroll controls */}
-          <div className="relative group">
+          {/* Scroll controls — desktop only (mobile uses native scroll; saves vertical clutter) */}
+          <div className="relative group max-sm:hidden">
             <button
               type="button"
               onClick={scrollToTop}
-              className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+              title="Scroll to top"
               aria-label="Scroll to top"
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               <ArrowUp className="h-5 w-5" />
             </button>
-            <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+            <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
               Scroll to top
             </span>
           </div>
-          <div className="relative group">
+          <div className="relative group max-sm:hidden">
             <button
               type="button"
               onClick={scrollToBottom}
-              className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+              title="Scroll to bottom"
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-muted-foreground hover:bg-accent hover:text-foreground"
               aria-label="Scroll to bottom"
             >
               <ArrowDown className="h-5 w-5" />
             </button>
-            <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+            <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
               Scroll to bottom
             </span>
           </div>
