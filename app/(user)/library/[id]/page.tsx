@@ -20,6 +20,12 @@ import {
   FileEdit,
   Sparkles,
   FileDown,
+  Search,
+  BookOpen,
+  CloudDownload,
+  Trash2,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useUser } from "@clerk/nextjs";
@@ -40,6 +46,18 @@ import { PlatformLogo } from "@/components/platform/PlatformLogo";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
 import { downloadLawDocumentPdf } from "@/lib/library/law-document-pdf";
 import { mergePaidLawIdIntoStorage, readPaidLawIdsFromStorage } from "@/lib/library-paid-laws-storage";
+import {
+  deleteOfflineLawSnapshot,
+  getOfflineLawSnapshot,
+  OFFLINE_LAW_DEFAULT_TTL_DAYS,
+  OFFLINE_LAW_TTL_OPTIONS_DAYS,
+  saveOfflineLawSnapshot,
+} from "@/lib/library-offline-storage";
+import {
+  applyLawDocumentSearchHighlights,
+  clearLawDocumentSearchHighlights,
+  getLawDocumentSearchHitElements,
+} from "@/lib/law-document-search-highlight";
 
 type LawStatus = "In force" | "Amended" | "Repealed";
 
@@ -751,6 +769,16 @@ export default function LawDetailPage({
   const [hasPaidForThisLaw, setHasPaidForThisLaw] = useState(false);
   const [fixOcrLoading, setFixOcrLoading] = useState(false);
   const [fixOcrBanner, setFixOcrBanner] = useState<string | null>(null);
+  const [readingMode, setReadingMode] = useState(false);
+  const [fromOfflineSnapshot, setFromOfflineSnapshot] = useState(false);
+  const [docSearchQuery, setDocSearchQuery] = useState("");
+  const [docSearchMatchCount, setDocSearchMatchCount] = useState(0);
+  const [offlineSaved, setOfflineSaved] = useState(false);
+  const [offlineSaveBusy, setOfflineSaveBusy] = useState(false);
+  const [offlineTtlDays, setOfflineTtlDays] = useState<number>(OFFLINE_LAW_DEFAULT_TTL_DAYS);
+  const docSearchRootRef = useRef<HTMLDivElement>(null);
+  const docSearchHitIndexRef = useRef(0);
+  const hasTriggeredPostPurchasePdf = useRef(false);
   const { confirm, confirmDialog } = useConfirm();
   const { alert: showAlert, alertDialog } = useAlertDialog();
   const lomiAvailable =
@@ -998,6 +1026,44 @@ export default function LawDetailPage({
     }
   };
 
+  const goDocSearchHit = useCallback((delta: number) => {
+    const root = docSearchRootRef.current;
+    if (!root) return;
+    const hits = getLawDocumentSearchHitElements(root);
+    if (!hits.length) return;
+    docSearchHitIndexRef.current = (docSearchHitIndexRef.current + delta + hits.length) % hits.length;
+    const i = docSearchHitIndexRef.current;
+    hits.forEach((h, j) => h.classList.toggle("law-doc-search-hit-active", j === i));
+    hits[i]?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
+
+  const handleSaveForOffline = async () => {
+    if (!law) return;
+    setOfflineSaveBusy(true);
+    try {
+      await saveOfflineLawSnapshot(
+        law.id,
+        JSON.parse(JSON.stringify(law)) as Record<string, unknown>,
+        offlineTtlDays
+      );
+      setOfflineSaved(true);
+      await showAlert(
+        `Saved on this device for ${offlineTtlDays} day${offlineTtlDays === 1 ? "" : "s"}. It is removed automatically after that. While online, we refresh the text in the background when possible.`,
+        "Saved for offline"
+      );
+    } catch {
+      await showAlert("Could not save offline. Check that storage is allowed for this site.", "Offline");
+    } finally {
+      setOfflineSaveBusy(false);
+    }
+  };
+
+  const handleRemoveOfflineSave = async () => {
+    if (!law) return;
+    await deleteOfflineLawSnapshot(law.id);
+    setOfflineSaved(false);
+  };
+
   useEffect(() => {
     let cancelled = false;
     params.then((p) => {
@@ -1008,25 +1074,67 @@ export default function LawDetailPage({
   }, [params]);
 
   useEffect(() => {
+    if (!law?.id || typeof window === "undefined") return;
+    void (async () => {
+      const s = await getOfflineLawSnapshot(law.id);
+      setOfflineSaved(Boolean(s));
+    })();
+  }, [law?.id]);
+
+  useEffect(() => {
     if (!resolvedId) return;
-    fetch(`/api/laws/${resolvedId}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Law not found");
-        return res.json();
-      })
-      .then((data: LawDetail) => {
-        setLaw(data);
-        try {
-          const key = "yamale-library-recently-opened";
-          if (typeof window !== "undefined") {
-            localStorage.setItem(key, JSON.stringify(resolvedId));
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setFromOfflineSnapshot(false);
+
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/laws/${resolvedId}`, { credentials: "include" });
+        if (res.ok) {
+          const data = (await res.json()) as LawDetail;
+          if (!cancelled) {
+            setLaw(data);
+            setFromOfflineSnapshot(false);
+            try {
+              const key = "yamale-library-recently-opened";
+              localStorage.setItem(key, JSON.stringify(resolvedId));
+            } catch {
+              // ignore
+            }
           }
-        } catch {
-          // ignore
+          return;
         }
-      })
-      .catch(() => setError("Could not load this law."))
-      .finally(() => setLoading(false));
+        const snap = await getOfflineLawSnapshot(resolvedId);
+        if (snap?.law && !cancelled) {
+          setLaw(snap.law as LawDetail);
+          setFromOfflineSnapshot(true);
+          try {
+            const key = "yamale-library-recently-opened";
+            localStorage.setItem(key, JSON.stringify(resolvedId));
+          } catch {
+            // ignore
+          }
+          return;
+        }
+        if (!cancelled) setError("Could not load this law.");
+      } catch {
+        const snap = await getOfflineLawSnapshot(resolvedId);
+        if (snap?.law && !cancelled) {
+          setLaw(snap.law as LawDetail);
+          setFromOfflineSnapshot(true);
+        } else if (!cancelled) {
+          setError("Could not load this law.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, [resolvedId]);
 
   useEffect(() => {
@@ -1037,9 +1145,26 @@ export default function LawDetailPage({
     if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
   }, [law?.id]);
 
+  useEffect(() => {
+    const root = docSearchRootRef.current;
+    if (!root || !law || sections.length === 0) {
+      setDocSearchMatchCount(0);
+      return;
+    }
+    const t = window.setTimeout(() => {
+      const n = applyLawDocumentSearchHighlights(root, docSearchQuery);
+      setDocSearchMatchCount(n);
+      const hits = getLawDocumentSearchHitElements(root);
+      docSearchHitIndexRef.current = 0;
+      hits.forEach((h, j) => h.classList.toggle("law-doc-search-hit-active", j === 0 && n > 0));
+    }, 160);
+    return () => {
+      clearTimeout(t);
+      clearLawDocumentSearchHighlights(root);
+    };
+  }, [docSearchQuery, law?.id, sections]);
+
   // After successful pay-as-you-go: download PDF once, then clean the URL.
-  // Paid laws are remembered in localStorage so checkout is not shown again in this browser.
-  const hasTriggeredPostPurchasePdf = useRef(false);
   useEffect(() => {
     if (!law || hasTriggeredPostPurchasePdf.current || typeof window === "undefined") return;
     const shouldAuto = Boolean(paygDocument || (printRequested && hasPaidForThisLaw));
@@ -1093,8 +1218,10 @@ export default function LawDetailPage({
   const isRtl = isPrimarilyArabic(rawContent);
 
   return (
-    <div className="min-h-screen bg-background print:bg-white">
-      <header className={`print:hidden ${prototypeNavyHeroSectionClass} px-4 py-10 backdrop-blur-md sm:px-8`}>
+    <div
+      className={`law-page-root min-h-screen bg-background print:bg-white ${readingMode ? "law-reading-mode-active" : ""}`}
+    >
+      <header className={`law-page-hero print:hidden ${prototypeNavyHeroSectionClass} px-4 py-10 backdrop-blur-md sm:px-8`}>
         <div
           className="pointer-events-none absolute inset-0 z-0 opacity-[0.92]"
           style={{ backgroundImage: PROTOTYPE_HERO_GRID_PATTERN }}
@@ -1110,12 +1237,14 @@ export default function LawDetailPage({
               >
                 <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" /> Back to Library
               </Link>
-              <h1 className="heading mt-6 text-2xl font-bold leading-[1.15] tracking-tight text-white sm:text-3xl md:text-4xl md:tracking-[-0.02em]">
-                {law.title}
-              </h1>
-              <div className="mt-4 flex items-center gap-3" aria-hidden>
-                <div className="h-1 w-12 rounded-full bg-[#E8B84B]" />
-                <div className="h-px max-w-24 flex-1 bg-gradient-to-r from-[#E8B84B]/70 to-transparent" />
+              <div className="law-reading-hide-when-reading">
+                <h1 className="heading mt-6 text-2xl font-bold leading-[1.15] tracking-tight text-white sm:text-3xl md:text-4xl md:tracking-[-0.02em]">
+                  {law.title}
+                </h1>
+                <div className="mt-4 flex items-center gap-3" aria-hidden>
+                  <div className="h-1 w-12 rounded-full bg-[#E8B84B]" />
+                  <div className="h-px max-w-24 flex-1 bg-gradient-to-r from-[#E8B84B]/70 to-transparent" />
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0 print:hidden">
@@ -1136,23 +1265,126 @@ export default function LawDetailPage({
               )}
             </div>
           </div>
-          <div className="mt-5 flex flex-wrap items-center gap-2">
-            {(law.applies_to_all_countries || law.countries?.name) && (
-              <span className="rounded-full border border-[rgba(200,146,42,0.35)] bg-[rgba(200,146,42,0.12)] px-3.5 py-1.5 text-xs font-semibold tracking-wide text-[#E8B84B]">
-                {law.applies_to_all_countries ? "All countries" : (law.countries?.name ?? "")}
-              </span>
-            )}
-            {law.categories?.name && (
-              <span className="rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-medium text-white/75">
-                {law.categories.name}
-              </span>
-            )}
-            {law.language_code && (
-              <span className="rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-medium text-white/75">
-                Language: {law.language_code.toUpperCase()}
-              </span>
-            )}
+          <div className="law-reading-hide-when-reading">
+            <div className="mt-5 flex flex-wrap items-center gap-2">
+              {(law.applies_to_all_countries || law.countries?.name) && (
+                <span className="rounded-full border border-[rgba(200,146,42,0.35)] bg-[rgba(200,146,42,0.12)] px-3.5 py-1.5 text-xs font-semibold tracking-wide text-[#E8B84B]">
+                  {law.applies_to_all_countries ? "All countries" : (law.countries?.name ?? "")}
+                </span>
+              )}
+              {law.categories?.name && (
+                <span className="rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-medium text-white/75">
+                  {law.categories.name}
+                </span>
+              )}
+              {law.language_code && (
+                <span className="rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-medium text-white/75">
+                  Language: {law.language_code.toUpperCase()}
+                </span>
+              )}
+            </div>
           </div>
+          {fromOfflineSnapshot && (
+            <p className="mt-3 max-w-3xl rounded-lg border border-amber-400/45 bg-amber-950/50 px-3 py-2 text-xs leading-relaxed text-amber-50">
+              You are viewing a copy saved on this device for offline use. Connect to the internet and reload to get the latest text from Yamalé when available.
+            </p>
+          )}
+          {hasContent && (
+            <div
+              className="mt-4 flex flex-col gap-3 rounded-xl border border-white/15 bg-white/[0.06] p-3 print:hidden sm:flex-row sm:flex-wrap sm:items-end"
+              data-law-search-skip
+            >
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <label htmlFor="law-doc-search" className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/55">
+                  Search in document
+                </label>
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <input
+                    id="law-doc-search"
+                    type="search"
+                    enterKeyHint="search"
+                    autoComplete="off"
+                    value={docSearchQuery}
+                    onChange={(e) => setDocSearchQuery(e.target.value)}
+                    placeholder="Word or phrase in this law…"
+                    className="min-w-0 flex-1 rounded-lg border border-white/20 bg-[#0d1b2a]/80 px-3 py-2 text-sm text-white placeholder:text-white/40 focus:border-[#E8B84B]/60 focus:outline-none focus:ring-1 focus:ring-[#E8B84B]/40"
+                  />
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => goDocSearchHit(-1)}
+                      disabled={docSearchMatchCount === 0}
+                      className="rounded-lg border border-white/20 p-2 text-white/80 hover:bg-white/10 disabled:opacity-40"
+                      aria-label="Previous match"
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => goDocSearchHit(1)}
+                      disabled={docSearchMatchCount === 0}
+                      className="rounded-lg border border-white/20 p-2 text-white/80 hover:bg-white/10 disabled:opacity-40"
+                      aria-label="Next match"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+                {docSearchQuery.trim().length >= 2 && (
+                  <p className="text-[11px] text-white/55">
+                    {docSearchMatchCount === 0 ? "No matches in the text below." : `${docSearchMatchCount} match${docSearchMatchCount === 1 ? "" : "es"} — use arrows to jump`}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 border-t border-white/10 pt-3 sm:border-t-0 sm:pt-0">
+                <button
+                  type="button"
+                  onClick={() => setReadingMode((v) => !v)}
+                  className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ${readingMode ? "bg-[#E8B84B] text-[#0d1b2a]" : "border border-white/25 text-white/90 hover:bg-white/10"}`}
+                >
+                  <BookOpen className="h-4 w-4" />
+                  {readingMode ? "Exit reading mode" : "Reading mode"}
+                </button>
+                <div className="flex items-center gap-1.5">
+                  <label htmlFor="offline-ttl" className="sr-only">
+                    Offline retention
+                  </label>
+                  <select
+                    id="offline-ttl"
+                    value={offlineTtlDays}
+                    onChange={(e) => setOfflineTtlDays(Number(e.target.value))}
+                    className="rounded-lg border border-white/20 bg-[#0d1b2a]/90 px-2 py-2 text-[11px] font-medium text-white"
+                  >
+                    {OFFLINE_LAW_TTL_OPTIONS_DAYS.map((d) => (
+                      <option key={d} value={d}>
+                        Keep offline: {d}d
+                      </option>
+                    ))}
+                  </select>
+                  {offlineSaved ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleRemoveOfflineSave()}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-300/40 px-3 py-2 text-xs font-semibold text-red-100 hover:bg-red-950/40"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Remove offline
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={offlineSaveBusy}
+                      onClick={() => void handleSaveForOffline()}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-white/12 px-3 py-2 text-xs font-semibold text-white hover:bg-white/18 disabled:opacity-50"
+                    >
+                      {offlineSaveBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CloudDownload className="h-3.5 w-3.5" />}
+                      Save for offline
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
           {law.translations && law.translations.length > 0 && (
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-white/80">
               <span className="font-semibold">Translations:</span>
@@ -1290,9 +1522,11 @@ export default function LawDetailPage({
           </header>
 
           {!law.applies_to_all_countries && law.countries?.name && law.categories?.name && (
-            <LawyerMatchBanner country={law.countries.name} category={law.categories.name} lawTitle={law.title} />
+            <div className="law-reading-hide-when-reading">
+              <LawyerMatchBanner country={law.countries.name} category={law.categories.name} lawTitle={law.title} />
+            </div>
           )}
-          <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
+          <div className="law-reading-stage flex flex-col gap-8 lg:flex-row lg:gap-10">
           {/* Desktop: sidebar. Mobile: hidden (use hamburger + drawer) */}
           {hasContent && sections.length >= 1 && (
             <nav
@@ -1360,7 +1594,8 @@ export default function LawDetailPage({
                 {/* Accent strip (screen only — keeps print output document-like) */}
                 <div className="h-2 w-full bg-gradient-to-r from-primary via-primary to-amber-500/80 print:hidden" aria-hidden />
                 <div
-                  className={`mx-auto w-full max-w-4xl px-6 py-8 sm:px-12 sm:py-10 md:px-16 md:py-14 print:max-w-none print:px-6 print:py-6 print:sm:px-8 ${isRtl ? "text-right" : ""}`}
+                  ref={docSearchRootRef}
+                  className={`law-doc-search-root mx-auto w-full max-w-4xl px-6 py-8 sm:px-12 sm:py-10 md:px-16 md:py-14 print:max-w-none print:px-6 print:py-6 print:sm:px-8 ${isRtl ? "text-right" : ""}`}
                   dir={isRtl ? "rtl" : undefined}
                   lang={isRtl ? "ar" : undefined}
                 >
@@ -1486,6 +1721,41 @@ export default function LawDetailPage({
               Back to Library
             </span>
           </div>
+
+          {hasContent && (
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={() => {
+                  document.getElementById("law-doc-search")?.focus({ preventScroll: false });
+                  document.getElementById("law-doc-search")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }}
+                className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+                aria-label="Search in document"
+              >
+                <Search className="h-5 w-5" />
+              </button>
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+                Search in document
+              </span>
+            </div>
+          )}
+
+          {hasContent && (
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={() => setReadingMode((v) => !v)}
+                className={`inline-flex size-11 items-center justify-center rounded-lg ${readingMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
+                aria-label={readingMode ? "Exit reading mode" : "Reading mode"}
+              >
+                <BookOpen className="h-5 w-5" />
+              </button>
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+                {readingMode ? "Exit reading mode" : "Reading mode"}
+              </span>
+            </div>
+          )}
 
           {/* Download (paid) or unlock via checkout */}
           {hasContent && (
