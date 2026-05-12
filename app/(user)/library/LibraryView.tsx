@@ -26,6 +26,7 @@ import { useUser } from "@clerk/nextjs";
 import { useAlertDialog } from "@/components/ui/use-confirm";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { readPaidLawIdsFromStorage, PAID_LAWS_STORAGE_KEY } from "@/lib/library-paid-laws-storage";
+import { syncDocumentExportUnlocksToLocalStorage } from "@/lib/library-document-export-unlocks-client";
 import { listOfflineLawSnapshots } from "@/lib/library-offline-storage";
 
 const PAGE_SIZE = 12;
@@ -438,6 +439,9 @@ export function LibraryView({
         })
         .catch(() => {});
       setPaidLawIds(new Set(readPaidLawIdsFromStorage()));
+      void syncDocumentExportUnlocksToLocalStorage().then(() => {
+        setPaidLawIds(new Set(readPaidLawIdsFromStorage()));
+      });
       refreshOfflineCount();
     };
     window.addEventListener("focus", onFocus);
@@ -483,6 +487,18 @@ export function LibraryView({
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !isSignedIn) return;
+    let cancelled = false;
+    void syncDocumentExportUnlocksToLocalStorage().then(() => {
+      if (cancelled) return;
+      setPaidLawIds(new Set(readPaidLawIdsFromStorage()));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isSignedIn]);
 
   const updateUrl = useCallback(
     (updates: { country?: string; category?: string; status?: string; q?: string; page?: number; sort?: string; documentType?: string; treatyType?: string; yearFrom?: string; yearTo?: string }) => {

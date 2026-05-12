@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, FileDown, Loader2, BookOpen } from "lucide-react";
 import { readPaidLawIdsFromStorage, PAID_LAWS_STORAGE_KEY } from "@/lib/library-paid-laws-storage";
+import { syncDocumentExportUnlocksToLocalStorage } from "@/lib/library-document-export-unlocks-client";
 
 type Law = {
   id: string;
@@ -20,27 +21,43 @@ export default function LibraryPurchasedLawsPage() {
   const [laws, setLaws] = useState<Law[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [idsHydrated, setIdsHydrated] = useState(false);
 
-  const hydrateIds = useCallback(() => {
+  const hydrateIds = useCallback(async () => {
+    try {
+      await syncDocumentExportUnlocksToLocalStorage();
+    } catch {
+      // ignore
+    }
     setLawIds(readPaidLawIdsFromStorage());
   }, []);
 
   useEffect(() => {
-    hydrateIds();
+    let cancelled = false;
+    void (async () => {
+      await hydrateIds();
+      if (!cancelled) setIdsHydrated(true);
+    })();
     const onStorage = (e: StorageEvent) => {
-      if (e.key === PAID_LAWS_STORAGE_KEY || e.key === null) hydrateIds();
+      if (e.key === PAID_LAWS_STORAGE_KEY || e.key === null) void hydrateIds();
     };
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("storage", onStorage);
+    };
   }, [hydrateIds]);
 
   useEffect(() => {
-    const onFocus = () => hydrateIds();
+    const onFocus = () => {
+      void hydrateIds();
+    };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [hydrateIds]);
 
   useEffect(() => {
+    if (!idsHydrated) return;
     if (lawIds.length === 0) {
       setLaws([]);
       setLoading(false);
@@ -87,7 +104,7 @@ export default function LibraryPurchasedLawsPage() {
     return () => {
       cancelled = true;
     };
-  }, [lawIds]);
+  }, [lawIds, idsHydrated]);
 
   return (
     <div className="min-h-screen">
@@ -110,7 +127,7 @@ export default function LibraryPurchasedLawsPage() {
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Purchased laws</h1>
               <p className="mt-1 text-muted-foreground">
-                Documents you unlocked for PDF export on this device — open one to preview, download, or print again.
+                Documents you unlocked for PDF export on your account — open one to preview, download, or print again.
               </p>
             </div>
           </div>
@@ -131,7 +148,7 @@ export default function LibraryPurchasedLawsPage() {
             <BookOpen className="mx-auto h-12 w-12 text-muted-foreground/50" />
             <h2 className="mt-4 text-lg font-semibold text-foreground">No purchased laws yet</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              When you pay to export a law from the library, it will appear here on this browser.
+              When you pay to export a law from the library, it will appear here while you are signed in.
             </p>
             <Link
               href="/library"

@@ -90,11 +90,14 @@ export async function fulfillPaymentFromMetadata(metadata: Record<string, string
   if (kind === "payg_document" || kind === "payg_ai_query" || kind === "payg_afcfta_report") {
     const itemType =
       kind === "payg_document" ? "document" : kind === "payg_ai_query" ? "ai_query" : "afcfta_report";
+    const lawId =
+      kind === "payg_document" && metadata.law_id?.trim() ? metadata.law_id.trim() : null;
     await (supabase.from("pay_as_you_go_purchases") as any).insert({
       user_id: clerkUserId,
       item_type: itemType,
       quantity: 1,
       stripe_session_id: paymentRefId,
+      law_id: lawId,
     });
     return;
   }

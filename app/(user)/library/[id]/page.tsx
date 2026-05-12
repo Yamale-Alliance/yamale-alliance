@@ -46,6 +46,7 @@ import { PlatformLogo } from "@/components/platform/PlatformLogo";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
 import { downloadLawDocumentPdf } from "@/lib/library/law-document-pdf";
 import { mergePaidLawIdIntoStorage, readPaidLawIdsFromStorage } from "@/lib/library-paid-laws-storage";
+import { fetchDocumentExportUnlockLawIds } from "@/lib/library-document-export-unlocks-client";
 import {
   deleteOfflineLawSnapshot,
   getOfflineLawSnapshot,
@@ -764,7 +765,9 @@ export default function LawDetailPage({
   const { isSignedIn, user } = useUser();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
-  const paygDocument = searchParams.get("payg") === "document" && searchParams.get("session_id");
+  const documentPaygSessionId =
+    searchParams.get("payg") === "document" ? searchParams.get("session_id") : null;
+  const paygDocument = Boolean(documentPaygSessionId);
   const printRequested = searchParams.get("print") === "1";
   const [hasPaidForThisLaw, setHasPaidForThisLaw] = useState(false);
   const [fixOcrLoading, setFixOcrLoading] = useState(false);
@@ -779,6 +782,7 @@ export default function LawDetailPage({
   const docSearchRootRef = useRef<HTMLDivElement>(null);
   const docSearchHitIndexRef = useRef(0);
   const hasTriggeredPostPurchasePdf = useRef(false);
+  const confirmDocumentPaymentOnce = useRef(false);
   const { confirm, confirmDialog } = useConfirm();
   const { alert: showAlert, alertDialog } = useAlertDialog();
   const lomiAvailable =
@@ -821,6 +825,35 @@ export default function LawDetailPage({
       setHasPaidForThisLaw(true);
     }
   }, [resolvedId]);
+
+  // Restore PDF unlocks from the server (same account, any device / Vercel URL).
+  useEffect(() => {
+    if (!resolvedId || typeof window === "undefined" || !isSignedIn) return;
+    let cancelled = false;
+    void fetchDocumentExportUnlockLawIds()
+      .then((ids) => {
+        if (cancelled) return;
+        if (ids.includes(resolvedId)) {
+          setHasPaidForThisLaw(true);
+          mergePaidLawIdIntoStorage(resolvedId);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isSignedIn, resolvedId]);
+
+  useEffect(() => {
+    if (!documentPaygSessionId || !isSignedIn || confirmDocumentPaymentOnce.current) return;
+    confirmDocumentPaymentOnce.current = true;
+    void fetch("/api/library/confirm-document-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ session_id: documentPaygSessionId }),
+    }).catch(() => {});
+  }, [documentPaygSessionId, isSignedIn]);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {

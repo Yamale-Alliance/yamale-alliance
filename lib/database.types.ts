@@ -600,6 +600,7 @@ export interface Database {
           item_type: string;
           quantity: number;
           stripe_session_id: string | null;
+          law_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -608,6 +609,7 @@ export interface Database {
           item_type: string;
           quantity?: number;
           stripe_session_id?: string | null;
+          law_id?: string | null;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["pay_as_you_go_purchases"]["Insert"]>;

@@ -8,6 +8,7 @@ import {
 } from "@/lib/pawapay";
 import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
 import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
+import { extractLawIdFromLibraryReturnPath } from "@/lib/library-document-export-path";
 
 const DOCUMENT_PRICE_CENTS = 300; // $3 per document
 type CheckoutProvider = "pawapay" | "lomi";
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest) {
     if (typeof returnPath === "string" && returnPath.startsWith("/") && !returnPath.startsWith("//")) {
       successPath = `${returnPath}${returnPath.includes("?") ? "&" : "?"}session_id=${encodeURIComponent(depositId)}&payg=document`;
     }
+    const lawId = extractLawIdFromLibraryReturnPath(returnPath);
 
     if (provider === "lomi") {
       if (!isLomiConfigured()) {
@@ -53,7 +55,11 @@ export async function POST(request: NextRequest) {
       const { checkoutUrl } = await createLomiHostedCheckoutSession({
         amount: amountMinor,
         currency_code: currencyCode,
-        metadata: { clerk_user_id: userId, kind: "payg_document" },
+        metadata: {
+          clerk_user_id: userId,
+          kind: "payg_document",
+          ...(lawId ? { law_id: lawId } : {}),
+        },
         title: "Document download",
         success_url: successUrl,
         cancel_url: `${origin}/library?canceled=1`,
@@ -81,6 +87,7 @@ export async function POST(request: NextRequest) {
         clerk_user_id: userId,
         kind: "payg_document",
         payment_country: gate.country.label,
+        ...(lawId ? { law_id: lawId } : {}),
       },
     });
 
