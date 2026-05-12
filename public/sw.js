@@ -1,5 +1,5 @@
 // Service Worker for Yamalé Alliance - Offline Mode
-const CACHE_VERSION = 'yamale-v1';
+const CACHE_VERSION = 'yamale-v2';
 const CACHE_NAME = `yamale-cache-${CACHE_VERSION}`;
 
 // Resources to cache on install
@@ -150,6 +150,19 @@ async function cacheFirstStrategy(request) {
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-requests') {
     event.waitUntil(syncPendingRequests());
+  }
+  if (event.tag === 'yamale-saved-laws') {
+    event.waitUntil(
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+        clients.forEach((client) => {
+          try {
+            client.postMessage({ type: 'yamale-sync-saved-laws' });
+          } catch (e) {
+            console.warn('[SW] Client message failed:', e);
+          }
+        });
+      })
+    );
   }
 });
 
