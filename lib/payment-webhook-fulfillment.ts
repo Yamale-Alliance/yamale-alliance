@@ -135,6 +135,7 @@ export async function fulfillPaymentFromMetadata(metadata: Record<string, string
       plan_id: planId,
       interval: metadata.interval,
       change_type: metadata.change_type,
+      payment_provider: metadata.payment_provider,
     });
   }
 }
