@@ -130,6 +130,7 @@ export async function POST(request: NextRequest) {
           plan_id: planId,
           interval,
           change_type: "upgrade",
+          payment_provider: provider,
         });
         return NextResponse.json({ ok: true, upgraded: true, tier: planId });
       }
