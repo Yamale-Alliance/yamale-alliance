@@ -4,6 +4,7 @@ import { ConditionalFooter } from "@/components/layout/ConditionalFooter";
 import { DynamicFavicon } from "@/components/platform/DynamicFavicon";
 import { PlatformSettingsProvider } from "@/components/platform/PlatformSettingsContext";
 import { OfflineProvider } from "@/components/offline/OfflineProvider";
+import { SubscriptionRenewalReminder } from "@/components/subscription/SubscriptionRenewalReminder";
 
 /** Server component: fetches platform settings and renders layout with logo/favicon/hero in context. */
 export async function LayoutWithSettings({
@@ -23,6 +24,7 @@ export async function LayoutWithSettings({
       <DynamicFavicon />
       <div className="flex min-h-screen flex-col">
         <Header />
+        <SubscriptionRenewalReminder />
         <div className="flex-1">{children}</div>
         <ConditionalFooter />
       </div>
@@ -48,6 +50,7 @@ export function LayoutWithSettingsFallback({
       <DynamicFavicon />
       <div className="flex min-h-screen flex-col">
         <Header />
+        <SubscriptionRenewalReminder />
         <div className="flex-1">{children}</div>
         <ConditionalFooter />
       </div>
