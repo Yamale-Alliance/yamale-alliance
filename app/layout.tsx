@@ -31,6 +31,15 @@ export const metadata: Metadata = {
   title: "Yamalé Legal Platform — Law Without Barriers. Business Without Borders.",
   description:
     "The first unified platform for African legal research — covering all 54 countries, AfCFTA compliance, AI-powered queries, and a curated network of African legal professionals.",
+  applicationName: "Yamalé",
+  appleWebApp: {
+    capable: true,
+    title: "Yamalé",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export default function RootLayout({
