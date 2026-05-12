@@ -19,12 +19,14 @@ import {
   Loader2,
   Info,
   FileDown,
+  CloudDownload,
 } from "lucide-react";
 import type { LibraryCountry, LibraryCategory, LibraryLawRow } from "@/lib/library-data";
 import { useUser } from "@clerk/nextjs";
 import { useAlertDialog } from "@/components/ui/use-confirm";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { readPaidLawIdsFromStorage, PAID_LAWS_STORAGE_KEY } from "@/lib/library-paid-laws-storage";
+import { listOfflineLawSnapshots } from "@/lib/library-offline-storage";
 
 const PAGE_SIZE = 12;
 const SUPPORT_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
@@ -282,6 +284,7 @@ export function LibraryView({
   const { user, isSignedIn } = useUser();
   const [printLoadingId, setPrintLoadingId] = useState<string | null>(null);
   const [paidLawIds, setPaidLawIds] = useState<Set<string>>(() => new Set());
+  const [offlineLawCount, setOfflineLawCount] = useState(0);
   const isAdmin = (user?.publicMetadata?.role as string | undefined) === "admin";
   const [search, setSearch] = useState(initialSearch);
   const [searchInput, setSearchInput] = useState(initialSearch);
@@ -420,6 +423,11 @@ export function LibraryView({
   }, []);
 
   useEffect(() => {
+    const refreshOfflineCount = () => {
+      void listOfflineLawSnapshots().then((list) => setOfflineLawCount(list.length));
+    };
+    refreshOfflineCount();
+
     const onFocus = () => {
       setRecentlyOpenedIds(getRecentlyOpenedIds());
       fetch("/api/bookmarks", { credentials: "include" })
@@ -430,6 +438,7 @@ export function LibraryView({
         })
         .catch(() => {});
       setPaidLawIds(new Set(readPaidLawIdsFromStorage()));
+      refreshOfflineCount();
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
@@ -1011,6 +1020,14 @@ export function LibraryView({
                 className="inline-flex w-full items-center justify-center gap-1 rounded-[6px] border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary sm:w-auto"
               >
                 <FileDown className="h-3.5 w-3.5" aria-hidden /> Purchased ({paidLawIds.size})
+              </Link>
+            )}
+            {offlineLawCount > 0 && (
+              <Link
+                href="/library/offline"
+                className="inline-flex w-full items-center justify-center gap-1 rounded-[6px] border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary sm:w-auto"
+              >
+                <CloudDownload className="h-3.5 w-3.5" aria-hidden /> Offline content ({offlineLawCount})
               </Link>
             )}
           </div>
