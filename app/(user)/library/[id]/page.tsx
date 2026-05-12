@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
@@ -19,7 +19,7 @@ import {
   BookmarkCheck,
   FileEdit,
   Sparkles,
-  Printer,
+  FileDown,
 } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useUser } from "@clerk/nextjs";
@@ -29,12 +29,17 @@ import {
   prototypeNavyHeroSectionClass,
 } from "@/components/layout/prototype-page-styles";
 import { LawyerMatchBanner } from "@/components/library/LawyerMatchBanner";
+import { LawExportPreviewDialog } from "@/components/library/LawExportPreviewDialog";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import {
   PaymentMethodPicker,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
+import { PlatformLogo } from "@/components/platform/PlatformLogo";
+import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
+import { downloadLawDocumentPdf } from "@/lib/library/law-document-pdf";
+import { mergePaidLawIdIntoStorage, readPaidLawIdsFromStorage } from "@/lib/library-paid-laws-storage";
 
 type LawStatus = "In force" | "Amended" | "Repealed";
 
@@ -311,34 +316,50 @@ function linkifyRichText(text: string): ReactNode {
 }
 
 /** When heading is "Article 2: …" or "Chapter 1: …", show label on first line and title indented beneath. */
+function toTitleCaseHeading(text: string): string {
+  const lower = text.toLowerCase();
+  return lower.replace(/(^|[\s\u2014\u2013\-(])(\p{L})/gu, (_m, sep: string, ch: string) => sep + ch.toUpperCase());
+}
+
 function renderLawSubheading(text: string, variant: "h2" | "h3" = "h3"): ReactNode {
   const plain = stripLeadingMarkdownHeadingMarkers(stripInlineMarkdownBoldMarkers(text).trim());
   const m = plain.match(
     /^(Article\s+\d+|Chapter\s+\d+|Chapitre\s+[\dIVXLCDMivxlcdm]+|Section\s+[\dIVXLCDMivxlcdm]+|Art\.\s*\d+|Part\s+[A-Z]|Titre\s+[\dIVXLCDMivxlcdm]+|Title\s+[\dIVXLCDMivxlcdm]+|TITLE\s+[\dIVXLCDM]+|Ingingo\s+(?:ya\s+)?\d+)\s*:\s*(.+)$/i
   );
   if (m) {
+    const label = m[1];
     const subtitle = m[2].trim();
-    const labelCls =
-      variant === "h2"
-        ? "block text-2xl font-extrabold tracking-tight text-foreground sm:text-[1.65rem]"
-        : "block font-extrabold tracking-tight text-foreground";
-    const subCls =
-      variant === "h2"
-        ? "mt-2 block border-s-2 border-primary/50 ps-4 text-lg font-semibold leading-snug text-foreground/90 sm:mt-2.5 sm:ps-6 sm:text-xl"
-        : "mt-1.5 block border-s-2 border-primary/45 ps-3 text-[0.98rem] font-semibold leading-snug text-foreground/90 sm:mt-2 sm:ps-5";
+    const subtitleDisplay = subtitle === subtitle.toUpperCase() ? toTitleCaseHeading(subtitle) : subtitle;
+    if (variant === "h2") {
+      return (
+        <>
+          <span className="block text-2xl font-extrabold uppercase tracking-[0.04em] text-foreground sm:text-[1.65rem]">{linkifyRichText(label)}</span>
+          <span className="mt-2 block text-lg font-semibold leading-snug text-foreground/90 sm:mt-2.5 sm:text-xl">{linkifyRichText(subtitleDisplay)}</span>
+        </>
+      );
+    }
     return (
       <>
-        <span className={labelCls}>{linkifyRichText(m[1])}</span>
-        <span className={subCls}>{linkifyRichText(subtitle)}</span>
+        <span className="block text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-primary/85">{linkifyRichText(label)}</span>
+        <span className="mt-1.5 block text-[1.35rem] font-semibold leading-snug tracking-tight text-foreground sm:text-[1.5rem]">{linkifyRichText(subtitleDisplay)}</span>
       </>
     );
   }
   if (variant === "h2") {
     return (
-      <span className="text-2xl font-extrabold tracking-tight text-foreground sm:text-[1.65rem]">{linkifyRichText(plain)}</span>
+      <span className="block text-2xl font-extrabold uppercase tracking-[0.04em] text-foreground sm:text-[1.65rem]">{linkifyRichText(plain)}</span>
     );
   }
-  return linkifyRichText(plain);
+  const articleMatch = plain.match(/^(Article\s+\d+|Chapter\s+\d+|Chapitre\s+[\dIVXLCDMivxlcdm]+|Section\s+[\dIVXLCDMivxlcdm]+|Art\.\s*\d+|Part\s+[A-Z]|Titre\s+[\dIVXLCDMivxlcdm]+|Title\s+[\dIVXLCDMivxlcdm]+|TITLE\s+[\dIVXLCDM]+|Ingingo\s+(?:ya\s+)?\d+)\s*$/i);
+  if (articleMatch) {
+    const labelText = toTitleCaseHeading(articleMatch[1]);
+    return (
+      <span className="block text-[1.5rem] font-semibold leading-snug tracking-tight text-foreground sm:text-[1.7rem]">{linkifyRichText(labelText)}</span>
+    );
+  }
+  return (
+    <span className="block text-[1.35rem] font-semibold leading-snug tracking-tight text-foreground sm:text-[1.5rem]">{linkifyRichText(plain)}</span>
+  );
 }
 
 // Major headings start a new section (new card). Section and Article stay in the flow as sub-headings so the doc doesn’t fragment.
@@ -713,6 +734,8 @@ export default function LawDetailPage({
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [printLoading, setPrintLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [exportPreviewOpen, setExportPreviewOpen] = useState(false);
   const [printCheckoutOpen, setPrintCheckoutOpen] = useState(false);
   const [printCheckoutProvider, setPrintCheckoutProvider] = useState<CheckoutPaymentProvider>("pawapay");
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
@@ -735,6 +758,18 @@ export default function LawDetailPage({
     Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
   const lomiComingSoon = false;
 
+  const { logoUrl: platformLogoUrl } = usePlatformSettings();
+
+  const sections = useMemo((): Section[] => {
+    if (!law) return [];
+    return splitIntoSections(law.content_plain || law.content || "");
+  }, [law]);
+
+  useEffect(() => {
+    if (sections.length === 0) return;
+    setActiveSection((prev) => (sections.some((s) => s.id === prev) ? prev : sections[0]!.id));
+  }, [law?.id, sections]);
+
   const scrollToTop = useCallback(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
@@ -754,15 +789,8 @@ export default function LawDetailPage({
   // past purchases across sessions for this browser.
   useEffect(() => {
     if (!resolvedId || typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem("yamale-paid-laws");
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.includes(resolvedId)) {
-        setHasPaidForThisLaw(true);
-      }
-    } catch {
-      // ignore
+    if (readPaidLawIdsFromStorage().includes(resolvedId)) {
+      setHasPaidForThisLaw(true);
     }
   }, [resolvedId]);
 
@@ -821,8 +849,6 @@ export default function LawDetailPage({
       }
       const fresh = (await r2.json()) as LawDetail;
       setLaw(fresh);
-      const nextSections = splitIntoSections(fresh.content_plain || fresh.content || "");
-      if (nextSections.length > 0) setActiveSection(nextSections[0].id);
       setFixOcrBanner(
         `Text updated (${typeof data.cleanedChars === "number" ? data.cleanedChars.toLocaleString() : "?"} characters).`
       );
@@ -890,17 +916,59 @@ export default function LawDetailPage({
     }
   };
 
-  const handlePrintToolbarClick = () => {
+  const buildLawPdfInput = useCallback(() => {
+    if (!law) return null;
+    return {
+      title: law.title,
+      appliesToAllCountries: law.applies_to_all_countries,
+      countryName: law.countries?.name ?? null,
+      categoryName: law.categories?.name ?? null,
+      year: law.year,
+      status: law.status,
+      languageCode: law.language_code ?? null,
+      sourceName: law.source_name ?? null,
+      sourceUrl: law.source_url ?? null,
+      sections: sections.map((s) => ({ title: s.title, body: s.body })),
+      logoUrl: platformLogoUrl,
+    };
+  }, [law, sections, platformLogoUrl]);
+
+  const handlePreviewDownloadPdf = async () => {
+    const input = buildLawPdfInput();
+    if (!input || input.sections.length === 0) {
+      await showAlert("No document text is available to export.", "Export");
+      return;
+    }
+    setPdfLoading(true);
+    try {
+      await downloadLawDocumentPdf(input);
+    } catch (e) {
+      console.error(e);
+      await showAlert(
+        "Could not build the PDF. Check your connection and try again. If the problem continues, contact support.",
+        "Export"
+      );
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  const handleDocumentExportClick = () => {
     if (!resolvedId) return;
-    if (hasPaidForThisLaw) {
-      if (typeof window !== "undefined") window.print();
+    if (!hasPaidForThisLaw) {
+      if (!isSignedIn) {
+        window.location.assign("/sign-in?redirect_url=" + encodeURIComponent(window.location.pathname));
+        return;
+      }
+      setPrintCheckoutOpen(true);
       return;
     }
-    if (!isSignedIn) {
-      window.location.assign("/sign-in?redirect_url=" + encodeURIComponent(window.location.pathname));
+    const input = buildLawPdfInput();
+    if (!input || input.sections.length === 0) {
+      void showAlert("No document text is available to export.", "Export");
       return;
     }
-    setPrintCheckoutOpen(true);
+    setExportPreviewOpen(true);
   };
 
   const submitPrintCheckout = async () => {
@@ -948,8 +1016,6 @@ export default function LawDetailPage({
       })
       .then((data: LawDetail) => {
         setLaw(data);
-        const sections = splitIntoSections(data.content_plain || data.content || "");
-        if (sections.length > 0) setActiveSection(sections[0].id);
         try {
           const key = "yamale-library-recently-opened";
           if (typeof window !== "undefined") {
@@ -971,36 +1037,34 @@ export default function LawDetailPage({
     if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
   }, [law?.id]);
 
-  // After successful pay-as-you-go document payment: open print dialog once, then clean URL.
-  // Also remember that this law has been paid for (in localStorage) so future prints
-  // do not go back to checkout from this browser.
-  const hasTriggeredPrint = useRef(false);
+  // After successful pay-as-you-go: download PDF once, then clean the URL.
+  // Paid laws are remembered in localStorage so checkout is not shown again in this browser.
+  const hasTriggeredPostPurchasePdf = useRef(false);
   useEffect(() => {
-    if (!law || hasTriggeredPrint.current || typeof window === "undefined") return;
-    const shouldAutoPrint = Boolean(
-      paygDocument || (printRequested && hasPaidForThisLaw)
-    );
-    if (!shouldAutoPrint) return;
-    hasTriggeredPrint.current = true;
+    if (!law || hasTriggeredPostPurchasePdf.current || typeof window === "undefined") return;
+    const shouldAuto = Boolean(paygDocument || (printRequested && hasPaidForThisLaw));
+    if (!shouldAuto) return;
+    hasTriggeredPostPurchasePdf.current = true;
     setHasPaidForThisLaw(true);
-    try {
-      const raw = window.localStorage.getItem("yamale-paid-laws");
-      const existing = Array.isArray(raw ? JSON.parse(raw) : null) ? JSON.parse(raw as string) : [];
-      const next = Array.from(new Set([...(existing as string[]), resolvedId].filter(Boolean)));
-      window.localStorage.setItem("yamale-paid-laws", JSON.stringify(next));
-    } catch {
-      // ignore
-    }
+    mergePaidLawIdIntoStorage(resolvedId ?? "");
     const t = setTimeout(() => {
-      window.print();
-      const url = new URL(window.location.href);
-      url.searchParams.delete("session_id");
-      url.searchParams.delete("payg");
-      url.searchParams.delete("print");
-      window.history.replaceState({}, "", url.pathname + url.search);
+      void (async () => {
+        try {
+          if (sections.length > 0) {
+            setExportPreviewOpen(true);
+          }
+        } catch (e) {
+          console.error("Post-purchase PDF:", e);
+        }
+        const url = new URL(window.location.href);
+        url.searchParams.delete("session_id");
+        url.searchParams.delete("payg");
+        url.searchParams.delete("print");
+        window.history.replaceState({}, "", url.pathname + url.search);
+      })();
     }, 800);
     return () => clearTimeout(t);
-  }, [law, paygDocument]);
+  }, [law, paygDocument, printRequested, hasPaidForThisLaw, resolvedId, sections]);
 
   if (loading) {
     return (
@@ -1024,7 +1088,6 @@ export default function LawDetailPage({
   }
 
   const rawContent = law.content_plain || law.content || "";
-  const sections = splitIntoSections(rawContent);
   const outlineItems = getOutlineItems(sections);
   const hasContent = sections.length > 0;
   const isRtl = isPrimarilyArabic(rawContent);
@@ -1150,12 +1213,12 @@ export default function LawDetailPage({
       {hasContent && sections.length >= 1 && mobileContentsOpen && (
         <>
           <div
-            className="fixed inset-0 z-50 bg-black/50 lg:hidden"
+            className="fixed inset-0 z-50 bg-black/50 print:hidden lg:hidden"
             aria-hidden
             onClick={() => setMobileContentsOpen(false)}
           />
           <aside
-            className="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] border-r border-border/80 bg-card/95 shadow-2xl backdrop-blur-xl lg:hidden"
+            className="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] border-r border-border/80 bg-card/95 shadow-2xl backdrop-blur-xl print:hidden lg:hidden"
             aria-label="Contents"
           >
             <div className="flex h-14 items-center justify-between border-b border-border/80 bg-muted/20 px-5 backdrop-blur-sm">
@@ -1193,8 +1256,39 @@ export default function LawDetailPage({
         </>
       )}
 
-      <div className="min-h-screen bg-gradient-to-b from-muted/10 via-background to-muted/20 print:bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <div className="min-h-screen bg-gradient-to-b from-muted/10 via-background to-muted/20 print:min-h-0 print:bg-white">
+        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 print:max-w-none print:px-0 print:py-0">
+          {/* Print-only: logo + title + metadata (on-screen hero is print:hidden) */}
+          <header className="hidden print:block print:max-w-none border-b border-neutral-800/20 pb-6 text-neutral-900">
+            <PlatformLogo
+              height={48}
+              width={220}
+              className="h-12 w-auto max-w-[240px] text-2xl font-semibold tracking-tight text-neutral-900 print:[&_img]:!mix-blend-normal"
+            />
+            <h1 className="heading mt-5 text-2xl font-bold leading-snug tracking-tight sm:text-3xl">{law.title}</h1>
+            <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-600">
+              {law.applies_to_all_countries ? (
+                <span>Scope: All countries</span>
+              ) : law.countries?.name ? (
+                <span>Country: {law.countries.name}</span>
+              ) : null}
+              {law.categories?.name && <span>Category: {law.categories.name}</span>}
+              {law.language_code && <span>Language: {law.language_code.toUpperCase()}</span>}
+              {law.year != null && <span>Year: {law.year}</span>}
+              {law.status ? <span>Status: {law.status}</span> : null}
+            </div>
+            {(law.source_name || law.source_url) && (
+              <p className="mt-2 text-[11px] text-neutral-500">
+                {law.source_name && <span>Source: {law.source_name}</span>}
+                {law.source_name && law.source_url ? " · " : null}
+                {law.source_url && <span className="break-all">{law.source_url}</span>}
+              </p>
+            )}
+            <p className="mt-4 border-t border-neutral-200 pt-3 text-[10px] leading-relaxed text-neutral-500">
+              Yamalé Legal Platform — reference copy. Not legal advice; verify with official sources.
+            </p>
+          </header>
+
           {!law.applies_to_all_countries && law.countries?.name && law.categories?.name && (
             <LawyerMatchBanner country={law.countries.name} category={law.categories.name} lawTitle={law.title} />
           )}
@@ -1256,24 +1350,32 @@ export default function LawDetailPage({
 
             {hasContent && (
               <article
-                className="w-full overflow-hidden rounded-3xl border border-border/80 bg-card shadow-2xl shadow-black/[0.08] ring-1 ring-black/[0.05] dark:ring-white/10 transition-shadow duration-300 hover:shadow-black/[0.12] print:shadow-none print:ring-0 print:border print:bg-white select-none"
+                className="law-print-document w-full overflow-hidden rounded-3xl border border-border/80 bg-card shadow-2xl shadow-black/[0.08] ring-1 ring-black/[0.05] transition-shadow duration-300 hover:shadow-black/[0.12] dark:ring-white/10 print:rounded-none print:border-0 print:bg-white print:shadow-none print:ring-0 select-none print:select-text"
                 dir={isRtl ? "rtl" : undefined}
                 lang={isRtl ? "ar" : undefined}
                 onCopy={(e) => e.preventDefault()}
                 onCut={(e) => e.preventDefault()}
                 onContextMenu={(e) => e.preventDefault()}
               >
-                {/* Accent strip */}
-                <div className="h-2 w-full bg-gradient-to-r from-primary via-primary to-amber-500/80" aria-hidden />
-                <div className={`mx-auto w-full max-w-4xl px-6 py-8 sm:px-12 sm:py-10 md:px-16 md:py-14 ${isRtl ? "text-right" : ""}`} dir={isRtl ? "rtl" : undefined} lang={isRtl ? "ar" : undefined}>
+                {/* Accent strip (screen only — keeps print output document-like) */}
+                <div className="h-2 w-full bg-gradient-to-r from-primary via-primary to-amber-500/80 print:hidden" aria-hidden />
+                <div
+                  className={`mx-auto w-full max-w-4xl px-6 py-8 sm:px-12 sm:py-10 md:px-16 md:py-14 print:max-w-none print:px-6 print:py-6 print:sm:px-8 ${isRtl ? "text-right" : ""}`}
+                  dir={isRtl ? "rtl" : undefined}
+                  lang={isRtl ? "ar" : undefined}
+                >
                   {sections.map((sec) => (
-                    <section key={sec.id} id={sec.id} className="scroll-mt-24 border-b border-border/40 pb-14 last:border-0 last:pb-0">
+                    <section
+                      key={sec.id}
+                      id={sec.id}
+                      className="scroll-mt-24 border-b border-border/40 pb-14 last:border-0 last:pb-0 print:border-neutral-300 print:pb-10"
+                    >
                       {/* Level 1: Section / Chapter – big, bold, primary accent */}
-                      <h2 className="mb-6 mt-12 border-s-4 border-primary bg-gradient-to-r from-primary/12 to-primary/5 py-4 ps-6 first:mt-0 sm:ps-7">
+                      <h2 className="mb-6 mt-12 border-s-4 border-primary bg-gradient-to-r from-primary/12 to-primary/5 py-4 ps-6 first:mt-0 sm:ps-7 print:mt-8 print:mb-4 print:border-s-2 print:border-neutral-900 print:bg-transparent print:py-2 print:ps-4 print:[background-image:none]">
                         {renderLawSubheading(sec.title, "h2")}
                       </h2>
                       {isLikelyMarkdown(sec.body) ? (
-                        <div className="prose prose-lg max-w-none leading-relaxed text-foreground dark:prose-invert prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-foreground prose-p:leading-[1.75] prose-p:text-foreground/90 prose-li:text-foreground">
+                        <div className="prose prose-lg max-w-none leading-relaxed text-foreground prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-foreground prose-p:leading-[1.75] prose-p:text-justify prose-p:text-foreground/90 prose-li:text-foreground dark:prose-invert print:max-w-none print:prose-neutral">
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
                             components={{
@@ -1309,7 +1411,10 @@ export default function LawDetailPage({
                         <>
                           {getBodyItems(sec).map((item, bi) =>
                             item.type === "table" ? (
-                              <div key={bi} className="my-8 overflow-x-auto rounded-xl border border-border/80 shadow-sm">
+                              <div
+                                key={bi}
+                                className="my-8 overflow-x-auto rounded-xl border border-border/80 shadow-sm print:break-inside-avoid"
+                              >
                                 <table className="w-full min-w-[400px] border-collapse text-sm">
                                   <thead>
                                     <tr>
@@ -1343,12 +1448,12 @@ export default function LawDetailPage({
                               <h3
                                 key={bi}
                                 id={item.id}
-                                className="mt-6 mb-3 scroll-mt-24 border-s-[3px] border-primary/55 bg-gradient-to-r from-primary/[0.07] to-transparent py-2.5 ps-4 text-[1.0625rem] font-semibold tracking-tight text-foreground/95 first:mt-0 sm:py-3 sm:ps-5"
+                                className="mt-12 mb-5 scroll-mt-24 border-t border-border/60 pt-7 first:mt-0 first:border-t-0 first:pt-0 print:mt-8 print:mb-4 print:border-neutral-300 print:pt-5"
                               >
                                 {renderLawSubheading(item.text, "h3")}
                               </h3>
                             ) : (
-                              <p key={bi} className="mb-5 pl-0 text-[1.0625rem] leading-[1.8] text-foreground/85 last:mb-0 sm:pl-0">
+                              <p className="mb-5 text-[1.0625rem] leading-[1.75] text-foreground/85 text-justify last:mb-0" key={bi}>
                                 {linkifyRichText(item.text)}
                               </p>
                             )
@@ -1367,7 +1472,7 @@ export default function LawDetailPage({
       </div>
 
       {(hasContent || isAdmin) && (
-        <div className="fixed bottom-5 right-5 z-40 flex w-[3.35rem] flex-col gap-1 rounded-2xl border border-border/80 bg-card/95 p-1.5 shadow-lg shadow-black/10 backdrop-blur-xl print:hidden">
+        <div className="fixed bottom-5 right-5 z-40 flex min-w-[3.35rem] flex-col gap-1 rounded-2xl border border-border/80 bg-card/95 p-1.5 shadow-lg shadow-black/10 backdrop-blur-xl print:hidden">
           {/* Back to Library */}
           <div className="relative group">
             <Link
@@ -1382,34 +1487,36 @@ export default function LawDetailPage({
             </span>
           </div>
 
-          {/* Print / Download */}
+          {/* Download (paid) or unlock via checkout */}
           {hasContent && (
             <div className="relative group">
               <button
                 type="button"
-                onClick={handlePrintToolbarClick}
+                onClick={() => void handleDocumentExportClick()}
                 disabled={printLoading}
                 className="inline-flex size-11 items-center justify-center rounded-lg text-[#C8922A] hover:bg-accent/80 hover:text-[#E8B84B] disabled:opacity-50"
                 aria-label={
                   hasPaidForThisLaw
-                    ? "Print or download this document"
+                    ? "Download"
                     : isSignedIn
-                      ? "Print or download — $3 (opens checkout)"
-                      : "Sign in to print or download ($3)"
+                      ? "Unlock download — $3 (opens checkout)"
+                      : "Sign in to unlock download ($3)"
                 }
               >
                 {printLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
+                ) : hasPaidForThisLaw ? (
+                  <FileDown className="h-5 w-5" />
                 ) : (
-                  <Printer className="h-5 w-5" />
+                  <FileDown className="h-5 w-5 opacity-90" />
                 )}
               </button>
-              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 -translate-y-1/2 max-w-[14rem] whitespace-normal rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
                 {hasPaidForThisLaw
-                  ? "Print or download"
+                  ? "Download"
                   : isSignedIn
-                    ? "Print or download — $3"
-                    : "Sign in to print or download"}
+                    ? "Unlock — $3"
+                    : "Sign in"}
               </span>
             </div>
           )}
@@ -1500,15 +1607,28 @@ export default function LawDetailPage({
         </div>
       )}
 
+      {law && hasContent && hasPaidForThisLaw && (
+        <LawExportPreviewDialog
+          open={exportPreviewOpen}
+          onOpenChange={setExportPreviewOpen}
+          law={law}
+          sections={sections}
+          isRtl={isRtl}
+          logoUrl={platformLogoUrl}
+          onDownloadPdf={handlePreviewDownloadPdf}
+          pdfLoading={pdfLoading}
+        />
+      )}
+
       <Dialog.Root open={printCheckoutOpen} onOpenChange={setPrintCheckoutOpen}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-[101] flex max-h-[min(90vh,calc(100%-2rem))] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-2xl focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+          <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm print:hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-[101] flex max-h-[min(90vh,calc(100%-2rem))] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-2xl print:hidden focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
             <Dialog.Title className="text-lg font-semibold tracking-tight text-foreground">
-              Print or download this law
+              Unlock download
             </Dialog.Title>
             <Dialog.Description className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              One-time unlock for <span className="font-medium text-foreground">$3</span>. Choose how you want to pay, then continue to the payment page.
+              A one-time <span className="font-medium text-foreground">$3</span> unlock lets you preview the document in the app and download it as a PDF. Choose a payment method to continue to checkout.
             </Dialog.Description>
             <div className="mt-5 min-w-0 space-y-4">
               <PaymentMethodPicker
