@@ -673,7 +673,7 @@ export default function AIResearchPage() {
         id: `assistant-${Date.now()}`,
         role: "assistant",
         content: data.content || "I apologize, but I couldn't generate a response.",
-        sources: data.sources || ["Claude AI · African Legal Research"],
+        sources: Array.isArray(data.sources) ? data.sources : ["Claude AI · African Legal Research"],
         sourceCards: Array.isArray(data.sourceCards) ? data.sourceCards : [],
         lawyerNudge: data.lawyerNudge ?? null,
         queryLogId: typeof data.queryLogId === "string" ? data.queryLogId : null,
