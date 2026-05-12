@@ -3,7 +3,7 @@
  * Bump SYSTEM_PROMPT_VERSION whenever substantive prompt instructions change.
  */
 
-export const SYSTEM_PROMPT_VERSION = "2026.05.12-multilingual-parity-v1";
+export const SYSTEM_PROMPT_VERSION = "2026.05.12-platform-guide-meta-v1";
 
 export type SupranationalPromptFramework = {
   canonicalName: string;
@@ -30,6 +30,8 @@ export type BuildAiResearchSystemPromptParams = {
   detailedMode: boolean;
   specificLawHint: string | null;
   requestedArticle: number | null;
+  /** User is asking how the product works — no library RAG; no statute citations */
+  platformGuideMode?: boolean;
 };
 
 export function buildAiResearchSystemPrompt(p: BuildAiResearchSystemPromptParams): string {
@@ -72,7 +74,19 @@ Status handling / Statuts des instruments :
     systemPrompt += `\n\nCountry lock for this turn: ${p.effectiveCountry}. Treat ${p.effectiveCountry} as the only national jurisdiction for the main legal analysis. If excerpts from other countries appear, do not use them as governing law unless the user asked for a comparison. When multiple countries appear, prioritize only country-locked documents; if the rule is missing for that country in excerpts, say so clearly. / Verrou pays pour ce tour : ${p.effectiveCountry}. Traitez ${p.effectiveCountry} comme la seule juridiction nationale pour l'analyse principale. N'utilisez pas d'autres pays comme droit applicable sauf demande de comparaison. Si la règle manque dans les extraits pour ce pays, dites-le clairement.`;
   }
 
-  if (p.legalContext.length > 0) {
+  if (p.platformGuideMode) {
+    systemPrompt += `\n\nPLATFORM GUIDE MODE (no library documents for this turn) / MODE GUIDE PLATEFORME (aucun document de bibliothèque pour ce tour) :
+- EN: The user is asking what Yamalé is or how to use the site — NOT a substantive legal question about a statute. Answer from general product knowledge only. Do NOT claim any law text from a "retrieved" list supports this answer. Do NOT use [doc:N] markers. Do NOT name specific library titles as if they were sources for this reply.
+- FR : L'utilisateur demande ce qu'est Yamalé ou comment utiliser le site — ce n'est pas une question juridique de fond sur un texte. Répondez à partir des connaissances produit uniquement. N'alléguez pas que des textes « récupérés » étayent cette réponse. N'utilisez pas les marqueurs [doc:N]. Ne citez pas des titres d'actes comme sources de cette réponse.
+
+What to cover (adapt depth to the question; user's language) / À couvrir (adapter la profondeur ; langue de l'utilisateur) :
+(1) Yamalé Legal Library — curated national and regional legal instruments from African jurisdictions and selected supranational bodies (OHADA, AfCFTA, regional communities, etc.).
+(2) AI Research (this chat) — for legal questions, answers are grounded in library documents when you ask with enough context (country for national law, or the regional instrument name for supranational texts). It is not a substitute for legal advice.
+(3) Browsing — users can open /library to search and read full texts.
+(4) Clear disclaimer — not legal advice; verify with official sources and qualified counsel.
+
+Tone: helpful, concise, structured headings or short bullets. / Ton : utile, concis, titres ou puces courtes.`;
+  } else if (p.legalContext.length > 0) {
     systemPrompt += `\n\nRELEVANT LEGAL DOCUMENTS FROM THE DATABASE (library) / DOCUMENTS JURIDIQUES PERTINENTS (bibliothèque) :\n\n${p.legalContext
       .map(
         (law, i) =>
