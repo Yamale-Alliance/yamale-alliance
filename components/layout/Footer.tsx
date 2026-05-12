@@ -57,7 +57,7 @@ function LinkGroup({
 /** Yamalé prototype footer — navy block + muted links (yamale_prototype.html). */
 export function Footer() {
   return (
-    <footer className="mt-auto" role="contentinfo">
+    <footer className="mt-auto print:hidden" role="contentinfo">
       <div className="bg-[#0D1B2A] px-4 pb-12 pt-14 text-white sm:px-8">
         <div className="mx-auto grid max-w-[1280px] gap-12 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] lg:gap-10">
           <div className="max-w-md">
