@@ -10,6 +10,7 @@ import { PaymentMethodPicker, type CheckoutPaymentProvider } from "@/components/
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import type { SubscriptionPublicState } from "@/lib/subscription-state";
+import { getDisplayedBillingWindow } from "@/lib/subscription-billing-window";
 
 type BillingInterval = "monthly" | "annual";
 
@@ -113,6 +114,18 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
     if (idx <= 0) return [];
     return order.slice(0, idx);
   }, [subState]);
+
+  const billingWindow = useMemo(() => {
+    if (!subState?.isPaid) return null;
+    return getDisplayedBillingWindow({
+      periodStartIso: subState.periodStart,
+      periodEndIso: subState.periodEnd,
+      interval: subState.interval,
+    });
+  }, [subState?.isPaid, subState?.periodStart, subState?.periodEnd, subState?.interval]);
+
+  const displayPeriodStart = billingWindow?.windowStartIso ?? subState?.periodStart ?? null;
+  const displayPeriodEnd = billingWindow?.windowEndIso ?? subState?.periodEnd ?? null;
 
   const handlePay = async () => {
     if (!selectedPlan || !isSignedIn) return;
@@ -268,16 +281,65 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
                   <span className="text-muted-foreground">Tier:</span>{" "}
                   <span className="font-medium capitalize">{subState.tier}</span>
                 </p>
-                {subState.periodEnd && subState.isPaid && (
+                {subState.isPaid && (
                   <p>
-                    <span className="text-muted-foreground">Access through:</span>{" "}
-                    <span className="font-medium">{formatDate(subState.periodEnd)}</span>
+                    <span className="text-muted-foreground">Paid with:</span>{" "}
+                    <span className="font-medium">
+                      {subState.paymentProvider === "pawapay"
+                        ? "Mobile money (pawaPay)"
+                        : subState.paymentProvider === "lomi"
+                          ? "Card & wallets (Lomi)"
+                          : subState.isSubscriptionGrant
+                            ? "Plan grant (complimentary)"
+                            : "Not recorded"}
+                    </span>
+                    {subState.isSubscriptionGrant && !subState.paymentProvider && (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        — your tier was assigned by an administrator without going through checkout.
+                      </span>
+                    )}
+                    {!subState.isSubscriptionGrant && !subState.paymentProvider && (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        — not stored for this account (e.g. purchase before payment tracking).
+                      </span>
+                    )}
+                  </p>
+                )}
+                {subState.isPaid && (subState.subscriberSince || subState.periodStart) && (
+                  <p>
+                    <span className="text-muted-foreground">Subscriber since:</span>{" "}
+                    <span className="font-medium">
+                      {formatDate(subState.subscriberSince ?? subState.periodStart)}
+                    </span>
+                    {!subState.subscriberSince && subState.periodStart && (
+                      <span className="text-muted-foreground"> (from your first billing period on file)</span>
+                    )}
+                  </p>
+                )}
+                {displayPeriodStart && subState.isPaid && (
+                  <p>
+                    <span className="text-muted-foreground">Billing period starts:</span>{" "}
+                    <span className="font-medium">{formatDate(displayPeriodStart)}</span>
+                  </p>
+                )}
+                {displayPeriodEnd && subState.isPaid && (
+                  <p>
+                    <span className="text-muted-foreground">Billing period ends:</span>{" "}
+                    <span className="font-medium">{formatDate(displayPeriodEnd)}</span>
                     {subState.interval && (
                       <span className="text-muted-foreground">
                         {" "}
                         ({subState.interval === "annual" ? "annual prepay" : "monthly billing period"})
                       </span>
                     )}
+                  </p>
+                )}
+                {billingWindow?.accessThroughIso && subState.interval === "monthly" && (
+                  <p className="text-xs text-muted-foreground">
+                    Your prepaid access is recorded through {formatDate(billingWindow.accessThroughIso)}. The dates
+                    above are the current monthly cycle for display.
                   </p>
                 )}
                 {subState.cancelAtPeriodEnd && (
