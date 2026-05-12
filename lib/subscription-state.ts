@@ -35,6 +35,9 @@ export function inferPeriodStartFromEnd(periodEnd: Date, interval: BillingInterv
   return d;
 }
 
+/** How the user last paid for their subscription (pawaPay mobile money vs Lomi card/wallets). */
+export type SubscriptionPaymentProvider = "pawapay" | "lomi";
+
 export type SubscriptionPublicState = {
   tier: string;
   periodStart: string | null;
@@ -43,7 +46,20 @@ export type SubscriptionPublicState = {
   cancelAtPeriodEnd: boolean;
   scheduledTier: string | null;
   isPaid: boolean;
+  /** Set when subscription was activated via checkout; null for legacy / manual tier grants. */
+  paymentProvider: SubscriptionPaymentProvider | null;
+  /** True when an admin assigned the paid tier without checkout (complimentary grant). */
+  isSubscriptionGrant: boolean;
+  /** ISO date when the user first became a paid subscriber (checkout or grant); cleared when tier is free. */
+  subscriberSince: string | null;
 };
+
+function parseStoredPaymentProvider(raw: unknown): SubscriptionPaymentProvider | null {
+  const s = typeof raw === "string" ? raw.toLowerCase().trim() : "";
+  if (s === "pawapay") return "pawapay";
+  if (s === "lomi") return "lomi";
+  return null;
+}
 
 export function readSubscriptionState(meta: Record<string, unknown> | undefined): SubscriptionPublicState {
   const m = meta ?? {};
@@ -60,6 +76,9 @@ export function readSubscriptionState(meta: Record<string, unknown> | undefined)
     cancelAtPeriodEnd: m.subscription_cancel_at_period_end === true,
     scheduledTier: typeof m.subscription_scheduled_tier === "string" ? m.subscription_scheduled_tier : null,
     isPaid: isPaidTier(t),
+    paymentProvider: parseStoredPaymentProvider(m.subscription_payment_provider),
+    isSubscriptionGrant: isPaidTier(t) && m.subscription_grant === true,
+    subscriberSince: typeof m.subscriber_since === "string" && m.subscriber_since.trim() ? m.subscriber_since : null,
   };
 }
 
@@ -102,6 +121,9 @@ export async function applySubscriptionPeriodTransitions(userId: string): Promis
     delete nextMeta.subscription_interval;
     delete nextMeta.subscription_cancel_at_period_end;
     delete nextMeta.subscription_scheduled_tier;
+    delete nextMeta.subscription_payment_provider;
+    delete nextMeta.subscription_grant;
+    delete nextMeta.subscriber_since;
     await clerk.users.updateUserMetadata(userId, { publicMetadata: nextMeta });
     return;
   }
@@ -112,18 +134,22 @@ export async function applySubscriptionPeriodTransitions(userId: string): Promis
   delete nextMeta.subscription_interval;
   delete nextMeta.subscription_cancel_at_period_end;
   delete nextMeta.subscription_scheduled_tier;
+  delete nextMeta.subscription_payment_provider;
+  delete nextMeta.subscription_grant;
+  delete nextMeta.subscriber_since;
   await clerk.users.updateUserMetadata(userId, { publicMetadata: nextMeta });
 }
 
 export async function fulfillSubscriptionPlanPayment(
   clerkUserId: string,
-  meta: { plan_id: string; interval?: string; change_type?: string }
+  meta: { plan_id: string; interval?: string; change_type?: string; payment_provider?: string }
 ): Promise<void> {
   const clerk = await clerkClient();
   const user = await clerk.users.getUser(clerkUserId);
   const existing = (user.publicMetadata ?? {}) as Record<string, unknown>;
   const planId = meta.plan_id;
   const interval: BillingInterval = meta.interval === "annual" ? "annual" : "monthly";
+  const paymentProvider = parseStoredPaymentProvider(meta.payment_provider);
 
   if (!PAID.includes(planId as PaidTier)) return;
 
@@ -137,6 +163,10 @@ export async function fulfillSubscriptionPlanPayment(
       subscription_cancel_at_period_end: false,
     };
     delete nextMeta.subscription_scheduled_tier;
+    delete nextMeta.subscription_grant;
+    if (paymentProvider) {
+      nextMeta.subscription_payment_provider = paymentProvider;
+    }
     if (planId === "team") {
       nextMeta.team_admin = true;
       nextMeta.team_extra_seats = (existing.team_extra_seats as number) ?? 0;
@@ -156,6 +186,15 @@ export async function fulfillSubscriptionPlanPayment(
     subscription_cancel_at_period_end: false,
   };
   delete nextMeta.subscription_scheduled_tier;
+  delete nextMeta.subscription_grant;
+  if (paymentProvider) {
+    nextMeta.subscription_payment_provider = paymentProvider;
+  }
+  if (
+    !(typeof existing.subscriber_since === "string" && existing.subscriber_since.trim())
+  ) {
+    nextMeta.subscriber_since = periodStart.toISOString();
+  }
   if (planId === "team") {
     nextMeta.team_admin = true;
     nextMeta.team_extra_seats = (existing.team_extra_seats as number) ?? 0;
