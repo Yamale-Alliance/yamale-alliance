@@ -4,6 +4,9 @@ import { getDocumentExportUnlockLawIdsForUser } from "@/lib/library-document-exp
 import { PurchasedLawsClient } from "./PurchasedLawsClient";
 import PurchasedLawsLoading from "./loading";
 
+/** Clerk `auth()` reads request headers — this page cannot be statically prerendered. */
+export const dynamic = "force-dynamic";
+
 export default async function LibraryPurchasedLawsPage() {
   let initialLawIds: string[] = [];
   try {
