@@ -6,9 +6,14 @@ import {
   lawTextIlikeOr,
   lawsCountryOrGlobalWithAnyEscapedTerms,
   lawsCountryOrGlobalWithTextSearch,
+  lawsCountryOrGlobalWithTitleTerms,
   lawsGlobalTextIlikeOrTerms,
 } from "@/lib/law-country-scope";
 import { fetchLawIdsForCountryScope } from "@/lib/law-country-scope-ids";
+import {
+  detectCountryAliasFromQueryText,
+  resolveUserCountryNameToDbName,
+} from "@/lib/country-db-name-aliases";
 import {
   normalizeSearchQueryForAi,
   resolveLibrarySearchIntent,
@@ -140,6 +145,8 @@ function buildCountryMatchRegex(countryNameLower: string): RegExp {
 async function detectCountryFromQueryUsingDatabase(query: string): Promise<string | undefined> {
   const q = query.trim().toLowerCase();
   if (!q) return undefined;
+  const fromAlias = detectCountryAliasFromQueryText(query);
+  if (fromAlias) return fromAlias;
   const names = await getAllCountryNames();
   if (!names.length) return undefined;
   const ordered = [...names].sort((a, b) => b.length - a.length);
@@ -168,6 +175,11 @@ async function findAllCountriesInQuery(query: string): Promise<string[]> {
       seen.add(name);
       found.push(name);
     }
+  }
+  const aliasName = detectCountryAliasFromQueryText(query);
+  if (aliasName && !seen.has(aliasName)) {
+    seen.add(aliasName);
+    found.push(aliasName);
   }
   return found;
 }
@@ -382,6 +394,8 @@ function extractQueryHints(query: string): { country?: string; category?: string
     "liberia": "Liberia",
     // After "nigeria" so queries mentioning Nigeria do not match the "niger" substring first
     "niger": "Niger",
+    "cape verde": "Cabo Verde",
+    "cabo verde": "Cabo Verde",
   };
   
   let foundCountry: string | undefined;
@@ -730,10 +744,11 @@ async function listTrademarkLawTitlesByCountry(
   country: string
 ): Promise<Array<{ title: string; year?: number | null }>> {
   const supabase = getSupabaseServer() as any;
+  const dbCountry = resolveUserCountryNameToDbName(country);
   const { data: countryRow } = await supabase
     .from("countries")
     .select("id")
-    .eq("name", country.trim())
+    .eq("name", dbCountry)
     .limit(1)
     .maybeSingle();
   const countryId = countryRow?.id as string | undefined;
@@ -954,10 +969,11 @@ async function getCountryLawCounts(countryName: string): Promise<{
   repealed: number;
 } | null> {
   const supabase = getSupabaseServer() as any;
+  const dbCountry = resolveUserCountryNameToDbName(countryName);
   const { data: countryRow } = await supabase
     .from("countries")
     .select("id,name")
-    .eq("name", countryName.trim())
+    .eq("name", dbCountry)
     .limit(1)
     .maybeSingle();
   const countryId = countryRow?.id as string | undefined;
@@ -1069,7 +1085,45 @@ function buildShortPhraseEscapedCandidates(tokens: string[], primaryIntentId: st
 }
 
 const LAWS_AI_SELECT =
-  "id, title, content, content_plain, year, status, metadata, country_id, category_id, countries(name), categories!laws_category_id_fkey(name)";
+  "id, title, content, content_plain, year, status, metadata, country_id, applies_to_all_countries, category_id, countries(name), categories!laws_category_id_fkey(name)";
+
+function lawCountryDisplayName(law: { applies_to_all_countries?: boolean | null; countries?: { name?: string } | null }) {
+  if (law.applies_to_all_countries) return "All countries";
+  return law.countries?.name || "";
+}
+
+function normalizeCountryLabelForMatch(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^a-z0-9]+/g, "")
+    .trim();
+}
+
+/** Treat common English / French exonyms as the same jurisdiction for RAG filtering. */
+function countryLabelsEquivalentForRag(a: string, b: string): boolean {
+  const na = normalizeCountryLabelForMatch(a);
+  const nb = normalizeCountryLabelForMatch(b);
+  if (na === nb) return true;
+  const ivoirian = new Set(["cotedivoire", "ivorycoast"]);
+  if (ivoirian.has(na) && ivoirian.has(nb)) return true;
+  const caboVerde = new Set(["caboverde", "capeverde"]);
+  if (caboVerde.has(na) && caboVerde.has(nb)) return true;
+  return false;
+}
+
+function filterLegalLibraryDocsForCountryLock<
+  T extends { country: string },
+>(docs: T[], effectiveCountry: string | null, strictCountryMode: boolean): T[] {
+  if (!strictCountryMode || !effectiveCountry?.trim()) return docs;
+  return docs.filter((d) => {
+    const c = d.country || "";
+    if (!c) return false;
+    if (c === "All countries") return true;
+    return countryLabelsEquivalentForRag(c, effectiveCountry);
+  });
+}
 
 function normalizeLawStatus(status: string | undefined | null): "in force" | "amended" | "repealed" | "other" {
   const s = String(status ?? "").trim().toLowerCase();
@@ -1196,10 +1250,11 @@ async function searchLegalLibrary(
     let countryId: string | null = null;
     let categoryId: string | null = null;
     if (searchCountry) {
+      const dbCountryName = resolveUserCountryNameToDbName(searchCountry);
       const { data: countryRow } = await supabase
         .from("countries")
         .select("id")
-        .eq("name", searchCountry)
+        .eq("name", dbCountryName)
         .limit(1)
         .maybeSingle();
       countryId = countryRow?.id ?? null;
@@ -1368,10 +1423,13 @@ async function searchLegalLibrary(
           .select(LAWS_AI_SELECT)
           .not("content", "is", null)
           .neq("status", "Repealed");
-        for (const t of specificTokens) {
-          sq = sq.ilike("title", `%${escapeIlikePattern(t)}%`);
+        if (countryId) {
+          sq = sq.or(lawsCountryOrGlobalWithTitleTerms(countryId, specificTokens));
+        } else {
+          for (const t of specificTokens) {
+            sq = sq.ilike("title", `%${escapeIlikePattern(t)}%`);
+          }
         }
-        if (countryScopeOr) sq = sq.or(countryScopeOr);
         const { data: rows } = await sq.limit(40);
         if (rows?.length) specificLawRows = rows as any[];
       }
@@ -1419,8 +1477,14 @@ async function searchLegalLibrary(
       const tokenOr = specificTokens
         .map((t) => `title.ilike.%${escapeIlikePattern(t)}%`)
         .join(",");
-      if (tokenOr) lawsQuery = lawsQuery.or(tokenOr);
-      if (countryScopeOr) lawsQuery = lawsQuery.or(countryScopeOr);
+      if (countryId && specificTokens.length > 0) {
+        lawsQuery = lawsQuery.or(lawsCountryOrGlobalWithTitleTerms(countryId, specificTokens));
+      } else if (countryId && countryScopeOr) {
+        lawsQuery = lawsQuery.or(countryScopeOr);
+      } else {
+        if (tokenOr) lawsQuery = lawsQuery.or(tokenOr);
+        if (countryScopeOr) lawsQuery = lawsQuery.or(countryScopeOr);
+      }
     } else if (query.trim()) {
       if (countryCatalogRequest && countryScopeOr) {
         lawsQuery = lawsQuery.or(countryScopeOr);
@@ -1481,17 +1545,24 @@ async function searchLegalLibrary(
       const narrowToken = rawTokens
         .map((t) => t.toLowerCase().trim())
         .find((t) => t.length >= 5 && !AI_SEARCH_NOISE_TOKENS.has(t));
-      const fallbackOr = narrowToken
-        ? `title.ilike.%${escapeIlikePattern(narrowToken)}%,content_plain.ilike.%${escapeIlikePattern(narrowToken)}%`
-        : null;
       let fbq = supabase
         .from("laws")
         .select(LAWS_AI_SELECT)
         .not("content", "is", null)
         .neq("status", "Repealed")
         .limit(120);
-      if (countryScopeOr) fbq = fbq.or(countryScopeOr);
-      if (fallbackOr) fbq = fbq.or(fallbackOr);
+      if (countryId) {
+        if (narrowToken) {
+          fbq = fbq.or(
+            lawsCountryOrGlobalWithAnyEscapedTerms(countryId, [escapeIlikePattern(narrowToken)])
+          );
+        } else if (countryScopeOr) {
+          fbq = fbq.or(countryScopeOr);
+        }
+      } else if (narrowToken) {
+        const fallbackOr = `title.ilike.%${escapeIlikePattern(narrowToken)}%,content_plain.ilike.%${escapeIlikePattern(narrowToken)}%`;
+        fbq = fbq.or(fallbackOr);
+      }
       const { data: timeoutFallbackRows, error: timeoutFallbackErr } = await fbq;
       if (!timeoutFallbackErr && timeoutFallbackRows?.length) {
         lawsRows = timeoutFallbackRows as any[];
@@ -1821,7 +1892,7 @@ async function searchLegalLibrary(
           compacted.push({
             id: law.id,
             title: law.title,
-            country: law.countries?.name || "",
+            country: lawCountryDisplayName(law),
             category: law.categories?.name || "",
             status: law.status || undefined,
             content: selectedContent,
@@ -1836,7 +1907,7 @@ async function searchLegalLibrary(
       compacted.push({
         id: law.id,
         title: law.title,
-        country: law.countries?.name || "",
+        country: lawCountryDisplayName(law),
         category: law.categories?.name || "",
         status: law.status || undefined,
         content: selectedContent,
@@ -1882,22 +1953,30 @@ async function searchLegalLibraryQuickFallback(
       .not("content", "is", null)
       .neq("status", "Repealed")
       .limit(40);
+    let resolvedCountryId: string | undefined;
     if (country?.trim()) {
+      const dbName = resolveUserCountryNameToDbName(country.trim());
       const { data: c } = await supabase
         .from("countries")
         .select("id")
-        .eq("name", country.trim())
+        .eq("name", dbName)
         .limit(1)
         .maybeSingle();
-      if (c?.id) q = q.or(lawsOrGlobalForCountry(c.id));
+      if (c?.id) resolvedCountryId = c.id;
     }
-    if (escaped) q = q.or(`title.ilike.%${escaped}%,content_plain.ilike.%${escaped}%`);
+    if (resolvedCountryId && escaped) {
+      q = q.or(lawsCountryOrGlobalWithTextSearch(resolvedCountryId, escaped));
+    } else if (resolvedCountryId) {
+      q = q.or(lawsOrGlobalForCountry(resolvedCountryId));
+    } else if (escaped) {
+      q = q.or(`or(${lawTextIlikeOr(escaped)})`);
+    }
     const { data } = await q;
     const rows = (data ?? []) as any[];
     return rows.map((law) => ({
       id: law.id,
       title: law.title,
-      country: law.countries?.name || "",
+      country: lawCountryDisplayName(law),
       category: law.categories?.name || "",
       status: law.status || undefined,
       content: String(law.content_plain || law.content || "").slice(0, 5000),
@@ -1988,8 +2067,12 @@ export async function POST(request: NextRequest) {
     const currentHints = extractQueryHints(userQuery);
     const conversationHints = extractHintsFromConversation(messages);
     const dbDetectedCountry = !currentHints.country ? await detectCountryFromQueryUsingDatabase(userQuery) : undefined;
+    const rawEffectiveCountry =
+      currentHints.country ?? dbDetectedCountry ?? conversationHints.country;
     const effectiveHints = {
-      country: currentHints.country ?? dbDetectedCountry ?? conversationHints.country,
+      country: rawEffectiveCountry
+        ? resolveUserCountryNameToDbName(rawEffectiveCountry)
+        : undefined,
       category: currentHints.category ?? conversationHints.category,
     };
     const specificLawHint = extractSpecificLawHint(userQuery);
@@ -2010,6 +2093,7 @@ export async function POST(request: NextRequest) {
     );
     const skipCountryRequirement =
       supranationalFrameworksInQuery.length > 0 || bilateralTitleTokensInUserQuery.length >= 2;
+    const strictCountryMode = !skipCountryRequirement && Boolean(effectiveHints.country);
 
     if (allCountriesBreakdownIntent) {
       const counts = await getAllCountriesLawCounts();
@@ -2109,6 +2193,13 @@ export async function POST(request: NextRequest) {
     if (!platformGuideMeta && !legalContext.length) {
       legalContext = await searchLegalLibraryQuickFallback(userQuery, effectiveHints.country ?? undefined);
     }
+    if (!platformGuideMeta) {
+      legalContext = filterLegalLibraryDocsForCountryLock(
+        legalContext,
+        effectiveHints.country ?? null,
+        strictCountryMode
+      );
+    }
 
     if (
       !platformGuideMeta &&
@@ -2203,7 +2294,7 @@ export async function POST(request: NextRequest) {
       })),
       bilateralPartiesSummary,
       effectiveCountry: effectiveHints.country ?? null,
-      strictCountryMode: !skipCountryRequirement && Boolean(effectiveHints.country),
+      strictCountryMode,
       legalContext,
       detailedMode,
       specificLawHint,
