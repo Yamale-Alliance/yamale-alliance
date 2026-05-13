@@ -151,19 +151,6 @@ self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-requests') {
     event.waitUntil(syncPendingRequests());
   }
-  if (event.tag === 'yamale-saved-laws') {
-    event.waitUntil(
-      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-        clients.forEach((client) => {
-          try {
-            client.postMessage({ type: 'yamale-sync-saved-laws' });
-          } catch (e) {
-            console.warn('[SW] Client message failed:', e);
-          }
-        });
-      })
-    );
-  }
 });
 
 async function syncPendingRequests() {
