@@ -102,6 +102,7 @@ const LOMI_CHECKOUT_PAID_STATUSES = new Set([
   "successful",
   "payment_succeeded",
   "payment-succeeded",
+  "fulfilled",
 ]);
 
 function isLomiCheckoutSessionPaidStatus(statusRaw: string | undefined): boolean {
@@ -134,6 +135,14 @@ function extractLomiCheckoutSessionStatusStrings(session: unknown): string[] {
     const p = pay as Record<string, unknown>;
     for (const k of ["status", "state", "payment_status"]) {
       const v = p[k];
+      if (typeof v === "string" && v.trim()) out.push(v);
+    }
+  }
+  const data = s.data;
+  if (data && typeof data === "object") {
+    const d = data as Record<string, unknown>;
+    for (const k of ["status", "checkout_session_status", "payment_status", "state"]) {
+      const v = d[k];
       if (typeof v === "string" && v.trim()) out.push(v);
     }
   }
@@ -182,11 +191,20 @@ export async function createLomiHostedCheckoutSession(
     checkout_session_id?: string;
   };
   const checkoutUrl = rec.checkout_url;
-  const sessionId = rec.id ?? rec.checkout_session_id ?? "";
+  // Lomi APIs identify checkout sessions by `checkout_session_id`; prefer it over generic `id`.
+  const sessionId = rec.checkout_session_id ?? rec.id ?? "";
   if (!checkoutUrl || !sessionId) {
     throw new Error("Lomi checkout session missing checkout_url or id");
   }
   return { checkoutUrl, sessionId };
+}
+
+/** Max time to wait for Lomi session to flip to paid after success redirect (race with API + webhook). */
+const LOMI_CONFIRM_POLL_MS = 8_000;
+const LOMI_CONFIRM_POLL_INTERVAL_MS = 700;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 export async function getCompletedLomiCheckoutMetadata(
@@ -201,6 +219,26 @@ export async function getCompletedLomiCheckoutMetadata(
   } catch {
     return null;
   }
+}
+
+/**
+ * Poll Lomi until checkout session is paid or timeout. Use after hosted-checkout success redirect
+ * when GET may briefly still return non-paid status.
+ */
+export async function pollCompletedLomiCheckoutMetadata(
+  sessionId: string,
+  options?: { maxWaitMs?: number; intervalMs?: number }
+): Promise<Record<string, string> | null> {
+  if (!isLomiConfigured()) return null;
+  const maxWait = options?.maxWaitMs ?? LOMI_CONFIRM_POLL_MS;
+  const interval = options?.intervalMs ?? LOMI_CONFIRM_POLL_INTERVAL_MS;
+  const deadline = Date.now() + maxWait;
+  while (Date.now() < deadline) {
+    const md = await getCompletedLomiCheckoutMetadata(sessionId);
+    if (md) return md;
+    await sleep(interval);
+  }
+  return null;
 }
 
 export function verifyLomiWebhookSignature(rawBody: string, signatureHeader: string | null, secret: string): boolean {
