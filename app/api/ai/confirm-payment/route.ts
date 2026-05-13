@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { auth } from "@clerk/nextjs/server";
 import { getDepositStatus, isDepositCompleted } from "@/lib/pawapay";
-import { getCompletedLomiCheckoutMetadata } from "@/lib/lomi-checkout";
+import { getCompletedLomiCheckoutMetadata, pollCompletedLomiCheckoutMetadata } from "@/lib/lomi-checkout";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { LOMI_PAYG_AI_QUERY_SESSION_COOKIE } from "@/lib/lomi-payg-ai-query-cookie";
 
 /**
  * After pawaPay redirect: confirm pay-as-you-go AI query payment from session_id and record purchase.
- * Call this when the user lands on /ai-research with session_id so the purchase
- * is applied even if the webhook hasn't run yet.
+ * After Lomi redirect: use `from_lomi_cookie: true` (session id is stored in an HttpOnly cookie at checkout creation).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -17,23 +18,70 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const sessionId = body.session_id as string | undefined;
+    const fromLomiCookie = body.from_lomi_cookie === true;
+    let sessionId = typeof body.session_id === "string" ? body.session_id.trim() : "";
+    const placeholder =
+      sessionId === "{CHECKOUT_SESSION_ID}" || decodeURIComponent(sessionId) === "{CHECKOUT_SESSION_ID}";
+    if (placeholder) {
+      sessionId = "";
+    }
+
+    if ((!sessionId || sessionId.length === 0) && fromLomiCookie) {
+      const jar = await cookies();
+      sessionId = jar.get(LOMI_PAYG_AI_QUERY_SESSION_COOKIE)?.value?.trim() ?? "";
+    }
+
     if (!sessionId || typeof sessionId !== "string") {
-      return NextResponse.json({ error: "session_id required" }, { status: 400 });
+      return NextResponse.json(
+        { error: fromLomiCookie ? "Checkout return expired or missing. Wait a moment and refresh, or open pricing to try again." : "session_id required" },
+        { status: 400 }
+      );
+    }
+
+    const supabase = getSupabaseServer();
+
+    // Webhook may have recorded the purchase before Lomi GET shows "completed".
+    const { data: alreadyPurchased } = await (supabase.from("pay_as_you_go_purchases") as any)
+      .select("id")
+      .eq("user_id", userId)
+      .eq("item_type", "ai_query")
+      .eq("stripe_session_id", sessionId)
+      .maybeSingle();
+
+    if (alreadyPurchased) {
+      const res = NextResponse.json({
+        ok: true,
+        kind: "payg_ai_query",
+        recorded: true,
+        purchaseId: alreadyPurchased.id,
+      });
+      res.cookies.set(LOMI_PAYG_AI_QUERY_SESSION_COOKIE, "", { path: "/", maxAge: 0 });
+      return res;
     }
 
     let resolvedKind: string | undefined;
 
-    const lomiMd = await getCompletedLomiCheckoutMetadata(sessionId);
+    const lomiMd = fromLomiCookie
+      ? await pollCompletedLomiCheckoutMetadata(sessionId)
+      : await getCompletedLomiCheckoutMetadata(sessionId);
     if (lomiMd) {
-      if (lomiMd.clerk_user_id !== userId) {
+      const mdUserId = String(lomiMd.clerk_user_id || "").trim();
+      if (mdUserId.length > 0 && mdUserId !== userId) {
         return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
       }
-      resolvedKind = lomiMd.kind;
+      // Some Lomi accounts omit metadata fields on immediate read-after-redirect.
+      // For this endpoint we only confirm AI PAYG, so default to payg_ai_query on cookie-based Lomi return.
+      resolvedKind = String(lomiMd.kind || "").trim() || (fromLomiCookie ? "payg_ai_query" : "");
     } else {
       const deposit = await getDepositStatus(sessionId);
       if (!deposit || !isDepositCompleted(deposit.status)) {
-        return NextResponse.json({ error: "Payment not completed" }, { status: 400 });
+        return NextResponse.json(
+          {
+            error:
+              "Payment not completed yet. Wait a few seconds and refresh this page, or open AI Research again from the menu.",
+          },
+          { status: 409 }
+        );
       }
 
       const clerkUserId = deposit.metadata?.clerk_user_id;
@@ -47,8 +95,6 @@ export async function POST(request: NextRequest) {
     if (resolvedKind !== "payg_ai_query") {
       return NextResponse.json({ error: "Not an AI query purchase session" }, { status: 400 });
     }
-
-    const supabase = getSupabaseServer();
 
     const { data: existing, error: checkError } = await (supabase.from("pay_as_you_go_purchases") as any)
       .select("id")
@@ -87,12 +133,14 @@ export async function POST(request: NextRequest) {
       .eq("stripe_session_id", sessionId)
       .maybeSingle();
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       ok: true,
       kind: "payg_ai_query",
       recorded: !!verify,
       purchaseId: verify?.id,
     });
+    res.cookies.set(LOMI_PAYG_AI_QUERY_SESSION_COOKIE, "", { path: "/", maxAge: 0 });
+    return res;
   } catch (err) {
     console.error("AI query confirm payment error:", err);
     return NextResponse.json({ error: "Failed to confirm payment" }, { status: 500 });
