@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import { auth } from "@clerk/nextjs/server";
 import { getDocumentExportUnlockLawIdsForUser } from "@/lib/library-document-export-unlocks";
 import { PurchasedLawsClient } from "./PurchasedLawsClient";
+import PurchasedLawsLoading from "./loading";
 
 export default async function LibraryPurchasedLawsPage() {
   let initialLawIds: string[] = [];
@@ -11,5 +13,9 @@ export default async function LibraryPurchasedLawsPage() {
     console.error("LibraryPurchasedLawsPage:", err);
   }
 
-  return <PurchasedLawsClient initialLawIds={initialLawIds} />;
+  return (
+    <Suspense fallback={<PurchasedLawsLoading />}>
+      <PurchasedLawsClient initialLawIds={initialLawIds} />
+    </Suspense>
+  );
 }
