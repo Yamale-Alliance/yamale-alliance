@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { getCurrentMonthKey } from "@/lib/ai-usage";
+import { estimateAiApiUsdCentsFromTokens } from "@/lib/ai-token-cost-estimate";
 
 /** GET: list AI usage per user (current month and previous month). Admin only. */
 export async function GET() {
@@ -48,19 +49,24 @@ export async function GET() {
   const summary = Array.from(byUser.entries()).map(([user_id, entries]) => {
     const current = entries.find((e) => e.month === thisMonth);
     const previous = entries.find((e) => e.month === prevMonth);
+    const input_tokens = current?.input_tokens ?? 0;
+    const output_tokens = current?.output_tokens ?? 0;
     return {
       user_id,
       current_month: thisMonth,
       query_count: current?.query_count ?? 0,
-      input_tokens: current?.input_tokens ?? 0,
-      output_tokens: current?.output_tokens ?? 0,
-      total_tokens: (current?.input_tokens ?? 0) + (current?.output_tokens ?? 0),
+      input_tokens,
+      output_tokens,
+      total_tokens: input_tokens + output_tokens,
       previous_month_query_count: previous?.query_count ?? 0,
+      estimated_usage_usd_cents: estimateAiApiUsdCentsFromTokens(input_tokens, output_tokens),
     };
   });
 
   // Sort by current month query count descending
   summary.sort((a, b) => b.query_count - a.query_count);
+
+  const total_estimated_usage_usd_cents = summary.reduce((s, u) => s + u.estimated_usage_usd_cents, 0);
 
   return NextResponse.json({
     month: thisMonth,
@@ -69,5 +75,6 @@ export async function GET() {
     total_queries: summary.reduce((s, u) => s + u.query_count, 0),
     total_input_tokens: summary.reduce((s, u) => s + u.input_tokens, 0),
     total_output_tokens: summary.reduce((s, u) => s + u.output_tokens, 0),
+    total_estimated_usage_usd_cents,
   });
 }
