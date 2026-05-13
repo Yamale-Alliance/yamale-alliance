@@ -4,6 +4,7 @@ import {
   convertUsdCentsToPawapayMinor,
   createPaymentPageSession,
   isPawapayConfigured,
+  PawapayReturnUrlError,
   resolvePawapayReturnOrigin,
 } from "@/lib/pawapay";
 import { clerkClient } from "@clerk/nextjs/server";
@@ -61,6 +62,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: redirectUrl });
   } catch (err) {
     console.error("Team extra seats checkout error:", err);
+    if (err instanceof PawapayReturnUrlError) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
   }
 }
