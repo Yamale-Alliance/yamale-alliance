@@ -63,7 +63,16 @@ export async function GET(
         } catch {
           /* law_categories table may not exist yet */
         }
-        return NextResponse.json({ law: { ...law, category_ids }, warning: "Missing treaty_type column; run migration 064." });
+        const sharedGroupLegacy = await fetchSharedGroupForLaw(supabase, id).catch(() => null);
+        const shared_link_peer_count_legacy = sharedGroupLegacy
+          ? Math.max(0, sharedGroupLegacy.lawIds.length - 1)
+          : 0;
+        return NextResponse.json({
+          law: { ...law, category_ids },
+          warning: "Missing treaty_type column; run migration 064.",
+          shared_link_peer_count: shared_link_peer_count_legacy,
+          shared_group_id: sharedGroupLegacy?.groupId ?? null,
+        });
       }
       if (error.code === "PGRST116") {
         return NextResponse.json({ error: "Law not found" }, { status: 404 });
@@ -83,7 +92,15 @@ export async function GET(
     } catch {
       category_ids = law.category_id ? [law.category_id] : [];
     }
-    return NextResponse.json({ law: { ...law, category_ids } });
+
+    const sharedGroup = await fetchSharedGroupForLaw(supabase, id).catch(() => null);
+    const shared_link_peer_count = sharedGroup ? Math.max(0, sharedGroup.lawIds.length - 1) : 0;
+
+    return NextResponse.json({
+      law: { ...law, category_ids },
+      shared_link_peer_count,
+      shared_group_id: sharedGroup?.groupId ?? null,
+    });
   } catch (err) {
     console.error("Admin law GET error:", err);
     return NextResponse.json({ error: "Failed to load law" }, { status: 500 });
