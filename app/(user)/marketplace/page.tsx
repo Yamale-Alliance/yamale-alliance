@@ -323,7 +323,7 @@ export default function MarketplacePage() {
     }
     // Direct checkout for single item
     try {
-      const res = await fetch("/api/stripe/marketplace-checkout", {
+      const res = await fetch("/api/payments/marketplace-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
