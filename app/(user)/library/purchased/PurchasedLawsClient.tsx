@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import { ArrowLeft, ArrowRight, FileDown, Loader2, BookOpen } from "lucide-react";
 import { fetchDocumentExportUnlockLawIds } from "@/lib/library-document-export-unlocks-client";
 
@@ -22,6 +23,9 @@ type Props = {
 
 export function PurchasedLawsClient({ initialLawIds }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { isSignedIn } = useUser();
+  const documentReturnConfirmedSessionsRef = useRef<Set<string>>(new Set());
   const [lawIds, setLawIds] = useState<string[]>(initialLawIds);
   const [laws, setLaws] = useState<Law[]>([]);
   const [loading, setLoading] = useState(initialLawIds.length > 0);
@@ -33,6 +37,30 @@ export function PurchasedLawsClient({ initialLawIds }: Props) {
       setLawIds(res.law_ids);
     }
   }, []);
+
+  useEffect(() => {
+    void refreshIds();
+  }, [refreshIds]);
+
+  useEffect(() => {
+    if (!isSignedIn) return;
+    const sessionId = searchParams.get("session_id");
+    if (searchParams.get("payg") !== "document" || !sessionId) return;
+    if (documentReturnConfirmedSessionsRef.current.has(sessionId)) return;
+    documentReturnConfirmedSessionsRef.current.add(sessionId);
+    void fetch("/api/library/confirm-document-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ session_id: sessionId }),
+    })
+      .then(() => refreshIds())
+      .catch(() => {})
+      .finally(() => {
+        router.replace("/library/purchased", { scroll: false });
+        router.refresh();
+      });
+  }, [isSignedIn, searchParams, refreshIds, router]);
 
   useEffect(() => {
     const onFocus = () => {
@@ -142,6 +170,11 @@ export function PurchasedLawsClient({ initialLawIds }: Props) {
             <h2 className="mt-4 text-lg font-semibold text-foreground">No purchased laws yet</h2>
             <p className="mt-2 text-sm text-muted-foreground">
               When you pay to export a law from the library, it will appear here while you are signed in.
+            </p>
+            <p className="mx-auto mt-3 max-w-md text-xs text-muted-foreground/80">
+              This list reads from the same database as production. If you completed checkout on another host (for
+              example your Vercel URL), use the same Supabase URL and Clerk application keys in your local{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-[0.7rem]">.env</code> so purchases show here.
             </p>
             <Link
               href="/library"
