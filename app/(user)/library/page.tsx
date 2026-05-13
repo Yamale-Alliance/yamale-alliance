@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import { LibraryView } from "./LibraryView";
 import { fetchLibraryData } from "@/lib/library-data";
+import LibraryLoading from "./loading";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -30,21 +32,23 @@ export default async function LibraryPage({ searchParams }: { searchParams: Sear
   });
 
   return (
-    <LibraryView
-      initialCountries={baseData.countries}
-      initialCategories={baseData.categories}
-      initialLaws={filteredData.laws}
-      initialLawCount={filteredData.lawCount}
-      initialCountry={country}
-      initialCategory={category}
-      initialStatus={status}
-      initialSearch={q}
-      initialDocumentType={documentType}
-      initialTreatyType={classification}
-      initialYearFrom={yearFrom}
-      initialYearTo={yearTo}
-      initialPage={pageParam}
-      initialSort={sortParam}
-    />
+    <Suspense fallback={<LibraryLoading />}>
+      <LibraryView
+        initialCountries={baseData.countries}
+        initialCategories={baseData.categories}
+        initialLaws={filteredData.laws}
+        initialLawCount={filteredData.lawCount}
+        initialCountry={country}
+        initialCategory={category}
+        initialStatus={status}
+        initialSearch={q}
+        initialDocumentType={documentType}
+        initialTreatyType={classification}
+        initialYearFrom={yearFrom}
+        initialYearTo={yearTo}
+        initialPage={pageParam}
+        initialSort={sortParam}
+      />
+    </Suspense>
   );
 }
