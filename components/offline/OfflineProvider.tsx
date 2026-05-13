@@ -34,13 +34,6 @@ function useOfflineSyncSetup() {
         } catch (err) {
           console.error('[Sync] Failed to remove from queue:', err);
         }
-      } else if (event.data?.type === 'yamale-sync-saved-laws') {
-        try {
-          const { syncSavedLawsFromNetwork } = await import('@/lib/library-offline-storage');
-          void syncSavedLawsFromNetwork();
-        } catch (err) {
-          console.error('[Sync] Saved laws refresh failed:', err);
-        }
       }
     };
 
@@ -48,12 +41,6 @@ function useOfflineSyncSetup() {
 
     // Try to sync queue when coming back online
     const handleOnline = async () => {
-      try {
-        const { syncSavedLawsFromNetwork } = await import('@/lib/library-offline-storage');
-        void syncSavedLawsFromNetwork();
-      } catch {
-        // ignore
-      }
       try {
         const { getQueue, removeFromQueue, replayRequest } = await import('@/lib/offline-queue');
         const queue = await getQueue();
