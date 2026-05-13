@@ -20,6 +20,7 @@ import {
   Loader2,
   Info,
   FileDown,
+  Link2,
 } from "lucide-react";
 import type { LibraryCountry, LibraryCategory, LibraryLawRow } from "@/lib/library-data";
 import { useUser } from "@clerk/nextjs";
@@ -66,6 +67,8 @@ type Law = {
   document_type: DocumentType;
   created_at?: string;
   updated_at?: string;
+  /** Cross-country shared link group (admin-only flair). */
+  is_linked_shared_law?: boolean;
 };
 
 const STATUSES: LawStatus[] = ["In force", "Amended", "Repealed"];
@@ -102,8 +105,13 @@ function LawFlairs({ law, isBookmarked, isRecentlyOpened, isAdmin }: LawFlairsPr
   if (recentlyAdded && isAdmin) flairs.push({ label: "Recently added", icon: <Sparkles className="h-3 w-3" />, className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" });
   if (amended) flairs.push({ label: "Amended", icon: <FileEdit className="h-3 w-3" />, className: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30" });
   if (recentlyUpdated && isAdmin) flairs.push({ label: "Updated", icon: <Calendar className="h-3 w-3" />, className: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/30" });
-
-  if (flairs.length === 0) return null;
+  if (law.is_linked_shared_law && isAdmin) {
+    flairs.push({
+      label: "Linked law",
+      icon: <Link2 className="h-3 w-3" />,
+      className: "bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-500/30",
+    });
+  }
 
   return (
     <div className="mt-3 flex flex-wrap gap-1.5">
@@ -163,6 +171,7 @@ function mapRowToLaw(row: LibraryLawRow): Law {
     document_type,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    is_linked_shared_law: row.is_linked_shared_law,
   };
 }
 
@@ -439,8 +448,11 @@ export function LibraryView({
   useEffect(() => {
     const onFocus = () => {
       setRecentlyOpenedIds(getRecentlyOpenedIds());
+      // Avoid calling authenticated APIs when signed out — Clerk protect() redirects can
+      // cause fetch to reject with "Failed to fetch" (cross-origin / opaque redirect).
+      if (!isSignedIn) return;
       fetch("/api/bookmarks", { credentials: "include" })
-        .then((res) => res.ok ? res.json() : { bookmarks: [] })
+        .then((res) => (res.ok ? res.json() : { bookmarks: [] }))
         .then((data: { bookmarks?: Array<{ law_id: string }> }) => {
           const list = data.bookmarks ?? [];
           setBookmarkedIds(new Set(list.map((b) => b.law_id)));
@@ -452,7 +464,7 @@ export function LibraryView({
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, []);
+  }, [isSignedIn]);
 
   // When a user's tier changes (e.g., Free -> Basic), clear their bookmarks once so
   // they start fresh under the new role.
