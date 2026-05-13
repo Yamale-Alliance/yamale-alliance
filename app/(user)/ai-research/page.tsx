@@ -193,6 +193,10 @@ export default function AIResearchPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const lastChatOpenedForScrollRef = useRef<string | null>(null);
+  const paygConfirmAttemptRef = useRef<string | null>(null);
+  /** Legacy name kept defined (some HMR/cache paths still touch it); do not use for the attempt key. */
+  const paygConfirmInFlightRef = useRef(false);
+  /** Do not put `confirmingPayment` in the payg effect deps — it re-runs cleanup, cancels the fetch, and `finally` used to skip clearing the UI (stuck on "Confirming payment…"). */
   const mounted = useRef(false);
 
   const scrollChatToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
@@ -406,47 +410,76 @@ export default function AIResearchPage() {
     models.find((m) => m.id === (selectedModelId ?? defaultModelId ?? ""))?.display_name ??
     "Claude Sonnet (latest)";
 
-  // Handle payment confirmation after Stripe redirect
+  // Handle payment confirmation after PawaPay (session_id) or Lomi (cookie + from_lomi=1)
   useEffect(() => {
-    const sessionId = searchParams.get("session_id");
     const payg = searchParams.get("payg");
-    
-    if (sessionId && payg === "ai_query" && user && !confirmingPayment) {
-      setConfirmingPayment(true);
-      fetch("/api/ai/confirm-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ session_id: sessionId }),
-      })
-        .then(async (res) => {
-          const data = await res.json();
-          if (!res.ok) {
-            throw new Error(data.error || "Failed to confirm payment");
-          }
-          return data;
-        })
-        .then(async (data) => {
-          console.log("Payment confirmed:", data);
-          if (data.ok) {
-            // Wait a bit for DB to be consistent, then refresh usage
-            await new Promise(resolve => setTimeout(resolve, 500));
-            // Refresh usage to show the purchase
+    const fromLomi = searchParams.get("from_lomi") === "1";
+    const rawSession = searchParams.get("session_id");
+    const decoded = rawSession ? decodeURIComponent(rawSession) : "";
+    const isPlaceholder =
+      decoded === "{CHECKOUT_SESSION_ID}" || rawSession === "{CHECKOUT_SESSION_ID}";
+    const sessionId = rawSession && !isPlaceholder ? rawSession : null;
+    const useLomiCookie = fromLomi || (Boolean(rawSession) && isPlaceholder);
+    const confirmationKey = `payg=${payg ?? ""}|sid=${sessionId ?? ""}|lomi=${useLomiCookie ? "1" : "0"}`;
+
+    if (payg !== "ai_query" || !user) return;
+    if (!sessionId && !useLomiCookie) return;
+    if (paygConfirmAttemptRef.current === confirmationKey) return;
+    paygConfirmAttemptRef.current = confirmationKey;
+
+    let cancelled = false;
+    setConfirmingPayment(true);
+    const body =
+      sessionId && !isPlaceholder ? { session_id: sessionId } : { from_lomi_cookie: true as const };
+
+    void (async () => {
+      const maxAttempts = 4;
+      try {
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          if (cancelled) return;
+          const res = await fetch("/api/ai/confirm-payment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify(body),
+          });
+          const data = (await res.json()) as { ok?: boolean; error?: string };
+          if (res.ok && data.ok) {
+            if (cancelled) return;
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            if (cancelled) return;
             await fetchAiUsage();
-            // Remove query params from URL
             window.history.replaceState({}, "", "/ai-research");
+            return;
           }
-        })
-        .catch((err) => {
+          if (res.status === 409 && attempt < maxAttempts - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            continue;
+          }
+          throw new Error(data.error || "Failed to confirm payment");
+        }
+      } catch (err) {
+        if (!cancelled) {
           console.error("Failed to confirm payment:", err);
-          // Still try to refresh usage in case webhook already processed it
-          fetchAiUsage();
-        })
-        .finally(() => {
-          setConfirmingPayment(false);
-        });
-    }
-  }, [searchParams, user, confirmingPayment, fetchAiUsage]);
+          await fetchAiUsage();
+          // Avoid infinite re-confirm loops from sticky query params after a failed attempt.
+          window.history.replaceState({}, "", "/ai-research");
+        }
+      } finally {
+        // Always clear UI gate (see effect comment on `confirmingPayment` deps).
+        setConfirmingPayment(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      setConfirmingPayment(false);
+      // React Strict Mode: remount must be allowed to confirm the same return URL again.
+      if (paygConfirmAttemptRef.current === confirmationKey) {
+        paygConfirmAttemptRef.current = null;
+      }
+    };
+  }, [searchParams, user, fetchAiUsage]);
 
   // Load sessions from backend for signed-in users
   useEffect(() => {
