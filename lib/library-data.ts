@@ -24,6 +24,8 @@ export type LibraryLawRow = {
   categories: { name: string } | null;
   created_at?: string;
   updated_at?: string;
+  /** True when this law is in a cross-country shared link group (admin-only flair in UI). */
+  is_linked_shared_law?: boolean;
 };
 
 export type LibraryData = {
@@ -208,9 +210,32 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
     }
   }
 
+  const linkedLawIds = new Set<string>();
+  if (ids.length > 0) {
+    try {
+      const chunkSize = 500;
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: mRows, error: mErr } = await (supabase as any)
+          .from("law_shared_group_members")
+          .select("law_id")
+          .in("law_id", chunk);
+        if (!mErr && mRows) {
+          for (const r of mRows as { law_id: string }[]) {
+            if (r.law_id) linkedLawIds.add(r.law_id);
+          }
+        }
+      }
+    } catch {
+      /* law_shared_group_members may be missing on older DBs */
+    }
+  }
+
   const laws: LibraryLawRow[] = rawLaws.map((law) => ({
     ...law,
     all_category_ids: catMap.get(law.id) ?? (law.category_id ? [law.category_id] : []),
+    is_linked_shared_law: linkedLawIds.has(law.id),
   }));
 
   const data: LibraryData = {
