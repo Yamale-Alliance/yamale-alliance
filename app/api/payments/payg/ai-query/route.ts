@@ -9,6 +9,7 @@ import {
 } from "@/lib/pawapay";
 import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
 import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
+import { LOMI_PAYG_AI_QUERY_SESSION_COOKIE } from "@/lib/lomi-payg-ai-query-cookie";
 
 const AI_QUERY_PRICE_CENTS = 100; // $1 per query
 type CheckoutProvider = "pawapay" | "lomi";
@@ -44,15 +45,26 @@ export async function POST(request: NextRequest) {
         );
       }
       const amountMinor = convertUsdCentsToPawapayMinor(AI_QUERY_PRICE_CENTS, currencyCode);
-      const { checkoutUrl } = await createLomiHostedCheckoutSession({
+      const { checkoutUrl, sessionId } = await createLomiHostedCheckoutSession({
         amount: amountMinor,
         currency_code: currencyCode,
         metadata: { clerk_user_id: userId, kind: "payg_ai_query" },
         title: "AI query",
-        success_url: `${origin}/ai-research?session_id={CHECKOUT_SESSION_ID}&payg=ai_query`,
+        // Lomi does not substitute Stripe's `{CHECKOUT_SESSION_ID}`; use a stable return URL and pass the real session id via HttpOnly cookie.
+        success_url: `${origin}/ai-research?payg=ai_query&from_lomi=1`,
         cancel_url: `${origin}/pricing?canceled=1`,
       });
-      return NextResponse.json({ url: checkoutUrl, provider: "lomi" });
+      const res = NextResponse.json({ url: checkoutUrl, provider: "lomi" });
+      if (sessionId) {
+        res.cookies.set(LOMI_PAYG_AI_QUERY_SESSION_COOKIE, sessionId, {
+          path: "/",
+          maxAge: 60 * 30,
+          httpOnly: true,
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+        });
+      }
+      return res;
     }
 
     if (!isPawapayConfigured()) {
