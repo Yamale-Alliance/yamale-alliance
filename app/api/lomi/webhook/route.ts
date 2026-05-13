@@ -34,8 +34,20 @@ export async function POST(request: NextRequest) {
     const eventType = String(payload.event || "");
     if (eventType === "PAYMENT_SUCCEEDED" && payload.data) {
       const md = flattenLomiMetadata(payload.data.metadata);
-      const ref = String(payload.data.checkout_session_id ?? payload.data.transaction_id ?? "");
-      if (ref && md.clerk_user_id) {
+      const checkoutId = String(payload.data.checkout_session_id ?? "").trim();
+      const txnId = String(payload.data.transaction_id ?? "").trim();
+      const kindNorm = String(md.kind || "")
+        .trim()
+        .toLowerCase()
+        .replace(/-/g, "_");
+      /** Browser return URL uses checkout session id; Lomi sometimes only echoes transaction id in webhooks — record both. */
+      const paygMultiRefKinds = new Set(["payg_document", "payg_ai_query", "payg_afcfta_report"]);
+      const refs =
+        paygMultiRefKinds.has(kindNorm) && checkoutId && txnId && checkoutId !== txnId
+          ? [checkoutId, txnId]
+          : [checkoutId || txnId].filter(Boolean);
+      for (const ref of refs) {
+        if (!ref || !md.clerk_user_id) continue;
         try {
           await fulfillPaymentFromMetadata(md, ref);
         } catch (err) {

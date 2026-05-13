@@ -82,6 +82,74 @@ export function flattenLomiMetadata(meta: unknown): Record<string, string> {
   return out;
 }
 
+/** `law_id` on checkout metadata may arrive with varying key casing from providers or proxies. */
+export function readPaygDocumentLawIdFromMetadata(md: Record<string, string>): string | null {
+  const candidates = [md.law_id, md.Law_ID, md.LawId, md.lawId, md.LAW_ID];
+  for (const c of candidates) {
+    const t = typeof c === "string" ? c.trim() : "";
+    if (t.length > 0) return t;
+  }
+  return null;
+}
+
+/** Lomi checkout session `status` values that mean we can trust session metadata for paid flows. */
+const LOMI_CHECKOUT_PAID_STATUSES = new Set([
+  "completed",
+  "complete",
+  "paid",
+  "succeeded",
+  "success",
+  "successful",
+  "payment_succeeded",
+  "payment-succeeded",
+]);
+
+function isLomiCheckoutSessionPaidStatus(statusRaw: string | undefined): boolean {
+  const s = String(statusRaw || "")
+    .toLowerCase()
+    .trim()
+    .replace(/-/g, "_");
+  return s.length > 0 && LOMI_CHECKOUT_PAID_STATUSES.has(s);
+}
+
+/** Collect status-like strings from a checkout session payload (shape varies by API version). */
+function extractLomiCheckoutSessionStatusStrings(session: unknown): string[] {
+  if (!session || typeof session !== "object") return [];
+  const s = session as Record<string, unknown>;
+  const keys = [
+    "status",
+    "checkout_session_status",
+    "payment_status",
+    "provider_payment_status",
+    "state",
+    "lifecycle_status",
+  ];
+  const out: string[] = [];
+  for (const k of keys) {
+    const v = s[k];
+    if (typeof v === "string" && v.trim()) out.push(v);
+  }
+  const pay = s.payment;
+  if (pay && typeof pay === "object") {
+    const p = pay as Record<string, unknown>;
+    for (const k of ["status", "state", "payment_status"]) {
+      const v = p[k];
+      if (typeof v === "string" && v.trim()) out.push(v);
+    }
+  }
+  return out;
+}
+
+function isLomiCheckoutSessionPaid(session: unknown): boolean {
+  const strings = extractLomiCheckoutSessionStatusStrings(session);
+  if (strings.some((x) => isLomiCheckoutSessionPaidStatus(x))) return true;
+  const paidFlag =
+    (session as { paid?: unknown }).paid === true ||
+    (session as { is_paid?: unknown }).is_paid === true ||
+    (session as { payment_completed?: unknown }).payment_completed === true;
+  return Boolean(paidFlag);
+}
+
 export type HostedLomiCheckoutInput = {
   /** Minor units (USD/EUR cents; XOF whole francs) — converted to Lomi major units before API call. */
   amount: number;
@@ -128,8 +196,7 @@ export async function getCompletedLomiCheckoutMetadata(
   try {
     const lomi = getLomiSdk();
     const session = await lomi.checkoutSessions.get(sessionId);
-    const status = String((session as { status?: string }).status || "").toLowerCase();
-    if (status !== "completed") return null;
+    if (!isLomiCheckoutSessionPaid(session)) return null;
     return flattenLomiMetadata((session as { metadata?: unknown }).metadata);
   } catch {
     return null;

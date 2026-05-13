@@ -3,6 +3,7 @@ import { fulfillSubscriptionPlanPayment } from "@/lib/subscription-state";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { recordUnlock, recordSearchUnlockGrant } from "@/lib/unlocks";
 import { clearUserShoppingCart, parseCartItemIdsMetadata } from "@/lib/marketplace-cart-purchases";
+import { readPaygDocumentLawIdFromMetadata } from "@/lib/lomi-checkout";
 
 type DepositCallback = {
   depositId?: string;
@@ -34,6 +35,21 @@ function normalizePawaMetadata(value: unknown): Record<string, string> {
   return {};
 }
 
+async function insertPayAsYouGoRowIfAbsent(
+  supabase: ReturnType<typeof getSupabaseServer>,
+  row: { user_id: string; item_type: string; quantity: number; stripe_session_id: string; law_id: string | null }
+): Promise<void> {
+  const { data: existing } = await (supabase.from("pay_as_you_go_purchases") as any)
+    .select("id")
+    .eq("stripe_session_id", row.stripe_session_id)
+    .maybeSingle();
+  if (existing) return;
+  const { error } = await (supabase.from("pay_as_you_go_purchases") as any).insert(row);
+  if (error) {
+    console.error("insertPayAsYouGoRowIfAbsent:", error.message);
+  }
+}
+
 /**
  * Shared fulfillment for pawaPay deposit callbacks and Lomi `PAYMENT_SUCCEEDED` payloads.
  * `paymentRefId` is stored in `stripe_session_id` columns (legacy name — holds any checkout/deposit id).
@@ -41,6 +57,10 @@ function normalizePawaMetadata(value: unknown): Record<string, string> {
 export async function fulfillPaymentFromMetadata(metadata: Record<string, string>, paymentRefId: string): Promise<void> {
   const clerkUserId = metadata.clerk_user_id;
   const kind = metadata.kind;
+  const kindNorm = String(kind || "")
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, "_");
   if (!clerkUserId || !paymentRefId) return;
 
   const supabase = getSupabaseServer();
@@ -77,22 +97,23 @@ export async function fulfillPaymentFromMetadata(metadata: Record<string, string
   if (kind === "lawyer_search_unlock" || kind === "payg_lawyer_search") {
     if (metadata.expertise) {
       await recordSearchUnlockGrant(clerkUserId, metadata.country || "all", metadata.expertise, paymentRefId);
-      await (supabase.from("pay_as_you_go_purchases") as any).insert({
+      await insertPayAsYouGoRowIfAbsent(supabase, {
         user_id: clerkUserId,
         item_type: "lawyer_search",
         quantity: 1,
         stripe_session_id: paymentRefId,
+        law_id: null,
       });
     }
     return;
   }
 
-  if (kind === "payg_document" || kind === "payg_ai_query" || kind === "payg_afcfta_report") {
+  if (kindNorm === "payg_document" || kindNorm === "payg_ai_query" || kindNorm === "payg_afcfta_report") {
     const itemType =
-      kind === "payg_document" ? "document" : kind === "payg_ai_query" ? "ai_query" : "afcfta_report";
+      kindNorm === "payg_document" ? "document" : kindNorm === "payg_ai_query" ? "ai_query" : "afcfta_report";
     const lawId =
-      kind === "payg_document" && metadata.law_id?.trim() ? metadata.law_id.trim() : null;
-    await (supabase.from("pay_as_you_go_purchases") as any).insert({
+      kindNorm === "payg_document" ? readPaygDocumentLawIdFromMetadata(metadata) : null;
+    await insertPayAsYouGoRowIfAbsent(supabase, {
       user_id: clerkUserId,
       item_type: itemType,
       quantity: 1,
