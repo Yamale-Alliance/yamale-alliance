@@ -1047,7 +1047,7 @@ export default function LawDetailPage({
     if (!resolvedId) return;
     setPrintLoading(true);
     try {
-      const res = await fetch("/api/stripe/payg/document", {
+      const res = await fetch("/api/payments/payg/document", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
