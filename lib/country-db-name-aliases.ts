@@ -14,6 +14,26 @@ export type CountryDbAliasGroup = {
 
 export const COUNTRY_DB_ALIAS_GROUPS: readonly CountryDbAliasGroup[] = [
   {
+    dbName: "DR Congo",
+    patterns: [
+      /\bd\.?\s*r\.?\s*c\.?\b/i,
+      /\bd\.\s*r\.\s*congo\b/i,
+      /\bdemocratic\s+republic\s+of\s+the\s+congo\b/i,
+      /\bdemocratic\s+republic\s+of\s+congo\b/i,
+      /\bcongo\s*[-–—]?\s*kinshasa\b/i,
+      /\bzaire\b/i,
+    ],
+  },
+  {
+    dbName: "Congo Republic",
+    patterns: [
+      /\bcongo\s*[-–—]?\s*brazzaville\b/i,
+      /(?<!\bdemocratic\s)republic\s+of\s+the\s+congo\b/i,
+      /\bcongo\s+brazzaville\b/i,
+      /\(\s*republic\s+of\s+the\s+congo\s*\)/i,
+    ],
+  },
+  {
     dbName: "Côte d'Ivoire",
     patterns: [
       /\bivory\s+coast\b/i,
@@ -119,6 +139,17 @@ export function resolveUserCountryNameToDbName(input: string): string {
   }
   if (slug === "capeverde" || slug === "caboverde") return "Cabo Verde";
   if (slug === "ivorycoast" || slug === "cotedivoire") return "Côte d'Ivoire";
+  if (slug === "drc" || slug === "drcongo") return "DR Congo";
+  if (
+    slug === "democraticrepublicofcongo" ||
+    slug === "democraticrepublicofthecongo" ||
+    slug === "zaire"
+  ) {
+    return "DR Congo";
+  }
+  if (slug === "congorepublic" || slug === "republicofthecongo" || slug === "congobrazzaville") {
+    return "Congo Republic";
+  }
   return t;
 }
 
