@@ -3,14 +3,14 @@ import {
   Users,
   Briefcase,
   BookOpen,
-  FileDown,
   Scale,
   ArrowRight,
   Shield,
   Cpu,
-  CreditCard,
   MessageSquare,
   Bug,
+  LineChart,
+  Store,
 } from "lucide-react";
 
 const SUPPORT_CENTER_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
@@ -24,15 +24,11 @@ const quickLinks = [
     label: SUPPORT_CENTER_LIVE ? "Support requests from users" : "Support requests (coming soon)",
     icon: MessageSquare,
   },
-  { href: "/admin-panel/ai-bugs", label: "AI bug reports & triage", icon: Bug },
-  { href: "/admin-panel/subscriptions", label: "AI subscriptions & renewals", icon: CreditCard },
+  { href: "/admin-panel/ai-quality", label: "AI quality (bugs & flagged feedback)", icon: Bug },
+  { href: "/admin-panel/revenue", label: "Revenue, analytics & one-time sales", icon: LineChart },
+  { href: "/admin-panel/marketplace", label: "Yamalé Vault products & purchases", icon: Store },
   { href: "/admin-panel/lawyers", label: "Lawyers directory", icon: Briefcase },
   { href: "/admin-panel/laws", label: "View and add laws", icon: BookOpen },
-  {
-    href: "/admin-panel/library-document-purchases",
-    label: "Library law PDF purchases (PawaPay / Lomi)",
-    icon: FileDown,
-  },
   { href: "/admin-panel/pricing", label: "Edit pricing plans", icon: Scale },
 ];
 
