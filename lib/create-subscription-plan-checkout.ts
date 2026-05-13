@@ -2,7 +2,7 @@ import {
   convertUsdCentsToPawapayMinor,
   createPaymentPageSession,
   isPawapayConfigured,
-  isPawapayLiveApi,
+  PawapayReturnUrlError,
   resolvePawapayReturnOrigin,
 } from "@/lib/pawapay";
 import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
@@ -86,31 +86,30 @@ export async function createSubscriptionPlanCheckoutRedirect(params: CreatePlanC
   if (!gate.ok) return { ok: false, status: 400, error: "Select a mobile money country to continue." };
 
   const returnBase = resolvePawapayReturnOrigin(requestOrigin);
-  if (isPawapayLiveApi() && !/^https:\/\//i.test(returnBase)) {
-    return {
-      ok: false,
-      status: 400,
-      error:
-        "pawaPay live requires an HTTPS return URL. Set PAWAPAY_RETURN_BASE_URL to your public app URL (for example, https://yamale-alliance.vercel.app).",
-    };
-  }
 
   const amountCents = convertUsdCentsToPawapayMinor(usdCents, gate.country.currency);
   const depositId = crypto.randomUUID();
   const returnUrl = `${returnBase}${successPath.startsWith("/") ? successPath : `/${successPath}`}?checkout=success&session_id=${encodeURIComponent(depositId)}`;
 
-  const { redirectUrl } = await createPaymentPageSession({
-    depositId,
-    amountCents,
-    currency: gate.country.currency,
-    returnUrl,
-    reason: `${planId} plan (${interval})`,
-    customerMessage: `${String(planId).toUpperCase()} ${interval} plan`,
-    country: gate.country.iso3,
-    metadata: {
-      ...baseMeta,
-      payment_country: gate.country.label,
-    },
-  });
-  return { ok: true, url: redirectUrl, provider: "pawapay" };
+  try {
+    const { redirectUrl } = await createPaymentPageSession({
+      depositId,
+      amountCents,
+      currency: gate.country.currency,
+      returnUrl,
+      reason: `${planId} plan (${interval})`,
+      customerMessage: `${String(planId).toUpperCase()} ${interval} plan`,
+      country: gate.country.iso3,
+      metadata: {
+        ...baseMeta,
+        payment_country: gate.country.label,
+      },
+    });
+    return { ok: true, url: redirectUrl, provider: "pawapay" };
+  } catch (err) {
+    if (err instanceof PawapayReturnUrlError) {
+      return { ok: false, status: 400, error: err.message };
+    }
+    throw err;
+  }
 }
