@@ -67,12 +67,12 @@ function extractHyphenatedProperNounPairs(query) {
 
 const COUNTRY_NAMES = [
   "Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cameroon",
-  "Cape Verde", "Central African Republic", "Chad", "Comoros", "Congo", "Côte d'Ivoire",
-  "Democratic Republic of Congo", "Djibouti", "Egypt", "Equatorial Guinea", "Eritrea",
+  "Cabo Verde", "Central African Republic", "Chad", "Comoros", "Congo Republic", "Côte d'Ivoire",
+  "DR Congo", "Djibouti", "Egypt", "Equatorial Guinea", "Eritrea",
   "Eswatini", "Ethiopia", "Gabon", "Gambia", "Ghana", "Guinea", "Guinea-Bissau",
   "Kenya", "Lesotho", "Liberia", "Libya", "Madagascar", "Malawi", "Mali", "Mauritania",
   "Mauritius", "Morocco", "Mozambique", "Namibia", "Niger", "Nigeria", "Rwanda",
-  "Sao Tome and Principe", "Senegal", "Seychelles", "Sierra Leone", "Somalia",
+  "São Tomé and Príncipe", "Senegal", "Seychelles", "Sierra Leone", "Somalia",
   "South Africa", "South Sudan", "Sudan", "Tanzania", "Togo", "Tunisia", "Uganda",
   "Zambia", "Zimbabwe",
 ];
