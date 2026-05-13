@@ -12,6 +12,9 @@ import {
 import { fetchLawIdsForCountryScope } from "@/lib/law-country-scope-ids";
 import {
   detectCountryAliasFromQueryText,
+  detectAllCountryAliasesFromQuery,
+  findDbCountryNameBySlugInQuery,
+  fuzzyResolveUserTypedCountryName,
   resolveUserCountryNameToDbName,
 } from "@/lib/country-db-name-aliases";
 import {
@@ -149,6 +152,8 @@ async function detectCountryFromQueryUsingDatabase(query: string): Promise<strin
   if (fromAlias) return fromAlias;
   const names = await getAllCountryNames();
   if (!names.length) return undefined;
+  const fromSlug = findDbCountryNameBySlugInQuery(query, names);
+  if (fromSlug) return fromSlug;
   const ordered = [...names].sort((a, b) => b.length - a.length);
   for (const name of ordered) {
     if (buildCountryMatchRegex(name.toLowerCase()).test(q)) return name;
@@ -176,10 +181,16 @@ async function findAllCountriesInQuery(query: string): Promise<string[]> {
       found.push(name);
     }
   }
-  const aliasName = detectCountryAliasFromQueryText(query);
-  if (aliasName && !seen.has(aliasName)) {
-    seen.add(aliasName);
-    found.push(aliasName);
+  for (const aliasName of detectAllCountryAliasesFromQuery(query)) {
+    if (!seen.has(aliasName)) {
+      seen.add(aliasName);
+      found.push(aliasName);
+    }
+  }
+  const slugHit = findDbCountryNameBySlugInQuery(q, names);
+  if (slugHit && !seen.has(slugHit)) {
+    seen.add(slugHit);
+    found.push(slugHit);
   }
   return found;
 }
@@ -396,11 +407,19 @@ function extractQueryHints(query: string): { country?: string; category?: string
     "niger": "Niger",
     "cape verde": "Cabo Verde",
     "cabo verde": "Cabo Verde",
+    "ivory coast": "Côte d'Ivoire",
+    "côte d'ivoire": "Côte d'Ivoire",
+    "cote d'ivoire": "Côte d'Ivoire",
+    "cote divoire": "Côte d'Ivoire",
+    "kenys": "Kenya",
   };
   
   let foundCountry: string | undefined;
-  for (const [key, value] of Object.entries(countryMap)) {
-    if (lowerQuery.includes(key)) {
+  const orderedCountryEntries = Object.entries(countryMap).sort((a, b) => b[0].length - a[0].length);
+  for (const [key, value] of orderedCountryEntries) {
+    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`\\b${escaped}\\b`, "i");
+    if (re.test(lowerQuery)) {
       foundCountry = value;
       break;
     }
@@ -2069,10 +2088,18 @@ export async function POST(request: NextRequest) {
     const dbDetectedCountry = !currentHints.country ? await detectCountryFromQueryUsingDatabase(userQuery) : undefined;
     const rawEffectiveCountry =
       currentHints.country ?? dbDetectedCountry ?? conversationHints.country;
+    let resolvedEffectiveCountry: string | undefined;
+    if (rawEffectiveCountry?.trim()) {
+      const afterAliases = resolveUserCountryNameToDbName(rawEffectiveCountry);
+      const allCountryNames = await getAllCountryNames();
+      const fuzzyHit =
+        allCountryNames.length > 0
+          ? fuzzyResolveUserTypedCountryName(afterAliases, allCountryNames)
+          : null;
+      resolvedEffectiveCountry = fuzzyHit ?? afterAliases;
+    }
     const effectiveHints = {
-      country: rawEffectiveCountry
-        ? resolveUserCountryNameToDbName(rawEffectiveCountry)
-        : undefined,
+      country: resolvedEffectiveCountry,
       category: currentHints.category ?? conversationHints.category,
     };
     const specificLawHint = extractSpecificLawHint(userQuery);
