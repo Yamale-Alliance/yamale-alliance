@@ -165,7 +165,7 @@ export default function PricingPage() {
 
     setCheckoutLoading("day-pass");
     try {
-      const res = await fetch("/api/stripe/day-pass", {
+      const res = await fetch("/api/payments/day-pass", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -207,9 +207,9 @@ export default function PricingPage() {
     setCheckoutLoading(`payg-${itemType}`);
     try {
       const endpointMap = {
-        document: "/api/stripe/payg/document",
-        ai_query: "/api/stripe/payg/ai-query",
-        afcfta_report: "/api/stripe/payg/afcfta-report",
+        document: "/api/payments/payg/document",
+        ai_query: "/api/payments/payg/ai-query",
+        afcfta_report: "/api/payments/payg/afcfta-report",
       };
       const res = await fetch(endpointMap[itemType], {
         method: "POST",
