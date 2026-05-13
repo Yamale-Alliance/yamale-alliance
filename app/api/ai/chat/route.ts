@@ -38,6 +38,7 @@ import { hasUnusedPayAsYouGo, consumePayAsYouGoPurchase } from "@/lib/pay-as-you
 import {
   buildAiResearchSystemPrompt,
   SYSTEM_PROMPT_VERSION,
+  validateAiResearchSystemPromptParams,
 } from "@/lib/ai-system-prompt";
 import { isPlatformGuideMetaQuery } from "@/lib/ai-platform-meta-query";
 import { extractCitedDocIndices, citedSlotsAsUsedFlags } from "@/lib/ai-citation-verify";
@@ -2314,7 +2315,7 @@ export async function POST(request: NextRequest) {
             .join(" and ")
         : null;
 
-    const systemPrompt = buildAiResearchSystemPrompt({
+    const systemPromptParamsRaw = {
       supranationalFrameworksInQuery: supranationalFrameworksInQuery.map((m) => ({
         canonicalName: m.canonicalName,
         description: m.description,
@@ -2327,7 +2328,17 @@ export async function POST(request: NextRequest) {
       specificLawHint,
       requestedArticle: extractRequestedArticle(userQuery),
       platformGuideMode: platformGuideMeta,
+    };
+    const systemPromptValidation = validateAiResearchSystemPromptParams(systemPromptParamsRaw, {
+      originalLegalContextLength: legalContext.length,
     });
+    if (!systemPromptValidation.ok) {
+      console.error("[AI chat] System prompt validation failed:", systemPromptValidation.warnings);
+    } else if (systemPromptValidation.warnings.length > 0) {
+      console.warn("[AI chat] System prompt warnings:", systemPromptValidation.warnings);
+    }
+
+    const systemPrompt = buildAiResearchSystemPrompt(systemPromptParamsRaw);
 
     const modelId = await resolveModelIdForRequest(tier, requestedModel);
 
