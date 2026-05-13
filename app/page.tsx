@@ -70,7 +70,7 @@ export default async function Home() {
               <div className="mt-1 text-[13px] text-white/50">African countries covered</div>
             </div>
             <div>
-              <div className="heading text-[28px] font-bold leading-none text-[#E8B84B] md:text-[32px]">850+</div>
+              <div className="heading text-[28px] font-bold leading-none text-[#E8B84B] md:text-[32px]">3000+</div>
               <div className="mt-1 text-[13px] text-white/50">Laws &amp; regulations</div>
             </div>
             <div>
