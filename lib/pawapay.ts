@@ -43,17 +43,57 @@ export function isPawapayLiveApi(): boolean {
 }
 
 /**
- * Public origin for pawaPay Payment Page `returnUrl` (scheme + host + port, no path).
- * - Uses `PAWAPAY_RETURN_BASE_URL` when set (HTTPS app URL in production).
- * - Otherwise uses the request origin. Replaces host `0.0.0.0` with `localhost` because
- *   pawaPay rejects all-zero hosts (common with `next dev -H 0.0.0.0`).
+ * Thrown when checkout cannot proceed because the Payment Page `returnUrl` does not
+ * meet pawaPay live requirements (typically HTTPS). Caught by API routes as HTTP 400.
  */
-export function resolvePawapayReturnOrigin(requestOrigin: string): string {
-  const configured = (process.env.PAWAPAY_RETURN_BASE_URL || "").trim();
-  const raw = (configured || requestOrigin || "").replace(/\/+$/, "");
-  if (!raw) {
-    throw new Error("Cannot resolve pawaPay return URL origin (missing Origin and PAWAPAY_RETURN_BASE_URL).");
+export class PawapayReturnUrlError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PawapayReturnUrlError";
+    Object.setPrototypeOf(this, new.target.prototype);
   }
+}
+
+function assertLivePawapayReturnUrlIsHttps(returnUrl: string): void {
+  if (!isPawapayLiveApi()) return;
+  let parsed: URL;
+  try {
+    parsed = new URL(returnUrl);
+  } catch {
+    throw new PawapayReturnUrlError(
+      "Invalid pawaPay return URL. Check PAWAPAY_RETURN_BASE_URL and the path your server builds for returnUrl."
+    );
+  }
+  if (parsed.protocol !== "https:") {
+    throw new PawapayReturnUrlError(
+      "pawaPay live requires an HTTPS return URL. Plain http://localhost is not accepted for mobile-money STK flows. " +
+        "Options: (1) Set PAWAPAY_RETURN_BASE_URL to a public HTTPS URL that tunnels to this dev server (ngrok, Cloudflare Tunnel, etc.). " +
+        "(2) Or use sandbox locally: PAWAPAY_BASE_URL=https://api.sandbox.pawapay.io and a sandbox PAWAPAY_API_TOKEN."
+    );
+  }
+}
+
+/** pawaPay Payment Page rejects http://localhost (and 127.0.0.1) as returnUrl even in sandbox. */
+function assertPawapayReturnUrlNotRejectedLoopbackHttp(returnUrl: string): void {
+  let u: URL;
+  try {
+    u = new URL(returnUrl);
+  } catch {
+    throw new PawapayReturnUrlError("returnUrl must be a valid absolute URL.");
+  }
+  if (u.protocol !== "http:") return;
+  const h = u.hostname.replace(/^\[|\]$/g, "");
+  if (h !== "localhost" && h !== "127.0.0.1" && h !== "::1") return;
+  throw new PawapayReturnUrlError(
+    "pawaPay does not accept http://localhost (or 127.0.0.1) as Payment Page returnUrl. " +
+      "Browse via HTTPS (for example run `ngrok http 3000` and use your https://….ngrok-free.app link as the app URL), " +
+      "or set PAWAPAY_RETURN_BASE_URL to a public https URL so checkout can complete (you will land there after payment until you use an https tunnel to localhost)."
+  );
+}
+
+function tryParsePawapayReturnOrigin(value: string): string | null {
+  const raw = value.trim().replace(/\/+$/, "");
+  if (!raw) return null;
   try {
     const u = new URL(raw);
     if (u.hostname === "0.0.0.0") {
@@ -61,8 +101,61 @@ export function resolvePawapayReturnOrigin(requestOrigin: string): string {
     }
     return u.origin;
   } catch {
-    throw new Error(`Invalid pawaPay return URL origin: ${raw}`);
+    return null;
   }
+}
+
+function isLoopbackHttpOrigin(origin: string | null): boolean {
+  if (!origin?.startsWith("http:")) return false;
+  try {
+    const u = new URL(origin);
+    const h = u.hostname.replace(/^\[|\]$/g, "");
+    return h === "localhost" || h === "127.0.0.1" || h === "::1";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Public origin for pawaPay Payment Page `returnUrl` (scheme + host + port, no path).
+ *
+ * - **Sandbox:** uses the checkout request `Origin` when it is **HTTPS** (Vercel, ngrok, etc.).
+ *   If you use **http://localhost**, pawaPay rejects that as `returnUrl`; when `PAWAPAY_RETURN_BASE_URL`
+ *   is an **https** URL, that base is used instead so checkout succeeds (redirect after pay goes there).
+ * - **Live:** prefers an HTTPS `Origin` when present; otherwise uses `PAWAPAY_RETURN_BASE_URL` when it
+ *   is HTTPS (needed for http://localhost with live API). Replaces host `0.0.0.0` with `localhost`.
+ */
+export function resolvePawapayReturnOrigin(requestOrigin: string): string {
+  const configured = tryParsePawapayReturnOrigin(process.env.PAWAPAY_RETURN_BASE_URL || "");
+  const fromRequest = tryParsePawapayReturnOrigin(requestOrigin);
+
+  if (!isPawapayLiveApi()) {
+    if (fromRequest?.startsWith("https:")) {
+      return fromRequest;
+    }
+    if (isLoopbackHttpOrigin(fromRequest) && configured?.startsWith("https:")) {
+      return configured;
+    }
+    if (fromRequest) return fromRequest;
+    if (configured) return configured;
+    throw new Error(
+      "Cannot resolve pawaPay return URL origin (missing Origin on the checkout request and PAWAPAY_RETURN_BASE_URL is unset or invalid)."
+    );
+  }
+
+  if (fromRequest?.startsWith("https:")) {
+    return fromRequest;
+  }
+  if (configured?.startsWith("https:")) {
+    return configured;
+  }
+  if (fromRequest) {
+    return fromRequest;
+  }
+  if (configured) {
+    return configured;
+  }
+  throw new Error("Cannot resolve pawaPay return URL origin (missing Origin and PAWAPAY_RETURN_BASE_URL).");
 }
 
 function normalizePawapayReturnUrl(returnUrl: string): string {
@@ -199,9 +292,13 @@ export async function createPaymentPageSession(input: PaymentPageSessionInput): 
   const normalizedCurrency = input.currency.toUpperCase();
   await assertCountryCurrencyConfigured(normalizedCountry, normalizedCurrency);
 
+  const returnUrl = normalizePawapayReturnUrl(input.returnUrl);
+  assertPawapayReturnUrlNotRejectedLoopbackHttp(returnUrl);
+  assertLivePawapayReturnUrlIsHttps(returnUrl);
+
   const payload: Record<string, unknown> = {
     depositId: input.depositId,
-    returnUrl: normalizePawapayReturnUrl(input.returnUrl),
+    returnUrl,
     amountDetails: {
       amount: toAmountString(input.amountCents),
       currency: normalizedCurrency,
