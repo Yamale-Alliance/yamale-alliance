@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import * as Dialog from "@radix-ui/react-dialog";
 import {
   Search,
   ArrowRight,
@@ -23,7 +24,11 @@ import {
 import type { LibraryCountry, LibraryCategory, LibraryLawRow } from "@/lib/library-data";
 import { useUser } from "@clerk/nextjs";
 import { useAlertDialog } from "@/components/ui/use-confirm";
-import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
+import {
+  PaymentMethodPicker,
+  type CheckoutPaymentProvider,
+} from "@/components/checkout/PaymentMethodPicker";
+import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import { fetchDocumentExportUnlockLawIds } from "@/lib/library-document-export-unlocks-client";
 
 const PAGE_SIZE = 12;
@@ -279,9 +284,21 @@ export function LibraryView({
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const documentReturnConfirmedSessionsRef = useRef<Set<string>>(new Set());
   const { user, isSignedIn } = useUser();
   const [printLoadingId, setPrintLoadingId] = useState<string | null>(null);
+  const [libraryDocCheckoutLawId, setLibraryDocCheckoutLawId] = useState<string | null>(null);
+  const [libraryPrintCheckoutOpen, setLibraryPrintCheckoutOpen] = useState(false);
+  const [libraryPrintCheckoutProvider, setLibraryPrintCheckoutProvider] =
+    useState<CheckoutPaymentProvider>("pawapay");
+  /** Default to Kenya on library grid checkout (common M-Pesa / sandbox testing); user can change in the dialog. */
+  const [libraryPawapayCountry, setLibraryPawapayCountry] = useState("Kenya");
   const [paidLawIds, setPaidLawIds] = useState<Set<string>>(() => new Set());
+  const lomiAvailable =
+    process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
+    Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
+  const lomiComingSoon = false;
   const isAdmin = (user?.publicMetadata?.role as string | undefined) === "admin";
   const [search, setSearch] = useState(initialSearch);
   const [searchInput, setSearchInput] = useState(initialSearch);
@@ -480,6 +497,42 @@ export function LibraryView({
     };
   }, [isSignedIn]);
 
+  // Refetch when landing on the main library route (e.g. after pay redirect to a law, then "Library").
+  useEffect(() => {
+    if (!isSignedIn || pathname !== "/library") return;
+    void fetchDocumentExportUnlockLawIds().then((res) => {
+      if (res.ok) setPaidLawIds(new Set(res.law_ids));
+    });
+  }, [pathname, isSignedIn]);
+
+  // pawaPay returnUrl may be /library?...&payg=document&session_id= — confirm so unlocks sync without opening the law page first.
+  useEffect(() => {
+    if (!isSignedIn || pathname !== "/library") return;
+    const sessionId = searchParams.get("session_id");
+    if (searchParams.get("payg") !== "document" || !sessionId) return;
+    if (documentReturnConfirmedSessionsRef.current.has(sessionId)) return;
+    documentReturnConfirmedSessionsRef.current.add(sessionId);
+    void fetch("/api/library/confirm-document-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ session_id: sessionId }),
+    })
+      .then(() => fetchDocumentExportUnlockLawIds())
+      .then((res) => {
+        if (res.ok) setPaidLawIds(new Set(res.law_ids));
+      })
+      .catch(() => {})
+      .finally(() => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete("session_id");
+        params.delete("payg");
+        const qs = params.toString();
+        router.replace(qs ? `/library?${qs}` : "/library", { scroll: false });
+        router.refresh();
+      });
+  }, [isSignedIn, pathname, router, searchParams]);
+
   const updateUrl = useCallback(
     (updates: { country?: string; category?: string; status?: string; q?: string; page?: number; sort?: string; documentType?: string; treatyType?: string; yearFrom?: string; yearTo?: string }) => {
       const params = new URLSearchParams();
@@ -647,8 +700,6 @@ export function LibraryView({
   const handlePrintPayment = useCallback(
     async (lawId: string) => {
       if (paidLawIds.has(lawId)) {
-        // Already paid for this law in this browser – go straight to law page
-        // and trigger PDF download via ?print=1.
         router.push(`/library/${lawId}?print=1`);
         return;
       }
@@ -656,28 +707,44 @@ export function LibraryView({
         router.push("/sign-in?redirect_url=" + encodeURIComponent("/library"));
         return;
       }
-      setPrintLoadingId(lawId);
-      try {
-        const res = await fetch("/api/stripe/payg/document", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ return_path: `/library/${lawId}`, paymentCountry: DEFAULT_PAWAPAY_PAYMENT_COUNTRY }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          await showAlert(data.error || "Checkout failed", "Checkout");
-          return;
-        }
-        if (data.url) window.location.href = data.url;
-      } catch {
-        await showAlert("Checkout failed", "Checkout");
-      } finally {
-        setPrintLoadingId(null);
-      }
+      setLibraryDocCheckoutLawId(lawId);
+      setLibraryPrintCheckoutOpen(true);
     },
-    [isSignedIn, router, paidLawIds, showAlert]
+    [isSignedIn, router, paidLawIds]
   );
+
+  const submitLibraryDocumentCheckout = useCallback(async () => {
+    const lawId = libraryDocCheckoutLawId;
+    if (!lawId) return;
+    setPrintLoadingId(lawId);
+    try {
+      const res = await fetch("/api/stripe/payg/document", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          return_path: `/library/${lawId}`,
+          provider: libraryPrintCheckoutProvider,
+          ...(libraryPrintCheckoutProvider === "pawapay" ? { paymentCountry: libraryPawapayCountry } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        await showAlert(data.error || "Checkout failed", "Checkout");
+        return;
+      }
+      if (data.url) window.location.href = data.url;
+    } catch {
+      await showAlert("Checkout failed", "Checkout");
+    } finally {
+      setPrintLoadingId(null);
+    }
+  }, [
+    libraryDocCheckoutLawId,
+    libraryPawapayCountry,
+    libraryPrintCheckoutProvider,
+    showAlert,
+  ]);
 
   const searchSuggestions = useMemo(() => {
     if (!searchInput.trim()) return [];
@@ -840,6 +907,83 @@ export function LibraryView({
 
   return (
     <div className="min-h-screen bg-background">
+      <Dialog.Root
+        open={libraryPrintCheckoutOpen}
+        onOpenChange={(open) => {
+          setLibraryPrintCheckoutOpen(open);
+          if (!open) setLibraryDocCheckoutLawId(null);
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-[101] flex max-h-[min(90vh,calc(100%-2rem))] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-2xl focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+            <Dialog.Title className="text-lg font-semibold tracking-tight text-foreground">
+              Unlock download
+            </Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              A one-time <span className="font-medium text-foreground">$3</span> unlock for this law. Choose mobile money or card, then continue to checkout.
+            </Dialog.Description>
+            <div className="mt-5 min-w-0 space-y-4">
+              <PaymentMethodPicker
+                value={libraryPrintCheckoutProvider}
+                onChange={setLibraryPrintCheckoutProvider}
+                lomiAvailable={lomiAvailable}
+                lomiComingSoon={lomiComingSoon}
+                onLomiComingSoonClick={() => {
+                  void showAlert(
+                    "Credit card payments are coming soon. For now, please use Mobile Money.",
+                    "Coming soon"
+                  );
+                }}
+              />
+              {libraryPrintCheckoutProvider === "pawapay" && (
+                <PawapayCountrySelect
+                  label="Mobile money country"
+                  value={libraryPawapayCountry}
+                  onChange={setLibraryPawapayCountry}
+                />
+              )}
+            </div>
+            <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  Cancel
+                </button>
+              </Dialog.Close>
+              <button
+                type="button"
+                onClick={() => void submitLibraryDocumentCheckout()}
+                disabled={
+                  printLoadingId !== null ||
+                  (libraryPrintCheckoutProvider === "lomi" && !lomiAvailable && !lomiComingSoon)
+                }
+                className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {printLoadingId ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Preparing checkout…
+                  </span>
+                ) : (
+                  "Proceed to checkout"
+                )}
+              </button>
+            </div>
+            <Dialog.Close asChild>
+              <button
+                type="button"
+                className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </Dialog.Close>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
       {alertDialog}
       <section className="bg-gradient-to-br from-[#0D1B2A] to-[#1E3148] px-4 pb-14 pt-12 sm:px-8">
         <div className="mx-auto max-w-[1280px]">
@@ -1010,12 +1154,13 @@ export function LibraryView({
                 <BookmarkCheck className="h-3.5 w-3.5" aria-hidden /> Bookmarked ({bookmarkedIds.size})
               </Link>
             )}
-            {paidLawIds.size > 0 && (
+            {isSignedIn && (
               <Link
                 href="/library/purchased"
                 className="inline-flex w-full items-center justify-center gap-1 rounded-[6px] border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary sm:w-auto"
               >
-                <FileDown className="h-3.5 w-3.5" aria-hidden /> Purchased ({paidLawIds.size})
+                <FileDown className="h-3.5 w-3.5" aria-hidden /> Purchased
+                {paidLawIds.size > 0 ? ` (${paidLawIds.size})` : ""}
               </Link>
             )}
           </div>
@@ -1125,7 +1270,7 @@ export function LibraryView({
                     </Link>
                     <div className="mt-4 flex items-center gap-2 border-t border-border pt-3">
                       <StatusBadge status={law.status} />
-                      <div className="ml-auto flex items-center gap-2 opacity-0 transition group-hover:opacity-100">
+                      <div className="ml-auto flex items-center gap-2 opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
                         <button
                           type="button"
                           onClick={() => handlePrintPayment(law.id)}
