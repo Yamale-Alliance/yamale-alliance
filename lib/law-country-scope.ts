@@ -44,6 +44,20 @@ export function lawsCountryOrGlobalWithAnyEscapedTerms(countryId: string, escape
   return `or(${branches.join(",")})`;
 }
 
+/**
+ * Title-only token match, scoped to one country OR global instruments — avoids a second
+ * unscoped `.or(title...)` that would return the same keywords from any jurisdiction.
+ */
+export function lawsCountryOrGlobalWithTitleTerms(countryId: string, titleTerms: string[]): string {
+  const esc = titleTerms
+    .map((t) => escapeIlikePattern(t.toLowerCase().trim()))
+    .filter((t) => t.length >= 2);
+  if (esc.length === 0) return lawsOrGlobalForCountry(countryId);
+  const titleOrInner = esc.map((e) => `title.ilike.%${e}%`).join(",");
+  const wrapped = `or(${titleOrInner})`;
+  return `and(country_id.eq.${countryId},${wrapped}),and(applies_to_all_countries.eq.true,${wrapped})`;
+}
+
 /** Worldwide text match (no country filter). Pass as a single `.or(...)` clause. */
 export function lawsGlobalTextIlikeOrTerms(escapedTerms: string[]): string {
   const terms = escapedTerms.map((t) => t.trim()).filter(Boolean);
