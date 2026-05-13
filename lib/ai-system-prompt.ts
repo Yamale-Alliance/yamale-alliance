@@ -1,9 +1,15 @@
 /**
  * AI Legal Research system prompt — versioned, modular English-first instructions.
  * Bump SYSTEM_PROMPT_VERSION whenever substantive prompt instructions change.
+ *
+ * Prompt version is NOT embedded in the string sent to the model (avoids the model
+ * repeating it). Use SYSTEM_PROMPT_VERSION in API responses and ai_query_log instead.
  */
 
-export const SYSTEM_PROMPT_VERSION = "2026.05.13-prompt-modular-en-v1";
+export const SYSTEM_PROMPT_VERSION = "2026.05.14-system-prompt-hardening-v1";
+
+/** Cap on library excerpts in the system message to limit tokens and citation confusion. */
+export const MAX_SYSTEM_PROMPT_LEGAL_DOCS = 8;
 
 export type SupranationalPromptFramework = {
   canonicalName: string;
@@ -38,28 +44,75 @@ export type BuildAiResearchSystemPromptParams = {
   platformGuideMode?: boolean;
 };
 
-const BILINGUAL_PREAMBLE = `You assist users of the Yamalé legal library. All instructions below are written in English for clarity and token efficiency. Apply every rule fully regardless of whether the user writes in English, French, or another language they clearly use.
+export type SystemPromptValidationResult = {
+  /** False when inputs are inconsistent in a way that usually indicates a caller bug. */
+  ok: boolean;
+  warnings: string[];
+};
+
+export type BilingualPreambleOptions = {
+  /** Reserved for future tiers (e.g. force a single reply language). Currently unused. */
+  monolingual?: boolean;
+};
+
+/** Slice legal context before validation / build so counts match what the model sees. */
+export function normalizeSystemPromptParams(
+  p: BuildAiResearchSystemPromptParams,
+  maxDocs = MAX_SYSTEM_PROMPT_LEGAL_DOCS
+): BuildAiResearchSystemPromptParams {
+  if (p.legalContext.length <= maxDocs) return p;
+  return {
+    ...p,
+    legalContext: p.legalContext.slice(0, maxDocs),
+  };
+}
+
+/**
+ * Validate system-prompt inputs. Callers should run this on the same params passed to
+ * `buildAiResearchSystemPrompt` (ideally after `normalizeSystemPromptParams`). The API
+ * route can log, metrics, or abort when `ok` is false.
+ */
+export function validateAiResearchSystemPromptParams(
+  p: BuildAiResearchSystemPromptParams,
+  options?: { originalLegalContextLength?: number }
+): SystemPromptValidationResult {
+  const warnings: string[] = [];
+  let ok = true;
+
+  const rawLen = options?.originalLegalContextLength ?? p.legalContext.length;
+  if (rawLen > MAX_SYSTEM_PROMPT_LEGAL_DOCS) {
+    warnings.push(
+      `legalContext has ${rawLen} documents; only the first ${MAX_SYSTEM_PROMPT_LEGAL_DOCS} are included in the system prompt.`
+    );
+  }
+
+  if (p.strictCountryMode && !p.effectiveCountry?.trim()) {
+    ok = false;
+    warnings.push(
+      "strictCountryMode=true but effectiveCountry is null/empty — country scope block will be skipped (caller bug)."
+    );
+  }
+  if (p.requestedArticle !== null && p.legalContext.length === 0 && !p.platformGuideMode) {
+    warnings.push(
+      "requestedArticle is set but legalContext is empty and not platform guide mode — article instructions may not apply."
+    );
+  }
+  if (p.platformGuideMode && p.legalContext.length > 0) {
+    ok = false;
+    warnings.push(
+      "platformGuideMode=true but legalContext is non-empty — document block is suppressed; fix caller to avoid leaking docs."
+    );
+  }
+
+  return { ok, warnings };
+}
+
+function buildBilingualPreamble(_options?: BilingualPreambleOptions): string {
+  return `You assist users of the Yamalé legal library. All instructions below are written in English for clarity and token efficiency. Apply every rule fully regardless of whether the user writes in English, French, or another language they clearly use.
 
 Write your substantive answer in the same language as the user's question. If they ask for both English and French (or you offer a bilingual answer), give both parts equal depth: mirrored or clearly paired headings, same legal points in the same order, comparable quotes and explanations—do not make one language a short summary of the other.
 
 When a fixed English disclaimer is mentioned (e.g. "not stated in the provided library excerpt"), use an equivalent natural phrase in the user's language (e.g. French wording that conveys the same limitation).`;
-
-function validatePromptParams(p: BuildAiResearchSystemPromptParams): void {
-  if (p.strictCountryMode && !p.effectiveCountry?.trim()) {
-    console.warn(
-      "[SystemPrompt] strictCountryMode=true but effectiveCountry is null/empty — country scope block will be skipped."
-    );
-  }
-  if (p.requestedArticle !== null && p.legalContext.length === 0 && !p.platformGuideMode) {
-    console.warn(
-      "[SystemPrompt] requestedArticle is set but legalContext is empty and not platform guide mode — article instructions may not apply."
-    );
-  }
-  if (p.platformGuideMode && p.legalContext.length > 0) {
-    console.warn(
-      "[SystemPrompt] platformGuideMode=true but legalContext is non-empty — document block is suppressed; do not cite library excerpts this turn."
-    );
-  }
 }
 
 function buildCoreRules(): string {
@@ -154,6 +207,11 @@ function buildNoDocumentsBlock(
   return s;
 }
 
+/** Short format guidance when there are no library excerpts (complements buildNoDocumentsBlock). */
+function buildNoDocumentsAnswerStyle(): string {
+  return `Answer format (no-documents turn): Be concise—about 2–4 short sentences unless the user explicitly asked for more. End with one concrete suggestion to refine the query (e.g. name the country, instrument type, or browse /library). Do not use [doc:N] markers.`;
+}
+
 function buildAnswerStyleRules(
   detailedMode: boolean,
   specificLawHint: string | null,
@@ -185,19 +243,24 @@ function buildAnswerStyleRules(
 }
 
 export function buildAiResearchSystemPrompt(p: BuildAiResearchSystemPromptParams): string {
-  validatePromptParams(p);
+  const params = normalizeSystemPromptParams(p);
+  const originalDocCount = p.legalContext.length;
+  if (originalDocCount > MAX_SYSTEM_PROMPT_LEGAL_DOCS) {
+    // Intentionally only in server logs — not in the model prompt.
+    console.warn(
+      `[SystemPrompt] legalContext has ${originalDocCount} docs; truncating to ${MAX_SYSTEM_PROMPT_LEGAL_DOCS} for system message.`
+    );
+  }
 
-  const platform = Boolean(p.platformGuideMode);
-  const docCount = p.legalContext.length;
-  const docsForBlock = platform ? [] : p.legalContext;
+  const platform = Boolean(params.platformGuideMode);
+  const docsForBlock = platform ? [] : params.legalContext;
 
   const blocks: string[] = [
-    `[Prompt version: ${SYSTEM_PROMPT_VERSION}]`,
-    BILINGUAL_PREAMBLE,
+    buildBilingualPreamble(),
     buildCoreRules(),
-    buildSupranationalScope(p.supranationalFrameworksInQuery),
-    buildBilateralBlock(p.bilateralPartiesSummary, p.supranationalFrameworksInQuery.length),
-    buildCountryScope(p.effectiveCountry, p.strictCountryMode),
+    buildSupranationalScope(params.supranationalFrameworksInQuery),
+    buildBilateralBlock(params.bilateralPartiesSummary, params.supranationalFrameworksInQuery.length),
+    buildCountryScope(params.effectiveCountry, params.strictCountryMode),
   ];
 
   if (platform) {
@@ -209,9 +272,10 @@ export function buildAiResearchSystemPrompt(p: BuildAiResearchSystemPromptParams
     blocks.push(buildPlatformGuide());
   } else if (docsForBlock.length > 0) {
     blocks.push(buildDocumentContextBlock(docsForBlock));
-    blocks.push(buildAnswerStyleRules(p.detailedMode, p.specificLawHint, p.requestedArticle));
+    blocks.push(buildAnswerStyleRules(params.detailedMode, params.specificLawHint, params.requestedArticle));
   } else {
-    blocks.push(buildNoDocumentsBlock(p.strictCountryMode, p.effectiveCountry));
+    blocks.push(buildNoDocumentsBlock(params.strictCountryMode, params.effectiveCountry));
+    blocks.push(buildNoDocumentsAnswerStyle());
   }
 
   return blocks.filter(Boolean).join("\n\n");
