@@ -43,9 +43,7 @@ import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
 import { downloadLawDocumentPdf } from "@/lib/library/law-document-pdf";
-import { mergePaidLawIdIntoStorage, readPaidLawIdsFromStorage } from "@/lib/library-paid-laws-storage";
-import { syncDocumentExportUnlocksToLocalStorage } from "@/lib/library-document-export-unlocks-client";
-import { getOfflineLawSnapshot } from "@/lib/library-offline-storage";
+import { fetchDocumentExportUnlockLawIds } from "@/lib/library-document-export-unlocks-client";
 import {
   applyLawDocumentSearchHighlights,
   clearLawDocumentSearchHighlights,
@@ -765,7 +763,6 @@ export default function LawDetailPage({
   const [fixOcrLoading, setFixOcrLoading] = useState(false);
   const [fixOcrBanner, setFixOcrBanner] = useState<string | null>(null);
   const [readingMode, setReadingMode] = useState(false);
-  const [fromOfflineSnapshot, setFromOfflineSnapshot] = useState(false);
   const [docSearchQuery, setDocSearchQuery] = useState("");
   const [docSearchMatchCount, setDocSearchMatchCount] = useState(0);
   const docSearchRootRef = useRef<HTMLDivElement>(null);
@@ -806,19 +803,15 @@ export default function LawDetailPage({
     dragStartRef.current = { x, y, clientX: e.clientX, clientY: e.clientY };
   }, [contentsPosition]);
 
-  // Paid PDF: reset when switching laws. Signed-in users sync server → localStorage first
-  // so stale ids from another origin cannot keep the wrong law marked paid.
+  // Paid PDF: Supabase-backed list only (no localStorage).
   useEffect(() => {
     if (!resolvedId || typeof window === "undefined") return;
     let cancelled = false;
     setHasPaidForThisLaw(false);
-    if (!isSignedIn) {
-      if (readPaidLawIdsFromStorage().includes(resolvedId)) setHasPaidForThisLaw(true);
-      return;
-    }
-    void syncDocumentExportUnlocksToLocalStorage().then(() => {
-      if (cancelled) return;
-      setHasPaidForThisLaw(readPaidLawIdsFromStorage().includes(resolvedId));
+    if (!isSignedIn) return;
+    void fetchDocumentExportUnlockLawIds().then((res) => {
+      if (cancelled || !res.ok) return;
+      setHasPaidForThisLaw(res.law_ids.includes(resolvedId));
     });
     return () => {
       cancelled = true;
@@ -1065,7 +1058,6 @@ export default function LawDetailPage({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    setFromOfflineSnapshot(false);
 
     const load = async () => {
       try {
@@ -1074,7 +1066,6 @@ export default function LawDetailPage({
           const data = (await res.json()) as LawDetail;
           if (!cancelled) {
             setLaw(data);
-            setFromOfflineSnapshot(false);
             try {
               const key = "yamale-library-recently-opened";
               localStorage.setItem(key, JSON.stringify(resolvedId));
@@ -1084,27 +1075,9 @@ export default function LawDetailPage({
           }
           return;
         }
-        const snap = await getOfflineLawSnapshot(resolvedId);
-        if (snap?.law && !cancelled) {
-          setLaw(snap.law as LawDetail);
-          setFromOfflineSnapshot(true);
-          try {
-            const key = "yamale-library-recently-opened";
-            localStorage.setItem(key, JSON.stringify(resolvedId));
-          } catch {
-            // ignore
-          }
-          return;
-        }
         if (!cancelled) setError("Could not load this law.");
       } catch {
-        const snap = await getOfflineLawSnapshot(resolvedId);
-        if (snap?.law && !cancelled) {
-          setLaw(snap.law as LawDetail);
-          setFromOfflineSnapshot(true);
-        } else if (!cancelled) {
-          setError("Could not load this law.");
-        }
+        if (!cancelled) setError("Could not load this law.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -1150,7 +1123,6 @@ export default function LawDetailPage({
     if (!shouldAuto) return;
     hasTriggeredPostPurchasePdf.current = true;
     setHasPaidForThisLaw(true);
-    mergePaidLawIdIntoStorage(resolvedId ?? "");
     const t = setTimeout(() => {
       void (async () => {
         try {
@@ -1263,11 +1235,6 @@ export default function LawDetailPage({
               )}
             </div>
           </div>
-          {fromOfflineSnapshot && (
-            <p className="mt-3 max-w-3xl rounded-lg border border-amber-400/45 bg-amber-950/50 px-3 py-2 text-xs leading-relaxed text-amber-50">
-              You are viewing a copy saved on this device for offline use. Connect to the internet and reload to get the latest text from Yamalé when available.
-            </p>
-          )}
           {hasContent && (
             <div
               className="mt-4 flex flex-col gap-3 rounded-xl border border-white/15 bg-white/[0.06] p-3 print:hidden sm:flex-row sm:flex-wrap sm:items-end"
