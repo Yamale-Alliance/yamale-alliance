@@ -760,6 +760,7 @@ export default function LawDetailPage({
   const paygDocument = Boolean(documentPaygSessionId);
   const printRequested = searchParams.get("print") === "1";
   const [hasPaidForThisLaw, setHasPaidForThisLaw] = useState(false);
+  const [documentPaymentSuccessVisible, setDocumentPaymentSuccessVisible] = useState(false);
   const [fixOcrLoading, setFixOcrLoading] = useState(false);
   const [fixOcrBanner, setFixOcrBanner] = useState<string | null>(null);
   const [readingMode, setReadingMode] = useState(false);
@@ -769,6 +770,8 @@ export default function LawDetailPage({
   const docSearchHitIndexRef = useRef(0);
   const hasTriggeredPostPurchasePdf = useRef(false);
   const confirmDocumentPaymentOnce = useRef(false);
+  const resolvedIdRef = useRef<string | null>(null);
+  resolvedIdRef.current = resolvedId;
   const { confirm, confirmDialog } = useConfirm();
   const { alert: showAlert, alertDialog } = useAlertDialog();
   const lomiAvailable =
@@ -826,8 +829,24 @@ export default function LawDetailPage({
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({ session_id: documentPaygSessionId }),
-    }).catch(() => {});
+    })
+      .then((r) => r.json().catch(() => ({})))
+      .then((data: { ok?: boolean }) => {
+        if (!data?.ok) return;
+        setDocumentPaymentSuccessVisible(true);
+        return fetchDocumentExportUnlockLawIds().then((res) => {
+          const id = resolvedIdRef.current;
+          if (res.ok && id) setHasPaidForThisLaw(res.law_ids.includes(id));
+        });
+      })
+      .catch(() => {});
   }, [documentPaygSessionId, isSignedIn]);
+
+  useEffect(() => {
+    if (!documentPaymentSuccessVisible) return;
+    const t = window.setTimeout(() => setDocumentPaymentSuccessVisible(false), 14000);
+    return () => window.clearTimeout(t);
+  }, [documentPaymentSuccessVisible]);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -1179,6 +1198,26 @@ export default function LawDetailPage({
           aria-hidden
         />
         <div className="relative z-[1] mx-auto max-w-6xl">
+          {documentPaymentSuccessVisible && (
+            <div
+              className="mb-5 flex flex-wrap items-center gap-3 rounded-lg border border-emerald-400/50 bg-emerald-950/70 px-4 py-3 text-sm text-emerald-50 shadow-md print:hidden"
+              role="status"
+            >
+              <span className="font-semibold text-emerald-200">Payment successful</span>
+              <span className="min-w-0 flex-1 text-emerald-50/95">
+                {hasContent
+                  ? "Your PDF download for this law is unlocked. Use Download in the toolbar to preview or export."
+                  : "Your PDF download for this law is unlocked. When the document text is available, use Download in the toolbar to export."}
+              </span>
+              <button
+                type="button"
+                onClick={() => setDocumentPaymentSuccessVisible(false)}
+                className="shrink-0 rounded-md border border-emerald-400/50 px-2.5 py-1 text-xs font-medium text-emerald-100 hover:bg-emerald-900/50"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <Link
