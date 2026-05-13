@@ -25,3 +25,19 @@ export function mergePaidLawIdIntoStorage(lawId: string): void {
     // ignore
   }
 }
+
+/**
+ * Replace the stored paid-law id list entirely. Used when the server returns the
+ * authoritative list so we drop stale ids from another checkout or origin.
+ */
+export function replacePaidLawIdsInStorage(lawIds: string[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    const next = Array.from(
+      new Set(lawIds.filter((id): id is string => typeof id === "string" && id.length > 0))
+    );
+    window.localStorage.setItem(PAID_LAWS_STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // ignore
+  }
+}
