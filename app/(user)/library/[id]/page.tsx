@@ -768,10 +768,16 @@ export default function LawDetailPage({
   const [docSearchMatchCount, setDocSearchMatchCount] = useState(0);
   const docSearchRootRef = useRef<HTMLDivElement>(null);
   const docSearchHitIndexRef = useRef(0);
-  const hasTriggeredPostPurchasePdf = useRef(false);
+  const hasTriggeredPaygPostPurchaseUi = useRef(false);
+  const hasTriggeredPrintPostPurchaseUi = useRef(false);
   const confirmDocumentPaymentOnce = useRef(false);
   const resolvedIdRef = useRef<string | null>(null);
   resolvedIdRef.current = resolvedId;
+
+  useEffect(() => {
+    hasTriggeredPaygPostPurchaseUi.current = false;
+    hasTriggeredPrintPostPurchaseUi.current = false;
+  }, [resolvedId]);
   const { confirm, confirmDialog } = useConfirm();
   const { alert: showAlert, alertDialog } = useAlertDialog();
   const lomiAvailable =
@@ -837,6 +843,18 @@ export default function LawDetailPage({
         return fetchDocumentExportUnlockLawIds().then((res) => {
           const id = resolvedIdRef.current;
           if (res.ok && id) setHasPaidForThisLaw(res.law_ids.includes(id));
+          if (typeof window !== "undefined") {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("session_id");
+            url.searchParams.delete("payg");
+            window.history.replaceState({}, "", url.pathname + url.search);
+          }
+          if (res.ok && id && res.law_ids.includes(id)) {
+            hasTriggeredPaygPostPurchaseUi.current = true;
+            window.setTimeout(() => {
+              setExportPreviewOpen(true);
+            }, 400);
+          }
         });
       })
       .catch(() => {});
@@ -1135,13 +1153,12 @@ export default function LawDetailPage({
     };
   }, [docSearchQuery, law?.id, sections]);
 
-  // After successful pay-as-you-go: download PDF once, then clean the URL.
+  // After print=1 unlock: open preview and clean URL. Pay-as-you-go return is handled in confirm effect above.
   useEffect(() => {
-    if (!law || hasTriggeredPostPurchasePdf.current || typeof window === "undefined") return;
-    const shouldAuto = Boolean(paygDocument || (printRequested && hasPaidForThisLaw));
+    if (!law || hasTriggeredPrintPostPurchaseUi.current || typeof window === "undefined") return;
+    const shouldAuto = Boolean(printRequested && hasPaidForThisLaw);
     if (!shouldAuto) return;
-    hasTriggeredPostPurchasePdf.current = true;
-    setHasPaidForThisLaw(true);
+    hasTriggeredPrintPostPurchaseUi.current = true;
     const t = setTimeout(() => {
       void (async () => {
         try {
@@ -1159,7 +1176,7 @@ export default function LawDetailPage({
       })();
     }, 800);
     return () => clearTimeout(t);
-  }, [law, paygDocument, printRequested, hasPaidForThisLaw, resolvedId, sections]);
+  }, [law, printRequested, hasPaidForThisLaw, resolvedId, sections]);
 
   if (loading) {
     return (

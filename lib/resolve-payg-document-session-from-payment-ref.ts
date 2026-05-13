@@ -1,5 +1,9 @@
 import { getDepositStatus, isDepositCompleted } from "@/lib/pawapay";
-import { getCompletedLomiCheckoutMetadata } from "@/lib/lomi-checkout";
+import { getCompletedLomiCheckoutMetadata, readPaygDocumentLawIdFromMetadata } from "@/lib/lomi-checkout";
+
+function normalizePaygKind(raw: string): string {
+  return raw.trim().toLowerCase().replace(/-/g, "_");
+}
 
 export type ResolvePaygDocumentSessionResult =
   | { ok: true; kind: string; lawId: string | null }
@@ -18,12 +22,12 @@ export async function resolvePaygDocumentSessionFromPaymentRef(
     if (lomiMd.clerk_user_id !== expectedClerkUserId) {
       return { ok: false, reason: "forbidden" };
     }
-    const kind = lomiMd.kind || "";
+    const kind = normalizePaygKind(lomiMd.kind || "");
     if (kind !== "payg_document") {
       return { ok: false, reason: "wrong_kind" };
     }
-    const lawId = lomiMd.law_id?.trim() || null;
-    return { ok: true, kind, lawId };
+    const lawId = readPaygDocumentLawIdFromMetadata(lomiMd);
+    return { ok: true, kind: "payg_document", lawId };
   }
 
   const deposit = await getDepositStatus(sessionId);
@@ -34,10 +38,10 @@ export async function resolvePaygDocumentSessionFromPaymentRef(
   if (clerkUserId !== expectedClerkUserId) {
     return { ok: false, reason: "forbidden" };
   }
-  const kind = deposit.metadata?.kind || "";
+  const kind = normalizePaygKind(deposit.metadata?.kind || "");
   if (kind !== "payg_document") {
     return { ok: false, reason: "wrong_kind" };
   }
   const lawId = deposit.metadata?.law_id?.trim() || null;
-  return { ok: true, kind, lawId };
+  return { ok: true, kind: "payg_document", lawId };
 }
