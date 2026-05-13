@@ -12,13 +12,11 @@ import {
   Shield,
   X,
   Cpu,
-  Search,
   FileCheck,
-  FileDown,
-  CreditCard,
   MessageSquare,
-  Bug,
   MessageSquareWarning,
+  LineChart,
+  Store,
 } from "lucide-react";
 
 const SUPPORT_CENTER_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
@@ -28,17 +26,15 @@ const navItems = [
   { href: "/admin-panel/admins", label: "Admin Management", icon: Shield },
   { href: "/admin-panel/users", label: "Users", icon: Users },
   { href: "/admin-panel/ai-usage", label: "AI Usage", icon: Cpu },
-  { href: "/admin-panel/subscriptions", label: "Subscriptions", icon: CreditCard },
+  { href: "/admin-panel/revenue", label: "Revenue & analytics", icon: LineChart },
+  { href: "/admin-panel/marketplace", label: "Yamalé Vault", icon: Store },
   {
     href: "/admin-panel/support",
     label: SUPPORT_CENTER_LIVE ? "Support requests" : "Support requests (coming soon)",
     icon: MessageSquare,
   },
-  { href: "/admin-panel/ai-bugs", label: "AI bugs", icon: Bug },
-  { href: "/admin-panel/ai-feedback", label: "Flagged feedback", icon: MessageSquareWarning },
-  { href: "/admin-panel/lawyer-searches", label: "Lawyer Searches", icon: Search },
+  { href: "/admin-panel/ai-quality", label: "AI quality", icon: MessageSquareWarning },
   { href: "/admin-panel/laws", label: "Laws", icon: BookOpen },
-  { href: "/admin-panel/library-document-purchases", label: "Library PDF purchases", icon: FileDown },
   { href: "/admin-panel/afcfta", label: "AfCFTA", icon: FileCheck },
   { href: "/admin-panel/pricing", label: "Pricing", icon: Scale },
   { href: "/admin-panel/content", label: "Content", icon: FileText },
@@ -78,7 +74,16 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
           const isActive =
             href === "/admin-panel"
               ? pathname === "/admin-panel"
-              : pathname.startsWith(href);
+              : href === "/admin-panel/revenue"
+                ? pathname.startsWith("/admin-panel/revenue") ||
+                  pathname.startsWith("/admin-panel/subscriptions") ||
+                  pathname.startsWith("/admin-panel/lawyer-searches") ||
+                  pathname.startsWith("/admin-panel/library-document-purchases")
+                : href === "/admin-panel/ai-quality"
+                  ? pathname.startsWith("/admin-panel/ai-quality") ||
+                    pathname.startsWith("/admin-panel/ai-bugs") ||
+                    pathname.startsWith("/admin-panel/ai-feedback")
+                  : pathname.startsWith(href);
           return (
             <Link
               key={href}
