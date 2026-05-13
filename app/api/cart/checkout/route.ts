@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { createPaymentPageSession, isPawapayConfigured, resolvePawapayReturnOrigin } from "@/lib/pawapay";
+import { createPaymentPageSession, isPawapayConfigured, PawapayReturnUrlError, resolvePawapayReturnOrigin } from "@/lib/pawapay";
 import { amountMinorForPawapayCountry } from "@/lib/pawapay-deposit-amount";
 import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
 import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
@@ -164,6 +164,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: redirectUrl, provider: "pawapay" });
   } catch (err) {
     console.error("Cart checkout error:", err);
+    if (err instanceof PawapayReturnUrlError) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
     const message = err instanceof Error ? err.message : "Failed to create checkout session";
     return NextResponse.json({ error: message }, { status: 500 });
   }
