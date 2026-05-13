@@ -4,6 +4,7 @@ import {
   convertUsdCentsToPawapayMinor,
   createPaymentPageSession,
   isPawapayConfigured,
+  PawapayReturnUrlError,
   resolvePawapayReturnOrigin,
 } from "@/lib/pawapay";
 import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
@@ -94,6 +95,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: redirectUrl, provider: "pawapay" });
   } catch (err) {
     console.error("Pay-as-you-go document checkout error:", err);
-    return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
+    if (err instanceof PawapayReturnUrlError) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
+    const msg = err instanceof Error ? err.message : "Checkout failed";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
