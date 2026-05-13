@@ -7,7 +7,7 @@ type ConfirmState = "confirming" | "synced" | "error";
 
 /**
  * After pawaPay/Lomi redirect with ?checkout=success&session_id=…
- * Only shows success once /api/stripe/sync-tier confirms the payment (never trust the URL alone).
+ * Only shows success once /api/payments/sync-tier confirms the payment (never trust the URL alone).
  */
 export function CheckoutSuccessBanner() {
   const searchParams = useSearchParams();
@@ -28,7 +28,7 @@ export function CheckoutSuccessBanner() {
     setErrorMessage(null);
 
     void (async () => {
-      const res = await fetch("/api/stripe/sync-tier", {
+      const res = await fetch("/api/payments/sync-tier", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ session_id: sessionId }),
