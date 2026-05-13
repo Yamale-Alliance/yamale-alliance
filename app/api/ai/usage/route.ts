@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { clerkClient } from "@clerk/nextjs/server";
 import { getAiUsage } from "@/lib/ai-usage";
+import { estimateAiApiUsdFromTokens } from "@/lib/ai-token-cost-estimate";
 import { getAiQueryLimit } from "@/lib/plan-limits";
 import { getUnusedPayAsYouGoCount } from "@/lib/pay-as-you-go";
 
@@ -25,6 +25,11 @@ export async function GET() {
   const remaining = limit === null ? null : Math.max(0, limit - used);
   const canQuery = limit === null || (remaining !== null && remaining > 0) || payAsYouGoCount > 0;
 
+  const inputTokens = usage.input_tokens;
+  const outputTokens = usage.output_tokens;
+  const estimatedUsageUsd =
+    Math.round(estimateAiApiUsdFromTokens(inputTokens, outputTokens) * 100) / 100;
+
   return NextResponse.json({
     used,
     limit,
@@ -32,5 +37,8 @@ export async function GET() {
     tier,
     payAsYouGoCount,
     canQuery,
+    inputTokens,
+    outputTokens,
+    estimatedUsageUsd,
   });
 }
