@@ -30,9 +30,9 @@ Use test mode keys and prices while developing.
 ## 3. Webhook (for granting access after payment)
 
 1. In [Stripe Dashboard → Webhooks](https://dashboard.stripe.com/webhooks), click **Add endpoint**.
-2. **Endpoint URL**: `https://your-domain.com/api/stripe/webhook`  
+2. **Endpoint URL**: `https://your-domain.com/api/payments/webhook`  
    For local testing use [Stripe CLI](https://stripe.com/docs/stripe-cli):  
-   `stripe listen --forward-to localhost:3000/api/stripe/webhook`
+   `stripe listen --forward-to localhost:3000/api/payments/webhook`
 3. Select events to listen for:
    - `checkout.session.completed`
    - `customer.subscription.updated`
@@ -41,15 +41,15 @@ Use test mode keys and prices while developing.
 
 ## 4. Flow
 
-- **Checkout**: User clicks a plan on `/pricing` → `POST /api/stripe/checkout` (requires sign-in) → redirect to Stripe Checkout → after payment, redirect to `/dashboard?checkout=success`.
+- **Checkout**: User clicks a plan on `/pricing` → `POST /api/payments/checkout` (requires sign-in) → redirect to Stripe Checkout → after payment, redirect to `/dashboard?checkout=success`.
 - **Webhook**: Stripe sends `checkout.session.completed` → app updates the user’s tier in Clerk `publicMetadata` (e.g. `tier: "basic"`). On `customer.subscription.deleted`, tier is set back to `"free"`.
-- **Billing portal**: `POST /api/stripe/portal` with `{ customerId: "cus_..." }` returns a URL to Stripe’s customer portal (manage payment method, cancel subscription). You need to store each user’s Stripe customer ID when they first complete checkout (e.g. from the webhook or from `checkout.session.completed`).
+- **Billing portal**: `POST /api/payments/portal` with `{ customerId: "cus_..." }` returns a URL to Stripe’s customer portal (manage payment method, cancel subscription). You need to store each user’s Stripe customer ID when they first complete checkout (e.g. from the webhook or from `checkout.session.completed`).
 
 ## 5. Troubleshooting: “I paid but my plan didn’t update”
 
 1. **Webhook must be reachable**  
    - Production: ensure the webhook endpoint URL is correct and uses HTTPS.  
-   - Local: run `stripe listen --forward-to localhost:3000/api/stripe/webhook` and use the CLI’s `whsec_...` as `STRIPE_WEBHOOK_SECRET`.
+   - Local: run `stripe listen --forward-to localhost:3000/api/payments/webhook` and use the CLI’s `whsec_...` as `STRIPE_WEBHOOK_SECRET`.
 
 2. **Check that the webhook ran**  
    - Stripe Dashboard → Webhooks → your endpoint → view recent events. Confirm `checkout.session.completed` was sent and returned 2xx.  
