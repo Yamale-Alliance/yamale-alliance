@@ -6,7 +6,7 @@
  *   node --env-file=.env scripts/import-pdf-law.mjs "/path/to/file.pdf" [options]
  *
  * Options:
- *   --country "Ghana"           (default: Ghana) — must match VALID_COUNTRIES in this file (e.g. Cameroon, Central African Republic, Chad, Democratic Republic of Congo, Equatorial Guinea, Gabon, Mauritius, Mozambique, Namibia, Zimbabwe, …).
+ *   --country "Ghana"           (default: Ghana) — must match VALID_COUNTRIES in this file (e.g. Cameroon, Central African Republic, Chad, DR Congo, Congo Republic, Equatorial Guinea, Gabon, Mauritius, Mozambique, Namibia, Zimbabwe, …).
  *   --title "Display title"     (default: filename without .pdf)
  *   --category "Corporate Law"  (default: "Corporate Law")
  *   --year 2019                 (optional)
@@ -50,9 +50,9 @@ const VALID_COUNTRIES = [
   "Central African Republic",
   "Chad",
   "Comoros",
-  "Congo Brazzaville (Republic of the Congo)",
+  "Congo Republic",
   "Côte d'Ivoire",
-  "Democratic Republic of Congo",
+  "DR Congo",
   "Djibouti",
   "Egypt",
   "Equatorial Guinea",
