@@ -44,7 +44,7 @@ import { PlatformLogo } from "@/components/platform/PlatformLogo";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
 import { downloadLawDocumentPdf } from "@/lib/library/law-document-pdf";
 import { mergePaidLawIdIntoStorage, readPaidLawIdsFromStorage } from "@/lib/library-paid-laws-storage";
-import { fetchDocumentExportUnlockLawIds } from "@/lib/library-document-export-unlocks-client";
+import { syncDocumentExportUnlocksToLocalStorage } from "@/lib/library-document-export-unlocks-client";
 import { getOfflineLawSnapshot } from "@/lib/library-offline-storage";
 import {
   applyLawDocumentSearchHighlights,
@@ -806,28 +806,20 @@ export default function LawDetailPage({
     dragStartRef.current = { x, y, clientX: e.clientX, clientY: e.clientY };
   }, [contentsPosition]);
 
-  // When law ID is known, hydrate hasPaidForThisLaw from localStorage so we remember
-  // past purchases across sessions for this browser.
+  // Paid PDF: reset when switching laws. Signed-in users sync server → localStorage first
+  // so stale ids from another origin cannot keep the wrong law marked paid.
   useEffect(() => {
     if (!resolvedId || typeof window === "undefined") return;
-    if (readPaidLawIdsFromStorage().includes(resolvedId)) {
-      setHasPaidForThisLaw(true);
-    }
-  }, [resolvedId]);
-
-  // Restore PDF unlocks from the server (same account, any device / Vercel URL).
-  useEffect(() => {
-    if (!resolvedId || typeof window === "undefined" || !isSignedIn) return;
     let cancelled = false;
-    void fetchDocumentExportUnlockLawIds()
-      .then((ids) => {
-        if (cancelled) return;
-        if (ids.includes(resolvedId)) {
-          setHasPaidForThisLaw(true);
-          mergePaidLawIdIntoStorage(resolvedId);
-        }
-      })
-      .catch(() => {});
+    setHasPaidForThisLaw(false);
+    if (!isSignedIn) {
+      if (readPaidLawIdsFromStorage().includes(resolvedId)) setHasPaidForThisLaw(true);
+      return;
+    }
+    void syncDocumentExportUnlocksToLocalStorage().then(() => {
+      if (cancelled) return;
+      setHasPaidForThisLaw(readPaidLawIdsFromStorage().includes(resolvedId));
+    });
     return () => {
       cancelled = true;
     };
