@@ -1,5 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { isBlockedAiScraperRequest } from "@/lib/ai-scraper-guard";
 import {
   applySecurityHeaders,
   attachRateLimitHeaders,
@@ -43,6 +44,17 @@ function checkBasicAuth(request: Request): boolean {
 }
 
 export default clerkMiddleware(async (auth, request) => {
+  if (isBlockedAiScraperRequest(request)) {
+    const forbidden = new NextResponse(
+      "Automated access to this content is not permitted. If you are a human user, please open this page in a standard browser without an AI training crawler user agent.",
+      {
+        status: 403,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      }
+    );
+    return applySecurityHeaders(forbidden);
+  }
+
   const rateLimit = checkRateLimit(request);
   if (rateLimit && !rateLimit.allowed) {
     const limited = NextResponse.json(
