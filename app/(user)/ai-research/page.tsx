@@ -186,9 +186,6 @@ export default function AIResearchPage() {
     tier?: Tier;
     payAsYouGoCount?: number;
     canQuery?: boolean;
-    inputTokens?: number;
-    outputTokens?: number;
-    estimatedUsageUsd?: number;
   } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -236,12 +233,6 @@ export default function AIResearchPage() {
   const remaining = aiUsage?.remaining ?? (limit === null ? null : Math.max(0, limit - used));
   const payAsYouGoCount = aiUsage?.payAsYouGoCount ?? 0;
   const canQuery = aiUsage?.canQuery ?? true;
-  const estUsageUsd = aiUsage?.estimatedUsageUsd ?? 0;
-  const estUsageLabel = estUsageUsd.toLocaleString(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2,
-  });
   // User is at limit only if they can't query (no plan limit remaining AND no pay-as-you-go purchases)
   const atLimit = !canQuery;
   const [usageFetched, setUsageFetched] = useState(false);
@@ -311,9 +302,6 @@ export default function AIResearchPage() {
         tier?: string;
         payAsYouGoCount?: number;
         canQuery?: boolean;
-        inputTokens?: number;
-        outputTokens?: number;
-        estimatedUsageUsd?: number;
       };
       if (res.ok) {
         setAiUsage({
@@ -323,9 +311,6 @@ export default function AIResearchPage() {
           tier: (data.tier as Tier) ?? undefined,
           payAsYouGoCount: data.payAsYouGoCount ?? 0,
           canQuery: data.canQuery ?? true,
-          inputTokens: data.inputTokens ?? 0,
-          outputTokens: data.outputTokens ?? 0,
-          estimatedUsageUsd: data.estimatedUsageUsd ?? 0,
         });
       }
     } catch {
@@ -748,9 +733,6 @@ export default function AIResearchPage() {
         tier?: string;
         payAsYouGoCount?: number;
         canQuery?: boolean;
-        inputTokens?: number;
-        outputTokens?: number;
-        estimatedUsageUsd?: number;
       };
       
       if (usageRes.ok) {
@@ -761,9 +743,6 @@ export default function AIResearchPage() {
           tier: (usageData.tier as Tier) ?? undefined,
           payAsYouGoCount: usageData.payAsYouGoCount ?? 0,
           canQuery: usageData.canQuery ?? true,
-          inputTokens: usageData.inputTokens ?? 0,
-          outputTokens: usageData.outputTokens ?? 0,
-          estimatedUsageUsd: usageData.estimatedUsageUsd ?? 0,
         });
         
         // Check if pay-as-you-go was consumed (count decreased from before)
@@ -1021,20 +1000,6 @@ export default function AIResearchPage() {
                 />
               </div>
             )}
-            <div className="mt-3 rounded-[6px] border border-white/[0.06] bg-white/[0.04] px-3 py-2">
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-[11px] leading-tight text-white/45">Est. API cost (this month)</span>
-                <span className="shrink-0 text-right text-[12px] font-semibold tabular-nums text-[#E8B84B]">
-                  {usageFetched ? estUsageLabel : "—"}
-                </span>
-              </div>
-              {usageFetched && (aiUsage?.inputTokens !== undefined || aiUsage?.outputTokens !== undefined) ? (
-                <p className="mt-1 text-[10px] leading-snug text-white/35">
-                  From {(aiUsage?.inputTokens ?? 0).toLocaleString()} in + {(aiUsage?.outputTokens ?? 0).toLocaleString()}{" "}
-                  out tokens · indicative blend rate, not your Yamalé invoice.
-                </p>
-              ) : null}
-            </div>
           </div>
         </aside>
 
