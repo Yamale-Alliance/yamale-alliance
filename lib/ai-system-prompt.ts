@@ -3,7 +3,7 @@
  * Bump SYSTEM_PROMPT_VERSION whenever substantive prompt instructions change.
  */
 
-export const SYSTEM_PROMPT_VERSION = "2026.05.12-platform-guide-meta-v1";
+export const SYSTEM_PROMPT_VERSION = "2026.05.13-country-rag-lock-v1";
 
 export type SupranationalPromptFramework = {
   canonicalName: string;
@@ -124,6 +124,9 @@ Tone: helpful, concise, structured headings or short bullets. / Ton : utile, con
   } else {
     systemPrompt +=
       "\n\nNo library documents were retrieved. Say so in 2-4 short sentences (in the user's language) and ask to refine country/category/title. Do not fabricate law. / Aucun document récupéré. Indiquez-le en 2-4 phrases courtes (dans la langue de l'utilisateur) et proposez d'affiner pays / catégorie / titre. N'inventez pas de droit.";
+    if (p.strictCountryMode && p.effectiveCountry) {
+      systemPrompt += `\n\nCountry-named query with no excerpts (${p.effectiveCountry}): do NOT list statutes from other countries as stand-ins or comparisons. State only that the library did not return matching documents for that jurisdiction; suggest browsing the Library for that country or rephrasing. / Requête avec pays sans extraits (${p.effectiveCountry}) : ne listez pas des textes d'autres pays comme substituts. Indiquez seulement l'absence d'extraits pour cette juridiction ; proposez la bibliothèque ou une reformulation.`;
+    }
   }
 
   return systemPrompt;
