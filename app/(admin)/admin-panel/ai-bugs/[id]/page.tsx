@@ -90,7 +90,7 @@ export default function AdminAiBugDetailPage() {
 
   return (
     <div className="p-4 sm:p-6">
-      <Link href="/admin-panel/ai-bugs" className="text-sm font-medium text-primary hover:underline">
+      <Link href="/admin-panel/ai-quality?tab=bugs" className="text-sm font-medium text-primary hover:underline">
         ← All AI bug reports
       </Link>
 
