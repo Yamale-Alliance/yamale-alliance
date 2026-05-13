@@ -1850,6 +1850,8 @@ export function getImportRequirements(
 /** Map common UI names to data keys (e.g. Congo → DRC). */
 const COUNTRY_KEY_ALIASES: Record<string, string> = {
   "Congo": "DRC",
+  "DR Congo": "DRC",
+  "Democratic Republic of Congo": "DRC",
   "Democratic Republic of the Congo": "DRC",
   "DRC": "DRC",
   "Cote d'Ivoire": "Côte d'Ivoire",
