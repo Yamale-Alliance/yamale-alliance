@@ -10,9 +10,9 @@ import {
 } from "@/lib/admin-analytics-ranges";
 import { isPaidTier, readSubscriptionState } from "@/lib/subscription-state";
 
-/** Document PDF unlock list price (matches `app/api/stripe/payg/document/route.ts`). */
+/** Document PDF unlock list price (matches `app/api/payments/payg/document/route.ts`). */
 const DOCUMENT_UNLOCK_USD_CENTS = 300;
-/** Lawyer search unlock list price (matches `app/api/stripe/lawyer-search-unlock/route.ts`). */
+/** Lawyer search unlock list price (matches `app/api/payments/lawyer-search-unlock/route.ts`). */
 const LAWYER_SEARCH_UNLOCK_USD_CENTS = 500;
 
 type PlanPrices = {
