@@ -5,6 +5,10 @@ const supabaseHostname =
     : "fitqojixvjbthsxignka.supabase.co";
 
 const nextConfig = {
+  async rewrites() {
+    // Legacy URL namespace: handlers are Lomi/PawaPay (not Stripe). Old clients still calling `/api/stripe/*` keep working.
+    return [{ source: "/api/stripe/:path*", destination: "/api/payments/:path*" }];
+  },
   experimental: {
     // Load CSS in import order so preloaded chunks are used when needed (reduces "preloaded but not used" warnings)
     cssChunking: "strict",
