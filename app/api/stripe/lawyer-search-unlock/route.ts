@@ -4,7 +4,7 @@ import {
   convertUsdCentsToPawapayMinor,
   createPaymentPageSession,
   isPawapayConfigured,
-  isPawapayLiveApi,
+  PawapayReturnUrlError,
   resolvePawapayReturnOrigin,
 } from "@/lib/pawapay";
 import { getSupabaseServer } from "@/lib/supabase/server";
@@ -142,15 +142,6 @@ export async function POST(request: NextRequest) {
     }
 
     const depositId = crypto.randomUUID();
-    if (isPawapayLiveApi() && !/^https:\/\//i.test(returnOrigin)) {
-      return NextResponse.json(
-        {
-          error:
-            "pawaPay live requires an HTTPS return URL. Set PAWAPAY_RETURN_BASE_URL to your public app URL (for example, https://yamale-alliance.vercel.app).",
-        },
-        { status: 400 }
-      );
-    }
     if (!paymentCountry) {
       return NextResponse.json({ error: "Please select a pawaPay country to continue." }, { status: 400 });
     }
@@ -190,6 +181,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: redirectUrl });
   } catch (err) {
     console.error("Lawyer search unlock checkout error:", err);
+    if (err instanceof PawapayReturnUrlError) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
   }
 }
