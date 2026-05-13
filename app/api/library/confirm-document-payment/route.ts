@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { getDepositStatus, isDepositCompleted } from "@/lib/pawapay";
-import { getCompletedLomiCheckoutMetadata } from "@/lib/lomi-checkout";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { resolvePaygDocumentSessionFromPaymentRef } from "@/lib/resolve-payg-document-session-from-payment-ref";
 
 /**
  * After checkout redirect: ensure the document purchase row exists (and includes `law_id`)
@@ -21,34 +20,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "session_id required" }, { status: 400 });
     }
 
-    let resolvedKind: string | undefined;
-    let lawId: string | undefined;
-
-    const lomiMd = await getCompletedLomiCheckoutMetadata(sessionId);
-    if (lomiMd) {
-      if (lomiMd.clerk_user_id !== userId) {
+    const resolved = await resolvePaygDocumentSessionFromPaymentRef(sessionId, userId);
+    if (!resolved.ok) {
+      if (resolved.reason === "forbidden") {
         return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
       }
-      resolvedKind = lomiMd.kind;
-      lawId = lomiMd.law_id?.trim() || undefined;
-    } else {
-      const deposit = await getDepositStatus(sessionId);
-      if (!deposit || !isDepositCompleted(deposit.status)) {
-        return NextResponse.json({ error: "Payment not completed" }, { status: 400 });
+      if (resolved.reason === "wrong_kind") {
+        return NextResponse.json({ error: "Not a document purchase session" }, { status: 400 });
       }
-
-      const clerkUserId = deposit.metadata?.clerk_user_id;
-      if (clerkUserId !== userId) {
-        return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
-      }
-
-      resolvedKind = deposit.metadata?.kind;
-      lawId = deposit.metadata?.law_id?.trim() || undefined;
+      return NextResponse.json({ error: "Payment not completed" }, { status: 400 });
     }
 
-    if (resolvedKind !== "payg_document") {
-      return NextResponse.json({ error: "Not a document purchase session" }, { status: 400 });
-    }
+    const lawId = resolved.lawId ?? undefined;
 
     const supabase = getSupabaseServer();
 
