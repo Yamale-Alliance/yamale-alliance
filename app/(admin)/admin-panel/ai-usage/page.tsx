@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Loader2, Cpu, BarChart3 } from "lucide-react";
+import { Loader2, Cpu } from "lucide-react";
+import { AI_TOKEN_COST_ESTIMATE_DISCLAIMER } from "@/lib/ai-token-cost-estimate";
 
 type UsageRow = {
   user_id: string;
@@ -11,6 +12,7 @@ type UsageRow = {
   output_tokens: number;
   total_tokens: number;
   previous_month_query_count: number;
+  estimated_usage_usd_cents: number;
 };
 
 type AiUsageResponse = {
@@ -20,6 +22,7 @@ type AiUsageResponse = {
   total_queries: number;
   total_input_tokens: number;
   total_output_tokens: number;
+  total_estimated_usage_usd_cents: number;
 };
 
 type UserRow = {
@@ -74,7 +77,7 @@ export default function AdminAiUsagePage() {
     );
   }
 
-  const totalTokens = data.total_input_tokens + data.total_output_tokens;
+  const totalEstUsd = (data.total_estimated_usage_usd_cents ?? 0) / 100;
 
   return (
     <div className="p-4 sm:p-6">
@@ -83,11 +86,12 @@ export default function AdminAiUsagePage() {
         AI Usage
       </h1>
       <p className="mt-1 text-muted-foreground">
-        Credits (queries) and token usage for the current month. Limits: Basic 10/mo, Pro 50/mo, Team unlimited.
+        Credits (queries) and token usage for the current month. Limits: Basic 10/mo, Pro 50/mo, Team unlimited.{" "}
+        <span className="text-foreground/80">{AI_TOKEN_COST_ESTIMATE_DISCLAIMER}</span>
       </p>
 
       {/* Summary cards */}
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Queries this month</p>
           <p className="mt-1 text-2xl font-semibold">{data.total_queries}</p>
@@ -100,6 +104,13 @@ export default function AdminAiUsagePage() {
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Output tokens</p>
           <p className="mt-1 text-2xl font-semibold">{data.total_output_tokens.toLocaleString()}</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Est. API cost (month)</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">
+            {totalEstUsd.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 })}
+          </p>
+          <p className="mt-1 text-[11px] leading-snug text-muted-foreground">Sum of per-user token estimates.</p>
         </div>
       </div>
 
@@ -115,12 +126,13 @@ export default function AdminAiUsagePage() {
                 <th className="text-right p-3 font-medium">Input tokens</th>
                 <th className="text-right p-3 font-medium">Output tokens</th>
                 <th className="text-right p-3 font-medium">Total tokens</th>
+                <th className="text-right p-3 font-medium">Est. cost</th>
               </tr>
             </thead>
             <tbody>
               {data.usage.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                  <td colSpan={7} className="p-8 text-center text-muted-foreground">
                     No AI usage recorded for {data.month} yet.
                   </td>
                 </tr>
@@ -137,6 +149,13 @@ export default function AdminAiUsagePage() {
                       <td className="p-3 text-right text-muted-foreground">{row.input_tokens.toLocaleString()}</td>
                       <td className="p-3 text-right text-muted-foreground">{row.output_tokens.toLocaleString()}</td>
                       <td className="p-3 text-right">{row.total_tokens.toLocaleString()}</td>
+                      <td className="p-3 text-right font-medium tabular-nums text-muted-foreground">
+                        {((row.estimated_usage_usd_cents ?? 0) / 100).toLocaleString(undefined, {
+                          style: "currency",
+                          currency: "USD",
+                          maximumFractionDigits: 2,
+                        })}
+                      </td>
                     </tr>
                   );
                 })
