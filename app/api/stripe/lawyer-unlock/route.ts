@@ -4,6 +4,7 @@ import {
   convertUsdCentsToPawapayMinor,
   createPaymentPageSession,
   isPawapayConfigured,
+  PawapayReturnUrlError,
   resolvePawapayReturnOrigin,
 } from "@/lib/pawapay";
 import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
@@ -57,6 +58,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: redirectUrl });
   } catch (err) {
     console.error("Lawyer unlock checkout error:", err);
+    if (err instanceof PawapayReturnUrlError) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
   }
 }
