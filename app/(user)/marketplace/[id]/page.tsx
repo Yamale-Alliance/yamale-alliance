@@ -246,7 +246,7 @@ export default function MarketplaceItemPage() {
     setPurchasing(true);
     setError(null);
     try {
-      const res = await fetch("/api/stripe/marketplace-checkout", {
+      const res = await fetch("/api/payments/marketplace-checkout", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
