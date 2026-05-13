@@ -25,11 +25,15 @@ export default function LibraryPurchasedLawsPage() {
 
   const hydrateIds = useCallback(async () => {
     try {
-      await syncDocumentExportUnlocksToLocalStorage();
+      const res = await syncDocumentExportUnlocksToLocalStorage();
+      if (res.ok && res.law_ids.length > 0) {
+        setLawIds(res.law_ids);
+      } else {
+        setLawIds(readPaidLawIdsFromStorage());
+      }
     } catch {
-      // ignore
+      setLawIds(readPaidLawIdsFromStorage());
     }
-    setLawIds(readPaidLawIdsFromStorage());
   }, []);
 
   useEffect(() => {
