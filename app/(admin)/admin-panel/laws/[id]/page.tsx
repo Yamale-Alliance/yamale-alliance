@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Search, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, Link2, Loader2, Search, Sparkles, Trash2 } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
 
@@ -54,6 +54,7 @@ export default function AdminLawEditPage() {
   const [replaceResult, setReplaceResult] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [fixOcrLoading, setFixOcrLoading] = useState(false);
+  const [sharedLinkPeerCount, setSharedLinkPeerCount] = useState(0);
   const router = useRouter();
   const { confirm, confirmDialog } = useConfirm();
 
@@ -81,6 +82,9 @@ export default function AdminLawEditPage() {
         }
         const lawData = data.law as LawForEdit;
         setLaw(lawData);
+        setSharedLinkPeerCount(
+          typeof data.shared_link_peer_count === "number" ? data.shared_link_peer_count : 0
+        );
         setTitle(lawData.title ?? "");
         setAppliesToAll(!!lawData.applies_to_all_countries);
         setCountryId(lawData.country_id ?? "");
@@ -153,6 +157,9 @@ export default function AdminLawEditPage() {
       }
       const lawData = reload.law as LawForEdit;
       setLaw(lawData);
+      setSharedLinkPeerCount(
+        typeof reload.shared_link_peer_count === "number" ? reload.shared_link_peer_count : 0
+      );
       setText(lawData.content_plain ?? lawData.content ?? "");
       setStatusMsg(
         `OCR cleaned (${typeof data.cleanedChars === "number" ? data.cleanedChars.toLocaleString() : "?"} characters).`
@@ -206,6 +213,40 @@ export default function AdminLawEditPage() {
       setError("Select at least one category.");
       return;
     }
+
+    const peers = sharedLinkPeerCount;
+    if (peers > 0 && law) {
+      const origText = (law.content_plain ?? law.content ?? "").trim();
+      const nextText = text.trim();
+      const origCats =
+        Array.isArray(law.category_ids) && law.category_ids.length > 0
+          ? law.category_ids
+          : law.category_id
+            ? [law.category_id]
+            : [];
+      const catSig = (ids: string[]) =>
+        [...ids].map((x) => x.trim()).filter(Boolean).sort().join("|");
+      const shareableDirty =
+        nextText !== origText ||
+        title.trim() !== (law.title ?? "").trim() ||
+        (year.trim() ? Number(year.trim()) : null) !== (law.year ?? null) ||
+        (status.trim() || "In force") !== (law.status ?? "In force") ||
+        treatyType !== ((law.treaty_type as LawTreatyType) ?? "Not a treaty") ||
+        catSig(categoryIds) !== catSig(origCats);
+
+      if (shareableDirty) {
+        const total = peers + 1;
+        const ok = await confirm({
+          title: "Update linked country variants",
+          description: `This law is in a shared link group. Saving will apply the same title, categories, year, status, treaty type, and law text to ${peers} other linked law${peers === 1 ? "" : "s"} (${total} laws in total). Country assignment stays separate for each law.`,
+          confirmLabel: `Save and update ${total} laws`,
+          cancelLabel: "Cancel",
+          variant: "default",
+        });
+        if (!ok) return;
+      }
+    }
+
     setSaving(true);
     setError(null);
     setStatusMsg(null);
@@ -231,7 +272,14 @@ export default function AdminLawEditPage() {
         setSaving(false);
         return;
       }
-      setStatusMsg("Changes saved.");
+      const propagated = Array.isArray(data.shared_link_propagation?.propagated_law_ids)
+        ? data.shared_link_propagation.propagated_law_ids.length
+        : 0;
+      setStatusMsg(
+        propagated > 0
+          ? `Changes saved. ${propagated} linked country variant${propagated === 1 ? "" : "s"} updated to match.`
+          : "Changes saved."
+      );
       if (data.law) {
         const u = data.law as Partial<LawForEdit> & { category_ids?: string[] };
         setLaw((prev) => (prev ? { ...prev, ...u } : null));
@@ -306,6 +354,25 @@ export default function AdminLawEditPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               Update metadata (title, country, category, etc.) and/or the law text. Changes apply to the library and AI.
             </p>
+            {sharedLinkPeerCount > 0 && (
+              <div className="mt-3 flex flex-wrap items-start gap-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2.5 text-sm text-foreground">
+                <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+                <div>
+                  <p className="font-medium">Linked law</p>
+                  <p className="mt-0.5 text-muted-foreground">
+                    Saving changes to title, categories, year, status, treaty type, or body text will also update{" "}
+                    {sharedLinkPeerCount} other country variant{sharedLinkPeerCount === 1 ? "" : "s"} in this group.
+                    Country assignment is not synced.
+                  </p>
+                  <Link
+                    href="/admin-panel/laws/link-by-title"
+                    className="mt-2 inline-block text-xs font-medium text-primary hover:underline"
+                  >
+                    Manage links by title
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
