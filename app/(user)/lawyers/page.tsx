@@ -149,7 +149,7 @@ export default function LawyersPage() {
     setSearchPayError(null);
     setPaymentProvider(provider);
     try {
-      const res = await fetch("/api/stripe/lawyer-search-unlock", {
+      const res = await fetch("/api/payments/lawyer-search-unlock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
