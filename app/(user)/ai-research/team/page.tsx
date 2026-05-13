@@ -175,7 +175,7 @@ export default function ManageTeamPage() {
     setCheckoutLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/stripe/team-extra-seats", {
+      const res = await fetch("/api/payments/team-extra-seats", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
