@@ -9,6 +9,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { fetchLawIdsForCategory } from "@/lib/law-categories-sync";
 import { fetchLawIdsForCountryScope } from "@/lib/law-country-scope-ids";
 import { chunkLawContent } from "@/lib/embeddings/chunking";
+import { resolveUserCountryNameToDbName } from "@/lib/country-db-name-aliases";
 
 function extractSearchTokens(query: string): string[] {
   const stopWords = new Set(["the", "and", "for", "with", "that", "this", "from", "law", "laws", "database"]);
@@ -61,10 +62,11 @@ export async function POST(request: NextRequest) {
     let countryId: string | null = null;
     let categoryId: string | null = null;
     if (country?.trim()) {
+      const dbName = resolveUserCountryNameToDbName(country.trim());
       const { data: countryRow } = await supabase
         .from("countries")
         .select("id")
-        .eq("name", country.trim())
+        .eq("name", dbName)
         .limit(1)
         .maybeSingle();
       countryId = countryRow?.id ?? null;
