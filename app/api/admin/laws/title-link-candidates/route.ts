@@ -17,7 +17,10 @@ export type TitleLinkCandidateGroup = {
   laws: TitleLinkCandidateLaw[];
 };
 
-const MAX_LAWS_SCAN = 35_000;
+/** Rows per request — PostgREST / Supabase often caps a single response (~1000); paginate to load every law. */
+const FETCH_PAGE_SIZE = 1000;
+/** Safety valve so an admin request cannot unbounded-scan a broken DB. */
+const MAX_LAWS_HARD_CAP = 250_000;
 
 /**
  * GET: laws grouped by identical normalized title where the group has ≥2 rows
@@ -30,17 +33,6 @@ export async function GET() {
 
   try {
     const supabase = getSupabaseServer();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rows, error } = await (supabase as any)
-      .from("laws")
-      .select("id, title, country_id, applies_to_all_countries, status, countries(name)")
-      .order("title")
-      .limit(MAX_LAWS_SCAN);
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
     type Row = {
       id: string;
       title: string;
@@ -50,8 +42,33 @@ export async function GET() {
       countries: { name: string } | null;
     };
 
+    const rows: Row[] = [];
+    let offset = 0;
+    let hitCap = false;
+
+    for (;;) {
+      if (offset >= MAX_LAWS_HARD_CAP) {
+        hitCap = true;
+        break;
+      }
+      const { data: page, error } = await (supabase as any)
+        .from("laws")
+        .select("id, title, country_id, applies_to_all_countries, status, countries(name)")
+        .order("id", { ascending: true })
+        .range(offset, offset + FETCH_PAGE_SIZE - 1);
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      const batch = (page ?? []) as Row[];
+      rows.push(...batch);
+      if (batch.length < FETCH_PAGE_SIZE) break;
+      offset += FETCH_PAGE_SIZE;
+    }
+
     const bucket = new Map<string, TitleLinkCandidateLaw[]>();
-    for (const r of (rows ?? []) as Row[]) {
+    for (const r of rows) {
       const key = normalizeLawTitleForGrouping(String(r.title ?? ""));
       if (!key) continue;
       const country_name = r.applies_to_all_countries
@@ -84,7 +101,11 @@ export async function GET() {
 
     groups.sort((a, b) => a.normalized_title.localeCompare(b.normalized_title));
 
-    return NextResponse.json({ groups, scanned: (rows ?? []).length });
+    return NextResponse.json({
+      groups,
+      scanned: rows.length,
+      ...(hitCap ? { capped: true, cap: MAX_LAWS_HARD_CAP } : {}),
+    });
   } catch (err) {
     console.error("title-link-candidates GET:", err);
     return NextResponse.json({ error: "Failed to load candidates" }, { status: 500 });
