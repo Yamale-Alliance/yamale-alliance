@@ -4,12 +4,15 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { createPaymentPageSession, isPawapayConfigured, PawapayReturnUrlError, resolvePawapayReturnOrigin } from "@/lib/pawapay";
 import { amountMinorForPawapayCountry } from "@/lib/pawapay-deposit-amount";
 import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
+import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
 import type { Database } from "@/lib/database.types";
 
 type MarketplaceItemRow = Database["public"]["Tables"]["marketplace_items"]["Row"];
 
+type CheckoutProvider = "pawapay" | "lomi";
+
 /**
- * Create pawaPay Payment Page session for a marketplace item.
+ * Create checkout for a single marketplace item — pawaPay (mobile money) or Lomi (hosted checkout).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -24,12 +27,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "itemId is required" }, { status: 400 });
     }
 
-    if (!isPawapayConfigured()) {
-      return NextResponse.json({ error: "PawaPay mobile money is not configured." }, { status: 503 });
+    let provider: CheckoutProvider = "pawapay";
+    if (body.provider === "lomi" || body.provider === "pawapay") {
+      provider = body.provider;
     }
-
-    const gate = requirePawapayPaymentCountry(body);
-    if (!gate.ok) return gate.response;
 
     const supabase = getSupabaseServer();
     const { data, error } = await supabase
@@ -52,6 +53,51 @@ export async function POST(request: NextRequest) {
     }
 
     const storedCurrency = (item.currency || process.env.PAWAPAY_CURRENCY || "USD").toUpperCase();
+    const requestOrigin = request.headers.get("origin") || request.nextUrl.origin;
+    const origin = requestOrigin;
+
+    if (provider === "lomi") {
+      if (!isLomiConfigured()) {
+        return NextResponse.json(
+          { error: "Lomi checkout is not configured. Add LOMI_API_KEY or choose mobile money." },
+          { status: 503 }
+        );
+      }
+      const currencyCode = toLomiCurrency(storedCurrency);
+      if (!currencyCode) {
+        return NextResponse.json(
+          {
+            error:
+              "Lomi checkout supports USD, EUR, or XOF only. Use mobile money for other currencies, or change the item currency.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const { checkoutUrl } = await createLomiHostedCheckoutSession({
+        amount: item.price_cents,
+        currency_code: currencyCode,
+        metadata: {
+          clerk_user_id: userId,
+          kind: "marketplace",
+          marketplace_item_id: itemId,
+        },
+        title: item.title.slice(0, 80),
+        description: (item.description || item.title).slice(0, 200),
+        success_url: `${origin}/marketplace/${itemId}?payment=verify&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/marketplace/${itemId}?checkout=cancelled`,
+      });
+
+      return NextResponse.json({ url: checkoutUrl, provider: "lomi" });
+    }
+
+    if (!isPawapayConfigured()) {
+      return NextResponse.json({ error: "PawaPay mobile money is not configured." }, { status: 503 });
+    }
+
+    const gate = requirePawapayPaymentCountry(body);
+    if (!gate.ok) return gate.response;
+
     let amountMinor: number;
     try {
       amountMinor = amountMinorForPawapayCountry(item.price_cents, storedCurrency, gate.country.currency);
@@ -60,10 +106,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: msg }, { status: 400 });
     }
 
-    const requestOrigin = request.headers.get("origin") || request.nextUrl.origin;
     const returnBase = resolvePawapayReturnOrigin(requestOrigin);
     const depositId = crypto.randomUUID();
-    const returnUrl = `${returnBase}/marketplace/${itemId}?checkout=success&session_id=${encodeURIComponent(depositId)}`;
+    /** Neutral query until /api/marketplace/confirm-payment verifies COMPLETED — avoids false "success" on cancel. */
+    const returnUrl = `${returnBase}/marketplace/${itemId}?payment=verify&session_id=${encodeURIComponent(depositId)}`;
     const { redirectUrl } = await createPaymentPageSession({
       depositId,
       amountCents: amountMinor,
@@ -80,7 +126,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ url: redirectUrl });
+    return NextResponse.json({ url: redirectUrl, provider: "pawapay" });
   } catch (err) {
     console.error("Marketplace checkout error:", err);
     if (err instanceof PawapayReturnUrlError) {
