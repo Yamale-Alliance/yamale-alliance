@@ -374,7 +374,7 @@ export async function pollPawaPayDepositUntilComplete(
     ok: false,
     reason: "pending",
     message:
-      "We could not confirm payment with pawaPay yet. If you finished in your wallet, wait a few seconds and tap Retry. If pawaPay showed success but this message stays, check the pawaPay dashboard or contact support — your plan only activates after we receive COMPLETED from pawaPay.",
+      "We could not confirm payment with pawaPay yet. If you finished in your wallet, wait a few seconds and refresh this page or tap Retry in your app. If pawaPay showed success but this message stays, check the pawaPay dashboard or contact support — access is granted only after we receive COMPLETED from pawaPay.",
   };
 }
 
