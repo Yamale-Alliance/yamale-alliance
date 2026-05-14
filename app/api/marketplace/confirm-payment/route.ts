@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { getDepositStatus, isDepositCompleted } from "@/lib/pawapay";
-import { getCompletedLomiCheckoutMetadata } from "@/lib/lomi-checkout";
+import {
+  getDepositStatus,
+  isDepositCompleted,
+  pollPawaPayDepositUntilComplete,
+} from "@/lib/pawapay";
+import {
+  getCompletedLomiCheckoutMetadata,
+  isLomiConfigured,
+  pollCompletedLomiCheckoutMetadata,
+} from "@/lib/lomi-checkout";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 /**
- * After pawaPay redirect: confirm marketplace payment from session_id and record purchase.
- * Call this when the user lands on /marketplace/[id] with session_id so the purchase
- * is applied even if the webhook hasn't run yet.
+ * After Lomi or pawaPay redirect: confirm payment from session_id and record purchase.
+ * Call when the user lands on /marketplace/[id] with payment=verify&session_id=…
  */
 export async function POST(request: NextRequest) {
   try {
@@ -22,13 +29,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "session_id required" }, { status: 400 });
     }
 
-    const lomiMd = await getCompletedLomiCheckoutMetadata(sessionId);
+    const quickPawa = await getDepositStatus(sessionId);
+
+    let lomiMd = await getCompletedLomiCheckoutMetadata(sessionId);
+    if (!lomiMd && isLomiConfigured() && !quickPawa) {
+      lomiMd = await pollCompletedLomiCheckoutMetadata(sessionId);
+    }
     if (lomiMd) {
-      if (lomiMd.clerk_user_id !== userId) {
+      const lomiUser = lomiMd.clerk_user_id ?? lomiMd.CLERK_USER_ID;
+      if (lomiUser !== userId) {
         return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
       }
-      const kind = lomiMd.kind;
-      const marketplaceItemId = lomiMd.marketplace_item_id;
+      const kind = lomiMd.kind ?? lomiMd.KIND;
+      const marketplaceItemId = lomiMd.marketplace_item_id ?? lomiMd.MARKETPLACE_ITEM_ID;
       if (kind !== "marketplace" || !marketplaceItemId) {
         return NextResponse.json({ error: "Not a marketplace session" }, { status: 400 });
       }
@@ -46,9 +59,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, marketplace_item_id: marketplaceItemId, provider: "lomi" });
     }
 
-    const deposit = await getDepositStatus(sessionId);
+    let deposit = quickPawa;
     if (!deposit || !isDepositCompleted(deposit.status)) {
-      return NextResponse.json({ error: "Payment not completed" }, { status: 400 });
+      const polled = await pollPawaPayDepositUntilComplete(sessionId, {
+        maxAttempts: 16,
+        delayMs: 500,
+      });
+      if (!polled.ok) {
+        const status = polled.reason === "pending" ? 503 : 400;
+        let msg = polled.message || "Payment not completed";
+        if (!quickPawa && isLomiConfigured()) {
+          msg +=
+            " If you paid with card (Lomi), wait a few seconds and refresh this page; the charge can show in your bank before Lomi marks the checkout as paid.";
+        }
+        return NextResponse.json(
+          {
+            error: msg,
+            pending: polled.reason === "pending",
+          },
+          { status }
+        );
+      }
+      deposit = polled.deposit;
     }
 
     const clerkUserId = deposit.metadata?.clerk_user_id;
