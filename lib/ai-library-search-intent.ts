@@ -333,7 +333,11 @@ const INTENTS: IntentDef[] = [
     test: (q) =>
       /\b(investment\s+treat(y|ies)|bilateral\s+investment|\bbit\b|icsid|reciprocal\s+promotion|protection\s+of\s+investments|promotion\s+y\s+protecci[oó]n|promotion\s+et\s+protection.*invest|protection\s+r[eé]ciproque\s+d[e']invest)\b/i.test(
         q
-      ),
+      ) ||
+      (/\b(treaty|treaties)\b/i.test(q) &&
+        /\b(latin\s+america|latin\s+american|latam|mercosur|andean|caricom|brazil|brasil|mexico|méxico|colombia|argentina|chile|peru|venezuela|uruguay|paraguay|ecuador|bolivia|caribbean|south\s+america|central\s+america)\b/i.test(
+          q
+        )),
     lexiconExtra: [
       "investment",
       "agreement",
