@@ -140,13 +140,25 @@ export default function MarketplaceZipPackagePage() {
       setShowVerifiedPaymentSuccess(false);
       setShowPaymentNotCompleted(false);
       try {
-        const res = await fetch("/api/cart/confirm-payment", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_id: sid }),
-        });
-        const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        const confirmOnce = () =>
+          fetch("/api/cart/confirm-payment", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: sid }),
+          });
+
+        let res = await confirmOnce();
+        let data = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          pending?: boolean;
+          error?: string;
+        };
+        if (!res.ok && res.status === 503 && data.pending) {
+          await new Promise((r) => setTimeout(r, 2500));
+          res = await confirmOnce();
+          data = (await res.json().catch(() => ({}))) as { ok?: boolean; pending?: boolean; error?: string };
+        }
         if (res.ok && data.ok) {
           setShowVerifiedPaymentSuccess(true);
           setShowPaymentNotCompleted(false);
