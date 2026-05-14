@@ -4,14 +4,23 @@ let cachedSettings: { logoUrl: string | null; faviconUrl: string | null; heroIma
 let cacheTimestamp = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+function stripNoise(s: string): string {
+  return s
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function hasMeaningfulErrorDetails(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
+  if (!error || typeof error !== "object" || Array.isArray(error)) return false;
   const e = error as Record<string, unknown>;
-  const code = typeof e.code === "string" ? e.code.trim() : "";
-  const message = typeof e.message === "string" ? e.message.trim() : "";
-  const details = typeof e.details === "string" ? e.details.trim() : "";
-  const hint = typeof e.hint === "string" ? e.hint.trim() : "";
-  return Boolean(code || message || details || hint);
+  const pick = (key: string) => {
+    const v = e[key];
+    return typeof v === "string" ? stripNoise(v) : "";
+  };
+  const parts = [pick("code"), pick("message"), pick("details"), pick("hint")];
+  if (typeof e.error === "string") parts.push(stripNoise(e.error));
+  return parts.some((p) => p.length > 0);
 }
 
 /**
