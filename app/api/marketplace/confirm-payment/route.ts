@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { auth } from "@clerk/nextjs/server";
 import {
   getDepositStatus,
@@ -10,11 +11,12 @@ import {
   isLomiConfigured,
   pollCompletedLomiCheckoutMetadata,
 } from "@/lib/lomi-checkout";
+import { LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE } from "@/lib/lomi-marketplace-checkout-cookie";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 /**
  * After Lomi or pawaPay redirect: confirm payment from session_id and record purchase.
- * Call when the user lands on /marketplace/[id] with payment=verify&session_id=…
+ * Lomi: success URL uses `payment=verify&from_lomi=1` and the real session id is in an HttpOnly cookie (Lomi does not substitute `{CHECKOUT_SESSION_ID}`).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -24,9 +26,26 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const sessionId = body.session_id as string | undefined;
-    if (!sessionId || typeof sessionId !== "string") {
-      return NextResponse.json({ error: "session_id required" }, { status: 400 });
+    const fromLomiCookie = body.from_lomi_cookie === true;
+    let sessionId = typeof body.session_id === "string" ? body.session_id.trim() : "";
+    const placeholder =
+      sessionId === "{CHECKOUT_SESSION_ID}" || decodeURIComponent(sessionId) === "{CHECKOUT_SESSION_ID}";
+    if (placeholder) {
+      sessionId = "";
+    }
+    if ((!sessionId || sessionId.length === 0) && fromLomiCookie) {
+      const jar = await cookies();
+      sessionId = jar.get(LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE)?.value?.trim() ?? "";
+    }
+    if (!sessionId) {
+      return NextResponse.json(
+        {
+          error: fromLomiCookie
+            ? "Checkout return expired or missing. Return from checkout again, or refresh this page."
+            : "session_id required",
+        },
+        { status: 400 }
+      );
     }
 
     const quickPawa = await getDepositStatus(sessionId);
@@ -38,12 +57,16 @@ export async function POST(request: NextRequest) {
     if (lomiMd) {
       const lomiUser = lomiMd.clerk_user_id ?? lomiMd.CLERK_USER_ID;
       if (lomiUser !== userId) {
-        return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
+        const res = NextResponse.json({ error: "Session does not match user" }, { status: 403 });
+        res.cookies.set(LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE, "", { path: "/", maxAge: 0 });
+        return res;
       }
       const kind = lomiMd.kind ?? lomiMd.KIND;
       const marketplaceItemId = lomiMd.marketplace_item_id ?? lomiMd.MARKETPLACE_ITEM_ID;
       if (kind !== "marketplace" || !marketplaceItemId) {
-        return NextResponse.json({ error: "Not a marketplace session" }, { status: 400 });
+        const res = NextResponse.json({ error: "Not a marketplace session" }, { status: 400 });
+        res.cookies.set(LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE, "", { path: "/", maxAge: 0 });
+        return res;
       }
 
       const supabase = getSupabaseServer();
@@ -56,7 +79,9 @@ export async function POST(request: NextRequest) {
         { onConflict: "user_id,marketplace_item_id" }
       );
 
-      return NextResponse.json({ ok: true, marketplace_item_id: marketplaceItemId, provider: "lomi" });
+      const res = NextResponse.json({ ok: true, marketplace_item_id: marketplaceItemId, provider: "lomi" });
+      res.cookies.set(LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE, "", { path: "/", maxAge: 0 });
+      return res;
     }
 
     let deposit = quickPawa;
@@ -104,7 +129,9 @@ export async function POST(request: NextRequest) {
       { onConflict: "user_id,marketplace_item_id" }
     );
 
-    return NextResponse.json({ ok: true, marketplace_item_id: marketplaceItemId });
+    const res = NextResponse.json({ ok: true, marketplace_item_id: marketplaceItemId });
+    res.cookies.set(LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE, "", { path: "/", maxAge: 0 });
+    return res;
   } catch (err) {
     console.error("Marketplace confirm payment error:", err);
     return NextResponse.json({ error: "Failed to confirm payment" }, { status: 500 });
