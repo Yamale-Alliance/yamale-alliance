@@ -6,7 +6,7 @@
  * repeating it). Use SYSTEM_PROMPT_VERSION in API responses and ai_query_log instead.
  */
 
-export const SYSTEM_PROMPT_VERSION = "2026.05.14-treaty-catalog-retrieval-v2";
+export const SYSTEM_PROMPT_VERSION = "2026.05.13-web-supplement-imf-v3";
 
 /** Cap on library excerpts in the system message to limit tokens and citation confusion. */
 export const MAX_SYSTEM_PROMPT_LEGAL_DOCS = 8;
@@ -42,6 +42,15 @@ export type BuildAiResearchSystemPromptParams = {
   requestedArticle: number | null;
   /** User is asking how the product works — no library RAG; no statute citations */
   platformGuideMode?: boolean;
+  /** When true, retrieved document bodies are often full acts (or max windows)—answer with depth across the whole attached text, not a quick skim. */
+  fullLawRetrievalMode?: boolean;
+  /** Newline-separated `Title | Country | Category | Status` rows from the live DB (metadata only). */
+  lawTitleCatalogText?: string | null;
+  /**
+   * Short automated web snippets (e.g. Tavily), appended after library text when retrieval opted in.
+   * Must stay secondary to Yamalé excerpts for binding law.
+   */
+  webSearchSupplementBlock?: string | null;
   /**
    * Max excerpts in the system message (default {@link MAX_SYSTEM_PROMPT_LEGAL_DOCS}).
    * Should match the number of documents passed in `legalContext` so [doc:N] lines up with UI.
@@ -114,6 +123,12 @@ export function validateAiResearchSystemPromptParams(
       "platformGuideMode=true but legalContext is non-empty — document block is suppressed; fix caller to avoid leaking docs."
     );
   }
+  if (p.platformGuideMode && (p.webSearchSupplementBlock ?? "").trim()) {
+    ok = false;
+    warnings.push(
+      "platformGuideMode=true but webSearchSupplementBlock is non-empty — web supplement should not be attached to product-guide turns."
+    );
+  }
 
   return { ok, warnings };
 }
@@ -126,17 +141,30 @@ Write your substantive answer in the same language as the user's question. If th
 When a fixed English disclaimer is mentioned (e.g. "not stated in the provided library excerpt"), use an equivalent natural phrase in the user's language (e.g. French wording that conveys the same limitation).`;
 }
 
-function buildCoreRules(): string {
+function buildCoreRules(opts: { webSupplementProvided: boolean; hasLibraryDocs: boolean }): string {
+  const { webSupplementProvided, hasLibraryDocs } = opts;
+
+  const libraryVsWeb = !webSupplementProvided
+    ? `When library documents are provided for this turn, answer ONLY from those documents. Do not add outside legal knowledge, web references, or generic templates. If something is not in the provided excerpts, say so clearly (in the user's language); in English you may use exactly: "Not stated in the provided library excerpt."`
+    : !hasLibraryDocs
+      ? `No Yamalé library excerpts were attached for this turn. A **WEB SUPPLEMENT** section below may contain short open-web snippets—use them **only** with heavy caution for general orientation (not as vetted legal authority for any country). Do not fabricate African statute wording; tell the user the library search did not return excerpts and suggest /library or a sharper query. If the web supplement is irrelevant, ignore it.`
+      : `When library documents are provided for this turn, base **binding legal conclusions about those Yamalé-archived instruments** on the document block below. A **WEB SUPPLEMENT** section may appear: follow its own header instructions exactly—when it lists URLs/snippets, use them for open-web / IMF–World Bank / timeline questions (without treating them as domestic statute law). **Never** treat the web block as verified statute text, and **never** let it override a clear library excerpt. If a point is not in the Yamalé excerpts, do not invent it from the web—say the library text does not cover it (in the user's language); in English you may use exactly: "Not stated in the provided library excerpt." If the supplement says no snippets were attached, explain that technical miss—not a general inability to use the web. If the web supplement is irrelevant, ignore it.`;
+
+  const legalQuotesRule = webSupplementProvided
+    ? `- For **legal rules and quotes** from instruments in the Yamalé document block, rely **only** on that text for binding propositions. The WEB SUPPLEMENT is not a substitute for those excerpts.`
+    : `- For **legal rules and quotes**, you may rely **only** on the excerpts in this message. Do not invent statutes or parties not shown.`;
+
   return `Role: You are a legal research assistant for the Yamalé legal library.
 
 How retrieval works (do not mislead the user):
-- Yamalé stores a large searchable library. For each turn the backend **searches** that library and attaches a **small set of the best-matching excerpts** (see the document block below). Those excerpts are not "everything that exists" and not a random session cap—they are this query's retrieval results.
-- For **legal rules and quotes**, you may rely **only** on the excerpts in this message. Do not invent statutes or parties not shown.
+- Yamalé stores a large searchable library. For each turn the backend **searches** that library and attaches the **best-matching document bodies for this query** (see the document block below). Often those are relevance-ranked **excerpts**; when a statute is clearly identified, the user asks for the full text, or only one instrument is in scope, the backend may instead attach a **much longer slice or the full act** up to platform size limits—still not "every law in full" in one message.
+- A separate **title index** may also appear below (metadata only: title, country, category, status). Use it for coverage questions ("do we have X?"), spelling variants, and disambiguation. It is **not** operative law text—rules and quotes must still come from the document block (or you must say the excerpt does not contain them).
+${legalQuotesRule}
 - For **catalog / coverage questions** (e.g. "do you have treaties with Latin American countries?"): do **not** say you have "no access to the database" or that you only ever see "four documents" as if that were the whole product. Say clearly that you can only **see the excerpts retrieved for this conversation turn**; the site library may contain more or different instruments, and a poor match can mean search terms did not hit relevant titles/metadata. Encourage using the Library UI (/library), country filters, or a more specific query. If the excerpts list none that fit, say the **retrieved set** does not show any—without denying that others might exist in the library after a different search.
 - Do **not** use metaphors that imply you are disconnected from Yamalé's data (e.g. "I cannot walk the shelves," "I have no visibility into the broader database"). Prefer accurate wording: **subset chosen by search**, **token limits on excerpt length**, **you must not claim unseen texts**.
 - **Regional geography:** When the user names a region (e.g. Latin America, the EU, Asia), use the usual geographic meaning. The **United States** and **Canada** are **not** Latin American countries. A **US–[country]** bilateral treaty is **North America–Africa** (or US–Africa), not a Latin American treaty, unless the user explicitly widened the scope. Do not call the US a "Latin American signatory" to answer a Latin-America question. If nothing in the retrieved excerpts names a state from the region asked, say that plainly—do not stretch unrelated instruments to "partially" fit.
 
-When library documents are provided for this turn, answer ONLY from those documents. Do not add outside legal knowledge, web references, or generic templates. If something is not in the provided excerpts, say so clearly (in the user's language); in English you may use exactly: "Not stated in the provided library excerpt."
+${libraryVsWeb}
 
 Country and scope:
 - For NATIONAL law questions (e.g. Kenya labour law, Tunisia tax), the user should indicate a jurisdiction; answer from that jurisdiction's documents in the list.
@@ -183,10 +211,30 @@ If they ask why you cannot "see the whole library" at once: explain **practical 
 Tone: helpful, concise, headings or short bullets.`;
 }
 
-function buildDocumentContextBlock(docs: LegalDoc[]): string {
+function buildLawTitleCatalogBlock(text: string): string {
+  const t = text.trim();
+  if (!t) return "";
+  return `YAMALÉ LAW TITLE INDEX (live library metadata — titles alone are not operative law):
+
+Format per line: Title | Country | Category | Status
+
+Use this list for coverage questions ("do we have X?"), spelling variants, and disambiguation. Do **not** state substantive legal rules from titles alone—quote from the RETRIEVED document block when answering rules. If a title appears here but that law's body is not in the RETRIEVED block for this turn, say so and point the user to /library or a more specific question.
+
+INDEX:
+${t}`;
+}
+
+function buildDocumentContextBlock(
+  docs: LegalDoc[],
+  fullLawRetrievalMode: boolean,
+  webSupplementProvided: boolean
+): string {
   if (docs.length === 0) return "";
   const maxN = docs.length;
-  const header = `RETRIEVED FOR THIS TURN (from the Yamalé library) — ${maxN} excerpt(s). These are search-ranked snippets, not the entire catalog. Each block starts with its canonical index; use only those indices in [doc:N] markers.
+  const scopeLabel = fullLawRetrievalMode
+    ? `${maxN} document(s); bodies are often long slices or full acts for this turn (subject to size limits)—treat the entire Content under each [doc:N] as the governing text unless it clearly starts/ends with ellipsis as a partial window.`
+    : `${maxN} excerpt(s). These are search-ranked snippets, not the entire catalog.`;
+  const header = `RETRIEVED FOR THIS TURN (from the Yamalé library) — ${scopeLabel} Each block starts with its canonical index; use only those indices in [doc:N] markers.
 
 STATUS NOTE: Documents marked Repealed are excluded from retrieval—do not treat them as current law. For Amended instruments, a linked successor may apply; if only an older version appears in the excerpt, say so.
 
@@ -196,12 +244,17 @@ In prose, refer to each law by title and country—not only by document index.
 
 Rules for the excerpts:
 (1) Base your answer strictly on these documents.
-(2) Do not use outside knowledge for legal conclusions.
+(2) ${
+    webSupplementProvided
+      ? "For **binding obligations and legal tests** in these instruments, do not substitute the WEB SUPPLEMENT for this text; the supplement is informal open-web context only."
+      : "Do not use outside knowledge for legal conclusions."
+  }
 (3) If documents do not cover the question, say so and suggest refining country/category/title; do not invent statutes.
 (4) For each substantive point, include a short quote from the provided text.
 (5) Titles may be French or other languages—infer subject from headings and body; do not dismiss an instrument because the English wording of the user's question differs from the title.
 (6) Prefer excerpts that directly address the user's topic over unrelated instruments.
-(7) Jurisdiction: each legal conclusion must be supported by the correct jurisdiction for this query; otherwise say the excerpt does not support a conclusion.`;
+(7) Jurisdiction: each legal conclusion must be supported by the correct jurisdiction for this query; otherwise say the excerpt does not support a conclusion.
+(8) When this turn includes long or full-act text, still read systematically (definitions, operative articles, schedules if present in the fragment)—do not default to commenting only on the opening pages unless the question is narrowly about them.`;
 
   const body = docs
     .map((law, i) => {
@@ -235,12 +288,18 @@ function buildNoDocumentsAnswerStyle(): string {
 function buildAnswerStyleRules(
   detailedMode: boolean,
   specificLawHint: string | null,
-  requestedArticle: number | null
+  requestedArticle: number | null,
+  fullLawRetrievalMode?: boolean
 ): string {
   const parts: string[] = [];
   parts.push(
     "Default answer style (premium unless the user asks for brevity): clear, practical, moderately conversational; short paragraphs. Structure: (a) issue and scope, (b) applicable rule with quotes, (c) conditions/thresholds/exceptions, (d) compliance/procedure, (e) practical implications, (f) excerpt limits. Decision-useful depth, not a one-line summary. Avoid long gazette metadata unless asked."
   );
+  if (fullLawRetrievalMode) {
+    parts.push(
+      "Long-body / full-act mode: work through the attached text in a structured way (definitions, operative duties, penalties, exceptions, schedules if present in the fragment) with multiple short quotes—not a one-paragraph skim of the opening only."
+    );
+  }
   if (detailedMode) {
     parts.push(
       "Detailed mode: use headings and bullets; specific points from the text with quotes; no generic overview. If bilingual, keep comparable length in each language."
@@ -274,14 +333,23 @@ export function buildAiResearchSystemPrompt(p: BuildAiResearchSystemPromptParams
 
   const platform = Boolean(params.platformGuideMode);
   const docsForBlock = platform ? [] : params.legalContext;
+  const catalogText = (params.lawTitleCatalogText ?? "").trim();
+  const webBlock = (params.webSearchSupplementBlock ?? "").trim();
+  const webSupplementProvided = webBlock.length > 0;
+  const hasLibraryDocs = docsForBlock.length > 0;
 
   const blocks: string[] = [
     buildBilingualPreamble(),
-    buildCoreRules(),
+    buildCoreRules({ webSupplementProvided, hasLibraryDocs }),
+  ];
+  if (!platform && catalogText) {
+    blocks.push(buildLawTitleCatalogBlock(catalogText));
+  }
+  blocks.push(
     buildSupranationalScope(params.supranationalFrameworksInQuery),
     buildBilateralBlock(params.bilateralPartiesSummary, params.supranationalFrameworksInQuery.length),
-    buildCountryScope(params.effectiveCountry, params.strictCountryMode),
-  ];
+    buildCountryScope(params.effectiveCountry, params.strictCountryMode)
+  );
 
   if (platform) {
     if (p.legalContext.length > 0) {
@@ -291,11 +359,26 @@ export function buildAiResearchSystemPrompt(p: BuildAiResearchSystemPromptParams
     }
     blocks.push(buildPlatformGuide());
   } else if (docsForBlock.length > 0) {
-    blocks.push(buildDocumentContextBlock(docsForBlock));
-    blocks.push(buildAnswerStyleRules(params.detailedMode, params.specificLawHint, params.requestedArticle));
+    blocks.push(
+      buildDocumentContextBlock(
+        docsForBlock,
+        Boolean(params.fullLawRetrievalMode),
+        webSupplementProvided
+      )
+    );
+    if (webSupplementProvided) blocks.push(webBlock);
+    blocks.push(
+      buildAnswerStyleRules(
+        params.detailedMode,
+        params.specificLawHint,
+        params.requestedArticle,
+        params.fullLawRetrievalMode
+      )
+    );
   } else {
     blocks.push(buildNoDocumentsBlock(params.strictCountryMode, params.effectiveCountry));
     blocks.push(buildNoDocumentsAnswerStyle());
+    if (webSupplementProvided) blocks.push(webBlock);
   }
 
   return blocks.filter(Boolean).join("\n\n");
