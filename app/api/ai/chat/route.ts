@@ -39,6 +39,7 @@ import {
   titleLooksLikeCrossBorderTreatyTitle,
 } from "@/lib/ai-treaty-catalog-retrieval";
 import { pickContentExcerpt } from "@/lib/ai-law-excerpt";
+import { fetchLawTitleCatalogForPrompt } from "@/lib/ai-law-title-catalog";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { fetchLawIdsForCategory } from "@/lib/law-categories-sync";
@@ -54,6 +55,11 @@ import {
   SYSTEM_PROMPT_VERSION,
   validateAiResearchSystemPromptParams,
 } from "@/lib/ai-system-prompt";
+import {
+  fetchTavilyWebContextForPrompt,
+  getWebSearchMissSystemBlock,
+  shouldAttemptContextualWebSearch,
+} from "@/lib/ai-web-search";
 import { isPlatformGuideMetaQuery } from "@/lib/ai-platform-meta-query";
 import { extractCitedDocIndices, citedSlotsAsUsedFlags } from "@/lib/ai-citation-verify";
 import { insertAiQueryLog } from "@/lib/ai-query-log";
@@ -557,6 +563,17 @@ function isBriefRequest(query: string): boolean {
   return (
     /\b(in short|briefly|brief|concise|short answer|quick answer|tldr|summarize briefly)\b/.test(q) ||
     /\bjust the answer\b/.test(q)
+  );
+}
+
+/** User explicitly asked for the full statute / act text (not a summary snippet). */
+function userRequestsFullLawText(query: string): boolean {
+  const q = query.toLowerCase();
+  return (
+    /\b(full\s+text|entire\s+(law|act|statute|instrument)|whole\s+(law|act)|complete\s+(law|act|text)|verbatim|in\s+full)\b/i.test(
+      query
+    ) ||
+    /\b(texte\s+integral|texte\s+intégral|integralite|intégralité)\b/.test(q)
   );
 }
 
@@ -1910,25 +1927,29 @@ async function searchLegalLibrary(
 
     const requestedArticle = extractRequestedArticle(query);
 
-    const shouldKeepFullTextForSpecificLaw = Boolean(specificLawHint && detailedMode);
+    const shouldKeepFullTextForSpecificLaw =
+      Boolean(specificLawHint) ||
+      userRequestsFullLawText(query) ||
+      (lawsForResponse.length === 1 && !isBriefRequest(query)) ||
+      (detailedMode && !isBriefRequest(query) && lawsForResponse.length <= 3);
     const maxCharsPerLaw = shouldKeepFullTextForSpecificLaw
-      ? 60000
+      ? 1_000_000
       : latinAmericaTreatyCatalog || globalTreatyCatalog
-        ? 2600
+        ? 4500
         : countryCatalogRequest
           ? 600
           : detailedMode
-            ? 9000
-            : 4500;
+            ? 22_000
+            : 12_000;
     const maxCharsTotal = shouldKeepFullTextForSpecificLaw
-      ? 140000
+      ? 1_000_000
       : latinAmericaTreatyCatalog || globalTreatyCatalog
-        ? 92_000
+        ? 100_000
         : countryCatalogRequest
-          ? 16000
+          ? 16_000
           : detailedMode
-            ? 36000
-            : 18000;
+            ? 110_000
+            : 50_000;
     let remainingChars = maxCharsTotal;
 
     const retrievalScoreForLaw = (law: any): number => {
@@ -2359,6 +2380,43 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    let webSearchSupplementBlock: string | null = null;
+    let webSearchNote: string | null = null;
+    if (!platformGuideMeta) {
+      const disabled =
+        process.env.AI_WEB_SEARCH_DISABLED === "1" ||
+        process.env.AI_WEB_SEARCH_DISABLED === "true";
+      const hasKey = Boolean(process.env.TAVILY_API_KEY?.trim());
+      if (
+        shouldAttemptContextualWebSearch({
+          userQuery,
+          platformGuideMeta: false,
+          webSearchDisabled: disabled,
+          hasApiKey: hasKey,
+        })
+      ) {
+        try {
+          const webController = new AbortController();
+          const webTimeout = setTimeout(() => webController.abort(), 6500);
+          const ctx = await fetchTavilyWebContextForPrompt(userQuery, webController.signal).finally(() =>
+            clearTimeout(webTimeout)
+          );
+          if (ctx) {
+            webSearchSupplementBlock = ctx.promptBlock;
+            webSearchNote = ctx.userNote;
+          } else {
+            webSearchSupplementBlock = getWebSearchMissSystemBlock();
+            webSearchNote =
+              "Web search ran for this turn but returned no snippets (check TAVILY_API_KEY, quota, and network). The assistant was told to describe that limit—not a general lack of internet access.";
+          }
+        } catch {
+          webSearchSupplementBlock = getWebSearchMissSystemBlock();
+          webSearchNote =
+            "Web search errored or timed out for this turn. The assistant was told to describe that failure—not a general lack of internet access.";
+        }
+      }
+    }
+
     // Build Claude messages format
     const claudeMessages: ClaudeMessage[] = [];
 
@@ -2428,6 +2486,14 @@ export async function POST(request: NextRequest) {
             .join(" and ")
         : null;
 
+    const lawTitleCatalogText = platformGuideMeta ? "" : await fetchLawTitleCatalogForPrompt(getSupabaseServer() as any);
+
+    const fullLawRetrievalMode =
+      Boolean(specificLawHint) ||
+      userRequestsFullLawText(userQuery) ||
+      (legalContext.length === 1 && !isBriefRequest(userQuery)) ||
+      (detailedMode && !isBriefRequest(userQuery) && legalContext.length <= 3);
+
     const systemPromptParamsRaw = {
       supranationalFrameworksInQuery: supranationalFrameworksInQuery.map((m) => ({
         canonicalName: m.canonicalName,
@@ -2441,6 +2507,9 @@ export async function POST(request: NextRequest) {
       specificLawHint,
       requestedArticle: extractRequestedArticle(userQuery),
       platformGuideMode: platformGuideMeta,
+      fullLawRetrievalMode,
+      lawTitleCatalogText: lawTitleCatalogText || null,
+      webSearchSupplementBlock,
       legalContextMaxDocs: latinAmericaTreatyCatalog
         ? LATIN_AMERICA_TREATY_CATALOG_MAX_DOCS
         : globalTreatyCatalog
@@ -2677,6 +2746,7 @@ export async function POST(request: NextRequest) {
       systemPromptVersion: SYSTEM_PROMPT_VERSION,
       citationVerification,
       queryLogId,
+      webSearchNote,
     });
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
