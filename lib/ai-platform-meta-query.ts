@@ -7,6 +7,21 @@ export function isPlatformGuideMetaQuery(raw: string): boolean {
   const q = raw.trim().toLowerCase();
   if (q.length < 12 || q.length > 2000) return false;
 
+  /** How the assistant works (retrieval, context) — not substantive law; skip RAG so unrelated laws are not shown as "Sources". */
+  const asksRetrievalOrAssistantLimits =
+    (/\bwhy\s+(can\s*'?t|cannot|cant)\s+you\s+see\b/.test(q) &&
+      /\b(the\s+)?(whole|entire|full)\s+(library|catalog)\b/.test(q)) ||
+    /\bhow\s+much\s+of\s+the\s+(library|database|catalog)\b/.test(q) ||
+    (/\bwhy\s+(isn'?t|is\s+not)\s+everything\b/.test(q) &&
+      /\b(in|from)\s+the\s+library\b/.test(q)) ||
+    /\bhow\s+does\b[\s\S]{0,60}\b(retrieval|search\s+results?)\b[\s\S]{0,80}\b(work|function)\b/i.test(raw) ||
+    /\bdo\s+you\s+have\s+access\s+to\s+the\s+(whole|entire|full)\s+(library|database|catalog)\b/.test(q);
+
+  if (asksRetrievalOrAssistantLimits) {
+    if (/\barticle\s+\d+/i.test(raw) || /\bsection\s+[\dIVXLCDM]+/i.test(raw)) return false;
+    return true;
+  }
+
   const mentionsProduct =
     /\b(yamale|yamalé)\b/i.test(raw) ||
     /\b(this|the)\s+platform\b/.test(q) ||
