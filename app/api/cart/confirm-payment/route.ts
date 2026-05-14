@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { auth } from "@clerk/nextjs/server";
 import {
   getDepositStatus,
@@ -15,10 +16,11 @@ import {
   parseCartItemIdsMetadata,
   recordMarketplaceCartPurchases,
 } from "@/lib/marketplace-cart-purchases";
+import { LOMI_MARKETPLACE_CART_CHECKOUT_COOKIE } from "@/lib/lomi-marketplace-checkout-cookie";
 
 /**
  * After checkout redirect: confirm payment and record purchases.
- * Supports pawaPay deposit IDs and Lomi checkout session IDs.
+ * pawaPay: `session_id` is the deposit id. Lomi: `payment=verify&from_lomi=1` + HttpOnly cookie (Lomi does not substitute `{CHECKOUT_SESSION_ID}` in success_url).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -28,9 +30,26 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const sessionId = body.session_id as string | undefined;
-    if (!sessionId || typeof sessionId !== "string") {
-      return NextResponse.json({ error: "session_id required" }, { status: 400 });
+    const fromLomiCookie = body.from_lomi_cookie === true;
+    let sessionId = typeof body.session_id === "string" ? body.session_id.trim() : "";
+    const placeholder =
+      sessionId === "{CHECKOUT_SESSION_ID}" || decodeURIComponent(sessionId) === "{CHECKOUT_SESSION_ID}";
+    if (placeholder) {
+      sessionId = "";
+    }
+    if ((!sessionId || sessionId.length === 0) && fromLomiCookie) {
+      const jar = await cookies();
+      sessionId = jar.get(LOMI_MARKETPLACE_CART_CHECKOUT_COOKIE)?.value?.trim() ?? "";
+    }
+    if (!sessionId) {
+      return NextResponse.json(
+        {
+          error: fromLomiCookie
+            ? "Checkout return expired or missing. Return from checkout again, or refresh this page."
+            : "session_id required",
+        },
+        { status: 400 }
+      );
     }
 
     const quickPawa = await getDepositStatus(sessionId);
@@ -42,15 +61,21 @@ export async function POST(request: NextRequest) {
     if (lomiMd) {
       const lomiUser = lomiMd.clerk_user_id ?? lomiMd.CLERK_USER_ID;
       if (lomiUser !== userId) {
-        return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
+        const res = NextResponse.json({ error: "Session does not match user" }, { status: 403 });
+        res.cookies.set(LOMI_MARKETPLACE_CART_CHECKOUT_COOKIE, "", { path: "/", maxAge: 0 });
+        return res;
       }
       const kind = lomiMd.kind ?? lomiMd.KIND;
       if (kind !== "marketplace_cart") {
-        return NextResponse.json({ error: "Not a marketplace cart session" }, { status: 400 });
+        const res = NextResponse.json({ error: "Not a marketplace cart session" }, { status: 400 });
+        res.cookies.set(LOMI_MARKETPLACE_CART_CHECKOUT_COOKIE, "", { path: "/", maxAge: 0 });
+        return res;
       }
       const ids = parseCartItemIdsMetadata(lomiMd.item_ids ?? lomiMd.ITEM_IDS);
       if (ids.length === 0) {
-        return NextResponse.json({ error: "No items found in cart session" }, { status: 400 });
+        const res = NextResponse.json({ error: "No items found in cart session" }, { status: 400 });
+        res.cookies.set(LOMI_MARKETPLACE_CART_CHECKOUT_COOKIE, "", { path: "/", maxAge: 0 });
+        return res;
       }
       await recordMarketplaceCartPurchases({
         userId,
@@ -58,7 +83,9 @@ export async function POST(request: NextRequest) {
         sessionId,
       });
       await clearUserShoppingCart(userId);
-      return NextResponse.json({ ok: true, marketplace_item_ids: ids, provider: "lomi" });
+      const res = NextResponse.json({ ok: true, marketplace_item_ids: ids, provider: "lomi" });
+      res.cookies.set(LOMI_MARKETPLACE_CART_CHECKOUT_COOKIE, "", { path: "/", maxAge: 0 });
+      return res;
     }
 
     let deposit = quickPawa;
@@ -105,7 +132,9 @@ export async function POST(request: NextRequest) {
       sessionId,
     });
 
-    return NextResponse.json({ ok: true, marketplace_item_ids: ids, provider: "pawapay" });
+    const res = NextResponse.json({ ok: true, marketplace_item_ids: ids, provider: "pawapay" });
+    res.cookies.set(LOMI_MARKETPLACE_CART_CHECKOUT_COOKIE, "", { path: "/", maxAge: 0 });
+    return res;
   } catch (err) {
     console.error("Cart confirm payment error:", err);
     return NextResponse.json({ error: "Failed to confirm cart payment" }, { status: 500 });
