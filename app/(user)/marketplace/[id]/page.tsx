@@ -121,7 +121,12 @@ export default function MarketplaceItemPage() {
   const checkoutStatus = searchParams?.get("checkout");
   const checkoutCancelled =
     checkoutStatus === "cancelled" || searchParams?.get("canceled") === "1";
-  const sessionId = searchParams?.get("session_id");
+  const rawSessionId = searchParams?.get("session_id")?.trim() ?? "";
+  const fromLomiReturn = searchParams?.get("from_lomi") === "1";
+  const isLomiSessionPlaceholder =
+    rawSessionId === "{CHECKOUT_SESSION_ID}" ||
+    decodeURIComponent(rawSessionId) === "{CHECKOUT_SESSION_ID}";
+  const sessionId = rawSessionId && !isLomiSessionPlaceholder ? rawSessionId : null;
   const paymentVerify = searchParams?.get("payment") === "verify";
   const legacyCheckoutSuccess = checkoutStatus === "success";
   /** Dedupe confirm calls per item + session (avoids StrictMode double POST; resets on failure). */
@@ -182,11 +187,13 @@ export default function MarketplaceItemPage() {
     if (!id) return;
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const sid = sessionId ?? null;
+    const verifyKey = sid ? `${id}:${sid}` : fromLomiReturn ? `${id}:lomi_cookie` : null;
 
     const run = async () => {
       if (
         legacyCheckoutSuccess &&
         !sid &&
+        !fromLomiReturn &&
         typeof window !== "undefined" &&
         window.history.replaceState
       ) {
@@ -196,12 +203,12 @@ export default function MarketplaceItemPage() {
       }
 
       const shouldVerify =
-        Boolean(sid) &&
+        verifyKey !== null &&
         (paymentVerify || legacyCheckoutSuccess) &&
-        confirmedSessionRef.current !== `${id}:${sid}`;
+        confirmedSessionRef.current !== verifyKey;
 
-      if (shouldVerify) {
-        confirmedSessionRef.current = `${id}:${sid}`;
+      if (shouldVerify && verifyKey) {
+        confirmedSessionRef.current = verifyKey;
         setPaymentVerifyInProgress(true);
         setShowVerifiedPaymentSuccess(false);
         setShowPaymentNotCompleted(false);
@@ -211,7 +218,9 @@ export default function MarketplaceItemPage() {
               method: "POST",
               credentials: "include",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ session_id: sid }),
+              body: JSON.stringify(
+                sid ? { session_id: sid } : { from_lomi_cookie: true }
+              ),
             });
 
           let res = await confirmOnce();
@@ -243,6 +252,7 @@ export default function MarketplaceItemPage() {
             const u = new URL(window.location.href);
             u.searchParams.delete("session_id");
             u.searchParams.delete("payment");
+            u.searchParams.delete("from_lomi");
             u.searchParams.delete("checkout");
             u.searchParams.delete("canceled");
             window.history.replaceState({}, "", u.pathname + (u.search ? u.search : ""));
@@ -264,7 +274,7 @@ export default function MarketplaceItemPage() {
     };
 
     void run();
-  }, [id, sessionId, paymentVerify, legacyCheckoutSuccess]);
+  }, [id, sessionId, fromLomiReturn, paymentVerify, legacyCheckoutSuccess]);
 
   // Fetch reviews
   useEffect(() => {
