@@ -22,7 +22,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/laws(.*)", // public laws API for Library
   "/api/pricing", // public pricing data for pricing page
   "/api/marketplace(.*)", // public marketplace list and detail
-  "/api/lomi/webhook", // Lomi + pawaPay payment callbacks (verified by signature where configured)
+  "/api/lomi/webhook", // Lomi (X-Lomi-Signature) + pawaPay callbacks — public; do not require Clerk or X-API-Key here
 ]);
 
 // Basic HTTP Authentication
