@@ -24,6 +24,20 @@ import {
   prioritizeTokensForLibrarySearch,
   escapeSupplementalTermsForFetch,
 } from "@/lib/ai-library-search-intent";
+import {
+  LATIN_AMERICA_TREATY_CATALOG_MAX_DOCS,
+  detectLatinAmericaTreatyDiscoveryQuery,
+  fetchLatinAmericaTreatyTitleCandidates,
+  latinAmericaTreatyRankingLexicon,
+  titleLikelyLatinAmericaTreaty,
+} from "@/lib/ai-latin-america-treaty-retrieval";
+import {
+  GLOBAL_TREATY_CATALOG_MAX_DOCS,
+  detectGlobalTreatyInventoryQuery,
+  fetchGlobalTreatyCatalogCandidates,
+  globalTreatyRankingLexicon,
+  titleLooksLikeCrossBorderTreatyTitle,
+} from "@/lib/ai-treaty-catalog-retrieval";
 import { pickContentExcerpt } from "@/lib/ai-law-excerpt";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
@@ -1302,6 +1316,8 @@ async function searchLegalLibrary(
     const specificLawHint = extractSpecificLawHint(query);
     const qForTokens = normalizeSearchQueryForAi(query);
     const resolvedIntent = resolveLibrarySearchIntent(qForTokens);
+    const latinAmericaTreatyCatalog = detectLatinAmericaTreatyDiscoveryQuery(query);
+    const globalTreatyCatalog = !latinAmericaTreatyCatalog && detectGlobalTreatyInventoryQuery(query);
     const rawTokens = extractSearchTokens(qForTokens);
     const countryCatalogRequest = Boolean(countryId) && isCountryCatalogLawRequest(query);
     const scopedCountryLawIds =
@@ -1392,6 +1408,22 @@ async function searchLegalLibrary(
       }
     }
 
+    const latinAmericaTreatyRows = await fetchLatinAmericaTreatyTitleCandidates(
+      supabase,
+      query,
+      LAWS_AI_SELECT
+    );
+    if (latinAmericaTreatyRows.length > 0) {
+      titleMatchedLaws.push(...latinAmericaTreatyRows);
+    }
+
+    const globalTreatyRows = globalTreatyCatalog
+      ? await fetchGlobalTreatyCatalogCandidates(supabase, LAWS_AI_SELECT)
+      : [];
+    if (globalTreatyRows.length > 0) {
+      titleMatchedLaws.push(...(globalTreatyRows as any[]));
+    }
+
     // Dedupe titleMatchedLaws by id.
     const titleMatchedById = new Map<string, any>();
     for (const r of titleMatchedLaws) {
@@ -1399,7 +1431,17 @@ async function searchLegalLibrary(
       if (!titleMatchedById.has(id)) titleMatchedById.set(id, r);
     }
     const titleMatchedIds = new Set(titleMatchedById.keys());
-    const expandedLower = [...resolvedIntent.mergedLexiconExtra];
+    const skipBroadLibraryTextSearch =
+      (latinAmericaTreatyCatalog || globalTreatyCatalog) &&
+      !specificLawHint &&
+      !countryCatalogRequest &&
+      titleMatchedById.size > 0;
+
+    const expandedLower = [
+      ...resolvedIntent.mergedLexiconExtra,
+      ...latinAmericaTreatyRankingLexicon(query),
+      ...(globalTreatyCatalog ? globalTreatyRankingLexicon() : []),
+    ];
     const mergedForRank = prioritizeTokensForLibrarySearch(
       Array.from(new Set([...rawTokens.map((t) => t.toLowerCase()), ...expandedLower])),
       resolvedIntent.primaryId
@@ -1455,101 +1497,106 @@ async function searchLegalLibrary(
       }
     }
 
-    let lawsQuery = supabase
-      .from("laws")
-      .select(LAWS_AI_SELECT)
-      .not("content", "is", null)
-      .neq("status", "Repealed")
-      .limit(250);
-
-    if (categoryId) {
-      try {
-        const ids = await fetchLawIdsForCategory(supabase, categoryId);
-        if (ids.length === 0) {
-          return [];
-        }
-        lawsQuery = lawsQuery.in("id", ids);
-      } catch {
-        lawsQuery = lawsQuery.eq("category_id", categoryId);
-      }
-    }
-
-    if (specificLawHint) {
-      const specificStop = new Set([
-        "what",
-        "does",
-        "under",
-        "about",
-        "article",
-        "section",
-        "chapter",
-        "say",
-        "from",
-        "this",
-        "that",
-      ]);
-      const specificTokens = specificLawHint
-        .toLowerCase()
-        .split(/[^a-z0-9]+/)
-        .map((t) => t.trim())
-        .filter((t) => t.length >= 3 && !specificStop.has(t))
-        .slice(0, 8);
-      const tokenOr = specificTokens
-        .map((t) => `title.ilike.%${escapeIlikePattern(t)}%`)
-        .join(",");
-      if (countryId && specificTokens.length > 0) {
-        lawsQuery = lawsQuery.or(lawsCountryOrGlobalWithTitleTerms(countryId, specificTokens));
-      } else if (countryId && countryScopeOr) {
-        lawsQuery = lawsQuery.or(countryScopeOr);
-      } else {
-        if (tokenOr) lawsQuery = lawsQuery.or(tokenOr);
-        if (countryScopeOr) lawsQuery = lawsQuery.or(countryScopeOr);
-      }
-    } else if (query.trim()) {
-      if (countryCatalogRequest && countryScopeOr) {
-        lawsQuery = lawsQuery.or(countryScopeOr);
-      } else if (countryId) {
-        const orParts: string[] = [];
-        if (tokenEscList.length > 0) {
-          orParts.push(lawsCountryOrGlobalWithAnyEscapedTerms(countryId, tokenEscList));
-        }
-        for (const p of phraseCandidates) {
-          orParts.push(lawsCountryOrGlobalWithTextSearch(countryId, p));
-        }
-        if (orParts.length > 0) {
-          lawsQuery = lawsQuery.or(orParts.join(","));
-        } else if (query.trim() && countryScopeOr) {
-          lawsQuery = lawsQuery.or(countryScopeOr);
-        }
-      } else {
-        const gParts: string[] = [];
-        if (tokenEscList.length > 0) {
-          gParts.push(lawsGlobalTextIlikeOrTerms(tokenEscList));
-        }
-        for (const p of phraseCandidates) {
-          gParts.push(`or(${lawTextIlikeOr(p)})`);
-        }
-        if (gParts.length > 0) {
-          lawsQuery = lawsQuery.or(gParts.join(","));
-        } else if (query.trim()) {
-          const w = rawTokens
-            .map((t) => t.toLowerCase())
-            .find((t) => t.length >= 5 && !AI_SEARCH_NOISE_TOKENS.has(t));
-          if (w) {
-            lawsQuery = lawsQuery.or(`or(${lawTextIlikeOr(escapeIlikePattern(w))})`);
-          }
-        }
-      }
-    } else if (countryScopeOr) {
-      lawsQuery = lawsQuery.or(countryScopeOr);
-    }
-
     let laws: any[] | null = specificLawRows;
     let error: any = null;
-    if (!specificLawRows?.length) {
-      const result = await lawsQuery;
-      laws = (result.data ?? null) as any[] | null;
-      error = result.error;
+    if (!skipBroadLibraryTextSearch) {
+      let lawsQuery = supabase
+        .from("laws")
+        .select(LAWS_AI_SELECT)
+        .not("content", "is", null)
+        .neq("status", "Repealed")
+        .limit(250);
+
+      if (categoryId) {
+        try {
+          const ids = await fetchLawIdsForCategory(supabase, categoryId);
+          if (ids.length === 0) {
+            return [];
+          }
+          lawsQuery = lawsQuery.in("id", ids);
+        } catch {
+          lawsQuery = lawsQuery.eq("category_id", categoryId);
+        }
+      }
+
+      if (specificLawHint) {
+        const specificStop = new Set([
+          "what",
+          "does",
+          "under",
+          "about",
+          "article",
+          "section",
+          "chapter",
+          "say",
+          "from",
+          "this",
+          "that",
+        ]);
+        const specificTokens = specificLawHint
+          .toLowerCase()
+          .split(/[^a-z0-9]+/)
+          .map((t) => t.trim())
+          .filter((t) => t.length >= 3 && !specificStop.has(t))
+          .slice(0, 8);
+        const tokenOr = specificTokens
+          .map((t) => `title.ilike.%${escapeIlikePattern(t)}%`)
+          .join(",");
+        if (countryId && specificTokens.length > 0) {
+          lawsQuery = lawsQuery.or(lawsCountryOrGlobalWithTitleTerms(countryId, specificTokens));
+        } else if (countryId && countryScopeOr) {
+          lawsQuery = lawsQuery.or(countryScopeOr);
+        } else {
+          if (tokenOr) lawsQuery = lawsQuery.or(tokenOr);
+          if (countryScopeOr) lawsQuery = lawsQuery.or(countryScopeOr);
+        }
+      } else if (query.trim()) {
+        if (countryCatalogRequest && countryScopeOr) {
+          lawsQuery = lawsQuery.or(countryScopeOr);
+        } else if (countryId) {
+          const orParts: string[] = [];
+          if (tokenEscList.length > 0) {
+            orParts.push(lawsCountryOrGlobalWithAnyEscapedTerms(countryId, tokenEscList));
+          }
+          for (const p of phraseCandidates) {
+            orParts.push(lawsCountryOrGlobalWithTextSearch(countryId, p));
+          }
+          if (orParts.length > 0) {
+            lawsQuery = lawsQuery.or(orParts.join(","));
+          } else if (query.trim() && countryScopeOr) {
+            lawsQuery = lawsQuery.or(countryScopeOr);
+          }
+        } else {
+          const gParts: string[] = [];
+          if (tokenEscList.length > 0) {
+            gParts.push(lawsGlobalTextIlikeOrTerms(tokenEscList));
+          }
+          for (const p of phraseCandidates) {
+            gParts.push(`or(${lawTextIlikeOr(p)})`);
+          }
+          if (gParts.length > 0) {
+            lawsQuery = lawsQuery.or(gParts.join(","));
+          } else if (query.trim()) {
+            const w = rawTokens
+              .map((t) => t.toLowerCase())
+              .find((t) => t.length >= 5 && !AI_SEARCH_NOISE_TOKENS.has(t));
+            if (w) {
+              lawsQuery = lawsQuery.or(`or(${lawTextIlikeOr(escapeIlikePattern(w))})`);
+            }
+          }
+        }
+      } else if (countryScopeOr) {
+        lawsQuery = lawsQuery.or(countryScopeOr);
+      }
+
+      if (!specificLawRows?.length) {
+        const result = await lawsQuery;
+        laws = (result.data ?? null) as any[] | null;
+        error = result.error;
+      }
+    } else if (!specificLawRows?.length) {
+      laws = [];
+      error = null;
     }
 
     if (error) {
@@ -1561,7 +1608,11 @@ async function searchLegalLibrary(
       !!error &&
       typeof error?.message === "string" &&
       /statement timeout|canceling statement due to statement timeout/i.test(error.message);
-    if ((!lawsRows.length || isStatementTimeout) && !specificLawHint) {
+    if (
+      !skipBroadLibraryTextSearch &&
+      (!lawsRows.length || isStatementTimeout) &&
+      !specificLawHint
+    ) {
       const narrowToken = rawTokens
         .map((t) => t.toLowerCase().trim())
         .find((t) => t.length >= 5 && !AI_SEARCH_NOISE_TOKENS.has(t));
@@ -1589,7 +1640,12 @@ async function searchLegalLibrary(
         error = null;
       }
     }
-    if ((!lawsRows.length || error) && countryScopeOr && !specificLawHint) {
+    if (
+      !skipBroadLibraryTextSearch &&
+      (!lawsRows.length || error) &&
+      countryScopeOr &&
+      !specificLawHint
+    ) {
       const { data: fb, error: fbErr } = await supabase
         .from("laws")
         .select(LAWS_AI_SELECT)
@@ -1601,7 +1657,14 @@ async function searchLegalLibrary(
         lawsRows = fb as any[];
         error = null;
       }
-    } else if (!lawsRows.length && !countryId && qForTokens.trim() && !specificLawHint && tokenEscList.length > 0) {
+    } else if (
+      !skipBroadLibraryTextSearch &&
+      !lawsRows.length &&
+      !countryId &&
+      qForTokens.trim() &&
+      !specificLawHint &&
+      tokenEscList.length > 0
+    ) {
       const g = lawsGlobalTextIlikeOrTerms(tokenEscList.slice(0, 4));
       const { data: fb2, error: fb2Err } = await supabase
         .from("laws")
@@ -1616,7 +1679,7 @@ async function searchLegalLibrary(
     }
 
     const supEsc = escapeSupplementalTermsForFetch(resolvedIntent.supplementalTermsRaw);
-    if (supEsc.length > 0 && !specificLawHint) {
+    if (!skipBroadLibraryTextSearch && supEsc.length > 0 && !specificLawHint) {
       let extraLaws: any[] | null = null;
       let exErr: any = null;
       if (countryId) {
@@ -1710,6 +1773,8 @@ async function searchLegalLibrary(
           );
           if (titleHit) bonus += 70;
         }
+        if (latinAmericaTreatyCatalog && titleLikelyLatinAmericaTreaty(String(law.title ?? ""))) bonus += 52;
+        if (globalTreatyCatalog && titleLooksLikeCrossBorderTreatyTitle(String(law.title ?? ""))) bonus += 46;
         if (isOhadaCommercialCompaniesQuery(query)) {
           if (
             /soci[eé]t[eé]s?\s+commerciales?|commercial companies|groupement d'?int[eé]r[eê]t [ée]conomique|economic interest groups/i.test(
@@ -1750,7 +1815,8 @@ async function searchLegalLibrary(
     const shouldDedupeByTitle =
       supranationalMatches.length > 0 ||
       isBilateralOrMultiCountryQuery ||
-      resolvedIntent.primaryId === "labor";
+      resolvedIntent.primaryId === "labor" ||
+      globalTreatyCatalog;
     const candidateLaws: any[] = (() => {
       const base = intentFilteredRanked;
       if (!shouldDedupeByTitle) return base;
@@ -1769,7 +1835,15 @@ async function searchLegalLibrary(
       return out;
     })();
 
-    const baseResponseSize = countryCatalogRequest ? 20 : detailedMode ? 14 : 8;
+    const baseResponseSize = latinAmericaTreatyCatalog
+      ? LATIN_AMERICA_TREATY_CATALOG_MAX_DOCS
+      : globalTreatyCatalog
+        ? GLOBAL_TREATY_CATALOG_MAX_DOCS
+        : countryCatalogRequest
+          ? 20
+          : detailedMode
+            ? 14
+            : 8;
     const lawsForResponse: any[] = (() => {
       if (specificLawHint && candidateLaws.length > 0) return [candidateLaws[0]];
       // When multiple supranational frameworks are mentioned (e.g. "AfCFTA vs
@@ -1807,6 +1881,30 @@ async function searchLegalLibrary(
         }
         return picked.slice(0, baseResponseSize);
       }
+      if (latinAmericaTreatyCatalog && candidateLaws.length > 0) {
+        const latamFirst: any[] = [];
+        const rest: any[] = [];
+        for (const law of candidateLaws) {
+          if (titleLikelyLatinAmericaTreaty(String((law as any).title ?? ""))) latamFirst.push(law);
+          else rest.push(law);
+        }
+        if (latamFirst.length >= 3) {
+          return latamFirst.slice(0, baseResponseSize);
+        }
+        return [...latamFirst, ...rest].slice(0, baseResponseSize);
+      }
+      if (globalTreatyCatalog && candidateLaws.length > 0) {
+        const treatyFirst: any[] = [];
+        const rest: any[] = [];
+        for (const law of candidateLaws) {
+          if (titleLooksLikeCrossBorderTreatyTitle(String((law as any).title ?? ""))) treatyFirst.push(law);
+          else rest.push(law);
+        }
+        if (treatyFirst.length >= 4) {
+          return treatyFirst.slice(0, baseResponseSize);
+        }
+        return [...treatyFirst, ...rest].slice(0, baseResponseSize);
+      }
       return candidateLaws.slice(0, baseResponseSize);
     })();
 
@@ -1815,18 +1913,22 @@ async function searchLegalLibrary(
     const shouldKeepFullTextForSpecificLaw = Boolean(specificLawHint && detailedMode);
     const maxCharsPerLaw = shouldKeepFullTextForSpecificLaw
       ? 60000
-      : countryCatalogRequest
-        ? 600
-        : detailedMode
-          ? 9000
-          : 4500;
+      : latinAmericaTreatyCatalog || globalTreatyCatalog
+        ? 2600
+        : countryCatalogRequest
+          ? 600
+          : detailedMode
+            ? 9000
+            : 4500;
     const maxCharsTotal = shouldKeepFullTextForSpecificLaw
       ? 140000
-      : countryCatalogRequest
-        ? 16000
-        : detailedMode
-          ? 36000
-          : 18000;
+      : latinAmericaTreatyCatalog || globalTreatyCatalog
+        ? 92_000
+        : countryCatalogRequest
+          ? 16000
+          : detailedMode
+            ? 36000
+            : 18000;
     let remainingChars = maxCharsTotal;
 
     const retrievalScoreForLaw = (law: any): number => {
@@ -1849,6 +1951,8 @@ async function searchLegalLibrary(
         );
         if (titleHit) bonus += 70;
       }
+      if (latinAmericaTreatyCatalog && titleLikelyLatinAmericaTreaty(String(law.title ?? ""))) bonus += 52;
+      if (globalTreatyCatalog && titleLooksLikeCrossBorderTreatyTitle(String(law.title ?? ""))) bonus += 46;
       return baseScore + resolvedIntent.rankBoost(law, rankingTokens) + bonus;
     };
 
@@ -2081,6 +2185,8 @@ export async function POST(request: NextRequest) {
     const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
     const userQuery = lastUserMessage?.content || "";
     const platformGuideMeta = isPlatformGuideMetaQuery(userQuery);
+    const latinAmericaTreatyCatalog = detectLatinAmericaTreatyDiscoveryQuery(userQuery);
+    const globalTreatyCatalog = !latinAmericaTreatyCatalog && detectGlobalTreatyInventoryQuery(userQuery);
 
     // If user asks a legal follow-up, inherit country/category context from the
     // current chat before asking for clarification.
@@ -2120,7 +2226,10 @@ export async function POST(request: NextRequest) {
       )
     );
     const skipCountryRequirement =
-      supranationalFrameworksInQuery.length > 0 || bilateralTitleTokensInUserQuery.length >= 2;
+      supranationalFrameworksInQuery.length > 0 ||
+      bilateralTitleTokensInUserQuery.length >= 2 ||
+      latinAmericaTreatyCatalog ||
+      globalTreatyCatalog;
     const strictCountryMode = !skipCountryRequirement && Boolean(effectiveHints.country);
 
     if (allCountriesBreakdownIntent) {
@@ -2218,7 +2327,11 @@ export async function POST(request: NextRequest) {
     let legalContext = platformGuideMeta
       ? []
       : await searchLegalLibrary(userQuery, effectiveHints.country, detailedMode);
-    if (!platformGuideMeta && !legalContext.length) {
+    if (
+      !platformGuideMeta &&
+      !legalContext.length &&
+      !(latinAmericaTreatyCatalog || globalTreatyCatalog)
+    ) {
       legalContext = await searchLegalLibraryQuickFallback(userQuery, effectiveHints.country ?? undefined);
     }
     if (!platformGuideMeta) {
@@ -2328,6 +2441,11 @@ export async function POST(request: NextRequest) {
       specificLawHint,
       requestedArticle: extractRequestedArticle(userQuery),
       platformGuideMode: platformGuideMeta,
+      legalContextMaxDocs: latinAmericaTreatyCatalog
+        ? LATIN_AMERICA_TREATY_CATALOG_MAX_DOCS
+        : globalTreatyCatalog
+          ? GLOBAL_TREATY_CATALOG_MAX_DOCS
+          : undefined,
     };
     const systemPromptValidation = validateAiResearchSystemPromptParams(systemPromptParamsRaw, {
       originalLegalContextLength: legalContext.length,
@@ -2355,7 +2473,14 @@ export async function POST(request: NextRequest) {
       signal: claudeController.signal,
       body: JSON.stringify({
         model: modelId,
-        max_tokens: detailedMode ? 4200 : 2200,
+        max_tokens:
+          latinAmericaTreatyCatalog || globalTreatyCatalog
+            ? detailedMode
+              ? 5600
+              : 4000
+            : detailedMode
+              ? 4200
+              : 2200,
         messages: claudeMessages,
         system: systemPrompt,
       }),
