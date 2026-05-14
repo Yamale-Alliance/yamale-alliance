@@ -57,8 +57,15 @@ export default function MarketplaceZipPackagePage() {
   const [isInCart, setIsInCart] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [zipViewerOpen, setZipViewerOpen] = useState(false);
+  const [showVerifiedPaymentSuccess, setShowVerifiedPaymentSuccess] = useState(false);
+  const [showPaymentNotCompleted, setShowPaymentNotCompleted] = useState(false);
+  const [paymentVerifyInProgress, setPaymentVerifyInProgress] = useState(false);
 
   const checkoutStatus = searchParams?.get("checkout");
+  const paymentVerify = searchParams?.get("payment") === "verify";
+  const legacyCheckoutSuccess = checkoutStatus === "success";
+  const checkoutCancelled =
+    checkoutStatus === "cancelled" || searchParams?.get("canceled") === "1";
   const confirmedPaymentSessionRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -103,25 +110,65 @@ export default function MarketplaceZipPackagePage() {
 
   useEffect(() => {
     const sessionId = searchParams?.get("session_id");
-    if (!sessionId || !isSignedIn || !id || confirmedPaymentSessionRef.current === sessionId) return;
-    confirmedPaymentSessionRef.current = sessionId;
+    const sid = sessionId ?? null;
 
+    if (
+      legacyCheckoutSuccess &&
+      !sid &&
+      typeof window !== "undefined" &&
+      window.history.replaceState
+    ) {
+      const u = new URL(window.location.href);
+      u.searchParams.delete("checkout");
+      window.history.replaceState({}, "", u.pathname + (u.search ? u.search : ""));
+    }
+
+    const shouldConfirm =
+      Boolean(sid) &&
+      (paymentVerify || legacyCheckoutSuccess) &&
+      Boolean(isSignedIn) &&
+      Boolean(id) &&
+      confirmedPaymentSessionRef.current !== `${id}:${sid}`;
+
+    if (!shouldConfirm) return;
+
+    confirmedPaymentSessionRef.current = `${id}:${sid}`;
     const origin = typeof window !== "undefined" ? window.location.origin : "";
+
     const run = async () => {
+      setPaymentVerifyInProgress(true);
+      setShowVerifiedPaymentSuccess(false);
+      setShowPaymentNotCompleted(false);
       try {
-        await fetch("/api/cart/confirm-payment", {
+        const res = await fetch("/api/cart/confirm-payment", {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_id: sessionId }),
+          body: JSON.stringify({ session_id: sid }),
         });
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        if (res.ok && data.ok) {
+          setShowVerifiedPaymentSuccess(true);
+          setShowPaymentNotCompleted(false);
+        } else {
+          confirmedPaymentSessionRef.current = null;
+          setShowVerifiedPaymentSuccess(false);
+          setShowPaymentNotCompleted(true);
+        }
       } catch {
-        // webhook may still apply
-      }
-      if (typeof window !== "undefined" && window.history.replaceState) {
-        const u = new URL(window.location.href);
-        u.searchParams.delete("session_id");
-        window.history.replaceState({}, "", u.toString());
+        confirmedPaymentSessionRef.current = null;
+        setShowVerifiedPaymentSuccess(false);
+        setShowPaymentNotCompleted(true);
+      } finally {
+        setPaymentVerifyInProgress(false);
+        if (typeof window !== "undefined" && window.history.replaceState) {
+          const u = new URL(window.location.href);
+          u.searchParams.delete("session_id");
+          u.searchParams.delete("payment");
+          u.searchParams.delete("checkout");
+          u.searchParams.delete("canceled");
+          window.history.replaceState({}, "", u.pathname + (u.search ? u.search : ""));
+        }
       }
       try {
         const r = await fetch(`${origin}/api/marketplace/${id}`, { credentials: "include" });
@@ -131,8 +178,9 @@ export default function MarketplaceZipPackagePage() {
         // ignore
       }
     };
+
     void run();
-  }, [searchParams, isSignedIn, id]);
+  }, [searchParams, isSignedIn, id, paymentVerify, legacyCheckoutSuccess]);
 
   const refetchItem = () => {
     if (!id) return;
@@ -341,7 +389,20 @@ export default function MarketplaceZipPackagePage() {
         </header>
       )}
 
-      {checkoutStatus === "success" && (
+      {paymentVerifyInProgress && (
+        <div
+          className={
+            lawFirmLanding
+              ? "mx-auto max-w-3xl px-4 pt-[calc(5.5rem+0.75rem)] sm:pt-[calc(5.75rem+1rem)]"
+              : "mx-auto max-w-3xl px-4 pt-6"
+          }
+        >
+          <div className="rounded-lg border border-white/20 bg-white/5 px-4 py-3 text-sm text-white/80">
+            Confirming payment…
+          </div>
+        </div>
+      )}
+      {showVerifiedPaymentSuccess && (
         <div
           className={
             lawFirmLanding
@@ -351,6 +412,32 @@ export default function MarketplaceZipPackagePage() {
         >
           <div className="rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm text-green-200">
             Payment successful. You now have access to this package.
+          </div>
+        </div>
+      )}
+      {showPaymentNotCompleted && !showVerifiedPaymentSuccess && (
+        <div
+          className={
+            lawFirmLanding
+              ? "mx-auto max-w-3xl px-4 pt-[calc(5.5rem+0.75rem)] sm:pt-[calc(5.75rem+1rem)]"
+              : "mx-auto max-w-3xl px-4 pt-6"
+          }
+        >
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            Payment was not completed. If you already paid, wait a moment and refresh the page, or contact support.
+          </div>
+        </div>
+      )}
+      {checkoutCancelled && !showVerifiedPaymentSuccess && !showPaymentNotCompleted && (
+        <div
+          className={
+            lawFirmLanding
+              ? "mx-auto max-w-3xl px-4 pt-[calc(5.5rem+0.75rem)] sm:pt-[calc(5.75rem+1rem)]"
+              : "mx-auto max-w-3xl px-4 pt-6"
+          }
+        >
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            Checkout was cancelled.
           </div>
         </div>
       )}
