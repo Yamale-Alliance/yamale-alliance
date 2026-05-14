@@ -23,6 +23,7 @@ export default function AdminLinkLawsByTitlePage() {
   const { confirm, confirmDialog } = useConfirm();
   const [groups, setGroups] = useState<CandidateGroup[]>([]);
   const [scanned, setScanned] = useState<number | null>(null);
+  const [scanCappedAt, setScanCappedAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -39,15 +40,18 @@ export default function AdminLinkLawsByTitlePage() {
       if (!res.ok) {
         setError(typeof data.error === "string" ? data.error : "Failed to load");
         setGroups([]);
+        setScanCappedAt(null);
         return;
       }
       setGroups(Array.isArray(data.groups) ? data.groups : []);
       setScanned(typeof data.scanned === "number" ? data.scanned : null);
+      setScanCappedAt(data.capped === true && typeof data.cap === "number" ? data.cap : null);
       setSelectedByGroup({});
       setSourceByGroup({});
     } catch {
       setError("Network error");
       setGroups([]);
+      setScanCappedAt(null);
     } finally {
       setLoading(false);
     }
@@ -159,6 +163,12 @@ export default function AdminLinkLawsByTitlePage() {
           {scanned != null && (
             <p className="mt-2 text-xs text-muted-foreground">Scanned {scanned.toLocaleString()} law rows.</p>
           )}
+          {scanCappedAt != null && (
+            <p className="mt-1 text-xs text-amber-700 dark:text-amber-500">
+              List was truncated at the safety cap ({scanCappedAt.toLocaleString()} laws). Raise the cap in code if you
+              truly need more.
+            </p>
+          )}
         </div>
         <button
           type="button"
@@ -232,7 +242,8 @@ export default function AdminLinkLawsByTitlePage() {
                       </button>
                     </div>
                     <p className="mb-2 text-xs text-muted-foreground">
-                      Source law (text copied to others on link): choose one radio, then tick laws to include (min 2).
+                      Source law (text copied to others on link): pick one radio, then tick laws to include (min 2).
+                      Long country lists scroll inside this box if you do not see every member.
                     </p>
                     <ul className="max-h-72 space-y-2 overflow-y-auto">
                       {g.laws.map((law) => (
