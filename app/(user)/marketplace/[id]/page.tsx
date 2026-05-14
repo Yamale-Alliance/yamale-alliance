@@ -6,6 +6,10 @@ import Link from "next/link";
 import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, Eye, Star, ShoppingCart, Zap, X, Download } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
+import {
+  PaymentMethodPicker,
+  type CheckoutPaymentProvider,
+} from "@/components/checkout/PaymentMethodPicker";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { FileViewer } from "@/components/marketplace/FileViewer";
 import { MarketplaceLandingIframe } from "@/components/marketplace/MarketplaceLandingIframe";
@@ -96,9 +100,31 @@ export default function MarketplaceItemPage() {
   const [savingRating, setSavingRating] = useState(false);
   const [ratingError, setRatingError] = useState<string | null>(null);
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
+  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
+  const [showVerifiedPaymentSuccess, setShowVerifiedPaymentSuccess] = useState(false);
+  const [showPaymentNotCompleted, setShowPaymentNotCompleted] = useState(false);
+  const [paymentVerifyInProgress, setPaymentVerifyInProgress] = useState(false);
+
+  const lomiAvailable =
+    process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
+    Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
+  const lomiComingSoon = false;
+
+  useEffect(() => {
+    if (!lomiAvailable) {
+      setPaymentProvider("pawapay");
+      return;
+    }
+    setPaymentProvider((prev) => (prev === "lomi" ? "lomi" : "pawapay"));
+  }, [lomiAvailable]);
 
   const checkoutStatus = searchParams?.get("checkout");
-  const sessionId = searchParams?.get("session_id") ?? null;
+  const checkoutCancelled =
+    checkoutStatus === "cancelled" || searchParams?.get("canceled") === "1";
+  const sessionId = searchParams?.get("session_id");
+  const paymentVerify = searchParams?.get("payment") === "verify";
+  const legacyCheckoutSuccess = checkoutStatus === "success";
+  /** Dedupe confirm calls per item + session (avoids StrictMode double POST; resets on failure). */
   const confirmedSessionRef = useRef<string | null>(null);
 
   const fetchDownloadUrl = async () => {
@@ -151,27 +177,64 @@ export default function MarketplaceItemPage() {
     setViewing(false);
   };
 
-  // On return from Stripe: confirm payment then refetch so "View/Download" appears
+  // On return from Lomi / pawaPay: verify payment server-side before showing success (avoids false positive on cancel).
   useEffect(() => {
     if (!id) return;
     const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const sid = sessionId ?? null;
 
     const run = async () => {
-      if (checkoutStatus === "success" && sessionId && confirmedSessionRef.current !== sessionId) {
-        confirmedSessionRef.current = sessionId;
+      if (
+        legacyCheckoutSuccess &&
+        !sid &&
+        typeof window !== "undefined" &&
+        window.history.replaceState
+      ) {
+        const u = new URL(window.location.href);
+        u.searchParams.delete("checkout");
+        window.history.replaceState({}, "", u.pathname + (u.search ? u.search : ""));
+      }
+
+      const shouldVerify =
+        Boolean(sid) &&
+        (paymentVerify || legacyCheckoutSuccess) &&
+        confirmedSessionRef.current !== `${id}:${sid}`;
+
+      if (shouldVerify) {
+        confirmedSessionRef.current = `${id}:${sid}`;
+        setPaymentVerifyInProgress(true);
+        setShowVerifiedPaymentSuccess(false);
+        setShowPaymentNotCompleted(false);
         try {
-          await fetch("/api/marketplace/confirm-payment", {
+          const res = await fetch("/api/marketplace/confirm-payment", {
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ session_id: sessionId }),
+            body: JSON.stringify({ session_id: sid }),
           });
+          const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
+          if (res.ok && data.ok) {
+            setShowVerifiedPaymentSuccess(true);
+            setShowPaymentNotCompleted(false);
+          } else {
+            confirmedSessionRef.current = null;
+            setShowVerifiedPaymentSuccess(false);
+            setShowPaymentNotCompleted(true);
+          }
         } catch {
-          // ignore; webhook may still apply
-        }
-        // Clean URL so refresh doesn't re-trigger
-        if (typeof window !== "undefined" && window.history.replaceState) {
-          window.history.replaceState({}, "", `${window.location.pathname}?checkout=success`);
+          confirmedSessionRef.current = null;
+          setShowVerifiedPaymentSuccess(false);
+          setShowPaymentNotCompleted(true);
+        } finally {
+          setPaymentVerifyInProgress(false);
+          if (typeof window !== "undefined" && window.history.replaceState) {
+            const u = new URL(window.location.href);
+            u.searchParams.delete("session_id");
+            u.searchParams.delete("payment");
+            u.searchParams.delete("checkout");
+            u.searchParams.delete("canceled");
+            window.history.replaceState({}, "", u.pathname + (u.search ? u.search : ""));
+          }
         }
       }
 
@@ -188,8 +251,8 @@ export default function MarketplaceItemPage() {
       }
     };
 
-    run();
-  }, [id, checkoutStatus, sessionId]);
+    void run();
+  }, [id, sessionId, paymentVerify, legacyCheckoutSuccess]);
 
   // Fetch reviews
   useEffect(() => {
@@ -250,7 +313,11 @@ export default function MarketplaceItemPage() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId: item.id, paymentCountry: pawapayPaymentCountry }),
+        body: JSON.stringify({
+          itemId: item.id,
+          provider: paymentProvider,
+          ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -486,12 +553,22 @@ export default function MarketplaceItemPage() {
       {landingHtml ? <MarketplaceLandingIframe html={landingHtml} title={item.title} /> : null}
 
       <div className="mx-auto max-w-3xl px-4 py-8">
-        {checkoutStatus === "success" && (
+        {paymentVerifyInProgress && (
+          <div className="mb-6 rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+            Confirming payment…
+          </div>
+        )}
+        {showVerifiedPaymentSuccess && (
           <div className="mb-6 rounded-lg border border-green-500/50 bg-green-500/10 px-4 py-3 text-sm text-green-700 dark:text-green-400">
             Payment successful. You now have access to this item.
           </div>
         )}
-        {checkoutStatus === "cancelled" && (
+        {showPaymentNotCompleted && !showVerifiedPaymentSuccess && (
+          <div className="mb-6 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+            Payment was not completed. If you already paid, wait a moment and refresh the page, or contact support.
+          </div>
+        )}
+        {checkoutCancelled && !showVerifiedPaymentSuccess && !showPaymentNotCompleted && (
           <div className="mb-6 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
             Checkout was cancelled.
           </div>
@@ -568,12 +645,24 @@ export default function MarketplaceItemPage() {
                   ? "You own this item"
                   : free
                     ? "Get instant access"
-                    : "One-time payment via mobile money"}
+                    : lomiAvailable
+                      ? "Choose mobile money or card, then continue to pay."
+                      : "One-time payment via mobile money."}
               </p>
             </div>
             {!owned && (
               <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
-                {!free && (
+                {!free && lomiAvailable && (
+                  <div className="w-full max-w-xs sm:max-w-sm">
+                    <PaymentMethodPicker
+                      value={paymentProvider}
+                      onChange={setPaymentProvider}
+                      lomiAvailable={lomiAvailable}
+                      lomiComingSoon={lomiComingSoon}
+                    />
+                  </div>
+                )}
+                {!free && paymentProvider === "pawapay" && (
                   <div className="w-full max-w-xs sm:max-w-sm">
                     <PawapayCountrySelect
                       label="Mobile money country"
