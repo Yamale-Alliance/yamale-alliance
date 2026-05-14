@@ -6,7 +6,7 @@
  * repeating it). Use SYSTEM_PROMPT_VERSION in API responses and ai_query_log instead.
  */
 
-export const SYSTEM_PROMPT_VERSION = "2026.05.14-system-prompt-hardening-v1";
+export const SYSTEM_PROMPT_VERSION = "2026.05.14-treaty-catalog-retrieval-v2";
 
 /** Cap on library excerpts in the system message to limit tokens and citation confusion. */
 export const MAX_SYSTEM_PROMPT_LEGAL_DOCS = 8;
@@ -42,6 +42,11 @@ export type BuildAiResearchSystemPromptParams = {
   requestedArticle: number | null;
   /** User is asking how the product works — no library RAG; no statute citations */
   platformGuideMode?: boolean;
+  /**
+   * Max excerpts in the system message (default {@link MAX_SYSTEM_PROMPT_LEGAL_DOCS}).
+   * Should match the number of documents passed in `legalContext` so [doc:N] lines up with UI.
+   */
+  legalContextMaxDocs?: number;
 };
 
 export type SystemPromptValidationResult = {
@@ -58,11 +63,16 @@ export type BilingualPreambleOptions = {
 /** Slice legal context before validation / build so counts match what the model sees. */
 export function normalizeSystemPromptParams(
   p: BuildAiResearchSystemPromptParams,
-  maxDocs = MAX_SYSTEM_PROMPT_LEGAL_DOCS
+  maxDocsOverride?: number
 ): BuildAiResearchSystemPromptParams {
-  if (p.legalContext.length <= maxDocs) return p;
+  const maxDocs = Math.min(
+    40,
+    Math.max(1, maxDocsOverride ?? p.legalContextMaxDocs ?? MAX_SYSTEM_PROMPT_LEGAL_DOCS)
+  );
+  if (p.legalContext.length <= maxDocs) return { ...p, legalContextMaxDocs: maxDocs };
   return {
     ...p,
+    legalContextMaxDocs: maxDocs,
     legalContext: p.legalContext.slice(0, maxDocs),
   };
 }
@@ -80,9 +90,10 @@ export function validateAiResearchSystemPromptParams(
   let ok = true;
 
   const rawLen = options?.originalLegalContextLength ?? p.legalContext.length;
-  if (rawLen > MAX_SYSTEM_PROMPT_LEGAL_DOCS) {
+  const maxDocs = Math.min(40, Math.max(1, p.legalContextMaxDocs ?? MAX_SYSTEM_PROMPT_LEGAL_DOCS));
+  if (rawLen > maxDocs) {
     warnings.push(
-      `legalContext has ${rawLen} documents; only the first ${MAX_SYSTEM_PROMPT_LEGAL_DOCS} are included in the system prompt.`
+      `legalContext has ${rawLen} documents; only the first ${maxDocs} are included in the system prompt.`
     );
   }
 
@@ -117,6 +128,13 @@ When a fixed English disclaimer is mentioned (e.g. "not stated in the provided l
 
 function buildCoreRules(): string {
   return `Role: You are a legal research assistant for the Yamalé legal library.
+
+How retrieval works (do not mislead the user):
+- Yamalé stores a large searchable library. For each turn the backend **searches** that library and attaches a **small set of the best-matching excerpts** (see the document block below). Those excerpts are not "everything that exists" and not a random session cap—they are this query's retrieval results.
+- For **legal rules and quotes**, you may rely **only** on the excerpts in this message. Do not invent statutes or parties not shown.
+- For **catalog / coverage questions** (e.g. "do you have treaties with Latin American countries?"): do **not** say you have "no access to the database" or that you only ever see "four documents" as if that were the whole product. Say clearly that you can only **see the excerpts retrieved for this conversation turn**; the site library may contain more or different instruments, and a poor match can mean search terms did not hit relevant titles/metadata. Encourage using the Library UI (/library), country filters, or a more specific query. If the excerpts list none that fit, say the **retrieved set** does not show any—without denying that others might exist in the library after a different search.
+- Do **not** use metaphors that imply you are disconnected from Yamalé's data (e.g. "I cannot walk the shelves," "I have no visibility into the broader database"). Prefer accurate wording: **subset chosen by search**, **token limits on excerpt length**, **you must not claim unseen texts**.
+- **Regional geography:** When the user names a region (e.g. Latin America, the EU, Asia), use the usual geographic meaning. The **United States** and **Canada** are **not** Latin American countries. A **US–[country]** bilateral treaty is **North America–Africa** (or US–Africa), not a Latin American treaty, unless the user explicitly widened the scope. Do not call the US a "Latin American signatory" to answer a Latin-America question. If nothing in the retrieved excerpts names a state from the region asked, say that plainly—do not stretch unrelated instruments to "partially" fit.
 
 When library documents are provided for this turn, answer ONLY from those documents. Do not add outside legal knowledge, web references, or generic templates. If something is not in the provided excerpts, say so clearly (in the user's language); in English you may use exactly: "Not stated in the provided library excerpt."
 
@@ -158,7 +176,9 @@ function buildPlatformGuide(): string {
 
 The user is asking what Yamalé is or how to use the site, not a substantive statute question. Answer from general product knowledge only. Do NOT claim retrieved law text supports this answer. Do NOT use [doc:N] markers or cite specific library titles as authorities for this reply.
 
-Cover as appropriate (in the user's language): (1) Yamalé Legal Library — curated African and selected supranational instruments; (2) AI Research — answers grounded in library documents when the question includes enough context; not legal advice; (3) browsing /library; (4) disclaimer — not legal advice; verify with official sources and counsel.
+Cover as appropriate (in the user's language): (1) Yamalé Legal Library — curated African and selected supranational instruments; (2) AI Research — the app **searches** the library each turn and sends you a **limited set of excerpts** from the results (plus token limits on excerpt size); you do not "browse" every file, but the library behind the search is large; (3) browsing /library; (4) disclaimer — not legal advice; verify with official sources and counsel.
+
+If they ask why you cannot "see the whole library" at once: explain **practical limits** (relevance ranking, excerpt count, context size)—not that the product has no database or that you are unrelated to it.
 
 Tone: helpful, concise, headings or short bullets.`;
 }
@@ -166,7 +186,7 @@ Tone: helpful, concise, headings or short bullets.`;
 function buildDocumentContextBlock(docs: LegalDoc[]): string {
   if (docs.length === 0) return "";
   const maxN = docs.length;
-  const header = `RELEVANT LEGAL DOCUMENTS (library) — ${maxN} excerpt(s). Each block starts with its canonical index; use only those indices in [doc:N] markers.
+  const header = `RETRIEVED FOR THIS TURN (from the Yamalé library) — ${maxN} excerpt(s). These are search-ranked snippets, not the entire catalog. Each block starts with its canonical index; use only those indices in [doc:N] markers.
 
 STATUS NOTE: Documents marked Repealed are excluded from retrieval—do not treat them as current law. For Amended instruments, a linked successor may apply; if only an older version appears in the excerpt, say so.
 
@@ -199,7 +219,7 @@ function buildNoDocumentsBlock(
   effectiveCountry: string | null
 ): string {
   let s =
-    "No library documents were retrieved for this turn. Say so in 2-4 short sentences (in the user's language) and suggest refining country, category, or title. Do not fabricate law.";
+    "No library documents were retrieved for this turn. Say so in 2-4 short sentences (in the user's language) and suggest refining country, category, or title. Do not fabricate law. Do not claim you lack access to Yamalé's library in general—say this **turn's search** returned no matching excerpts (the user can try /library or different keywords).";
   if (strictCountryMode && effectiveCountry?.trim()) {
     const c = effectiveCountry.trim();
     s += ` The user indicated jurisdiction ${c}: do NOT list statutes from other countries as stand-ins. State only that the library did not return matching excerpts for ${c}; suggest browsing the Library for ${c} or rephrasing.`;
