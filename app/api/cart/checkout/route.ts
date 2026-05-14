@@ -4,6 +4,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { createPaymentPageSession, isPawapayConfigured, PawapayReturnUrlError, resolvePawapayReturnOrigin } from "@/lib/pawapay";
 import { amountMinorForPawapayCountry } from "@/lib/pawapay-deposit-amount";
 import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
+import { LOMI_MARKETPLACE_CART_CHECKOUT_COOKIE } from "@/lib/lomi-marketplace-checkout-cookie";
 import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
 
 type PricedLine = {
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const { checkoutUrl } = await createLomiHostedCheckoutSession({
+      const { checkoutUrl, sessionId } = await createLomiHostedCheckoutSession({
         amount: amountCents,
         currency_code: currencyCode,
         metadata: {
@@ -119,11 +120,21 @@ export async function POST(request: NextRequest) {
         },
         title: "The Yamale Vault cart",
         description: "Marketplace cart checkout",
-        success_url: `${origin}${successPath}?payment=verify&session_id={CHECKOUT_SESSION_ID}`,
+        success_url: `${origin}${successPath}?payment=verify&from_lomi=1`,
         cancel_url: `${origin}${successPath}?canceled=1`,
       });
 
-      return NextResponse.json({ url: checkoutUrl, provider: "lomi" });
+      const res = NextResponse.json({ url: checkoutUrl, provider: "lomi" });
+      if (sessionId) {
+        res.cookies.set(LOMI_MARKETPLACE_CART_CHECKOUT_COOKIE, sessionId, {
+          path: "/",
+          maxAge: 60 * 30,
+          httpOnly: true,
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+        });
+      }
+      return res;
     }
 
     if (!isPawapayConfigured()) {
