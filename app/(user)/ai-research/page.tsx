@@ -96,6 +96,8 @@ type Message = {
     citedDocIndices: number[];
     allDocRefsValid: boolean;
   };
+  /** Present when optional Tavily web snippets were merged into the model context for this turn. */
+  webSearchNote?: string | null;
 };
 
 type NegativeFeedbackModalState = {
@@ -714,6 +716,7 @@ export default function AIResearchPage() {
           data.citationVerification && typeof data.citationVerification === "object"
             ? data.citationVerification
             : undefined,
+        webSearchNote: typeof data.webSearchNote === "string" ? data.webSearchNote : null,
       };
 
       const id = sessionIdToUpdate;
@@ -1189,6 +1192,9 @@ export default function AIResearchPage() {
                             Sources: {msg.sources.join(" · ")}
                           </p>
                         )}
+                        {msg.webSearchNote ? (
+                          <p className="mt-1 text-[11px] text-muted-foreground/90">{msg.webSearchNote}</p>
+                        ) : null}
                         {msg.sourceCards && msg.sourceCards.length > 0 && (
                           <div className="mt-3 space-y-2 border-t border-[#E8E4DC]/80 pt-3 dark:border-white/10">
                             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#0D1B2A]/45 dark:text-white/55">
