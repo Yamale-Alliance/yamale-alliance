@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
         },
         title: "The Yamale Vault cart",
         description: "Marketplace cart checkout",
-        success_url: `${origin}${successPath}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+        success_url: `${origin}${successPath}?payment=verify&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}${successPath}?canceled=1`,
       });
 
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
       depositId,
       amountCents: amountMinor,
       currency: gate.country.currency,
-      returnUrl: `${returnBase}${successPath}?checkout=success&session_id=${encodeURIComponent(depositId)}`,
+      returnUrl: `${returnBase}${successPath}?payment=verify&session_id=${encodeURIComponent(depositId)}`,
       reason: "The Yamale Vault cart",
       customerMessage: "The Yamale Vault cart checkout",
       country: gate.country.iso3,
