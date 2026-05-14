@@ -200,7 +200,7 @@ export async function createLomiHostedCheckoutSession(
 }
 
 /** Max time to wait for Lomi session to flip to paid after success redirect (race with API + webhook). */
-const LOMI_CONFIRM_POLL_MS = 8_000;
+const LOMI_CONFIRM_POLL_MS = 12_000;
 const LOMI_CONFIRM_POLL_INTERVAL_MS = 700;
 
 function sleep(ms: number): Promise<void> {
