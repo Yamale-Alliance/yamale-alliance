@@ -109,12 +109,17 @@ export default function MarketplaceZipPackagePage() {
   }, [loading, item, id, router]);
 
   useEffect(() => {
-    const sessionId = searchParams?.get("session_id");
-    const sid = sessionId ?? null;
+    const rawSessionId = searchParams?.get("session_id")?.trim() ?? "";
+    const fromLomiReturn = searchParams?.get("from_lomi") === "1";
+    const isLomiSessionPlaceholder =
+      rawSessionId === "{CHECKOUT_SESSION_ID}" ||
+      decodeURIComponent(rawSessionId) === "{CHECKOUT_SESSION_ID}";
+    const sid = rawSessionId && !isLomiSessionPlaceholder ? rawSessionId : null;
 
     if (
       legacyCheckoutSuccess &&
       !sid &&
+      !fromLomiReturn &&
       typeof window !== "undefined" &&
       window.history.replaceState
     ) {
@@ -123,16 +128,17 @@ export default function MarketplaceZipPackagePage() {
       window.history.replaceState({}, "", u.pathname + (u.search ? u.search : ""));
     }
 
+    const verifyKey = sid ?? (fromLomiReturn ? "lomi_cart_cookie" : null);
     const shouldConfirm =
-      Boolean(sid) &&
+      verifyKey !== null &&
       (paymentVerify || legacyCheckoutSuccess) &&
       Boolean(isSignedIn) &&
       Boolean(id) &&
-      confirmedPaymentSessionRef.current !== `${id}:${sid}`;
+      confirmedPaymentSessionRef.current !== `${id}:${verifyKey}`;
 
-    if (!shouldConfirm) return;
+    if (!shouldConfirm || !verifyKey) return;
 
-    confirmedPaymentSessionRef.current = `${id}:${sid}`;
+    confirmedPaymentSessionRef.current = `${id}:${verifyKey}`;
     const origin = typeof window !== "undefined" ? window.location.origin : "";
 
     const run = async () => {
@@ -145,7 +151,9 @@ export default function MarketplaceZipPackagePage() {
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ session_id: sid }),
+            body: JSON.stringify(
+              sid ? { session_id: sid } : { from_lomi_cookie: true }
+            ),
           });
 
         let res = await confirmOnce();
@@ -177,6 +185,7 @@ export default function MarketplaceZipPackagePage() {
           const u = new URL(window.location.href);
           u.searchParams.delete("session_id");
           u.searchParams.delete("payment");
+          u.searchParams.delete("from_lomi");
           u.searchParams.delete("checkout");
           u.searchParams.delete("canceled");
           window.history.replaceState({}, "", u.pathname + (u.search ? u.search : ""));
