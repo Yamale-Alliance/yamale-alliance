@@ -174,13 +174,19 @@ export default function MarketplacePage() {
 
   // After cart checkout redirect: confirm payment server-side (avoid treating abandoned pawaPay as paid).
   useEffect(() => {
-    const sessionId = searchParams.get("session_id");
+    const rawSessionId = searchParams.get("session_id")?.trim() ?? "";
+    const fromLomiReturn = searchParams.get("from_lomi") === "1";
+    const isLomiSessionPlaceholder =
+      rawSessionId === "{CHECKOUT_SESSION_ID}" ||
+      decodeURIComponent(rawSessionId) === "{CHECKOUT_SESSION_ID}";
+    const sessionId = rawSessionId && !isLomiSessionPlaceholder ? rawSessionId : null;
     const paymentVerify = searchParams.get("payment") === "verify";
     const legacySuccess = searchParams.get("checkout") === "success";
 
     if (
       legacySuccess &&
       !sessionId &&
+      !fromLomiReturn &&
       typeof window !== "undefined" &&
       window.history.replaceState
     ) {
@@ -189,24 +195,38 @@ export default function MarketplacePage() {
       window.history.replaceState({}, "", u.pathname + (u.search ? u.search : ""));
     }
 
+    const verifyKey = sessionId ?? (fromLomiReturn ? "lomi_cart_cookie" : null);
     const shouldConfirm =
-      sessionId &&
+      verifyKey !== null &&
       (paymentVerify || legacySuccess) &&
-      confirmedCartSessionRef.current !== sessionId;
+      confirmedCartSessionRef.current !== verifyKey;
 
-    if (!shouldConfirm) return;
+    if (!shouldConfirm || !verifyKey) return;
 
-    confirmedCartSessionRef.current = sessionId;
+    confirmedCartSessionRef.current = verifyKey;
 
     const confirmAndRefresh = async () => {
       try {
-        const res = await fetch("/api/cart/confirm-payment", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_id: sessionId }),
-        });
-        const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        const confirmOnce = () =>
+          fetch("/api/cart/confirm-payment", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(
+              sessionId ? { session_id: sessionId } : { from_lomi_cookie: true }
+            ),
+          });
+        let res = await confirmOnce();
+        let data = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          pending?: boolean;
+          error?: string;
+        };
+        if (!res.ok && res.status === 503 && data.pending) {
+          await new Promise((r) => setTimeout(r, 2500));
+          res = await confirmOnce();
+          data = (await res.json().catch(() => ({}))) as { ok?: boolean; pending?: boolean; error?: string };
+        }
         if (!res.ok || !data.ok) {
           confirmedCartSessionRef.current = null;
         }
@@ -218,6 +238,7 @@ export default function MarketplacePage() {
         const url = new URL(window.location.href);
         url.searchParams.delete("session_id");
         url.searchParams.delete("payment");
+        url.searchParams.delete("from_lomi");
         url.searchParams.delete("checkout");
         url.searchParams.delete("canceled");
         window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
