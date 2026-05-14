@@ -1,6 +1,16 @@
 import crypto from "crypto";
 import { LomiSDK, OpenAPI } from "@lomi./sdk";
 
+/**
+ * Lomi REST + webhooks (hosts, `X-API-Key` on **your** API calls only; outbound webhooks use `X-Lomi-Signature`):
+ * - https://docs.lomi.africa/reference/setup/integration
+ * - https://docs.lomi.africa/reference/payments/webhooks
+ *
+ * The official `@lomi./sdk` sends your merchant secret as `X-API-KEY` (same as docs’ case-insensitive `X-API-Key`).
+ * Live API: https://api.lomi.africa — Test: https://sandbox.api.lomi.africa
+ */
+const LOMI_INTEGRATION_DOC_URL = "https://docs.lomi.africa/reference/setup/integration";
+
 export type LomiCurrencyCode = "USD" | "EUR" | "XOF";
 
 export function isLomiConfigured(): boolean {
@@ -13,6 +23,21 @@ function resolveLomiEnvironment(): "live" | "test" {
   if (raw === "live" || raw === "production" || raw === "prod") return "live";
   // Match Lomi SDK default: live base URL. Sandbox often 404s for newer accounts / live-only keys.
   return "live";
+}
+
+/** Dashboard secrets use `lomi_sk_test_…` / `lomi_sk_live_…`; hosts must match (see Lomi integration doc). */
+function assertLomiApiKeyMatchesEnvironment(apiKey: string, environment: "live" | "test"): void {
+  const k = apiKey.trim();
+  if (k.startsWith("lomi_sk_test_") && environment === "live") {
+    throw new Error(
+      `LOMI_API_KEY is a test secret (lomi_sk_test_…) but LOMI_ENVIRONMENT is live. Use a live key (lomi_sk_live_…) or set LOMI_ENVIRONMENT=test. ${LOMI_INTEGRATION_DOC_URL}`
+    );
+  }
+  if (k.startsWith("lomi_sk_live_") && environment === "test") {
+    throw new Error(
+      `LOMI_API_KEY is a live secret (lomi_sk_live_…) but LOMI_ENVIRONMENT is test/sandbox. Use a test key (lomi_sk_test_…) or set LOMI_ENVIRONMENT=live. ${LOMI_INTEGRATION_DOC_URL}`
+    );
+  }
 }
 
 /** Lomi routes live at host root (e.g. /checkout-sessions), not under /v1 — see Python SDK host defaults. */
@@ -30,19 +55,22 @@ export function getLomiSdk(): LomiSDK {
     throw new Error("LOMI_API_KEY is not configured");
   }
   const environment = resolveLomiEnvironment();
+  assertLomiApiKeyMatchesEnvironment(apiKey, environment);
+
   const rawOverride = (process.env.LOMI_API_BASE_URL || "").trim();
   const baseUrlOverride = rawOverride ? normalizeLomiApiBaseUrl(rawOverride) : "";
 
   const liveBase = baseUrlOverride || "https://api.lomi.africa";
   const testBase = baseUrlOverride || "https://sandbox.api.lomi.africa";
 
+  // Live: pass host without /v1 (SDK default is https://api.lomi.africa/v1 — wrong for Lomi’s root routes).
+  // Test: SDK hard-codes https://sandbox.api.lomi.africa/v1 and ignores config.baseUrl; patch OpenAPI.BASE after init.
   const sdk = new LomiSDK({
     apiKey,
     environment,
     ...(environment === "live" ? { baseUrl: liveBase } : {}),
   });
 
-  // @lomi./sdk sets test mode to …/v1, which 404s; real sandbox matches live (no /v1 prefix).
   if (environment === "test") {
     OpenAPI.BASE = testBase;
   }
@@ -241,11 +269,20 @@ export async function pollCompletedLomiCheckoutMetadata(
   return null;
 }
 
+/**
+ * Verify Lomi outbound webhook HMAC on the exact raw request body (do not re-serialize JSON).
+ * @see https://docs.lomi.africa/reference/payments/webhooks (header `X-Lomi-Signature`, secret `whsec_…`)
+ * @see https://docs.lomi.africa/reference/setup/integration
+ */
 export function verifyLomiWebhookSignature(rawBody: string, signatureHeader: string | null, secret: string): boolean {
   if (!rawBody || !signatureHeader || !secret) return false;
   try {
+    let sig = signatureHeader.trim();
+    const prefixed = /^sha256=(.+)$/i.exec(sig);
+    if (prefixed) sig = prefixed[1].trim();
+
     const hmac = crypto.createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
-    const a = Buffer.from(signatureHeader.trim(), "utf8");
+    const a = Buffer.from(sig, "utf8");
     const b = Buffer.from(hmac, "utf8");
     if (a.length !== b.length) return false;
     return crypto.timingSafeEqual(a, b);
