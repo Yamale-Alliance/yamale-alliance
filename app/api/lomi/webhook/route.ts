@@ -3,6 +3,16 @@ import { fulfillPaymentFromMetadata, handlePawaPayDepositWebhook } from "@/lib/p
 import { flattenLomiMetadata, verifyLomiWebhookSignature } from "@/lib/lomi-checkout";
 import crypto from "crypto";
 
+/**
+ * Lomi merchant webhooks (outbound POST from Lomi to you):
+ * - Security: `X-Lomi-Signature` = HMAC-SHA256(raw body, webhook secret `whsec_…`). No `X-API-Key` on delivery.
+ * - Respond with `2xx` quickly (~4s timeout per attempt); work can be deferred. Deliveries may retry; keep idempotent.
+ * @see https://docs.lomi.africa/reference/payments/webhooks
+ * @see https://docs.lomi.africa/reference/setup/integration
+ *
+ * This route also accepts pawaPay callbacks when Lomi signature headers are absent (shared path).
+ */
+
 export const runtime = "nodejs";
 
 type LomiWebhookEvent = {
@@ -19,10 +29,11 @@ export async function POST(request: NextRequest) {
   const rawBody = await request.text();
 
   const lomiSecret = process.env.LOMI_WEBHOOK_SECRET?.trim();
-  const lomiSig = request.headers.get("x-lomi-signature");
+  // Lomi docs: `X-Lomi-Signature` (case-insensitive). Outbound webhooks do not send `X-API-Key`.
+  const lomiSig = request.headers.get("X-Lomi-Signature");
   if (lomiSecret && lomiSig) {
     if (!verifyLomiWebhookSignature(rawBody, lomiSig, lomiSecret)) {
-      return NextResponse.json({ error: "Invalid Lomi webhook signature" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid Lomi webhook signature" }, { status: 401 });
     }
     let payload: LomiWebhookEvent;
     try {
@@ -32,6 +43,10 @@ export async function POST(request: NextRequest) {
     }
 
     const eventType = String(payload.event || "");
+    // POST /webhooks/{id}/test sends `test.webhook` — acknowledge without side effects.
+    if (eventType === "test.webhook") {
+      return NextResponse.json({ received: true });
+    }
     if (eventType === "PAYMENT_SUCCEEDED" && payload.data) {
       const md = flattenLomiMetadata(payload.data.metadata);
       const checkoutId = String(payload.data.checkout_session_id ?? "").trim();
