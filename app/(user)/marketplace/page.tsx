@@ -11,14 +11,13 @@ import {
   Check,
   Loader2,
   ShoppingCart,
-  Zap,
   X,
   Package,
   LayoutGrid,
-  ArrowLeft,
 } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
+import * as Dialog from "@radix-ui/react-dialog";
 import { useAlertDialog } from "@/components/ui/use-confirm";
 import {
   PROTOTYPE_HERO_GRID_PATTERN,
@@ -27,6 +26,10 @@ import {
 } from "@/components/layout/prototype-page-styles";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
+import {
+  PaymentMethodPicker,
+  type CheckoutPaymentProvider,
+} from "@/components/checkout/PaymentMethodPicker";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 
 const BRAND = {
@@ -125,7 +128,19 @@ export default function MarketplacePage() {
   const [selectedTopic, setSelectedTopic] = useState("all");
   const { isSignedIn } = useUser();
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
+  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
+  const [buyModalProduct, setBuyModalProduct] = useState<Product | null>(null);
+  const [buyCheckoutLoading, setBuyCheckoutLoading] = useState(false);
   const confirmedCartSessionRef = useRef<string | null>(null);
+
+  const lomiAvailable =
+    process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
+    Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
+  const lomiComingSoon = false;
+
+  useEffect(() => {
+    if (!lomiAvailable) setPaymentProvider("pawapay");
+  }, [lomiAvailable]);
   const { alert: showAlert, alertDialog } = useAlertDialog();
 
   const categoryQs = searchParams.get("category");
@@ -157,29 +172,55 @@ export default function MarketplacePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // After returning from Stripe cart checkout, confirm payment by session_id
+  // After cart checkout redirect: confirm payment server-side (avoid treating abandoned pawaPay as paid).
   useEffect(() => {
     const sessionId = searchParams.get("session_id");
-    if (!sessionId || confirmedCartSessionRef.current === sessionId) return;
+    const paymentVerify = searchParams.get("payment") === "verify";
+    const legacySuccess = searchParams.get("checkout") === "success";
+
+    if (
+      legacySuccess &&
+      !sessionId &&
+      typeof window !== "undefined" &&
+      window.history.replaceState
+    ) {
+      const u = new URL(window.location.href);
+      u.searchParams.delete("checkout");
+      window.history.replaceState({}, "", u.pathname + (u.search ? u.search : ""));
+    }
+
+    const shouldConfirm =
+      sessionId &&
+      (paymentVerify || legacySuccess) &&
+      confirmedCartSessionRef.current !== sessionId;
+
+    if (!shouldConfirm) return;
+
     confirmedCartSessionRef.current = sessionId;
 
     const confirmAndRefresh = async () => {
       try {
-        await fetch("/api/cart/confirm-payment", {
+        const res = await fetch("/api/cart/confirm-payment", {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ session_id: sessionId }),
         });
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        if (!res.ok || !data.ok) {
+          confirmedCartSessionRef.current = null;
+        }
       } catch {
-        // ignore – webhook may still apply
+        confirmedCartSessionRef.current = null;
       }
 
-      // Clean session_id from URL so refresh doesn't re-trigger
       if (typeof window !== "undefined" && window.history.replaceState) {
         const url = new URL(window.location.href);
         url.searchParams.delete("session_id");
-        window.history.replaceState({}, "", url.toString());
+        url.searchParams.delete("payment");
+        url.searchParams.delete("checkout");
+        url.searchParams.delete("canceled");
+        window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
       }
 
       // Refresh marketplace items so owned flags are updated
@@ -314,35 +355,137 @@ export default function MarketplacePage() {
     }
   };
 
-  const handleBuyNow = async (productId: string, e: React.MouseEvent) => {
+  const openBuyModal = (product: Product, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!isSignedIn) {
       window.location.href = `/sign-in?redirect_url=${encodeURIComponent("/marketplace")}`;
       return;
     }
-    // Direct checkout for single item
+    setBuyModalProduct(product);
+  };
+
+  const submitBuyCheckout = async () => {
+    if (!buyModalProduct) return;
+    setBuyCheckoutLoading(true);
     try {
       const res = await fetch("/api/payments/marketplace-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ itemId: productId, paymentCountry: pawapayPaymentCountry }),
+        body: JSON.stringify({
+          itemId: buyModalProduct.id,
+          provider: paymentProvider,
+          ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
+        }),
       });
       const data = await res.json();
       if (res.ok && data.url) {
-        window.location.href = data.url;
-      } else {
-        await showAlert(data.error ?? "Checkout failed", "Checkout");
+        window.location.href = data.url as string;
+        return;
       }
+      await showAlert(data.error ?? "Checkout failed", "Checkout");
     } catch {
       await showAlert("Something went wrong", "Checkout");
+    } finally {
+      setBuyCheckoutLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-background">
       {alertDialog}
+      <Dialog.Root
+        open={buyModalProduct != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBuyModalProduct(null);
+            setBuyCheckoutLoading(false);
+          }
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm print:hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-[101] flex max-h-[min(90vh,640px)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-border bg-card shadow-2xl print:hidden focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+            <div className="border-b border-border px-5 py-4 pr-12">
+              <Dialog.Title className="text-lg font-semibold tracking-tight text-foreground">
+                Choose payment method
+              </Dialog.Title>
+              {buyModalProduct ? (
+                <Dialog.Description asChild>
+                  <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                    <p className="font-medium text-foreground line-clamp-2">{buyModalProduct.title}</p>
+                    <p>
+                      {buyModalProduct.price_cents === 0
+                        ? "Free"
+                        : `$${(buyModalProduct.price_cents / 100).toFixed(2)}`}
+                    </p>
+                  </div>
+                </Dialog.Description>
+              ) : (
+                <Dialog.Description className="mt-2 text-sm text-muted-foreground">
+                  Select how you would like to pay.
+                </Dialog.Description>
+              )}
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+              <div className="space-y-4">
+                {lomiAvailable && (
+                  <PaymentMethodPicker
+                    value={paymentProvider}
+                    onChange={setPaymentProvider}
+                    lomiAvailable={lomiAvailable}
+                    lomiComingSoon={lomiComingSoon}
+                  />
+                )}
+                {paymentProvider === "pawapay" && (
+                  <PawapayCountrySelect
+                    label="Mobile money country"
+                    value={pawapayPaymentCountry}
+                    onChange={setPawapayPaymentCountry}
+                  />
+                )}
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2 border-t border-border bg-muted/30 px-5 py-4">
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  disabled={buyCheckoutLoading}
+                  className="inline-flex items-center justify-center rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </Dialog.Close>
+              <button
+                type="button"
+                onClick={() => void submitBuyCheckout()}
+                disabled={buyCheckoutLoading}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {buyCheckoutLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    Redirecting…
+                  </>
+                ) : (
+                  "Continue to payment"
+                )}
+              </button>
+            </div>
+            <Dialog.Close asChild>
+              <button
+                type="button"
+                className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                aria-label="Close"
+                disabled={buyCheckoutLoading}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </Dialog.Close>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
       <section className={`relative overflow-hidden ${prototypeNavyHeroSectionClass}`}>
         <div
           className="absolute inset-0 z-0"
@@ -450,15 +593,6 @@ export default function MarketplacePage() {
                 className="w-full rounded-[8px] border border-border bg-card py-2.5 pl-10 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-[#C8922A]"
               />
             </div>
-            {isSignedIn && (
-              <div className="max-w-xl">
-                <PawapayCountrySelect
-                  label="Mobile money country (for Buy now with mobile money)"
-                  value={pawapayPaymentCountry}
-                  onChange={setPawapayPaymentCountry}
-                />
-              </div>
-            )}
           </div>
 
           {loading ? (
@@ -545,7 +679,7 @@ export default function MarketplacePage() {
                                   )}
                                   <button
                                     type="button"
-                                    onClick={(e) => handleBuyNow(product.id, e)}
+                                    onClick={(e) => openBuyModal(product, e)}
                                     className="rounded-[6px] bg-[#0D1B2A] px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-[#162436]"
                                   >
                                     Buy
