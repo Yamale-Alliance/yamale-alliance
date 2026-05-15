@@ -1,6 +1,17 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
+import {
+  clampLawPrintPriceUsdCents,
+  DEFAULT_LAW_PRINT_PRICE_USD_CENTS,
+} from "@/lib/law-print-pricing";
 
-let cachedSettings: { logoUrl: string | null; faviconUrl: string | null; heroImageUrl: string | null } | null = null;
+export type PlatformSettingsSnapshot = {
+  logoUrl: string | null;
+  faviconUrl: string | null;
+  heroImageUrl: string | null;
+  lawPrintPriceUsdCents: number;
+};
+
+let cachedSettings: PlatformSettingsSnapshot | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
@@ -50,7 +61,7 @@ export async function getPlatformHeroImage(): Promise<string | null> {
 /**
  * Get platform settings (server-side, cached)
  */
-export async function getPlatformSettings(): Promise<{ logoUrl: string | null; faviconUrl: string | null; heroImageUrl: string | null }> {
+export async function getPlatformSettings(): Promise<PlatformSettingsSnapshot> {
   const now = Date.now();
   
   // Return cached settings if still valid
@@ -61,7 +72,7 @@ export async function getPlatformSettings(): Promise<{ logoUrl: string | null; f
   try {
     const supabase = getSupabaseServer();
     const { data, error } = await (supabase.from("platform_settings") as any)
-      .select("logo_url, favicon_url, hero_image_url")
+      .select("logo_url, favicon_url, hero_image_url, law_print_price_usd_cents")
       .eq("id", "main")
       .maybeSingle();
 
@@ -71,16 +82,32 @@ export async function getPlatformSettings(): Promise<{ logoUrl: string | null; f
       
       if (!isNotFound && hasMeaningfulErrorDetails(error)) {
         console.error("Platform settings error:", error);
-        return { logoUrl: null, faviconUrl: null, heroImageUrl: null };
+        return {
+          logoUrl: null,
+          faviconUrl: null,
+          heroImageUrl: null,
+          lawPrintPriceUsdCents: DEFAULT_LAW_PRINT_PRICE_USD_CENTS,
+        };
       }
       // Continue with null values on benign/empty driver responses.
     }
 
-    const row = data as { logo_url?: string | null; favicon_url?: string | null; hero_image_url?: string | null } | null;
-    const settings = {
+    const row = data as {
+      logo_url?: string | null;
+      favicon_url?: string | null;
+      hero_image_url?: string | null;
+      law_print_price_usd_cents?: number | null;
+    } | null;
+    const rawPrintCents = row?.law_print_price_usd_cents;
+    const lawPrintPriceUsdCents =
+      typeof rawPrintCents === "number" && Number.isFinite(rawPrintCents)
+        ? clampLawPrintPriceUsdCents(rawPrintCents)
+        : DEFAULT_LAW_PRINT_PRICE_USD_CENTS;
+    const settings: PlatformSettingsSnapshot = {
       logoUrl: row?.logo_url || null,
       faviconUrl: row?.favicon_url || null,
       heroImageUrl: row?.hero_image_url || null,
+      lawPrintPriceUsdCents,
     };
 
     cachedSettings = settings;
@@ -88,8 +115,19 @@ export async function getPlatformSettings(): Promise<{ logoUrl: string | null; f
     return settings;
   } catch (err) {
     console.error("Platform settings unexpected error:", err);
-    return { logoUrl: null, faviconUrl: null, heroImageUrl: null };
+    return {
+      logoUrl: null,
+      faviconUrl: null,
+      heroImageUrl: null,
+      lawPrintPriceUsdCents: DEFAULT_LAW_PRINT_PRICE_USD_CENTS,
+    };
   }
+}
+
+/** Pay-as-you-go law PDF unlock price (USD cents) for checkout and display. */
+export async function getLawPrintPriceUsdCents(): Promise<number> {
+  const settings = await getPlatformSettings();
+  return settings.lawPrintPriceUsdCents;
 }
 
 /**
