@@ -13,6 +13,8 @@ import {
   prototypeHeroEyebrowClass,
   prototypeNavyHeroSectionClass,
 } from "@/components/layout/prototype-page-styles";
+import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
+import { formatLawPrintPriceUsd } from "@/lib/law-print-pricing";
 
 type BillingInterval = "monthly" | "annual";
 
@@ -139,6 +141,8 @@ export default function PricingPage() {
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
     Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
   const lomiComingSoon = false;
+  const { lawPrintPriceUsdCents } = usePlatformSettings();
+  const lawPrintPriceLabel = formatLawPrintPriceUsd(lawPrintPriceUsdCents);
 
   /** Subscription checkout happens under Account (plan, billing period, payment method). */
   const goToSubscriptionCheckout = (planId: string) => {
@@ -522,7 +526,7 @@ export default function PricingPage() {
                 </div>
               </div>
               <div className="shrink-0 text-right">
-                <div className="text-3xl font-bold leading-none text-[#C8922A] sm:text-[40px]">$3</div>
+                <div className="text-3xl font-bold leading-none text-[#C8922A] sm:text-[40px]">{lawPrintPriceLabel}</div>
                 <div className="mt-1 text-[10px] text-muted-foreground sm:text-[11px]">per law</div>
               </div>
             </button>
