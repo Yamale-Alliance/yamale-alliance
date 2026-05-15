@@ -31,6 +31,8 @@ import {
 } from "@/components/checkout/PaymentMethodPicker";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import { fetchDocumentExportUnlockLawIds } from "@/lib/library-document-export-unlocks-client";
+import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
+import { formatLawPrintPriceUsd } from "@/lib/law-print-pricing";
 
 const PAGE_SIZE = 12;
 const SUPPORT_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
@@ -309,6 +311,8 @@ export function LibraryView({
     Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
   const lomiComingSoon = false;
   const isAdmin = (user?.publicMetadata?.role as string | undefined) === "admin";
+  const { lawPrintPriceUsdCents } = usePlatformSettings();
+  const lawPrintPriceLabel = formatLawPrintPriceUsd(lawPrintPriceUsdCents);
   const [search, setSearch] = useState(initialSearch);
   const [searchInput, setSearchInput] = useState(initialSearch);
   const [country, setCountry] = useState(initialCountry);
@@ -933,7 +937,7 @@ export function LibraryView({
               Unlock download
             </Dialog.Title>
             <Dialog.Description className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              A one-time <span className="font-medium text-foreground">$3</span> unlock for this law. Choose mobile money or card, then continue to checkout.
+              A one-time <span className="font-medium text-foreground">{lawPrintPriceLabel}</span> unlock for this law. Choose mobile money or card, then continue to checkout.
             </Dialog.Description>
             <div className="mt-5 min-w-0 space-y-4">
               <PaymentMethodPicker
@@ -1288,14 +1292,14 @@ export function LibraryView({
                           onClick={() => handlePrintPayment(law.id)}
                           disabled={printLoadingId === law.id}
                           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
-                          title="Download ($3) — one-time unlock"
+                          title={`Download (${lawPrintPriceLabel}) — one-time unlock`}
                         >
                           {printLoadingId === law.id ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           ) : (
                             <FileDown className="h-3.5 w-3.5" />
                           )}
-                          <span>Download ($3)</span>
+                          <span>Download ({lawPrintPriceLabel})</span>
                         </button>
                         <Link
                           href={lawHref}
