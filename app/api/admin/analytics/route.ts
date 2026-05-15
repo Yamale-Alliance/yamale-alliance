@@ -9,9 +9,7 @@ import {
   type AnalyticsRangePreset,
 } from "@/lib/admin-analytics-ranges";
 import { isPaidTier, readSubscriptionState } from "@/lib/subscription-state";
-
-/** Document PDF unlock list price (matches `app/api/payments/payg/document/route.ts`). */
-const DOCUMENT_UNLOCK_USD_CENTS = 300;
+import { getLawPrintPriceUsdCents } from "@/lib/platform-settings";
 /** Lawyer search unlock list price (matches `app/api/payments/lawyer-search-unlock/route.ts`). */
 const LAWYER_SEARCH_UNLOCK_USD_CENTS = 500;
 
@@ -78,7 +76,8 @@ export async function GET(request: NextRequest) {
       0
     );
     const documentCount = (docQtyRows ?? []).length;
-    const documentRevenueUsdCents = documentUnits * DOCUMENT_UNLOCK_USD_CENTS;
+    const documentUnlockUsdCents = await getLawPrintPriceUsdCents();
+    const documentRevenueUsdCents = documentUnits * documentUnlockUsdCents;
 
     const { data: searchQtyRows, error: searchErr } = await (supabase.from("pay_as_you_go_purchases") as any)
       .select("quantity")
