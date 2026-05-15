@@ -1,3 +1,4 @@
+import { DEFAULT_LAW_PRINT_PRICE_USD_CENTS } from "@/lib/law-print-pricing";
 import { getPlatformSettings } from "@/lib/platform-settings";
 import { Header } from "@/components/layout/Header";
 import { ConditionalFooter } from "@/components/layout/ConditionalFooter";
@@ -17,6 +18,7 @@ export async function LayoutWithSettings({
     logoUrl: settings.logoUrl ?? null,
     faviconUrl: settings.faviconUrl ?? null,
     heroImageUrl: settings.heroImageUrl ?? null,
+    lawPrintPriceUsdCents: settings.lawPrintPriceUsdCents,
   };
 
   return (
@@ -37,6 +39,7 @@ const EMPTY_INITIAL = {
   logoUrl: null as string | null,
   faviconUrl: null as string | null,
   heroImageUrl: null as string | null,
+  lawPrintPriceUsdCents: DEFAULT_LAW_PRINT_PRICE_USD_CENTS,
 };
 
 /** Fallback when settings are still loading — same layout with null so client can show "Yamalé" / default favicon. */
