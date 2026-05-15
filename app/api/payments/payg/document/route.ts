@@ -10,8 +10,8 @@ import {
 import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
 import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
 import { extractLawIdFromLibraryReturnPath } from "@/lib/library-document-export-path";
+import { getLawPrintPriceUsdCents } from "@/lib/platform-settings";
 
-const DOCUMENT_PRICE_CENTS = 300; // $3 per document
 type CheckoutProvider = "pawapay" | "lomi";
 
 /**
@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
       successPath = `${returnPath}${returnPath.includes("?") ? "&" : "?"}session_id=${encodeURIComponent(depositId)}&payg=document`;
     }
     const lawId = extractLawIdFromLibraryReturnPath(returnPath);
+    const documentPriceCents = await getLawPrintPriceUsdCents();
 
     if (provider === "lomi") {
       if (!isLomiConfigured()) {
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
         );
       }
       const successUrl = `${origin}${successPath.replace(encodeURIComponent(depositId), "{CHECKOUT_SESSION_ID}")}`;
-      const amountMinor = convertUsdCentsToPawapayMinor(DOCUMENT_PRICE_CENTS, currencyCode);
+      const amountMinor = convertUsdCentsToPawapayMinor(documentPriceCents, currencyCode);
       const { checkoutUrl } = await createLomiHostedCheckoutSession({
         amount: amountMinor,
         currency_code: currencyCode,
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
     }
     const gate = requirePawapayPaymentCountry(body as Record<string, unknown>);
     if (!gate.ok) return gate.response;
-    const amountMinor = convertUsdCentsToPawapayMinor(DOCUMENT_PRICE_CENTS, gate.country.currency);
+    const amountMinor = convertUsdCentsToPawapayMinor(documentPriceCents, gate.country.currency);
     const returnBase = resolvePawapayReturnOrigin(requestOrigin);
     const returnUrl = `${returnBase}${successPath}`;
     const { redirectUrl } = await createPaymentPageSession({
