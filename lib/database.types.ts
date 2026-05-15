@@ -313,6 +313,7 @@ export interface Database {
           logo_url: string | null;
           favicon_url: string | null;
           hero_image_url: string | null;
+          law_print_price_usd_cents: number;
           updated_at: string;
           updated_by: string | null;
         };
@@ -321,6 +322,7 @@ export interface Database {
           logo_url?: string | null;
           favicon_url?: string | null;
           hero_image_url?: string | null;
+          law_print_price_usd_cents?: number;
           updated_at?: string;
           updated_by?: string | null;
         };
