@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { pollPawaPayDepositUntilComplete } from "@/lib/pawapay";
 import { getCompletedLomiCheckoutMetadata } from "@/lib/lomi-checkout";
-import { fulfillSubscriptionPlanPayment } from "@/lib/subscription-state";
+import {
+  fulfillSubscriptionPlanPayment,
+  isPaidTier,
+  readSubscriptionState,
+} from "@/lib/subscription-state";
 
 /** After checkout redirect: set user tier and subscription period from pawaPay or Lomi session metadata. */
 export async function POST(request: NextRequest) {
@@ -31,9 +35,16 @@ export async function POST(request: NextRequest) {
       interval = lomiMd.interval;
       changeType = lomiMd.change_type;
     } else {
-      const polled = await pollPawaPayDepositUntilComplete(sessionId);
+      const polled = await pollPawaPayDepositUntilComplete(sessionId, {
+        maxAttempts: 20,
+        delayMs: 500,
+      });
       if (!polled.ok) {
-        return NextResponse.json({ error: polled.message }, { status: 400 });
+        const status = polled.reason === "pending" ? 503 : 400;
+        return NextResponse.json(
+          { error: polled.message, pending: polled.reason === "pending" },
+          { status }
+        );
       }
       const deposit = polled.deposit;
       const sessionUserId = deposit.metadata?.clerk_user_id;
@@ -48,6 +59,13 @@ export async function POST(request: NextRequest) {
 
     if (!planId || !["basic", "pro", "team"].includes(planId)) {
       return NextResponse.json({ error: "Could not determine plan from session" }, { status: 400 });
+    }
+
+    const clerk = await clerkClient();
+    const user = await clerk.users.getUser(userId);
+    const existing = readSubscriptionState((user.publicMetadata ?? {}) as Record<string, unknown>);
+    if (existing.tier === planId && existing.isPaid && isPaidTier(planId)) {
+      return NextResponse.json({ ok: true, tier: planId, alreadyActive: true });
     }
 
     await fulfillSubscriptionPlanPayment(userId, {
