@@ -4,4 +4,6 @@
  *
  * pawaPay dashboards often still point at `/api/stripe/webhook` (rewritten here via next.config).
  */
-export { POST, runtime } from "@/app/api/lomi/webhook/route";
+export { POST } from "@/app/api/lomi/webhook/route";
+
+export const runtime = "nodejs";
