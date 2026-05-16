@@ -20,19 +20,55 @@ export function SubscriptionCheckoutConfirm({ fullPage = false, onSynced }: Prop
 
   if (fullPage && (confirming || synced)) {
     return (
-      <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center bg-background px-4">
-        <Loader2 className="mb-3 h-8 w-8 animate-spin text-primary" aria-hidden />
-        <p className="text-sm font-medium text-foreground">
+      <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center bg-[#fafaf7] px-4 dark:bg-[#0D1B2A]">
+        <Loader2
+          className={`mb-3 h-8 w-8 text-[#C8922A] ${synced ? "" : "animate-spin"}`}
+          aria-hidden
+        />
+        <p className="text-sm font-medium text-[#0D1B2A] dark:text-white">
           {synced ? "Payment confirmed" : "Confirming payment…"}
         </p>
-        <p className="mt-2 max-w-md text-center text-sm text-muted-foreground">
+        <p className="mt-2 max-w-md text-center text-sm text-[#0D1B2A]/70 dark:text-white/70">
           {synced
             ? "Your plan is active. Opening AI Legal Research…"
             : "Checking with your payment provider. M-Pesa can finish a few seconds after the pawaPay page shows success."}
         </p>
         {synced && activatedTier && (
-          <p className="mt-1 text-xs capitalize text-muted-foreground">{activatedTier} plan</p>
+          <p className="mt-1 text-xs capitalize text-[#C8922A]">{activatedTier} plan</p>
         )}
+      </div>
+    );
+  }
+
+  if (fullPage && error) {
+    return (
+      <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center bg-[#fafaf7] px-4 dark:bg-[#0D1B2A]">
+        <div
+          role="alert"
+          className="w-full max-w-md rounded-xl border border-amber-500/40 bg-amber-50 p-6 text-amber-950 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-100"
+        >
+          <p className="font-medium">Payment not confirmed</p>
+          <p className="mt-2 text-sm opacity-90">{errorMessage}</p>
+          <p className="mt-2 text-sm opacity-80">
+            If M-Pesa was charged, wait a few seconds and tap Retry.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={retry}
+              className="rounded-lg bg-[#C8922A] px-4 py-2 text-sm font-medium text-white hover:bg-[#b07e22]"
+            >
+              Retry confirmation
+            </button>
+            <button
+              type="button"
+              onClick={dismiss}
+              className="rounded-lg border border-amber-800/30 px-4 py-2 text-sm font-medium dark:border-amber-500/40"
+            >
+              Continue
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
