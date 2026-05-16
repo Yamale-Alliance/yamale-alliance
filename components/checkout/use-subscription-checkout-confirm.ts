@@ -8,6 +8,8 @@ export type SubscriptionConfirmState = "idle" | "confirming" | "synced" | "error
 
 type SyncTierResponse = { error?: string; pending?: boolean; tier?: string };
 
+const SUCCESS_VISIBLE_MS = 900;
+
 /**
  * After pawaPay/Lomi subscription redirect (`?checkout=success&session_id=…`),
  * poll /api/payments/sync-tier until the plan is active (same pattern as Vault checkout).
@@ -19,6 +21,7 @@ export function useSubscriptionCheckoutConfirm(options?: { onSynced?: () => void
   const [state, setState] = useState<SubscriptionConfirmState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activatedTier, setActivatedTier] = useState<string | null>(null);
+  const [urlCleared, setUrlCleared] = useState(false);
   const confirmedKeyRef = useRef<string | null>(null);
   const onSyncedRef = useRef(options?.onSynced);
   onSyncedRef.current = options?.onSynced;
@@ -26,15 +29,19 @@ export function useSubscriptionCheckoutConfirm(options?: { onSynced?: () => void
 
   const isSuccess = searchParams.get("checkout") === "success";
   const sessionId = searchParams.get("session_id")?.trim() || null;
-  const isReturn = isSuccess && Boolean(sessionId);
+  const isReturn = isSuccess && Boolean(sessionId) && !urlCleared;
 
   const clearReturnParams = useCallback(() => {
-    router.replace("/ai-research", { scroll: false });
+    if (typeof window !== "undefined") {
+      window.history.replaceState({}, "", "/ai-research");
+    }
+    setUrlCleared(true);
+    router.refresh();
   }, [router]);
 
   useEffect(() => {
     if (!isReturn || !sessionId || !user) {
-      if (!isReturn) setState("idle");
+      if (!isReturn && !urlCleared) setState("idle");
       return;
     }
 
@@ -74,7 +81,8 @@ export function useSubscriptionCheckoutConfirm(options?: { onSynced?: () => void
           } catch {
             // best-effort
           }
-          clearReturnParams();
+          await new Promise((r) => setTimeout(r, SUCCESS_VISIBLE_MS));
+          if (!cancelled) clearReturnParams();
           return;
         }
 
@@ -97,7 +105,7 @@ export function useSubscriptionCheckoutConfirm(options?: { onSynced?: () => void
     return () => {
       cancelled = true;
     };
-  }, [isReturn, sessionId, user, retryNonce, clearReturnParams]);
+  }, [isReturn, sessionId, user, retryNonce, clearReturnParams, urlCleared]);
 
   const retry = useCallback(() => {
     confirmedKeyRef.current = null;
