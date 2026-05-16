@@ -6,8 +6,11 @@ const supabaseHostname =
 
 const nextConfig = {
   async rewrites() {
-    // Legacy URL namespace: handlers are Lomi/PawaPay (not Stripe). Old clients still calling `/api/stripe/*` keep working.
-    return [{ source: "/api/stripe/:path*", destination: "/api/payments/:path*" }];
+    // Legacy namespace: most `/api/stripe/*` paths map to `/api/payments/*`. Webhook has its own route file (pawaPay/Lomi, not Stripe).
+    return [
+      { source: "/api/stripe/webhook", destination: "/api/lomi/webhook" },
+      { source: "/api/stripe/:path*", destination: "/api/payments/:path*" },
+    ];
   },
   experimental: {
     // Load CSS in import order so preloaded chunks are used when needed (reduces "preloaded but not used" warnings)
