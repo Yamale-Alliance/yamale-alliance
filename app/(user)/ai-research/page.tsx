@@ -867,11 +867,11 @@ export default function AIResearchPage() {
 
   if (!effectiveTierLoaded || confirmingPayment || !noticeCheckDone) {
     return (
-      <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-background px-4">
+      <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-[#fafaf7] px-4 dark:bg-[#0D1B2A]">
         <div className="text-center">
-          <Loader2 className="mx-auto mb-2 h-8 w-8 animate-spin text-primary" />
+          <Loader2 className="mx-auto mb-2 h-8 w-8 animate-spin text-[#C8922A]" />
           {confirmingPayment && (
-            <p className="text-sm text-muted-foreground">Confirming payment...</p>
+            <p className="mt-2 text-sm text-[#0D1B2A]/70 dark:text-white/70">Confirming payment…</p>
           )}
         </div>
       </div>
