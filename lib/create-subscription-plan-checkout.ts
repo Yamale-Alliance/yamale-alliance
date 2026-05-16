@@ -37,7 +37,7 @@ const BASE_SUB_KIND = "subscription_plan";
  */
 export async function createSubscriptionPlanCheckoutRedirect(params: CreatePlanCheckoutParams): Promise<Result> {
   const { userId, planId, interval, usdCents, metadataExtra, requestOrigin, provider, pawapayBody } = params;
-  const successPath = params.successPath ?? "/dashboard";
+  const successPath = params.successPath ?? "/ai-research";
   const cancelPath = params.cancelPath ?? "/subscription";
   const baseMeta: Record<string, string> = {
     clerk_user_id: userId,
