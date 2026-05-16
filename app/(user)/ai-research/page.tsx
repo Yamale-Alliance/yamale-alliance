@@ -27,6 +27,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { canShareByEmail, canDownloadConversations } from "@/lib/plan-limits";
+import { SubscriptionCheckoutConfirm } from "@/components/checkout/SubscriptionCheckoutConfirm";
 
 type Tier = "free" | "basic" | "pro" | "team";
 
@@ -856,6 +857,12 @@ export default function AIResearchPage() {
         <p className="text-sm text-muted-foreground">Sign in to use AI Legal Research.</p>
       </div>
     );
+  }
+
+  const isSubscriptionCheckoutReturn =
+    searchParams.get("checkout") === "success" && Boolean(searchParams.get("session_id")?.trim());
+  if (isSubscriptionCheckoutReturn) {
+    return <SubscriptionCheckoutConfirm fullPage onSynced={fetchAiUsage} />;
   }
 
   if (!effectiveTierLoaded || confirmingPayment || !noticeCheckDone) {
