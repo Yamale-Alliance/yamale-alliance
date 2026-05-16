@@ -23,6 +23,8 @@ const isPublicRoute = createRouteMatcher([
   "/api/pricing", // public pricing data for pricing page
   "/api/marketplace(.*)", // public marketplace list and detail
   "/api/lomi/webhook", // Lomi (X-Lomi-Signature) + pawaPay callbacks — public; do not require Clerk or X-API-Key here
+  "/api/payments/webhook", // legacy docs URL; same handler as /api/lomi/webhook
+  "/api/stripe/webhook", // legacy Stripe-era URL; pawaPay may still POST here (not Stripe)
 ]);
 
 // Basic HTTP Authentication
@@ -73,7 +75,9 @@ export default clerkMiddleware(async (auth, request) => {
       url.pathname.startsWith("/api/laws/") ||
       url.pathname === "/api/pricing");
   const isWebhookCallback =
-    url.pathname === "/api/lomi/webhook";
+    url.pathname === "/api/lomi/webhook" ||
+    url.pathname === "/api/payments/webhook" ||
+    url.pathname === "/api/stripe/webhook";
   if (process.env.ENABLE_BASIC_AUTH === "true" && !isPublicApi && !isWebhookCallback) {
     if (!checkBasicAuth(request)) {
       const unauthorized = new NextResponse("Authentication required", {
