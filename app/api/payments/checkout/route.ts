@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       requestOrigin,
       provider,
       pawapayBody: body,
-      successPath: "/dashboard",
+      successPath: "/ai-research",
       cancelPath: "/pricing",
     });
 
