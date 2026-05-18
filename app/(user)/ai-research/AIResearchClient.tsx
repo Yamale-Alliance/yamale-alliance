@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, type FormEvent } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useClientSearchParams } from "@/lib/use-client-search-params";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useUser } from "@clerk/nextjs";
@@ -162,7 +162,7 @@ function saveSessions(sessions: ChatSession[]) {
 
 export default function AIResearchClient() {
   const { user, isLoaded } = useUser();
-  const searchParams = useSearchParams();
+  const searchParams = useClientSearchParams();
   const [sessions, setSessions] = useState<ChatSession[]>(() =>
     typeof window === "undefined" ? [] : loadSessions()
   );
@@ -239,8 +239,9 @@ export default function AIResearchClient() {
   // User is at limit only if they can't query (no plan limit remaining AND no pay-as-you-go purchases)
   const atLimit = !canQuery;
   const [usageFetched, setUsageFetched] = useState(false);
-  /** Wait for Clerk before treating missing `user` as signed-out; require usage when signed in. */
-  const effectiveTierLoaded = !isLoaded || !user || usageFetched;
+  const [clerkLoadTimedOut, setClerkLoadTimedOut] = useState(false);
+  /** Usage may load in the background once Clerk is ready; do not block the shell forever. */
+  const effectiveTierLoaded = !isLoaded || usageFetched;
 
   const filteredSessions = searchChats.trim()
     ? sessions.filter(
@@ -298,7 +299,13 @@ export default function AIResearchClient() {
   const fetchAiUsage = useCallback(async () => {
     if (!user) return;
     try {
-      const res = await fetch("/api/ai/usage", { credentials: "include" });
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 15_000);
+      const res = await fetch("/api/ai/usage", {
+        credentials: "include",
+        signal: controller.signal,
+      });
+      window.clearTimeout(timeout);
       const data = (await res.json()) as {
         used?: number;
         limit?: number | null;
@@ -325,9 +332,23 @@ export default function AIResearchClient() {
   }, [user]);
 
   useEffect(() => {
-    if (!user) return;
-    fetchAiUsage();
-  }, [user, fetchAiUsage]);
+    if (!isLoaded) return;
+    if (!user) {
+      setUsageFetched(true);
+      return;
+    }
+    setUsageFetched(false);
+    void fetchAiUsage();
+  }, [isLoaded, user, fetchAiUsage]);
+
+  useEffect(() => {
+    if (isLoaded) {
+      setClerkLoadTimedOut(false);
+      return;
+    }
+    const t = window.setTimeout(() => setClerkLoadTimedOut(true), 12_000);
+    return () => window.clearTimeout(t);
+  }, [isLoaded]);
 
   const fetchModels = useCallback(async () => {
     try {
@@ -439,6 +460,7 @@ export default function AIResearchClient() {
             if (cancelled) return;
             await fetchAiUsage();
             window.history.replaceState({}, "", "/ai-research");
+            window.dispatchEvent(new PopStateEvent("popstate"));
             return;
           }
           if (res.status === 409 && attempt < maxAttempts - 1) {
@@ -453,6 +475,7 @@ export default function AIResearchClient() {
           await fetchAiUsage();
           // Avoid infinite re-confirm loops from sticky query params after a failed attempt.
           window.history.replaceState({}, "", "/ai-research");
+          window.dispatchEvent(new PopStateEvent("popstate"));
         }
       } finally {
         // Always clear UI gate (see effect comment on `confirmingPayment` deps).
@@ -852,7 +875,7 @@ export default function AIResearchClient() {
     setHasAcknowledgedNotice(true);
   };
 
-  if (!isLoaded) {
+  if (!isLoaded && !clerkLoadTimedOut) {
     return (
       <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center bg-[#fafaf7] px-4 dark:bg-[#0D1B2A]">
         <Loader2 className="h-8 w-8 animate-spin text-[#C8922A]" aria-hidden />
@@ -882,6 +905,9 @@ export default function AIResearchClient() {
           <Loader2 className="mx-auto mb-2 h-8 w-8 animate-spin text-[#C8922A]" />
           {confirmingPayment && (
             <p className="mt-2 text-sm text-[#0D1B2A]/70 dark:text-white/70">Confirming payment…</p>
+          )}
+          {!confirmingPayment && !usageFetched && (
+            <p className="mt-2 text-sm text-[#0D1B2A]/70 dark:text-white/70">Loading your plan…</p>
           )}
         </div>
       </div>

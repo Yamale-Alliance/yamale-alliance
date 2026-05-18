@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
+import { useClientSearchParams } from "@/lib/use-client-search-params";
 
 export type SubscriptionConfirmState = "idle" | "confirming" | "synced" | "error";
 
@@ -15,7 +16,7 @@ const SUCCESS_VISIBLE_MS = 900;
  * poll /api/payments/sync-tier until the plan is active (same pattern as Vault checkout).
  */
 export function useSubscriptionCheckoutConfirm(options?: { onSynced?: () => void | Promise<void> }) {
-  const searchParams = useSearchParams();
+  const searchParams = useClientSearchParams();
   const router = useRouter();
   const { user } = useUser();
   const [state, setState] = useState<SubscriptionConfirmState>("idle");
@@ -34,6 +35,7 @@ export function useSubscriptionCheckoutConfirm(options?: { onSynced?: () => void
   const clearReturnParams = useCallback(() => {
     if (typeof window !== "undefined") {
       window.history.replaceState({}, "", "/ai-research");
+      window.dispatchEvent(new PopStateEvent("popstate"));
     }
     setUrlCleared(true);
     router.refresh();
