@@ -6,6 +6,7 @@ import { DynamicFavicon } from "@/components/platform/DynamicFavicon";
 import { PlatformSettingsProvider } from "@/components/platform/PlatformSettingsContext";
 import { OfflineProvider } from "@/components/offline/OfflineProvider";
 import { SubscriptionRenewalReminder } from "@/components/subscription/SubscriptionRenewalReminder";
+import { FoundersNoteGate } from "@/components/founders-note/FoundersNoteGate";
 
 /** Server component: fetches platform settings and renders layout with logo/favicon/hero in context. */
 export async function LayoutWithSettings({
@@ -18,6 +19,7 @@ export async function LayoutWithSettings({
     logoUrl: settings.logoUrl ?? null,
     faviconUrl: settings.faviconUrl ?? null,
     heroImageUrl: settings.heroImageUrl ?? null,
+    founderPortraitUrl: settings.founderPortraitUrl ?? null,
     lawPrintPriceUsdCents: settings.lawPrintPriceUsdCents,
   };
 
@@ -27,6 +29,7 @@ export async function LayoutWithSettings({
       <div className="flex min-h-screen flex-col">
         <Header />
         <SubscriptionRenewalReminder />
+        <FoundersNoteGate />
         <div className="flex-1">{children}</div>
         <ConditionalFooter />
       </div>
@@ -39,6 +42,7 @@ const EMPTY_INITIAL = {
   logoUrl: null as string | null,
   faviconUrl: null as string | null,
   heroImageUrl: null as string | null,
+  founderPortraitUrl: null as string | null,
   lawPrintPriceUsdCents: DEFAULT_LAW_PRINT_PRICE_USD_CENTS,
 };
 
@@ -54,6 +58,7 @@ export function LayoutWithSettingsFallback({
       <div className="flex min-h-screen flex-col">
         <Header />
         <SubscriptionRenewalReminder />
+        <FoundersNoteGate />
         <div className="flex-1">{children}</div>
         <ConditionalFooter />
       </div>
