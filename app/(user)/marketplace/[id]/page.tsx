@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useClientSearchParams } from "@/lib/use-client-search-params";
 import Link from "next/link";
 import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, Eye, Star, ShoppingCart, Zap, X, Download } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
@@ -13,6 +14,12 @@ import {
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { FileViewer } from "@/components/marketplace/FileViewer";
 import { MarketplaceLandingIframe } from "@/components/marketplace/MarketplaceLandingIframe";
+import { useMarketplacePaymentReturn } from "@/components/marketplace/use-marketplace-payment-return";
+import {
+  marketplacePaymentReturnQuerySuffix,
+  parseMarketplacePaymentReturn,
+} from "@/lib/marketplace-payment-return";
+import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
 
 const BRAND = {
   dark: "#221913",
@@ -78,7 +85,7 @@ function getYouTubeEmbedUrl(url: string | null | undefined): string | null {
 export default function MarketplaceItemPage() {
   const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useClientSearchParams();
   const { isLoaded, isSignedIn } = useUser();
   const id = params?.id as string;
 
@@ -101,9 +108,6 @@ export default function MarketplaceItemPage() {
   const [ratingError, setRatingError] = useState<string | null>(null);
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
-  const [showVerifiedPaymentSuccess, setShowVerifiedPaymentSuccess] = useState(false);
-  const [showPaymentNotCompleted, setShowPaymentNotCompleted] = useState(false);
-  const [paymentVerifyInProgress, setPaymentVerifyInProgress] = useState(false);
 
   const lomiAvailable =
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
@@ -118,19 +122,32 @@ export default function MarketplaceItemPage() {
     setPaymentProvider((prev) => (prev === "lomi" ? "lomi" : "pawapay"));
   }, [lomiAvailable]);
 
-  const checkoutStatus = searchParams?.get("checkout");
-  const checkoutCancelled =
-    checkoutStatus === "cancelled" || searchParams?.get("canceled") === "1";
-  const rawSessionId = searchParams?.get("session_id")?.trim() ?? "";
-  const fromLomiReturn = searchParams?.get("from_lomi") === "1";
-  const isLomiSessionPlaceholder =
-    rawSessionId === "{CHECKOUT_SESSION_ID}" ||
-    decodeURIComponent(rawSessionId) === "{CHECKOUT_SESSION_ID}";
-  const sessionId = rawSessionId && !isLomiSessionPlaceholder ? rawSessionId : null;
-  const paymentVerify = searchParams?.get("payment") === "verify";
-  const legacyCheckoutSuccess = checkoutStatus === "success";
-  /** Dedupe confirm calls per item + session (avoids StrictMode double POST; resets on failure). */
-  const confirmedSessionRef = useRef<string | null>(null);
+  const refetchItem = useCallback(async () => {
+    if (!id) return;
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    try {
+      const r = await fetch(`${origin}/api/marketplace/${id}`, { credentials: "include" });
+      const data = (await r.json()) as { item?: Item };
+      if (data.item) setItem(data.item);
+      else setError("Item not found");
+    } catch {
+      setError("Failed to load");
+    }
+  }, [id]);
+
+  const {
+    params: paymentParams,
+    paymentVerifyInProgress,
+    showVerifiedPaymentSuccess,
+    showPaymentNotCompleted,
+  } = useMarketplacePaymentReturn({
+    mode: "item",
+    scopeId: id,
+    clearParamsPathname: id ? `/marketplace/${id}` : undefined,
+    onConfirmed: refetchItem,
+  });
+
+  const checkoutCancelled = paymentParams.checkoutCancelled;
 
   const fetchDownloadUrl = async () => {
     if (!item?.id || !item.has_file) return null;
@@ -182,99 +199,19 @@ export default function MarketplaceItemPage() {
     setViewing(false);
   };
 
-  // On return from Lomi / pawaPay: verify payment server-side before showing success (avoids false positive on cancel).
   useEffect(() => {
     if (!id) return;
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const sid = sessionId ?? null;
-    const verifyKey = sid ? `${id}:${sid}` : fromLomiReturn ? `${id}:lomi_cookie` : null;
+    setLoading(true);
+    void refetchItem().finally(() => setLoading(false));
+  }, [id, refetchItem]);
 
-    const run = async () => {
-      if (
-        legacyCheckoutSuccess &&
-        !sid &&
-        !fromLomiReturn &&
-        typeof window !== "undefined" &&
-        window.history.replaceState
-      ) {
-        const u = new URL(window.location.href);
-        u.searchParams.delete("checkout");
-        window.history.replaceState({}, "", u.pathname + (u.search ? u.search : ""));
-      }
-
-      const shouldVerify =
-        verifyKey !== null &&
-        (paymentVerify || legacyCheckoutSuccess) &&
-        confirmedSessionRef.current !== verifyKey;
-
-      if (shouldVerify && verifyKey) {
-        confirmedSessionRef.current = verifyKey;
-        setPaymentVerifyInProgress(true);
-        setShowVerifiedPaymentSuccess(false);
-        setShowPaymentNotCompleted(false);
-        try {
-          const confirmOnce = () =>
-            fetch("/api/marketplace/confirm-payment", {
-              method: "POST",
-              credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(
-                sid ? { session_id: sid } : { from_lomi_cookie: true }
-              ),
-            });
-
-          let res = await confirmOnce();
-          let data = (await res.json().catch(() => ({}))) as {
-            ok?: boolean;
-            pending?: boolean;
-            error?: string;
-          };
-          if (!res.ok && res.status === 503 && data.pending) {
-            await new Promise((r) => setTimeout(r, 2500));
-            res = await confirmOnce();
-            data = (await res.json().catch(() => ({}))) as { ok?: boolean; pending?: boolean; error?: string };
-          }
-          if (res.ok && data.ok) {
-            setShowVerifiedPaymentSuccess(true);
-            setShowPaymentNotCompleted(false);
-          } else {
-            confirmedSessionRef.current = null;
-            setShowVerifiedPaymentSuccess(false);
-            setShowPaymentNotCompleted(true);
-          }
-        } catch {
-          confirmedSessionRef.current = null;
-          setShowVerifiedPaymentSuccess(false);
-          setShowPaymentNotCompleted(true);
-        } finally {
-          setPaymentVerifyInProgress(false);
-          if (typeof window !== "undefined" && window.history.replaceState) {
-            const u = new URL(window.location.href);
-            u.searchParams.delete("session_id");
-            u.searchParams.delete("payment");
-            u.searchParams.delete("from_lomi");
-            u.searchParams.delete("checkout");
-            u.searchParams.delete("canceled");
-            window.history.replaceState({}, "", u.pathname + (u.search ? u.search : ""));
-          }
-        }
-      }
-
-      setLoading(true);
-      try {
-        const r = await fetch(`${origin}/api/marketplace/${id}`, { credentials: "include" });
-        const data = await r.json();
-        if (data.item) setItem(data.item);
-        else setError("Item not found");
-      } catch {
-        setError("Failed to load");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void run();
-  }, [id, sessionId, fromLomiReturn, paymentVerify, legacyCheckoutSuccess]);
+  useEffect(() => {
+    if (loading || !item || !id) return;
+    if (!isMarketplaceZip(item)) return;
+    const returnParams = parseMarketplacePaymentReturn(searchParams);
+    const suffix = marketplacePaymentReturnQuerySuffix(returnParams);
+    router.replace(`/marketplace/${id}/package${suffix}`);
+  }, [loading, item, id, router, searchParams]);
 
   // Fetch reviews
   useEffect(() => {
@@ -310,16 +247,6 @@ export default function MarketplaceItemPage() {
       })
       .catch(() => setIsInCart(false));
   }, [isSignedIn, id]);
-
-  useEffect(() => {
-    if (loading || !item || !id) return;
-    const zip =
-      item.file_format?.toLowerCase() === "zip" ||
-      (item.file_name?.toLowerCase().endsWith(".zip") ?? false);
-    if (zip) {
-      router.replace(`/marketplace/${id}/package`);
-    }
-  }, [loading, item, id, router]);
 
   const handlePurchase = async () => {
     if (!item || item.price_cents <= 0) return;
@@ -506,7 +433,7 @@ export default function MarketplaceItemPage() {
 
   const fileFmt = item.file_format?.toLowerCase() ?? "";
   const fileNameLower = item.file_name?.toLowerCase() ?? "";
-  const isZip = fileFmt === "zip" || fileNameLower.endsWith(".zip");
+  const isZip = isMarketplaceZip(item);
 
   const landingHtml = item.landing_page_html?.trim();
 
@@ -514,6 +441,7 @@ export default function MarketplaceItemPage() {
     return (
       <div className="flex min-h-[50vh] items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <span className="sr-only">Opening package…</span>
       </div>
     );
   }

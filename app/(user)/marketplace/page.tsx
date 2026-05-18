@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -16,7 +16,7 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
-import { useSearchParams } from "next/navigation";
+import { useClientSearchParams } from "@/lib/use-client-search-params";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useAlertDialog } from "@/components/ui/use-confirm";
 import {
@@ -31,6 +31,7 @@ import {
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
+import { useMarketplacePaymentReturn } from "@/components/marketplace/use-marketplace-payment-return";
 
 const BRAND = {
   dark: "#221913",
@@ -118,7 +119,7 @@ function inferTopic(product: Product): string {
 }
 
 export default function MarketplacePage() {
-  const searchParams = useSearchParams();
+  const searchParams = useClientSearchParams();
   const [search, setSearch] = useState("");
   const [items, setItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,7 +132,6 @@ export default function MarketplacePage() {
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
   const [buyModalProduct, setBuyModalProduct] = useState<Product | null>(null);
   const [buyCheckoutLoading, setBuyCheckoutLoading] = useState(false);
-  const confirmedCartSessionRef = useRef<string | null>(null);
 
   const lomiAvailable =
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
@@ -163,103 +163,27 @@ export default function MarketplacePage() {
     return countsByType.get(param) ?? 0;
   };
 
-  useEffect(() => {
+  const refreshItems = useCallback(async () => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    fetch(`${origin}/api/marketplace`, { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => setItems(Array.isArray(data.items) ? data.items : []))
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
+    try {
+      const r = await fetch(`${origin}/api/marketplace`, { credentials: "include" });
+      const data = await r.json();
+      setItems(Array.isArray(data.items) ? data.items : []);
+    } catch {
+      setItems([]);
+    }
   }, []);
 
-  // After cart checkout redirect: confirm payment server-side (avoid treating abandoned pawaPay as paid).
   useEffect(() => {
-    const rawSessionId = searchParams.get("session_id")?.trim() ?? "";
-    const fromLomiReturn = searchParams.get("from_lomi") === "1";
-    const isLomiSessionPlaceholder =
-      rawSessionId === "{CHECKOUT_SESSION_ID}" ||
-      decodeURIComponent(rawSessionId) === "{CHECKOUT_SESSION_ID}";
-    const sessionId = rawSessionId && !isLomiSessionPlaceholder ? rawSessionId : null;
-    const paymentVerify = searchParams.get("payment") === "verify";
-    const legacySuccess = searchParams.get("checkout") === "success";
+    setLoading(true);
+    void refreshItems().finally(() => setLoading(false));
+  }, [refreshItems]);
 
-    if (
-      legacySuccess &&
-      !sessionId &&
-      !fromLomiReturn &&
-      typeof window !== "undefined" &&
-      window.history.replaceState
-    ) {
-      const u = new URL(window.location.href);
-      u.searchParams.delete("checkout");
-      window.history.replaceState({}, "", u.pathname + (u.search ? u.search : ""));
-    }
-
-    const verifyKey = sessionId ?? (fromLomiReturn ? "lomi_cart_cookie" : null);
-    const shouldConfirm =
-      verifyKey !== null &&
-      (paymentVerify || legacySuccess) &&
-      confirmedCartSessionRef.current !== verifyKey;
-
-    if (!shouldConfirm || !verifyKey) return;
-
-    confirmedCartSessionRef.current = verifyKey;
-
-    const confirmAndRefresh = async () => {
-      try {
-        const confirmOnce = () =>
-          fetch("/api/cart/confirm-payment", {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(
-              sessionId ? { session_id: sessionId } : { from_lomi_cookie: true }
-            ),
-          });
-        let res = await confirmOnce();
-        let data = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          pending?: boolean;
-          error?: string;
-        };
-        if (!res.ok && res.status === 503 && data.pending) {
-          await new Promise((r) => setTimeout(r, 2500));
-          res = await confirmOnce();
-          data = (await res.json().catch(() => ({}))) as { ok?: boolean; pending?: boolean; error?: string };
-        }
-        if (!res.ok || !data.ok) {
-          confirmedCartSessionRef.current = null;
-        }
-      } catch {
-        confirmedCartSessionRef.current = null;
-      }
-
-      if (typeof window !== "undefined" && window.history.replaceState) {
-        const url = new URL(window.location.href);
-        url.searchParams.delete("session_id");
-        url.searchParams.delete("payment");
-        url.searchParams.delete("from_lomi");
-        url.searchParams.delete("checkout");
-        url.searchParams.delete("canceled");
-        window.history.replaceState({}, "", url.pathname + (url.search ? url.search : ""));
-      }
-
-      // Refresh marketplace items so owned flags are updated
-      try {
-        setLoading(true);
-        const origin = typeof window !== "undefined" ? window.location.origin : "";
-        const r = await fetch(`${origin}/api/marketplace`, { credentials: "include" });
-        const data = await r.json();
-        setItems(Array.isArray(data.items) ? data.items : []);
-      } catch {
-        // ignore
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    confirmAndRefresh();
-  }, [searchParams]);
+  const { paymentVerifyInProgress, showVerifiedPaymentSuccess } = useMarketplacePaymentReturn({
+    mode: "cart",
+    clearParamsPathname: "/marketplace",
+    onConfirmed: refreshItems,
+  });
 
   // Fetch cart items
   useEffect(() => {
@@ -553,6 +477,20 @@ export default function MarketplacePage() {
           </div>
         </div>
       </section>
+      {(paymentVerifyInProgress || showVerifiedPaymentSuccess) && (
+        <div className="border-b border-border bg-card px-4 py-3">
+          <div className="mx-auto max-w-7xl text-sm">
+            {paymentVerifyInProgress && (
+              <p className="text-muted-foreground">Confirming your payment…</p>
+            )}
+            {showVerifiedPaymentSuccess && !paymentVerifyInProgress && (
+              <p className="font-medium text-green-700 dark:text-green-400">
+                Payment successful. Your purchased items are now available — open them below or under Purchased.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
       <section className="pb-16 pt-9">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="rounded-[8px] border border-border bg-muted p-4 text-sm leading-relaxed text-muted-foreground">
@@ -726,3 +664,4 @@ export default function MarketplacePage() {
     </div>
   );
 }
+

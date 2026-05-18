@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { ArrowLeft, Download, Loader2 } from "lucide-react";
+import { useMarketplacePaymentReturn } from "@/components/marketplace/use-marketplace-payment-return";
 import {
   PaymentMethodPicker,
   type CheckoutPaymentProvider,
@@ -38,7 +39,6 @@ const PURCHASE_SECTION_ID = "lfp-purchase";
 export default function MarketplaceZipPackagePage() {
   const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const id = params?.id as string;
   const { isLoaded, isSignedIn } = useUser();
 
@@ -57,16 +57,37 @@ export default function MarketplaceZipPackagePage() {
   const [isInCart, setIsInCart] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [zipViewerOpen, setZipViewerOpen] = useState(false);
-  const [showVerifiedPaymentSuccess, setShowVerifiedPaymentSuccess] = useState(false);
-  const [showPaymentNotCompleted, setShowPaymentNotCompleted] = useState(false);
-  const [paymentVerifyInProgress, setPaymentVerifyInProgress] = useState(false);
 
-  const checkoutStatus = searchParams?.get("checkout");
-  const paymentVerify = searchParams?.get("payment") === "verify";
-  const legacyCheckoutSuccess = checkoutStatus === "success";
-  const checkoutCancelled =
-    checkoutStatus === "cancelled" || searchParams?.get("canceled") === "1";
-  const confirmedPaymentSessionRef = useRef<string | null>(null);
+  const refetchItem = useCallback(async () => {
+    if (!id) return;
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    try {
+      const r = await fetch(`${origin}/api/marketplace/${id}`, { credentials: "include" });
+      const data = (await r.json()) as { item?: Item };
+      if (data.item) {
+        setItem(data.item);
+        if (data.item.purchased && data.item.has_file) {
+          setZipViewerOpen(true);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [id]);
+
+  const {
+    params: paymentParams,
+    paymentVerifyInProgress,
+    showVerifiedPaymentSuccess,
+    showPaymentNotCompleted,
+  } = useMarketplacePaymentReturn({
+    mode: "cart",
+    scopeId: id,
+    clearParamsPathname: id ? `/marketplace/${id}/package` : undefined,
+    onConfirmed: refetchItem,
+  });
+
+  const checkoutCancelled = paymentParams.checkoutCancelled;
 
   useEffect(() => {
     if ((!lomiAvailable || lomiComingSoon) && paymentProvider === "lomi") {
@@ -107,112 +128,6 @@ export default function MarketplaceZipPackagePage() {
       router.replace(`/marketplace/${id}`);
     }
   }, [loading, item, id, router]);
-
-  useEffect(() => {
-    const rawSessionId = searchParams?.get("session_id")?.trim() ?? "";
-    const fromLomiReturn = searchParams?.get("from_lomi") === "1";
-    const isLomiSessionPlaceholder =
-      rawSessionId === "{CHECKOUT_SESSION_ID}" ||
-      decodeURIComponent(rawSessionId) === "{CHECKOUT_SESSION_ID}";
-    const sid = rawSessionId && !isLomiSessionPlaceholder ? rawSessionId : null;
-
-    if (
-      legacyCheckoutSuccess &&
-      !sid &&
-      !fromLomiReturn &&
-      typeof window !== "undefined" &&
-      window.history.replaceState
-    ) {
-      const u = new URL(window.location.href);
-      u.searchParams.delete("checkout");
-      window.history.replaceState({}, "", u.pathname + (u.search ? u.search : ""));
-    }
-
-    const verifyKey = sid ?? (fromLomiReturn ? "lomi_cart_cookie" : null);
-    const shouldConfirm =
-      verifyKey !== null &&
-      (paymentVerify || legacyCheckoutSuccess) &&
-      Boolean(isSignedIn) &&
-      Boolean(id) &&
-      confirmedPaymentSessionRef.current !== `${id}:${verifyKey}`;
-
-    if (!shouldConfirm || !verifyKey) return;
-
-    confirmedPaymentSessionRef.current = `${id}:${verifyKey}`;
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-
-    const run = async () => {
-      setPaymentVerifyInProgress(true);
-      setShowVerifiedPaymentSuccess(false);
-      setShowPaymentNotCompleted(false);
-      try {
-        const confirmOnce = () =>
-          fetch("/api/cart/confirm-payment", {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(
-              sid ? { session_id: sid } : { from_lomi_cookie: true }
-            ),
-          });
-
-        let res = await confirmOnce();
-        let data = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          pending?: boolean;
-          error?: string;
-        };
-        if (!res.ok && res.status === 503 && data.pending) {
-          await new Promise((r) => setTimeout(r, 2500));
-          res = await confirmOnce();
-          data = (await res.json().catch(() => ({}))) as { ok?: boolean; pending?: boolean; error?: string };
-        }
-        if (res.ok && data.ok) {
-          setShowVerifiedPaymentSuccess(true);
-          setShowPaymentNotCompleted(false);
-        } else {
-          confirmedPaymentSessionRef.current = null;
-          setShowVerifiedPaymentSuccess(false);
-          setShowPaymentNotCompleted(true);
-        }
-      } catch {
-        confirmedPaymentSessionRef.current = null;
-        setShowVerifiedPaymentSuccess(false);
-        setShowPaymentNotCompleted(true);
-      } finally {
-        setPaymentVerifyInProgress(false);
-        if (typeof window !== "undefined" && window.history.replaceState) {
-          const u = new URL(window.location.href);
-          u.searchParams.delete("session_id");
-          u.searchParams.delete("payment");
-          u.searchParams.delete("from_lomi");
-          u.searchParams.delete("checkout");
-          u.searchParams.delete("canceled");
-          window.history.replaceState({}, "", u.pathname + (u.search ? u.search : ""));
-        }
-      }
-      try {
-        const r = await fetch(`${origin}/api/marketplace/${id}`, { credentials: "include" });
-        const data = await r.json();
-        if (data.item) setItem(data.item);
-      } catch {
-        // ignore
-      }
-    };
-
-    void run();
-  }, [searchParams, isSignedIn, id, paymentVerify, legacyCheckoutSuccess]);
-
-  const refetchItem = () => {
-    if (!id) return;
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
-    fetch(`${origin}/api/marketplace/${id}`, { credentials: "include" })
-      .then((r) => r.json())
-      .then((data: { item?: Item }) => {
-        if (data.item) setItem(data.item);
-      })
-      .catch(() => {});
-  };
 
   const fetchDownloadUrl = async () => {
     if (!item?.id || !item.has_file) return null;
