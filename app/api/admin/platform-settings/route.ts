@@ -12,6 +12,7 @@ export async function GET() {
       logoUrl: settings.logoUrl ?? null,
       faviconUrl: settings.faviconUrl ?? null,
       heroImageUrl: settings.heroImageUrl ?? null,
+      founderPortraitUrl: settings.founderPortraitUrl ?? null,
     });
   } catch (err) {
     console.error("Platform settings GET unexpected error:", err);
@@ -38,9 +39,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (type !== "logo" && type !== "favicon" && type !== "hero") {
+    if (type !== "logo" && type !== "favicon" && type !== "hero" && type !== "founder_portrait") {
       return NextResponse.json(
-        { error: "Type must be 'logo', 'favicon', or 'hero'" },
+        { error: "Type must be 'logo', 'favicon', 'hero', or 'founder_portrait'" },
         { status: 400 }
       );
     }
@@ -78,7 +79,14 @@ export async function POST(request: NextRequest) {
 
     // Update database
     const supabase = getSupabaseServer();
-    const updateField = type === "logo" ? "logo_url" : type === "favicon" ? "favicon_url" : "hero_image_url";
+    const updateField =
+      type === "logo"
+        ? "logo_url"
+        : type === "favicon"
+          ? "favicon_url"
+          : type === "hero"
+            ? "hero_image_url"
+            : "founder_portrait_url";
     const { error: updateError } = await (supabase.from("platform_settings") as any)
       .update({
         [updateField]: secure_url,
@@ -88,7 +96,20 @@ export async function POST(request: NextRequest) {
       .eq("id", "main");
 
     if (updateError) {
+      const msg =
+        typeof updateError === "object" && updateError && "message" in updateError
+          ? String((updateError as { message?: string }).message ?? "")
+          : "";
       console.error("Platform settings update error:", updateError);
+      if (type === "founder_portrait" && /founder_portrait_url|does not exist/i.test(msg)) {
+        return NextResponse.json(
+          {
+            error:
+              "Database column founder_portrait_url is missing. Run the Supabase migration supabase/migrations/20260518120000_add_founder_portrait_url.sql",
+          },
+          { status: 503 }
+        );
+      }
       return NextResponse.json({ error: "Failed to update settings" }, { status: 500 });
     }
 
