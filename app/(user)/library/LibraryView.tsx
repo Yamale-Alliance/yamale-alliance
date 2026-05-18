@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef, useDeferredValue } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
@@ -49,7 +49,9 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 const RECENTLY_ADDED_DAYS = 3;
 const RECENTLY_UPDATED_DAYS = 90;
 const RECENTLY_OPENED_KEY = "yamale-library-recently-opened";
-const SEARCH_DEBOUNCE_MS = 250;
+const SEARCH_DEBOUNCE_MS = 200;
+/** Sync search to the address bar without triggering a Next.js server navigation. */
+const SEARCH_URL_SYNC_MS = 700;
 const DOCUMENT_TYPES: DocumentType[] = ["Law", "Decree", "Regulation", "Code", "Directive", "Treaty", "Agreement", "Other"];
 const TREATY_FILTERS = ["", "Bilateral", "Multilateral", "Not a treaty"] as const;
 
@@ -227,18 +229,56 @@ function parseSearchQuery(input: string): {
   };
 }
 
-function scoreLawMatch(law: Law, tokens: string[]) {
+type LawSearchIndexEntry = {
+  law: Law;
+  nameLower: string;
+  categoryLower: string;
+  countryLower: string;
+  haystack: string;
+};
+
+function buildLawSearchIndex(laws: Law[]): LawSearchIndexEntry[] {
+  return laws.map((law) => ({
+    law,
+    nameLower: law.name.toLowerCase(),
+    categoryLower: law.category.toLowerCase(),
+    countryLower: law.country.toLowerCase(),
+    haystack: `${law.name} ${law.category} ${law.country} ${law.document_type} ${law.treaty_type ?? ""}`.toLowerCase(),
+  }));
+}
+
+function scoreIndexedLaw(entry: LawSearchIndexEntry, tokens: string[]) {
   if (tokens.length === 0) return 1;
-  const haystack = `${law.name} ${law.category} ${law.country} ${law.document_type} ${law.treaty_type ?? ""}`.toLowerCase();
   let score = 0;
   for (const token of tokens) {
-    if (law.name.toLowerCase().includes(token)) score += 5;
-    else if (law.category.toLowerCase().includes(token)) score += 3;
-    else if (law.country.toLowerCase().includes(token)) score += 2;
-    else if (haystack.includes(token)) score += 1;
+    if (entry.nameLower.includes(token)) score += 5;
+    else if (entry.categoryLower.includes(token)) score += 3;
+    else if (entry.countryLower.includes(token)) score += 2;
+    else if (entry.haystack.includes(token)) score += 1;
     else return 0;
   }
   return score;
+}
+
+/** Update `?q=` in the URL without a Next.js RSC refetch (shareable links, fast typing). */
+function syncSearchQueryInUrl(
+  pathname: string,
+  searchParams: URLSearchParams,
+  q: string,
+  page: number
+) {
+  if (typeof window === "undefined") return;
+  const params = new URLSearchParams(searchParams.toString());
+  const trimmed = q.trim();
+  if (trimmed) params.set("q", trimmed);
+  else params.delete("q");
+  if (page > 1) params.set("page", String(page));
+  else params.delete("page");
+  const qs = params.toString();
+  const next = qs ? `${pathname}?${qs}` : pathname;
+  if (`${window.location.pathname}${window.location.search}` !== next) {
+    window.history.replaceState(window.history.state, "", next);
+  }
 }
 
 function getRecentlyOpenedIds(): Set<string> {
@@ -580,12 +620,12 @@ export function LibraryView({
 
   const hadInitialFilters = !!(initialCountry || initialCategory || initialStatus || initialSearch || initialDocumentType || initialTreatyType || initialYearFrom || initialYearTo);
 
+  // Apply search locally (no router navigation — avoids refetching the whole library page per keystroke).
   useEffect(() => {
     if (searchInput === search) return;
     const timer = setTimeout(() => {
       setSearch(searchInput);
       setCurrentPage(1);
-      updateUrl({ q: searchInput, page: 1 });
       if (searchInput.trim()) {
         fetch("/api/search/analytics", {
           method: "POST",
@@ -596,7 +636,15 @@ export function LibraryView({
       }
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [searchInput, updateUrl]);
+  }, [searchInput, search]);
+
+  // Keep `?q=` shareable without triggering Next.js server navigation.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      syncSearchQueryInUrl(pathname, new URLSearchParams(searchParams.toString()), search, currentPage);
+    }, SEARCH_URL_SYNC_MS);
+    return () => clearTimeout(timer);
+  }, [search, currentPage, pathname, searchParams]);
 
   useEffect(() => {
     if (!hasServerFilters) {
@@ -762,34 +810,63 @@ export function LibraryView({
     showAlert,
   ]);
 
-  const searchSuggestions = useMemo(() => {
-    if (!searchInput.trim()) return [];
-    const needle = searchInput.toLowerCase();
-    const raw = [
-      ...laws.map((l) => l.name),
-      ...countries.map((c) => `country:${c.name}`),
-      ...categories.map((c) => `category:${c.name}`),
-      ...DOCUMENT_TYPES.map((d) => `type:${d}`),
-      "classification:Bilateral",
-      "classification:Multilateral",
-      "classification:Not a treaty",
-    ];
-    return Array.from(new Set(raw.filter((s) => s.toLowerCase().includes(needle)))).slice(0, 8);
-  }, [searchInput, laws, countries, categories]);
+  const deferredSearchInput = useDeferredValue(searchInput);
+  const deferredSearch = useDeferredValue(search);
 
-  const filteredLaws = useMemo(() => {
-    const parsed = parseSearchQuery(search);
+  const lawSearchIndex = useMemo(() => buildLawSearchIndex(laws), [laws]);
+
+  const searchSuggestions = useMemo(() => {
+    const needle = deferredSearchInput.trim().toLowerCase();
+    if (needle.length < 2) return [];
+    const out: string[] = [];
+    const seen = new Set<string>();
+    const push = (value: string) => {
+      if (seen.has(value)) return;
+      seen.add(value);
+      out.push(value);
+    };
+    for (const entry of lawSearchIndex) {
+      if (entry.nameLower.includes(needle)) push(entry.law.name);
+      if (out.length >= 8) return out;
+    }
+    for (const c of countries) {
+      const label = `country:${c.name}`;
+      if (label.toLowerCase().includes(needle)) push(label);
+      if (out.length >= 8) return out;
+    }
+    for (const c of categories) {
+      const label = `category:${c.name}`;
+      if (label.toLowerCase().includes(needle)) push(label);
+      if (out.length >= 8) return out;
+    }
+    for (const d of DOCUMENT_TYPES) {
+      const label = `type:${d}`;
+      if (label.toLowerCase().includes(needle)) push(label);
+      if (out.length >= 8) return out;
+    }
+    for (const label of ["classification:Bilateral", "classification:Multilateral", "classification:Not a treaty"]) {
+      if (label.toLowerCase().includes(needle)) push(label);
+      if (out.length >= 8) return out;
+    }
+    return out;
+  }, [deferredSearchInput, lawSearchIndex, countries, categories]);
+
+  const scoredFilteredLaws = useMemo(() => {
+    const parsed = parseSearchQuery(deferredSearch);
     const freeTokens = parsed.tokens;
     const minYear = Number.parseInt(yearFrom, 10);
     const maxYear = Number.parseInt(yearTo, 10);
-    return laws.filter((law) => {
-      const relevance = scoreLawMatch(law, freeTokens);
-      const matchSearch = !search || relevance > 0;
+    const hasSearch = freeTokens.length > 0;
+    const out: { law: Law; score: number }[] = [];
+    for (const entry of lawSearchIndex) {
+      const law = entry.law;
+      const score = hasSearch ? scoreIndexedLaw(entry, freeTokens) : 1;
+      if (hasSearch && score <= 0) continue;
+      const lawTreaty = (law.treaty_type ?? "Not a treaty").toLowerCase();
       const matchCountry = !country || law.country === country || law.applies_globally;
       const matchCategory = !category || law.category === category;
       const matchStatus = !status || law.status === status;
       const matchDocType = !documentType || law.document_type === documentType;
-      const lawTreaty = (law.treaty_type ?? "Not a treaty").toLowerCase();
       const matchTreaty = !treatyType || lawTreaty === treatyType.toLowerCase();
       const matchYearFrom = !Number.isFinite(minYear) || (typeof law.year === "number" && law.year >= minYear);
       const matchYearTo = !Number.isFinite(maxYear) || (typeof law.year === "number" && law.year <= maxYear);
@@ -799,35 +876,55 @@ export function LibraryView({
       const matchQueryClassification = !parsed.classification || lawTreaty.includes(parsed.classification.toLowerCase());
       const matchQueryYearFrom = !parsed.yearFrom || (typeof law.year === "number" && law.year >= parsed.yearFrom);
       const matchQueryYearTo = !parsed.yearTo || (typeof law.year === "number" && law.year <= parsed.yearTo);
-      return matchSearch && matchCountry && matchCategory && matchStatus && matchDocType && matchTreaty && matchYearFrom && matchYearTo && matchQueryCountry && matchQueryCategory && matchQueryDocType && matchQueryClassification && matchQueryYearFrom && matchQueryYearTo;
-    });
-  }, [laws, search, country, category, status, documentType, treatyType, yearFrom, yearTo]);
+      if (
+        matchCountry &&
+        matchCategory &&
+        matchStatus &&
+        matchDocType &&
+        matchTreaty &&
+        matchYearFrom &&
+        matchYearTo &&
+        matchQueryCountry &&
+        matchQueryCategory &&
+        matchQueryDocType &&
+        matchQueryClassification &&
+        matchQueryYearFrom &&
+        matchQueryYearTo
+      ) {
+        out.push({ law, score });
+      }
+    }
+    return out;
+  }, [lawSearchIndex, deferredSearch, country, category, status, documentType, treatyType, yearFrom, yearTo]);
 
   const sortedLaws = useMemo(() => {
-    const list = [...filteredLaws];
-    const searchTokens = tokenizeSearch(search);
+    const list = [...scoredFilteredLaws];
+    const hasSearch = tokenizeSearch(deferredSearch).length > 0;
     list.sort((a, b) => {
-      if (searchTokens.length) {
-        const scoreDiff = scoreLawMatch(b, searchTokens) - scoreLawMatch(a, searchTokens);
-        if (scoreDiff !== 0) return scoreDiff;
-      }
+      if (hasSearch && b.score !== a.score) return b.score - a.score;
       switch (sortBy) {
         case "title-asc":
-          return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+          return a.law.name.localeCompare(b.law.name, undefined, { sensitivity: "base" });
         case "title-desc":
-          return b.name.localeCompare(a.name, undefined, { sensitivity: "base" });
+          return b.law.name.localeCompare(a.law.name, undefined, { sensitivity: "base" });
         case "country":
-          return (a.country || "").localeCompare(b.country || "", undefined, { sensitivity: "base" }) || a.name.localeCompare(b.name);
+          return (
+            (a.law.country || "").localeCompare(b.law.country || "", undefined, { sensitivity: "base" }) ||
+            a.law.name.localeCompare(b.law.name)
+          );
         case "category":
-          return (a.category || "").localeCompare(b.category || "", undefined, { sensitivity: "base" }) || a.name.localeCompare(b.name);
+          return (
+            (a.law.category || "").localeCompare(b.law.category || "", undefined, { sensitivity: "base" }) ||
+            a.law.name.localeCompare(b.law.name)
+          );
         case "newest":
-          return (new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
+          return new Date(b.law.created_at ?? 0).getTime() - new Date(a.law.created_at ?? 0).getTime();
         default:
-          return a.name.localeCompare(b.name);
+          return a.law.name.localeCompare(b.law.name);
       }
     });
-    return list;
-  }, [filteredLaws, sortBy]);
+    return list.map((row) => row.law);
+  }, [scoredFilteredLaws, deferredSearch, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(sortedLaws.length / PAGE_SIZE));
   const safePage = Math.min(Math.max(1, currentPage), totalPages);
@@ -1051,7 +1148,7 @@ export function LibraryView({
               </ul>
             )}
           </div>
-          <p className="mt-3 text-xs text-white/50">All 54 African countries · 8 legal domains</p>
+          <p className="mt-3 text-xs text-white/50">All 54 African countries</p>
         </div>
       </section>
 
@@ -1325,8 +1422,8 @@ export function LibraryView({
                 <div className="min-w-0 text-sm leading-relaxed text-muted-foreground">
                   <p className="font-semibold text-foreground">About this library.</p>
                   <p className="mt-2">
-                    The Yamalé Legal Library covers all 54 African countries across 8 legal domains and is continuously
-                    expanding. Content is provided for reference only and may not reflect the most current version of each
+                    The Yamalé Legal Library covers all 54 African countries across a growing range of legal domains and is
+                    continuously expanding. Content is provided for reference only and may not reflect the most current version of each
                     law. Where coverage is incomplete, we indicate it clearly. Notice a missing law? Use the{" "}
                     <button
                       type="button"
