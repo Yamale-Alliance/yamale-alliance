@@ -7,14 +7,12 @@ import * as Dialog from "@radix-ui/react-dialog";
 import {
   Search,
   ArrowRight,
-  Filter,
   X,
   Bookmark,
   Sparkles,
   Calendar,
   FileEdit,
   Eye,
-  BookmarkCheck,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -33,6 +31,7 @@ import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect
 import { fetchDocumentExportUnlockLawIds } from "@/lib/library-document-export-unlocks-client";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
 import { formatLawPrintPriceUsd } from "@/lib/law-print-pricing";
+import { LibraryFiltersBar } from "@/components/library/LibraryFiltersBar";
 
 const PAGE_SIZE = 12;
 const SUPPORT_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
@@ -53,8 +52,6 @@ const SEARCH_DEBOUNCE_MS = 200;
 /** Sync search to the address bar without triggering a Next.js server navigation. */
 const SEARCH_URL_SYNC_MS = 700;
 const DOCUMENT_TYPES: DocumentType[] = ["Law", "Decree", "Regulation", "Code", "Directive", "Treaty", "Agreement", "Other"];
-const TREATY_FILTERS = ["", "Bilateral", "Multilateral", "Not a treaty"] as const;
-
 type LawStatus = "In force" | "Amended" | "Repealed";
 
 type Law = {
@@ -362,7 +359,10 @@ export function LibraryView({
   const [treatyType, setTreatyType] = useState(initialTreatyType);
   const [yearFrom, setYearFrom] = useState(initialYearFrom);
   const [yearTo, setYearTo] = useState(initialYearTo);
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(
+    () => !!(initialDocumentType || initialTreatyType || initialYearFrom || initialYearTo)
+  );
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestName, setSuggestName] = useState("");
   const [suggestEmail, setSuggestEmail] = useState("");
@@ -391,6 +391,9 @@ export function LibraryView({
 
   const hasFilters = !!(country || category || status || search.trim() || documentType || treatyType || yearFrom || yearTo);
   const hasServerFilters = !!(country || category || status);
+  const primaryFilterCount = [country, category, status].filter(Boolean).length;
+  const advancedFilterCount = [documentType, treatyType, yearFrom, yearTo].filter(Boolean).length;
+  const filterBadgeCount = primaryFilterCount + advancedFilterCount;
   const currentTier =
     ((user?.publicMetadata?.tier ?? user?.publicMetadata?.subscriptionTier) as string | undefined) || "free";
 
@@ -1165,142 +1168,41 @@ export function LibraryView({
         </div>
       </div>
 
-      <div className="mt-6 border-y border-border bg-card px-4 py-4 sm:px-8 md:sticky md:top-[88px] md:z-20">
-        <div className="mx-auto max-w-[1280px] space-y-3">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:pb-2">
-                <Filter className="h-4 w-4" aria-hidden />
-                Filter:
-              </span>
-              <select
-                value={country}
-                onChange={(e) => handleCountryChange(e.target.value)}
-                className="w-full rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground sm:w-auto sm:min-w-[220px]"
-              >
-                <option value="">All countries</option>
-                {countries.map((c) => (
-                  <option key={c.id} value={c.name}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={category}
-                onChange={(e) => handleCategoryChange(e.target.value)}
-                className="w-full rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground sm:w-auto sm:min-w-[220px]"
-              >
-                <option value="">All categories</option>
-                {categories.length > 0
-                  ? categories.map((c) => (
-                      <option key={c.id} value={c.name}>
-                        {c.name}
-                      </option>
-                    ))
-                  : categoryNames.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-              </select>
-              <select
-                value={status}
-                onChange={(e) => handleStatusChange(e.target.value)}
-                className="w-full rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground sm:w-auto sm:min-w-[170px]"
-              >
-                <option value="">All statuses</option>
-                {STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-2 sm:items-end">
-              <p className="text-xs text-muted-foreground">
-                {resultsTotal.toLocaleString()} results
-                {totalPages > 0 ? (
-                  <>
-                    {" "}
-                    · Page {safePage} of {totalPages}
-                  </>
-                ) : null}
-              </p>
-              <label className="flex flex-col gap-1 text-xs text-muted-foreground sm:items-end">
-                <span className="sr-only">Sort results</span>
-                <select
-                  value={sortBy}
-                  onChange={(e) => handleSortChange(e.target.value)}
-                  className="w-full rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground sm:min-w-[220px]"
-                >
-                  {SORT_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      Sort: {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowAdvancedFilters((v) => !v)}
-              className="w-full rounded-[6px] border border-border px-3 py-2 text-sm text-foreground sm:w-auto"
-            >
-              Advanced
-            </button>
-            {hasFilters && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="inline-flex w-full items-center justify-center gap-1 rounded-[6px] border border-border px-3 py-2 text-sm text-foreground sm:w-auto"
-              >
-                <X className="h-3.5 w-3.5" aria-hidden /> Clear
-              </button>
-            )}
-            {bookmarkedIds.size > 0 && (
-              <Link
-                href="/library/bookmarks"
-                className="inline-flex w-full items-center justify-center gap-1 rounded-[6px] border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary sm:w-auto"
-              >
-                <BookmarkCheck className="h-3.5 w-3.5" aria-hidden /> Bookmarked ({bookmarkedIds.size})
-              </Link>
-            )}
-            {isSignedIn && (
-              <Link
-                href="/library/purchased"
-                className="inline-flex w-full items-center justify-center gap-1 rounded-[6px] border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary sm:w-auto"
-              >
-                <FileDown className="h-3.5 w-3.5" aria-hidden /> Purchased
-                {paidLawIds.size > 0 ? ` (${paidLawIds.size})` : ""}
-              </Link>
-            )}
-          </div>
-        </div>
-        {showAdvancedFilters && (
-          <div className="mx-auto mt-3 grid max-w-[1280px] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <select value={documentType} onChange={(e) => handleDocumentTypeChange(e.target.value)} className="rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground">
-              <option value="">All document types</option>
-              {DOCUMENT_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-            <select value={treatyType} onChange={(e) => handleTreatyTypeChange(e.target.value)} className="rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground">
-              <option value="">All classifications</option>
-              {TREATY_FILTERS.filter(Boolean).map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-            <input type="number" inputMode="numeric" placeholder="Year from" value={yearFrom} onChange={(e) => handleYearFromChange(e.target.value)} className="rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground" />
-            <input type="number" inputMode="numeric" placeholder="Year to" value={yearTo} onChange={(e) => handleYearToChange(e.target.value)} className="rounded-[6px] border border-border bg-background px-3 py-2 text-sm text-foreground" />
-          </div>
-        )}
-      </div>
+      <LibraryFiltersBar
+        countries={countries}
+        categories={categories}
+        categoryNames={categoryNames}
+        country={country}
+        category={category}
+        status={status}
+        documentType={documentType}
+        treatyType={treatyType}
+        yearFrom={yearFrom}
+        yearTo={yearTo}
+        sortBy={sortBy}
+        resultsTotal={resultsTotal}
+        safePage={safePage}
+        totalPages={totalPages}
+        hasFilters={hasFilters}
+        filterBadgeCount={filterBadgeCount}
+        advancedFilterCount={advancedFilterCount}
+        showAdvancedFilters={showAdvancedFilters}
+        onToggleAdvancedFilters={() => setShowAdvancedFilters((v) => !v)}
+        mobileFiltersOpen={mobileFiltersOpen}
+        onMobileFiltersOpenChange={setMobileFiltersOpen}
+        onCountryChange={handleCountryChange}
+        onCategoryChange={handleCategoryChange}
+        onStatusChange={handleStatusChange}
+        onDocumentTypeChange={handleDocumentTypeChange}
+        onTreatyTypeChange={handleTreatyTypeChange}
+        onYearFromChange={handleYearFromChange}
+        onYearToChange={handleYearToChange}
+        onSortChange={handleSortChange}
+        onClearFilters={clearFilters}
+        bookmarkedCount={bookmarkedIds.size}
+        purchasedCount={paidLawIds.size}
+        isSignedIn={!!isSignedIn}
+      />
 
       <div className="mx-auto max-w-[1280px] px-4 py-8 sm:px-8">
         {loadingLaws && (
