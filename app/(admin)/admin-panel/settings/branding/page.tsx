@@ -26,13 +26,19 @@ function showToast(message: string, type: "success" | "error" = "success") {
 interface PlatformSettings {
   logoUrl: string | null;
   faviconUrl: string | null;
+  founderPortraitUrl: string | null;
 }
 
 export default function BrandingSettingsPage() {
-  const [settings, setSettings] = useState<PlatformSettings>({ logoUrl: null, faviconUrl: null });
+  const [settings, setSettings] = useState<PlatformSettings>({
+    logoUrl: null,
+    faviconUrl: null,
+    founderPortraitUrl: null,
+  });
   const [loading, setLoading] = useState(true);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
+  const [uploadingFounderPortrait, setUploadingFounderPortrait] = useState(false);
   const [logoCropImage, setLogoCropImage] = useState<{ url: string; fileName: string } | null>(null);
 
   useEffect(() => {
@@ -44,7 +50,11 @@ export default function BrandingSettingsPage() {
       const res = await fetch("/api/admin/platform-settings");
       if (res.ok) {
         const data = await res.json();
-        setSettings({ logoUrl: data.logoUrl, faviconUrl: data.faviconUrl });
+        setSettings({
+          logoUrl: data.logoUrl,
+          faviconUrl: data.faviconUrl,
+          founderPortraitUrl: data.founderPortraitUrl ?? null,
+        });
       }
     } catch (error) {
       console.error("Failed to fetch settings:", error);
@@ -53,7 +63,7 @@ export default function BrandingSettingsPage() {
     }
   };
 
-  const handleUpload = useCallback(async (type: "logo" | "favicon", file: File) => {
+  const handleUpload = useCallback(async (type: "logo" | "favicon" | "founder_portrait", file: File) => {
     if (type === "favicon" && !file.name.toLowerCase().endsWith(".ico")) {
       showToast("Favicon must be a .ico file", "error");
       return;
@@ -63,7 +73,12 @@ export default function BrandingSettingsPage() {
     formData.append("file", file);
     formData.append("type", type);
 
-    const setUploading = type === "logo" ? setUploadingLogo : setUploadingFavicon;
+    const setUploading =
+      type === "logo"
+        ? setUploadingLogo
+        : type === "favicon"
+          ? setUploadingFavicon
+          : setUploadingFounderPortrait;
     setUploading(true);
 
     try {
@@ -81,11 +96,14 @@ export default function BrandingSettingsPage() {
       
       if (type === "logo") {
         setSettings((prev) => ({ ...prev, logoUrl: data.url }));
-      } else {
+      } else if (type === "favicon") {
         setSettings((prev) => ({ ...prev, faviconUrl: data.url }));
+      } else {
+        setSettings((prev) => ({ ...prev, founderPortraitUrl: data.url }));
       }
 
-      const label = type === "logo" ? "Logo" : "Favicon";
+      const label =
+        type === "logo" ? "Logo" : type === "favicon" ? "Favicon" : "Founder portrait";
       showToast(`${label} updated successfully`, "success");
       
       // Reload page after a short delay to show new favicon
@@ -124,7 +142,8 @@ export default function BrandingSettingsPage() {
       <div className="rounded-2xl border border-border bg-card px-4 py-6 shadow-sm sm:px-6 sm:py-8 md:px-8 md:py-10">
         <h1 className="text-2xl font-semibold tracking-tight">Branding Settings</h1>
         <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-          Upload and edit your platform logo and favicon. Changes will be reflected immediately across the site.
+          Upload your platform logo, favicon, and the founder portrait shown on the founder&apos;s note and welcome
+          modal. Changes apply immediately across the site.
         </p>
       </div>
 
@@ -183,6 +202,56 @@ export default function BrandingSettingsPage() {
             </div>
             {settings.logoUrl && (
               <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0 ml-4" />
+            )}
+          </div>
+        </div>
+
+        {/* Founder portrait */}
+        <div className="rounded-xl border border-border bg-card p-6">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold text-foreground">Founder portrait</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Photo of Meghan Waters for the founder&apos;s note (<code className="text-xs">/founders-note</code>),
+                the one-time welcome dialog, and related pages. Use a square or portrait image (PNG or JPG).
+              </p>
+
+              {settings.founderPortraitUrl && (
+                <div className="mt-4">
+                  <div className="relative inline-block overflow-hidden rounded-full border-2 border-[#C8922A]/40 p-0.5">
+                    <img
+                      src={settings.founderPortraitUrl}
+                      alt="Founder portrait preview"
+                      className="h-32 w-32 rounded-full object-cover"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-4">
+                <label className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent cursor-pointer">
+                  <Upload className="h-4 w-4" />
+                  {uploadingFounderPortrait
+                    ? "Uploading..."
+                    : settings.founderPortraitUrl
+                      ? "Change portrait"
+                      : "Upload portrait"}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void handleUpload("founder_portrait", file);
+                      e.target.value = "";
+                    }}
+                    disabled={uploadingFounderPortrait}
+                  />
+                </label>
+              </div>
+            </div>
+            {settings.founderPortraitUrl && (
+              <CheckCircle2 className="ml-4 h-5 w-5 shrink-0 text-green-500" />
             )}
           </div>
         </div>
