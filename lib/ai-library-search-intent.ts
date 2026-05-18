@@ -5,6 +5,24 @@
  */
 
 import { escapeIlikePattern } from "@/lib/law-country-scope";
+import {
+  deaccentForSearch,
+  normalizeQueryForLibrarySearch,
+  RE_CONSTITUTIONAL,
+  RE_CRIMINAL,
+  RE_ENVIRONMENT,
+  RE_INVESTMENT_TREATY,
+  RE_LABOR,
+  RE_LAND,
+  RE_PUBLIC_HOLIDAYS,
+  RE_REGIONAL_TRADE,
+  RE_REGISTRATION,
+  RE_TAX,
+  shouldPreferLaborOverRegistration,
+  shouldPreferTaxOverRegistration,
+} from "@/lib/ai-multilingual-search";
+
+export { deaccentForSearch } from "@/lib/ai-multilingual-search";
 
 export type LawTextFields = {
   title?: string | null;
@@ -13,21 +31,19 @@ export type LawTextFields = {
 };
 
 export function normalizeSearchQueryForAi(query: string): string {
-  return query
-    .replace(/\bregister\s+a\s+country\b/gi, "register a company")
-    .replace(/\bto\s+register\s+a\s+country\b/gi, "to register a company")
-    .replace(/\bregister\s+country\b/gi, "register company")
-    .replace(/\bincorporat(?:e|ing)\s+a\s+country\b/gi, "incorporating a company");
+  return normalizeQueryForLibrarySearch(
+    query
+      .replace(/\bregister\s+a\s+country\b/gi, "register a company")
+      .replace(/\bto\s+register\s+a\s+country\b/gi, "to register a company")
+      .replace(/\bregister\s+country\b/gi, "register company")
+      .replace(/\bincorporat(?:e|ing)\s+a\s+country\b/gi, "incorporating a company")
+  );
 }
 
 /** Tokens when the query looks like OHADA / company formation (English + French cues). */
 export function expandCommercialRegistrationTokens(query: string): string[] {
-  const q = query.toLowerCase();
-  if (
-    !/\b(regist|incorpor|compan(?:y|ies)?|business|enterprise|commercial|soci[eé]t[eé]|sarl|gie|llc|ffc|ohada|uemoa|uniform\s+act|acte\s+uniform)\b/i.test(
-      q
-    )
-  ) {
+  const q = normalizeSearchQueryForAi(query).toLowerCase();
+  if (!RE_REGISTRATION.test(q)) {
     return [];
   }
   return [
@@ -40,12 +56,13 @@ export function expandCommercialRegistrationTokens(query: string): string[] {
     "business",
     "enterprise",
     "societe",
-    "société",
     "immatriculation",
     "enregistrement",
     "registre",
     "ohada",
     "uemoa",
+    "شركة",
+    "تسجيل",
   ];
 }
 
@@ -133,6 +150,8 @@ function boostLabor(law: LawTextFields, tokens: string[]): number {
     "syndicat",
     "minimum wage",
     "salaire minimum",
+    "قانون العمل",
+    "الأجور",
   ];
   for (const n of needles) {
     if (blob.includes(n)) b += 12;
@@ -150,21 +169,36 @@ function boostTax(law: LawTextFields, tokens: string[]): number {
     "code général des impôts",
     "code general des impots",
     "general tax",
+    "income tax",
+    "income tax act",
     "loi de finances",
     "fiscal",
+    "fiscale",
+    "fiscales",
+    "fiscalite",
     "impôt",
     "impot",
+    "impots",
     "tva",
     "withholding",
     "douane",
     "customs",
     "dgid",
+    "tax administration",
+    "ضريبة",
+    "ضرائب",
+    "income tax act",
   ];
   for (const n of needles) {
     if (blob.includes(n)) b += 12;
   }
   for (const tok of tokens) {
-    if (tok.length >= 4 && /tax|fiscal|imp[oô]t|tva|vat|duty|douane|withhold/i.test(tok) && blob.includes(tok)) b += 2;
+    if (
+      tok.length >= 2 &&
+      /tax|fiscal|imp[oô]?t|tva|vat|duty|douane|withhold|ضريب|ضرائب|ضريبة/i.test(tok) &&
+      blob.includes(tok)
+    )
+      b += 2;
   }
   return Math.min(b, 45);
 }
@@ -300,15 +334,13 @@ const INTENTS: IntentDef[] = [
   {
     id: "regional_trade_rules_of_origin",
     specificity: 92,
-    test: (q) =>
-      /\b(afcfta|afcta|ecowas|etls|rules?\s+of\s+origin|origin\s+criteria|certificate\s+of\s+origin|proof\s+of\s+origin|cumulation|change\s+in\s+tariff)\b/i.test(
-        q
-      ),
+    test: (q) => RE_REGIONAL_TRADE.test(q),
     lexiconExtra: [
       "afcfta",
       "afcta",
       "ecowas",
       "etls",
+      "zlecaf",
       "rules of origin",
       "origin criteria",
       "certificate of origin",
@@ -316,6 +348,8 @@ const INTENTS: IntentDef[] = [
       "cumulation",
       "tariff heading",
       "regional value content",
+      "منشأ",
+      "شهادة منشأ",
     ],
     supplementalTerms: [
       "afcfta rules of origin",
@@ -331,11 +365,9 @@ const INTENTS: IntentDef[] = [
     id: "investment_treaty",
     specificity: 88,
     test: (q) =>
-      /\b(investment\s+treat(y|ies)|bilateral\s+investment|\bbit\b|icsid|reciprocal\s+promotion|protection\s+of\s+investments|promotion\s+y\s+protecci[oó]n|promotion\s+et\s+protection.*invest|protection\s+r[eé]ciproque\s+d[e']invest)\b/i.test(
-        q
-      ) ||
-      (/\b(treaty|treaties)\b/i.test(q) &&
-        /\b(latin\s+america|latin\s+american|latam|mercosur|andean|caricom|brazil|brasil|mexico|méxico|colombia|argentina|chile|peru|venezuela|uruguay|paraguay|ecuador|bolivia|caribbean|south\s+america|central\s+america)\b/i.test(
+      RE_INVESTMENT_TREATY.test(q) ||
+      (/\b(treaty|treaties|trait[eé])\b/i.test(q) &&
+        /\b(latin\s+america|latin\s+american|latam|mercosur|andean|caricom|brazil|brasil|mexico|mexico|colombia|argentina|chile|peru|venezuela|uruguay|paraguay|ecuador|bolivia|caribbean|south\s+america|central\s+america)\b/i.test(
           q
         )),
     lexiconExtra: [
@@ -348,6 +380,8 @@ const INTENTS: IntentDef[] = [
       "protection",
       "expropriation",
       "arbitration",
+      "استثمار",
+      "اتفاقية",
     ],
     supplementalTerms: ["bilateral investment", "investment agreement", "promotion and protection of investments"],
     boost: boostInvestmentTreaty,
@@ -355,11 +389,19 @@ const INTENTS: IntentDef[] = [
   {
     id: "public_holidays",
     specificity: 81,
-    test: (q) =>
-      /\b(public\s+holidays?|national\s+holidays?|bank\s+holidays?|legal\s+holidays?|listed\s+holidays|official\s+holidays?|fériés?\s+publics?|jours?\s+féri|statutory\s+holidays?)\b/i.test(
-        q
-      ),
-    lexiconExtra: ["holiday", "holidays", "observance", "férié", "fériés", "ferie", "national", "statutory"],
+    test: (q) => RE_PUBLIC_HOLIDAYS.test(q),
+    lexiconExtra: [
+      "holiday",
+      "holidays",
+      "observance",
+      "férié",
+      "fériés",
+      "ferie",
+      "national",
+      "statutory",
+      "عطلة",
+      "عطل",
+    ],
     supplementalTerms: ["public holiday", "national holiday", "public holidays act", "constitution"],
     substantiveTokenDenylist: ["public", "name"],
     boost: boostPublicHolidays,
@@ -367,19 +409,24 @@ const INTENTS: IntentDef[] = [
   {
     id: "constitutional",
     specificity: 73,
-    test: (q) =>
-      /\b(constitution|constitutional|fundamental\s+rights|bill\s+of\s+rights|preamble)\b/i.test(q),
-    lexiconExtra: ["constitution", "constitutional", "fundamental", "rights", "chapter", "article"],
+    test: (q) => RE_CONSTITUTIONAL.test(q),
+    lexiconExtra: [
+      "constitution",
+      "constitutional",
+      "fundamental",
+      "rights",
+      "chapter",
+      "article",
+      "دستور",
+      "حقوق",
+    ],
     supplementalTerms: ["constitution", "constitutional law"],
     boost: boostConstitutional,
   },
   {
     id: "registration",
     specificity: 78,
-    test: (q) =>
-      /\b(regist|incorpor|compan(?:y|ies)?|business|enterprise|commercial|soci[eé]t[eé]|sarl|gie|llc|ffc|ohada|uemoa|uniform\s+act|acte\s+uniform)\b/i.test(
-        q
-      ),
+    test: (q) => RE_REGISTRATION.test(q),
     lexiconExtra: REGISTRATION_LEXICON_EXTRA,
     supplementalTerms: REGISTRATION_SUPPLEMENTAL,
     boost: boostRegistration,
@@ -387,10 +434,7 @@ const INTENTS: IntentDef[] = [
   {
     id: "labor",
     specificity: 72,
-    test: (q) =>
-      /\b(labor|labour|employment|workplace|wage|salary|overtime|union|collective\s+bargaining|wrongful\s+dismissal|termination|travail|salari[eé]|code\s+du\s+travail|convention\s+collective|licenciement|syndicat|d[eé]l[eé]gation\s+du\s+personnel|minimum\s+wage)\b/i.test(
-        q
-      ),
+    test: (q) => RE_LABOR.test(q),
     lexiconExtra: [
       "travail",
       "salarié",
@@ -400,49 +444,88 @@ const INTENTS: IntentDef[] = [
       "convention collective",
       "syndicat",
       "code du travail",
+      "قانون العمل",
+      "أجور",
+      "عمال",
     ],
-    supplementalTerms: ["code du travail", "labour code", "employment act", "collective agreement"],
+    supplementalTerms: [
+      "code du travail",
+      "labour code",
+      "labor code",
+      "employment act",
+      "collective agreement",
+      "قانون العمل",
+    ],
     boost: boostLabor,
   },
   {
     id: "tax",
     specificity: 72,
-    test: (q) =>
-      /\b(tax|taxation|fiscal|imp[oô]t|tva|vat|withholding|dgid|assessment|excise|duty|customs|douane|revenu|loi\s+de\s+finances|general\s+tax)\b/i.test(
-        q
-      ),
-    lexiconExtra: ["fiscal", "impôt", "impot", "tva", "vat", "withholding", "douane", "customs", "revenu"],
-    supplementalTerms: ["code général des impôts", "income tax", "value added tax", "loi de finances"],
+    test: (q) => RE_TAX.test(q),
+    lexiconExtra: [
+      "fiscal",
+      "fiscale",
+      "fiscales",
+      "fiscalite",
+      "impôt",
+      "impot",
+      "impots",
+      "tva",
+      "vat",
+      "withholding",
+      "douane",
+      "customs",
+      "revenu",
+      "income tax",
+      "tax administration",
+      "ضريبة",
+      "ضرائب",
+      "الضريبة",
+    ],
+    supplementalTerms: [
+      "code général des impôts",
+      "income tax",
+      "income tax act",
+      "value added tax",
+      "loi de finances",
+      "tax administration",
+      "ضريبة الدخل",
+      "ضريبة الشركات",
+    ],
     boost: boostTax,
   },
   {
     id: "environment",
     specificity: 70,
-    test: (q) =>
-      /\b(environment|environnement|pollution|climate|biodivers|emission|eia|environmental\s+impact|d[eé]chet|waste|carbon)\b/i.test(
-        q
-      ),
-    lexiconExtra: ["environnement", "pollution", "climate", "biodiversity", "emission", "environmental", "déchets", "dechets"],
+    test: (q) => RE_ENVIRONMENT.test(q),
+    lexiconExtra: [
+      "environnement",
+      "pollution",
+      "climate",
+      "biodiversity",
+      "emission",
+      "environmental",
+      "déchets",
+      "dechets",
+      "بيئة",
+      "تلوث",
+    ],
     supplementalTerms: ["environmental impact", "code de l'environnement", "environmental law"],
     boost: boostEnvironment,
   },
   {
     id: "criminal",
     specificity: 74,
-    test: (q) =>
-      /\b(criminal|penal|p[eé]nal|offense|offence|prosecution|prison|code\s+p[eé]nal|infraction|police\s+judiciaire)\b/i.test(
-        q
-      ),
-    lexiconExtra: ["pénal", "penal", "criminal", "offense", "offence", "procedure", "prosecution", "infraction"],
-    supplementalTerms: ["code pénal", "criminal code", "criminal procedure"],
+    test: (q) => RE_CRIMINAL.test(q),
+    lexiconExtra: ["pénal", "penal", "criminal", "offense", "offence", "procedure", "prosecution", "infraction", "جنائي", "عقوبات"],
+    supplementalTerms: ["code pénal", "criminal code", "criminal procedure", "قانون العقوبات"],
     boost: boostCriminal,
   },
   {
     id: "land",
     specificity: 68,
-    test: (q) =>
-      /\b(land|foncier|cadastre|tenure|immobilier|property\s+law|expropriation|domaine\s+national|bail\s+emphyt)\b/i.test(q),
-    lexiconExtra: ["foncier", "cadastre", "immobilier", "tenure", "expropriation", "domaine national"],
+    test: (q) => RE_LAND.test(q),
+    lexiconExtra: ["foncier", "cadastre", "immobilier", "tenure", "expropriation", "domaine national", "عقار", "أراضي"],
     supplementalTerms: ["land code", "code foncier", "cadastre"],
     boost: boostLand,
   },
@@ -477,10 +560,16 @@ function dedupeLower(arr: string[]): string[] {
 export function resolveLibrarySearchIntent(qNormalized: string): ResolvedLibrarySearchIntent {
   const q = qNormalized.trim().toLowerCase();
   const matches = INTENTS.filter((i) => i.test(q));
-  const primary =
+  let primary =
     matches.length === 0
       ? { id: "generic", specificity: 0 }
       : [...matches].sort((a, b) => b.specificity - a.specificity)[0]!;
+  const matchedIds = matches.map((m) => m.id);
+  if (shouldPreferTaxOverRegistration(q, matchedIds)) {
+    primary = matches.find((m) => m.id === "tax") ?? primary;
+  } else if (shouldPreferLaborOverRegistration(q, matchedIds)) {
+    primary = matches.find((m) => m.id === "labor") ?? primary;
+  }
 
   const wantsInvestmentTreaty = matches.some((m) => m.id === "investment_treaty");
   const registrationMatch = matches.some((m) => m.id === "registration");
@@ -545,23 +634,34 @@ export function prioritizeTokensForLibrarySearch(tokens: string[], primaryId: st
       if (x.includes("enterprise")) s += 10;
       if (x.includes("immatricul") || x.includes("enregistr") || x.includes("soci")) s += 12;
     } else if (primaryId === "labor") {
-      if (/travail|salari|emploi|licenci|convention|labor|employment|wage|syndicat|dismissal|union/.test(x)) s += 24;
+      if (
+        /travail|salari|emploi|licenci|convention|labor|employment|wage|syndicat|dismissal|union|عمال|عمل|أجور|اجور/.test(
+          x
+        )
+      )
+        s += 24;
     } else if (primaryId === "tax") {
-      if (/tax|fiscal|imp[oô]t|tva|vat|withhold|duty|douane|customs|revenu/.test(x)) s += 24;
+      if (
+        /tax|fiscal|fiscale|fiscalite|impot|impots|tva|vat|withhold|duty|douane|customs|revenu|obligation|ضريب|ضرائب|ضريبة/.test(
+          x
+        )
+      )
+        s += 24;
     } else if (primaryId === "environment") {
-      if (/environment|environnement|pollution|climate|biodivers|emission|waste|d[eé]chet|carbon/.test(x)) s += 24;
+      if (/environment|environnement|pollution|climate|biodivers|emission|waste|d[eé]chet|carbon|بيئ|تلوث/.test(x))
+        s += 24;
     } else if (primaryId === "criminal") {
-      if (/criminal|penal|p[eé]nal|offense|offence|prosecution|infraction|prison/.test(x)) s += 24;
+      if (/criminal|penal|p[eé]nal|offense|offence|prosecution|infraction|prison|جنائي|عقوبات|جزائي/.test(x)) s += 24;
     } else if (primaryId === "land") {
-      if (/land|foncier|cadastre|tenure|immobilier|expropri|property/.test(x)) s += 24;
+      if (/land|foncier|cadastre|tenure|immobilier|expropri|property|عقار|أراضي|اراضي/.test(x)) s += 24;
     } else if (primaryId === "investment_treaty") {
-      if (/invest|treaty|accord|acuerdo|promotion|protection|bilateral|expropri/.test(x)) s += 24;
+      if (/invest|treaty|accord|acuerdo|promotion|protection|bilateral|expropri|استثمار|اتفاقية/.test(x)) s += 24;
     } else if (primaryId === "regional_trade_rules_of_origin") {
-      if (/afcfta|afcta|ecowas|etls|origin|tariff|cumulation|certificate|proof/.test(x)) s += 30;
+      if (/afcfta|afcta|ecowas|etls|origin|tariff|cumulation|certificate|proof|zlecaf|منشأ/.test(x)) s += 30;
     } else if (primaryId === "public_holidays") {
-      if (/holiday|observance|féri|ferie|national|statutory/.test(x)) s += 28;
+      if (/holiday|observance|féri|ferie|national|statutory|عطلة|عطل/.test(x)) s += 28;
     } else if (primaryId === "constitutional") {
-      if (/constit|fundamental|rights|chapter|article|preamble/.test(x)) s += 26;
+      if (/constit|fundamental|rights|chapter|article|preamble|دستور|حقوق/.test(x)) s += 26;
     } else {
       if (x.includes("registr")) s += 12;
       if (x.includes("compan")) s += 10;
