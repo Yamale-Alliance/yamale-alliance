@@ -38,6 +38,17 @@ import {
   globalTreatyRankingLexicon,
   titleLooksLikeCrossBorderTreatyTitle,
 } from "@/lib/ai-treaty-catalog-retrieval";
+import {
+  GERMANY_AFRICA_BIT_CATALOG_MAX_DOCS,
+  buildGermanyAfricaBitInventoryPromptBlock,
+  detectGermanyAfricaBitQuery,
+  fetchGermanyAfricaBitInventory,
+  fetchGermanyAfricaBitTitleCandidates,
+  formatGermanyAfricaBitCountResponse,
+  germanyAfricaBitRankingLexicon,
+  isGermanyAfricaBitCountRequest,
+  titleLikelyGermanyAfricaBit,
+} from "@/lib/ai-germany-africa-bit-retrieval";
 import { pickContentExcerpt } from "@/lib/ai-law-excerpt";
 import { fetchLawTitleCatalogForPrompt } from "@/lib/ai-law-title-catalog";
 import { auth, clerkClient } from "@clerk/nextjs/server";
@@ -1429,7 +1440,9 @@ async function searchLegalLibrary(
     const qForTokens = normalizeSearchQueryForAi(query);
     const resolvedIntent = resolveLibrarySearchIntent(qForTokens);
     const latinAmericaTreatyCatalog = detectLatinAmericaTreatyDiscoveryQuery(query);
-    const globalTreatyCatalog = !latinAmericaTreatyCatalog && detectGlobalTreatyInventoryQuery(query);
+    const germanyAfricaBitCatalog = !latinAmericaTreatyCatalog && detectGermanyAfricaBitQuery(query);
+    const globalTreatyCatalog =
+      !latinAmericaTreatyCatalog && !germanyAfricaBitCatalog && detectGlobalTreatyInventoryQuery(query);
     const rawTokens = extractSearchTokens(qForTokens);
     const countryCatalogRequest = Boolean(countryId) && isCountryCatalogLawRequest(query);
     const scopedCountryLawIds =
@@ -1536,6 +1549,13 @@ async function searchLegalLibrary(
       titleMatchedLaws.push(...(globalTreatyRows as any[]));
     }
 
+    const germanyAfricaBitRows = germanyAfricaBitCatalog
+      ? await fetchGermanyAfricaBitTitleCandidates(supabase, query, LAWS_AI_SELECT)
+      : [];
+    if (germanyAfricaBitRows.length > 0) {
+      titleMatchedLaws.push(...germanyAfricaBitRows);
+    }
+
     // Dedupe titleMatchedLaws by id.
     const titleMatchedById = new Map<string, any>();
     for (const r of titleMatchedLaws) {
@@ -1544,7 +1564,7 @@ async function searchLegalLibrary(
     }
     const titleMatchedIds = new Set(titleMatchedById.keys());
     const skipBroadLibraryTextSearch =
-      (latinAmericaTreatyCatalog || globalTreatyCatalog) &&
+      (latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog) &&
       !specificLawHint &&
       !countryCatalogRequest &&
       titleMatchedById.size > 0;
@@ -1553,6 +1573,7 @@ async function searchLegalLibrary(
       ...resolvedIntent.mergedLexiconExtra,
       ...latinAmericaTreatyRankingLexicon(query),
       ...(globalTreatyCatalog ? globalTreatyRankingLexicon() : []),
+      ...(germanyAfricaBitCatalog ? germanyAfricaBitRankingLexicon() : []),
     ];
     const mergedForRank = prioritizeTokensForLibrarySearch(
       Array.from(new Set([...rawTokens.map((t) => t.toLowerCase()), ...expandedLower])),
@@ -1887,6 +1908,7 @@ async function searchLegalLibrary(
         }
         if (latinAmericaTreatyCatalog && titleLikelyLatinAmericaTreaty(String(law.title ?? ""))) bonus += 52;
         if (globalTreatyCatalog && titleLooksLikeCrossBorderTreatyTitle(String(law.title ?? ""))) bonus += 46;
+        if (germanyAfricaBitCatalog && titleLikelyGermanyAfricaBit(String(law.title ?? ""))) bonus += 58;
         if (isOhadaCommercialCompaniesQuery(query)) {
           if (
             /soci[eé]t[eé]s?\s+commerciales?|commercial companies|groupement d'?int[eé]r[eê]t [ée]conomique|economic interest groups/i.test(
@@ -1955,9 +1977,11 @@ async function searchLegalLibrary(
 
     const baseResponseSize = latinAmericaTreatyCatalog
       ? LATIN_AMERICA_TREATY_CATALOG_MAX_DOCS
-      : globalTreatyCatalog
-        ? GLOBAL_TREATY_CATALOG_MAX_DOCS
-        : countryCatalogRequest
+      : germanyAfricaBitCatalog
+        ? GERMANY_AFRICA_BIT_CATALOG_MAX_DOCS
+        : globalTreatyCatalog
+          ? GLOBAL_TREATY_CATALOG_MAX_DOCS
+          : countryCatalogRequest
           ? 20
           : detailedMode
             ? 14
@@ -2011,6 +2035,18 @@ async function searchLegalLibrary(
         }
         return [...latamFirst, ...rest].slice(0, baseResponseSize);
       }
+      if (germanyAfricaBitCatalog && candidateLaws.length > 0) {
+        const deAfFirst: any[] = [];
+        const rest: any[] = [];
+        for (const law of candidateLaws) {
+          if (titleLikelyGermanyAfricaBit(String((law as any).title ?? ""))) deAfFirst.push(law);
+          else rest.push(law);
+        }
+        if (deAfFirst.length >= 3) {
+          return deAfFirst.slice(0, baseResponseSize);
+        }
+        return [...deAfFirst, ...rest].slice(0, baseResponseSize);
+      }
       if (globalTreatyCatalog && candidateLaws.length > 0) {
         const treatyFirst: any[] = [];
         const rest: any[] = [];
@@ -2035,7 +2071,7 @@ async function searchLegalLibrary(
       (detailedMode && lawsForResponse.length <= 3);
     const maxCharsPerLaw = shouldKeepFullTextForSpecificLaw
       ? 1_000_000
-      : latinAmericaTreatyCatalog || globalTreatyCatalog
+      : latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog
         ? 4500
         : countryCatalogRequest
           ? 600
@@ -2044,7 +2080,7 @@ async function searchLegalLibrary(
             : 12_000;
     const maxCharsTotal = shouldKeepFullTextForSpecificLaw
       ? 1_000_000
-      : latinAmericaTreatyCatalog || globalTreatyCatalog
+      : latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog
         ? 100_000
         : countryCatalogRequest
           ? 16_000
@@ -2075,6 +2111,7 @@ async function searchLegalLibrary(
       }
       if (latinAmericaTreatyCatalog && titleLikelyLatinAmericaTreaty(String(law.title ?? ""))) bonus += 52;
       if (globalTreatyCatalog && titleLooksLikeCrossBorderTreatyTitle(String(law.title ?? ""))) bonus += 46;
+      if (germanyAfricaBitCatalog && titleLikelyGermanyAfricaBit(String(law.title ?? ""))) bonus += 58;
       bonus += retrievalTuningBoost(law, query, searchCountry);
       return baseScore + resolvedIntent.rankBoost(law, rankingTokens) + bonus;
     };
@@ -2309,7 +2346,9 @@ export async function POST(request: NextRequest) {
     const userQuery = lastUserMessage?.content || "";
     const platformGuideMeta = isPlatformGuideMetaQuery(userQuery);
     const latinAmericaTreatyCatalog = detectLatinAmericaTreatyDiscoveryQuery(userQuery);
-    const globalTreatyCatalog = !latinAmericaTreatyCatalog && detectGlobalTreatyInventoryQuery(userQuery);
+    const germanyAfricaBitCatalog = !latinAmericaTreatyCatalog && detectGermanyAfricaBitQuery(userQuery);
+    const globalTreatyCatalog =
+      !latinAmericaTreatyCatalog && !germanyAfricaBitCatalog && detectGlobalTreatyInventoryQuery(userQuery);
 
     // If user asks a legal follow-up, inherit country/category context from the
     // current chat before asking for clarification.
@@ -2352,6 +2391,7 @@ export async function POST(request: NextRequest) {
       supranationalFrameworksInQuery.length > 0 ||
       bilateralTitleTokensInUserQuery.length >= 2 ||
       latinAmericaTreatyCatalog ||
+      germanyAfricaBitCatalog ||
       globalTreatyCatalog;
     const strictCountryMode = !skipCountryRequirement && Boolean(effectiveHints.country);
 
@@ -2386,6 +2426,30 @@ export async function POST(request: NextRequest) {
           `\n- Repealed: ${counts.repealed}`,
         sources: ["Yamalé Database · Laws (All Countries)", "Yamalé AI · African Legal Research"],
         sourceCards: [],
+      });
+    }
+
+    if (isGermanyAfricaBitCountRequest(userQuery)) {
+      const inventory = await fetchGermanyAfricaBitInventory(getSupabaseServer() as any);
+      const sourceCards = inventory.map((row, idx) => ({
+        lawId: row.id,
+        title: row.title,
+        country: row.country,
+        category: "International Trade Laws",
+        status: row.status,
+        snippet: "",
+        retrievalScore: inventory.length - idx,
+        usedInAnswer: true,
+        docSlot: idx + 1,
+      }));
+      return NextResponse.json({
+        content: formatGermanyAfricaBitCountResponse(inventory),
+        sources: [
+          ...inventory.map((r) => `${r.title} (${r.country})`),
+          "Yamalé Database · Germany–Africa BITs",
+          "Yamalé AI · African Legal Research",
+        ],
+        sourceCards,
       });
     }
 
@@ -2453,7 +2517,7 @@ export async function POST(request: NextRequest) {
     if (
       !platformGuideMeta &&
       !legalContext.length &&
-      !(latinAmericaTreatyCatalog || globalTreatyCatalog)
+      !(latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog)
     ) {
       legalContext = await searchLegalLibraryQuickFallback(userQuery, effectiveHints.country ?? undefined);
     }
@@ -2590,6 +2654,13 @@ export async function POST(request: NextRequest) {
 
     const lawTitleCatalogText = platformGuideMeta ? "" : await fetchLawTitleCatalogForPrompt(getSupabaseServer() as any);
 
+    const germanyAfricaBitInventoryBlock =
+      platformGuideMeta || !germanyAfricaBitCatalog
+        ? null
+        : buildGermanyAfricaBitInventoryPromptBlock(
+            await fetchGermanyAfricaBitInventory(getSupabaseServer() as any)
+          );
+
     const fullLawRetrievalMode =
       Boolean(specificLawHint) ||
       userRequestsFullLawText(userQuery) ||
@@ -2611,11 +2682,14 @@ export async function POST(request: NextRequest) {
       fullLawRetrievalMode,
       lawTitleCatalogText: lawTitleCatalogText || null,
       webSearchSupplementBlock,
+      germanyAfricaBitInventoryBlock: germanyAfricaBitInventoryBlock || null,
       legalContextMaxDocs: latinAmericaTreatyCatalog
         ? LATIN_AMERICA_TREATY_CATALOG_MAX_DOCS
-        : globalTreatyCatalog
-          ? GLOBAL_TREATY_CATALOG_MAX_DOCS
-          : undefined,
+        : germanyAfricaBitCatalog
+          ? GERMANY_AFRICA_BIT_CATALOG_MAX_DOCS
+          : globalTreatyCatalog
+            ? GLOBAL_TREATY_CATALOG_MAX_DOCS
+            : undefined,
     };
     const systemPromptValidation = validateAiResearchSystemPromptParams(systemPromptParamsRaw, {
       originalLegalContextLength: legalContext.length,
@@ -2645,7 +2719,7 @@ export async function POST(request: NextRequest) {
         model: modelId,
         // Bias toward fuller, decision-useful answers (always-deep policy).
         max_tokens:
-          latinAmericaTreatyCatalog || globalTreatyCatalog
+          latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog
             ? detailedMode
               ? 6200
               : 4600

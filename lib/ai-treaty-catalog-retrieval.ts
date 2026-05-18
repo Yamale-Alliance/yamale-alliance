@@ -31,7 +31,7 @@ export function detectGlobalTreatyInventoryQuery(raw: string): boolean {
     return false;
   }
   const inventory =
-    /\b(all|every|list|show|what|how many|which|do you have|in the database|in your database|in the library|in yamale)\b/.test(
+    /\b(all|every|list|show|what|how many|which|count|total|number of|do you have|in the database|in your database|in the library|in yamale)\b/.test(
       q
     );
   const treaty =

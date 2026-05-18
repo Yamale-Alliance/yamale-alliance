@@ -6,7 +6,7 @@
  * repeating it). Use SYSTEM_PROMPT_VERSION in API responses and ai_query_log instead.
  */
 
-export const SYSTEM_PROMPT_VERSION = "2026.05.18-excerpt-discipline-v1";
+export const SYSTEM_PROMPT_VERSION = "2026.05.18-germany-africa-bit-inventory-v1";
 
 /** Cap on library excerpts in the system message to limit tokens and citation confusion. */
 export const MAX_SYSTEM_PROMPT_LEGAL_DOCS = 8;
@@ -51,6 +51,11 @@ export type BuildAiResearchSystemPromptParams = {
    * Must stay secondary to Yamalé excerpts for binding law.
    */
   webSearchSupplementBlock?: string | null;
+  /**
+   * Authoritative Germany–Africa BIT title list from the database (metadata only).
+   * Used for count / coverage questions so the model does not under-count from excerpts alone.
+   */
+  germanyAfricaBitInventoryBlock?: string | null;
   /**
    * Max excerpts in the system message (default {@link MAX_SYSTEM_PROMPT_LEGAL_DOCS}).
    * Should match the number of documents passed in `legalContext` so [doc:N] lines up with UI.
@@ -162,7 +167,7 @@ How retrieval works (do not mislead the user):
 - Yamalé stores a large searchable library. For each turn the backend **searches** that library and attaches the **best-matching document bodies for this query** (see the document block below). Often those are relevance-ranked **excerpts**; when a statute is clearly identified, the user asks for the full text, or only one instrument is in scope, the backend may instead attach a **much longer slice or the full act** up to platform size limits—still not "every law in full" in one message.
 - A separate **title index** may also appear below (metadata only: title, country, category, status). Use it for coverage questions ("do we have X?"), spelling variants, and disambiguation. It is **not** operative law text—rules and quotes must still come from the document block (or you must say the excerpt does not contain them).
 ${legalQuotesRule}
-- For **catalog / coverage questions** (e.g. "do you have treaties with Latin American countries?"): do **not** say you have "no access to the database" or that you only ever see "four documents" as if that were the whole product. Say clearly that you can only **see the excerpts retrieved for this conversation turn**; the site library may contain more or different instruments, and a poor match can mean search terms did not hit relevant titles/metadata. Encourage using the Library UI (/library), country filters, or a more specific query. If the excerpts list none that fit, say the **retrieved set** does not show any—without denying that others might exist in the library after a different search.
+- For **catalog / coverage questions** (e.g. "do you have treaties with Latin American countries?", "how many Germany–Africa BITs?"): do **not** say you have "no access to the database" or that you only ever see "four documents" as if that were the whole product. When an **AUTHORITATIVE INVENTORY** block is present below for this turn, use its **count and title list** as the source of truth—do not infer a lower number from excerpt count alone. Otherwise say clearly that you can only **see the excerpts retrieved for this conversation turn**; the site library may contain more or different instruments. Encourage using the Library UI (/library), country filters, or a more specific query when the inventory block is absent or incomplete.
 
 User-facing tone (critical): In the **answer you show the user**, do **not** narrate your research mechanics. Avoid phrases like "The retrieved excerpts for this turn…", "Based on the documents provided to me…", "According to the retrieved documents…", or inventorying every attached title before you answer. **Lead with what governs the question** (e.g. "Nigeria handles this under…", "This is governed by…") and weave citations naturally ("Under Section 38 of the EAC CMA…"). You must still follow every **[doc:N]** citation rule below—markers are for traceability, not an excuse to sound like a filing clerk.
 
@@ -364,6 +369,10 @@ export function buildAiResearchSystemPrompt(p: BuildAiResearchSystemPromptParams
   ];
   if (!platform && catalogText) {
     blocks.push(buildLawTitleCatalogBlock(catalogText));
+  }
+  const germanyAfricaInventory = (params.germanyAfricaBitInventoryBlock ?? "").trim();
+  if (!platform && germanyAfricaInventory) {
+    blocks.push(germanyAfricaInventory);
   }
   blocks.push(
     buildSupranationalScope(params.supranationalFrameworksInQuery),
