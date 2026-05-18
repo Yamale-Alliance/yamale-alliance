@@ -8,6 +8,7 @@ export type PlatformSettingsSnapshot = {
   logoUrl: string | null;
   faviconUrl: string | null;
   heroImageUrl: string | null;
+  founderPortraitUrl: string | null;
   lawPrintPriceUsdCents: number;
 };
 
@@ -22,16 +23,64 @@ function stripNoise(s: string): string {
     .trim();
 }
 
-function hasMeaningfulErrorDetails(error: unknown): boolean {
-  if (!error || typeof error !== "object" || Array.isArray(error)) return false;
+const PLATFORM_SETTINGS_BASE_SELECT =
+  "logo_url, favicon_url, hero_image_url, law_print_price_usd_cents";
+const PLATFORM_SETTINGS_FULL_SELECT = `${PLATFORM_SETTINGS_BASE_SELECT}, founder_portrait_url`;
+
+function formatSupabaseError(error: unknown): string {
+  if (!error || typeof error !== "object" || Array.isArray(error)) {
+    return typeof error === "string" ? error : "";
+  }
   const e = error as Record<string, unknown>;
   const pick = (key: string) => {
     const v = e[key];
     return typeof v === "string" ? stripNoise(v) : "";
   };
-  const parts = [pick("code"), pick("message"), pick("details"), pick("hint")];
-  if (typeof e.error === "string") parts.push(stripNoise(e.error));
-  return parts.some((p) => p.length > 0);
+  return [pick("code"), pick("message"), pick("details"), pick("hint"), typeof e.error === "string" ? stripNoise(e.error) : ""]
+    .filter(Boolean)
+    .join(" — ");
+}
+
+function isMissingFounderPortraitColumnError(error: unknown): boolean {
+  const text = formatSupabaseError(error).toLowerCase();
+  const code = typeof error === "object" && error && "code" in error ? String((error as { code?: string }).code ?? "") : "";
+  return (
+    text.includes("founder_portrait_url") ||
+    (text.includes("column") && text.includes("does not exist")) ||
+    code === "42703" ||
+    code === "PGRST204"
+  );
+}
+
+function rowToSnapshot(row: {
+  logo_url?: string | null;
+  favicon_url?: string | null;
+  hero_image_url?: string | null;
+  founder_portrait_url?: string | null;
+  law_print_price_usd_cents?: number | null;
+} | null): PlatformSettingsSnapshot {
+  const rawPrintCents = row?.law_print_price_usd_cents;
+  const lawPrintPriceUsdCents =
+    typeof rawPrintCents === "number" && Number.isFinite(rawPrintCents)
+      ? clampLawPrintPriceUsdCents(rawPrintCents)
+      : DEFAULT_LAW_PRINT_PRICE_USD_CENTS;
+  return {
+    logoUrl: row?.logo_url || null,
+    faviconUrl: row?.favicon_url || null,
+    heroImageUrl: row?.hero_image_url || null,
+    founderPortraitUrl: row?.founder_portrait_url || null,
+    lawPrintPriceUsdCents,
+  };
+}
+
+function emptyPlatformSettings(): PlatformSettingsSnapshot {
+  return {
+    logoUrl: null,
+    faviconUrl: null,
+    heroImageUrl: null,
+    founderPortraitUrl: null,
+    lawPrintPriceUsdCents: DEFAULT_LAW_PRINT_PRICE_USD_CENTS,
+  };
 }
 
 /**
@@ -71,56 +120,47 @@ export async function getPlatformSettings(): Promise<PlatformSettingsSnapshot> {
 
   try {
     const supabase = getSupabaseServer();
-    const { data, error } = await (supabase.from("platform_settings") as any)
-      .select("logo_url, favicon_url, hero_image_url, law_print_price_usd_cents")
+
+    let { data, error } = await (supabase.from("platform_settings") as any)
+      .select(PLATFORM_SETTINGS_FULL_SELECT)
       .eq("id", "main")
       .maybeSingle();
 
-    // Missing row is expected until configured; avoid noisy logs for empty/placeholder errors.
-    if (error) {
-      const isNotFound = (error as any)?.code === "PGRST116";
-      
-      if (!isNotFound && hasMeaningfulErrorDetails(error)) {
-        console.error("Platform settings error:", error);
-        return {
-          logoUrl: null,
-          faviconUrl: null,
-          heroImageUrl: null,
-          lawPrintPriceUsdCents: DEFAULT_LAW_PRINT_PRICE_USD_CENTS,
-        };
-      }
-      // Continue with null values on benign/empty driver responses.
+    // Backward-compatible: DBs without the founder portrait migration still load logo/favicon.
+    if (error && isMissingFounderPortraitColumnError(error)) {
+      const retry = await (supabase.from("platform_settings") as any)
+        .select(PLATFORM_SETTINGS_BASE_SELECT)
+        .eq("id", "main")
+        .maybeSingle();
+      data = retry.data;
+      error = retry.error;
     }
 
-    const row = data as {
-      logo_url?: string | null;
-      favicon_url?: string | null;
-      hero_image_url?: string | null;
-      law_print_price_usd_cents?: number | null;
-    } | null;
-    const rawPrintCents = row?.law_print_price_usd_cents;
-    const lawPrintPriceUsdCents =
-      typeof rawPrintCents === "number" && Number.isFinite(rawPrintCents)
-        ? clampLawPrintPriceUsdCents(rawPrintCents)
-        : DEFAULT_LAW_PRINT_PRICE_USD_CENTS;
-    const settings: PlatformSettingsSnapshot = {
-      logoUrl: row?.logo_url || null,
-      faviconUrl: row?.favicon_url || null,
-      heroImageUrl: row?.hero_image_url || null,
-      lawPrintPriceUsdCents,
-    };
+    if (error) {
+      const isNotFound = (error as { code?: string })?.code === "PGRST116";
+      const detail = formatSupabaseError(error);
+      if (!isNotFound && detail) {
+        console.error("Platform settings error:", detail);
+      }
+      return emptyPlatformSettings();
+    }
+
+    const settings = rowToSnapshot(
+      data as {
+        logo_url?: string | null;
+        favicon_url?: string | null;
+        hero_image_url?: string | null;
+        founder_portrait_url?: string | null;
+        law_print_price_usd_cents?: number | null;
+      } | null
+    );
 
     cachedSettings = settings;
     cacheTimestamp = now;
     return settings;
   } catch (err) {
     console.error("Platform settings unexpected error:", err);
-    return {
-      logoUrl: null,
-      faviconUrl: null,
-      heroImageUrl: null,
-      lawPrintPriceUsdCents: DEFAULT_LAW_PRINT_PRICE_USD_CENTS,
-    };
+    return emptyPlatformSettings();
   }
 }
 
