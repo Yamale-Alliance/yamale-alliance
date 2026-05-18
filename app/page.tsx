@@ -10,7 +10,7 @@ export default async function Home() {
   return (
     <div className="min-h-screen bg-background">
       {/* ─── Hero (prototype: PAGE 1 — HOME) ─── */}
-      <section className="relative flex min-h-[580px] items-center overflow-hidden bg-[#0D1B2A]">
+      <section className="relative overflow-hidden border-b border-border bg-[#0D1B2A]">
         <div
           className="pointer-events-none absolute inset-0 z-0"
           style={{ backgroundImage: PROTOTYPE_HERO_GRID_PATTERN }}
@@ -22,7 +22,7 @@ export default async function Home() {
           </svg>
         </div>
 
-        <div className="relative z-[1] mx-auto w-full max-w-[1280px] px-4 py-16 sm:px-8 sm:py-20">
+        <div className="relative z-[1] mx-auto w-full max-w-[1280px] px-4 pb-6 pt-16 sm:px-8 sm:pb-8 sm:pt-20">
           <h1 className="heading max-w-[680px] text-[2.75rem] font-bold leading-[1.1] tracking-[-0.02em] text-white sm:text-5xl md:text-[56px] lg:text-[62px]">
             Law Without Barriers.
             <br />
@@ -64,7 +64,7 @@ export default async function Home() {
             )}
           </div>
 
-          <div className="mt-14 flex flex-wrap gap-x-10 gap-y-8 border-t border-white/10 pt-10 md:gap-x-14">
+          <div className="mt-10 flex flex-wrap gap-x-10 gap-y-6 border-t border-white/10 pt-6 md:gap-x-14">
             <div>
               <div className="heading text-[28px] font-bold leading-none text-[#E8B84B] md:text-[32px]">54</div>
               <div className="mt-1 text-[13px] text-white/50">African countries covered</div>
@@ -74,30 +74,42 @@ export default async function Home() {
               <div className="mt-1 text-[13px] text-white/50">Laws &amp; regulations</div>
             </div>
             <div>
-              <div className="heading text-[28px] font-bold leading-none text-[#E8B84B] md:text-[32px]">12</div>
-              <div className="mt-1 text-[13px] text-white/50">Legal domains</div>
-            </div>
-            <div>
               <div className="heading text-[28px] font-bold leading-none text-[#E8B84B] md:text-[32px]">AfCFTA</div>
               <div className="mt-1 text-[13px] text-white/50">Passport tool — first of its kind</div>
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center gap-x-10 gap-y-3 border-t border-white/10 pt-5 sm:gap-x-12">
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-white/40">Trusted by</span>
+            <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm font-semibold text-white/60">
+              <span>Law firms</span>
+              <span>Governments</span>
+              <span>Mining companies</span>
+              <span>AfCFTA operators</span>
+              <span>Development institutions</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Trust bar */}
-      <div className="border-b border-border bg-[#0D1B2A] px-4 py-6 sm:px-8">
-        <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-12 gap-y-4">
-          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-white/40">Trusted by</span>
-          <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm font-semibold text-white/60">
-            <span>Law firms</span>
-            <span>Governments</span>
-            <span>Mining companies</span>
-            <span>AfCFTA operators</span>
-            <span>Development institutions</span>
+      <section className="border-b border-white/10 bg-[#0D1B2A] px-4 py-10 sm:px-8">
+        <div className="mx-auto flex max-w-[1280px] flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#E8B84B]">Founder&apos;s note</p>
+            <h2 className="heading mt-1 text-xl font-semibold text-white sm:text-2xl">Why we built Yamalé</h2>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/65">
+              A message from Meghan Waters, CEO — on the gap in African legal infrastructure, what we are launching
+              with today, and how we are building this together.
+            </p>
           </div>
+          <Link
+            href="/founders-note"
+            className="inline-flex shrink-0 items-center justify-center rounded-[6px] border border-[#C8922A]/50 bg-[#C8922A] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#b07e22]"
+          >
+            Read the founder&apos;s note
+          </Link>
         </div>
-      </div>
+      </section>
 
       {/* Features */}
       <section className="border-b border-border bg-background px-4 py-20 sm:px-8">
