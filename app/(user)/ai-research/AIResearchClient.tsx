@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, type FormEvent } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, type FormEvent } from "react";
 import Link from "next/link";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 import ReactMarkdown from "react-markdown";
@@ -27,7 +27,10 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { canShareByEmail, canDownloadConversations } from "@/lib/plan-limits";
+import { downloadAiResearchChatPdf } from "@/lib/ai-research-chat-pdf";
+import { AIResearchChatExportPreviewDialog } from "@/components/ai-research/AIResearchChatExportPreviewDialog";
 import { SubscriptionCheckoutConfirm } from "@/components/checkout/SubscriptionCheckoutConfirm";
+import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
 
 type Tier = "free" | "basic" | "pro" | "team";
 
@@ -160,6 +163,15 @@ function saveSessions(sessions: ChatSession[]) {
   }
 }
 
+/** Latest user turn in a thread — top of the last Q&A when reopening from history. */
+function getLastExchangeScrollMessageId(messages: Message[]): string | undefined {
+  if (!messages.length) return undefined;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") return messages[i].id;
+  }
+  return messages[messages.length - 1]?.id;
+}
+
 export default function AIResearchClient() {
   const { user, isLoaded } = useUser();
   const searchParams = useClientSearchParams();
@@ -182,6 +194,9 @@ export default function AIResearchClient() {
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
+  const [exportPreviewOpen, setExportPreviewOpen] = useState(false);
+  const [exportPreviewAt, setExportPreviewAt] = useState(() => new Date());
+  const [chatPdfDownloading, setChatPdfDownloading] = useState(false);
   const [aiUsage, setAiUsage] = useState<{
     used: number;
     limit: number | null;
@@ -192,7 +207,9 @@ export default function AIResearchClient() {
   } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
-  const lastChatOpenedForScrollRef = useRef<string | null>(null);
+  /** When "live", skip history restore so send/reply scrolling is not overridden. */
+  const historyScrollModeRef = useRef<"history" | "live">("history");
+  const historyScrollDoneFingerprintRef = useRef<string | null>(null);
   const paygConfirmAttemptRef = useRef<string | null>(null);
   /** Legacy name kept defined (some HMR/cache paths still touch it); do not use for the attempt key. */
   const paygConfirmInFlightRef = useRef(false);
@@ -208,6 +225,31 @@ export default function AIResearchClient() {
       });
     });
   }, []);
+
+  /** Align the top of a message under the chat header (used when opening history). */
+  const scrollMessageTopIntoChatPane = useCallback(
+    (messageId: string, behavior: ScrollBehavior = "smooth", onDone?: () => void) => {
+      const pad = 12;
+      const maxSteps = 60;
+      let step = 0;
+      const run = () => {
+        step += 1;
+        const scrollEl = chatScrollRef.current;
+        const target = document.getElementById(`msg-${messageId}`);
+        if (scrollEl && target && scrollEl.contains(target)) {
+          const sr = scrollEl.getBoundingClientRect();
+          const tr = target.getBoundingClientRect();
+          const nextTop = scrollEl.scrollTop + (tr.top - sr.top) - pad;
+          scrollEl.scrollTo({ top: Math.max(0, nextTop), behavior });
+          onDone?.();
+          return;
+        }
+        if (step < maxSteps) requestAnimationFrame(run);
+      };
+      requestAnimationFrame(run);
+    },
+    []
+  );
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [showPayAsYouGoPrompt, setShowPayAsYouGoPrompt] = useState(false);
   const [models, setModels] = useState<Array<{ id: string; display_name?: string }>>([]);
@@ -240,6 +282,7 @@ export default function AIResearchClient() {
   const atLimit = !canQuery;
   const [usageFetched, setUsageFetched] = useState(false);
   const [clerkLoadTimedOut, setClerkLoadTimedOut] = useState(false);
+  const { logoUrl: platformLogoUrl } = usePlatformSettings();
   /** Usage may load in the background once Clerk is ready; do not block the shell forever. */
   const effectiveTierLoaded = !isLoaded || usageFetched;
 
@@ -282,19 +325,25 @@ export default function AIResearchClient() {
     scrollChatToBottom("auto");
   }, [isLoading, scrollChatToBottom]);
 
-  // When opening or switching chats, land at the end of the thread (not the top).
-  // Avoid depending on full `sessions` so new replies don’t yank scroll position mid-read.
+  // Opening a different chat should restore history scroll (not live reply scrolling).
   useEffect(() => {
-    if (!currentId) {
-      lastChatOpenedForScrollRef.current = null;
-      return;
-    }
+    historyScrollModeRef.current = "history";
+    historyScrollDoneFingerprintRef.current = null;
+  }, [currentId]);
+
+  // Restore scroll to the latest Q&A when opening history or after refresh hydrates sessions from the API.
+  useLayoutEffect(() => {
+    if (!currentId || isLoading || historyScrollModeRef.current !== "history") return;
     const session = sessions.find((s) => s.id === currentId);
     if (!session?.messages.length) return;
-    const switched = lastChatOpenedForScrollRef.current !== currentId;
-    lastChatOpenedForScrollRef.current = currentId;
-    if (switched) scrollChatToBottom("auto");
-  }, [currentId, sessions, scrollChatToBottom]);
+    const scrollId = getLastExchangeScrollMessageId(session.messages);
+    if (!scrollId) return;
+    const fingerprint = `${currentId}:${session.messages.length}:${scrollId}`;
+    if (historyScrollDoneFingerprintRef.current === fingerprint) return;
+    scrollMessageTopIntoChatPane(scrollId, "auto", () => {
+      historyScrollDoneFingerprintRef.current = fingerprint;
+    });
+  }, [currentId, sessions, isLoading, scrollMessageTopIntoChatPane]);
 
   const fetchAiUsage = useCallback(async () => {
     if (!user) return;
@@ -607,37 +656,25 @@ export default function AIResearchClient() {
     }
   }, []);
 
-  /** Scroll chat pane so the top of the message aligns under the header (not the bottom / sources). */
-  const scrollMessageTopIntoChatPane = useCallback((messageId: string, behavior: ScrollBehavior = "smooth") => {
-    const pad = 12;
-    const maxSteps = 30;
-    let step = 0;
-    const run = () => {
-      step += 1;
-      const scrollEl = chatScrollRef.current;
-      const target = document.getElementById(`msg-${messageId}`);
-      if (scrollEl && target && scrollEl.contains(target)) {
-        const sr = scrollEl.getBoundingClientRect();
-        const tr = target.getBoundingClientRect();
-        const nextTop = scrollEl.scrollTop + (tr.top - sr.top) - pad;
-        scrollEl.scrollTo({ top: Math.max(0, nextTop), behavior });
-        return;
-      }
-      if (step < maxSteps) requestAnimationFrame(run);
-    };
-    requestAnimationFrame(run);
-  }, []);
-
-  const handleDownloadChat = useCallback(() => {
-    const text = getChatTranscript();
-    const blob = new Blob([text], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${currentSession?.title?.slice(0, 40) || "chat"}-${new Date().toISOString().slice(0, 10)}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [currentSession, getChatTranscript]);
+  const handleDownloadChat = useCallback(async () => {
+    if (!currentSession || chatPdfDownloading) return;
+    setChatPdfDownloading(true);
+    try {
+      await downloadAiResearchChatPdf({
+        title: currentSession.title || "AI Legal Research",
+        messages: currentSession.messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+          sources: m.sources,
+        })),
+        generatedAt: new Date(),
+      });
+    } catch (err) {
+      console.error("Chat PDF export failed:", err);
+    } finally {
+      setChatPdfDownloading(false);
+    }
+  }, [currentSession, chatPdfDownloading]);
 
   const sendMessage = async (text: string) => {
     const trimmed = text.trim();
@@ -675,6 +712,8 @@ export default function AIResearchClient() {
       );
     }
     setInput("");
+    historyScrollModeRef.current = "live";
+    historyScrollDoneFingerprintRef.current = null;
     setIsLoading(true);
     scrollChatToBottom("auto");
 
@@ -809,8 +848,14 @@ export default function AIResearchClient() {
     if (pendingAssistantScrollId) {
       const sid = pendingAssistantScrollId;
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => scrollMessageTopIntoChatPane(sid, "smooth"));
+        requestAnimationFrame(() =>
+          scrollMessageTopIntoChatPane(sid, "smooth", () => {
+            historyScrollModeRef.current = "history";
+          })
+        );
       });
+    } else {
+      historyScrollModeRef.current = "history";
     }
   };
 
@@ -1088,7 +1133,7 @@ export default function AIResearchClient() {
                       <button
                         type="button"
                         onClick={() => setShareOpen((o) => !o)}
-                        className="flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-[13px] text-[#0D1B2A]/55 hover:bg-[#0D1B2A]/[0.06] hover:text-[#0D1B2A]"
+                        className="flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-[13px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
                       >
                         <Share2 className="h-4 w-4" />
                         <span className="hidden sm:inline">Share</span>
@@ -1123,11 +1168,17 @@ export default function AIResearchClient() {
                   {canDownloadConversations(tier) && (
                     <button
                       type="button"
-                      onClick={handleDownloadChat}
-                      className="flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-[13px] text-[#0D1B2A]/55 hover:bg-[#0D1B2A]/[0.06] hover:text-[#0D1B2A]"
+                      onClick={() => {
+                        if (!currentSession?.messages.length) return;
+                        setExportPreviewAt(new Date());
+                        setExportPreviewOpen(true);
+                      }}
+                      disabled={!currentSession?.messages.length}
+                      className="flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-[13px] text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-50"
+                      aria-label="Preview and download chat as PDF"
                     >
                       <Download className="h-4 w-4" />
-                      <span className="hidden sm:inline">Download</span>
+                      <span className="hidden sm:inline">Download PDF</span>
                     </button>
                   )}
                 </>
@@ -1596,6 +1647,25 @@ export default function AIResearchClient() {
           </div>
         </div>
       )}
+
+      {currentSession && canDownloadConversations(tier) ? (
+        <AIResearchChatExportPreviewDialog
+          open={exportPreviewOpen}
+          onOpenChange={setExportPreviewOpen}
+          title={currentSession.title || "AI Legal Research"}
+          messages={currentSession.messages.map((m) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            sources: m.sources,
+            sourceCards: m.sourceCards,
+          }))}
+          exportedAt={exportPreviewAt}
+          logoUrl={platformLogoUrl}
+          onDownloadPdf={handleDownloadChat}
+          pdfLoading={chatPdfDownloading}
+        />
+      ) : null}
     </>
   );
 }
