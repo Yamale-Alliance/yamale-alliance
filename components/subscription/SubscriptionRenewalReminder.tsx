@@ -27,7 +27,7 @@ export function SubscriptionRenewalReminder() {
     <div
       role="region"
       aria-label="Subscription renewal reminder"
-      className="border-b border-[#C8922A]/35 bg-gradient-to-r from-[#C8922A]/12 via-amber-500/10 to-[#C8922A]/8 px-4 py-3 print:hidden dark:from-[#C8922A]/20 dark:via-amber-500/15 dark:to-[#C8922A]/12"
+      className="yamale-site-chrome border-b border-[#C8922A]/35 bg-gradient-to-r from-[#C8922A]/12 via-amber-500/10 to-[#C8922A]/8 px-4 py-3 print:hidden dark:from-[#C8922A]/20 dark:via-amber-500/15 dark:to-[#C8922A]/12"
     >
       <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <p className="min-w-0 text-sm leading-snug text-foreground">

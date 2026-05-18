@@ -31,7 +31,7 @@ type UserRole = "user" | "lawyer" | "admin";
 function HeaderNavSkeleton() {
   const pathname = usePathname();
   return (
-    <header className={prototypeNavHeaderClass}>
+    <header className={`yamale-site-chrome ${prototypeNavHeaderClass}`}>
       <div className={prototypeNavInnerClass}>
         <Link href="/" className="font-semibold text-foreground">
           <span className="tracking-tight">Yamalé</span>

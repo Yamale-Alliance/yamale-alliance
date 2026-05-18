@@ -10,10 +10,9 @@ import {
   ChevronLeft,
   FileText,
   Loader2,
-  GripVertical,
   ArrowUp,
   ArrowDown,
-  Menu,
+  List,
   X,
   Bookmark,
   BookmarkCheck,
@@ -33,6 +32,7 @@ import {
   prototypeNavyHeroSectionClass,
 } from "@/components/layout/prototype-page-styles";
 import { LawyerMatchBanner } from "@/components/library/LawyerMatchBanner";
+import { LawContentsNav } from "@/components/library/LawContentsNav";
 import { LawExportPreviewDialog } from "@/components/library/LawExportPreviewDialog";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import {
@@ -739,8 +739,8 @@ export default function LawDetailPage({
   const [error, setError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<string>("");
   const [resolvedId, setResolvedId] = useState<string | null>(null);
-  const [contentsPosition, setContentsPosition] = useState<{ x: number; y: number } | null>(null);
-  const [mobileContentsOpen, setMobileContentsOpen] = useState(false);
+  const [contentsOpen, setContentsOpen] = useState(false);
+  const [showSubheadingsInContents, setShowSubheadingsInContents] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [printLoading, setPrintLoading] = useState(false);
@@ -751,8 +751,6 @@ export default function LawDetailPage({
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const [summary, setSummary] = useState<{ summary_text: string; generated_at: string } | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const dragStartRef = useRef<{ x: number; y: number; clientX: number; clientY: number } | null>(null);
-  const contentsRef = useRef<HTMLDivElement>(null);
   const { isSignedIn, user } = useUser();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
@@ -765,8 +763,10 @@ export default function LawDetailPage({
   const [fixOcrLoading, setFixOcrLoading] = useState(false);
   const [fixOcrBanner, setFixOcrBanner] = useState<string | null>(null);
   const [readingMode, setReadingMode] = useState(false);
-  const [docSearchQuery, setDocSearchQuery] = useState("");
+  const [docSearchDraft, setDocSearchDraft] = useState("");
+  const [docSearchSubmitted, setDocSearchSubmitted] = useState("");
   const [docSearchMatchCount, setDocSearchMatchCount] = useState(0);
+  const [docSearchActiveIndex, setDocSearchActiveIndex] = useState(0);
   const docSearchRootRef = useRef<HTMLDivElement>(null);
   const docSearchHitIndexRef = useRef(0);
   const hasTriggeredPaygPostPurchaseUi = useRef(false);
@@ -794,6 +794,19 @@ export default function LawDetailPage({
     return splitIntoSections(law.content_plain || law.content || "");
   }, [law]);
 
+  const outlineAll = useMemo(() => getOutlineItems(sections), [sections]);
+  const hasSubheadingsInOutline = outlineAll.some((item) => item.level === "sub");
+  const contentsNavItems = useMemo(
+    () => (showSubheadingsInContents ? outlineAll : outlineAll.filter((item) => item.level === "section")),
+    [outlineAll, showSubheadingsInContents]
+  );
+
+  const jumpToSection = useCallback((id: string) => {
+    setActiveSection(id);
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setContentsOpen(false);
+  }, []);
+
   useEffect(() => {
     if (sections.length === 0) return;
     setActiveSection((prev) => (sections.some((s) => s.id === prev) ? prev : sections[0]!.id));
@@ -805,14 +818,6 @@ export default function LawDetailPage({
   const scrollToBottom = useCallback(() => {
     window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
   }, []);
-
-  const handleContentsMouseDown = useCallback((e: React.MouseEvent) => {
-    if (!contentsRef.current) return;
-    const rect = contentsRef.current.getBoundingClientRect();
-    const x = contentsPosition?.x ?? rect.left;
-    const y = contentsPosition?.y ?? rect.top;
-    dragStartRef.current = { x, y, clientX: e.clientX, clientY: e.clientY };
-  }, [contentsPosition]);
 
   // Paid PDF: Supabase-backed list only (no localStorage).
   useEffect(() => {
@@ -867,25 +872,6 @@ export default function LawDetailPage({
     const t = window.setTimeout(() => setDocumentPaymentSuccessVisible(false), 14000);
     return () => window.clearTimeout(t);
   }, [documentPaymentSuccessVisible]);
-
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!dragStartRef.current) return;
-      const dx = e.clientX - dragStartRef.current.clientX;
-      const dy = e.clientY - dragStartRef.current.clientY;
-      setContentsPosition({
-        x: dragStartRef.current.x + dx,
-        y: dragStartRef.current.y + dy,
-      });
-    };
-    const onUp = () => { dragStartRef.current = null; };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-  }, []);
 
   // Check if user has team plan
   const isTeamPlan = user?.publicMetadata?.tier === "team" || user?.publicMetadata?.subscriptionTier === "team";
@@ -1079,9 +1065,61 @@ export default function LawDetailPage({
     if (!hits.length) return;
     docSearchHitIndexRef.current = (docSearchHitIndexRef.current + delta + hits.length) % hits.length;
     const i = docSearchHitIndexRef.current;
+    setDocSearchActiveIndex(i);
     hits.forEach((h, j) => h.classList.toggle("law-doc-search-hit-active", j === i));
     hits[i]?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, []);
+
+  const runDocSearch = useCallback(() => {
+    const root = docSearchRootRef.current;
+    if (!root || !law || sections.length === 0) return;
+    const q = docSearchDraft.trim();
+    if (q.length < 2) {
+      setDocSearchSubmitted("");
+      clearLawDocumentSearchHighlights(root);
+      setDocSearchMatchCount(0);
+      setDocSearchActiveIndex(0);
+      docSearchHitIndexRef.current = 0;
+      return;
+    }
+    setDocSearchSubmitted(q);
+    const n = applyLawDocumentSearchHighlights(root, q);
+    setDocSearchMatchCount(n);
+    const hits = getLawDocumentSearchHitElements(root);
+    docSearchHitIndexRef.current = 0;
+    setDocSearchActiveIndex(0);
+    hits.forEach((h, j) => h.classList.toggle("law-doc-search-hit-active", j === 0 && n > 0));
+    if (n > 0) hits[0]?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [docSearchDraft, law, sections]);
+
+  const clearDocSearch = useCallback(() => {
+    const root = docSearchRootRef.current;
+    if (root) clearLawDocumentSearchHighlights(root);
+    setDocSearchDraft("");
+    setDocSearchSubmitted("");
+    setDocSearchMatchCount(0);
+    setDocSearchActiveIndex(0);
+    docSearchHitIndexRef.current = 0;
+  }, []);
+
+  const toggleReadingMode = useCallback(() => {
+    setReadingMode((on) => {
+      const next = !on;
+      if (next && typeof window !== "undefined") {
+        requestAnimationFrame(() => {
+          document.querySelector(".law-print-document")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (readingMode) root.classList.add("law-reading-mode-active");
+    else root.classList.remove("law-reading-mode-active");
+    return () => root.classList.remove("law-reading-mode-active");
+  }, [readingMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1138,22 +1176,32 @@ export default function LawDetailPage({
 
   useEffect(() => {
     const root = docSearchRootRef.current;
-    if (!root || !law || sections.length === 0) {
-      setDocSearchMatchCount(0);
-      return;
-    }
-    const t = window.setTimeout(() => {
-      const n = applyLawDocumentSearchHighlights(root, docSearchQuery);
-      setDocSearchMatchCount(n);
-      const hits = getLawDocumentSearchHitElements(root);
-      docSearchHitIndexRef.current = 0;
-      hits.forEach((h, j) => h.classList.toggle("law-doc-search-hit-active", j === 0 && n > 0));
-    }, 160);
-    return () => {
-      clearTimeout(t);
-      clearLawDocumentSearchHighlights(root);
+    if (!root || !law || sections.length === 0 || docSearchSubmitted.length < 2) return;
+    const n = applyLawDocumentSearchHighlights(root, docSearchSubmitted);
+    setDocSearchMatchCount(n);
+    const hits = getLawDocumentSearchHitElements(root);
+    const i = Math.min(docSearchHitIndexRef.current, Math.max(0, hits.length - 1));
+    docSearchHitIndexRef.current = i;
+    setDocSearchActiveIndex(i);
+    hits.forEach((h, j) => h.classList.toggle("law-doc-search-hit-active", j === i && n > 0));
+    return () => clearLawDocumentSearchHighlights(root);
+  }, [docSearchSubmitted, law?.id, sections]);
+
+  useEffect(() => {
+    if (docSearchMatchCount === 0 || docSearchSubmitted.length < 2) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Enter" || e.altKey || e.ctrlKey || e.metaKey) return;
+      const el = e.target;
+      if (!(el instanceof HTMLElement)) return;
+      const tag = el.tagName;
+      if (tag === "TEXTAREA" || tag === "INPUT" || tag === "SELECT") return;
+      if (el.isContentEditable) return;
+      e.preventDefault();
+      goDocSearchHit(e.shiftKey ? -1 : 1);
     };
-  }, [docSearchQuery, law?.id, sections]);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [docSearchMatchCount, docSearchSubmitted, goDocSearchHit]);
 
   // After print=1 unlock: open preview and clean URL. Pay-as-you-go return is handled in confirm effect above.
   useEffect(() => {
@@ -1202,7 +1250,6 @@ export default function LawDetailPage({
   }
 
   const rawContent = law.content_plain || law.content || "";
-  const outlineItems = getOutlineItems(sections);
   const hasContent = sections.length > 0;
   const isRtl = isPrimarilyArabic(rawContent);
 
@@ -1210,6 +1257,41 @@ export default function LawDetailPage({
     <div
       className={`law-page-root min-h-screen bg-background print:bg-white ${readingMode ? "law-reading-mode-active" : ""}`}
     >
+      {readingMode ? (
+        <div
+          className="sticky top-0 z-30 flex flex-wrap items-center gap-2 border-b border-border bg-background/95 px-4 py-2.5 shadow-sm backdrop-blur-md print:hidden sm:gap-3"
+          role="banner"
+        >
+          <Link
+            href={returnTo && returnTo.startsWith("/library") ? returnTo : "/library"}
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+            Library
+          </Link>
+          <p className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground" title={law.title}>
+            {law.title}
+          </p>
+          {hasContent && sections.length >= 1 && (
+            <button
+              type="button"
+              onClick={() => setContentsOpen(true)}
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground lg:hidden"
+            >
+              <List className="h-3.5 w-3.5" />
+              Contents
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => toggleReadingMode()}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            Exit reading mode
+          </button>
+        </div>
+      ) : (
       <header className={`law-page-hero print:hidden ${prototypeNavyHeroSectionClass} px-4 py-10 backdrop-blur-md sm:px-8`}>
         <div
           className="pointer-events-none absolute inset-0 z-0 opacity-[0.92]"
@@ -1256,23 +1338,6 @@ export default function LawDetailPage({
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0 print:hidden">
-              {hasContent && sections.length >= 1 && (
-                <div className="relative group lg:hidden">
-                  <button
-                    type="button"
-                    onClick={() => setMobileContentsOpen(true)}
-                    className="shrink-0 rounded-lg p-2.5 text-white/75 hover:bg-white/10 hover:text-white"
-                    aria-label="Open contents"
-                  >
-                    <Menu className="h-6 w-6" />
-                  </button>
-                  <span className="pointer-events-none absolute right-full top-1/2 mr-2 -translate-y-1/2 whitespace-nowrap rounded bg-black/85 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-md transition group-hover:opacity-100">
-                    Contents
-                  </span>
-                </div>
-              )}
-            </div>
           </div>
           <div className="law-reading-hide-when-reading">
             <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -1295,24 +1360,51 @@ export default function LawDetailPage({
           </div>
           {hasContent && (
             <div
-              className="mt-4 flex flex-col gap-3 rounded-xl border border-white/15 bg-white/[0.06] p-3 print:hidden sm:flex-row sm:flex-wrap sm:items-end"
+              className="law-reading-hide-when-reading mt-4 flex flex-col gap-3 rounded-xl border border-white/15 bg-white/[0.06] p-3 print:hidden sm:flex-row sm:flex-wrap sm:items-end"
               data-law-search-skip
             >
-              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
                 <label htmlFor="law-doc-search" className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/55">
-                  Search in document
+                  Find in this document
                 </label>
+                <p className="text-[11px] leading-snug text-white/50">
+                  Type a word or phrase (at least 2 letters), then click Search. A bar at the bottom of the screen lets you jump between matches without scrolling back up.
+                </p>
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <input
                     id="law-doc-search"
                     type="search"
                     enterKeyHint="search"
                     autoComplete="off"
-                    value={docSearchQuery}
-                    onChange={(e) => setDocSearchQuery(e.target.value)}
-                    placeholder="Word or phrase in this law…"
-                    className="min-w-0 flex-1 rounded-lg border border-white/20 bg-[#0d1b2a]/80 px-3 py-2 text-sm text-white placeholder:text-white/40 focus:border-[#E8B84B]/60 focus:outline-none focus:ring-1 focus:ring-[#E8B84B]/40"
+                    value={docSearchDraft}
+                    onChange={(e) => setDocSearchDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        runDocSearch();
+                      }
+                    }}
+                    placeholder="e.g. registration, tax, article 12…"
+                    className="min-w-[10rem] flex-1 rounded-lg border border-white/20 bg-[#0d1b2a]/80 px-3 py-2 text-sm text-white placeholder:text-white/40 focus:border-[#E8B84B]/60 focus:outline-none focus:ring-1 focus:ring-[#E8B84B]/40"
                   />
+                  <button
+                    type="button"
+                    onClick={() => runDocSearch()}
+                    disabled={docSearchDraft.trim().length < 2}
+                    className="shrink-0 rounded-lg bg-[#E8B84B] px-3.5 py-2 text-sm font-semibold text-[#0d1b2a] hover:bg-[#f0c55c] disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    Search
+                  </button>
+                  {docSearchSubmitted.length >= 2 ? (
+                    <span
+                      className="shrink-0 rounded-lg border border-white/15 bg-[#0d1b2a]/60 px-2.5 py-2 text-xs font-medium tabular-nums text-white/85"
+                      aria-live="polite"
+                    >
+                      {docSearchMatchCount === 0
+                        ? "No matches"
+                        : `${docSearchActiveIndex + 1} of ${docSearchMatchCount}`}
+                    </span>
+                  ) : null}
                   <div className="flex shrink-0 items-center gap-1">
                     <button
                       type="button"
@@ -1320,6 +1412,7 @@ export default function LawDetailPage({
                       disabled={docSearchMatchCount === 0}
                       className="rounded-lg border border-white/20 p-2 text-white/80 hover:bg-white/10 disabled:opacity-40"
                       aria-label="Previous match"
+                      title="Previous match"
                     >
                       <ChevronUp className="h-4 w-4" />
                     </button>
@@ -1329,31 +1422,27 @@ export default function LawDetailPage({
                       disabled={docSearchMatchCount === 0}
                       className="rounded-lg border border-white/20 p-2 text-white/80 hover:bg-white/10 disabled:opacity-40"
                       aria-label="Next match"
+                      title="Next match"
                     >
                       <ChevronDown className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
-                {docSearchQuery.trim().length >= 2 && (
-                  <p className="text-[11px] text-white/55">
-                    {docSearchMatchCount === 0 ? "No matches in the text below." : `${docSearchMatchCount} match${docSearchMatchCount === 1 ? "" : "es"} — use arrows to jump`}
-                  </p>
-                )}
               </div>
               <div className="flex flex-wrap items-center gap-2 border-t border-white/10 pt-3 sm:border-t-0 sm:pt-0">
                 <button
                   type="button"
-                  onClick={() => setReadingMode((v) => !v)}
-                  className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition ${readingMode ? "bg-[#E8B84B] text-[#0d1b2a]" : "border border-white/25 text-white/90 hover:bg-white/10"}`}
+                  onClick={() => toggleReadingMode()}
+                  className="inline-flex items-center gap-2 rounded-lg border border-white/25 px-3 py-2 text-xs font-semibold text-white/90 transition hover:bg-white/10"
                 >
                   <BookOpen className="h-4 w-4" />
-                  {readingMode ? "Exit reading mode" : "Reading mode"}
+                  Reading mode
                 </button>
               </div>
             </div>
           )}
           {law.translations && law.translations.length > 0 && (
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-white/80">
+            <div className="law-reading-hide-when-reading mt-3 flex flex-wrap items-center gap-2 text-xs text-white/80">
               <span className="font-semibold">Translations:</span>
               {law.translations.map((t) => (
                 <Link key={t.id} href={`/library/${t.id}`} className="rounded-full border border-white/20 px-2.5 py-1 hover:bg-white/10">
@@ -1363,7 +1452,7 @@ export default function LawDetailPage({
             </div>
           )}
           {isAdmin && (
-            <div className="mt-4 flex flex-col gap-2 rounded-xl border border-[rgba(200,146,42,0.35)] bg-[rgba(255,255,255,0.06)] px-4 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="law-reading-hide-when-reading mt-4 flex flex-col gap-2 rounded-xl border border-[rgba(200,146,42,0.35)] bg-[rgba(255,255,255,0.06)] px-4 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center">
               <button
                 type="button"
                 onClick={() => void handleFixOcr()}
@@ -1387,7 +1476,7 @@ export default function LawDetailPage({
           )}
           {/* Law Summary (Team Plan Only) */}
           {isTeamPlan && (
-            <div className="mt-4">
+            <div className="law-reading-hide-when-reading mt-4">
               {summaryLoading ? (
                 <div className="flex items-center gap-2 text-sm text-white/65">
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -1407,56 +1496,32 @@ export default function LawDetailPage({
           )}
         </div>
       </header>
-
-      {/* Mobile Contents drawer */}
-      {hasContent && sections.length >= 1 && mobileContentsOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-50 bg-black/50 print:hidden lg:hidden"
-            aria-hidden
-            onClick={() => setMobileContentsOpen(false)}
-          />
-          <aside
-            className="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] border-r border-border/80 bg-card/95 shadow-2xl backdrop-blur-xl print:hidden lg:hidden"
-            aria-label="Contents"
-          >
-            <div className="flex h-14 items-center justify-between border-b border-border/80 bg-muted/20 px-5 backdrop-blur-sm">
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                Contents
-              </p>
-              <button
-                type="button"
-                onClick={() => setMobileContentsOpen(false)}
-                className="rounded p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="Close"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <ul className={`max-h-[calc(100vh-3.5rem)] space-y-0.5 overflow-y-auto p-4 ${isRtl ? "text-right" : ""}`} dir={isRtl ? "rtl" : undefined}>
-              {outlineItems.map((item) => (
-                <li key={item.id} className={item.level === "sub" ? "pl-3" : undefined}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveSection(item.id);
-                      document.getElementById(item.id)?.scrollIntoView({ behavior: "smooth" });
-                      setMobileContentsOpen(false);
-                    }}
-                    className={`block w-full rounded-lg border-l-2 py-2.5 pr-3 text-left transition-all duration-200 ${item.level === "section" ? "pl-3 text-sm font-bold" : "pl-2 text-xs font-medium"} ${isRtl ? "text-right border-l-0 border-r-2 pr-3 pl-3" : ""} ${activeSection === item.id ? "border-primary bg-primary/10 font-semibold text-primary" : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
-                    title={item.title.length > 60 ? item.title : undefined}
-                  >
-                    <span className="block truncate">{item.title}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </aside>
-        </>
       )}
 
-      <div className="min-h-screen bg-gradient-to-b from-muted/10 via-background to-muted/20 print:min-h-0 print:bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 print:max-w-none print:px-0 print:py-0">
+      {hasContent && sections.length >= 1 && (
+        <Dialog.Root open={contentsOpen} onOpenChange={setContentsOpen}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 print:hidden" />
+            <Dialog.Content
+              className="fixed z-50 flex flex-col border border-border bg-card shadow-2xl print:hidden inset-x-0 bottom-0 max-h-[min(85vh,28rem)] rounded-t-2xl sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none sm:w-80 sm:max-w-[90vw] sm:rounded-none sm:rounded-l-2xl"
+            >
+              <LawContentsNav
+                items={contentsNavItems}
+                activeSectionId={activeSection}
+                onSelect={jumpToSection}
+                isRtl={isRtl}
+                hasSubheadings={hasSubheadingsInOutline}
+                showSubheadings={showSubheadingsInContents}
+                onShowSubheadingsChange={setShowSubheadingsInContents}
+                onClose={() => setContentsOpen(false)}
+              />
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+      )}
+
+      <div className={`law-reading-content-shell min-h-screen print:min-h-0 print:bg-white ${readingMode ? "bg-background" : "bg-gradient-to-b from-muted/10 via-background to-muted/20"}`}>
+        <div className={`law-reading-content-wrap mx-auto px-3 sm:px-5 print:max-w-none print:px-0 print:py-0 ${readingMode ? "max-w-[min(100%,80rem)] py-4" : "max-w-[min(100%,90rem)] py-6 sm:py-8"}`}>
           {/* Print-only: logo + title + metadata (on-screen hero is print:hidden) */}
           <header className="hidden print:block print:max-w-none border-b border-neutral-800/20 pb-6 text-neutral-900">
             <PlatformLogo
@@ -1493,53 +1558,8 @@ export default function LawDetailPage({
               <LawyerMatchBanner country={law.countries.name} category={law.categories.name} lawTitle={law.title} />
             </div>
           )}
-          <div className="law-reading-stage flex flex-col gap-8 lg:flex-row lg:gap-10">
-          {/* Desktop: sidebar. Mobile: hidden (use hamburger + drawer) */}
-          {hasContent && sections.length >= 1 && (
-            <nav
-              className="hidden shrink-0 lg:block lg:w-60 print:hidden"
-              style={contentsPosition ? { position: "fixed", left: contentsPosition.x, top: contentsPosition.y, zIndex: 50, width: "15rem" } : undefined}
-              ref={contentsRef}
-            >
-              <div className="sticky top-24 rounded-2xl border border-border/80 bg-card/70 p-5 shadow-xl shadow-black/[0.06] backdrop-blur-xl dark:bg-card/80 dark:shadow-none dark:ring-1 dark:ring-white/10">
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onMouseDown={handleContentsMouseDown}
-                  onDoubleClick={() => setContentsPosition(null)}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") e.currentTarget.click(); }}
-                  className="mb-4 flex cursor-grab items-center gap-2.5 active:cursor-grabbing"
-                  title="Drag to move. Double-click to reset position."
-                >
-                  <GripVertical className="h-4 w-4 text-muted-foreground/80" />
-                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                    Contents
-                  </p>
-                </div>
-                <ul className={`max-h-[70vh] space-y-0.5 overflow-y-auto ${isRtl ? "text-right" : ""}`} dir={isRtl ? "rtl" : undefined}>
-                  {outlineItems.map((item) => (
-                    <li key={item.id} className={item.level === "sub" ? "pl-3" : undefined}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveSection(item.id);
-                          document.getElementById(item.id)?.scrollIntoView({ behavior: "smooth" });
-                        }}
-                        className={`block w-full rounded-xl py-2 pr-3 text-left transition-all duration-200 ${item.level === "section" ? "pl-3 text-sm font-bold" : "pl-2 text-xs font-medium"} ${isRtl ? "text-right pr-3 pl-3" : ""} ${activeSection === item.id ? "bg-primary/12 font-semibold text-primary shadow-sm" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
-                        title={item.title.length > 50 ? item.title : undefined}
-                      >
-                        <span className={`block truncate ${item.level === "section" ? "" : "border-s-2 border-primary/30 ps-2"}`}>{item.title}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-3 text-[10px] font-medium tracking-wide text-muted-foreground/70">Drag to move</p>
-              </div>
-            </nav>
-          )}
-
-          <div className="flex min-w-0 flex-1 flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
-          <main className="min-w-0 flex-1">
+          <div className="law-reading-stage">
+          <main className="min-w-0">
             {!hasContent && (
               <div className="rounded-2xl border border-border bg-muted/20 p-12 text-center shadow-sm">
                 <FileText className="mx-auto h-14 w-14 text-muted-foreground/70" />
@@ -1562,7 +1582,7 @@ export default function LawDetailPage({
                 <div className="h-2 w-full bg-gradient-to-r from-primary via-primary to-amber-500/80 print:hidden" aria-hidden />
                 <div
                   ref={docSearchRootRef}
-                  className={`law-doc-search-root mx-auto w-full max-w-4xl px-6 py-8 sm:px-12 sm:py-10 md:px-16 md:py-14 print:max-w-none print:px-6 print:py-6 print:sm:px-8 ${isRtl ? "text-right" : ""}`}
+                  className={`law-doc-search-root mx-auto w-full max-w-none px-4 py-8 sm:px-6 sm:py-10 lg:px-10 lg:py-12 print:px-6 print:py-6 print:sm:px-8 ${isRtl ? "text-right" : ""}`}
                   dir={isRtl ? "rtl" : undefined}
                   lang={isRtl ? "ar" : undefined}
                 >
@@ -1669,9 +1689,55 @@ export default function LawDetailPage({
             )}
           </main>
           </div>
-          </div>
         </div>
       </div>
+
+      {hasContent && docSearchSubmitted.length >= 2 && (
+        <div
+          className="fixed z-50 flex w-[min(calc(100vw-1.25rem),22rem)] items-center gap-2 rounded-2xl border border-border/80 bg-card/95 px-3 py-2 shadow-lg shadow-black/25 backdrop-blur-xl print:hidden max-sm:left-1/2 max-sm:-translate-x-1/2 max-sm:bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+4.5rem)] sm:bottom-5 sm:right-[4.85rem] sm:left-auto sm:w-auto sm:max-w-[min(calc(100vw-8rem),24rem)] sm:translate-x-0"
+          role="search"
+          aria-label="Find in document — jump between matches"
+        >
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+          <span className="min-w-0 truncate text-sm font-medium text-foreground" title={docSearchSubmitted}>
+            {docSearchSubmitted}
+          </span>
+          <span className="shrink-0 rounded-md bg-muted px-2 py-1 text-xs font-semibold tabular-nums text-foreground" aria-live="polite">
+            {docSearchMatchCount === 0 ? "No matches" : `${docSearchActiveIndex + 1} / ${docSearchMatchCount}`}
+          </span>
+          <div className="ml-auto flex shrink-0 items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => goDocSearchHit(-1)}
+              disabled={docSearchMatchCount === 0}
+              className="rounded-lg p-2 text-foreground hover:bg-accent disabled:opacity-40"
+              aria-label="Previous match"
+              title="Previous match (Shift+Enter)"
+            >
+              <ChevronUp className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => goDocSearchHit(1)}
+              disabled={docSearchMatchCount === 0}
+              className="rounded-lg p-2 text-foreground hover:bg-accent disabled:opacity-40"
+              aria-label="Next match"
+              title="Next match (Enter)"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => clearDocSearch()}
+            className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label="Clear search"
+            title="Clear search"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {(hasContent || isAdmin) && (
         <div
@@ -1694,6 +1760,23 @@ export default function LawDetailPage({
             </span>
           </div>
 
+          {hasContent && sections.length >= 1 && (
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={() => setContentsOpen(true)}
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-muted-foreground hover:bg-accent hover:text-foreground"
+                aria-label="Contents"
+                title="Contents"
+              >
+                <List className="h-5 w-5" />
+              </button>
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+                Contents
+              </span>
+            </div>
+          )}
+
           {hasContent && (
             <div className="relative group">
               <button
@@ -1703,13 +1786,13 @@ export default function LawDetailPage({
                   document.getElementById("law-doc-search")?.scrollIntoView({ behavior: "smooth", block: "center" });
                 }}
                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="Search in document"
-                title="Search in document"
+                aria-label="Find in this document"
+                title="Find in this document"
               >
                 <Search className="h-5 w-5" />
               </button>
               <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
-                Search in document
+                Find in document
               </span>
             </div>
           )}
@@ -1718,7 +1801,7 @@ export default function LawDetailPage({
             <div className="relative group">
               <button
                 type="button"
-                onClick={() => setReadingMode((v) => !v)}
+                onClick={() => toggleReadingMode()}
                 className={`inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 ${readingMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
                 aria-label={readingMode ? "Exit reading mode" : "Reading mode"}
                 title={readingMode ? "Exit reading mode" : "Reading mode"}
