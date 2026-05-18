@@ -5,7 +5,7 @@ const settingsLinks = [
   {
     href: "/admin-panel/settings/branding",
     label: "Branding & logo",
-    description: "Upload platform logo and favicon.",
+    description: "Logo, favicon, and founder portrait for the founder's note.",
     icon: Palette,
   },
   {
