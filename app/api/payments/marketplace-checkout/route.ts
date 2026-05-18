@@ -6,6 +6,7 @@ import { amountMinorForPawapayCountry } from "@/lib/pawapay-deposit-amount";
 import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
 import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
 import { LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE } from "@/lib/lomi-marketplace-checkout-cookie";
+import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
 import type { Database } from "@/lib/database.types";
 
 type MarketplaceItemRow = Database["public"]["Tables"]["marketplace_items"]["Row"];
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseServer();
     const { data, error } = await supabase
       .from("marketplace_items")
-      .select("id, title, description, price_cents, currency")
+      .select("id, title, description, price_cents, currency, file_format, file_name")
       .eq("id", itemId)
       .eq("published", true)
       .single();
@@ -56,6 +57,9 @@ export async function POST(request: NextRequest) {
     const storedCurrency = (item.currency || process.env.PAWAPAY_CURRENCY || "USD").toUpperCase();
     const requestOrigin = request.headers.get("origin") || request.nextUrl.origin;
     const origin = requestOrigin;
+    const returnPath = isMarketplaceZip(item)
+      ? `/marketplace/${itemId}/package`
+      : `/marketplace/${itemId}`;
 
     if (provider === "lomi") {
       if (!isLomiConfigured()) {
@@ -86,8 +90,8 @@ export async function POST(request: NextRequest) {
         title: item.title.slice(0, 80),
         description: (item.description || item.title).slice(0, 200),
         // Lomi does not substitute `{CHECKOUT_SESSION_ID}`; stable return URL + HttpOnly cookie (see lib/lomi-payg-ai-query-cookie.ts pattern).
-        success_url: `${origin}/marketplace/${itemId}?payment=verify&from_lomi=1`,
-        cancel_url: `${origin}/marketplace/${itemId}?checkout=cancelled`,
+        success_url: `${origin}${returnPath}?payment=verify&from_lomi=1`,
+        cancel_url: `${origin}${returnPath}?checkout=cancelled`,
       });
 
       const res = NextResponse.json({ url: checkoutUrl, provider: "lomi" });
@@ -121,7 +125,7 @@ export async function POST(request: NextRequest) {
     const returnBase = resolvePawapayReturnOrigin(requestOrigin);
     const depositId = crypto.randomUUID();
     /** Neutral query until /api/marketplace/confirm-payment verifies COMPLETED — avoids false "success" on cancel. */
-    const returnUrl = `${returnBase}/marketplace/${itemId}?payment=verify&session_id=${encodeURIComponent(depositId)}`;
+    const returnUrl = `${returnBase}${returnPath}?payment=verify&session_id=${encodeURIComponent(depositId)}`;
     const { redirectUrl } = await createPaymentPageSession({
       depositId,
       amountCents: amountMinor,
