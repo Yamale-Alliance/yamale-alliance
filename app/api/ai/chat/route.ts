@@ -545,27 +545,6 @@ function isLikelyLegalQuestion(query: string): boolean {
   );
 }
 
-function isDetailedRequest(query: string): boolean {
-  const q = query.toLowerCase();
-  return (
-    q.includes("detailed") ||
-    q.includes("more information") ||
-    q.includes("more detail") ||
-    q.includes("full details") ||
-    q.includes("explain in detail") ||
-    q.includes("article by article") ||
-    q.includes("section by section")
-  );
-}
-
-function isBriefRequest(query: string): boolean {
-  const q = query.toLowerCase();
-  return (
-    /\b(in short|briefly|brief|concise|short answer|quick answer|tldr|summarize briefly)\b/.test(q) ||
-    /\bjust the answer\b/.test(q)
-  );
-}
-
 /** User explicitly asked for the full statute / act text (not a summary snippet). */
 function userRequestsFullLawText(query: string): boolean {
   const q = query.toLowerCase();
@@ -577,14 +556,130 @@ function userRequestsFullLawText(query: string): boolean {
   );
 }
 
+/**
+ * VAT / digital / non-resident style questions — not primarily import clearance / HS / manifest.
+ * Used to drop customs-only and privacy noise from the candidate set.
+ */
+function isPrincipalVatDigitalTaxQuery(query: string): boolean {
+  const q = query.toLowerCase();
+  if (!/\b(vat|tva|value\s+added\s+tax)\b/.test(q)) return false;
+  if (
+    /\b(bill\s+of\s+lading|cargo\s+manifest|import\s+entry|clearance\s+at\s+the\s+port|hs\s+code|tariff\s+heading|dutiable\s+value\s+at\s+import)\b/.test(
+      q
+    )
+  ) {
+    return false;
+  }
+  return /\b(digital|online|electroni|saas|software|subscription|cloud|non[-\s]?resident|foreign\s+supplier|cross[-\s]?border|offshore|electronically\s+supplied)\b/.test(
+    q
+  );
+}
+
+function isEacCustomsImportContextQuery(query: string): boolean {
+  const q = query.toLowerCase();
+  if (!/\b(import|customs|declaration|dutiable|clearance|cargo|manifest|home\s+consumption|bill\s+of\s+lading)\b/.test(q))
+    return false;
+  return /\b(eac|east\s+african\s+community|partner\s+state|rwanda|kenya|uganda|tanzania|burundi|south\s+sudan|somalia|d\.?\s*r\.?\s*congo|dr\s+congo)\b/.test(
+    q
+  );
+}
+
+function eacCmaFrameworkKey(title: string): string | null {
+  const t = title.toLowerCase();
+  if (!/customs\s+management/.test(t)) return null;
+  if (!/2004/.test(t)) return null;
+  if (!/(east\s+african|e\.?a\.?c\.|\beac\b|community)/.test(t)) return null;
+  return "eac_cma_2004";
+}
+
+/** When the same EACCMA text is stored once per Partner State, keep one row — prefer the user's country. */
+function collapseDuplicateEacCmaPreferCountry(
+  laws: any[],
+  searchCountry: string | undefined,
+  query: string
+): any[] {
+  if (!searchCountry?.trim() || !isEacCustomsImportContextQuery(query)) return laws;
+  const sc = searchCountry.trim();
+  const keyFor = (law: any) => eacCmaFrameworkKey(String(law.title ?? ""));
+  const buckets = new Map<string, any[]>();
+  for (const law of laws) {
+    const k = keyFor(law);
+    if (!k) continue;
+    buckets.set(k, [...(buckets.get(k) ?? []), law]);
+  }
+  if (buckets.size === 0) return laws;
+  const chosen = new Map<string, any>();
+  for (const [k, arr] of buckets) {
+    const match = arr.find((l) => countryLabelsEquivalentForRag(lawCountryDisplayName(l), sc));
+    chosen.set(k, match ?? arr[0]);
+  }
+  const out: any[] = [];
+  const seen = new Set<string>();
+  for (const law of laws) {
+    const k = keyFor(law);
+    if (!k) {
+      out.push(law);
+      continue;
+    }
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(chosen.get(k)!);
+  }
+  return out;
+}
+
+function retrievalTuningBoost(law: any, query: string, searchCountry: string | undefined): number {
+  let bonus = 0;
+  const title = String(law?.title ?? "").toLowerCase();
+  const category = String(law?.categories?.name ?? "").toLowerCase();
+  const blob = `${title}\n${category}\n${String(law?.content_plain ?? law?.content ?? "").toLowerCase()}`;
+
+  if (isPrincipalVatDigitalTaxQuery(query)) {
+    const customsNoise =
+      /\bcustoms\b|\bcustoms\s+service\b|\bcustoms\s+and\s+excise\b|\bdouane\b|\bimport\s+duty\b/i.test(title) &&
+      !/\bvat\b|\bvalue\s+added\b|\btax\s+administration\b|\bfinance\s+act\b|\bincome\s+tax\b|\bwithhold/i.test(title);
+    const privacyNoise =
+      /\bdata\s+protection\b|\bndp\s+act\b|\bndpc\b|\bgaid\b|\bprivacy\b|\bpersonal\s+data\b/i.test(title) ||
+      /\bdata\s+protection\b|\bprivacy\b/i.test(category);
+    if (customsNoise) bonus -= 140;
+    if (privacyNoise) bonus -= 130;
+    if (/\bvat\b|\bvalue\s+added\b|\btax\s+administration\b|\bfinance\s+act\b|\bstamp\s+duties\b/i.test(title)) bonus += 55;
+    if (/\btax\b|\bfiscal\b|\brevenue\b/.test(category) && !privacyNoise) bonus += 28;
+  }
+
+  if (isEacCustomsImportContextQuery(query) && searchCountry?.trim()) {
+    const sc = searchCountry.trim();
+    if (eacCmaFrameworkKey(String(law.title ?? "")) && countryLabelsEquivalentForRag(lawCountryDisplayName(law), sc)) {
+      bonus += 115;
+    }
+  }
+
+  // Light preference: query tokens hit tax/VAT body for digital-VAT questions
+  if (isPrincipalVatDigitalTaxQuery(query) && /\b(vat|reverse\s+charge|digital|electroni|non[-\s]?resident)\b/.test(blob)) {
+    bonus += 18;
+  }
+
+  return bonus;
+}
+
 function isClearlyOffTopicForPrimaryIntent(
   law: any,
   primaryIntentId: string,
-  rankingTokens: string[]
+  rankingTokens: string[],
+  userQuery?: string
 ): boolean {
   const title = String(law?.title ?? "").toLowerCase();
   const category = String(law?.categories?.name ?? "").toLowerCase();
   const blob = `${title}\n${String(law?.content_plain ?? law?.content ?? "").toLowerCase()}`;
+  if (primaryIntentId === "tax" && userQuery && isPrincipalVatDigitalTaxQuery(userQuery)) {
+    const customsTitle =
+      /\bcustoms\b|\bcustoms\s+service\b|\bcustoms\s+and\s+excise\b|\bdouane\b/i.test(title) &&
+      !/\bvat\b|\bvalue\s+added\b|\btax\s+administration\b|\bfinance\s+act\b|\bincome\s+tax\b|\bexcise\b/i.test(title);
+    const privacyTitle =
+      /\bdata\s+protection\b|\bndp\s+act\b|\bndpc\b|\bgaid\b|\bpersonal\s+data\b/i.test(title) ||
+      /\bdata\s+protection\b|\bprivacy\b/i.test(category);
+    if (customsTitle || privacyTitle) return true;
+  }
   if (primaryIntentId === "labor") {
     const laborSignals = /(labor|labour|employment|decent work|travail|wage|salary|union|collective|dismissal|worker)/i;
     const ipSignals = /(intellectual property|patent|trademark|copyright|industrial property)/i;
@@ -1804,6 +1899,7 @@ async function searchLegalLibrary(
           if (/(coop[eé]ratives?|cooperative)/i.test(title)) bonus -= 160;
           if (/(proc[eé]dures?\s+collectives?|apurement\s+du\s+passif)/i.test(title)) bonus -= 140;
         }
+        bonus += retrievalTuningBoost(law, query, searchCountry);
         return bonus;
       };
 
@@ -1815,7 +1911,12 @@ async function searchLegalLibrary(
 
     const enrichedRanked = await enrichLawsResolveAmended(supabase, rankedLaws);
     let intentFilteredRanked = enrichedRanked.filter(
-      (law) => !isClearlyOffTopicForPrimaryIntent(law, resolvedIntent.primaryId, rankingTokens)
+      (law) => !isClearlyOffTopicForPrimaryIntent(law, resolvedIntent.primaryId, rankingTokens, query)
+    );
+    intentFilteredRanked = collapseDuplicateEacCmaPreferCountry(
+      intentFilteredRanked,
+      searchCountry,
+      query
     );
     if (isOhadaCommercialCompaniesQuery(query)) {
       intentFilteredRanked = intentFilteredRanked
@@ -1930,8 +2031,8 @@ async function searchLegalLibrary(
     const shouldKeepFullTextForSpecificLaw =
       Boolean(specificLawHint) ||
       userRequestsFullLawText(query) ||
-      (lawsForResponse.length === 1 && !isBriefRequest(query)) ||
-      (detailedMode && !isBriefRequest(query) && lawsForResponse.length <= 3);
+      lawsForResponse.length === 1 ||
+      (detailedMode && lawsForResponse.length <= 3);
     const maxCharsPerLaw = shouldKeepFullTextForSpecificLaw
       ? 1_000_000
       : latinAmericaTreatyCatalog || globalTreatyCatalog
@@ -1974,6 +2075,7 @@ async function searchLegalLibrary(
       }
       if (latinAmericaTreatyCatalog && titleLikelyLatinAmericaTreaty(String(law.title ?? ""))) bonus += 52;
       if (globalTreatyCatalog && titleLooksLikeCrossBorderTreatyTitle(String(law.title ?? ""))) bonus += 46;
+      bonus += retrievalTuningBoost(law, query, searchCountry);
       return baseScore + resolvedIntent.rankBoost(law, rankingTokens) + bonus;
     };
 
@@ -2343,8 +2445,8 @@ export async function POST(request: NextRequest) {
 
     // Search legal library for relevant content (RAG) — skip for product / onboarding questions
     const aiTurnStartedAt = Date.now();
-    // Premium-by-default responses, unless user explicitly asks for brevity.
-    const detailedMode = isDetailedRequest(userQuery) || !isBriefRequest(userQuery);
+    // Always use deep retrieval, excerpt budgets, and answer-style rules (no "brief mode").
+    const detailedMode = true;
     let legalContext = platformGuideMeta
       ? []
       : await searchLegalLibrary(userQuery, effectiveHints.country, detailedMode);
@@ -2491,8 +2593,7 @@ export async function POST(request: NextRequest) {
     const fullLawRetrievalMode =
       Boolean(specificLawHint) ||
       userRequestsFullLawText(userQuery) ||
-      (legalContext.length === 1 && !isBriefRequest(userQuery)) ||
-      (detailedMode && !isBriefRequest(userQuery) && legalContext.length <= 3);
+      (!platformGuideMeta && legalContext.length >= 1 && legalContext.length <= 3);
 
     const systemPromptParamsRaw = {
       supranationalFrameworksInQuery: supranationalFrameworksInQuery.map((m) => ({
@@ -2542,14 +2643,19 @@ export async function POST(request: NextRequest) {
       signal: claudeController.signal,
       body: JSON.stringify({
         model: modelId,
+        // Bias toward fuller, decision-useful answers (always-deep policy).
         max_tokens:
           latinAmericaTreatyCatalog || globalTreatyCatalog
             ? detailedMode
-              ? 5600
-              : 4000
-            : detailedMode
-              ? 4200
-              : 2200,
+              ? 6200
+              : 4600
+            : fullLawRetrievalMode
+              ? detailedMode
+                ? 5200
+                : 3400
+              : detailedMode
+                ? 4800
+                : 2800,
         messages: claudeMessages,
         system: systemPrompt,
       }),
