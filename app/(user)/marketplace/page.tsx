@@ -32,6 +32,7 @@ import {
 } from "@/components/checkout/PaymentMethodPicker";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { useMarketplacePaymentReturn } from "@/components/marketplace/use-marketplace-payment-return";
+import { displayVaultProductTitle } from "@/lib/marketplace-display";
 
 const BRAND = {
   dark: "#221913",
@@ -359,7 +360,9 @@ export default function MarketplacePage() {
               {buyModalProduct ? (
                 <Dialog.Description asChild>
                   <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                    <p className="font-medium text-foreground line-clamp-2">{buyModalProduct.title}</p>
+                    <p className="font-sans font-medium leading-snug text-foreground line-clamp-3" title={buyModalProduct.title}>
+                      {displayVaultProductTitle(buyModalProduct.title)}
+                    </p>
                     <p>
                       {buyModalProduct.price_cents === 0
                         ? "Free"
@@ -576,7 +579,7 @@ export default function MarketplacePage() {
                             ? `/marketplace/${product.id}/package`
                             : `/marketplace/${product.id}`
                         }
-                        className="group block overflow-hidden rounded-[8px] border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md"
+                        className="vault-product-card group flex h-full flex-col overflow-hidden rounded-[10px] border border-border bg-card transition hover:-translate-y-0.5 hover:shadow-md"
                       >
                         <div
                           className="relative h-36 border-b border-border"
@@ -598,14 +601,20 @@ export default function MarketplacePage() {
                             {priceLabel}
                           </div>
                         </div>
-                        <div className="p-4">
-                          <h3 className="line-clamp-2 text-[14px] font-bold leading-snug text-foreground">{product.title}</h3>
-                          <p className="mt-1 text-[12px] text-muted-foreground">
-                            {product.author || "Yamale Faculty"} {product.owned ? "· Owned" : ""}
+                        <div className="flex min-h-0 flex-1 flex-col p-4 sm:p-[1.125rem]">
+                          <h3
+                            className="vault-product-title line-clamp-3 font-sans text-[15px] font-semibold leading-snug tracking-normal text-foreground"
+                            title={product.title}
+                          >
+                            {displayVaultProductTitle(product.title)}
+                          </h3>
+                          <p className="mt-2 font-sans text-xs leading-relaxed text-muted-foreground">
+                            {product.author || "Yamale Faculty"}
+                            {product.owned ? " · Owned" : ""}
                           </p>
-                          <div className="mt-1 text-[11px] text-muted-foreground/80">
+                          <p className="mt-1 font-sans text-[11px] text-muted-foreground/85">
                             {product.type === "course" ? "Structured modules" : product.type === "template" ? "Instant download" : "Reference material"}
-                          </div>
+                          </p>
                           <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
                             <span className="text-[12px] font-medium text-muted-foreground">{inferTopic(product)}</span>
                             <div className="flex items-center gap-2">

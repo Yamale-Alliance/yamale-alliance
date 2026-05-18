@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Package, Loader2, Eye, BookOpen, GraduationCap, FileText, Check, ExternalLink } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
+import { displayVaultProductTitle } from "@/lib/marketplace-display";
 
 type Product = {
   id: string;
@@ -171,7 +172,9 @@ export function AccountPurchasedItems({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-semibold text-foreground">{product.title}</h3>
+                    <h3 className="vault-product-title line-clamp-2 font-sans text-sm font-semibold leading-snug text-foreground" title={product.title}>
+                      {displayVaultProductTitle(product.title)}
+                    </h3>
                     <span className="inline-flex items-center gap-1 rounded-full border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-green-700 dark:text-green-300">
                       <Check className="h-3 w-3" aria-hidden />
                       Owned

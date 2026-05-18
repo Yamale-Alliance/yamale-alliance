@@ -20,6 +20,7 @@ import {
   parseMarketplacePaymentReturn,
 } from "@/lib/marketplace-payment-return";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
+import { displayVaultProductTitle } from "@/lib/marketplace-display";
 
 const BRAND = {
   dark: "#221913",
@@ -459,8 +460,8 @@ export default function MarketplaceItemPage() {
               <span className="hidden sm:inline">Back to The Yamale Vault</span>
               <span className="sm:hidden">Vault</span>
             </Link>
-            <span className="min-w-0 truncate text-sm text-muted-foreground" title={item.title}>
-              {item.title}
+            <span className="min-w-0 truncate font-sans text-sm text-muted-foreground" title={item.title}>
+              {displayVaultProductTitle(item.title)}
             </span>
           </div>
         </div>
@@ -481,7 +482,9 @@ export default function MarketplaceItemPage() {
                 <span className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground capitalize">
                   {item.type}
                 </span>
-                <h1 className="mt-2 text-2xl font-semibold tracking-tight">{item.title}</h1>
+                <h1 className="vault-product-title mt-2 font-sans text-2xl font-semibold leading-snug tracking-normal sm:text-3xl" title={item.title}>
+                  {displayVaultProductTitle(item.title)}
+                </h1>
                 {item.author && (
                   <p className="mt-1 text-muted-foreground">by {item.author}</p>
                 )}
