@@ -18,26 +18,27 @@ export default async function LibraryPage({ searchParams }: { searchParams: Sear
   const pageParam = typeof params.page === "string" ? params.page : "";
   const sortParam = typeof params.sort === "string" ? params.sort : "";
 
-  // First load countries/categories so we can resolve IDs from names
-  const baseData = await fetchLibraryData();
-  const countryId = baseData.countries.find((c) => c.name === country)?.id;
-  const categoryId = baseData.categories.find((c) => c.name === category)?.id;
-
-  // Then fetch laws using the same filtered query as the /api/laws endpoint
-  const filteredData = await fetchLibraryData({
-    countryId,
-    categoryId,
-    status: status || undefined,
-    q: q.trim() || undefined,
-  });
+  // One catalog fetch (countries/categories + laws). Search text (`q`) is applied client-side
+  // so typing in the search box does not trigger a full server round-trip per keystroke.
+  const catalog = await fetchLibraryData();
+  const countryId = country ? catalog.countries.find((c) => c.name === country)?.id : undefined;
+  const categoryId = category ? catalog.categories.find((c) => c.name === category)?.id : undefined;
+  const hasListFilters = !!(countryId || categoryId || status);
+  const listData = hasListFilters
+    ? await fetchLibraryData({
+        countryId,
+        categoryId,
+        status: status || undefined,
+      })
+    : catalog;
 
   return (
     <Suspense fallback={<LibraryLoading />}>
       <LibraryView
-        initialCountries={baseData.countries}
-        initialCategories={baseData.categories}
-        initialLaws={filteredData.laws}
-        initialLawCount={filteredData.lawCount}
+        initialCountries={catalog.countries}
+        initialCategories={catalog.categories}
+        initialLaws={listData.laws}
+        initialLawCount={listData.lawCount}
         initialCountry={country}
         initialCategory={category}
         initialStatus={status}
