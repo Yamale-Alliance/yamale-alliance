@@ -18,6 +18,10 @@ import {
   Sparkles,
   TrendingUp,
 } from "lucide-react";
+import {
+  AdminAnalyticsDetailTables,
+  type AnalyticsDetailsPayload,
+} from "@/components/admin/revenue/AdminAnalyticsDetailTables";
 
 const RANGE_OPTIONS: { value: AnalyticsRangePreset; label: string }[] = [
   { value: "today", label: "Today" },
@@ -51,6 +55,7 @@ type AnalyticsPayload = {
     combinedPeriodRevenueUsdCents: number;
     clerkUsersScanned: number;
   };
+  details: AnalyticsDetailsPayload;
   disclaimer: string;
 };
 
@@ -301,6 +306,17 @@ export function AdminAnalyticsDashboard() {
           <p className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
             {data.disclaimer}
           </p>
+
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-xl font-semibold tracking-tight text-foreground">Who paid for what</h3>
+              <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+                Row-level activity in the same date range as the cards above. Payment references are deposit or checkout
+                IDs from pawaPay / Lomi where stored.
+              </p>
+            </div>
+            <AdminAnalyticsDetailTables details={data.details} segment={segment} />
+          </div>
         </>
       ) : null}
     </div>
