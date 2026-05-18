@@ -25,6 +25,12 @@ import {
   escapeSupplementalTermsForFetch,
 } from "@/lib/ai-library-search-intent";
 import {
+  isLikelyLegalQuestionMultilingual,
+  resolveCategoryFromMultilingualQuery,
+  resolveCountryFromMultilingualQuery,
+  tokenizeLibrarySearchQuery,
+} from "@/lib/ai-multilingual-search";
+import {
   LATIN_AMERICA_TREATY_CATALOG_MAX_DOCS,
   detectLatinAmericaTreatyDiscoveryQuery,
   fetchLatinAmericaTreatyTitleCandidates,
@@ -180,6 +186,8 @@ function buildCountryMatchRegex(countryNameLower: string): RegExp {
 async function detectCountryFromQueryUsingDatabase(query: string): Promise<string | undefined> {
   const q = query.trim().toLowerCase();
   if (!q) return undefined;
+  const fromMultilingual = resolveCountryFromMultilingualQuery(query);
+  if (fromMultilingual) return fromMultilingual;
   const fromAlias = detectCountryAliasFromQueryText(query);
   if (fromAlias) return fromAlias;
   const names = await getAllCountryNames();
@@ -410,8 +418,10 @@ type ClaudeMessage = {
  * Extract country and category hints from user query
  */
 function extractQueryHints(query: string): { country?: string; category?: string } {
-  const lowerQuery = query.toLowerCase();
-  
+  const fromMultilingualCountry = resolveCountryFromMultilingualQuery(query);
+  const fromMultilingualCategory = resolveCategoryFromMultilingualQuery(query);
+  const lowerQuery = normalizeSearchQueryForAi(query).toLowerCase();
+
   // Common countries (check for full names first, then partial matches)
   const countryMap: Record<string, string> = {
     "ghana": "Ghana",
@@ -446,79 +456,48 @@ function extractQueryHints(query: string): { country?: string; category?: string
     "kenys": "Kenya",
   };
   
-  let foundCountry: string | undefined;
-  const orderedCountryEntries = Object.entries(countryMap).sort((a, b) => b[0].length - a[0].length);
-  for (const [key, value] of orderedCountryEntries) {
-    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const re = new RegExp(`\\b${escaped}\\b`, "i");
-    if (re.test(lowerQuery)) {
-      foundCountry = value;
-      break;
+  let foundCountry: string | undefined = fromMultilingualCountry;
+  if (!foundCountry) {
+    const orderedCountryEntries = Object.entries(countryMap).sort((a, b) => b[0].length - a[0].length);
+    for (const [key, value] of orderedCountryEntries) {
+      const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(`\\b${escaped}\\b`, "i");
+      if (re.test(lowerQuery)) {
+        foundCountry = value;
+        break;
+      }
     }
   }
-  
-  // Category mapping (specific phrases first; avoid broad substring collisions
-  // like "trademark" matching "trade").
+
   const categoryMap: Record<string, string> = {
-    "trademark": "Intellectual Property Law",
-    "trademarks": "Intellectual Property Law",
+    trademark: "Intellectual Property Law",
+    trademarks: "Intellectual Property Law",
     "mark registration": "Intellectual Property Law",
-    "industrial property": "Intellectual Property Law",
-    "patent": "Intellectual Property Law",
-    "copyright": "Intellectual Property Law",
-    "company registration": "Corporate Law",
-    "business registration": "Corporate Law",
-    "register a company": "Corporate Law",
-    "incorporate a company": "Corporate Law",
-    "corporate law": "Corporate Law",
-    "corporate": "Corporate Law",
-    "sociétés commerciales": "Corporate Law",
-    "loi sur les sociétés": "Corporate Law",
-    "tax law": "Tax Law",
-    "tax": "Tax Law",
-    "minimum wage": "Labor/Employment Law",
     "working hours": "Labor/Employment Law",
-    "hours protection": "Labor/Employment Law",
     "maximum working hours": "Labor/Employment Law",
     "ordinary hours of work": "Labor/Employment Law",
-    "overtime": "Labor/Employment Law",
-    "rest period": "Labor/Employment Law",
-    "rest periods": "Labor/Employment Law",
     "meal interval": "Labor/Employment Law",
     "meal intervals": "Labor/Employment Law",
     "night work": "Labor/Employment Law",
-    "wage": "Labor/Employment Law",
-    "wages": "Labor/Employment Law",
-    "remuneration": "Labor/Employment Law",
-    "salary": "Labor/Employment Law",
-    "labor law": "Labor/Employment Law",
-    "employment law": "Labor/Employment Law",
-    "labor": "Labor/Employment Law",
-    "employment": "Labor/Employment Law",
-    "intellectual property": "Intellectual Property Law",
-    "ip law": "Intellectual Property Law",
-    "data protection": "Data Protection and Privacy Law",
-    "privacy": "Data Protection and Privacy Law",
-    "international trade": "International Trade Laws",
-    "rules of origin": "International Trade Laws",
-    "afcfta": "International Trade Laws",
-    "anti-bribery": "Anti-Bribery and Corruption Law",
-    "corruption": "Anti-Bribery and Corruption Law",
+    "rest period": "Labor/Employment Law",
+    "rest periods": "Labor/Employment Law",
+    "hours protection": "Labor/Employment Law",
     "dispute resolution": "Dispute Resolution",
-    "environmental": "Environmental",
   };
-  
-  let foundCategory: string | undefined;
-  const orderedCategoryEntries = Object.entries(categoryMap).sort((a, b) => b[0].length - a[0].length);
-  for (const [key, value] of orderedCategoryEntries) {
-    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const re = new RegExp(`\\b${escaped}\\b`, "i");
-    if (re.test(lowerQuery)) {
-      foundCategory = value;
-      break;
+
+  let foundCategory: string | undefined = fromMultilingualCategory;
+  if (!foundCategory) {
+    const orderedCategoryEntries = Object.entries(categoryMap).sort((a, b) => b[0].length - a[0].length);
+    for (const [key, value] of orderedCategoryEntries) {
+      const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(`\\b${escaped}\\b`, "i");
+      if (re.test(lowerQuery)) {
+        foundCategory = value;
+        break;
+      }
     }
   }
-  
+
   return {
     country: foundCountry,
     category: foundCategory,
@@ -549,11 +528,7 @@ function extractHintsFromConversation(
  * Used to decide when to ask the user to specify a country if none was detected.
  */
 function isLikelyLegalQuestion(query: string): boolean {
-  const q = query.toLowerCase();
-  return (
-    /\blaw\b|\bcode\b|\bact\b|\bregulation\b|\bstatute\b|\bordonnance\b|\bproclamation\b|\bcorporate governance\b|\bcompanies act\b/.test(q) ||
-    /\b(wage|wages|salary|remuneration|employee|employer|contract|director|compliance|penalt(y|ies)|tax|minimum wage)\b/.test(q)
-  );
+  return isLikelyLegalQuestionMultilingual(query);
 }
 
 /** User explicitly asked for the full statute / act text (not a summary snippet). */
@@ -563,7 +538,8 @@ function userRequestsFullLawText(query: string): boolean {
     /\b(full\s+text|entire\s+(law|act|statute|instrument)|whole\s+(law|act)|complete\s+(law|act|text)|verbatim|in\s+full)\b/i.test(
       query
     ) ||
-    /\b(texte\s+integral|texte\s+intégral|integralite|intégralité)\b/.test(q)
+    /\b(texte\s+integral|texte\s+intégral|integralite|intégralité)\b/.test(q) ||
+    /(?:النص\s+الكامل|نص\s+القانون|كامل\s+النص)/u.test(q)
   );
 }
 
@@ -923,43 +899,17 @@ async function listTrademarkLawTitlesByCountry(
 }
 
 function extractRequestedArticle(query: string): number | null {
-  const m = query.toLowerCase().match(/\barticle\s+(\d{1,3})\b/);
+  const q = normalizeSearchQueryForAi(query).toLowerCase();
+  const m =
+    q.match(/\barticle\s+(\d{1,3})\b/) ??
+    q.match(/(?:المادة|مادة)\s*(\d{1,3})/u);
   if (!m) return null;
   const n = Number.parseInt(m[1], 10);
   return Number.isNaN(n) ? null : n;
 }
 
 function extractSearchTokens(query: string): string[] {
-  const stopWords = new Set([
-    "the",
-    "and",
-    "for",
-    "with",
-    "that",
-    "this",
-    "from",
-    "your",
-    "have",
-    "does",
-    "what",
-    "where",
-    "when",
-    "which",
-    "about",
-    "into",
-    "there",
-    "database",
-    "law",
-    "laws",
-  ]);
-  const unique = new Set(
-    query
-      .toLowerCase()
-      .split(/[^a-z0-9]+/)
-      .map((t) => t.trim())
-      .filter((t) => t.length >= 3 && !stopWords.has(t))
-  );
-  return Array.from(unique).slice(0, 8);
+  return tokenizeLibrarySearchQuery(query, 8);
 }
 
 /** Tokens that widen ILIKE to almost every English law; drop from PostgREST OR clauses. */
