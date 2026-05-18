@@ -12,6 +12,7 @@ const productLinks = [
 ];
 
 const companyLinks = [
+  { href: "/founders-note", label: "Founder's note" },
   { href: "/pricing", label: "Pricing" },
   { href: "/signup", label: "Sign up" },
   { href: "/login", label: "Sign in" },
