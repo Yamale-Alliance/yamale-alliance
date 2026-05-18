@@ -10,18 +10,7 @@ import { fetchLawIdsForCategory } from "@/lib/law-categories-sync";
 import { fetchLawIdsForCountryScope } from "@/lib/law-country-scope-ids";
 import { chunkLawContent } from "@/lib/embeddings/chunking";
 import { resolveUserCountryNameToDbName } from "@/lib/country-db-name-aliases";
-
-function extractSearchTokens(query: string): string[] {
-  const stopWords = new Set(["the", "and", "for", "with", "that", "this", "from", "law", "laws", "database"]);
-  const unique = new Set(
-    query
-      .toLowerCase()
-      .split(/[^a-z0-9]+/)
-      .map((t) => t.trim())
-      .filter((t) => t.length >= 3 && !stopWords.has(t))
-  );
-  return Array.from(unique).slice(0, 8);
-}
+import { tokenizeLibrarySearchQuery } from "@/lib/ai-multilingual-search";
 
 function isCountryCatalogLawRequest(query: string): boolean {
   const q = query.toLowerCase();
@@ -139,7 +128,7 @@ export async function POST(request: NextRequest) {
 
     // Use chunking strategy: paragraph/sentence-aware, then take first chunks per law (max 2000 chars)
     const maxCharsPerLaw = 2000;
-    const tokens = extractSearchTokens(query);
+    const tokens = tokenizeLibrarySearchQuery(query, 8);
     const rankedLaws = [...(laws || [])].sort((a: any, b: any) => {
       const titleA = String(a.title ?? "").toLowerCase();
       const titleB = String(b.title ?? "").toLowerCase();
