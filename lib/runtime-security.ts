@@ -85,16 +85,13 @@ export function checkRateLimit(request: NextRequest): RateLimitResult | null {
   };
 }
 
-function nonceUnsafeRandom(): string {
-  return Math.random().toString(36).slice(2);
-}
-
 export function applySecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-  response.headers.set("Cross-Origin-Opener-Policy", "same-origin");
+  // Clerk OAuth popups need allow-popups; strict same-origin breaks sign-in flows in some browsers.
+  response.headers.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
   response.headers.set("Cross-Origin-Resource-Policy", "same-origin");
   if (process.env.NODE_ENV === "production") {
     response.headers.set(
@@ -103,27 +100,30 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
     );
   }
 
-  const cspNonce = nonceUnsafeRandom();
-  // Clerk loads clerk.browser.js from *.clerk.accounts.dev and uses telemetry / CF challenges.
-  // Without these origins, script-src blocks Clerk → ClerkRuntimeError failed_to_load_clerk_js.
+  // Do NOT add a script-src nonce unless every inline script (Next.js hydration, Clerk) carries it.
+  // With a nonce present, browsers ignore 'unsafe-inline', which blocks Next/Clerk boot → stuck loaders.
+  // See: https://github.com/clerk/javascript/issues/4455
   response.headers.set(
     "Content-Security-Policy",
     [
       "default-src 'self'",
       [
         "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-        `'nonce-${cspNonce}'`,
         "https://*.clerk.accounts.dev",
+        "https://*.clerk.com",
+        "https://clerk.com",
         "https://challenges.cloudflare.com",
         "https://*.js.stripe.com",
         "https://js.stripe.com",
       ].join(" "),
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https:",
+      "img-src 'self' data: blob: https: https://img.clerk.com",
       "font-src 'self' data: https:",
       [
         "connect-src 'self' https:",
         "https://*.clerk.accounts.dev",
+        "https://*.clerk.com",
+        "https://clerk.com",
         "https://clerk-telemetry.com",
         "https://*.clerk-telemetry.com",
       ].join(" "),
@@ -131,6 +131,8 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
       [
         "frame-src 'self'",
         "https://*.clerk.accounts.dev",
+        "https://*.clerk.com",
+        "https://clerk.com",
         "https://challenges.cloudflare.com",
         "https://*.js.stripe.com",
         "https://js.stripe.com",
@@ -138,7 +140,7 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
       ].join(" "),
       "frame-ancestors 'none'",
       "base-uri 'self'",
-      "form-action 'self'",
+      "form-action 'self' https://*.clerk.accounts.dev https://*.clerk.com",
     ].join("; ")
   );
   return response;
