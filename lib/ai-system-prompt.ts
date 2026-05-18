@@ -264,7 +264,7 @@ Rules for the excerpts:
   }
 (3) If documents do not cover the question, say so and suggest refining country/category/title; do not invent statutes.
 (4) For each substantive point, include a short quote from the provided text.
-(5) Titles may be French or other languages—infer subject from headings and body; do not dismiss an instrument because the English wording of the user's question differs from the title.
+(5) Titles may be French, Arabic, or other languages—infer subject from headings and body; do not dismiss an instrument because the user's question language or wording differs from the title.
 (6) Prefer excerpts that directly address the user's topic over unrelated instruments.
 (7) Jurisdiction: each legal conclusion must be supported by the correct jurisdiction for this query; otherwise say the excerpt does not support a conclusion.
 (8) When this turn includes long or full-act text, still read systematically (definitions, operative articles, schedules if present in the fragment)—do not default to commenting only on the opening pages unless the question is narrowly about them.`;
