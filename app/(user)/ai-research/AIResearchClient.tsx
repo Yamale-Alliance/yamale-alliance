@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { canShareByEmail, canDownloadConversations } from "@/lib/plan-limits";
 import { downloadAiResearchChatPdf } from "@/lib/ai-research-chat-pdf";
+import { plainTextFromMarkdownish } from "@/lib/library/law-document-pdf";
 import { AIResearchChatExportPreviewDialog } from "@/components/ai-research/AIResearchChatExportPreviewDialog";
 import { SubscriptionCheckoutConfirm } from "@/components/checkout/SubscriptionCheckoutConfirm";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
@@ -122,6 +123,9 @@ const MAX_SESSIONS = 50;
 const AI_RESEARCH_NOTICE_VERSION = "v1";
 const AI_RESEARCH_NOTICE_KEY = `yamale-ai-research-notice:${AI_RESEARCH_NOTICE_VERSION}`;
 const AI_CHAT_TIMEOUT_MS = 110000;
+/** mailto URLs above ~2k chars often fail in Gmail (413 / blank page). */
+const MAILTO_BODY_INTRO =
+  "Shared from Yamalé AI Legal Research.\n\nThe full conversation is on your clipboard — paste it here with Cmd+V or Ctrl+V.\n\n---\n\n";
 
 function getTierFromUser(metadata: Record<string, unknown> | undefined): Tier {
   const t = metadata?.tier ?? metadata?.subscriptionTier;
@@ -194,6 +198,8 @@ export default function AIResearchClient() {
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
+  const [chatCopied, setChatCopied] = useState(false);
+  const [emailShareOpening, setEmailShareOpening] = useState(false);
   const [exportPreviewOpen, setExportPreviewOpen] = useState(false);
   const [exportPreviewAt, setExportPreviewAt] = useState(() => new Date());
   const [chatPdfDownloading, setChatPdfDownloading] = useState(false);
@@ -623,30 +629,48 @@ export default function AIResearchClient() {
   const getChatTranscript = useCallback(() => {
     if (!currentSession) return "";
     return currentSession.messages
-      .map((m) => `${m.role === "user" ? "You" : "AI"}: ${m.content}`)
+      .map((m) => {
+        const label = m.role === "user" ? "You" : "Yamalé AI";
+        const text = plainTextFromMarkdownish(m.content);
+        return `${label}: ${text}`;
+      })
       .join("\n\n");
   }, [currentSession]);
 
-  const handleShareEmail = useCallback(() => {
-    const body = getChatTranscript();
-    const subject = encodeURIComponent(currentSession?.title || "AI Legal Research chat");
-    const mailto = `mailto:?subject=${subject}&body=${encodeURIComponent(body)}`;
+  const handleShareEmail = useCallback(async () => {
+    const transcript = getChatTranscript();
+    const subject = currentSession?.title || "AI Legal Research chat";
+    setEmailShareOpening(true);
+    try {
+      await navigator.clipboard.writeText(transcript);
+    } catch {
+      // mailto can still open; user may paste manually if clipboard fails
+    }
+    const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(MAILTO_BODY_INTRO)}`;
     window.location.href = mailto;
-    setShareOpen(false);
+    window.setTimeout(() => {
+      setEmailShareOpening(false);
+      setShareOpen(false);
+    }, 400);
   }, [currentSession, getChatTranscript]);
 
   const handleCopyChat = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(getChatTranscript());
-      setShareOpen(false);
+      setChatCopied(true);
+      window.setTimeout(() => {
+        setChatCopied(false);
+        setShareOpen(false);
+      }, 1500);
     } catch {
       // ignore
     }
   }, [getChatTranscript]);
 
-  const handleCopyMessage = useCallback(async (messageId: string, text: string) => {
+  const handleCopyMessage = useCallback(async (messageId: string, text: string, role: Message["role"]) => {
     try {
-      await navigator.clipboard.writeText(text);
+      const plain = role === "assistant" ? plainTextFromMarkdownish(text) : text;
+      await navigator.clipboard.writeText(plain);
       setCopiedMessageId(messageId);
       setTimeout(() => {
         setCopiedMessageId((prev) => (prev === messageId ? null : prev));
@@ -1132,7 +1156,15 @@ export default function AIResearchClient() {
                     <div className="relative">
                       <button
                         type="button"
-                        onClick={() => setShareOpen((o) => !o)}
+                        onClick={() => {
+                          setShareOpen((o) => {
+                            if (!o) {
+                              setChatCopied(false);
+                              setEmailShareOpening(false);
+                            }
+                            return !o;
+                          });
+                        }}
                         className="flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-[13px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
                       >
                         <Share2 className="h-4 w-4" />
@@ -1148,17 +1180,38 @@ export default function AIResearchClient() {
                           <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-[6px] border border-border bg-card py-1 shadow-lg">
                             <button
                               type="button"
-                              onClick={handleShareEmail}
-                              className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
+                              onClick={() => void handleShareEmail()}
+                              disabled={emailShareOpening}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-muted disabled:opacity-60"
                             >
-                              Share by email
+                              {emailShareOpening ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                                  Opening email…
+                                </>
+                              ) : (
+                                <>
+                                  <Share2 className="h-4 w-4 shrink-0 opacity-70" />
+                                  Share by email
+                                </>
+                              )}
                             </button>
                             <button
                               type="button"
-                              onClick={handleCopyChat}
-                              className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
+                              onClick={() => void handleCopyChat()}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
                             >
-                              Copy chat
+                              {chatCopied ? (
+                                <>
+                                  <Check className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                                  <span className="font-medium text-emerald-700 dark:text-emerald-300">Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-4 w-4 shrink-0 opacity-70" />
+                                  Copy chat
+                                </>
+                              )}
                             </button>
                           </div>
                         </>
@@ -1423,7 +1476,7 @@ export default function AIResearchClient() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => void handleCopyMessage(msg.id, msg.content)}
+                              onClick={() => void handleCopyMessage(msg.id, msg.content, msg.role)}
                               className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#FAFAF7] text-[#0D1B2A]/60 hover:bg-white hover:text-[#0D1B2A] dark:border-white/15 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
                               aria-label="Copy response"
                               title="Copy response"
