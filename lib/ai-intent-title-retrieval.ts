@@ -1,0 +1,346 @@
+import { isNationalInvestmentLawExistenceQuery } from "@/lib/ai-multilingual-search";
+import { escapeIlikePattern, lawsCountryOrGlobalWithTitleTerms } from "@/lib/law-country-scope";
+import { LAW_HAS_BODY_OR_FILTER, filterLawsWithReadableBody } from "@/lib/law-readable-body";
+import type { ResolvedLibrarySearchIntent } from "@/lib/ai-library-search-intent";
+import { expandCommercialRegistrationTokens } from "@/lib/ai-library-search-intent";
+import { tokenWordsForPostgrestSearch } from "@/lib/postgrest-ilike-tokens";
+
+const LAWS_AI_SELECT =
+  "id, title, content, content_plain, year, status, metadata, source_name, country_id, applies_to_all_countries, category_id, countries(name), categories!laws_category_id_fkey(name)";
+
+type TitleFetchOpts = {
+  countryId: string;
+  countryScopeOr: string | null;
+  query: string;
+  resolvedIntent: ResolvedLibrarySearchIntent;
+  excludeIds?: Set<string>;
+  maxLaws?: number;
+};
+
+function dedupeTerms(terms: string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of terms) {
+    const t = raw.trim().toLowerCase();
+    if (t.length < 3 || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out;
+}
+
+/** Title-search phrases for country-scoped hydration when body search under-fetches. */
+export function buildIntentTitleSearchTerms(
+  query: string,
+  resolvedIntent: ResolvedLibrarySearchIntent
+): string[] {
+  const q = query.toLowerCase();
+  const terms: string[] = [...resolvedIntent.supplementalTermsRaw];
+
+  if (resolvedIntent.matchedIds.includes("registration")) {
+    terms.push(
+      ...expandCommercialRegistrationTokens(query),
+      "companies act",
+      "company act",
+      "commercial code",
+      "beneficial ownership",
+      "business registration",
+      "incorporation"
+    );
+  }
+  if (resolvedIntent.matchedIds.includes("investment_domestic")) {
+    terms.push(
+      "investment",
+      "code des investissements",
+      "investment code",
+      "charte des investissements",
+      "foreign investment",
+      "promotion of investment",
+      "code investissement"
+    );
+  }
+  if (resolvedIntent.matchedIds.includes("intellectual_property")) {
+    terms.push(
+      "intellectual property",
+      "copyright",
+      "trademark",
+      "patent",
+      "oapi",
+      "bangui",
+      "berne convention",
+      "paris convention",
+      "trips",
+      "industrial property"
+    );
+  }
+  if (resolvedIntent.matchedIds.includes("dispute_resolution")) {
+    terms.push(
+      "arbitration",
+      "mediation",
+      "dispute",
+      "new york convention",
+      "icsid",
+      "conciliation",
+      "settlement of disputes"
+    );
+  }
+  if (resolvedIntent.matchedIds.includes("tax")) {
+    terms.push("tax", "income tax", "value added tax", "finance act");
+  }
+  if (resolvedIntent.matchedIds.includes("labor")) {
+    terms.push("labour code", "labor code", "employment act", "code du travail");
+  }
+
+  if (/\binvestment\b/.test(q) && !terms.some((t) => t.includes("invest"))) {
+    terms.push("investment", "investissement");
+  }
+  if (/\b(dispute|arbitrat|mediat)\b/.test(q)) {
+    terms.push("arbitration", "dispute", "mediation", "new york convention");
+  }
+  if (/\b(ip|intellectual|copyright|trademark|patent|oapi)\b/.test(q)) {
+    terms.push("intellectual property", "copyright", "trademark", "oapi", "bangui");
+  }
+  if (/\b(register|incorporat|business)\b/.test(q)) {
+    terms.push("companies act", "commercial", "registration");
+  }
+
+  return dedupeTerms(terms).slice(0, 12);
+}
+
+/**
+ * Fetch laws in a country whose titles match intent-specific phrases (metadata-first).
+ * Fills gaps when full-text search returns unrelated hits but the library has the right act.
+ */
+export async function fetchCountryIntentTitleCandidates(
+  supabase: any,
+  opts: TitleFetchOpts
+): Promise<any[]> {
+  const { countryId, countryScopeOr, query, resolvedIntent, excludeIds, maxLaws = 18 } = opts;
+  if (!countryId) return [];
+
+  const titleTerms = Array.from(
+    new Set(
+      buildIntentTitleSearchTerms(query, resolvedIntent).flatMap((t) => tokenWordsForPostgrestSearch(t))
+    )
+  ).slice(0, 8);
+  if (titleTerms.length === 0) return [];
+
+  const collected = new Map<string, any>();
+
+  // One PostgREST round-trip (was up to 12 sequential title.ilike queries per turn).
+  let q = supabase
+    .from("laws")
+    .select(LAWS_AI_SELECT)
+    .or(LAW_HAS_BODY_OR_FILTER)
+    .neq("status", "Repealed")
+    .limit(Math.max(maxLaws, 24));
+
+  if (countryScopeOr) {
+    q = q.or(countryScopeOr);
+  } else {
+    q = q.or(lawsCountryOrGlobalWithTitleTerms(countryId, titleTerms));
+  }
+
+  const { data, error } = await q;
+  if (error) {
+    console.warn("[intent-title-hydration] batch query error:", error.message ?? error);
+    return [];
+  }
+  for (const row of filterLawsWithReadableBody((data ?? []) as any[])) {
+    const title = String((row as any).title ?? "").toLowerCase();
+    const matchesTerm = titleTerms.some((term) => title.includes(term.toLowerCase()));
+    if (!matchesTerm) continue;
+    const id = String((row as any).id);
+    if (excludeIds?.has(id)) continue;
+    if (!collected.has(id)) collected.set(id, row);
+    if (collected.size >= maxLaws) break;
+  }
+
+  return [...collected.values()].slice(0, maxLaws);
+}
+
+/** National investment code / charte — excludes bilateral treaties. */
+export function lawMatchesNationalInvestmentCodeTitle(law: { title?: string | null }): boolean {
+  const t = String(law.title ?? "").toLowerCase();
+  return (
+    /\b(investment|investissement|investissements)\b/i.test(t) &&
+    !/\b(treaty|treaties|bilateral|bit|accord\s+bilateral)\b/i.test(t)
+  );
+}
+
+const SLOT_TITLE_SEARCH_TERMS: Record<string, string[]> = {
+  companies_act: ["companies act", "company act", "commercial code"],
+  beneficial_ownership: ["beneficial ownership"],
+  investment_code: ["investissement", "investments", "investment code", "code investissement"],
+  ip_national: ["copyright", "trademark", "intellectual property", "patent"],
+  ip_treaty: ["berne", "oapi", "bangui", "trips", "paris convention"],
+  ny_convention: ["new york convention"],
+  arbitration: ["arbitration", "mediation", "dispute resolution"],
+};
+
+const MANDATORY_INTENT_IDS = [
+  "registration",
+  "investment_domestic",
+  "intellectual_property",
+  "dispute_resolution",
+] as const;
+
+type TopicSlot = { label: string; titleTest: (title: string) => boolean };
+
+const INTENT_TOPIC_SLOTS: Record<string, TopicSlot[]> = {
+  registration: [
+    { label: "companies_act", titleTest: (t) => /\bcompanies?\s+act\b|\bcompany\s+act\b/i.test(t) },
+    { label: "beneficial_ownership", titleTest: (t) => /\bbeneficial\s+ownership\b/i.test(t) },
+  ],
+  investment_domestic: [
+    {
+      label: "investment_code",
+      titleTest: (t) =>
+        /\b(investment|investissement|investissements)\b/i.test(t) &&
+        !/\b(treaty|bilateral|bit)\b/i.test(t),
+    },
+  ],
+  intellectual_property: [
+    { label: "ip_national", titleTest: (t) => /\b(copyright|trademark|patent|intellectual\s+property)\b/i.test(t) },
+    { label: "ip_treaty", titleTest: (t) => /\b(berne|paris\s+convention|trips|oapi|bangui|wipo)\b/i.test(t) },
+  ],
+  dispute_resolution: [
+    { label: "ny_convention", titleTest: (t) => /new\s+york\s+convention/i.test(t) },
+    { label: "arbitration", titleTest: (t) => /\b(arbitration|mediation|dispute)\b/i.test(t) },
+  ],
+};
+
+/**
+ * Fetch on-topic laws by title for each intent topic slot (country-scoped).
+ * Runs even when keyword search already returned 6+ rows — fixes “in index but not in excerpts”.
+ */
+export async function fetchMandatoryIntentSlotLaws(
+  supabase: any,
+  opts: TitleFetchOpts
+): Promise<any[]> {
+  const { countryId, countryScopeOr, query, resolvedIntent, excludeIds } = opts;
+  if (!countryId) return [];
+
+  const relevantIntentIds = MANDATORY_INTENT_IDS.filter((id) => resolvedIntent.matchedIds.includes(id));
+  if (relevantIntentIds.length === 0) return [];
+
+  const slots: TopicSlot[] = [];
+  for (const id of relevantIntentIds) {
+    slots.push(...(INTENT_TOPIC_SLOTS[id] ?? []));
+  }
+  if (slots.length === 0) return [];
+
+  const searchTerms = dedupeTerms([
+    ...slots.flatMap((s) => SLOT_TITLE_SEARCH_TERMS[s.label] ?? []),
+    ...buildIntentTitleSearchTerms(query, resolvedIntent).flatMap((t) => tokenWordsForPostgrestSearch(t)),
+  ]).slice(0, 10);
+  if (searchTerms.length === 0) return [];
+
+  let q = supabase
+    .from("laws")
+    .select(LAWS_AI_SELECT)
+    .or(LAW_HAS_BODY_OR_FILTER)
+    .neq("status", "Repealed")
+    .limit(48);
+
+  if (countryScopeOr) {
+    q = q.or(countryScopeOr);
+  } else {
+    q = q.or(lawsCountryOrGlobalWithTitleTerms(countryId, searchTerms.slice(0, 6)));
+  }
+
+  const { data, error } = await q;
+  if (error) {
+    console.warn("[mandatory-intent-slots] query error:", error.message ?? error);
+    return [];
+  }
+
+  const rows = filterLawsWithReadableBody((data ?? []) as any[]);
+  const found: any[] = [];
+  const foundIds = new Set<string>(excludeIds ? [...excludeIds] : []);
+
+  for (const slot of slots) {
+    const match = rows.find((row) => {
+      const id = String((row as any).id);
+      if (foundIds.has(id)) return false;
+      return slot.titleTest(String((row as any).title ?? ""));
+    });
+    if (match) {
+      const id = String((match as any).id);
+      found.push(match);
+      foundIds.add(id);
+    }
+  }
+
+  if (isNationalInvestmentLawExistenceQuery(query) && !found.some(lawMatchesNationalInvestmentCodeTitle)) {
+    const investRow = rows.find((row) => {
+      const id = String((row as any).id);
+      return !foundIds.has(id) && lawMatchesNationalInvestmentCodeTitle(row);
+    });
+    if (investRow) {
+      found.unshift(investRow);
+      foundIds.add(String((investRow as any).id));
+    }
+  }
+
+  return found;
+}
+
+export { LAWS_AI_SELECT as INTENT_TITLE_LAWS_SELECT };
+
+/**
+ * When keyword search fills the window with tangential hits, reserve slots for
+ * on-topic titles already present in the ranked candidate list.
+ * Optional `prefetchedMandatory` rows are merged first (from {@link fetchMandatoryIntentSlotLaws}).
+ */
+export function ensureIntentTopicSlotsInResponse(
+  candidateLaws: any[],
+  limit: number,
+  resolvedIntent: ResolvedLibrarySearchIntent,
+  prefetchedMandatory?: any[]
+): any[] {
+  const mergedCandidates = [...(prefetchedMandatory ?? []), ...candidateLaws];
+  const seenCand = new Set<string>();
+  const candidateLawsDeduped: any[] = [];
+  for (const law of mergedCandidates) {
+    const id = String((law as any).id);
+    if (seenCand.has(id)) continue;
+    seenCand.add(id);
+    candidateLawsDeduped.push(law);
+  }
+
+  const relevantIds = new Set(
+    MANDATORY_INTENT_IDS.filter((id) => resolvedIntent.matchedIds.includes(id))
+  );
+  if (relevantIds.size === 0) return candidateLawsDeduped.slice(0, limit);
+
+  const slots: TopicSlot[] = [];
+  for (const id of relevantIds) {
+    slots.push(...(INTENT_TOPIC_SLOTS[id] ?? []));
+  }
+  if (slots.length === 0) return candidateLawsDeduped.slice(0, limit);
+
+  const picked: any[] = [];
+  const pickedIds = new Set<string>();
+
+  for (const slot of slots) {
+    const match = candidateLawsDeduped.find(
+      (law) => slot.titleTest(String((law as any).title ?? "")) && !pickedIds.has(String((law as any).id))
+    );
+    if (match) {
+      picked.push(match);
+      pickedIds.add(String((match as any).id));
+    }
+  }
+
+  for (const law of candidateLawsDeduped) {
+    if (picked.length >= limit) break;
+    const id = String((law as any).id);
+    if (!pickedIds.has(id)) {
+      picked.push(law);
+      pickedIds.add(id);
+    }
+  }
+
+  return picked.slice(0, limit);
+}
