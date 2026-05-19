@@ -5,6 +5,7 @@ export type AuditAction =
   | "law.add"
   | "law.update"
   | "law.link_shared"
+  | "law.unlink_shared"
   | "law.update_batch"
   | "law.delete"
   | "law.delete_batch"
