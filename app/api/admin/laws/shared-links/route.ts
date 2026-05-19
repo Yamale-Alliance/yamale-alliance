@@ -3,9 +3,13 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin";
 import { recordAuditLog } from "@/lib/admin-audit";
 import {
+  dissolveSharedGroup,
+  fetchAllSharedGroupsWithLaws,
+  fetchLawIdsInSharedGroup,
   fetchSharedGroupForLaw,
   propagateLawCategoriesAcrossSharedGroup,
   propagateSharedLawFields,
+  removeLawFromSharedGroup,
 } from "@/lib/law-shared-groups";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -19,14 +23,35 @@ function normalizeLawIds(value: unknown): string[] {
   return Array.from(new Set(ids));
 }
 
-/** GET: inspect shared-law group for a law id (admin only). */
+/** GET: list all groups (`?list=all`) or inspect one group by law id (`?lawId=`). */
 export async function GET(request: NextRequest) {
   const admin = await requireAdmin();
   if (admin instanceof NextResponse) return admin;
 
+  const listAll = request.nextUrl.searchParams.get("list") === "all";
+  if (listAll) {
+    try {
+      const supabase = getSupabaseServer();
+      const groups = await fetchAllSharedGroupsWithLaws(supabase);
+      const linkedLawCount = groups.reduce((n, g) => n + g.laws.length, 0);
+      return NextResponse.json({
+        groups,
+        group_count: groups.length,
+        linked_law_count: linkedLawCount,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to list shared link groups";
+      console.error("Shared links list GET error:", err);
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+  }
+
   const lawId = request.nextUrl.searchParams.get("lawId")?.trim() || "";
   if (!UUID_RE.test(lawId)) {
-    return NextResponse.json({ error: "Valid lawId query parameter is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Use ?list=all to list groups, or ?lawId=<uuid> for one law's group." },
+      { status: 400 }
+    );
   }
 
   try {
@@ -182,5 +207,82 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error("Shared links POST error:", err);
     return NextResponse.json({ error: "Failed to create shared links" }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE: unlink laws (membership only — each law keeps its current content and metadata).
+ * Body: { groupId: string, lawId?: string } — omit lawId to dissolve the whole group.
+ */
+export async function DELETE(request: NextRequest) {
+  const admin = await requireAdmin();
+  if (admin instanceof NextResponse) return admin;
+
+  try {
+    const body = await request.json().catch(() => ({}));
+    const groupId = typeof body.groupId === "string" ? body.groupId.trim() : "";
+    const lawId = typeof body.lawId === "string" ? body.lawId.trim() : "";
+
+    if (!UUID_RE.test(groupId)) {
+      return NextResponse.json({ error: "Valid groupId is required." }, { status: 400 });
+    }
+    if (lawId && !UUID_RE.test(lawId)) {
+      return NextResponse.json({ error: "lawId must be a valid UUID when provided." }, { status: 400 });
+    }
+
+    const supabase = getSupabaseServer();
+
+    if (lawId) {
+      const existing = await fetchLawIdsInSharedGroup(supabase, groupId);
+      if (!existing.includes(lawId)) {
+        return NextResponse.json({ error: "Law is not in this shared group." }, { status: 404 });
+      }
+      const result = await removeLawFromSharedGroup(supabase, groupId, lawId);
+      await recordAuditLog(supabase, {
+        adminId: admin.userId,
+        adminEmail: admin.email,
+        action: "law.unlink_shared",
+        entityType: "law_shared_group",
+        entityId: groupId,
+        details: {
+          mode: "remove_member",
+          law_id: lawId,
+          dissolved_group: result.dissolved,
+          remaining_law_ids: result.remainingLawIds,
+        },
+      });
+      return NextResponse.json({
+        ok: true,
+        mode: "remove_member",
+        dissolved_group: result.dissolved,
+        remaining_law_ids: result.remainingLawIds,
+      });
+    }
+
+    const { lawIds } = await dissolveSharedGroup(supabase, groupId);
+    if (lawIds.length === 0) {
+      return NextResponse.json({ error: "Shared group not found or already unlinked." }, { status: 404 });
+    }
+
+    await recordAuditLog(supabase, {
+      adminId: admin.userId,
+      adminEmail: admin.email,
+      action: "law.unlink_shared",
+      entityType: "law_shared_group",
+      entityId: groupId,
+      details: {
+        mode: "dissolve_group",
+        law_ids: lawIds,
+      },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      mode: "dissolve_group",
+      unlinked_law_ids: lawIds,
+    });
+  } catch (err) {
+    console.error("Shared links DELETE error:", err);
+    return NextResponse.json({ error: "Failed to unlink laws" }, { status: 500 });
   }
 }
