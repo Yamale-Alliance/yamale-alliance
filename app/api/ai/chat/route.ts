@@ -5,11 +5,19 @@ import {
   lawsCountryGlobalOrScopedIds,
   lawTextIlikeOr,
   lawsCountryOrGlobalWithAnyEscapedTerms,
+  lawsCountryOrGlobalWithTitleContentTerms,
   lawsCountryOrGlobalWithTextSearch,
   lawsCountryOrGlobalWithTitleTerms,
   lawsGlobalTextIlikeOrTerms,
 } from "@/lib/law-country-scope";
 import { fetchLawIdsForCountryScope } from "@/lib/law-country-scope-ids";
+import {
+  dedupeLawsByNormalizedTitle,
+  dedupeSourceCardsByTitle,
+  lawCountryDisplayName,
+  lawSourceDisplayLabel,
+  matchRegionalFrameworkForLaw,
+} from "@/lib/law-source-display";
 import {
   detectCountryAliasFromQueryText,
   detectAllCountryAliasesFromQuery,
@@ -24,8 +32,10 @@ import {
   prioritizeTokensForLibrarySearch,
   escapeSupplementalTermsForFetch,
 } from "@/lib/ai-library-search-intent";
+import { CATEGORY_HINT_KEYWORDS, canonicalCategoryForLibraryIntent } from "@/lib/ai-canonical-categories";
 import {
   isLikelyLegalQuestionMultilingual,
+  isNationalInvestmentLawExistenceQuery,
   resolveCategoryFromMultilingualQuery,
   resolveCountryFromMultilingualQuery,
   tokenizeLibrarySearchQuery,
@@ -68,7 +78,27 @@ import {
 } from "@/lib/ai-usage";
 import { hasUnusedPayAsYouGo, consumePayAsYouGoPurchase } from "@/lib/pay-as-you-go";
 import {
+  fetchCountryIntentTitleCandidates,
+  fetchMandatoryIntentSlotLaws,
+  ensureIntentTopicSlotsInResponse,
+  lawMatchesNationalInvestmentCodeTitle,
+} from "@/lib/ai-intent-title-retrieval";
+import {
+  AI_CHAT_SSE_HEADERS,
+  encodeSseEvent,
+  readAnthropicMessageStream,
+} from "@/lib/ai-claude-stream";
+import {
+  fetchFullLibraryLawRows,
+  fullLibraryMaxCharsPerLaw,
+  fullLibraryMaxInputChars,
+  isFullLibraryContextEnabled,
+} from "@/lib/ai-full-library-context";
+import { LAW_HAS_BODY_OR_FILTER, filterLawsWithReadableBody } from "@/lib/law-readable-body";
+import {
   buildAiResearchSystemPrompt,
+  MAX_SYSTEM_PROMPT_LEGAL_DOCS,
+  MAX_SYSTEM_PROMPT_LEGAL_DOCS_DETAILED,
   SYSTEM_PROMPT_VERSION,
   validateAiResearchSystemPromptParams,
 } from "@/lib/ai-system-prompt";
@@ -80,10 +110,33 @@ import {
 import { isPlatformGuideMetaQuery } from "@/lib/ai-platform-meta-query";
 import { extractCitedDocIndices, citedSlotsAsUsedFlags } from "@/lib/ai-citation-verify";
 import { insertAiQueryLog } from "@/lib/ai-query-log";
+import {
+  createAiPerfTimer,
+  estimatePromptTokensFromChars,
+  perfStep,
+  sumLegalContextChars,
+  type AiPerfTimer,
+} from "@/lib/ai-perf";
+import { fastCountryScopedLawFallback } from "@/lib/ai-library-fallback";
+import {
+  isMultiInstrumentListQuery,
+  ragExcerptBudget,
+  RAG_INVESTMENT_CODE_PRIMARY_CHARS,
+  RAG_INVESTMENT_EXISTENCE_TOTAL_CHARS,
+} from "@/lib/ai-rag-context-budget";
+import {
+  resolveCategoryIdCached,
+  resolveCountryIdCached,
+} from "@/lib/country-resolution-cache";
+import {
+  buildPostgrestEscapedTokens,
+  buildPostgrestSearchWords,
+  logPostgrestError,
+} from "@/lib/postgrest-ilike-tokens";
 
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
-const CLAUDE_TIMEOUT_MS = 95000;
+const CLAUDE_TIMEOUT_MS = isFullLibraryContextEnabled() ? 300_000 : 95_000;
 const CLAUDE_MODEL_ENV = process.env.CLAUDE_MODEL;
 const MODELS_URL = "https://api.anthropic.com/v1/models";
 
@@ -469,21 +522,7 @@ function extractQueryHints(query: string): { country?: string; category?: string
     }
   }
 
-  const categoryMap: Record<string, string> = {
-    trademark: "Intellectual Property Law",
-    trademarks: "Intellectual Property Law",
-    "mark registration": "Intellectual Property Law",
-    "working hours": "Labor/Employment Law",
-    "maximum working hours": "Labor/Employment Law",
-    "ordinary hours of work": "Labor/Employment Law",
-    "meal interval": "Labor/Employment Law",
-    "meal intervals": "Labor/Employment Law",
-    "night work": "Labor/Employment Law",
-    "rest period": "Labor/Employment Law",
-    "rest periods": "Labor/Employment Law",
-    "hours protection": "Labor/Employment Law",
-    "dispute resolution": "Dispute Resolution",
-  };
+  const categoryMap: Record<string, string> = { ...CATEGORY_HINT_KEYWORDS };
 
   let foundCategory: string | undefined = fromMultilingualCategory;
   if (!foundCategory) {
@@ -673,6 +712,28 @@ function isClearlyOffTopicForPrimaryIntent(
     const hasLabor = laborSignals.test(blob) || rankingTokens.some((t) => laborSignals.test(t));
     const looksLikeIp = ipSignals.test(title) || ipSignals.test(category);
     return looksLikeIp && !hasLabor;
+  }
+  if (primaryIntentId === "mining" || primaryIntentId === "oil_gas") {
+    const resourceSignals =
+      primaryIntentId === "mining"
+        ? /(mining|mineral|quarry|code minier|mines)/i
+        : /(petroleum|hydrocarbon|oil and gas|petrole|gaz|upstream)/i;
+    const tradeOnly = /international trade/i.test(category) && !resourceSignals.test(blob);
+    return tradeOnly;
+  }
+  if (primaryIntentId === "data_protection") {
+    const dpSignals = /(data protection|personal data|privacy|donnees personnelles)/i;
+    const taxOnly = /\btax\b/i.test(category) && !dpSignals.test(blob);
+    return taxOnly;
+  }
+  if (primaryIntentId === "banking_finance") {
+    const bankSignals = /(banking|central bank|financial institution|microfinance|banque)/i;
+    const tradeOnly = /international trade/i.test(category) && !bankSignals.test(blob);
+    return tradeOnly;
+  }
+  if (primaryIntentId === "corruption") {
+    const corrSignals = /(corruption|anti-bribery|money laundering|bribery)/i;
+    return /international trade/i.test(category) && !corrSignals.test(blob);
   }
   if (primaryIntentId === "registration") {
     const tokenBlob = rankingTokens.join(" ").toLowerCase();
@@ -1023,13 +1084,19 @@ function filterSubstantiveSearchTokens(tokens: string[]): string[] {
 function isCountryCatalogLawRequest(query: string): boolean {
   const q = query.toLowerCase();
   if (!/\blaws?\b/.test(q)) return false;
-  return (
+  // Inventory-style only — do not treat substantive questions like "IP laws in Togo" as catalog browse.
+  const inventoryAsk =
     /\bwhat\s+laws?\s+do\s+you\s+have\b/.test(q) ||
     /\blist\s+(all\s+)?laws?\b/.test(q) ||
     /\bshow\s+(me\s+)?(all\s+)?laws?\b/.test(q) ||
     /\bwhich\s+laws?\s+(are|exist|do\s+you\s+have)\b/.test(q) ||
-    /\blaws?\s+(in|about|for|from)\b/.test(q)
-  );
+    /\b(?:list|show|what|which)\s+(?:all\s+)?laws?\s+(?:in|about|for|from)\b/.test(q);
+  if (!inventoryAsk) return false;
+  const topical =
+    /\b(intellectual|copyright|trademark|patent|tax|labor|labour|employment|investment|arbitrat|mediat|environment|criminal|land|constitution|registration|incorporat|minimum\s+wage|data\s+protection)\b/.test(
+      q
+    );
+  return !topical;
 }
 
 function isCountryLawCountRequest(query: string): boolean {
@@ -1192,12 +1259,7 @@ function buildShortPhraseEscapedCandidates(tokens: string[], primaryIntentId: st
 }
 
 const LAWS_AI_SELECT =
-  "id, title, content, content_plain, year, status, metadata, country_id, applies_to_all_countries, category_id, countries(name), categories!laws_category_id_fkey(name)";
-
-function lawCountryDisplayName(law: { applies_to_all_countries?: boolean | null; countries?: { name?: string } | null }) {
-  if (law.applies_to_all_countries) return "All countries";
-  return law.countries?.name || "";
-}
+  "id, title, content, content_plain, year, status, metadata, source_name, country_id, applies_to_all_countries, category_id, countries(name), categories!laws_category_id_fkey(name)";
 
 function normalizeCountryLabelForMatch(s: string): string {
   return s
@@ -1221,13 +1283,14 @@ function countryLabelsEquivalentForRag(a: string, b: string): boolean {
 }
 
 function filterLegalLibraryDocsForCountryLock<
-  T extends { country: string },
+  T extends { country: string; title?: string },
 >(docs: T[], effectiveCountry: string | null, strictCountryMode: boolean): T[] {
   if (!strictCountryMode || !effectiveCountry?.trim()) return docs;
   return docs.filter((d) => {
     const c = d.country || "";
     if (!c) return false;
-    if (c === "All countries") return true;
+    if (c === "All countries" || c === "Multiple countries") return true;
+    if (d.title && matchRegionalFrameworkForLaw({ title: d.title })) return true;
     return countryLabelsEquivalentForRag(c, effectiveCountry);
   });
 }
@@ -1290,7 +1353,7 @@ async function fetchSuccessorForAmendedLaw(supabase: any, law: any): Promise<any
     .eq("category_id", law.category_id)
     .eq("status", "In force")
     .neq("id", law.id)
-    .not("content", "is", null)
+    .or(LAW_HAS_BODY_OR_FILTER)
     .limit(40);
 
   let best: any = null;
@@ -1325,37 +1388,33 @@ async function enrichLawsResolveAmended(supabase: any, laws: any[]): Promise<any
   return out;
 }
 
+type LegalLibrarySearchResult = Array<{
+  id: string;
+  title: string;
+  country: string;
+  category: string;
+  status?: string;
+  content: string;
+  year?: number;
+  retrievalScore?: number;
+}>;
+
 /**
- * Search legal library for relevant content (RAG)
- * Category is taken only from the **current query** (hints), never from stale chat context,
- * so retrieval is not locked to e.g. Corporate Law when the user asks a cross-cutting question.
+ * Load every in-scope law body (country + regional/global instruments), full text per act,
+ * ordered by query relevance. Used when AI_RESEARCH_FULL_LIBRARY is enabled (default).
  */
-async function searchLegalLibrary(
+async function searchLegalLibraryFull(
   query: string,
   country?: string,
-  detailedMode = false
-): Promise<
-  Array<{
-    id: string;
-    title: string;
-    country: string;
-    category: string;
-    status?: string;
-    content: string;
-    year?: number;
-    retrievalScore?: number;
-  }>
-> {
+  perf?: AiPerfTimer | null
+): Promise<LegalLibrarySearchResult> {
   try {
     const supabase = getSupabaseServer() as any;
     const hints = extractQueryHints(query);
     const dbDetectedCountry = !country && !hints.country ? await detectCountryFromQueryUsingDatabase(query) : undefined;
     const searchCountry = country || hints.country || dbDetectedCountry;
-    const searchCategory = hints.category;
 
-    // Resolve country/category names to IDs so we can filter reliably (Supabase nested .eq("countries.name") can be unreliable)
     let countryId: string | null = null;
-    let categoryId: string | null = null;
     if (searchCountry) {
       const dbCountryName = resolveUserCountryNameToDbName(searchCountry);
       const { data: countryRow } = await supabase
@@ -1366,16 +1425,111 @@ async function searchLegalLibrary(
         .maybeSingle();
       countryId = countryRow?.id ?? null;
     }
+
+    const scopedCountryLawIds = countryId ? await fetchLawIdsForCountryScope(supabase, countryId) : [];
+    const countryScopeOr = countryId ? lawsCountryGlobalOrScopedIds(countryId, scopedCountryLawIds) : null;
+
+    const qForTokens = normalizeSearchQueryForAi(query);
+    const resolvedIntent = resolveLibrarySearchIntent(qForTokens);
+    perfStep(perf, "full_library.intent", {
+      primaryId: resolvedIntent.primaryId,
+      matched: resolvedIntent.matchedIds,
+    });
+    const rawTokens = extractSearchTokens(qForTokens);
+    const mergedForRank = prioritizeTokensForLibrarySearch(
+      Array.from(new Set([...rawTokens.map((t) => t.toLowerCase()), ...resolvedIntent.mergedLexiconExtra])),
+      resolvedIntent.primaryId
+    );
+    const rankingTokens = Array.from(new Set(mergedForRank)).slice(0, 28);
+
+    let lawsRows = await fetchFullLibraryLawRows(supabase, { countryScopeOr });
+    perfStep(perf, "full_library.db_fetch", { rows: lawsRows.length });
+    lawsRows = filterLawsWithReadableBody(lawsRows).filter(
+      (row) => normalizeLawStatus(row.status) !== "repealed"
+    );
+    lawsRows = dedupeLawsByNormalizedTitle(lawsRows);
+
+    const rankedLaws = [...lawsRows].sort((a: any, b: any) => {
+      const titleA = String(a.title ?? "").toLowerCase();
+      const titleB = String(b.title ?? "").toLowerCase();
+      const contentA = String(a.content_plain ?? a.content ?? "").toLowerCase();
+      const contentB = String(b.content_plain ?? b.content ?? "").toLowerCase();
+      const baseScore = (title: string, content: string) =>
+        rankingTokens.reduce((sum, token) => {
+          const inTitle = title.includes(token) ? 3 : 0;
+          const inContent = content.includes(token) ? 1 : 0;
+          return sum + inTitle + inContent;
+        }, 0);
+      const scoreA = baseScore(titleA, contentA) + resolvedIntent.rankBoost(a, rankingTokens);
+      const scoreB = baseScore(titleB, contentB) + resolvedIntent.rankBoost(b, rankingTokens);
+      return scoreB - scoreA;
+    });
+
+    const candidateLaws = dedupeLawsByNormalizedTitle(await enrichLawsResolveAmended(supabase, rankedLaws));
+
+    const maxCharsPerLaw = fullLibraryMaxCharsPerLaw();
+    const maxCharsTotal = fullLibraryMaxInputChars();
+    let remainingChars = maxCharsTotal;
+    const compacted: LegalLibrarySearchResult = [];
+
+    for (const law of candidateLaws) {
+      if (remainingChars <= 0) break;
+      const fullText = String(law.content_plain ?? law.content ?? "");
+      const perLawCap = Math.min(maxCharsPerLaw, remainingChars);
+      let selectedContent = fullText;
+      if (fullText.length > perLawCap) {
+        selectedContent = `${fullText.slice(0, perLawCap)}\n…[body truncated at ${perLawCap.toLocaleString()} characters — full text is in Yamalé /library]…`;
+      }
+      compacted.push({
+        id: law.id,
+        title: law.title,
+        country: lawSourceDisplayLabel(law),
+        category: law.categories?.name || "",
+        status: law.status || undefined,
+        content: selectedContent,
+        year: law.year,
+        retrievalScore: resolvedIntent.rankBoost(law, rankingTokens),
+      });
+      remainingChars -= selectedContent.length;
+    }
+
+    console.info(
+      `[ai-full-library] attached ${compacted.length}/${candidateLaws.length} laws (~${(maxCharsTotal - remainingChars).toLocaleString()} chars)`
+    );
+    return compacted;
+  } catch (err) {
+    console.error("Full library search error:", err);
+    return [];
+  }
+}
+
+/**
+ * Search legal library for relevant content (RAG)
+ * Category is taken only from the **current query** (hints), never from stale chat context,
+ * so retrieval is not locked to e.g. Corporate Law when the user asks a cross-cutting question.
+ */
+async function searchLegalLibrary(
+  query: string,
+  country?: string,
+  detailedMode = false,
+  perf?: AiPerfTimer | null
+): Promise<LegalLibrarySearchResult> {
+  try {
+    const supabase = getSupabaseServer() as any;
+    const hints = extractQueryHints(query);
+    const dbDetectedCountry = !country && !hints.country ? await detectCountryFromQueryUsingDatabase(query) : undefined;
+    const searchCountry = country || hints.country || dbDetectedCountry;
+    const searchCategory = hints.category;
+
+    // Resolve country/category names to IDs (warm in-memory map after first load in this instance).
+    let countryId: string | null = null;
+    let categoryId: string | null = null;
+    if (searchCountry) {
+      countryId = await resolveCountryIdCached(searchCountry);
+    }
     if (searchCategory) {
-      const { data: categoryRow } = await supabase
-        .from("categories")
-        .select("id")
-        .eq("name", searchCategory)
-        .limit(1)
-        .maybeSingle();
-      if (categoryRow?.id) {
-        categoryId = categoryRow.id;
-      } else {
+      categoryId = await resolveCategoryIdCached(searchCategory);
+      if (!categoryId) {
         const { data: fuzzyCategoryRow } = await supabase
           .from("categories")
           .select("id")
@@ -1385,10 +1539,21 @@ async function searchLegalLibrary(
         categoryId = fuzzyCategoryRow?.id ?? null;
       }
     }
+    perfStep(perf, "resolve_country_ids", {
+      country: searchCountry ?? null,
+      countryId: countryId ? "yes" : "no",
+      categoryId: categoryId ? "yes" : "no",
+    });
 
     const specificLawHint = extractSpecificLawHint(query);
     const qForTokens = normalizeSearchQueryForAi(query);
     const resolvedIntent = resolveLibrarySearchIntent(qForTokens);
+    perfStep(perf, "intent", {
+      primaryId: resolvedIntent.primaryId,
+      matched: resolvedIntent.matchedIds,
+      supplementalTerms: resolvedIntent.supplementalTermsRaw.length,
+    });
+    const intentHydratedIds = new Set<string>();
     const latinAmericaTreatyCatalog = detectLatinAmericaTreatyDiscoveryQuery(query);
     const germanyAfricaBitCatalog = !latinAmericaTreatyCatalog && detectGermanyAfricaBitQuery(query);
     const globalTreatyCatalog =
@@ -1400,6 +1565,7 @@ async function searchLegalLibrary(
     const countryScopeOr = countryId
       ? lawsCountryGlobalOrScopedIds(countryId, scopedCountryLawIds)
       : null;
+    perfStep(perf, "country_scope_ids", { scopedIds: scopedCountryLawIds.length });
 
     // ── Metadata-aware retrieval (title-first) ────────────────────────────────
     // Pull documents whose TITLE matches:
@@ -1440,7 +1606,7 @@ async function searchLegalLibrary(
           const { data } = await supabase
             .from("laws")
             .select(LAWS_AI_SELECT)
-            .not("content", "is", null)
+            .or(LAW_HAS_BODY_OR_FILTER)
             .neq("status", "Repealed")
             .or(orParts.join(","))
             .limit(80);
@@ -1457,7 +1623,7 @@ async function searchLegalLibrary(
       let bilateralQuery = supabase
         .from("laws")
         .select(LAWS_AI_SELECT)
-        .not("content", "is", null)
+        .or(LAW_HAS_BODY_OR_FILTER)
         .neq("status", "Repealed");
       for (const t of bilateralTitleTokens.slice(0, 3)) {
         bilateralQuery = bilateralQuery.ilike("title", `%${escapeIlikePattern(t)}%`);
@@ -1474,7 +1640,7 @@ async function searchLegalLibrary(
           const { data: anyRows } = await supabase
             .from("laws")
             .select(LAWS_AI_SELECT)
-            .not("content", "is", null)
+            .or(LAW_HAS_BODY_OR_FILTER)
             .neq("status", "Repealed")
             .or(orParts.join(","))
             .limit(60);
@@ -1513,6 +1679,7 @@ async function searchLegalLibrary(
       if (!titleMatchedById.has(id)) titleMatchedById.set(id, r);
     }
     const titleMatchedIds = new Set(titleMatchedById.keys());
+    perfStep(perf, "title_metadata", { titleMatches: titleMatchedById.size });
     const skipBroadLibraryTextSearch =
       (latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog) &&
       !specificLawHint &&
@@ -1536,10 +1703,18 @@ async function searchLegalLibrary(
       substantive = [];
     }
     const phraseCandidates = buildShortPhraseEscapedCandidates(mergedForRank, resolvedIntent.primaryId).slice(0, 3);
-    const tokenEscList = Array.from(
-      new Set(substantive.map((t) => escapeIlikePattern(t.toLowerCase())).filter((t) => t.length >= 3))
-    ).slice(0, resolvedIntent.useWideTokenSlice ? 8 : 6);
-    const rankingTokens = Array.from(new Set([...substantive, ...expandedLower])).slice(0, 20);
+    const postgrestSearchWords = buildPostgrestSearchWords(
+      substantive.length > 0 ? substantive : mergedForRank.slice(0, 16),
+      resolvedIntent.primaryId
+    );
+    const primaryTokenEscList =
+      countryId && postgrestSearchWords.length > 0
+        ? buildPostgrestEscapedTokens(countryId, substantive.length > 0 ? substantive : mergedForRank.slice(0, 16), resolvedIntent.primaryId)
+        : [];
+    const primaryTitleTerms = postgrestSearchWords.slice(0, 3);
+    const tokenEscList = primaryTokenEscList.slice();
+    const primaryPhraseCandidates: string[] = [];
+    const rankingTokens = Array.from(new Set([...substantive, ...expandedLower])).slice(0, 24);
 
     let specificLawRows: any[] | null = null;
     if (specificLawHint) {
@@ -1566,7 +1741,7 @@ async function searchLegalLibrary(
         let sq = supabase
           .from("laws")
           .select(LAWS_AI_SELECT)
-          .not("content", "is", null)
+          .or(LAW_HAS_BODY_OR_FILTER)
           .neq("status", "Repealed");
         if (countryId) {
           sq = sq.or(lawsCountryOrGlobalWithTitleTerms(countryId, specificTokens));
@@ -1586,7 +1761,7 @@ async function searchLegalLibrary(
       let lawsQuery = supabase
         .from("laws")
         .select(LAWS_AI_SELECT)
-        .not("content", "is", null)
+        .or(LAW_HAS_BODY_OR_FILTER)
         .neq("status", "Repealed")
         .limit(250);
 
@@ -1596,7 +1771,12 @@ async function searchLegalLibrary(
           if (ids.length === 0) {
             return [];
           }
-          lawsQuery = lawsQuery.in("id", ids);
+          // Large `id.in(...)` lists can overflow PostgREST URL/query parsing and yield 400.
+          if (ids.length <= 120) {
+            lawsQuery = lawsQuery.in("id", ids);
+          } else {
+            lawsQuery = lawsQuery.eq("category_id", categoryId);
+          }
         } catch {
           lawsQuery = lawsQuery.eq("category_id", categoryId);
         }
@@ -1637,15 +1817,26 @@ async function searchLegalLibrary(
         if (countryCatalogRequest && countryScopeOr) {
           lawsQuery = lawsQuery.or(countryScopeOr);
         } else if (countryId) {
-          const orParts: string[] = [];
-          if (tokenEscList.length > 0) {
-            orParts.push(lawsCountryOrGlobalWithAnyEscapedTerms(countryId, tokenEscList));
-          }
-          for (const p of phraseCandidates) {
-            orParts.push(lawsCountryOrGlobalWithTextSearch(countryId, p));
-          }
-          if (orParts.length > 0) {
-            lawsQuery = lawsQuery.or(orParts.join(","));
+          const orFilter =
+            primaryTokenEscList.length > 0
+              ? lawsCountryOrGlobalWithTitleContentTerms(countryId, primaryTokenEscList)
+              : "";
+          if (orFilter) {
+            if (process.env.AI_PERF_LOG?.trim() !== "0") {
+              console.log(
+                "[DEBUG] primary orFilter",
+                JSON.stringify({
+                  countryId,
+                  countryCatalogRequest,
+                  primaryTokens: primaryTokenEscList,
+                  primaryTitleTerms,
+                  searchWords: postgrestSearchWords.slice(0, 6),
+                  orFilterLen: orFilter.length,
+                  orFilterPreview: orFilter.slice(0, 280),
+                })
+              );
+            }
+            lawsQuery = lawsQuery.or(orFilter);
           } else if (query.trim() && countryScopeOr) {
             lawsQuery = lawsQuery.or(countryScopeOr);
           }
@@ -1681,9 +1872,23 @@ async function searchLegalLibrary(
       laws = [];
       error = null;
     }
+    perfStep(perf, "primary_db_query", {
+      rows: (laws ?? []).length,
+      skipBroad: skipBroadLibraryTextSearch,
+      countryCatalogRequest,
+      error: error?.message ?? null,
+      primaryTokens: primaryTokenEscList.length,
+    });
 
     if (error) {
-      console.error("AI laws PostgREST search:", error.message ?? error);
+      logPostgrestError("AI laws PostgREST search:", error, {
+        primaryTokens: primaryTokenEscList,
+        primaryTitleTerms,
+        searchWords: postgrestSearchWords.slice(0, 6),
+        orFilterLen: primaryTokenEscList.length
+          ? lawsCountryOrGlobalWithTitleContentTerms(countryId!, primaryTokenEscList).length
+          : 0,
+      });
     }
 
     let lawsRows = (laws ?? []) as any[];
@@ -1693,53 +1898,21 @@ async function searchLegalLibrary(
       /statement timeout|canceling statement due to statement timeout/i.test(error.message);
     if (
       !skipBroadLibraryTextSearch &&
-      (!lawsRows.length || isStatementTimeout) &&
+      (!lawsRows.length || error || isStatementTimeout) &&
+      countryId &&
       !specificLawHint
     ) {
-      const narrowToken = rawTokens
-        .map((t) => t.toLowerCase().trim())
-        .find((t) => t.length >= 5 && !AI_SEARCH_NOISE_TOKENS.has(t));
-      let fbq = supabase
-        .from("laws")
-        .select(LAWS_AI_SELECT)
-        .not("content", "is", null)
-        .neq("status", "Repealed")
-        .limit(120);
-      if (countryId) {
-        if (narrowToken) {
-          fbq = fbq.or(
-            lawsCountryOrGlobalWithAnyEscapedTerms(countryId, [escapeIlikePattern(narrowToken)])
-          );
-        } else if (countryScopeOr) {
-          fbq = fbq.or(countryScopeOr);
-        }
-      } else if (narrowToken) {
-        const fallbackOr = `title.ilike.%${escapeIlikePattern(narrowToken)}%,content_plain.ilike.%${escapeIlikePattern(narrowToken)}%`;
-        fbq = fbq.or(fallbackOr);
-      }
-      const { data: timeoutFallbackRows, error: timeoutFallbackErr } = await fbq;
-      if (!timeoutFallbackErr && timeoutFallbackRows?.length) {
-        lawsRows = timeoutFallbackRows as any[];
-        error = null;
-      }
-    }
-    if (
-      !skipBroadLibraryTextSearch &&
-      (!lawsRows.length || error) &&
-      countryScopeOr &&
-      !specificLawHint
-    ) {
-      const { data: fb, error: fbErr } = await supabase
-        .from("laws")
-        .select(LAWS_AI_SELECT)
-        .not("content", "is", null)
-        .neq("status", "Repealed")
-        .or(countryScopeOr)
-        .limit(250);
-      if (!fbErr && fb?.length) {
-        lawsRows = fb as any[];
-        error = null;
-      }
+      const fallbackWords =
+        postgrestSearchWords.length > 0
+          ? postgrestSearchWords
+          : buildPostgrestSearchWords(mergedForRank.slice(0, 12), resolvedIntent.primaryId);
+      lawsRows = await fastCountryScopedLawFallback(supabase, {
+        countryId,
+        countryScopeOr,
+        titleWords: fallbackWords.slice(0, 3),
+        limit: 50,
+      });
+      if (lawsRows.length) error = null;
     } else if (
       !skipBroadLibraryTextSearch &&
       !lawsRows.length &&
@@ -1752,7 +1925,7 @@ async function searchLegalLibrary(
       const { data: fb2, error: fb2Err } = await supabase
         .from("laws")
         .select(LAWS_AI_SELECT)
-        .not("content", "is", null)
+        .or(LAW_HAS_BODY_OR_FILTER)
         .neq("status", "Repealed")
         .or(g)
         .limit(200);
@@ -1760,46 +1933,120 @@ async function searchLegalLibrary(
         lawsRows = fb2 as any[];
       }
     }
+    perfStep(perf, "db_fallbacks", { rows: lawsRows.length });
 
-    const supEsc = escapeSupplementalTermsForFetch(resolvedIntent.supplementalTermsRaw);
-    if (!skipBroadLibraryTextSearch && supEsc.length > 0 && !specificLawHint) {
-      let extraLaws: any[] | null = null;
-      let exErr: any = null;
-      if (countryId) {
-        const r = await supabase
-          .from("laws")
-          .select(LAWS_AI_SELECT)
-          .not("content", "is", null)
-          .neq("status", "Repealed")
-          .or(lawsCountryOrGlobalWithAnyEscapedTerms(countryId, supEsc))
-          .limit(120);
-        extraLaws = r.data;
-        exErr = r.error;
-      } else {
-        const gOr = lawsGlobalTextIlikeOrTerms(supEsc);
-        if (gOr) {
-          const r = await supabase
-            .from("laws")
-            .select(LAWS_AI_SELECT)
-            .not("content", "is", null)
-            .neq("status", "Repealed")
-            .or(gOr)
-            .limit(120);
-          extraLaws = r.data;
-          exErr = r.error;
+    const supEsc =
+      countryId && resolvedIntent.supplementalTermsRaw.length > 0
+        ? buildPostgrestEscapedTokens(
+            countryId,
+            resolvedIntent.supplementalTermsRaw,
+            resolvedIntent.primaryId,
+            { maxTokens: 4 }
+          )
+        : escapeSupplementalTermsForFetch(resolvedIntent.supplementalTermsRaw);
+    const targetHydratedDocFloor = 6;
+    const intentHydrationIds = [
+      "registration",
+      "investment_domestic",
+      "intellectual_property",
+      "dispute_resolution",
+    ] as const;
+    const hasMandatoryIntent =
+      Boolean(countryId) &&
+      resolvedIntent.matchedIds.some((id) => (intentHydrationIds as readonly string[]).includes(id));
+    const needSupplemental =
+      !skipBroadLibraryTextSearch &&
+      supEsc.length > 0 &&
+      !specificLawHint &&
+      lawsRows.length < targetHydratedDocFloor;
+    /** Always run for registration / investment / IP / dispute when country is known (not only when &lt;6 hits). */
+    const needIntentHydration = hasMandatoryIntent;
+
+    let supplementalFetched = 0;
+    let intentHydrationFetched = 0;
+    let mandatorySlotRows: any[] = [];
+    if (needSupplemental || needIntentHydration) {
+      const have = new Set(lawsRows.map((r: any) => String(r.id)));
+      const [supplementalRows, intentRows, mandatoryRows] = await Promise.all([
+        needSupplemental
+          ? (async () => {
+              if (countryId) {
+                const r = await supabase
+                  .from("laws")
+                  .select(LAWS_AI_SELECT)
+                  .or(LAW_HAS_BODY_OR_FILTER)
+                  .neq("status", "Repealed")
+                  .or(lawsCountryOrGlobalWithAnyEscapedTerms(countryId, supEsc))
+                  .limit(36);
+                return r.error ? [] : ((r.data ?? []) as any[]);
+              }
+              const gOr = lawsGlobalTextIlikeOrTerms(supEsc);
+              if (!gOr) return [] as any[];
+              const r = await supabase
+                .from("laws")
+                .select(LAWS_AI_SELECT)
+                .or(LAW_HAS_BODY_OR_FILTER)
+                .neq("status", "Repealed")
+                .or(gOr)
+                .limit(36);
+              return r.error ? [] : ((r.data ?? []) as any[]);
+            })()
+          : Promise.resolve([] as any[]),
+        needIntentHydration
+          ? fetchCountryIntentTitleCandidates(supabase, {
+              countryId: countryId!,
+              countryScopeOr,
+              query,
+              resolvedIntent,
+              excludeIds: have,
+              maxLaws: Math.max(8, targetHydratedDocFloor),
+            })
+          : Promise.resolve([] as any[]),
+        needIntentHydration
+          ? fetchMandatoryIntentSlotLaws(supabase, {
+              countryId: countryId!,
+              countryScopeOr,
+              query,
+              resolvedIntent,
+              excludeIds: have,
+            })
+          : Promise.resolve([] as any[]),
+      ]);
+      mandatorySlotRows = mandatoryRows;
+
+      for (const row of supplementalRows) {
+        const id = String((row as any).id);
+        if (!have.has(id)) {
+          have.add(id);
+          (lawsRows as any[]).push(row);
         }
       }
-      if (!exErr && extraLaws?.length) {
-        const have = new Set(lawsRows.map((r: any) => String(r.id)));
-        for (const row of extraLaws) {
-          const id = String((row as any).id);
-          if (!have.has(id)) {
-            have.add(id);
-            (lawsRows as any[]).push(row);
-          }
+      for (const row of intentRows) {
+        const id = String((row as any).id);
+        if (!have.has(id)) {
+          have.add(id);
+          (lawsRows as any[]).push(row);
+          intentHydratedIds.add(id);
         }
       }
+      for (const row of mandatorySlotRows) {
+        const id = String((row as any).id);
+        if (!have.has(id)) {
+          have.add(id);
+          (lawsRows as any[]).unshift(row);
+          intentHydratedIds.add(id);
+        }
+      }
+      supplementalFetched = supplementalRows.length;
+      intentHydrationFetched = intentRows.length;
     }
+    perfStep(perf, "supplemental_intent_hydration", {
+      supplemental: supplementalFetched,
+      intentHydration: intentHydrationFetched,
+      mandatorySlots: mandatorySlotRows.length,
+      needSupplemental,
+      needIntentHydration,
+    });
 
     // Merge title-matched (metadata-aware) candidates into lawsRows ahead of token-only matches.
     if (titleMatchedById.size > 0) {
@@ -1821,6 +2068,8 @@ async function searchLegalLibrary(
       }
       lawsRows = merged;
     }
+
+    lawsRows = filterLawsWithReadableBody(lawsRows);
 
     if (!lawsRows.length) {
       return [];
@@ -1846,6 +2095,7 @@ async function searchLegalLibrary(
       const metadataBoost = (law: any, title: string): number => {
         let bonus = 0;
         if (titleMatchedIds.has(String(law.id))) bonus += 60;
+        if (intentHydratedIds.has(String(law.id))) bonus += 72;
         if (isBilateralOrMultiCountryQuery && bilateralTitleTokens.length >= 2) {
           const allHit = bilateralTitleTokens.every((t) => title.includes(t));
           if (allHit) bonus += 110;
@@ -1872,6 +2122,10 @@ async function searchLegalLibrary(
           if (/(proc[eé]dures?\s+collectives?|apurement\s+du\s+passif)/i.test(title)) bonus -= 140;
         }
         bonus += retrievalTuningBoost(law, query, searchCountry);
+        const expectedCategory = canonicalCategoryForLibraryIntent(resolvedIntent.primaryId);
+        if (expectedCategory && String(law.categories?.name ?? "") === expectedCategory) {
+          bonus += 30;
+        }
         return bonus;
       };
 
@@ -1882,6 +2136,7 @@ async function searchLegalLibrary(
     });
 
     const enrichedRanked = await enrichLawsResolveAmended(supabase, rankedLaws);
+    perfStep(perf, "enrich_amended", { ranked: rankedLaws.length });
     let intentFilteredRanked = enrichedRanked.filter(
       (law) => !isClearlyOffTopicForPrimaryIntent(law, resolvedIntent.primaryId, rankingTokens, query)
     );
@@ -1902,28 +2157,24 @@ async function searchLegalLibrary(
     // Investment Code × 12, etc.). Collapse these by lowercase title so the
     // candidate set carries one representative per unique instrument and
     // multiple frameworks can fit in the response window.
+    const normalizedTitles = intentFilteredRanked.map((law) =>
+      String((law as any).title ?? "")
+        .trim()
+        .toLowerCase()
+    );
+    const titledCount = normalizedTitles.filter(Boolean).length;
+    const uniqueTitledCount = new Set(normalizedTitles.filter(Boolean)).size;
+    const hasDuplicateTitles = titledCount > uniqueTitledCount;
     const shouldDedupeByTitle =
       supranationalMatches.length > 0 ||
       isBilateralOrMultiCountryQuery ||
       resolvedIntent.primaryId === "labor" ||
-      globalTreatyCatalog;
-    const candidateLaws: any[] = (() => {
-      const base = intentFilteredRanked;
-      if (!shouldDedupeByTitle) return base;
-      const seenTitles = new Set<string>();
-      const out: any[] = [];
-      for (const law of base) {
-        const t = String((law as any).title ?? "").trim().toLowerCase();
-        if (!t) {
-          out.push(law);
-          continue;
-        }
-        if (seenTitles.has(t)) continue;
-        seenTitles.add(t);
-        out.push(law);
-      }
-      return out;
-    })();
+      globalTreatyCatalog ||
+      hasDuplicateTitles ||
+      intentFilteredRanked.some((law) => matchRegionalFrameworkForLaw(law as any) !== null);
+    const candidateLaws: any[] = shouldDedupeByTitle
+      ? dedupeLawsByNormalizedTitle(intentFilteredRanked)
+      : intentFilteredRanked;
 
     const baseResponseSize = latinAmericaTreatyCatalog
       ? LATIN_AMERICA_TREATY_CATALOG_MAX_DOCS
@@ -1934,8 +2185,8 @@ async function searchLegalLibrary(
           : countryCatalogRequest
           ? 20
           : detailedMode
-            ? 14
-            : 8;
+            ? MAX_SYSTEM_PROMPT_LEGAL_DOCS_DETAILED
+            : MAX_SYSTEM_PROMPT_LEGAL_DOCS;
     const lawsForResponse: any[] = (() => {
       if (specificLawHint && candidateLaws.length > 0) return [candidateLaws[0]];
       // When multiple supranational frameworks are mentioned (e.g. "AfCFTA vs
@@ -2009,34 +2260,61 @@ async function searchLegalLibrary(
         }
         return [...treatyFirst, ...rest].slice(0, baseResponseSize);
       }
-      return candidateLaws.slice(0, baseResponseSize);
+      return ensureIntentTopicSlotsInResponse(
+        candidateLaws,
+        baseResponseSize,
+        resolvedIntent,
+        mandatorySlotRows
+      );
     })();
 
     const requestedArticle = extractRequestedArticle(query);
+    const investmentExistenceQuery = isNationalInvestmentLawExistenceQuery(query);
+
+    if (investmentExistenceQuery) {
+      lawsForResponse.sort((a: any, b: any) => {
+        const score = (law: any) => {
+          if (lawMatchesNationalInvestmentCodeTitle(law)) return 0;
+          if (/\b(treaty|bilateral|bit)\b/i.test(String(law.title ?? ""))) return 3;
+          return 1;
+        };
+        return score(a) - score(b);
+      });
+    }
 
     const shouldKeepFullTextForSpecificLaw =
       Boolean(specificLawHint) ||
       userRequestsFullLawText(query) ||
       lawsForResponse.length === 1 ||
       (detailedMode && lawsForResponse.length <= 3);
+
+    const preferMoreDocuments =
+      countryCatalogRequest ||
+      latinAmericaTreatyCatalog ||
+      globalTreatyCatalog ||
+      germanyAfricaBitCatalog ||
+      (isBilateralOrMultiCountryQuery && isMultiInstrumentListQuery(query));
+    const standardRagBudget = ragExcerptBudget(lawsForResponse.length, {
+      preferMoreDocuments,
+    });
     const maxCharsPerLaw = shouldKeepFullTextForSpecificLaw
       ? 1_000_000
       : latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog
         ? 4500
         : countryCatalogRequest
           ? 600
-          : detailedMode
-            ? 22_000
-            : 12_000;
+          : investmentExistenceQuery
+            ? Math.max(400, Math.floor(RAG_INVESTMENT_EXISTENCE_TOTAL_CHARS / Math.min(lawsForResponse.length, 5)))
+            : standardRagBudget.maxCharsPerDoc;
     const maxCharsTotal = shouldKeepFullTextForSpecificLaw
       ? 1_000_000
       : latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog
         ? 100_000
         : countryCatalogRequest
           ? 16_000
-          : detailedMode
-            ? 110_000
-            : 50_000;
+          : investmentExistenceQuery
+            ? RAG_INVESTMENT_EXISTENCE_TOTAL_CHARS
+            : standardRagBudget.maxCharsTotal;
     let remainingChars = maxCharsTotal;
 
     const retrievalScoreForLaw = (law: any): number => {
@@ -2049,6 +2327,7 @@ async function searchLegalLibrary(
       }, 0);
       let bonus = 0;
       if (titleMatchedIds.has(String(law.id))) bonus += 60;
+      if (intentHydratedIds.has(String(law.id))) bonus += 72;
       if (isBilateralOrMultiCountryQuery && bilateralTitleTokens.length >= 2) {
         const allHit = bilateralTitleTokens.every((t) => title.includes(t));
         if (allHit) bonus += 110;
@@ -2078,7 +2357,11 @@ async function searchLegalLibrary(
     }> = [];
 
     const excerptAnchorTokens = buildExcerptAnchorTokens(query, resolvedIntent.primaryId);
+    const sourceLabelOptions = {
+      bilateralTitleTokens: isBilateralOrMultiCountryQuery ? bilateralTitleTokens : undefined,
+    };
 
+    let nationalInvestmentExcerptPrioritized = false;
     for (const law of lawsForResponse as any[]) {
       if (remainingChars <= 0) break;
       const fullText = law.content_plain || law.content || "";
@@ -2087,7 +2370,15 @@ async function searchLegalLibrary(
       const tokenFallback = [qForTokens.trim().toLowerCase(), query.trim().toLowerCase()].filter(Boolean);
 
       if (!shouldKeepFullTextForSpecificLaw) {
-        const perLawCap = Math.min(maxCharsPerLaw, remainingChars);
+        let perLawCap = Math.min(maxCharsPerLaw, remainingChars);
+        if (
+          investmentExistenceQuery &&
+          !nationalInvestmentExcerptPrioritized &&
+          lawMatchesNationalInvestmentCodeTitle(law)
+        ) {
+          perLawCap = Math.min(RAG_INVESTMENT_CODE_PRIMARY_CHARS, remainingChars);
+          nationalInvestmentExcerptPrioritized = true;
+        }
         selectedContent = pickContentExcerpt(
           fullText,
           rankingTokens.length ? rankingTokens : tokenFallback,
@@ -2126,7 +2417,7 @@ async function searchLegalLibrary(
           compacted.push({
             id: law.id,
             title: law.title,
-            country: lawCountryDisplayName(law),
+            country: lawSourceDisplayLabel(law, sourceLabelOptions),
             category: law.categories?.name || "",
             status: law.status || undefined,
             content: selectedContent,
@@ -2141,7 +2432,7 @@ async function searchLegalLibrary(
       compacted.push({
         id: law.id,
         title: law.title,
-        country: lawCountryDisplayName(law),
+        country: lawSourceDisplayLabel(law, sourceLabelOptions),
         category: law.categories?.name || "",
         status: law.status || undefined,
         content: selectedContent,
@@ -2151,6 +2442,13 @@ async function searchLegalLibrary(
       remainingChars -= selectedContent.length;
     }
 
+    perfStep(perf, "compact_excerpts", {
+      docs: compacted.length,
+      charsUsed: maxCharsTotal - remainingChars,
+      maxCharsTotal,
+      maxCharsPerDoc: maxCharsPerLaw,
+      shouldKeepFullTextForSpecificLaw,
+    });
     return compacted;
   } catch (err) {
     console.error("Legal library search error:", err);
@@ -2184,7 +2482,7 @@ async function searchLegalLibraryQuickFallback(
     let q = supabase
       .from("laws")
       .select(LAWS_AI_SELECT)
-      .not("content", "is", null)
+      .or(LAW_HAS_BODY_OR_FILTER)
       .neq("status", "Repealed")
       .limit(40);
     let resolvedCountryId: string | undefined;
@@ -2220,6 +2518,182 @@ async function searchLegalLibraryQuickFallback(
   } catch {
     return [];
   }
+}
+
+type LegalContextItem = LegalLibrarySearchResult[number];
+
+async function finalizeAssistantTurn(opts: {
+  assistantTextRaw: string;
+  legalContext: LegalContextItem[];
+  platformGuideMeta: boolean;
+  userId: string;
+  userQuery: string;
+  effectiveCountry: string | null;
+  currentCategory: string | null;
+  dbDetectedCountry: string | null;
+  supranationalFrameworkNames: string[];
+  modelId: string;
+  aiTurnStartedAt: number;
+  usedPayAsYouGo: boolean;
+  limit: number | null;
+  inputTokens: number;
+  outputTokens: number;
+  webSearchNote: string | null;
+}) {
+  const {
+    assistantTextRaw,
+    legalContext,
+    platformGuideMeta,
+    userId,
+    userQuery,
+    effectiveCountry,
+    currentCategory,
+    dbDetectedCountry,
+    supranationalFrameworkNames,
+    modelId,
+    aiTurnStartedAt,
+    usedPayAsYouGo,
+    limit,
+    inputTokens,
+    outputTokens,
+    webSearchNote,
+  } = opts;
+
+  if (usedPayAsYouGo && limit === 0) {
+    const supabase = getSupabaseServer();
+    const month = getCurrentMonthKey();
+    const { data: row } = await supabase
+      .from("ai_usage")
+      .select("input_tokens, output_tokens")
+      .eq("user_id", userId)
+      .eq("month", month)
+      .maybeSingle();
+
+    const prev = (row as { input_tokens?: number; output_tokens?: number } | null) ?? null;
+    const newInput = (prev?.input_tokens ?? 0) + inputTokens;
+    const newOutput = (prev?.output_tokens ?? 0) + outputTokens;
+
+    if (!prev) {
+      await (supabase.from("ai_usage") as any).insert({
+        user_id: userId,
+        month,
+        query_count: 0,
+        input_tokens: newInput,
+        output_tokens: newOutput,
+        updated_at: new Date().toISOString(),
+      });
+    } else {
+      await (supabase.from("ai_usage") as any)
+        .update({
+          input_tokens: newInput,
+          output_tokens: newOutput,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", userId)
+        .eq("month", month);
+    }
+  } else {
+    await incrementAiUsage(userId, inputTokens, outputTokens);
+  }
+
+  const sources = platformGuideMeta
+    ? []
+    : legalContext.length > 0
+      ? [
+          ...Array.from(new Set(legalContext.map((law) => `${law.title} (${law.country})`))),
+          "Claude AI · African Legal Research",
+        ]
+      : ["Claude AI · African Legal Research"];
+
+  const citationParse = extractCitedDocIndices(assistantTextRaw, legalContext.length);
+  const content = assistantTextRaw
+    .replace(/\s*\[(?=[^\]]*\bdoc:\s*\d+)[^\]]+\]/gi, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+  const usedFlags = citedSlotsAsUsedFlags(citationParse.citedDocIndices, legalContext.length);
+
+  const sourceCardsRaw = legalContext.map((law, idx) => ({
+    lawId: law.id,
+    title: law.title,
+    country: law.country,
+    category: law.category,
+    status: law.status || "In force",
+    snippet: law.content.slice(0, 220).replace(/\s+/g, " ").trim(),
+    retrievalScore: typeof law.retrievalScore === "number" ? law.retrievalScore : undefined,
+    usedInAnswer: Boolean(usedFlags[idx]),
+    docSlot: idx + 1,
+  }));
+
+  const sourceCards = dedupeSourceCardsByTitle(
+    [...sourceCardsRaw].sort((a, b) => {
+      if (a.usedInAnswer === b.usedInAnswer) {
+        const sa = a.retrievalScore ?? 0;
+        const sb = b.retrievalScore ?? 0;
+        return sb - sa;
+      }
+      return a.usedInAnswer ? -1 : 1;
+    })
+  );
+
+  const citationVerification = {
+    invalidDocRefs: citationParse.invalidDocRefs,
+    citedDocIndices: citationParse.citedDocIndices,
+    allDocRefsValid: citationParse.invalidDocRefs.length === 0,
+  };
+
+  const latencyMs = Date.now() - aiTurnStartedAt;
+  const queryLogId = await insertAiQueryLog(getSupabaseServer(), {
+    user_id: userId,
+    query: userQuery,
+    country_detected: effectiveCountry ?? dbDetectedCountry ?? null,
+    frameworks_detected: supranationalFrameworkNames.length > 0 ? supranationalFrameworkNames : null,
+    retrieved_law_ids: platformGuideMeta ? [] : legalContext.map((l) => l.id),
+    system_prompt_version: SYSTEM_PROMPT_VERSION,
+    model: modelId,
+    response_preview: assistantTextRaw,
+    latency_ms: latencyMs,
+    citation_issues: citationVerification,
+  });
+
+  let lawyerNudge: { country: string; category: string; count: number; href: string } | null = null;
+  const nudgeCountry = effectiveCountry ?? legalContext[0]?.country;
+  const nudgeCategory = currentCategory ?? legalContext[0]?.category;
+  if (!platformGuideMeta && nudgeCountry && nudgeCategory) {
+    try {
+      const supabase = getSupabaseServer();
+      const safeCategory = nudgeCategory.replace(/[%_]/g, "\\$&");
+      const { count } = await (supabase.from("lawyers") as any)
+        .select("id", { count: "exact", head: true })
+        .eq("approved", true)
+        .eq("country", nudgeCountry)
+        .ilike("expertise", `%${safeCategory}%`);
+      if ((count ?? 0) > 0) {
+        const q = new URLSearchParams({
+          country: nudgeCountry,
+          expertise: nudgeCategory,
+        });
+        lawyerNudge = {
+          country: nudgeCountry,
+          category: nudgeCategory,
+          count: count ?? 0,
+          href: `/lawyers?${q.toString()}`,
+        };
+      }
+    } catch {
+      // ignore nudge errors
+    }
+  }
+
+  return {
+    content,
+    sources,
+    sourceCards,
+    lawyerNudge,
+    systemPromptVersion: SYSTEM_PROMPT_VERSION,
+    citationVerification,
+    queryLogId,
+    webSearchNote,
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -2459,17 +2933,37 @@ export async function POST(request: NextRequest) {
 
     // Search legal library for relevant content (RAG) — skip for product / onboarding questions
     const aiTurnStartedAt = Date.now();
+    const perf = createAiPerfTimer(
+      `chat ${effectiveHints.country ?? "global"} · ${userQuery.replace(/\s+/g, " ").slice(0, 48)}`
+    );
+    const lawTitleCatalogPromise = platformGuideMeta
+      ? Promise.resolve("")
+      : fetchLawTitleCatalogForPrompt(getSupabaseServer() as any, {
+          countryName: effectiveHints.country ?? null,
+        });
     // Always use deep retrieval, excerpt budgets, and answer-style rules (no "brief mode").
     const detailedMode = true;
+    const useFullLibraryContext =
+      isFullLibraryContextEnabled() &&
+      !platformGuideMeta &&
+      !(latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog);
+
     let legalContext = platformGuideMeta
       ? []
-      : await searchLegalLibrary(userQuery, effectiveHints.country, detailedMode);
+      : useFullLibraryContext
+        ? await searchLegalLibraryFull(userQuery, effectiveHints.country, perf)
+        : await searchLegalLibrary(userQuery, effectiveHints.country, detailedMode, perf);
+    perfStep(perf, "library_search", {
+      docs: legalContext.length,
+      fullLibrary: useFullLibraryContext,
+    });
     if (
       !platformGuideMeta &&
       !legalContext.length &&
       !(latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog)
     ) {
       legalContext = await searchLegalLibraryQuickFallback(userQuery, effectiveHints.country ?? undefined);
+      perfStep(perf, "library_quick_fallback", { docs: legalContext.length });
     }
     if (!platformGuideMeta) {
       legalContext = filterLegalLibraryDocsForCountryLock(
@@ -2477,6 +2971,7 @@ export async function POST(request: NextRequest) {
         effectiveHints.country ?? null,
         strictCountryMode
       );
+      perfStep(perf, "country_lock_filter", { docs: legalContext.length });
     }
 
     if (
@@ -2498,6 +2993,7 @@ export async function POST(request: NextRequest) {
 
     let webSearchSupplementBlock: string | null = null;
     let webSearchNote: string | null = null;
+    const webSearchStartedAt = Date.now();
     if (!platformGuideMeta) {
       const disabled =
         process.env.AI_WEB_SEARCH_DISABLED === "1" ||
@@ -2532,6 +3028,10 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+    perfStep(perf, "web_search", {
+      ran: Boolean(webSearchSupplementBlock),
+      ms: Date.now() - webSearchStartedAt,
+    });
 
     // Build Claude messages format
     const claudeMessages: ClaudeMessage[] = [];
@@ -2602,7 +3102,8 @@ export async function POST(request: NextRequest) {
             .join(" and ")
         : null;
 
-    const lawTitleCatalogText = platformGuideMeta ? "" : await fetchLawTitleCatalogForPrompt(getSupabaseServer() as any);
+    const lawTitleCatalogText = await lawTitleCatalogPromise;
+    perfStep(perf, "title_catalog", { chars: lawTitleCatalogText.length });
 
     const germanyAfricaBitInventoryBlock =
       platformGuideMeta || !germanyAfricaBitCatalog
@@ -2629,17 +3130,22 @@ export async function POST(request: NextRequest) {
       specificLawHint,
       requestedArticle: extractRequestedArticle(userQuery),
       platformGuideMode: platformGuideMeta,
-      fullLawRetrievalMode,
+      fullLawRetrievalMode: fullLawRetrievalMode || useFullLibraryContext,
+      fullLibraryContextMode: useFullLibraryContext,
       lawTitleCatalogText: lawTitleCatalogText || null,
       webSearchSupplementBlock,
       germanyAfricaBitInventoryBlock: germanyAfricaBitInventoryBlock || null,
-      legalContextMaxDocs: latinAmericaTreatyCatalog
-        ? LATIN_AMERICA_TREATY_CATALOG_MAX_DOCS
-        : germanyAfricaBitCatalog
-          ? GERMANY_AFRICA_BIT_CATALOG_MAX_DOCS
-          : globalTreatyCatalog
-            ? GLOBAL_TREATY_CATALOG_MAX_DOCS
-            : undefined,
+      legalContextMaxDocs: useFullLibraryContext
+        ? Math.max(1, legalContext.length)
+        : latinAmericaTreatyCatalog
+          ? LATIN_AMERICA_TREATY_CATALOG_MAX_DOCS
+          : germanyAfricaBitCatalog
+            ? GERMANY_AFRICA_BIT_CATALOG_MAX_DOCS
+            : globalTreatyCatalog
+              ? GLOBAL_TREATY_CATALOG_MAX_DOCS
+              : detailedMode
+                ? MAX_SYSTEM_PROMPT_LEGAL_DOCS_DETAILED
+                : MAX_SYSTEM_PROMPT_LEGAL_DOCS,
     };
     const systemPromptValidation = validateAiResearchSystemPromptParams(systemPromptParamsRaw, {
       originalLegalContextLength: legalContext.length,
@@ -2651,233 +3157,222 @@ export async function POST(request: NextRequest) {
     }
 
     const systemPrompt = buildAiResearchSystemPrompt(systemPromptParamsRaw);
+    const catalogChars = lawTitleCatalogText.length;
+    const contextChars = sumLegalContextChars(legalContext);
+    const totalPromptChars = systemPrompt.length;
+    const promptTokensEst = estimatePromptTokensFromChars(totalPromptChars);
+    perfStep(perf, "prompt_build", {
+      catalogChars,
+      contextChars,
+      totalPromptChars,
+      promptTokensEst,
+      legalDocs: legalContext.length,
+      avgContextCharsPerDoc:
+        legalContext.length > 0 ? Math.round(contextChars / legalContext.length) : 0,
+    });
+    console.log("[PERF] prompt size", {
+      catalogChars,
+      contextChars,
+      totalPromptChars,
+      promptTokensEst,
+      legalDocs: legalContext.length,
+      streaming: true,
+    });
 
     const modelId = await resolveModelIdForRequest(tier, requestedModel);
+    perfStep(perf, "pre_stream", { preStreamMs: Date.now() - aiTurnStartedAt, modelId });
 
-    // Call Claude API
-    const claudeController = new AbortController();
-    const claudeTimeout = setTimeout(() => claudeController.abort(), CLAUDE_TIMEOUT_MS);
-    const response = await fetch(CLAUDE_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": CLAUDE_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      signal: claudeController.signal,
-      body: JSON.stringify({
-        model: modelId,
-        // Bias toward fuller, decision-useful answers (always-deep policy).
-        max_tokens:
-          latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog
-            ? detailedMode
-              ? 6200
-              : 4600
-            : fullLawRetrievalMode
-              ? detailedMode
-                ? 5200
-                : 3400
-              : detailedMode
-                ? 4800
-                : 2800,
-        messages: claudeMessages,
-        system: systemPrompt,
-      }),
-    }).finally(() => clearTimeout(claudeTimeout));
+    const maxTokens =
+      latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog
+        ? detailedMode
+          ? 6200
+          : 4600
+        : fullLawRetrievalMode
+          ? detailedMode
+            ? 5200
+            : 3400
+          : detailedMode
+            ? 4800
+            : 2800;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorData: any = {};
-      try {
-        errorData = JSON.parse(errorText);
-      } catch {
-        errorData = { message: errorText || "Unknown error" };
-      }
-      
-      console.error("Claude API error:", {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorData,
-        hasApiKey: !!CLAUDE_API_KEY,
-        apiKeyPrefix: CLAUDE_API_KEY?.substring(0, 10) || "none",
-        messagesCount: claudeMessages.length,
-        systemPromptLength: systemPrompt.length,
-      });
-
-      // Provide more helpful error messages
-      let errorMessage = "AI service error";
-      if (response.status === 401) {
-        errorMessage = "Invalid API key. Please check CLAUDE_API_KEY configuration.";
-      } else if (response.status === 404) {
-        clearModelCache();
-        errorMessage = `Model not found (${modelId}). Set CLAUDE_MODEL in .env to a valid model ID from your account. List models: curl -H "x-api-key: \$CLAUDE_API_KEY" -H "anthropic-version: 2023-06-01" https://api.anthropic.com/v1/models`;
-      } else if (response.status === 429) {
-        errorMessage = "Rate limit exceeded. Please try again later.";
-      } else if (response.status === 400) {
-        errorMessage = errorData.error?.message || "Invalid request format.";
-      } else if (response.status >= 500) {
-        errorMessage = "Claude API is temporarily unavailable. Please try again later.";
-      }
-
-      return NextResponse.json(
-        { error: errorMessage, details: errorData },
-        { status: 500 }
-      );
-    }
-
-    const data = await response.json();
-    const assistantTextRaw = data.content?.[0]?.text || "I apologize, but I couldn't generate a response.";
-
-    // Record usage: queries and tokens (Anthropic returns usage.input_tokens, usage.output_tokens)
-    // For free tier using pay-as-you-go, don't increment query count (only tokens)
-    const usage = (data.usage as { input_tokens?: number; output_tokens?: number }) ?? {};
-    const inputTokens = typeof usage.input_tokens === "number" ? usage.input_tokens : 0;
-    const outputTokens = typeof usage.output_tokens === "number" ? usage.output_tokens : 0;
-    
-    if (usedPayAsYouGo && limit === 0) {
-      // Free tier with pay-as-you-go: only record tokens, not query count
-      // We'll manually update just the tokens
-      const supabase = getSupabaseServer();
-      const month = getCurrentMonthKey();
-      const { data: row } = await supabase
-        .from("ai_usage")
-        .select("input_tokens, output_tokens")
-        .eq("user_id", userId)
-        .eq("month", month)
-        .maybeSingle();
-      
-      const prev = (row as { input_tokens?: number; output_tokens?: number } | null) ?? null;
-      const newInput = (prev?.input_tokens ?? 0) + inputTokens;
-      const newOutput = (prev?.output_tokens ?? 0) + outputTokens;
-      
-      if (!prev) {
-        await (supabase.from("ai_usage") as any).insert({
-          user_id: userId,
-          month,
-          query_count: 0, // Don't increment for pay-as-you-go on free tier
-          input_tokens: newInput,
-          output_tokens: newOutput,
-          updated_at: new Date().toISOString(),
-        });
-      } else {
-        await (supabase.from("ai_usage") as any)
-          .update({
-            input_tokens: newInput,
-            output_tokens: newOutput,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("user_id", userId)
-          .eq("month", month);
-      }
-    } else {
-      // Normal usage tracking (increment query count)
-      await incrementAiUsage(userId, inputTokens, outputTokens);
-    }
-
-    // Build sources list from retrieved legal documents (omit for product / onboarding replies)
-    const sources = platformGuideMeta
-      ? []
-      : legalContext.length > 0
-        ? [
-            ...Array.from(new Set(legalContext.map((law) => `${law.title} (${law.country})`))),
-            "Claude AI · African Legal Research",
-          ]
-        : ["Claude AI · African Legal Research"];
-
-    const citationParse = extractCitedDocIndices(assistantTextRaw, legalContext.length);
-    const assistantText = assistantTextRaw
-      // Keep citation logic server-side but remove [doc:*] clusters from rendered prose,
-      // including variants like [doc:2, arts:44-45; doc:3, art:15].
-      .replace(/\s*\[(?=[^\]]*\bdoc:\s*\d+)[^\]]+\]/gi, "")
-      // Tidy trailing double spaces left by marker removal.
-      .replace(/[ \t]{2,}/g, " ")
-      .trim();
-    const usedFlags = citedSlotsAsUsedFlags(citationParse.citedDocIndices, legalContext.length);
-
-    const sourceCardsRaw = legalContext.map((law, idx) => ({
-      lawId: law.id,
-      title: law.title,
-      country: law.country,
-      category: law.category,
-      status: law.status || "In force",
-      snippet: law.content.slice(0, 220).replace(/\s+/g, " ").trim(),
-      retrievalScore: typeof law.retrievalScore === "number" ? law.retrievalScore : undefined,
-      usedInAnswer: Boolean(usedFlags[idx]),
-      docSlot: idx + 1,
-    }));
-
-    const sourceCards = [...sourceCardsRaw].sort((a, b) => {
-      if (a.usedInAnswer === b.usedInAnswer) {
-        const sa = a.retrievalScore ?? 0;
-        const sb = b.retrievalScore ?? 0;
-        return sb - sa;
-      }
-      return a.usedInAnswer ? -1 : 1;
-    });
-
-    const citationVerification = {
-      invalidDocRefs: citationParse.invalidDocRefs,
-      citedDocIndices: citationParse.citedDocIndices,
-      allDocRefsValid: citationParse.invalidDocRefs.length === 0,
+    const finalizeTurnBase = {
+      legalContext,
+      platformGuideMeta,
+      userId,
+      userQuery,
+      effectiveCountry: effectiveHints.country ?? null,
+      currentCategory: currentHints.category ?? null,
+      dbDetectedCountry: dbDetectedCountry ?? null,
+      supranationalFrameworkNames: supranationalFrameworksInQuery.map((m) => m.canonicalName),
+      modelId,
+      aiTurnStartedAt,
+      usedPayAsYouGo,
+      limit,
+      webSearchNote,
     };
 
-    const latencyMs = Date.now() - aiTurnStartedAt;
-    const supabaseLog = getSupabaseServer();
-    const queryLogId = await insertAiQueryLog(supabaseLog, {
-      user_id: userId,
-      query: userQuery,
-      country_detected: effectiveHints.country ?? dbDetectedCountry ?? null,
-      frameworks_detected:
-        supranationalFrameworksInQuery.length > 0
-          ? supranationalFrameworksInQuery.map((m) => m.canonicalName)
-          : null,
-      retrieved_law_ids: platformGuideMeta ? [] : legalContext.map((l) => l.id),
-      system_prompt_version: SYSTEM_PROMPT_VERSION,
-      model: modelId,
-      response_preview: assistantTextRaw,
-      latency_ms: latencyMs,
-      citation_issues: citationVerification,
-    });
+    const sseStream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const push = (event: string, data: unknown) => {
+          controller.enqueue(encodeSseEvent(event, data));
+        };
 
-    let lawyerNudge: { country: string; category: string; count: number; href: string } | null = null;
-    const nudgeCountry = effectiveHints.country ?? legalContext[0]?.country;
-    const nudgeCategory = currentHints.category ?? legalContext[0]?.category;
-    if (!platformGuideMeta && nudgeCountry && nudgeCategory) {
-      try {
-        const supabase = getSupabaseServer();
-        const safeCategory = nudgeCategory.replace(/[%_]/g, "\\$&");
-        const { count } = await (supabase.from("lawyers") as any)
-          .select("id", { count: "exact", head: true })
-          .eq("approved", true)
-          .eq("country", nudgeCountry)
-          .ilike("expertise", `%${safeCategory}%`);
-        if ((count ?? 0) > 0) {
-          const q = new URLSearchParams({
-            country: nudgeCountry,
-            expertise: nudgeCategory,
+        try {
+          const pushProcess = (payload: {
+            step: string;
+            message: string;
+            detail?: string;
+            status: "active" | "done";
+          }) => push("process", payload);
+
+          pushProcess({ step: "understand", message: "Reading your question", status: "done" });
+          if (effectiveHints.country) {
+            pushProcess({
+              step: "scope",
+              message: `Jurisdiction: ${effectiveHints.country}`,
+              status: "done",
+            });
+          }
+          const lawSample = legalContext
+            .slice(0, 4)
+            .map((l) => l.title)
+            .join(" · ");
+          pushProcess({
+            step: "library",
+            message: platformGuideMeta
+              ? "Product guide — no law search"
+              : legalContext.length > 0
+                ? `Retrieved ${legalContext.length} instrument${legalContext.length === 1 ? "" : "s"}`
+                : "No matching laws in this pass",
+            detail: lawSample || undefined,
+            status: "done",
           });
-          lawyerNudge = {
-            country: nudgeCountry,
-            category: nudgeCategory,
-            count: count ?? 0,
-            href: `/lawyers?${q.toString()}`,
-          };
-        }
-      } catch {
-        // ignore nudge errors
-      }
-    }
+          if (webSearchSupplementBlock) {
+            pushProcess({
+              step: "web",
+              message: "Checked supplemental web context",
+              status: "done",
+            });
+          }
+          pushProcess({ step: "generating", message: "Drafting your answer…", status: "active" });
 
-    return NextResponse.json({
-      content: assistantText,
-      sources,
-      sourceCards,
-      lawyerNudge,
-      systemPromptVersion: SYSTEM_PROMPT_VERSION,
-      citationVerification,
-      queryLogId,
-      webSearchNote,
+          const claudeController = new AbortController();
+          const claudeTimeout = setTimeout(() => claudeController.abort(), CLAUDE_TIMEOUT_MS);
+          let claudeRes: Response;
+          try {
+            claudeRes = await fetch(CLAUDE_API_URL, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-api-key": CLAUDE_API_KEY!,
+                "anthropic-version": "2023-06-01",
+              },
+              signal: claudeController.signal,
+              body: JSON.stringify({
+                model: modelId,
+                max_tokens: maxTokens,
+                stream: true,
+                messages: claudeMessages,
+                system: systemPrompt,
+              }),
+            });
+          } finally {
+            clearTimeout(claudeTimeout);
+          }
+
+          if (!claudeRes.ok) {
+            const errorText = await claudeRes.text();
+            let errorData: any = {};
+            try {
+              errorData = JSON.parse(errorText);
+            } catch {
+              errorData = { message: errorText || "Unknown error" };
+            }
+
+            console.error("Claude API error:", {
+              status: claudeRes.status,
+              statusText: claudeRes.statusText,
+              error: errorData,
+              messagesCount: claudeMessages.length,
+              systemPromptLength: systemPrompt.length,
+            });
+
+            let errorMessage = "AI service error";
+            if (claudeRes.status === 401) {
+              errorMessage = "Invalid API key. Please check CLAUDE_API_KEY configuration.";
+            } else if (claudeRes.status === 404) {
+              clearModelCache();
+              errorMessage = `Model not found (${modelId}). Set CLAUDE_MODEL in .env to a valid model ID from your account.`;
+            } else if (claudeRes.status === 429) {
+              errorMessage = "Rate limit exceeded. Please try again later.";
+            } else if (claudeRes.status === 400) {
+              errorMessage = errorData.error?.message || "Invalid request format.";
+            } else if (claudeRes.status >= 500) {
+              errorMessage = "Claude API is temporarily unavailable. Please try again later.";
+            }
+
+            push("error", { error: errorMessage, details: errorData });
+            return;
+          }
+
+          if (!claudeRes.body) {
+            push("error", { error: "AI service returned an empty stream." });
+            return;
+          }
+          perfStep(perf, "stream_open", { status: claudeRes.status });
+
+          let assistantTextRaw = "";
+          let inputTokens = 0;
+          let outputTokens = 0;
+          let loggedFirstToken = false;
+
+          for await (const chunk of readAnthropicMessageStream(claudeRes.body)) {
+            if (chunk.kind === "text_delta") {
+              if (!loggedFirstToken) {
+                loggedFirstToken = true;
+                perfStep(perf, "first_token", { ttftMs: Date.now() - aiTurnStartedAt });
+              }
+              assistantTextRaw += chunk.text;
+              push("delta", { text: chunk.text });
+            } else if (chunk.kind === "message_stop") {
+              inputTokens = chunk.usage.input_tokens;
+              outputTokens = chunk.usage.output_tokens;
+            } else if (chunk.kind === "error") {
+              push("error", { error: chunk.message });
+              return;
+            }
+          }
+
+          pushProcess({ step: "generating", message: "Drafting your answer…", status: "done" });
+
+          const done = await finalizeAssistantTurn({
+            ...finalizeTurnBase,
+            assistantTextRaw:
+              assistantTextRaw.trim() || "I apologize, but I couldn't generate a response.",
+            inputTokens,
+            outputTokens,
+          });
+          perf?.done({
+            inputTokens,
+            outputTokens,
+            streamChars: assistantTextRaw.length,
+            totalMs: Date.now() - aiTurnStartedAt,
+          });
+          push("done", done);
+        } catch (err) {
+          if (err instanceof DOMException && err.name === "AbortError") {
+            push("error", { error: "AI request timed out. Please retry your question." });
+          } else {
+            console.error("AI chat stream error:", err);
+            push("error", { error: "Failed to process chat request" });
+          }
+        } finally {
+          controller.close();
+        }
+      },
     });
+
+    return new Response(sseStream, { headers: AI_CHAT_SSE_HEADERS });
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") {
       return NextResponse.json(
