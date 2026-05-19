@@ -1291,14 +1291,20 @@ export function LibraryView({
                           onClick={() => handlePrintPayment(law.id)}
                           disabled={printLoadingId === law.id}
                           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
-                          title={`Download (${lawPrintPriceLabel}) — one-time unlock`}
+                          title={
+                            paidLawIds.has(law.id)
+                              ? "Download PDF"
+                              : `Download (${lawPrintPriceLabel}) — one-time unlock`
+                          }
                         >
                           {printLoadingId === law.id ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           ) : (
                             <FileDown className="h-3.5 w-3.5" />
                           )}
-                          <span>Download ({lawPrintPriceLabel})</span>
+                          <span>
+                            {paidLawIds.has(law.id) ? "Download" : `Download (${lawPrintPriceLabel})`}
+                          </span>
                         </button>
                         <Link
                           href={lawHref}
