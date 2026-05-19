@@ -1,3 +1,5 @@
+import { buildYamaleCategoriesPromptBlock } from "@/lib/ai-canonical-categories";
+
 /**
  * AI Legal Research system prompt — versioned, modular English-first instructions.
  * Bump SYSTEM_PROMPT_VERSION whenever substantive prompt instructions change.
@@ -6,10 +8,13 @@
  * repeating it). Use SYSTEM_PROMPT_VERSION in API responses and ai_query_log instead.
  */
 
-export const SYSTEM_PROMPT_VERSION = "2026.05.18-germany-africa-bit-inventory-v1";
+export const SYSTEM_PROMPT_VERSION = "2026.05.19-categories-africa-v1";
 
 /** Cap on library excerpts in the system message to limit tokens and citation confusion. */
-export const MAX_SYSTEM_PROMPT_LEGAL_DOCS = 8;
+export const MAX_SYSTEM_PROMPT_LEGAL_DOCS = 12;
+
+/** Detailed-mode cap — should match retrieval `baseResponseSize` in the chat route. */
+export const MAX_SYSTEM_PROMPT_LEGAL_DOCS_DETAILED = 14;
 
 export type SupranationalPromptFramework = {
   canonicalName: string;
@@ -44,6 +49,8 @@ export type BuildAiResearchSystemPromptParams = {
   platformGuideMode?: boolean;
   /** When true, retrieved document bodies are often full acts (or max windows)—answer with depth across the whole attached text, not a quick skim. */
   fullLawRetrievalMode?: boolean;
+  /** Entire in-scope library bodies were loaded for this turn (not keyword-ranked snippets). */
+  fullLibraryContextMode?: boolean;
   /** Newline-separated `Title | Country | Category | Status` rows from the live DB (metadata only). */
   lawTitleCatalogText?: string | null;
   /**
@@ -80,7 +87,7 @@ export function normalizeSystemPromptParams(
   maxDocsOverride?: number
 ): BuildAiResearchSystemPromptParams {
   const maxDocs = Math.min(
-    40,
+    50_000,
     Math.max(1, maxDocsOverride ?? p.legalContextMaxDocs ?? MAX_SYSTEM_PROMPT_LEGAL_DOCS)
   );
   if (p.legalContext.length <= maxDocs) return { ...p, legalContextMaxDocs: maxDocs };
@@ -104,7 +111,7 @@ export function validateAiResearchSystemPromptParams(
   let ok = true;
 
   const rawLen = options?.originalLegalContextLength ?? p.legalContext.length;
-  const maxDocs = Math.min(40, Math.max(1, p.legalContextMaxDocs ?? MAX_SYSTEM_PROMPT_LEGAL_DOCS));
+  const maxDocs = Math.min(50_000, Math.max(1, p.legalContextMaxDocs ?? MAX_SYSTEM_PROMPT_LEGAL_DOCS));
   if (rawLen > maxDocs) {
     warnings.push(
       `legalContext has ${rawLen} documents; only the first ${maxDocs} are included in the system prompt.`
@@ -146,8 +153,12 @@ Write your substantive answer in the same language as the user's question. If th
 When a fixed English disclaimer is mentioned (e.g. "not stated in the provided library excerpt"), use an equivalent natural phrase in the user's language (e.g. French wording that conveys the same limitation).`;
 }
 
-function buildCoreRules(opts: { webSupplementProvided: boolean; hasLibraryDocs: boolean }): string {
-  const { webSupplementProvided, hasLibraryDocs } = opts;
+function buildCoreRules(opts: {
+  webSupplementProvided: boolean;
+  hasLibraryDocs: boolean;
+  fullLibraryContextMode?: boolean;
+}): string {
+  const { webSupplementProvided, hasLibraryDocs, fullLibraryContextMode } = opts;
 
   const libraryVsWeb = !webSupplementProvided
     ? `When library documents are provided for this turn, answer ONLY from those documents. Do not add outside legal knowledge, web references, or generic templates. If something is not in the provided excerpts, say so clearly (in the user's language); in English you may use exactly: "Not stated in the provided library excerpt."`
@@ -164,8 +175,13 @@ function buildCoreRules(opts: { webSupplementProvided: boolean; hasLibraryDocs: 
 Voice: You are a knowledgeable legal consultant — experienced, direct, and helpful. Explain complex concepts clearly without oversimplifying. Sound like a senior advisor sitting across the table, not a search engine dump or encyclopedia entry.
 
 How retrieval works (do not mislead the user):
-- Yamalé stores a large searchable library. For each turn the backend **searches** that library and attaches the **best-matching document bodies for this query** (see the document block below). Often those are relevance-ranked **excerpts**; when a statute is clearly identified, the user asks for the full text, or only one instrument is in scope, the backend may instead attach a **much longer slice or the full act** up to platform size limits—still not "every law in full" in one message.
-- A separate **title index** may also appear below (metadata only: title, country, category, status). Use it for coverage questions ("do we have X?"), spelling variants, and disambiguation. It is **not** operative law text—rules and quotes must still come from the document block (or you must say the excerpt does not contain them).
+${
+  fullLibraryContextMode
+    ? `- **This turn: full library mode.** The backend loaded **every in-scope law body** from Yamalé for the jurisdiction in the document block below (national laws plus applicable regional/global instruments), with full act text where size allows. Answer from that set—do not claim an instrument is missing if its body appears in the block. If a law is only in the title index and not in the document block, it was not loaded (e.g. input budget); say so briefly after answering from what was attached.`
+    : `- Yamalé stores a large searchable library. For each turn the backend **searches** that library and attaches the **best-matching document bodies for this query** (see the document block below). Often those are relevance-ranked **excerpts**; when a statute is clearly identified, the user asks for the full text, or only one instrument is in scope, the backend may instead attach a **much longer slice or the full act** up to platform size limits—still not "every law in full" in one message.`
+}
+- A separate **title index** may also appear below (metadata only: title, source, category, status). Use it for coverage questions ("do we have X?"), spelling variants, and disambiguation. It is **not** operative law text—rules and quotes must still come from the document block (or you must say the excerpt does not contain them).
+- **Regional instruments:** When a block's Source is a framework (OHADA, COMESA, SADC, AfCFTA, ECOWAS, EAC, etc.) or "Multiple countries", that is **one instrument** applying across member states—not a single national code. Do **not** attribute it to one random member country (e.g. do not say "under Kenyan law" for an AfCFTA treaty excerpt whose Source is AfCFTA).
 ${legalQuotesRule}
 - For **catalog / coverage questions** (e.g. "do you have treaties with Latin American countries?", "how many Germany–Africa BITs?"): do **not** say you have "no access to the database" or that you only ever see "four documents" as if that were the whole product. When an **AUTHORITATIVE INVENTORY** block is present below for this turn, use its **count and title list** as the source of truth—do not infer a lower number from excerpt count alone. Otherwise say clearly that you can only **see the excerpts retrieved for this conversation turn**; the site library may contain more or different instruments. Encourage using the Library UI (/library), country filters, or a more specific query when the inventory block is absent or incomplete.
 
@@ -215,7 +231,7 @@ function buildPlatformGuide(): string {
 
 The user is asking what Yamalé is or how to use the site, not a substantive statute question. Answer from general product knowledge only. Do NOT claim retrieved law text supports this answer. Do NOT use [doc:N] markers or cite specific library titles as authorities for this reply.
 
-Cover as appropriate (in the user's language): (1) Yamalé Legal Library — curated African and selected supranational instruments; (2) AI Research — the app **searches** the library each turn and sends you a **limited set of excerpts** from the results (plus token limits on excerpt size); you do not "browse" every file, but the library behind the search is large; (3) browsing /library; (4) disclaimer — not legal advice; verify with official sources and counsel.
+Cover as appropriate (in the user's language): (1) Yamalé Legal Library — curated African and selected supranational instruments; (2) AI Research — the app **searches** the library each turn and streams answers as they are generated (typically relevance-ranked excerpts unless full-library mode is enabled); (3) browsing /library; (4) disclaimer — not legal advice; verify with official sources and counsel.
 
 If they ask why you cannot "see the whole library" at once: explain **practical limits** (relevance ranking, excerpt count, context size)—not that the product has no database or that you are unrelated to it.
 
@@ -229,7 +245,7 @@ function buildLawTitleCatalogBlock(text: string): string {
 
 Format per line: Title | Country | Category | Status
 
-Use this list for coverage questions ("do we have X?"), spelling variants, and disambiguation. Do **not** state substantive legal rules from titles alone—quote from the RETRIEVED document block when answering rules. If a title appears here but that law's body is not in the RETRIEVED block for this turn, say so and point the user to /library or a more specific question.
+Use this list for coverage questions ("do we have X?"), spelling variants, and disambiguation. Do **not** state substantive legal rules from titles alone—quote from the RETRIEVED document block when answering rules. If a title appears here but that law's body is not in the RETRIEVED block for this turn, say so briefly **after** answering from what was retrieved; suggest /library or a narrower query (country + instrument name). Do not lead with "title index shows X but body not retrieved" unless nothing relevant was retrieved.
 
 INDEX:
 ${t}`;
@@ -238,13 +254,16 @@ ${t}`;
 function buildDocumentContextBlock(
   docs: LegalDoc[],
   fullLawRetrievalMode: boolean,
-  webSupplementProvided: boolean
+  webSupplementProvided: boolean,
+  fullLibraryContextMode?: boolean
 ): string {
   if (docs.length === 0) return "";
   const maxN = docs.length;
-  const scopeLabel = fullLawRetrievalMode
-    ? `${maxN} document(s); bodies are often long slices or full acts for this turn (subject to size limits)—treat the entire Content under each [doc:N] as the governing text unless it clearly starts/ends with ellipsis as a partial window.`
-    : `${maxN} excerpt(s). These are search-ranked snippets, not the entire catalog.`;
+  const scopeLabel = fullLibraryContextMode
+    ? `${maxN} document(s) — **full in-scope Yamalé library** for this turn (every matching law body loaded, ordered by relevance). Treat the entire Content under each [doc:N] as authoritative for that instrument unless marked truncated.`
+    : fullLawRetrievalMode
+      ? `${maxN} document(s); bodies are often long slices or full acts for this turn (subject to size limits)—treat the entire Content under each [doc:N] as the governing text unless it clearly starts/ends with ellipsis as a partial window.`
+      : `${maxN} excerpt(s). These are search-ranked snippets, not the entire catalog.`;
   const header = `RETRIEVED FOR THIS TURN (from the Yamalé library) — ${scopeLabel} Each block starts with its canonical index; use only those indices in [doc:N] markers.
 
 The heading above is for you only: **do not copy it or similar meta-phrases into the user's answer.** Speak to the user in normal advisory language (instrument name, country, section/article).
@@ -253,7 +272,9 @@ STATUS NOTE: Documents marked Repealed are excluded from retrieval—do not trea
 
 Citation integrity: After substantive paragraphs grounded in a document, append inline markers ONLY as [doc:N] or [doc:N, art:M] where N is the index shown on that block (1..${maxN}) and M is an article number only if it appears in the excerpt. Never cite [doc:N] for N > ${maxN} or N < 1. Never invent indices.
 
-In prose, refer to each law by title and country—not only by document index.
+**Every distinct instrument you rely on** for a substantive point must get its own [doc:N] marker in that turn—including when you discuss two or more acts in one answer (e.g. Companies Act and Tax Act; national IP law and Berne Convention). Do not describe an act's rules without citing it if its body is in the RETRIEVED block.
+
+In prose, refer to each law by title and **source** (country, regional framework, or bilateral parties)—not only by document index. For OHADA/COMESA/SADC/AfCFTA/EAC/ECOWAS excerpts, cite the **framework name**, not an arbitrary member state.
 
 Rules for the excerpts:
 (1) Base your answer strictly on these documents.
@@ -273,7 +294,7 @@ Rules for the excerpts:
     .map((law, i) => {
       const idx = i + 1;
       const year = law.year != null ? ` | Year: ${law.year}` : "";
-      return `[doc:${idx}] Title: ${law.title} | Country: ${law.country} | Category: ${law.category}${year}\nContent:\n${law.content}`;
+      return `[doc:${idx}] Title: ${law.title} | Source: ${law.country} | Category: ${law.category}${year}\nContent:\n${law.content}`;
     })
     .join("\n---\n");
 
@@ -349,10 +370,11 @@ function buildAnswerStyleRules(
 export function buildAiResearchSystemPrompt(p: BuildAiResearchSystemPromptParams): string {
   const params = normalizeSystemPromptParams(p);
   const originalDocCount = p.legalContext.length;
-  if (originalDocCount > MAX_SYSTEM_PROMPT_LEGAL_DOCS) {
+  const maxDocsForLog = params.legalContextMaxDocs ?? MAX_SYSTEM_PROMPT_LEGAL_DOCS;
+  if (originalDocCount > maxDocsForLog) {
     // Intentionally only in server logs — not in the model prompt.
     console.warn(
-      `[SystemPrompt] legalContext has ${originalDocCount} docs; truncating to ${MAX_SYSTEM_PROMPT_LEGAL_DOCS} for system message.`
+      `[SystemPrompt] legalContext has ${originalDocCount} docs; truncating to ${maxDocsForLog} for system message.`
     );
   }
 
@@ -365,8 +387,15 @@ export function buildAiResearchSystemPrompt(p: BuildAiResearchSystemPromptParams
 
   const blocks: string[] = [
     buildBilingualPreamble(),
-    buildCoreRules({ webSupplementProvided, hasLibraryDocs }),
+    buildCoreRules({
+      webSupplementProvided,
+      hasLibraryDocs,
+      fullLibraryContextMode: Boolean(params.fullLibraryContextMode),
+    }),
   ];
+  if (!platform) {
+    blocks.push(buildYamaleCategoriesPromptBlock());
+  }
   if (!platform && catalogText) {
     blocks.push(buildLawTitleCatalogBlock(catalogText));
   }
@@ -392,7 +421,8 @@ export function buildAiResearchSystemPrompt(p: BuildAiResearchSystemPromptParams
       buildDocumentContextBlock(
         docsForBlock,
         Boolean(params.fullLawRetrievalMode),
-        webSupplementProvided
+        webSupplementProvided,
+        Boolean(params.fullLibraryContextMode)
       )
     );
     if (webSupplementProvided) blocks.push(webBlock);
