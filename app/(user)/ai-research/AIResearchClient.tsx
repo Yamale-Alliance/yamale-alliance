@@ -32,8 +32,13 @@ import { plainTextFromMarkdownish } from "@/lib/library/law-document-pdf";
 import { AIResearchChatExportPreviewDialog } from "@/components/ai-research/AIResearchChatExportPreviewDialog";
 import { SubscriptionCheckoutConfirm } from "@/components/checkout/SubscriptionCheckoutConfirm";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
-import { consumeAiChatSse, isAiChatSseResponse } from "@/lib/ai-chat-client-stream";
-import { finalizeProcessLog, mergeProcessStep, type AiProcessStep } from "@/lib/ai-chat-process";
+import { parseAiChatResponse } from "@/lib/ai-chat-client-stream";
+import {
+  finalizeProcessLog,
+  mergeProcessStep,
+  type AiProcessSsePayload,
+  type AiProcessStep,
+} from "@/lib/ai-chat-process";
 import { AiResearchProcessPanel } from "@/components/ai-research/AiResearchProcessPanel";
 
 type Tier = "free" | "basic" | "pro" | "team";
@@ -808,58 +813,42 @@ export default function AIResearchClient() {
 
       const sessionId = sessionIdToUpdate;
 
-      let data: Awaited<ReturnType<typeof consumeAiChatSse>>;
+      const streamHandlers = {
+        onProcess: (payload: AiProcessSsePayload) => {
+          setSessions((prev) =>
+            prev.map((s) => {
+              if (s.id !== sessionId) return s;
+              return {
+                ...s,
+                messages: s.messages.map((m) => {
+                  if (m.id !== assistantId) return m;
+                  const log = mergeProcessStep(m.processLog ?? [], payload);
+                  return { ...m, processLog: log };
+                }),
+                updatedAt: Date.now(),
+              };
+            })
+          );
+        },
+        onDelta: (text: string) => {
+          setSessions((prev) =>
+            prev.map((s) => {
+              if (s.id !== sessionId) return s;
+              return {
+                ...s,
+                messages: s.messages.map((m) =>
+                  m.id === assistantId ? { ...m, content: m.content + text } : m
+                ),
+                updatedAt: Date.now(),
+              };
+            })
+          );
+        },
+      };
 
-      if (isAiChatSseResponse(res)) {
-        if (!res.ok) {
-          throw new Error("Failed to get AI response");
-        }
-        data = await consumeAiChatSse(res, {
-          onProcess: (payload) => {
-            setSessions((prev) =>
-              prev.map((s) => {
-                if (s.id !== sessionId) return s;
-                return {
-                  ...s,
-                  messages: s.messages.map((m) => {
-                    if (m.id !== assistantId) return m;
-                    const log = mergeProcessStep(m.processLog ?? [], payload);
-                    return { ...m, processLog: log };
-                  }),
-                  updatedAt: Date.now(),
-                };
-              })
-            );
-          },
-          onDelta: (text) => {
-            setSessions((prev) =>
-              prev.map((s) => {
-                if (s.id !== sessionId) return s;
-                return {
-                  ...s,
-                  messages: s.messages.map((m) =>
-                    m.id === assistantId ? { ...m, content: m.content + text } : m
-                  ),
-                  updatedAt: Date.now(),
-                };
-              })
-            );
-          },
-        });
-      } else {
-        const json = await res.json();
-        if (!res.ok) {
-          const errorMsg = json.error || "Failed to get AI response";
-          const details = json.details;
-          if (details?.error?.message) {
-            throw new Error(`${errorMsg}: ${details.error.message}`);
-          }
-          if (details?.message) {
-            throw new Error(`${errorMsg}: ${details.message}`);
-          }
-          throw new Error(errorMsg);
-        }
-        data = json;
+      const { payload: data, streamed } = await parseAiChatResponse(res, streamHandlers);
+
+      if (!streamed) {
         setSessions((prev) =>
           prev.map((s) => {
             if (s.id !== sessionId) return s;
@@ -867,7 +856,7 @@ export default function AIResearchClient() {
               ...s,
               messages: s.messages.map((m) =>
                 m.id === assistantId
-                  ? { ...m, content: json.content || "I apologize, but I couldn't generate a response." }
+                  ? { ...m, content: data.content || "I apologize, but I couldn't generate a response." }
                   : m
               ),
               updatedAt: Date.now(),
