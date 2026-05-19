@@ -83,4 +83,6 @@ export const AI_CHAT_SSE_HEADERS = {
   "Content-Type": "text/event-stream; charset=utf-8",
   "Cache-Control": "no-cache, no-transform",
   Connection: "keep-alive",
+  /** Lets the client detect streaming even if a proxy rewrites Content-Type. */
+  "X-Yamale-Chat-Stream": "1",
 } as const;
