@@ -3,6 +3,8 @@
  * intent detection helpers, category/country phrases, and tokenization.
  */
 
+import { AFRICAN_COUNTRY_SEARCH_PHRASES } from "@/lib/african-country-search-phrases";
+
 /** Strip Latin accents (sociétés → societes). */
 export function deaccentForSearch(text: string): string {
   return text.normalize("NFD").replace(/\p{M}/gu, "");
@@ -53,6 +55,26 @@ export const RE_PUBLIC_HOLIDAYS =
 export const RE_INVESTMENT_TREATY =
   /\b(investment\s+treat(y|ies)|bilateral\s+investment|\bbit\b|icsid|reciprocal\s+promotion|protection\s+of\s+investments|promotion\s+y\s+protecci[oó]n|promotion\s+et\s+protection.*invest|protection\s+r[eé]ciproque\s+d[e']invest|trait[eé]\s+bilateral|accord\s+bilateral\s+d\s*investissement|اتفاقية\s+استثمار|حماية\s+الاستثمار|الاستثمار\s+الأجنبي|الاستثمار\s+الاجنبي|معاهدة\s+استثمار|استثمار\s+ثنائي)\b|(?:استثمار|اتفاقية\s+استثمار)/iu;
 
+/** Domestic / national investment codes (not BITs). */
+export const RE_NATIONAL_INVESTMENT =
+  /\b(investment\s+law|investment\s+code|code\s+des\s+investissements|code\s+investissement|charte\s+des\s+investissements|foreign\s+investment|national\s+investment|investment\s+promotion|framework\s+for\s+investment|loi\s+.*investissement|have\s+an?\s+investment\s+law|dedicated\s+investment|does\s+.+\s+have\s+.{0,24}investment\s+law)\b|(?:قانون\s+الاستثمار|مدونة\s+الاستثمار)/iu;
+
+/** “Does [country] have an investment law?” — must hydrate national code body, not only title index. */
+export function isNationalInvestmentLawExistenceQuery(query: string): boolean {
+  const q = normalizeQueryForLibrarySearch(query).toLowerCase();
+  return (
+    (/\b(have|has)\b/.test(q) && /\binvestment\s+law\b/.test(q)) ||
+    (/\bdoes\b/.test(q) && /\binvestment\s+law\b/.test(q)) ||
+    /\b(is\s+there\s+an?\s+investment\s+law|dedicated\s+investment\s+law)\b/.test(q)
+  );
+}
+
+export const RE_INTELLECTUAL_PROPERTY =
+  /\b(intellectual\s+property|industrial\s+property|propri[eé]t[eé]\s+intellectuelle|copyright|trademark|trademarks|patent|patents|oapi|bangui|berne\s+convention|paris\s+convention|trips|wipo|علامة\s+تجارية|ملكية\s+فكرية)\b|(?:ملكية\s+فكرية|علامة\s+تجارية)/iu;
+
+export const RE_DISPUTE_RESOLUTION =
+  /\b(dispute\s+resolution|arbitration|mediation|conciliation|new\s+york\s+convention|icsid|enforcement\s+of\s+arbitral|settlement\s+of\s+disputes|r[eè]glement\s+des\s+diff[eé]rends|arbitral\s+award)\b|(?:تحكيم|تسوية\s+المنازعات)/iu;
+
 export const RE_REGIONAL_TRADE =
   /\b(afcfta|afcta|ecowas|etls|rules?\s+of\s+origin|origin\s+criteria|certificate\s+of\s+origin|proof\s+of\s+origin|cumulation|change\s+in\s+tariff|zlecaf|cedeao|regles\s+d\s*origine|certificat\s+d\s*origine|منشأ|شهادة\s+منشأ|قواعد\s+المنشأ|الاتفاقية\s+الأفريقية|الاتفاقية\s+الافريقية|التجارة\s+الحرة\s+القارية)\b|(?:منشأ|شهادة\s+منشأ|afcfta|zlecaf)/iu;
 
@@ -60,10 +82,19 @@ export const RE_TRADEMARK =
   /\b(trademark|trademarks|marque|marques|propriete\s+industrielle|علامة\s+تجارية|علامات\s+تجارية|براءة|ملكية\s+فكرية)\b|(?:علامة\s+تجارية)/iu;
 
 export const RE_DATA_PROTECTION =
-  /\b(data\s+protection|privacy|rgpd|gdpr|donnees\s+personnelles|protection\s+des\s+donnees|حماية\s+البيانات|البيانات\s+الشخصية|خصوصية)\b|(?:حماية\s+البيانات|خصوصية)/iu;
+  /\b(data\s+protection|privacy|rgpd|gdpr|donnees\s+personnelles|protection\s+des\s+donnees|personal\s+data|ndp\s+act|حماية\s+البيانات|البيانات\s+الشخصية|خصوصية)\b|(?:حماية\s+البيانات|خصوصية)/iu;
 
 export const RE_CORRUPTION =
-  /\b(anti[-\s]?bribery|corruption|anti\s+corruption|lutte\s+contre\s+la\s+corruption|فساد|رشوة|مكافحة\s+الفساد)\b|(?:فساد|رشوة)/iu;
+  /\b(anti[-\s]?bribery|corruption|anti\s+corruption|money\s+laundering|lutte\s+contre\s+la\s+corruption|prevention\s+of\s+corruption|فساد|رشوة|مكافحة\s+الفساد|غسل\s+الأموال)\b|(?:فساد|رشوة)/iu;
+
+export const RE_BANKING =
+  /\b(banking|bank\s+law|central\s+bank|financial\s+institution|microfinance|credit\s+institution|payment\s+system|bancaire|banque\s+centrale|services\s+financiers|institution\s+financiere|نظام\s+مصرفي|مصرف|بنك\s+مركزي|الخدمات\s+المالية)\b|(?:مصرف|بنك\s+مركزي)/iu;
+
+export const RE_MINING =
+  /\b(mining|mineral|minerals|mining\s+code|code\s+minier|quarry|extraction\s+permit|mine\s+permit|exploitation\s+miniere|mines\s+et\s+minerais|تعدين|منجم|معادن|قانون\s+التعدين|رخصة\s+تعدين)\b|(?:تعدين|معادن)/iu;
+
+export const RE_OIL_GAS =
+  /\b(oil\s+and\s+gas|oil\s+&\s+gas|petroleum|hydrocarbon|upstream|psg|petrole|gaz|code\s+petrolier|hydrocarbures|exploration\s+permit|production\s+sharing|نفط|غاز|هيدروكربون|بترول|النفط\s+والغاز)\b|(?:نفط|غاز|هيدروكربون)/iu;
 
 export function hasStrongTaxSignals(q: string): boolean {
   return RE_TAX.test(q);
@@ -87,6 +118,51 @@ export function shouldPreferLaborOverRegistration(q: string, matchedIds: string[
 // ─── Category phrases → Yamalé category name (longest match wins in caller) ───
 
 export const MULTILINGUAL_CATEGORY_PHRASES: Readonly<Record<string, string>> = {
+  // Anti-bribery / corruption
+  "anti-bribery and corruption": "Anti-Bribery and Corruption Law",
+  "anti bribery": "Anti-Bribery and Corruption Law",
+  "money laundering": "Anti-Bribery and Corruption Law",
+  "preventing corruption": "Anti-Bribery and Corruption Law",
+  "lutte contre la corruption": "Anti-Bribery and Corruption Law",
+  "مكافحة الفساد": "Anti-Bribery and Corruption Law",
+  corruption: "Anti-Bribery and Corruption Law",
+  bribery: "Anti-Bribery and Corruption Law",
+  // Banking
+  "banking law": "Banking and Finance",
+  "central bank": "Banking and Finance",
+  "financial services": "Banking and Finance",
+  microfinance: "Banking and Finance",
+  "payment systems": "Banking and Finance",
+  "banque centrale": "Banking and Finance",
+  bancaire: "Banking and Finance",
+  // Constitution
+  "constitutional law": "Constitution",
+  "fundamental rights": "Constitution",
+  constitution: "Constitution",
+  دستور: "Constitution",
+  // Criminal
+  "criminal law": "Criminal Law",
+  "criminal code": "Criminal Law",
+  "penal code": "Criminal Law",
+  "code penal": "Criminal Law",
+  "code pénal": "Criminal Law",
+  "قانون العقوبات": "Criminal Law",
+  // Mining
+  "mining law": "Mining Law",
+  "mining code": "Mining Law",
+  "code minier": "Mining Law",
+  minerals: "Mining Law",
+  mining: "Mining Law",
+  تعدين: "Mining Law",
+  // Oil & gas
+  "oil and gas": "Oil & Gas Law",
+  "oil & gas": "Oil & Gas Law",
+  petroleum: "Oil & Gas Law",
+  hydrocarbon: "Oil & Gas Law",
+  hydrocarbures: "Oil & Gas Law",
+  "code petrolier": "Oil & Gas Law",
+  "production sharing": "Oil & Gas Law",
+  النفط: "Oil & Gas Law",
   // Tax (before corporate)
   "obligations fiscales": "Tax Law",
   "impot sur les societes": "Tax Law",
@@ -146,64 +222,22 @@ export const MULTILINGUAL_CATEGORY_PHRASES: Readonly<Record<string, string>> = {
   "rules of origin": "International Trade Laws",
   afcfta: "International Trade Laws",
   zlecaf: "International Trade Laws",
-  "anti-bribery": "Anti-Bribery and Corruption Law",
-  corruption: "Anti-Bribery and Corruption Law",
-  "مكافحة الفساد": "Anti-Bribery and Corruption Law",
   "dispute resolution": "Dispute Resolution",
+  arbitration: "Dispute Resolution",
+  mediation: "Dispute Resolution",
   environmental: "Environmental",
   environnement: "Environmental",
+  "code de l environnement": "Environmental",
   "البيئة": "Environmental",
+  "trade law": "International Trade Laws",
+  "customs law": "International Trade Laws",
+  "bilateral investment treaty": "International Trade Laws",
+  bit: "International Trade Laws",
 };
 
-// ─── Country phrases (Arabic / French exonyms) → DB country name ─────────────
+// ─── Country phrases (54 AU states + FR/AR exonyms) → DB country name ────────
 
-export const MULTILINGUAL_COUNTRY_PHRASES: Readonly<Record<string, string>> = {
-  "afrique du sud": "South Africa",
-  "cote d ivoire": "Côte d'Ivoire",
-  "cote divoire": "Côte d'Ivoire",
-  "ivory coast": "Côte d'Ivoire",
-  "cap vert": "Cabo Verde",
-  "republique democratique du congo": "DR Congo",
-  "congo kinshasa": "DR Congo",
-  "congo brazzaville": "Congo Republic",
-  botswana: "Botswana",
-  // Arabic
-  "جنوب افريقيا": "South Africa",
-  "جنوب أفريقيا": "South Africa",
-  "ساحل العاج": "Côte d'Ivoire",
-  "كوت ديفوار": "Côte d'Ivoire",
-  "الكونغو الديمقراطية": "DR Congo",
-  "الكونغو برازافيل": "Congo Republic",
-  بوتسوانا: "Botswana",
-  كينيا: "Kenya",
-  نيجيريا: "Nigeria",
-  تونس: "Tunisia",
-  المغرب: "Morocco",
-  مصر: "Egypt",
-  السنغال: "Senegal",
-  غانا: "Ghana",
-  أنغولا: "Angola",
-  انغولا: "Angola",
-  موزمبيق: "Mozambique",
-  ناميبيا: "Namibia",
-  زيمبابوي: "Zimbabwe",
-  زامبيا: "Zambia",
-  تنزانيا: "Tanzania",
-  أوغندا: "Uganda",
-  اوغندا: "Uganda",
-  رواندا: "Rwanda",
-  إثيوبيا: "Ethiopia",
-  اثيوبيا: "Ethiopia",
-  مالي: "Mali",
-  النيجر: "Niger",
-  تشاد: "Chad",
-  الكاميرون: "Cameroon",
-  الجزائر: "Algeria",
-  ليبيريا: "Liberia",
-  سيراليون: "Sierra Leone",
-  توغو: "Togo",
-  مدغشقر: "Madagascar",
-};
+export const MULTILINGUAL_COUNTRY_PHRASES: Readonly<Record<string, string>> = AFRICAN_COUNTRY_SEARCH_PHRASES;
 
 // ─── Stop words for token OR (Latin + Arabic scripts) ────────────────────────
 
@@ -440,7 +474,7 @@ export function resolveCountryFromMultilingualQuery(query: string): string | und
 }
 
 /** Tokenize for PostgREST ILIKE OR — supports Latin, French (de-accented), and Arabic. */
-export function tokenizeLibrarySearchQuery(query: string, maxTokens = 8): string[] {
+export function tokenizeLibrarySearchQuery(query: string, maxTokens = 10): string[] {
   const normalized = normalizeQueryForLibrarySearch(query).toLowerCase();
   const minLen = queryHasArabic(normalized) ? 2 : 3;
   const unique = new Set(
