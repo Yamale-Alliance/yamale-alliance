@@ -4,16 +4,25 @@
  * callers that scope with lawsCountryOrGlobal* or lawsGlobalTextIlikeOrTerms.
  */
 
+import { canonicalCategoryForLibraryIntent } from "@/lib/ai-canonical-categories";
 import { escapeIlikePattern } from "@/lib/law-country-scope";
 import {
   deaccentForSearch,
   normalizeQueryForLibrarySearch,
+  RE_BANKING,
   RE_CONSTITUTIONAL,
+  RE_CORRUPTION,
   RE_CRIMINAL,
+  RE_DATA_PROTECTION,
   RE_ENVIRONMENT,
   RE_INVESTMENT_TREATY,
+  RE_NATIONAL_INVESTMENT,
+  RE_INTELLECTUAL_PROPERTY,
+  RE_DISPUTE_RESOLUTION,
   RE_LABOR,
   RE_LAND,
+  RE_MINING,
+  RE_OIL_GAS,
   RE_PUBLIC_HOLIDAYS,
   RE_REGIONAL_TRADE,
   RE_REGISTRATION,
@@ -28,7 +37,48 @@ export type LawTextFields = {
   title?: string | null;
   content?: string | null;
   content_plain?: string | null;
+  /** Yamalé `categories.name` when available on the row */
+  categoryName?: string | null;
+  categories?: { name?: string | null } | null;
 };
+
+function lawCategoryName(law: LawTextFields): string {
+  return String(law.categoryName ?? law.categories?.name ?? "").trim();
+}
+
+function boostCanonicalCategoryField(law: LawTextFields, primaryId: string): number {
+  const expected = canonicalCategoryForLibraryIntent(primaryId);
+  if (!expected) return 0;
+  const actual = lawCategoryName(law);
+  if (!actual) return 0;
+  if (actual === expected) return 32;
+  const a = actual.toLowerCase();
+  const e = expected.toLowerCase();
+  if (a.includes(e) || e.includes(a)) return 14;
+  return 0;
+}
+
+function demoteWrongCategory(law: LawTextFields, primaryId: string): number {
+  const expected = canonicalCategoryForLibraryIntent(primaryId);
+  if (!expected) return 0;
+  const actual = lawCategoryName(law);
+  if (!actual || actual === expected) return 0;
+  const a = actual.toLowerCase();
+  const mismatches: Array<{ intent: string; wrong: RegExp }> = [
+    { intent: "tax", wrong: /data protection|privacy|intellectual property|international trade/i },
+    { intent: "labor", wrong: /intellectual property|international trade|tax law/i },
+    { intent: "intellectual_property", wrong: /tax law|labor|employment|data protection/i },
+    { intent: "mining", wrong: /international trade|intellectual property|tax law/i },
+    { intent: "oil_gas", wrong: /international trade|intellectual property|tax law/i },
+    { intent: "banking_finance", wrong: /international trade|intellectual property|environmental/i },
+    { intent: "corruption", wrong: /international trade|intellectual property|tax law/i },
+    { intent: "data_protection", wrong: /tax law|international trade|mining/i },
+  ];
+  for (const row of mismatches) {
+    if (primaryId === row.intent && row.wrong.test(a)) return -22;
+  }
+  return 0;
+}
 
 export function normalizeSearchQueryForAi(query: string): string {
   return normalizeQueryForLibrarySearch(
@@ -106,6 +156,9 @@ function boostRegistration(law: LawTextFields, tokens: string[]): number {
   const title = String(law.title ?? "").toLowerCase();
   const blob = `${title}\n${String(law.content_plain ?? law.content ?? "").toLowerCase()}`;
   let b = 0;
+  if (/\bcompanies?\s+act\b|\bcompany\s+act\b/.test(title)) b += 42;
+  if (/\bbeneficial\s+ownership\b/.test(title)) b += 36;
+  if (/\bcommercial\s+code\b/.test(title) && /\b(compan|registration|incorporat)/.test(blob)) b += 28;
   if (blob.includes("ohada")) b += title.includes("ohada") ? 42 : 24;
   if (blob.includes("acte uniforme") || blob.includes("uniform act")) b += 28;
   if (blob.includes("société") || blob.includes("societe") || blob.includes("sociétés commerciales") || blob.includes("societes commerciales"))
@@ -117,6 +170,86 @@ function boostRegistration(law: LawTextFields, tokens: string[]): number {
     if (tok.length >= 5 && blob.includes(tok)) b += 2;
   }
   return Math.min(b, 45);
+}
+
+function demotePureTaxOnRegistration(law: LawTextFields): number {
+  const title = String(law.title ?? "").toLowerCase();
+  if (
+    /\b(tax|income\s+tax|finance\s+act|imp[oô]t|vat|withholding)\b/i.test(title) &&
+    !/\b(compan|commercial|registration|beneficial|incorporat|business)\b/i.test(title)
+  ) {
+    return -28;
+  }
+  return 0;
+}
+
+function boostInvestmentDomestic(law: LawTextFields, tokens: string[]): number {
+  const title = String(law.title ?? "").toLowerCase();
+  const blob = `${title}\n${String(law.content_plain ?? law.content ?? "").toLowerCase()}`;
+  let b = 0;
+  if (/\b(investment|investissement|investissements)\b/i.test(title) && !/\b(treaty|bilateral|bit|accord)\b/i.test(title))
+    b += 38;
+  if (/code\s+des\s+investissements|investment\s+code|charte\s+des\s+investissements|code\s+investissement/i.test(title))
+    b += 32;
+  if (blob.includes("foreign investment") || blob.includes("promotion of investment")) b += 14;
+  for (const tok of tokens) {
+    if (tok.length >= 5 && /invest|investissement|fdi|promotion/i.test(tok) && blob.includes(tok)) b += 2;
+  }
+  return Math.min(b, 55);
+}
+
+function boostIntellectualProperty(law: LawTextFields, tokens: string[]): number {
+  const title = String(law.title ?? "").toLowerCase();
+  const blob = `${title}\n${String(law.content_plain ?? law.content ?? "").toLowerCase()}`;
+  let b = 0;
+  const needles = [
+    "intellectual property",
+    "copyright",
+    "trademark",
+    "patent",
+    "industrial property",
+    "oapi",
+    "bangui",
+    "berne convention",
+    "paris convention",
+    "trips",
+    "wipo",
+    "propriété intellectuelle",
+    "propriete intellectuelle",
+  ];
+  for (const n of needles) {
+    if (title.includes(n)) b += 16;
+    else if (blob.includes(n)) b += 8;
+  }
+  for (const tok of tokens) {
+    if (tok.length >= 4 && /copyright|trademark|patent|oapi|bangui|trips|berne|paris|wipo|intellect/i.test(tok) && blob.includes(tok))
+      b += 2;
+  }
+  return Math.min(b, 58);
+}
+
+function boostDisputeResolution(law: LawTextFields, tokens: string[]): number {
+  const title = String(law.title ?? "").toLowerCase();
+  const blob = `${title}\n${String(law.content_plain ?? law.content ?? "").toLowerCase()}`;
+  let b = 0;
+  const needles = [
+    "new york convention",
+    "arbitration",
+    "mediation",
+    "conciliation",
+    "icsid",
+    "dispute resolution",
+    "enforcement of arbitral",
+    "settlement of disputes",
+  ];
+  for (const n of needles) {
+    if (title.includes(n)) b += title.includes("new york") ? 40 : 18;
+    else if (blob.includes(n)) b += 10;
+  }
+  for (const tok of tokens) {
+    if (tok.length >= 5 && /arbitrat|mediat|dispute|convention|icsid/i.test(tok) && blob.includes(tok)) b += 2;
+  }
+  return Math.min(b, 55);
 }
 
 function boostInvestmentTreaty(law: LawTextFields, tokens: string[]): number {
@@ -304,6 +437,117 @@ function boostConstitutional(law: LawTextFields, tokens: string[]): number {
   return Math.min(b, 50);
 }
 
+function boostBankingFinance(law: LawTextFields, tokens: string[]): number {
+  const blob = `${String(law.title ?? "").toLowerCase()}\n${String(law.content_plain ?? law.content ?? "").toLowerCase()}`;
+  let b = 0;
+  const needles = [
+    "central bank",
+    "banking",
+    "financial institution",
+    "microfinance",
+    "payment system",
+    "credit institution",
+    "banque centrale",
+    "services financiers",
+    "institution financiere",
+    "نظام مصرفي",
+    "بنك مركزي",
+  ];
+  for (const n of needles) {
+    if (blob.includes(n)) b += 12;
+  }
+  for (const tok of tokens) {
+    if (tok.length >= 4 && /bank|finance|microcredit|payment|banque|مصرف|بنك/i.test(tok) && blob.includes(tok)) b += 2;
+  }
+  return Math.min(b, 48);
+}
+
+function boostDataProtection(law: LawTextFields, tokens: string[]): number {
+  const blob = `${String(law.title ?? "").toLowerCase()}\n${String(law.content_plain ?? law.content ?? "").toLowerCase()}`;
+  let b = 0;
+  const needles = [
+    "data protection",
+    "personal data",
+    "privacy",
+    "donnees personnelles",
+    "protection des donnees",
+    "حماية البيانات",
+    "البيانات الشخصية",
+    "خصوصية",
+  ];
+  for (const n of needles) {
+    if (blob.includes(n)) b += 14;
+  }
+  for (const tok of tokens) {
+    if (tok.length >= 4 && /data|privacy|personal|donnees|حماية|خصوصية/i.test(tok) && blob.includes(tok)) b += 2;
+  }
+  return Math.min(b, 50);
+}
+
+function boostCorruption(law: LawTextFields, tokens: string[]): number {
+  const blob = `${String(law.title ?? "").toLowerCase()}\n${String(law.content_plain ?? law.content ?? "").toLowerCase()}`;
+  let b = 0;
+  const needles = [
+    "anti-bribery",
+    "anti corruption",
+    "corruption",
+    "money laundering",
+    "bribery",
+    "lutte contre la corruption",
+    "مكافحة الفساد",
+    "فساد",
+    "رشوة",
+  ];
+  for (const n of needles) {
+    if (blob.includes(n)) b += 14;
+  }
+  for (const tok of tokens) {
+    if (tok.length >= 4 && /corrupt|bribery|launder|فساد|رشوة/i.test(tok) && blob.includes(tok)) b += 2;
+  }
+  return Math.min(b, 50);
+}
+
+function boostMining(law: LawTextFields, tokens: string[]): number {
+  const title = String(law.title ?? "").toLowerCase();
+  const blob = `${title}\n${String(law.content_plain ?? law.content ?? "").toLowerCase()}`;
+  let b = 0;
+  if (/\bmining\s+code\b|\bcode\s+minier\b|\bminerals?\s+act\b/i.test(title)) b += 36;
+  const needles = ["mining", "mineral", "quarry", "exploitation miniere", "mines et", "تعدين", "معادن", "منجم"];
+  for (const n of needles) {
+    if (blob.includes(n)) b += 12;
+  }
+  for (const tok of tokens) {
+    if (tok.length >= 4 && /min(e|ing|eral)|quarry|تعدين|معادن/i.test(tok) && blob.includes(tok)) b += 2;
+  }
+  return Math.min(b, 52);
+}
+
+function boostOilGas(law: LawTextFields, tokens: string[]): number {
+  const title = String(law.title ?? "").toLowerCase();
+  const blob = `${title}\n${String(law.content_plain ?? law.content ?? "").toLowerCase()}`;
+  let b = 0;
+  if (/\bpetroleum\b|\bhydrocarbon\b|\boil\s+and\s+gas\b|\bcode\s+petrolier\b/i.test(title)) b += 36;
+  const needles = [
+    "petroleum",
+    "hydrocarbon",
+    "upstream",
+    "production sharing",
+    "oil and gas",
+    "petrole",
+    "gaz",
+    "نفط",
+    "غاز",
+    "هيدروكربون",
+  ];
+  for (const n of needles) {
+    if (blob.includes(n)) b += 12;
+  }
+  for (const tok of tokens) {
+    if (tok.length >= 3 && /petrol|hydrocarbon|upstream|نفط|غاز|oil|gas/i.test(tok) && blob.includes(tok)) b += 2;
+  }
+  return Math.min(b, 52);
+}
+
 function boostRegionalTradeRulesOfOrigin(law: LawTextFields, tokens: string[]): number {
   const title = String(law.title ?? "").toLowerCase();
   const blob = `${title}\n${String(law.content_plain ?? law.content ?? "").toLowerCase()}`;
@@ -360,6 +604,29 @@ const INTENTS: IntentDef[] = [
     ],
     substantiveTokenDenylist: ["between", "differ"],
     boost: boostRegionalTradeRulesOfOrigin,
+  },
+  {
+    id: "investment_domestic",
+    specificity: 86,
+    test: (q) => RE_NATIONAL_INVESTMENT.test(q) && !RE_INVESTMENT_TREATY.test(q),
+    lexiconExtra: [
+      "investment",
+      "investissement",
+      "investissements",
+      "code des investissements",
+      "foreign investment",
+      "promotion",
+      "charte",
+      "استثمار",
+    ],
+    supplementalTerms: [
+      "code des investissements",
+      "investment code",
+      "investment law",
+      "foreign investment",
+      "charte des investissements",
+    ],
+    boost: boostInvestmentDomestic,
   },
   {
     id: "investment_treaty",
@@ -424,11 +691,69 @@ const INTENTS: IntentDef[] = [
     boost: boostConstitutional,
   },
   {
+    id: "intellectual_property",
+    specificity: 76,
+    test: (q) => RE_INTELLECTUAL_PROPERTY.test(q),
+    lexiconExtra: [
+      "copyright",
+      "trademark",
+      "patent",
+      "intellectual",
+      "industrial property",
+      "oapi",
+      "bangui",
+      "berne",
+      "paris convention",
+      "trips",
+      "wipo",
+      "propriété intellectuelle",
+    ],
+    supplementalTerms: [
+      "intellectual property",
+      "copyright act",
+      "trademark",
+      "oapi",
+      "bangui agreement",
+      "berne convention",
+      "paris convention",
+      "trips",
+    ],
+    boost: boostIntellectualProperty,
+  },
+  {
+    id: "dispute_resolution",
+    specificity: 75,
+    test: (q) => RE_DISPUTE_RESOLUTION.test(q),
+    lexiconExtra: [
+      "arbitration",
+      "mediation",
+      "conciliation",
+      "dispute",
+      "new york convention",
+      "icsid",
+      "arbitral",
+      "تحكيم",
+    ],
+    supplementalTerms: [
+      "arbitration",
+      "mediation",
+      "new york convention",
+      "dispute resolution",
+      "icsid",
+    ],
+    boost: boostDisputeResolution,
+  },
+  {
     id: "registration",
     specificity: 78,
     test: (q) => RE_REGISTRATION.test(q),
     lexiconExtra: REGISTRATION_LEXICON_EXTRA,
-    supplementalTerms: REGISTRATION_SUPPLEMENTAL,
+    supplementalTerms: [
+      ...REGISTRATION_SUPPLEMENTAL,
+      "companies act",
+      "beneficial ownership",
+      "commercial code",
+    ],
     boost: boostRegistration,
   },
   {
@@ -529,6 +854,95 @@ const INTENTS: IntentDef[] = [
     supplementalTerms: ["land code", "code foncier", "cadastre"],
     boost: boostLand,
   },
+  {
+    id: "banking_finance",
+    specificity: 77,
+    test: (q) => RE_BANKING.test(q),
+    lexiconExtra: [
+      "banking",
+      "central bank",
+      "financial institution",
+      "microfinance",
+      "payment system",
+      "credit institution",
+      "banque centrale",
+      "services financiers",
+      "مصرف",
+      "بنك مركزي",
+    ],
+    supplementalTerms: ["banking act", "central bank act", "financial institutions act", "microfinance"],
+    boost: boostBankingFinance,
+  },
+  {
+    id: "data_protection",
+    specificity: 79,
+    test: (q) => RE_DATA_PROTECTION.test(q),
+    lexiconExtra: [
+      "data protection",
+      "personal data",
+      "privacy",
+      "donnees personnelles",
+      "protection des donnees",
+      "حماية البيانات",
+      "خصوصية",
+    ],
+    supplementalTerms: ["data protection act", "personal data protection", "privacy act"],
+    boost: boostDataProtection,
+  },
+  {
+    id: "corruption",
+    specificity: 80,
+    test: (q) => RE_CORRUPTION.test(q),
+    lexiconExtra: [
+      "corruption",
+      "anti-bribery",
+      "bribery",
+      "money laundering",
+      "lutte contre la corruption",
+      "فساد",
+      "رشوة",
+      "مكافحة الفساد",
+    ],
+    supplementalTerms: ["anti-corruption act", "prevention of corruption", "money laundering"],
+    boost: boostCorruption,
+  },
+  {
+    id: "mining",
+    specificity: 81,
+    test: (q) => RE_MINING.test(q),
+    lexiconExtra: [
+      "mining",
+      "mineral",
+      "minerals",
+      "mining code",
+      "code minier",
+      "quarry",
+      "exploitation miniere",
+      "تعدين",
+      "معادن",
+    ],
+    supplementalTerms: ["mining code", "minerals act", "mining regulations", "code minier"],
+    boost: boostMining,
+  },
+  {
+    id: "oil_gas",
+    specificity: 82,
+    test: (q) => RE_OIL_GAS.test(q),
+    lexiconExtra: [
+      "petroleum",
+      "hydrocarbon",
+      "oil and gas",
+      "upstream",
+      "production sharing",
+      "petrole",
+      "gaz",
+      "نفط",
+      "غاز",
+      "هيدروكربون",
+    ],
+    supplementalTerms: ["petroleum act", "hydrocarbon law", "oil and gas", "production sharing agreement"],
+    boost: boostOilGas,
+  },
 ];
 
 export type ResolvedLibrarySearchIntent = {
@@ -582,13 +996,18 @@ export function resolveLibrarySearchIntent(qNormalized: string): ResolvedLibrary
     mergedLexicon.push(...expandCommercialRegistrationTokens(qNormalized).map((t) => t.toLowerCase()));
   }
 
-  const supplementalTermsRaw = dedupeLower(matches.flatMap((m) => m.supplementalTerms)).slice(0, 10);
+  const supplementalTermsRaw = dedupeLower(matches.flatMap((m) => m.supplementalTerms)).slice(0, 18);
 
   const rankBoost = (law: LawTextFields, tokens: string[]): number => {
     let sum = 0;
     for (const m of matches) {
       sum += m.boost(law, tokens);
     }
+    if (primary.id === "registration") {
+      sum += demotePureTaxOnRegistration(law);
+    }
+    sum += boostCanonicalCategoryField(law, primary.id);
+    sum += demoteWrongCategory(law, primary.id);
     return Math.min(sum, 95);
   };
 
@@ -599,7 +1018,7 @@ export function resolveLibrarySearchIntent(qNormalized: string): ResolvedLibrary
   return {
     primaryId: primary.id,
     matchedIds: matches.map((m) => m.id),
-    mergedLexiconExtra: dedupeLower(mergedLexicon).slice(0, 22),
+    mergedLexiconExtra: dedupeLower(mergedLexicon).slice(0, 28),
     supplementalTermsRaw,
     useWideTokenSlice: matches.length > 0,
     shouldDemoteRegistrationNoise,
@@ -656,12 +1075,29 @@ export function prioritizeTokensForLibrarySearch(tokens: string[], primaryId: st
       if (/land|foncier|cadastre|tenure|immobilier|expropri|property|عقار|أراضي|اراضي/.test(x)) s += 24;
     } else if (primaryId === "investment_treaty") {
       if (/invest|treaty|accord|acuerdo|promotion|protection|bilateral|expropri|استثمار|اتفاقية/.test(x)) s += 24;
+    } else if (primaryId === "investment_domestic") {
+      if (/invest|investissement|fdi|promotion|charte|code\s+des/.test(x)) s += 26;
+    } else if (primaryId === "intellectual_property") {
+      if (/copyright|trademark|patent|intellect|oapi|bangui|berne|paris|trips|wipo|propriete|propriété/.test(x))
+        s += 26;
+    } else if (primaryId === "dispute_resolution") {
+      if (/arbitrat|mediat|dispute|convention|icsid|conciliation|new\s+york|تحكيم/.test(x)) s += 26;
     } else if (primaryId === "regional_trade_rules_of_origin") {
       if (/afcfta|afcta|ecowas|etls|origin|tariff|cumulation|certificate|proof|zlecaf|منشأ/.test(x)) s += 30;
     } else if (primaryId === "public_holidays") {
       if (/holiday|observance|féri|ferie|national|statutory|عطلة|عطل/.test(x)) s += 28;
     } else if (primaryId === "constitutional") {
       if (/constit|fundamental|rights|chapter|article|preamble|دستور|حقوق/.test(x)) s += 26;
+    } else if (primaryId === "banking_finance") {
+      if (/bank|finance|microcredit|payment|banque|institution|مصرف|بنك|مالية/.test(x)) s += 26;
+    } else if (primaryId === "data_protection") {
+      if (/data|privacy|personal|donnees|حماية|خصوصية|البيانات/.test(x)) s += 26;
+    } else if (primaryId === "corruption") {
+      if (/corrupt|bribery|launder|فساد|رشوة|مكافحة/.test(x)) s += 26;
+    } else if (primaryId === "mining") {
+      if (/min(e|ing|eral)|quarry|تعدين|معادن|منجم/.test(x)) s += 28;
+    } else if (primaryId === "oil_gas") {
+      if (/petrol|hydrocarbon|upstream|نفط|غاز|oil|gas|هيدروكربون/.test(x)) s += 28;
     } else {
       if (x.includes("registr")) s += 12;
       if (x.includes("compan")) s += 10;
@@ -680,5 +1116,5 @@ export function escapeSupplementalTermsForFetch(terms: string[]): string[] {
   return terms
     .map((t) => escapeIlikePattern(t.toLowerCase()))
     .filter((e) => e.length >= 2)
-    .slice(0, 10);
+    .slice(0, 4);
 }
