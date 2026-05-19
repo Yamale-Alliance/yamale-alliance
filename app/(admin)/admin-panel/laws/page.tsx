@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { Plus, FileText, Loader2, Trash2, CopyCheck, Trash, History, Download, Scale, Link2 } from "lucide-react";
+import { Plus, FileText, Loader2, Trash2, CopyCheck, Trash, History, Download, Scale, Link2, Tags } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
 
@@ -261,6 +261,13 @@ function AdminLawsPageInner() {
           >
             <Link2 className="h-4 w-4" />
             Link by title
+          </Link>
+          <Link
+            href="/admin-panel/laws/categories"
+            className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+          >
+            <Tags className="h-4 w-4" />
+            Categories
           </Link>
           <Link
             href={`/admin-panel/laws/deleted?returnTo=${encodeURIComponent(currentListUrl)}`}
