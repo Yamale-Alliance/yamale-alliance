@@ -263,6 +263,13 @@ function AdminLawsPageInner() {
             Link by title
           </Link>
           <Link
+            href="/admin-panel/laws/linked"
+            className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+          >
+            <Link2 className="h-4 w-4" />
+            Linked laws
+          </Link>
+          <Link
             href="/admin-panel/laws/categories"
             className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
           >
