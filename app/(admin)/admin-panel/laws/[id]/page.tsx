@@ -414,10 +414,10 @@ export default function AdminLawEditPage() {
                     Country assignment is not synced.
                   </p>
                   <Link
-                    href="/admin-panel/laws/link-by-title"
+                    href="/admin-panel/laws/linked"
                     className="mt-2 inline-block text-xs font-medium text-primary hover:underline"
                   >
-                    Manage links by title
+                    View or unlink linked laws
                   </Link>
                 </div>
               </div>
