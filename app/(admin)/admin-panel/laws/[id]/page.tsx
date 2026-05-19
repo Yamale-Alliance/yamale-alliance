@@ -47,6 +47,8 @@ export default function AdminLawEditPage() {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [findValue, setFindValue] = useState("");
@@ -106,6 +108,53 @@ export default function AdminLawEditPage() {
       })
       .finally(() => setLoading(false));
   }, [id]);
+
+  const handleAddCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) return;
+    setError(null);
+    setStatusMsg(null);
+    setAddingCategory(true);
+    try {
+      const res = await fetch("/api/admin/categories", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        category?: { id: string; name: string };
+      };
+      if (!res.ok) {
+        if (res.status === 409 && data.category?.id) {
+          setCategoryIds((prev) =>
+            prev.includes(data.category!.id) ? prev : [...prev, data.category!.id]
+          );
+          setStatusMsg(`Category "${data.category.name}" already existed and was selected.`);
+          setNewCategoryName("");
+          return;
+        }
+        setError(data.error ?? "Could not create category.");
+        return;
+      }
+      if (data.category?.id) {
+        setCategories((prev) => {
+          const merged = [...prev, data.category!];
+          return merged.sort((a, b) => a.name.localeCompare(b.name));
+        });
+        setCategoryIds((prev) =>
+          prev.includes(data.category!.id) ? prev : [...prev, data.category!.id]
+        );
+        setStatusMsg(`Category "${data.category.name}" created and selected.`);
+        setNewCategoryName("");
+      }
+    } catch {
+      setError("Could not create category.");
+    } finally {
+      setAddingCategory(false);
+    }
+  };
 
   const handleReplaceAll = () => {
     if (!findValue.trim()) {
@@ -432,6 +481,23 @@ export default function AdminLawEditPage() {
                 The law is listed under each selected category in the library. The first ticked is the primary label in
                 some views.
               </p>
+              <div className="mb-2 flex gap-2">
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="Add new category name"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCategory}
+                  disabled={addingCategory || !newCategoryName.trim()}
+                  className="whitespace-nowrap rounded-md border border-input px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+                >
+                  {addingCategory ? "Adding..." : "Add category"}
+                </button>
+              </div>
               <div className="max-h-40 overflow-y-auto rounded-md border border-input bg-background p-3">
                 <div className="grid gap-2 sm:grid-cols-2">
                   {categories.map((c) => {
