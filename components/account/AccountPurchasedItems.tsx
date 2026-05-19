@@ -150,13 +150,14 @@ export function AccountPurchasedItems({
           const href = isMarketplaceZip(product)
             ? `/marketplace/${product.id}/package`
             : `/marketplace/${product.id}`;
+          const fileAccessHref = isMarketplaceZip(product) ? href : `${href}?file=access`;
 
           return (
-            <li key={product.id}>
-              <Link
-                href={href}
-                className="flex gap-4 rounded-xl border border-border bg-card p-4 transition hover:border-primary/40 hover:bg-muted/20"
-              >
+            <li
+              key={product.id}
+              className="overflow-hidden rounded-xl border border-border bg-card transition hover:border-primary/40 hover:bg-muted/20"
+            >
+              <Link href={href} className="flex gap-4 p-4 pb-3">
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
                   {product.image_url ? (
                     <Image
@@ -190,21 +191,27 @@ export function AccountPurchasedItems({
                     <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{product.description}</p>
                   ) : null}
                   <p className="mt-2 text-xs text-muted-foreground">Purchased {formatPurchaseDate(product.purchased_at)}</p>
-                  <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-semibold text-primary">
-                    {product.has_file ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <Eye className="h-3.5 w-3.5" aria-hidden />
-                        View & download
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5">
-                        <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-                        Open details
-                      </span>
-                    )}
-                  </div>
                 </div>
               </Link>
+              <div className="border-t border-border/80 px-4 pb-3 pt-2">
+                {product.has_file ? (
+                  <Link
+                    href={fileAccessHref}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                  >
+                    <Eye className="h-3.5 w-3.5" aria-hidden />
+                    View & download
+                  </Link>
+                ) : (
+                  <Link
+                    href={href}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                    Open details
+                  </Link>
+                )}
+              </div>
             </li>
           );
         })}

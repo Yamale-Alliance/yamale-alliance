@@ -1,16 +1,18 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { X, Loader2, FileText, Video, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react";
+import { X, Loader2, FileText, Video, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Download } from "lucide-react";
 
 type FileViewerProps = {
   fileUrl: string;
   fileName: string | null;
   fileFormat: string | null;
   onClose: () => void;
+  onDownload?: () => void;
+  downloading?: boolean;
 };
 
-export function FileViewer({ fileUrl, fileName, fileFormat, onClose }: FileViewerProps) {
+export function FileViewer({ fileUrl, fileName, fileFormat, onClose, onDownload, downloading = false }: FileViewerProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pageNum, setPageNum] = useState(1);
@@ -168,14 +170,27 @@ export function FileViewer({ fileUrl, fileName, fileFormat, onClose }: FileViewe
               {fileName || "File"}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 text-white hover:bg-white/10 transition-colors"
-            aria-label="Close viewer"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            {onDownload ? (
+              <button
+                type="button"
+                onClick={onDownload}
+                disabled={downloading}
+                className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-white hover:bg-white/10 transition-colors disabled:opacity-50"
+              >
+                {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Download
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg p-2 text-white hover:bg-white/10 transition-colors"
+              aria-label="Close viewer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -272,13 +287,26 @@ export function FileViewer({ fileUrl, fileName, fileFormat, onClose }: FileViewe
             <div className="flex h-full items-center justify-center">
               <div className="text-center text-white">
                 <p className="mb-4">Preview not available for this file type.</p>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20 transition-colors"
-                >
-                  Close
-                </button>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {onDownload ? (
+                    <button
+                      type="button"
+                      onClick={onDownload}
+                      disabled={downloading}
+                      className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20 transition-colors disabled:opacity-50"
+                    >
+                      {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                      Download file
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           )}

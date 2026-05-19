@@ -5,7 +5,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 const BUCKET = "marketplace-files";
 const SIGNED_URL_EXPIRY_SEC = 3600; // 1 hour
 
-/** GET: return signed URL for item file (viewing only, no download).
+/** GET: return signed URL for item file (preview or download).
  * - Free items (price_cents <= 0): anyone can access without purchase.
  * - Paid items: require sign-in + purchase record.
  */

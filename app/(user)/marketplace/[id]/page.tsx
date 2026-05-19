@@ -4,7 +4,7 @@ import { useCallback, useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 import Link from "next/link";
-import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, Eye, Star, ShoppingCart, Zap, X, Download } from "lucide-react";
+import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, Eye, Star, ShoppingCart, Zap, X } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import {
@@ -13,6 +13,12 @@ import {
 } from "@/components/checkout/PaymentMethodPicker";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { FileViewer } from "@/components/marketplace/FileViewer";
+import { MarketplaceFileAccessDialog } from "@/components/marketplace/MarketplaceFileAccessDialog";
+import {
+  defaultMarketplaceDownloadName,
+  fetchMarketplaceFileUrl,
+  saveMarketplaceFile,
+} from "@/lib/marketplace-file-access";
 import { MarketplaceLandingIframe } from "@/components/marketplace/MarketplaceLandingIframe";
 import { useMarketplacePaymentReturn } from "@/components/marketplace/use-marketplace-payment-return";
 import {
@@ -103,6 +109,7 @@ export default function MarketplaceItemPage() {
   const [addingToCart, setAddingToCart] = useState(false);
   const [isInCart, setIsInCart] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [fileAccessOpen, setFileAccessOpen] = useState(false);
   const [myRating, setMyRating] = useState<number | null>(null);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [savingRating, setSavingRating] = useState(false);
@@ -150,21 +157,13 @@ export default function MarketplaceItemPage() {
 
   const checkoutCancelled = paymentParams.checkoutCancelled;
 
-  const fetchDownloadUrl = async () => {
-    if (!item?.id || !item.has_file) return null;
-    const res = await fetch(`/api/marketplace/${item.id}/download`, { credentials: "include" });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "Could not get file");
-    return data.url as string;
-  };
-
   const handleView = async () => {
     if (!item?.id || !item.has_file) return;
     setViewing(true);
     setError(null);
     try {
-      const url = await fetchDownloadUrl();
-      if (url) setViewerUrl(url);
+      const { url } = await fetchMarketplaceFileUrl(item.id);
+      setViewerUrl(url);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
@@ -177,17 +176,12 @@ export default function MarketplaceItemPage() {
     setDownloading(true);
     setError(null);
     try {
-      const url = await fetchDownloadUrl();
-      if (url) {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = item.file_name ?? `download.${item.file_format ?? "pdf"}`;
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
+      const { url, file_name: apiFileName } = await fetchMarketplaceFileUrl(item.id);
+      const downloadName = defaultMarketplaceDownloadName(
+        apiFileName ?? item.file_name,
+        item.file_format
+      );
+      await saveMarketplaceFile(url, downloadName);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not download");
     } finally {
@@ -205,6 +199,14 @@ export default function MarketplaceItemPage() {
     setLoading(true);
     void refetchItem().finally(() => setLoading(false));
   }, [id, refetchItem]);
+
+  useEffect(() => {
+    if (loading || !item?.has_file) return;
+    const wantsFileAccess = searchParams.get("file") === "access";
+    if (!wantsFileAccess) return;
+    const ownedOrFree = item.purchased || Number(item.price_cents) === 0;
+    if (ownedOrFree) setFileAccessOpen(true);
+  }, [loading, item, searchParams]);
 
   useEffect(() => {
     if (loading || !item || !id) return;
@@ -693,37 +695,19 @@ export default function MarketplaceItemPage() {
           </div>
           {(owned || free) && item.has_file && (
             <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-border pt-6">
-              {isZip ? (
-                <button
-                  type="button"
-                  onClick={handleDownload}
-                  disabled={downloading}
-                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                >
-                  {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                  Download ZIP
-                </button>
-              ) : free ? (
-                <button
-                  type="button"
-                  onClick={handleDownload}
-                  disabled={downloading}
-                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                >
-                  {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
-                  View
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleView}
-                  disabled={viewing}
-                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                >
-                  {viewing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
-                  View
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setFileAccessOpen(true)}
+                disabled={viewing || downloading}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {viewing || downloading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+                View & download
+              </button>
               {item.file_format && (
                 <span className="text-xs text-muted-foreground">
                   {item.file_name ?? `.${item.file_format}`}
@@ -743,14 +727,27 @@ export default function MarketplaceItemPage() {
         )}
       </div>
 
-      {viewerUrl && item && !isZip && (
+      {item ? (
+        <MarketplaceFileAccessDialog
+          open={fileAccessOpen}
+          onOpenChange={setFileAccessOpen}
+          fileName={item.file_name}
+          busy={viewing || downloading}
+          onPreview={() => void handleView()}
+          onDownload={() => void handleDownload()}
+        />
+      ) : null}
+
+      {viewerUrl && item && !isZip ? (
         <FileViewer
           fileUrl={viewerUrl}
           fileName={item.file_name ?? null}
           fileFormat={item.file_format ?? null}
           onClose={handleCloseViewer}
+          onDownload={() => void handleDownload()}
+          downloading={downloading}
         />
-      )}
+      ) : null}
     </div>
   );
 }
