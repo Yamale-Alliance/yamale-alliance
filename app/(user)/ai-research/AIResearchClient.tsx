@@ -32,6 +32,9 @@ import { plainTextFromMarkdownish } from "@/lib/library/law-document-pdf";
 import { AIResearchChatExportPreviewDialog } from "@/components/ai-research/AIResearchChatExportPreviewDialog";
 import { SubscriptionCheckoutConfirm } from "@/components/checkout/SubscriptionCheckoutConfirm";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
+import { consumeAiChatSse, isAiChatSseResponse } from "@/lib/ai-chat-client-stream";
+import { finalizeProcessLog, mergeProcessStep, type AiProcessStep } from "@/lib/ai-chat-process";
+import { AiResearchProcessPanel } from "@/components/ai-research/AiResearchProcessPanel";
 
 type Tier = "free" | "basic" | "pro" | "team";
 
@@ -103,6 +106,10 @@ type Message = {
   };
   /** Present when optional Tavily web snippets were merged into the model context for this turn. */
   webSearchNote?: string | null;
+  /** Collapsible retrieval / drafting steps (Cursor-style). */
+  processLog?: import("@/lib/ai-chat-process").AiProcessStep[];
+  processStartedAt?: number;
+  processCompletedAt?: number;
 };
 
 type NegativeFeedbackModalState = {
@@ -196,6 +203,7 @@ export default function AIResearchClient() {
   const [input, setInput] = useState("");
   const [searchChats, setSearchChats] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [streamingAssistantId, setStreamingAssistantId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
   const [chatCopied, setChatCopied] = useState(false);
@@ -280,6 +288,7 @@ export default function AIResearchClient() {
   const limit = aiUsage?.limit ?? TIER_LIMITS[tier];
   const currentSession = sessions.find((s) => s.id === currentId);
   const messages = currentSession?.messages ?? [];
+  const isTurnBusy = Boolean(streamingAssistantId);
   const used = aiUsage?.used ?? 0;
   const remaining = aiUsage?.remaining ?? (limit === null ? null : Math.max(0, limit - used));
   const payAsYouGoCount = aiUsage?.payAsYouGoCount ?? 0;
@@ -324,12 +333,11 @@ export default function AIResearchClient() {
     }
   }, [currentId]);
 
-  // Only tie bottom-scroll to loading turning on — do NOT depend on `messages.length`,
-  // or adding the assistant reply while `isLoading` is still true re-scrolls to the foot of that reply.
+  // Scroll when a new turn starts (assistant placeholder appears).
   useEffect(() => {
-    if (!isLoading) return;
+    if (!streamingAssistantId) return;
     scrollChatToBottom("auto");
-  }, [isLoading, scrollChatToBottom]);
+  }, [streamingAssistantId, scrollChatToBottom]);
 
   // Opening a different chat should restore history scroll (not live reply scrolling).
   useEffect(() => {
@@ -339,7 +347,7 @@ export default function AIResearchClient() {
 
   // Restore scroll to the latest Q&A when opening history or after refresh hydrates sessions from the API.
   useLayoutEffect(() => {
-    if (!currentId || isLoading || historyScrollModeRef.current !== "history") return;
+    if (!currentId || isTurnBusy || historyScrollModeRef.current !== "history") return;
     const session = sessions.find((s) => s.id === currentId);
     if (!session?.messages.length) return;
     const scrollId = getLastExchangeScrollMessageId(session.messages);
@@ -349,7 +357,7 @@ export default function AIResearchClient() {
     scrollMessageTopIntoChatPane(scrollId, "auto", () => {
       historyScrollDoneFingerprintRef.current = fingerprint;
     });
-  }, [currentId, sessions, isLoading, scrollMessageTopIntoChatPane]);
+  }, [currentId, sessions, isTurnBusy, scrollMessageTopIntoChatPane]);
 
   const fetchAiUsage = useCallback(async () => {
     if (!user) return;
@@ -710,12 +718,32 @@ export default function AIResearchClient() {
       content: trimmed,
     };
 
+    const assistantId = `assistant-${Date.now()}`;
+    const processStartedAt = Date.now();
+    const assistantPlaceholder: Message = {
+      id: assistantId,
+      role: "assistant",
+      content: "",
+      sources: ["Claude AI · African Legal Research"],
+      sourceCards: [],
+      processLog: [
+        { step: "understand", message: "Reading your question", status: "active", at: processStartedAt },
+        {
+          step: "library",
+          message: "Searching the Yamalé legal library…",
+          status: "active",
+          at: processStartedAt + 1,
+        },
+      ],
+      processStartedAt,
+    };
+
     let sessionIdToUpdate = currentId;
     if (!currentId) {
       const newSession: ChatSession = {
         id: `chat-${Date.now()}`,
         title: (trimmed.slice(0, 60) || "New chat") + (trimmed.length > 60 ? "…" : ""),
-        messages: [userMessage],
+        messages: [userMessage, assistantPlaceholder],
         updatedAt: Date.now(),
       };
       sessionIdToUpdate = newSession.id;
@@ -727,7 +755,7 @@ export default function AIResearchClient() {
           s.id === currentId
             ? {
                 ...s,
-                messages: [...s.messages, userMessage],
+                messages: [...s.messages, userMessage, assistantPlaceholder],
                 title: s.messages.length === 0 ? (trimmed.slice(0, 60) || s.title) + (trimmed.length > 60 ? "…" : "") : s.title,
                 updatedAt: Date.now(),
               }
@@ -738,10 +766,11 @@ export default function AIResearchClient() {
     setInput("");
     historyScrollModeRef.current = "live";
     historyScrollDoneFingerprintRef.current = null;
-    setIsLoading(true);
+    setStreamingAssistantId(assistantId);
+    setIsLoading(false);
     scrollChatToBottom("auto");
 
-    let pendingAssistantScrollId: string | null = null;
+    let pendingAssistantScrollId: string | null = assistantId;
 
     try {
       // Build messages array for API (include conversation history)
@@ -777,43 +806,114 @@ export default function AIResearchClient() {
         }),
       }).finally(() => clearTimeout(chatTimeout));
 
-      const data = await res.json();
+      const sessionId = sessionIdToUpdate;
 
-      if (!res.ok) {
-        const errorMsg = data.error || "Failed to get AI response";
-        const details = data.details;
-        // Include more details in error message if available
-        if (details?.error?.message) {
-          throw new Error(`${errorMsg}: ${details.error.message}`);
+      let data: Awaited<ReturnType<typeof consumeAiChatSse>>;
+
+      if (isAiChatSseResponse(res)) {
+        if (!res.ok) {
+          throw new Error("Failed to get AI response");
         }
-        if (details?.message) {
-          throw new Error(`${errorMsg}: ${details.message}`);
+        data = await consumeAiChatSse(res, {
+          onProcess: (payload) => {
+            setSessions((prev) =>
+              prev.map((s) => {
+                if (s.id !== sessionId) return s;
+                return {
+                  ...s,
+                  messages: s.messages.map((m) => {
+                    if (m.id !== assistantId) return m;
+                    const log = mergeProcessStep(m.processLog ?? [], payload);
+                    return { ...m, processLog: log };
+                  }),
+                  updatedAt: Date.now(),
+                };
+              })
+            );
+          },
+          onDelta: (text) => {
+            setSessions((prev) =>
+              prev.map((s) => {
+                if (s.id !== sessionId) return s;
+                return {
+                  ...s,
+                  messages: s.messages.map((m) =>
+                    m.id === assistantId ? { ...m, content: m.content + text } : m
+                  ),
+                  updatedAt: Date.now(),
+                };
+              })
+            );
+          },
+        });
+      } else {
+        const json = await res.json();
+        if (!res.ok) {
+          const errorMsg = json.error || "Failed to get AI response";
+          const details = json.details;
+          if (details?.error?.message) {
+            throw new Error(`${errorMsg}: ${details.error.message}`);
+          }
+          if (details?.message) {
+            throw new Error(`${errorMsg}: ${details.message}`);
+          }
+          throw new Error(errorMsg);
         }
-        throw new Error(errorMsg);
+        data = json;
+        setSessions((prev) =>
+          prev.map((s) => {
+            if (s.id !== sessionId) return s;
+            return {
+              ...s,
+              messages: s.messages.map((m) =>
+                m.id === assistantId
+                  ? { ...m, content: json.content || "I apologize, but I couldn't generate a response." }
+                  : m
+              ),
+              updatedAt: Date.now(),
+            };
+          })
+        );
       }
 
       const assistantMessage: Message = {
-        id: `assistant-${Date.now()}`,
+        id: assistantId,
         role: "assistant",
         content: data.content || "I apologize, but I couldn't generate a response.",
         sources: Array.isArray(data.sources) ? data.sources : ["Claude AI · African Legal Research"],
-        sourceCards: Array.isArray(data.sourceCards) ? data.sourceCards : [],
-        lawyerNudge: data.lawyerNudge ?? null,
+        sourceCards: Array.isArray(data.sourceCards) ? (data.sourceCards as Message["sourceCards"]) : [],
+        lawyerNudge: (data.lawyerNudge as Message["lawyerNudge"]) ?? null,
         queryLogId: typeof data.queryLogId === "string" ? data.queryLogId : null,
         citationVerification:
           data.citationVerification && typeof data.citationVerification === "object"
-            ? data.citationVerification
+            ? (data.citationVerification as Message["citationVerification"])
             : undefined,
         webSearchNote: typeof data.webSearchNote === "string" ? data.webSearchNote : null,
+        processStartedAt,
       };
 
-      const id = sessionIdToUpdate;
-      pendingAssistantScrollId = assistantMessage.id;
+      const completedAt = Date.now();
       setSessions((prev) =>
         prev.map((s) =>
-          s.id === id ? { ...s, messages: [...s.messages, assistantMessage], updatedAt: Date.now() } : s
+          s.id === sessionId
+            ? {
+                ...s,
+                messages: s.messages.map((m) =>
+                  m.id === assistantId
+                    ? {
+                        ...assistantMessage,
+                        processLog: finalizeProcessLog(m.processLog ?? []),
+                        processStartedAt: m.processStartedAt ?? processStartedAt,
+                        processCompletedAt: completedAt,
+                      }
+                    : m
+                ),
+                updatedAt: Date.now(),
+              }
+            : s
         )
       );
+      setStreamingAssistantId(null);
 
       // Refresh usage and check if pay-as-you-go was consumed
       const usageRes = await fetch("/api/ai/usage", { credentials: "include" });
@@ -852,21 +952,44 @@ export default function AIResearchClient() {
         : err instanceof Error
           ? err.message
           : "Something went wrong. Please try again.";
-      const errorResponse: Message = {
-        id: `assistant-${Date.now()}`,
-        role: "assistant",
-        content: `I apologize, but I encountered an error: ${errorMessage}. Please try again or contact support if the issue persists.`,
-        sources: [],
-      };
+      const errorContent = `I apologize, but I encountered an error: ${errorMessage}. Please try again or contact support if the issue persists.`;
       const id = sessionIdToUpdate;
-      pendingAssistantScrollId = errorResponse.id;
       setSessions((prev) =>
-        prev.map((s) =>
-          s.id === id ? { ...s, messages: [...s.messages, errorResponse], updatedAt: Date.now() } : s
-        )
+        prev.map((s) => {
+          if (s.id !== id) return s;
+          const last = s.messages[s.messages.length - 1];
+          if (last?.role === "assistant" && last.content === "") {
+            pendingAssistantScrollId = last.id;
+            const completedAt = Date.now();
+            return {
+              ...s,
+              messages: s.messages.map((m) =>
+                m.id === last.id
+                  ? {
+                      ...m,
+                      content: errorContent,
+                      sources: [],
+                      processLog: finalizeProcessLog(m.processLog ?? []),
+                      processCompletedAt: completedAt,
+                    }
+                  : m
+              ),
+              updatedAt: Date.now(),
+            };
+          }
+          const errorResponse: Message = {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            content: errorContent,
+            sources: [],
+          };
+          pendingAssistantScrollId = errorResponse.id;
+          return { ...s, messages: [...s.messages, errorResponse], updatedAt: Date.now() };
+        })
       );
     } finally {
       setIsLoading(false);
+      setStreamingAssistantId(null);
     }
 
     if (pendingAssistantScrollId) {
@@ -1262,7 +1385,7 @@ export default function AIResearchClient() {
                         key={q}
                         type="button"
                         onClick={() => sendMessage(q).catch(() => {})}
-                        disabled={atLimit || isLoading}
+                        disabled={atLimit || isTurnBusy}
                         className="rounded-[6px] border border-border bg-card px-4 py-3 text-left text-[13px] leading-snug text-muted-foreground transition hover:border-[#C8922A]/40 hover:bg-muted disabled:opacity-50"
                       >
                         {q}
@@ -1309,7 +1432,15 @@ export default function AIResearchClient() {
                             : "border-border bg-card text-foreground"
                         }`}
                       >
-                        {msg.role === "assistant" ? (
+                        {msg.role === "assistant" && msg.processLog && msg.processLog.length > 0 ? (
+                          <AiResearchProcessPanel
+                            steps={msg.processLog}
+                            isActive={msg.id === streamingAssistantId && msg.processCompletedAt == null}
+                            startedAt={msg.processStartedAt ?? Date.now()}
+                            completedAt={msg.processCompletedAt}
+                          />
+                        ) : null}
+                        {msg.role === "assistant" && msg.content.trim() ? (
                           <div className="prose prose-sm max-w-none text-foreground dark:prose-invert prose-headings:font-semibold prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-strong:font-semibold prose-a:text-[#C8922A] prose-a:underline hover:prose-a:opacity-90">
                             <ReactMarkdown
                               remarkPlugins={[remarkGfm]}
@@ -1329,11 +1460,11 @@ export default function AIResearchClient() {
                               {msg.content}
                             </ReactMarkdown>
                           </div>
-                        ) : (
+                        ) : msg.role === "user" ? (
                           <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-foreground/85">
                             {msg.content}
                           </p>
-                        )}
+                        ) : null}
                         {msg.sources && msg.sources.length > 0 && (
                           <p className="mt-2 border-t border-border/80 pt-2 text-[11px] text-muted-foreground">
                             Sources: {msg.sources.join(" · ")}
@@ -1492,27 +1623,6 @@ export default function AIResearchClient() {
                       </div>
                     </div>
                   ))}
-                  {isLoading && (
-                    <div
-                      className="flex gap-3"
-                      role="status"
-                      aria-live="polite"
-                      aria-label="Searching the legal library"
-                    >
-                      <div
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#0D1B2A] text-[11px] font-bold text-white"
-                        aria-hidden
-                      >
-                        Y
-                      </div>
-                      <div className="rounded-[10px] border border-border bg-card px-4 py-3 shadow-sm">
-                        <span className="flex items-center gap-2 text-[13px] text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin text-[#C8922A]" aria-hidden />
-                          Searching…
-                        </span>
-                      </div>
-                    </div>
-                  )}
                   <div ref={messagesEndRef} />
                 </div>
               )}
@@ -1529,7 +1639,7 @@ export default function AIResearchClient() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
-                        if (input.trim() && !atLimit && !isLoading) {
+                        if (input.trim() && !atLimit && !isTurnBusy) {
                           void sendMessage(input);
                         }
                       }
@@ -1541,7 +1651,7 @@ export default function AIResearchClient() {
                   />
                   <button
                     type="submit"
-                    disabled={!input.trim() || atLimit || isLoading}
+                    disabled={!input.trim() || atLimit || isTurnBusy}
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] bg-[#0D1B2A] text-white transition hover:bg-[#162436] disabled:opacity-40"
                     aria-label="Send"
                   >
