@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Loader2, Mail, Phone } from "lucide-react";
+import { normalizeExpertiseField } from "@/lib/lawyer-expertise";
 
 type UnlockedLawyer = {
   id: string;
@@ -75,7 +76,9 @@ export function AccountUnlockedLawyers() {
             </div>
             <div className="min-w-0 flex-1">
               <h2 className="font-semibold text-foreground">{lawyer.name}</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">{lawyer.expertise}</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {normalizeExpertiseField(lawyer.expertise)}
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">{lawyer.country || "Country not specified"}</p>
             </div>
           </div>
