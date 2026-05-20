@@ -93,7 +93,6 @@ type Message = {
     category: string;
     status: string;
     snippet: string;
-    retrievalScore?: number;
     usedInAnswer?: boolean;
     docSlot?: number;
   }>;
@@ -1463,53 +1462,86 @@ export default function AIResearchClient() {
                         {msg.webSearchNote ? (
                           <p className="mt-1 text-[11px] text-muted-foreground/90">{msg.webSearchNote}</p>
                         ) : null}
-                        {msg.sourceCards && msg.sourceCards.length > 0 && (
-                          <div className="mt-3 space-y-2 border-t border-[#E8E4DC]/80 pt-3 dark:border-white/10">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#0D1B2A]/45 dark:text-white/55">
-                              {msg.sourceCards.length} laws from the Yamale Legal Library
-                            </p>
-                            {msg.sourceCards.map((card, idx) => (
-                              <div
-                                key={`${msg.id}-${card.lawId}-${idx}`}
-                                className={`rounded-[8px] border p-3 ${
-                                  card.usedInAnswer
-                                    ? "border-[#C8922A]/40 bg-[#FFFDF8]/90 dark:border-[#C8922A]/45 dark:bg-[#2D2516]/50"
-                                    : "border-border bg-muted/50 dark:border-white/10 dark:bg-white/5"
-                                }`}
-                              >
-                                <p className="flex flex-wrap items-center gap-2 text-[13px] font-semibold text-foreground">
-                                  <span>
-                                    {card.docSlot ?? idx + 1}. {card.title}
+                        {msg.sourceCards && msg.sourceCards.length > 0 && (() => {
+                          const referenced = msg.sourceCards.filter((c) => c.usedInAnswer);
+                          const other = msg.sourceCards.filter((c) => !c.usedInAnswer);
+                          const renderCard = (
+                            card: NonNullable<Message["sourceCards"]>[number],
+                            idx: number,
+                            keySuffix: string
+                          ) => (
+                            <div
+                              key={`${msg.id}-${card.lawId}-${keySuffix}-${idx}`}
+                              className={`rounded-[8px] border p-3 ${
+                                card.usedInAnswer
+                                  ? "border-[#C8922A]/40 bg-[#FFFDF8]/90 dark:border-[#C8922A]/45 dark:bg-[#2D2516]/50"
+                                  : "border-border bg-muted/50 dark:border-white/10 dark:bg-white/5"
+                              }`}
+                            >
+                              <p className="flex flex-wrap items-center gap-2 text-[13px] font-semibold text-foreground">
+                                <span>
+                                  {card.docSlot ?? idx + 1}. {card.title}
+                                </span>
+                                {card.usedInAnswer ? (
+                                  <span className="rounded-full bg-[#C8922A]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8a6820] dark:bg-[#C8922A]/30 dark:text-[#F5D793]">
+                                    Used in answer
                                   </span>
-                                  {card.usedInAnswer ? (
-                                    <span className="rounded-full bg-[#C8922A]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8a6820] dark:bg-[#C8922A]/30 dark:text-[#F5D793]">
-                                      Used in answer
-                                    </span>
-                                  ) : (
-                                    <span className="text-[10px] font-normal uppercase tracking-wide text-muted-foreground">
-                                      Retrieved
-                                    </span>
-                                  )}
-                                  {typeof card.retrievalScore === "number" ? (
-                                    <span className="ml-auto text-[10px] font-normal text-muted-foreground" title="Retrieval rank score">
-                                      rank {Math.round(card.retrievalScore)}
-                                    </span>
+                                ) : (
+                                  <span className="text-[10px] font-normal uppercase tracking-wide text-muted-foreground">
+                                    Retrieved
+                                  </span>
+                                )}
+                              </p>
+                              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                {card.country} · {card.category} · {card.status}
+                              </p>
+                              <p className="mt-1 text-[12px] text-foreground/70 dark:text-foreground/85">&quot;{card.snippet}...&quot;</p>
+                              <Link
+                                href={`/library/${card.lawId}?returnTo=${encodeURIComponent("/ai-research")}`}
+                                className="mt-2 inline-flex text-[12px] font-semibold text-[#C8922A] hover:text-[#b88424] dark:text-[#F0C45C] dark:hover:text-[#FFD67A]"
+                              >
+                                View law →
+                              </Link>
+                            </div>
+                          );
+
+                          return (
+                            <div className="mt-3 space-y-2 border-t border-[#E8E4DC]/80 pt-3 dark:border-white/10">
+                              {referenced.length > 0 ? (
+                                <>
+                                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#0D1B2A]/45 dark:text-white/55">
+                                    Referenced in this answer ({referenced.length})
+                                  </p>
+                                  <div className="space-y-2">{referenced.map((card, idx) => renderCard(card, idx, "ref"))}</div>
+                                  {other.length > 0 ? (
+                                    <details className="group mt-2 rounded-[8px] border border-border/60 bg-muted/20 p-2 dark:border-white/10 dark:bg-white/[0.04]">
+                                      <summary className="cursor-pointer list-none text-[11px] font-medium text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
+                                        <span className="underline-offset-2 group-open:underline">
+                                          Other documents retrieved this turn ({other.length})
+                                        </span>
+                                      </summary>
+                                      <div className="mt-2 space-y-2 border-t border-border/40 pt-2 dark:border-white/10">
+                                        {other.map((card, idx) => renderCard(card, idx, "oth"))}
+                                      </div>
+                                    </details>
                                   ) : null}
-                                </p>
-                                <p className="mt-0.5 text-[11px] text-muted-foreground">
-                                  {card.country} · {card.category} · {card.status}
-                                </p>
-                                <p className="mt-1 text-[12px] text-foreground/70 dark:text-foreground/85">&quot;{card.snippet}...&quot;</p>
-                                <Link
-                                  href={`/library/${card.lawId}?returnTo=${encodeURIComponent("/ai-research")}`}
-                                  className="mt-2 inline-flex text-[12px] font-semibold text-[#C8922A] hover:text-[#b88424] dark:text-[#F0C45C] dark:hover:text-[#FFD67A]"
-                                >
-                                  View law →
-                                </Link>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                                </>
+                              ) : (
+                                <>
+                                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#0D1B2A]/45 dark:text-white/55">
+                                    {msg.sourceCards.length} document{msg.sourceCards.length !== 1 ? "s" : ""} from this search
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    The model did not tie library cards to the answer text, and unrelated retrieved
+                                    instruments are hidden from this list. Open a law from /library if you need to
+                                    verify wording.
+                                  </p>
+                                  <div className="space-y-2">{msg.sourceCards.map((card, idx) => renderCard(card, idx, "all"))}</div>
+                                </>
+                              )}
+                            </div>
+                          );
+                        })()}
                         {msg.lawyerNudge && (
                           <div className="mt-3 rounded-[8px] border border-[#E8E4DC] bg-[#F9F7F2] p-3">
                             <p className="text-[12px] font-semibold text-[#0D1B2A]">
