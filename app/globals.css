@@ -190,7 +190,8 @@ mark.law-doc-search-hit-active {
 }
 
 /* Law reader: distraction-free reading mode */
-html.law-reading-mode-active .yamale-site-chrome {
+html.law-reading-mode-active .yamale-site-chrome,
+html.law-reading-mode-active .yamale-site-footer {
   display: none !important;
 }
 
@@ -257,10 +258,63 @@ html.law-reading-mode-active .yamale-site-chrome {
 }
 
 @media print {
-  html.law-reading-mode-active .yamale-site-chrome {
+  html.law-reading-mode-active .yamale-site-chrome,
+  html.law-reading-mode-active .yamale-site-footer {
     display: revert !important;
   }
   .law-page-root.law-reading-mode-active .law-reading-hide-when-reading {
     display: revert;
   }
+}
+
+/* Vault ZIP landing embed: admin HTML must not paint fixed textures on <body>. */
+body:has(.marketplace-landing-zone)::before,
+body:has(.marketplace-landing-zone)::after {
+  display: none !important;
+  content: none !important;
+  pointer-events: none !important;
+}
+
+/* Platform header/footer stay above injected landing markup. */
+.yamale-site-chrome,
+.yamale-site-footer {
+  position: relative;
+  z-index: 100;
+}
+
+/* Landing ZIP pages: nav layout only — must not target footer (also used yamale-site-chrome). */
+body:has(.marketplace-landing-zone) header.yamale-site-chrome > div {
+  display: flex !important;
+  height: 72px !important;
+  max-width: 1280px !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0.5rem !important;
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+}
+@media (min-width: 640px) {
+  body:has(.marketplace-landing-zone) header.yamale-site-chrome > div {
+    height: 88px !important;
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+  }
+}
+body:has(.marketplace-landing-zone) header.yamale-site-chrome nav.hidden.items-center {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.25rem !important;
+}
+body:has(.marketplace-landing-zone) header.yamale-site-chrome a.rounded-\[6px\] {
+  padding-left: 14px !important;
+  padding-right: 14px !important;
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+  font-size: 13.5px !important;
+}
+
+/* Clear separation between vault landing embed and site footer. */
+body:has(.marketplace-landing-zone) .yamale-site-footer {
+  margin-top: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
