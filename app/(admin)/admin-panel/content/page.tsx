@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { BookOpen, Store, Briefcase } from "lucide-react";
-import { LawPrintPricingCard } from "@/components/admin/LawPrintPricingCard";
 
 const contentLinks = [
   {
@@ -59,7 +58,13 @@ export default function AdminContentPage() {
         </ul>
       </div>
 
-      <LawPrintPricingCard />
+      <p className="mt-8 text-sm text-muted-foreground">
+        To change day pass, lawyer search, print, and other one-off prices, go to{" "}
+        <Link href="/admin-panel/pricing" className="font-medium text-primary underline">
+          Pricing &amp; plans
+        </Link>
+        .
+      </p>
     </div>
   );
 }
