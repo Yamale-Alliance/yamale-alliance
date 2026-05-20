@@ -5,6 +5,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Plus, Pencil, Trash2, BookOpen, GraduationCap, FileText, Upload, X } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
+import { AdminPackageOffersFields } from "@/components/admin/AdminPackageOffersFields";
+import {
+  buildItemPackageOffersFromForm,
+  itemPackageOffersToFormDefaults,
+} from "@/lib/marketplace-package-offers";
 
 type MarketplaceItem = {
   id: string;
@@ -23,6 +28,7 @@ type MarketplaceItem = {
   created_at: string;
   video_url?: string | null;
   landing_page_html?: string | null;
+  package_offers?: Record<string, unknown> | null;
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -71,6 +77,16 @@ export default function AdminMarketplacePage() {
 
   const [landingPageHtmlAdd, setLandingPageHtmlAdd] = useState("");
   const [editLandingHtml, setEditLandingHtml] = useState("");
+
+  const [addDualPricing, setAddDualPricing] = useState(false);
+  const [addStandaloneUsd, setAddStandaloneUsd] = useState("199.00");
+  const [addBundleAddonUsd, setAddBundleAddonUsd] = useState("129.00");
+  const [addBundleWithId, setAddBundleWithId] = useState("");
+
+  const [editDualPricing, setEditDualPricing] = useState(false);
+  const [editStandaloneUsd, setEditStandaloneUsd] = useState("199.00");
+  const [editBundleAddonUsd, setEditBundleAddonUsd] = useState("129.00");
+  const [editBundleWithId, setEditBundleWithId] = useState("");
 
   type PurchaseRow = {
     id: string;
@@ -152,6 +168,17 @@ export default function AdminMarketplacePage() {
       }
       if (data.path && data.file_name != null && data.file_format != null) {
         setPendingFile({ path: data.path, file_name: data.file_name, file_format: data.file_format });
+        if (
+          data.file_format === "zip" &&
+          typeof data.landing_page_html === "string" &&
+          data.landing_page_html.trim()
+        ) {
+          if (itemId && editing) {
+            setEditLandingHtml(data.landing_page_html);
+          } else if (!itemId) {
+            setLandingPageHtmlAdd((prev) => (prev.trim() ? prev : data.landing_page_html));
+          }
+        }
       } else {
         setError("Upload succeeded but file details were missing. Check Supabase storage and env.");
       }
@@ -192,6 +219,24 @@ export default function AdminMarketplacePage() {
     if (editing) setEditLandingHtml(editing.landing_page_html ?? "");
   }, [editing?.id]);
 
+  useEffect(() => {
+    if (!editing) return;
+    const d = itemPackageOffersToFormDefaults(editing.package_offers, editing.price_cents);
+    setEditDualPricing(d.enabled);
+    setEditStandaloneUsd(d.standalone_price_usd);
+    setEditBundleAddonUsd(d.bundle_addon_price_usd);
+    setEditBundleWithId(d.bundle_with_item_id);
+  }, [editing?.id, editing?.package_offers, editing?.price_cents]);
+
+  const bundlePartnerOptions = items
+    .filter((i) => i.published && i.id !== editing?.id)
+    .map((i) => ({ id: i.id, title: i.title, price_cents: i.price_cents }));
+
+  const showDualPricingAdd = Boolean(landingPageHtmlAdd.trim() || pendingFile?.file_format === "zip");
+  const showDualPricingEdit = Boolean(
+    editing && (editLandingHtml.trim() || editing.file_format === "zip")
+  );
+
   // Open Add item view on refresh when ?view=add is in the URL
   useEffect(() => {
     const view = searchParams?.get("view");
@@ -206,7 +251,19 @@ export default function AdminMarketplacePage() {
     setError(null);
     const form = e.currentTarget as HTMLFormElement;
     const priceStr = (form.elements.namedItem("price_cents") as HTMLInputElement)?.value ?? "0";
-    const priceCents = Math.round(parseFloat(priceStr) * 100) || 0;
+    let priceCents = Math.round(parseFloat(priceStr) * 100) || 0;
+    const packageOffers =
+      addDualPricing && showDualPricingAdd
+        ? buildItemPackageOffersFromForm({
+            enabled: true,
+            standalone_price_usd: parseFloat(addStandaloneUsd) || 0,
+            bundle_addon_price_usd: parseFloat(addBundleAddonUsd) || 0,
+            bundle_with_item_id: addBundleWithId || null,
+          })
+        : null;
+    if (packageOffers) {
+      priceCents = packageOffers.bundle_addon_price_cents;
+    }
 
     try {
       const res = await fetch(`${origin}/api/admin/marketplace`, {
@@ -219,6 +276,7 @@ export default function AdminMarketplacePage() {
           author: (form.elements.namedItem("author") as HTMLInputElement)?.value?.trim() ?? "",
           description: (form.elements.namedItem("description") as HTMLTextAreaElement)?.value?.trim() || null,
           price_cents: priceCents,
+          package_offers: packageOffers,
           currency: "usd",
           image_url: pendingImageUrl ?? null,
           published: (form.elements.namedItem("published") as HTMLInputElement)?.checked ?? true,
@@ -242,6 +300,10 @@ export default function AdminMarketplacePage() {
       setPendingFile(null);
       setPendingImageUrl(null);
       setLandingPageHtmlAdd("");
+      setAddDualPricing(false);
+      setAddStandaloneUsd("199.00");
+      setAddBundleAddonUsd("129.00");
+      setAddBundleWithId("");
       form.reset();
     } catch {
       setError("Network error");
@@ -256,7 +318,19 @@ export default function AdminMarketplacePage() {
     setError(null);
     const form = e.currentTarget as HTMLFormElement;
     const priceStr = (form.elements.namedItem("price_cents") as HTMLInputElement)?.value ?? "0";
-    const priceCents = Math.round(parseFloat(priceStr) * 100) || 0;
+    let priceCents = Math.round(parseFloat(priceStr) * 100) || 0;
+    const packageOffers =
+      editDualPricing && showDualPricingEdit
+        ? buildItemPackageOffersFromForm({
+            enabled: true,
+            standalone_price_usd: parseFloat(editStandaloneUsd) || 0,
+            bundle_addon_price_usd: parseFloat(editBundleAddonUsd) || 0,
+            bundle_with_item_id: editBundleWithId || null,
+          })
+        : null;
+    if (packageOffers) {
+      priceCents = packageOffers.bundle_addon_price_cents;
+    }
 
     try {
       const res = await fetch(`${origin}/api/admin/marketplace/${editing.id}`, {
@@ -269,6 +343,7 @@ export default function AdminMarketplacePage() {
           author: (form.elements.namedItem("author") as HTMLInputElement)?.value?.trim() ?? editing.author,
           description: (form.elements.namedItem("description") as HTMLTextAreaElement)?.value?.trim() || null,
           price_cents: priceCents,
+          package_offers: editDualPricing && showDualPricingEdit ? packageOffers : null,
           image_url: pendingImageUrl ?? editing.image_url ?? null,
           published: (form.elements.namedItem("published") as HTMLInputElement)?.checked ?? editing.published,
           sort_order: parseInt((form.elements.namedItem("sort_order") as HTMLInputElement)?.value ?? "0", 10),
@@ -454,13 +529,13 @@ export default function AdminMarketplacePage() {
             <div className="sm:col-span-2">
               <label className="mb-1 block text-sm font-medium">Custom landing page HTML (optional)</label>
               <p className="mb-2 text-xs text-muted-foreground">
-                Paste a full HTML document (as from a single .html file). Shown on the public product page above purchase
-                details. Trusted admin content only — max ~500k characters. Tier-one packages often use this for a rich sales
-                page. For in-page nav, use <code className="rounded bg-muted px-1">href=&quot;#pricing&quot;</code> (and matching{" "}
-                <code className="rounded bg-muted px-1">id=&quot;pricing&quot;</code> on the section);{" "}
-                <code className="rounded bg-muted px-1">href=&quot;/pricing&quot;</code> and full{" "}
-                <code className="rounded bg-muted px-1">https://…/pricing</code> links are rewritten to{" "}
-                <code className="rounded bg-muted px-1">#pricing</code> so the iframe does not load the main app.
+                Paste a full HTML document (or include <code className="rounded bg-muted px-1">index.html</code> in a ZIP —
+                it is imported automatically on upload). ZIP packages show this on{" "}
+                <code className="rounded bg-muted px-1">/marketplace/[id]/package</code> above checkout. Trusted admin
+                content only — max ~500k characters. Use <code className="rounded bg-muted px-1">href=&quot;#pricing&quot;</code>{" "}
+                on CTAs to scroll to Yamale checkout; purchase mailto links with subjects like &quot;Purchase&quot; do the
+                same. <code className="rounded bg-muted px-1">href=&quot;/pricing&quot;</code> is rewritten to{" "}
+                <code className="rounded bg-muted px-1">#pricing</code> inside the landing iframe.
               </p>
               <textarea
                 value={landingPageHtmlAdd}
@@ -490,6 +565,19 @@ export default function AdminMarketplacePage() {
                 Load from .html file
               </button>
             </div>
+            {showDualPricingAdd && (
+              <AdminPackageOffersFields
+                enabled={addDualPricing}
+                onEnabledChange={setAddDualPricing}
+                standaloneUsd={addStandaloneUsd}
+                onStandaloneUsdChange={setAddStandaloneUsd}
+                bundleAddonUsd={addBundleAddonUsd}
+                onBundleAddonUsdChange={setAddBundleAddonUsd}
+                bundleWithItemId={addBundleWithId}
+                onBundleWithItemIdChange={setAddBundleWithId}
+                bundlePartnerOptions={bundlePartnerOptions}
+              />
+            )}
             <div className="sm:col-span-2">
               <label className="mb-1 block text-sm font-medium">File (PDF, EPUB, ZIP, etc.)</label>
               <p className="mb-2 text-xs text-muted-foreground">
@@ -705,11 +793,33 @@ export default function AdminMarketplacePage() {
       </div>
 
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-border bg-card p-6">
-            <h2 className="text-lg font-medium">Edit item</h2>
-            <form onSubmit={handleUpdate} className="mt-4 grid gap-4">
-              <div>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-vault-item-title"
+            className="flex max-h-[min(92vh,100dvh)] w-full max-w-3xl flex-col rounded-t-xl border border-border bg-card shadow-xl sm:max-h-[90vh] sm:rounded-xl"
+          >
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-6">
+              <h2 id="edit-vault-item-title" className="text-lg font-medium">
+                Edit item
+              </h2>
+              <button
+                type="button"
+                onClick={() => setEditing(null)}
+                className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form
+              id="edit-vault-item-form"
+              onSubmit={handleUpdate}
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5"
+            >
+              <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
                 <label className="mb-1 block text-sm font-medium">Type</label>
                 <select name="type" defaultValue={editing.type} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                   <option value="book">Book</option>
@@ -730,16 +840,18 @@ export default function AdminMarketplacePage() {
                 <label className="mb-1 block text-sm font-medium">Price (USD)</label>
                 <input name="price_cents" type="number" step="0.01" min="0" defaultValue={(editing.price_cents / 100).toFixed(2)} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" />
               </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label className="mb-1 block text-sm font-medium">Description</label>
                 <textarea name="description" rows={3} defaultValue={editing.description ?? ""} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" />
               </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label className="mb-1 block text-sm font-medium">YouTube video URL (optional)</label>
                 <input
                   name="video_url"
                   type="url"
-                  defaultValue={editing.video_url ?? ""}
+                  defaultValue={
+                    editing.video_url && editing.video_url !== "null" ? editing.video_url : ""
+                  }
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                   placeholder="https://www.youtube.com/watch?v=VIDEO_ID"
                 />
@@ -747,7 +859,7 @@ export default function AdminMarketplacePage() {
                   Used to embed a YouTube clip on the product page.
                 </p>
               </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label className="mb-1 block text-sm font-medium">Cover image</label>
                 <input
                   ref={editImageInputRef}
@@ -786,14 +898,12 @@ export default function AdminMarketplacePage() {
                   </button>
                 )}
               </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label className="mb-1 block text-sm font-medium">Custom landing page HTML (optional)</label>
                 <p className="mb-2 text-xs text-muted-foreground">
-                  Full HTML document shown on the public item page. Clear the textarea to remove. Section links should use{" "}
-                  <code className="rounded bg-muted px-1">#pricing</code>;{" "}
-                  <code className="rounded bg-muted px-1">/pricing</code> and full{" "}
-                  <code className="rounded bg-muted px-1">https://…/pricing</code> URLs are rewritten to{" "}
-                  <code className="rounded bg-muted px-1">#pricing</code> so the iframe does not embed the main site.
+                  Full HTML for ZIP packages on <code className="rounded bg-muted px-1">/marketplace/[id]/package</code>.
+                  Re-upload a ZIP with <code className="rounded bg-muted px-1">index.html</code> to import automatically.
+                  CTAs: <code className="rounded bg-muted px-1">#pricing</code> scrolls to Yamale checkout.
                 </p>
                 <textarea
                   value={editLandingHtml}
@@ -823,7 +933,20 @@ export default function AdminMarketplacePage() {
                   Replace from .html file
                 </button>
               </div>
-              <div>
+              {showDualPricingEdit && (
+                <AdminPackageOffersFields
+                  enabled={editDualPricing}
+                  onEnabledChange={setEditDualPricing}
+                  standaloneUsd={editStandaloneUsd}
+                  onStandaloneUsdChange={setEditStandaloneUsd}
+                  bundleAddonUsd={editBundleAddonUsd}
+                  onBundleAddonUsdChange={setEditBundleAddonUsd}
+                  bundleWithItemId={editBundleWithId}
+                  onBundleWithItemIdChange={setEditBundleWithId}
+                  bundlePartnerOptions={bundlePartnerOptions}
+                />
+              )}
+              <div className="sm:col-span-2">
                 <label className="mb-1 block text-sm font-medium">File (PDF, EPUB, ZIP, etc.)</label>
                 {editing.file_path && !removeFile && !pendingFile ? (
                   <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
@@ -863,7 +986,7 @@ export default function AdminMarketplacePage() {
                   </>
                 )}
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
                 <label className="flex items-center gap-2 text-sm">
                   <input name="published" type="checkbox" defaultChecked={editing.published} className="rounded border-input" />
                   Published
@@ -873,15 +996,25 @@ export default function AdminMarketplacePage() {
                   <input name="sort_order" type="number" defaultValue={editing.sort_order} className="w-20 rounded border border-input bg-background px-2 py-1 text-sm" />
                 </label>
               </div>
-              <div className="flex gap-2">
-                <button type="submit" disabled={saving} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50">
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                </button>
-                <button type="button" onClick={() => setEditing(null)} className="rounded-lg border border-input px-4 py-2 text-sm font-medium hover:bg-accent">
-                  Cancel
-                </button>
               </div>
             </form>
+            <div className="flex shrink-0 flex-wrap gap-2 border-t border-border bg-card px-4 py-4 sm:px-6">
+              <button
+                type="submit"
+                form="edit-vault-item-form"
+                disabled={saving}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditing(null)}
+                className="rounded-lg border border-input px-4 py-2 text-sm font-medium hover:bg-accent"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
