@@ -9,8 +9,8 @@ import {
 } from "@/lib/pawapay";
 import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
 import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
+import { getDayPassPriceUsdCents } from "@/lib/platform-settings";
 
-const DAY_PASS_CENTS = 2500; // $25
 const DAY_PASS_CURRENCY = (process.env.PAWAPAY_CURRENCY || "USD").toUpperCase();
 type CheckoutProvider = "pawapay" | "lomi";
 
@@ -40,7 +40,8 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      const amountMinor = convertUsdCentsToPawapayMinor(DAY_PASS_CENTS, currencyCode);
+      const dayPassCents = await getDayPassPriceUsdCents();
+      const amountMinor = convertUsdCentsToPawapayMinor(dayPassCents, currencyCode);
       const { checkoutUrl } = await createLomiHostedCheckoutSession({
         amount: amountMinor,
         currency_code: currencyCode,
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
           kind: "day-pass",
         },
         title: "24-hour day pass",
-        success_url: `${origin}/lawyers?day_pass=1&session_id={CHECKOUT_SESSION_ID}`,
+        success_url: `${origin}/pricing?day_pass_return=1&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}/pricing?canceled=1`,
       });
       return NextResponse.json({ url: checkoutUrl, provider: "lomi" });
@@ -61,10 +62,11 @@ export async function POST(request: NextRequest) {
     }
     const gate = requirePawapayPaymentCountry(body as Record<string, unknown>);
     if (!gate.ok) return gate.response;
-    const amountMinor = convertUsdCentsToPawapayMinor(DAY_PASS_CENTS, gate.country.currency);
+    const dayPassCents = await getDayPassPriceUsdCents();
+    const amountMinor = convertUsdCentsToPawapayMinor(dayPassCents, gate.country.currency);
     const depositId = crypto.randomUUID();
     const returnBase = resolvePawapayReturnOrigin(requestOrigin);
-    const returnUrl = `${returnBase}/lawyers?day_pass=1&session_id=${encodeURIComponent(depositId)}`;
+    const returnUrl = `${returnBase}/pricing?day_pass_return=1&session_id=${encodeURIComponent(depositId)}`;
     const { redirectUrl } = await createPaymentPageSession({
       depositId,
       amountCents: amountMinor,
