@@ -30,7 +30,7 @@ export function UserHeader() {
   return (
     <header className={`yamale-site-chrome ${prototypeNavHeaderClass}`}>
       <div className={prototypeNavInnerClass}>
-        <Link href="/" className="flex items-center transition-opacity hover:opacity-90">
+        <Link href="/" className="flex shrink-0 items-center transition-opacity hover:opacity-90">
           <PlatformLogo height={72} width={240} className="h-18 sm:h-20" />
         </Link>
 
