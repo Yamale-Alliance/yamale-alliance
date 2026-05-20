@@ -5,9 +5,7 @@
 
 import type { jsPDF } from "jspdf";
 import { ArabicShaper } from "arabic-persian-reshaper";
-
-const ARABIC_SCRIPT_RE =
-  /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+import { containsArabicScript, sanitizeForPdfFont } from "@/lib/pdf-latin-sanitize";
 
 const FONT_FILE = "NotoSansArabic-Regular.ttf";
 const FONT_NAME = "NotoSansArabic";
@@ -18,9 +16,7 @@ const registeredDocs = new WeakSet<jsPDF>();
 let fontBase64: string | null = null;
 let fontLoadPromise: Promise<void> | null = null;
 
-export function containsArabicScript(text: string): boolean {
-  return ARABIC_SCRIPT_RE.test(text);
-}
+export { containsArabicScript } from "@/lib/pdf-latin-sanitize";
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -68,7 +64,8 @@ export function prepareArabicForPdf(text: string): string {
 }
 
 export function prepareTextForPdf(text: string): string {
-  return prepareArabicForPdf(text);
+  const base = containsArabicScript(text) ? prepareArabicForPdf(text) : sanitizeForPdfFont(text);
+  return base;
 }
 
 export function applyPdfFontForText(
