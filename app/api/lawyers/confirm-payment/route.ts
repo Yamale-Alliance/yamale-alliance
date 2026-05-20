@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { clerkClient } from "@clerk/nextjs/server";
-import { getDepositStatus, isDepositCompleted } from "@/lib/pawapay";
+import {
+  getDepositStatus,
+  isDepositCompleted,
+  pollPawaPayDepositUntilComplete,
+} from "@/lib/pawapay";
 import { recordUnlock, recordSearchUnlockGrant } from "@/lib/unlocks";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { getCompletedLomiCheckoutMetadata } from "@/lib/lomi-checkout";
+import { fulfillPaymentFromMetadata } from "@/lib/payment-webhook-fulfillment";
 
 /**
  * After pawaPay redirect: confirm payment from session_id and record unlock or day pass.
@@ -45,26 +50,29 @@ export async function POST(request: NextRequest) {
         });
       }
       if (kind === "day-pass" || lomiMd.plan_id === "day-pass") {
-        const clerk = await clerkClient();
-        const user = await clerk.users.getUser(userId);
-        const existing = (user.publicMetadata ?? {}) as Record<string, unknown>;
-        const now = new Date();
-        const expires = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-        await clerk.users.updateUserMetadata(userId, {
-          publicMetadata: {
-            ...existing,
-            day_pass_expires_at: expires.toISOString(),
-            day_pass_last_purchase_at: now.toISOString(),
-          },
-        });
-        return NextResponse.json({ ok: true, kind: "day_pass", expiresAt: expires.toISOString(), provider: "lomi" });
+        await fulfillPaymentFromMetadata(lomiMd, sessionId);
+        const user = await clerkClient().then((c) => c.users.getUser(userId));
+        const raw = (user.publicMetadata as Record<string, unknown>)?.day_pass_expires_at;
+        const expiresAt = typeof raw === "string" ? raw : undefined;
+        return NextResponse.json({ ok: true, kind: "day_pass", expiresAt, provider: "lomi" });
       }
       return NextResponse.json({ error: "Unknown Lomi session type" }, { status: 400 });
     }
 
-    const deposit = await getDepositStatus(sessionId);
+    let deposit = await getDepositStatus(sessionId);
     if (!deposit || !isDepositCompleted(deposit.status)) {
-      return NextResponse.json({ error: "Payment not completed" }, { status: 400 });
+      const polled = await pollPawaPayDepositUntilComplete(sessionId, {
+        maxAttempts: 16,
+        delayMs: 500,
+      });
+      if (!polled.ok) {
+        const status = polled.reason === "pending" ? 503 : 400;
+        return NextResponse.json(
+          { error: polled.message, pending: polled.reason === "pending" },
+          { status }
+        );
+      }
+      deposit = polled.deposit;
     }
 
     const clerkUserId = deposit.metadata?.clerk_user_id;
@@ -99,19 +107,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (kind === "day-pass" || planId === "day-pass") {
-      const clerk = await clerkClient();
-      const user = await clerk.users.getUser(userId);
-      const existing = (user.publicMetadata ?? {}) as Record<string, unknown>;
-      const now = new Date();
-      const expires = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      await clerk.users.updateUserMetadata(userId, {
-        publicMetadata: {
-          ...existing,
-          day_pass_expires_at: expires.toISOString(),
-          day_pass_last_purchase_at: now.toISOString(),
-        },
-      });
-      return NextResponse.json({ ok: true, kind: "day_pass", expiresAt: expires.toISOString() });
+      const md = deposit.metadata ?? {};
+      await fulfillPaymentFromMetadata(md, sessionId);
+      const user = await clerkClient().then((c) => c.users.getUser(userId));
+      const raw = (user.publicMetadata as Record<string, unknown>)?.day_pass_expires_at;
+      const expiresAt = typeof raw === "string" ? raw : undefined;
+      return NextResponse.json({ ok: true, kind: "day_pass", expiresAt });
     }
 
     return NextResponse.json({ error: "Unknown payment type" }, { status: 400 });
