@@ -9,8 +9,7 @@ import {
 } from "@/lib/pawapay";
 import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
 import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
-
-const AFCFTA_REPORT_PRICE_CENTS = 1500; // $15 per report
+import { getAfcftaReportPriceUsdCents } from "@/lib/platform-settings";
 const AFCFTA_REPORTS_DISABLED = true;
 type CheckoutProvider = "pawapay" | "lomi";
 
@@ -53,7 +52,8 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      const amountMinor = convertUsdCentsToPawapayMinor(AFCFTA_REPORT_PRICE_CENTS, currencyCode);
+      const priceCents = await getAfcftaReportPriceUsdCents();
+      const amountMinor = convertUsdCentsToPawapayMinor(priceCents, currencyCode);
       const { checkoutUrl } = await createLomiHostedCheckoutSession({
         amount: amountMinor,
         currency_code: currencyCode,
@@ -70,7 +70,8 @@ export async function POST(request: NextRequest) {
     }
     const gate = requirePawapayPaymentCountry(body as Record<string, unknown>);
     if (!gate.ok) return gate.response;
-    const amountMinor = convertUsdCentsToPawapayMinor(AFCFTA_REPORT_PRICE_CENTS, gate.country.currency);
+    const priceCents = await getAfcftaReportPriceUsdCents();
+    const amountMinor = convertUsdCentsToPawapayMinor(priceCents, gate.country.currency);
     const depositId = crypto.randomUUID();
     const returnBase = resolvePawapayReturnOrigin(requestOrigin);
     const returnUrl = `${returnBase}/dashboard?session_id=${encodeURIComponent(depositId)}&payg=afcfta_report`;
