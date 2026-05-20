@@ -21,6 +21,7 @@ import {
 } from "@/lib/marketplace-file-access";
 import { MarketplaceLandingIframe } from "@/components/marketplace/MarketplaceLandingIframe";
 import { useMarketplacePaymentReturn } from "@/components/marketplace/use-marketplace-payment-return";
+import { notifyMarketplaceCartUpdated } from "@/lib/marketplace-cart-events";
 import {
   marketplacePaymentReturnQuerySuffix,
   parseMarketplacePaymentReturn,
@@ -305,6 +306,7 @@ export default function MarketplaceItemPage() {
         setError(data.error ?? "Failed to add to cart");
       } else {
         setIsInCart(true);
+        notifyMarketplaceCartUpdated();
       }
     } catch {
       setError("Something went wrong");
@@ -327,6 +329,7 @@ export default function MarketplaceItemPage() {
         setError(data.error ?? "Failed to remove from cart");
       } else {
         setIsInCart(false);
+        notifyMarketplaceCartUpdated();
       }
     } catch {
       setError("Something went wrong");
