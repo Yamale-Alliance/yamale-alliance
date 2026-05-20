@@ -1,3 +1,4 @@
+import { expertiseMatchesSelection } from "@/lib/lawyer-expertise";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
 
@@ -149,13 +150,9 @@ export async function getUnlockedLawyerIdsFromSearchGrants(userId: string): Prom
       const rows2 = lawyers as Array<{ id: string; country: string | null; expertise: string }>;
       for (const lawyer of rows2) {
         const lawyerCountry = lawyer.country ?? "";
-        const lawyerSegments = (lawyer.expertise ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
         for (const criteria of searchCriteria) {
           const countryMatch = criteria.country === "all" || lawyerCountry === criteria.country;
-          const wantExpertise = criteria.expertise.trim().toLowerCase();
-          const expertiseMatch = lawyerSegments.some(
-            (seg) => seg.includes(wantExpertise) || wantExpertise.includes(seg)
-          );
+          const expertiseMatch = expertiseMatchesSelection(lawyer.expertise ?? "", criteria.expertise);
           if (countryMatch && expertiseMatch) {
             ids.push(lawyer.id);
             break;
@@ -186,13 +183,9 @@ export async function getUnlockedLawyerIdsFromSearchCriteria(userId: string): Pr
   const rows = lawyers as Array<{ id: string; country: string | null; expertise: string }>;
   for (const lawyer of rows) {
     const lawyerCountry = lawyer.country ?? "";
-    const lawyerSegments = (lawyer.expertise ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
     for (const u of unlockRows as Array<{ country: string; expertise: string }>) {
       const countryMatch = u.country === "all" || lawyerCountry === u.country;
-      const wantExpertise = u.expertise.trim().toLowerCase();
-      const expertiseMatch = lawyerSegments.some(
-        (seg) => seg.includes(wantExpertise) || wantExpertise.includes(seg)
-      );
+      const expertiseMatch = expertiseMatchesSelection(lawyer.expertise ?? "", u.expertise);
       if (countryMatch && expertiseMatch) {
         ids.push(lawyer.id);
         break;
