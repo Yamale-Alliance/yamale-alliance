@@ -3,7 +3,12 @@ import { escapeIlikePattern } from "@/lib/law-country-scope";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin";
 import { recordAuditLog } from "@/lib/admin-audit";
-import { sanitizeLawContent, VALID_LAW_STATUSES, normaliseLawTitle } from "@/lib/admin-law-utils";
+import {
+  sanitizeLawContent,
+  VALID_LAW_STATUSES,
+  normaliseLawTitle,
+  isValidLawYear,
+} from "@/lib/admin-law-utils";
 import { fetchPdfFromUrl } from "@/lib/treaty-bulk-pdf-fetch";
 import { extractTextFromPdf } from "@/lib/pdf-extract";
 import type { Database } from "@/lib/database.types";
@@ -130,7 +135,7 @@ export async function POST(request: NextRequest) {
           ? yearRaw
           : parseInt(String(yearRaw).replace(/[^\d]/g, ""), 10);
     const year =
-      yearParsed !== null && !Number.isNaN(yearParsed) && yearParsed >= 1800 && yearParsed <= 2200
+      yearParsed !== null && !Number.isNaN(yearParsed) && isValidLawYear(yearParsed)
         ? yearParsed
         : null;
 
