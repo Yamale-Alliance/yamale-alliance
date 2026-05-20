@@ -17,6 +17,7 @@ import {
   MessageSquareWarning,
   LineChart,
   Store,
+  Flag,
 } from "lucide-react";
 
 const SUPPORT_CENTER_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
@@ -35,6 +36,7 @@ const navItems = [
   },
   { href: "/admin-panel/ai-quality", label: "AI quality", icon: MessageSquareWarning },
   { href: "/admin-panel/laws", label: "Laws", icon: BookOpen },
+  { href: "/admin-panel/law-flags", label: "Law flags", icon: Flag },
   { href: "/admin-panel/afcfta", label: "AfCFTA", icon: FileCheck },
   { href: "/admin-panel/pricing", label: "Pricing", icon: Scale },
   { href: "/admin-panel/content", label: "Content", icon: FileText },
