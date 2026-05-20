@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { Loader2, Briefcase, Plus, Trash2, Download } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
+import { normalizeExpertiseField } from "@/lib/lawyer-expertise";
 
 type LawyerRow = {
   id: string;
@@ -747,7 +748,12 @@ export default function AdminLawyersPage() {
                       </td>
                       <td className="p-3 font-medium">{l.name}</td>
                       <td className="p-3 text-muted-foreground">{l.country ?? "—"}</td>
-                      <td className="p-3 max-w-[160px] truncate" title={l.expertise}>{l.expertise}</td>
+                      <td
+                        className="p-3 max-w-[200px] truncate"
+                        title={normalizeExpertiseField(l.expertise)}
+                      >
+                        {normalizeExpertiseField(l.expertise)}
+                      </td>
                       <td className="p-3 max-w-[140px] truncate text-muted-foreground" title={
                         [l.primary_language, l.other_languages].filter(Boolean).join(", ") || ""
                       }>
