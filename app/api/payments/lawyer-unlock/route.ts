@@ -8,8 +8,7 @@ import {
   resolvePawapayReturnOrigin,
 } from "@/lib/pawapay";
 import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
-
-const PER_LAWYER_CENTS = 500; // $5
+import { getLawyerUnlockPriceUsdCents } from "@/lib/platform-settings";
 
 /**
  * Create pawaPay Payment Page session for unlocking one lawyer contact.
@@ -36,7 +35,8 @@ export async function POST(request: NextRequest) {
 
     const requestOrigin = request.headers.get("origin") || request.nextUrl.origin;
     const returnBase = resolvePawapayReturnOrigin(requestOrigin);
-    const amountMinor = convertUsdCentsToPawapayMinor(PER_LAWYER_CENTS, gate.country.currency);
+    const priceCents = await getLawyerUnlockPriceUsdCents();
+    const amountMinor = convertUsdCentsToPawapayMinor(priceCents, gate.country.currency);
     const depositId = crypto.randomUUID();
     const returnUrl = `${returnBase}/lawyers?unlocked=1&session_id=${encodeURIComponent(depositId)}`;
     const { redirectUrl } = await createPaymentPageSession({
