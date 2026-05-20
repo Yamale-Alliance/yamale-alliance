@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin";
 import { recordAuditLog } from "@/lib/admin-audit";
 import type { Database } from "@/lib/database.types";
 import { parseLandingPageHtmlInput } from "@/lib/marketplace-landing-page";
+import { parseItemPackageOffersInput } from "@/lib/marketplace-package-offers";
 
 type Update = Database["public"]["Tables"]["marketplace_items"]["Update"];
 const VALID_TYPES = ["book", "course", "template", "guide"] as const;
@@ -60,6 +61,7 @@ export async function PUT(
       file_format,
       video_url,
       landing_page_html,
+      package_offers,
     } = body;
 
     const updates: Update = {};
@@ -91,6 +93,9 @@ export async function PUT(
         const msg = e instanceof Error ? e.message : "Invalid landing_page_html";
         return NextResponse.json({ error: msg }, { status: 400 });
       }
+    }
+    if (package_offers !== undefined) {
+      updates.package_offers = parseItemPackageOffersInput(package_offers);
     }
     updates.updated_at = new Date().toISOString();
 
