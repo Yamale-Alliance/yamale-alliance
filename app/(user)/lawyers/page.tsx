@@ -7,12 +7,21 @@ import Link from "next/link";
 import Image from "next/image";
 import { Search, Star, Loader2, Lock, AlertCircle, Quote, CheckSquare, Smartphone, CreditCard } from "lucide-react";
 import type { CheckoutPaymentProvider } from "@/components/checkout/PaymentMethodPicker";
+import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
+import { formatUsdPrice } from "@/lib/content-pricing";
+import { confirmDayPassPayment } from "@/lib/day-pass-checkout-confirm";
 import {
   PROTOTYPE_HERO_GRID_PATTERN,
   prototypeHeroEyebrowClass,
   prototypeNavyHeroSectionClass,
 } from "@/components/layout/prototype-page-styles";
 import { PAWAPAY_SUPPORTED_PAYMENT_COUNTRIES as PAWAPAY_SUPPORTED_COUNTRIES } from "@/lib/pawapay-payment-countries";
+import {
+  buildExpertiseFilterOptions,
+  dedupeExpertiseSegments,
+  expertiseMatchesSelection,
+  parseExpertiseSegments,
+} from "@/lib/lawyer-expertise";
 
 const BRAND = {
   dark: "#221913",
@@ -31,20 +40,7 @@ type Lawyer = {
   imageUrl: string | null;
 };
 
-const SEARCH_PRICE = 5;
 const SEARCH_STATE_STORAGE_KEY = "lawyers:lastSearchState";
-
-const EXPERTISE_OPTIONS = [
-  "All Practice Areas",
-  "Corporate Law",
-  "Trade Law",
-  "AfCFTA",
-  "Intellectual Property",
-  "Tax Law",
-  "Litigation",
-  "Employment Law",
-  "M&A",
-];
 
 const LANGUAGE_OPTIONS = [
   "All Languages",
@@ -93,6 +89,8 @@ export default function LawyersPage() {
   const [searchPayLoading, setSearchPayLoading] = useState(false);
   const [searchPayError, setSearchPayError] = useState<string | null>(null);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [dayPassConfirmError, setDayPassConfirmError] = useState<string | null>(null);
+  const [dayPassConfirmSuccess, setDayPassConfirmSuccess] = useState(false);
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
   const [showPaymentChoice, setShowPaymentChoice] = useState(false);
   const [showPawapayCountryPrompt, setShowPawapayCountryPrompt] = useState(false);
@@ -103,6 +101,8 @@ export default function LawyersPage() {
   const lomiAvailable =
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
     Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
+  const { lawyerSearchUnlockPriceUsdCents } = usePlatformSettings();
+  const searchPriceLabel = formatUsdPrice(lawyerSearchUnlockPriceUsdCents);
 
   const persistSearchState = (next?: {
     country?: string;
@@ -224,41 +224,62 @@ export default function LawyersPage() {
       hasSearched: returnExpertise != null ? returnExpertise !== "all" : false,
     });
 
+    const isDayPassReturn =
+      searchParams.get("day_pass") === "1" || searchParams.get("day_pass_return") === "1";
+
     if (sessionId && !confirmingPayment && confirmedSessionRef.current !== sessionId) {
       confirmedSessionRef.current = sessionId;
       setConfirmingPayment(true);
-      fetch("/api/lawyers/confirm-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          session_id: sessionId,
-          country: returnCountry ?? undefined,
-          expertise: returnExpertise ?? undefined,
-        }),
-      })
-        .then((res) => res.json())
-        .then(async (data) => {
-          if (data.ok) {
-            if (returnCountry) setSelectedCountry(returnCountry);
-            if (returnCity) setSelectedCity(returnCity);
-            if (returnExpertise) setSelectedExpertise(returnExpertise);
-            if (returnLanguage) setSelectedLanguage(returnLanguage);
-            setHasSearched(true);
-            setShowPaymentChoice(true);
+      setDayPassConfirmError(null);
+      setDayPassConfirmSuccess(false);
+
+      const confirm = async () => {
+        if (isDayPassReturn) {
+          const result = await confirmDayPassPayment(sessionId);
+          if (result.ok) {
+            setDayPassConfirmSuccess(true);
             await refetchUnlocked();
-            const keep = new URLSearchParams();
-            if (returnCountry) keep.set("country", returnCountry);
-            if (returnExpertise) keep.set("expertise", returnExpertise);
-            if (returnCity) keep.set("city", returnCity);
-            if (returnLanguage) keep.set("language", returnLanguage);
-            if (searchParams.get("canceled") === "1") keep.set("canceled", "1");
-            const path = keep.toString() ? `/lawyers?${keep.toString()}` : "/lawyers";
-            window.history.replaceState({}, "", path);
+            window.history.replaceState({}, "", "/lawyers");
+            return;
           }
-        })
-        .catch(() => {})
-        .finally(() => setConfirmingPayment(false));
+          setDayPassConfirmError(
+            result.error ??
+              "We could not confirm your day pass yet. If mobile money was charged, wait a moment and refresh."
+          );
+          return;
+        }
+
+        const res = await fetch("/api/lawyers/confirm-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            session_id: sessionId,
+            country: returnCountry ?? undefined,
+            expertise: returnExpertise ?? undefined,
+          }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          if (returnCountry) setSelectedCountry(returnCountry);
+          if (returnCity) setSelectedCity(returnCity);
+          if (returnExpertise) setSelectedExpertise(returnExpertise);
+          if (returnLanguage) setSelectedLanguage(returnLanguage);
+          setHasSearched(true);
+          setShowPaymentChoice(true);
+          await refetchUnlocked();
+          const keep = new URLSearchParams();
+          if (returnCountry) keep.set("country", returnCountry);
+          if (returnExpertise) keep.set("expertise", returnExpertise);
+          if (returnCity) keep.set("city", returnCity);
+          if (returnLanguage) keep.set("language", returnLanguage);
+          if (searchParams.get("canceled") === "1") keep.set("canceled", "1");
+          const path = keep.toString() ? `/lawyers?${keep.toString()}` : "/lawyers";
+          window.history.replaceState({}, "", path);
+        }
+      };
+
+      void confirm().finally(() => setConfirmingPayment(false));
       return;
     }
 
@@ -278,15 +299,13 @@ export default function LawyersPage() {
     refetchUnlocked();
   }, []);
 
-  const expertiseList = Array.from(
-    new Set(lawyers.flatMap((l) => l.expertise.split(",").map((e) => e.trim()).filter(Boolean)))
-  ).sort();
+  const expertiseList = useMemo(() => buildExpertiseFilterOptions(lawyers), [lawyers]);
 
   const filteredLawyers = useMemo(() => {
     return lawyers.filter((lawyer) => {
       if (selectedCountry && lawyer.country !== selectedCountry) return false;
       if (selectedCity.trim() && !lawyer.name.toLowerCase().includes(selectedCity.toLowerCase()) && !lawyer.expertise.toLowerCase().includes(selectedCity.toLowerCase())) return false;
-      if (selectedExpertise !== "all" && !lawyer.expertise.toLowerCase().includes(selectedExpertise.toLowerCase())) return false;
+      if (!expertiseMatchesSelection(lawyer.expertise, selectedExpertise)) return false;
       return true;
     });
   }, [lawyers, selectedCountry, selectedCity, selectedExpertise]);
@@ -354,6 +373,21 @@ export default function LawyersPage() {
           </div>
         </div>
       )}
+      {dayPassConfirmSuccess && (
+        <div className="border-b border-emerald-500/30 bg-emerald-50 px-4 py-3 dark:bg-emerald-950/30">
+          <p className="mx-auto max-w-7xl text-sm font-medium text-emerald-900 dark:text-emerald-100">
+            Day pass active — full platform access for 24 hours.{" "}
+            <Link href="/ai-research" className="underline">
+              Open AI Legal Research
+            </Link>
+          </p>
+        </div>
+      )}
+      {dayPassConfirmError && (
+        <div className="border-b border-amber-500/30 bg-amber-50 px-4 py-3 dark:bg-amber-950/30">
+          <p className="mx-auto max-w-7xl text-sm text-amber-950 dark:text-amber-100">{dayPassConfirmError}</p>
+        </div>
+      )}
 
       {/* Hero */}
       <section className={prototypeNavyHeroSectionClass}>
@@ -409,12 +443,6 @@ export default function LawyersPage() {
                       {e}
                     </option>
                   ))}
-                  {expertiseList.length === 0 &&
-                    EXPERTISE_OPTIONS.slice(1).map((e) => (
-                      <option key={e} value={e}>
-                        {e}
-                      </option>
-                    ))}
                 </select>
               </div>
               <div>
@@ -467,7 +495,7 @@ export default function LawyersPage() {
           <div className="mb-5 flex items-start gap-2 rounded-[8px] border border-border bg-card px-4 py-3 text-[16px] text-foreground">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             <p>
-              Select a <strong>country</strong> and <strong>practice area</strong> to search. One search costs ${SEARCH_PRICE} and
+              Select a <strong>country</strong> and <strong>practice area</strong> to search. One search costs ${searchPriceLabel} and
               unlocks contact details for all matching lawyers.
             </p>
           </div>
@@ -498,7 +526,7 @@ export default function LawyersPage() {
             </Link>
             {expertiseRequired && (
               <p className="text-xs text-amber-700 dark:text-amber-400">
-                Please select a practice area. Country + practice area are required so your ${SEARCH_PRICE} unlock
+                Please select a practice area. Country + practice area are required so your ${searchPriceLabel} unlock
                 applies to a specific search.
               </p>
             )}
@@ -536,7 +564,7 @@ export default function LawyersPage() {
                   {filteredLawyers.length} lawyer{filteredLawyers.length !== 1 ? "s" : ""} match your criteria.
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-                  Pay ${SEARCH_PRICE} to unlock contact details for all{" "}
+                  Pay ${searchPriceLabel} to unlock contact details for all{" "}
                   {filteredLawyers.length} lawyer{filteredLawyers.length !== 1 ? "s" : ""} in this search (
                   {selectedCountry} + {selectedExpertise}).
                 </p>
@@ -682,7 +710,7 @@ export default function LawyersPage() {
             {filteredLawyers.map((lawyer) => {
               const unlocked = isUnlocked(lawyer.id);
               const contacts = contactsByLawyer[lawyer.id];
-              const expertiseTags = lawyer.expertise.split(",").map((e) => e.trim()).filter(Boolean);
+              const expertiseTags = dedupeExpertiseSegments(parseExpertiseSegments(lawyer.expertise));
               const initials = lawyer.name.split(" ").map((n) => n[0]).filter(Boolean).join("");
               const initialsDisplay = lawyer.name.split(" ").map((n) => n[0]).filter(Boolean).join(". ") + ".";
 
@@ -750,9 +778,9 @@ export default function LawyersPage() {
                     </div>
 
                     <div className="mb-3 mt-3 flex flex-wrap gap-1.5">
-                      {expertiseTags.map((exp, i) => (
+                      {expertiseTags.map((exp) => (
                         <span
-                          key={i}
+                          key={exp}
                           className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
                         >
                           {exp}
@@ -784,7 +812,7 @@ export default function LawyersPage() {
                         </div>
                       ) : (
                         <div className="rounded-[6px] bg-[#0D1B2A] px-3 py-2 text-center text-[12px] font-semibold text-white">
-                          Unlock contact — ${SEARCH_PRICE}
+                          Unlock contact — ${searchPriceLabel}
                         </div>
                       )}
                     </div>
@@ -797,7 +825,7 @@ export default function LawyersPage() {
 
         {lawyers.length > 0 && (
           <p className="mt-8 text-center text-xs text-muted-foreground sm:text-sm">
-            <strong>${SEARCH_PRICE} per search</strong> (country + practice area). Your payment unlocks contact details
+            <strong>${searchPriceLabel} per search</strong> (country + practice area). Your payment unlocks contact details
             for the lawyers in that search. Different country or practice area = a new search. Payments are processed
             securely via mobile money.
           </p>
