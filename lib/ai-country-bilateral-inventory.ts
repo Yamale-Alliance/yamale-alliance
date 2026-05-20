@@ -1,3 +1,4 @@
+import { isValidLawYear } from "@/lib/admin-law-utils";
 import { isMultiInstrumentListQuery } from "@/lib/ai-rag-context-budget";
 import { detectGermanyAfricaBitQuery } from "@/lib/ai-germany-africa-bit-retrieval";
 import { detectLatinAmericaTreatyDiscoveryQuery } from "@/lib/ai-latin-america-treaty-retrieval";
@@ -140,8 +141,8 @@ export function inferTreatyCounterparty(title: string, homeCountry: string): str
 }
 
 function parseLawYear(row: { year?: number | null; title?: string | null }): number | null {
-  if (typeof row.year === "number" && row.year >= 1900 && row.year <= 2100) return row.year;
-  const fromTitle = String(row.title ?? "").match(/\b(19|20)\d{2}\b/);
+  if (typeof row.year === "number" && isValidLawYear(row.year)) return row.year;
+  const fromTitle = String(row.title ?? "").match(/\b(18|19|20)\d{2}\b/);
   if (fromTitle) {
     const y = Number.parseInt(fromTitle[0], 10);
     if (Number.isFinite(y)) return y;
