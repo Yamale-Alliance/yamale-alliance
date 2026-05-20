@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ShoppingCart, X, Loader2, Trash2 } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
+import {
+  MARKETPLACE_CART_UPDATED_EVENT,
+  notifyMarketplaceCartUpdated,
+} from "@/lib/marketplace-cart-events";
 import {
   PaymentMethodPicker,
   type CheckoutPaymentProvider,
@@ -39,25 +43,62 @@ export function CartDrawer() {
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
     Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
   const { isSignedIn } = useUser();
-  const router = useRouter();
+  const pathname = usePathname();
   const { alert: showAlert, alertDialog } = useAlertDialog();
+
+  const syncCartFromServer = useCallback(async (opts?: { showLoading?: boolean }) => {
+    if (!isSignedIn) {
+      setCart([]);
+      return;
+    }
+    if (opts?.showLoading) setLoading(true);
+    try {
+      const r = await fetch("/api/cart", { credentials: "include" });
+      const data = (await r.json()) as { cart?: CartItem[] };
+      setCart(data.cart ?? []);
+    } catch {
+      setCart([]);
+    } finally {
+      if (opts?.showLoading) setLoading(false);
+    }
+  }, [isSignedIn]);
+
+  /** Keep header badge in sync without opening the drawer (checkout clears cart server-side). */
+  useEffect(() => {
+    if (!isSignedIn) {
+      setCart([]);
+      return;
+    }
+    void syncCartFromServer();
+  }, [isSignedIn, pathname, syncCartFromServer]);
+
+  useEffect(() => {
+    const onCartUpdated = () => {
+      void syncCartFromServer();
+    };
+    const onFocus = () => {
+      if (isSignedIn) void syncCartFromServer();
+    };
+    window.addEventListener(MARKETPLACE_CART_UPDATED_EVENT, onCartUpdated);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener(MARKETPLACE_CART_UPDATED_EVENT, onCartUpdated);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [isSignedIn, syncCartFromServer]);
 
   useEffect(() => {
     if (!isSignedIn || !open) return;
-    setLoading(true);
-    fetch("/api/cart", { credentials: "include" })
-      .then((r) => r.json())
-      .then((data: { cart?: CartItem[] }) => {
-        setCart(data.cart ?? []);
-      })
-      .catch(() => setCart([]))
-      .finally(() => setLoading(false));
-  }, [isSignedIn, open]);
+    void syncCartFromServer({ showLoading: true });
+  }, [isSignedIn, open, syncCartFromServer]);
 
   const removeFromCart = async (itemId: string) => {
     try {
       await fetch(`/api/cart?item_id=${itemId}`, { method: "DELETE", credentials: "include" });
       setCart((prev) => prev.filter((item) => item.marketplace_item_id !== itemId));
+      notifyMarketplaceCartUpdated();
     } catch {
       // Error handling
     }
