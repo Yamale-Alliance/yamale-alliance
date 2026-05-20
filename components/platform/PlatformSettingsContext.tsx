@@ -1,23 +1,21 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
-import { DEFAULT_LAW_PRINT_PRICE_USD_CENTS } from "@/lib/law-print-pricing";
+import { CONTENT_PRICING_DEFAULTS, type ContentPricingSnapshot } from "@/lib/content-pricing";
 
 export type PlatformSettings = {
   logoUrl: string | null;
   faviconUrl: string | null;
   heroImageUrl: string | null;
   founderPortraitUrl: string | null;
-  /** Pay-as-you-go law PDF unlock list price (USD cents). */
-  lawPrintPriceUsdCents: number;
-};
+} & ContentPricingSnapshot;
 
 const defaultSettings: PlatformSettings = {
   logoUrl: null,
   faviconUrl: null,
   heroImageUrl: null,
   founderPortraitUrl: null,
-  lawPrintPriceUsdCents: DEFAULT_LAW_PRINT_PRICE_USD_CENTS,
+  ...CONTENT_PRICING_DEFAULTS,
 };
 
 const PlatformSettingsContext = createContext<PlatformSettings>(defaultSettings);
