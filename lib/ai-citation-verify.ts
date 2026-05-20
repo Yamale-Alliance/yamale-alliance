@@ -38,3 +38,43 @@ export function citedSlotsAsUsedFlags(citedDocIndices: number[], slotCount: numb
   const cited = new Set(citedDocIndices);
   return Array.from({ length: slotCount }, (_, i) => cited.has(i + 1));
 }
+
+const MIN_TITLE_MATCH_CHARS = 10;
+
+/**
+ * When the model names a retrieved instrument in prose but omits or mismatches [doc:N] markers,
+ * treat that slot as referenced so source cards match the answer text.
+ */
+export function mergeUsedFlagsFromTitleMentions(
+  assistantTextRaw: string,
+  docTitles: string[],
+  usedFlags: boolean[]
+): boolean[] {
+  const out = [...usedFlags];
+  const stripped = assistantTextRaw
+    .replace(/\s*\[(?=[^\]]*\bdoc:\s*\d+)[^\]]+\]/gi, " ")
+    .replace(/[*_`#]/g, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+  for (let i = 0; i < docTitles.length && i < out.length; i++) {
+    if (out[i]) continue;
+    const rawTitle = (docTitles[i] ?? "").trim();
+    if (rawTitle.length < MIN_TITLE_MATCH_CHARS) continue;
+
+    const candidates = new Set<string>();
+    candidates.add(rawTitle.toLowerCase());
+    const noYear = rawTitle.replace(/\s*[,(]?\s*\b(19|20)\d{2}\b.*$/i, "").trim();
+    if (noYear.length >= MIN_TITLE_MATCH_CHARS) {
+      candidates.add(noYear.toLowerCase());
+    }
+
+    for (const c of candidates) {
+      if (c.length >= MIN_TITLE_MATCH_CHARS && stripped.includes(c)) {
+        out[i] = true;
+        break;
+      }
+    }
+  }
+  return out;
+}
