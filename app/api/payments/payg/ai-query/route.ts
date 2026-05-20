@@ -11,7 +11,7 @@ import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-coun
 import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
 import { LOMI_PAYG_AI_QUERY_SESSION_COOKIE } from "@/lib/lomi-payg-ai-query-cookie";
 
-const AI_QUERY_PRICE_CENTS = 100; // $1 per query
+import { getAiQueryPriceUsdCents } from "@/lib/platform-settings";
 type CheckoutProvider = "pawapay" | "lomi";
 
 /**
@@ -44,7 +44,8 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      const amountMinor = convertUsdCentsToPawapayMinor(AI_QUERY_PRICE_CENTS, currencyCode);
+      const priceCents = await getAiQueryPriceUsdCents();
+      const amountMinor = convertUsdCentsToPawapayMinor(priceCents, currencyCode);
       const { checkoutUrl, sessionId } = await createLomiHostedCheckoutSession({
         amount: amountMinor,
         currency_code: currencyCode,
@@ -72,7 +73,8 @@ export async function POST(request: NextRequest) {
     }
     const gate = requirePawapayPaymentCountry(body as Record<string, unknown>);
     if (!gate.ok) return gate.response;
-    const amountMinor = convertUsdCentsToPawapayMinor(AI_QUERY_PRICE_CENTS, gate.country.currency);
+    const priceCents = await getAiQueryPriceUsdCents();
+    const amountMinor = convertUsdCentsToPawapayMinor(priceCents, gate.country.currency);
     const depositId = crypto.randomUUID();
     const returnBase = resolvePawapayReturnOrigin(requestOrigin);
     const returnUrl = `${returnBase}/ai-research?session_id=${encodeURIComponent(depositId)}&payg=ai_query`;
