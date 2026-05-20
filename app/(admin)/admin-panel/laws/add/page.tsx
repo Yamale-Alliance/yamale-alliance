@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, FileUp, FileText, CheckCircle2, Link2 } from "lucide-react";
+import { LAW_YEAR_MIN, LAW_YEAR_MAX } from "@/lib/admin-law-utils";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
 
 type Country = { id: string; name: string };
@@ -566,11 +567,11 @@ export default function AdminLawsAddPage() {
           <label className="block text-sm font-medium mb-1">Year (optional)</label>
           <input
             type="number"
-            min={1900}
-            max={2100}
+            min={LAW_YEAR_MIN}
+            max={LAW_YEAR_MAX}
             value={year}
             onChange={(e) => setYear(e.target.value)}
-            placeholder="e.g. 2019"
+            placeholder={`e.g. 1889 (${LAW_YEAR_MIN}–${LAW_YEAR_MAX})`}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           />
         </div>
