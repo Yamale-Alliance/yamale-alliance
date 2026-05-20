@@ -146,7 +146,7 @@ export function LibraryFiltersBar({
 
   return (
     <>
-      <div className="mt-6 border-y border-border bg-card px-4 py-3 sm:px-8 md:sticky md:top-[88px] md:z-20">
+      <div className="mt-6 border-y border-border bg-card px-4 py-3 sm:px-8">
         <div className="mx-auto max-w-[1280px] space-y-2.5">
           <div className="flex flex-wrap items-center gap-2">
             <button
