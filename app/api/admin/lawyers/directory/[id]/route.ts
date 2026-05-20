@@ -34,7 +34,8 @@ export async function PATCH(
   if (!name || name.length > 200) {
     return NextResponse.json({ error: "Name is required (max 200 characters)" }, { status: 400 });
   }
-  if (!expertise || expertise.length > 500) {
+  const normalizedExpertise = normalizeExpertiseField(expertise);
+  if (!normalizedExpertise || normalizedExpertise.length > 500) {
     return NextResponse.json({ error: "Expertise is required (max 500 characters)" }, { status: 400 });
   }
   if (!email && !phone) {
