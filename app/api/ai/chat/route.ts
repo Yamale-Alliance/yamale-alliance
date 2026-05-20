@@ -65,6 +65,16 @@ import {
   isGermanyAfricaBitCountRequest,
   titleLikelyGermanyAfricaBit,
 } from "@/lib/ai-germany-africa-bit-retrieval";
+import {
+  COUNTRY_BILATERAL_INVENTORY_MAX_DOCS,
+  buildCountryBilateralInventoryPromptBlock,
+  countryBilateralInventoryRankingLexicon,
+  detectCountryBilateralInventoryQuery,
+  fetchCountryBilateralTreatyInventory,
+  fetchCountryBilateralTreatyTitleCandidates,
+  parseYearWindowFromQuery,
+  titleLikelyCountryBilateralTreaty,
+} from "@/lib/ai-country-bilateral-inventory";
 import { pickContentExcerpt } from "@/lib/ai-law-excerpt";
 import { fetchLawTitleCatalogForPrompt } from "@/lib/ai-law-title-catalog";
 import { auth, clerkClient } from "@clerk/nextjs/server";
@@ -1558,6 +1568,12 @@ async function searchLegalLibrary(
     const germanyAfricaBitCatalog = !latinAmericaTreatyCatalog && detectGermanyAfricaBitQuery(query);
     const globalTreatyCatalog =
       !latinAmericaTreatyCatalog && !germanyAfricaBitCatalog && detectGlobalTreatyInventoryQuery(query);
+    const countryBilateralCatalog =
+      !latinAmericaTreatyCatalog &&
+      !germanyAfricaBitCatalog &&
+      !globalTreatyCatalog &&
+      Boolean(searchCountry) &&
+      detectCountryBilateralInventoryQuery(query, searchCountry);
     const rawTokens = extractSearchTokens(qForTokens);
     const countryCatalogRequest = Boolean(countryId) && isCountryCatalogLawRequest(query);
     const scopedCountryLawIds =
@@ -1672,6 +1688,18 @@ async function searchLegalLibrary(
       titleMatchedLaws.push(...germanyAfricaBitRows);
     }
 
+    const countryBilateralRows = countryBilateralCatalog
+      ? await fetchCountryBilateralTreatyTitleCandidates(
+          supabase,
+          searchCountry!,
+          query,
+          LAWS_AI_SELECT
+        )
+      : [];
+    if (countryBilateralRows.length > 0) {
+      titleMatchedLaws.push(...countryBilateralRows);
+    }
+
     // Dedupe titleMatchedLaws by id.
     const titleMatchedById = new Map<string, any>();
     for (const r of titleMatchedLaws) {
@@ -1681,7 +1709,10 @@ async function searchLegalLibrary(
     const titleMatchedIds = new Set(titleMatchedById.keys());
     perfStep(perf, "title_metadata", { titleMatches: titleMatchedById.size });
     const skipBroadLibraryTextSearch =
-      (latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog) &&
+      (latinAmericaTreatyCatalog ||
+        globalTreatyCatalog ||
+        germanyAfricaBitCatalog ||
+        countryBilateralCatalog) &&
       !specificLawHint &&
       !countryCatalogRequest &&
       titleMatchedById.size > 0;
@@ -1691,6 +1722,9 @@ async function searchLegalLibrary(
       ...latinAmericaTreatyRankingLexicon(query),
       ...(globalTreatyCatalog ? globalTreatyRankingLexicon() : []),
       ...(germanyAfricaBitCatalog ? germanyAfricaBitRankingLexicon() : []),
+      ...(countryBilateralCatalog && searchCountry
+        ? countryBilateralInventoryRankingLexicon(searchCountry)
+        : []),
     ];
     const mergedForRank = prioritizeTokensForLibrarySearch(
       Array.from(new Set([...rawTokens.map((t) => t.toLowerCase()), ...expandedLower])),
@@ -2109,6 +2143,13 @@ async function searchLegalLibrary(
         if (latinAmericaTreatyCatalog && titleLikelyLatinAmericaTreaty(String(law.title ?? ""))) bonus += 52;
         if (globalTreatyCatalog && titleLooksLikeCrossBorderTreatyTitle(String(law.title ?? ""))) bonus += 46;
         if (germanyAfricaBitCatalog && titleLikelyGermanyAfricaBit(String(law.title ?? ""))) bonus += 58;
+        if (
+          countryBilateralCatalog &&
+          searchCountry &&
+          titleLikelyCountryBilateralTreaty(String(law.title ?? ""), searchCountry)
+        ) {
+          bonus += 56;
+        }
         if (isOhadaCommercialCompaniesQuery(query)) {
           if (
             /soci[eé]t[eé]s?\s+commerciales?|commercial companies|groupement d'?int[eé]r[eê]t [ée]conomique|economic interest groups/i.test(
@@ -2180,13 +2221,15 @@ async function searchLegalLibrary(
       ? LATIN_AMERICA_TREATY_CATALOG_MAX_DOCS
       : germanyAfricaBitCatalog
         ? GERMANY_AFRICA_BIT_CATALOG_MAX_DOCS
-        : globalTreatyCatalog
-          ? GLOBAL_TREATY_CATALOG_MAX_DOCS
-          : countryCatalogRequest
-          ? 20
-          : detailedMode
-            ? MAX_SYSTEM_PROMPT_LEGAL_DOCS_DETAILED
-            : MAX_SYSTEM_PROMPT_LEGAL_DOCS;
+        : countryBilateralCatalog
+          ? COUNTRY_BILATERAL_INVENTORY_MAX_DOCS
+          : globalTreatyCatalog
+            ? GLOBAL_TREATY_CATALOG_MAX_DOCS
+            : countryCatalogRequest
+              ? 20
+              : detailedMode
+                ? MAX_SYSTEM_PROMPT_LEGAL_DOCS_DETAILED
+                : MAX_SYSTEM_PROMPT_LEGAL_DOCS;
     const lawsForResponse: any[] = (() => {
       if (specificLawHint && candidateLaws.length > 0) return [candidateLaws[0]];
       // When multiple supranational frameworks are mentioned (e.g. "AfCFTA vs
@@ -2248,6 +2291,19 @@ async function searchLegalLibrary(
         }
         return [...deAfFirst, ...rest].slice(0, baseResponseSize);
       }
+      if (countryBilateralCatalog && searchCountry && candidateLaws.length > 0) {
+        const bilateralFirst: any[] = [];
+        const rest: any[] = [];
+        for (const law of candidateLaws) {
+          if (titleLikelyCountryBilateralTreaty(String((law as any).title ?? ""), searchCountry)) {
+            bilateralFirst.push(law);
+          } else rest.push(law);
+        }
+        if (bilateralFirst.length >= 3) {
+          return bilateralFirst.slice(0, baseResponseSize);
+        }
+        return [...bilateralFirst, ...rest].slice(0, baseResponseSize);
+      }
       if (globalTreatyCatalog && candidateLaws.length > 0) {
         const treatyFirst: any[] = [];
         const rest: any[] = [];
@@ -2293,13 +2349,17 @@ async function searchLegalLibrary(
       latinAmericaTreatyCatalog ||
       globalTreatyCatalog ||
       germanyAfricaBitCatalog ||
+      countryBilateralCatalog ||
       (isBilateralOrMultiCountryQuery && isMultiInstrumentListQuery(query));
     const standardRagBudget = ragExcerptBudget(lawsForResponse.length, {
       preferMoreDocuments,
     });
     const maxCharsPerLaw = shouldKeepFullTextForSpecificLaw
       ? 1_000_000
-      : latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog
+      : latinAmericaTreatyCatalog ||
+          globalTreatyCatalog ||
+          germanyAfricaBitCatalog ||
+          countryBilateralCatalog
         ? 4500
         : countryCatalogRequest
           ? 600
@@ -2308,7 +2368,10 @@ async function searchLegalLibrary(
             : standardRagBudget.maxCharsPerDoc;
     const maxCharsTotal = shouldKeepFullTextForSpecificLaw
       ? 1_000_000
-      : latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog
+      : latinAmericaTreatyCatalog ||
+          globalTreatyCatalog ||
+          germanyAfricaBitCatalog ||
+          countryBilateralCatalog
         ? 100_000
         : countryCatalogRequest
           ? 16_000
@@ -2341,6 +2404,13 @@ async function searchLegalLibrary(
       if (latinAmericaTreatyCatalog && titleLikelyLatinAmericaTreaty(String(law.title ?? ""))) bonus += 52;
       if (globalTreatyCatalog && titleLooksLikeCrossBorderTreatyTitle(String(law.title ?? ""))) bonus += 46;
       if (germanyAfricaBitCatalog && titleLikelyGermanyAfricaBit(String(law.title ?? ""))) bonus += 58;
+      if (
+        countryBilateralCatalog &&
+        searchCountry &&
+        titleLikelyCountryBilateralTreaty(String(law.title ?? ""), searchCountry)
+      ) {
+        bonus += 56;
+      }
       bonus += retrievalTuningBoost(law, query, searchCountry);
       return baseScore + resolvedIntent.rankBoost(law, rankingTokens) + bonus;
     };
@@ -2795,6 +2865,12 @@ export async function POST(request: NextRequest) {
       country: resolvedEffectiveCountry,
       category: currentHints.category ?? conversationHints.category,
     };
+    const countryBilateralCatalog =
+      !latinAmericaTreatyCatalog &&
+      !germanyAfricaBitCatalog &&
+      !globalTreatyCatalog &&
+      Boolean(effectiveHints.country) &&
+      detectCountryBilateralInventoryQuery(userQuery, effectiveHints.country);
     const specificLawHint = extractSpecificLawHint(userQuery);
     const trademarkIntent = isTrademarkIntent(userQuery);
     const countryLawCountIntent = isCountryLawCountRequest(userQuery);
@@ -2816,7 +2892,8 @@ export async function POST(request: NextRequest) {
       bilateralTitleTokensInUserQuery.length >= 2 ||
       latinAmericaTreatyCatalog ||
       germanyAfricaBitCatalog ||
-      globalTreatyCatalog;
+      globalTreatyCatalog ||
+      countryBilateralCatalog;
     const strictCountryMode = !skipCountryRequirement && Boolean(effectiveHints.country);
 
     if (allCountriesBreakdownIntent) {
@@ -2946,7 +3023,7 @@ export async function POST(request: NextRequest) {
     const useFullLibraryContext =
       isFullLibraryContextEnabled() &&
       !platformGuideMeta &&
-      !(latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog);
+      !(latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog || countryBilateralCatalog);
 
     let legalContext = platformGuideMeta
       ? []
@@ -2960,7 +3037,7 @@ export async function POST(request: NextRequest) {
     if (
       !platformGuideMeta &&
       !legalContext.length &&
-      !(latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog)
+      !(latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog || countryBilateralCatalog)
     ) {
       legalContext = await searchLegalLibraryQuickFallback(userQuery, effectiveHints.country ?? undefined);
       perfStep(perf, "library_quick_fallback", { docs: legalContext.length });
@@ -3112,6 +3189,23 @@ export async function POST(request: NextRequest) {
             await fetchGermanyAfricaBitInventory(getSupabaseServer() as any)
           );
 
+    const countryBilateralYearWindow = countryBilateralCatalog
+      ? parseYearWindowFromQuery(userQuery)
+      : null;
+    const countryBilateralInventoryBlock =
+      platformGuideMeta || !countryBilateralCatalog || !effectiveHints.country
+        ? null
+        : buildCountryBilateralInventoryPromptBlock(
+            await fetchCountryBilateralTreatyInventory(
+              getSupabaseServer() as any,
+              effectiveHints.country
+            ),
+            {
+              countryName: effectiveHints.country,
+              yearWindow: countryBilateralYearWindow,
+            }
+          );
+
     const fullLawRetrievalMode =
       Boolean(specificLawHint) ||
       userRequestsFullLawText(userQuery) ||
@@ -3135,17 +3229,20 @@ export async function POST(request: NextRequest) {
       lawTitleCatalogText: lawTitleCatalogText || null,
       webSearchSupplementBlock,
       germanyAfricaBitInventoryBlock: germanyAfricaBitInventoryBlock || null,
+      countryBilateralInventoryBlock: countryBilateralInventoryBlock || null,
       legalContextMaxDocs: useFullLibraryContext
         ? Math.max(1, legalContext.length)
         : latinAmericaTreatyCatalog
           ? LATIN_AMERICA_TREATY_CATALOG_MAX_DOCS
           : germanyAfricaBitCatalog
             ? GERMANY_AFRICA_BIT_CATALOG_MAX_DOCS
-            : globalTreatyCatalog
-              ? GLOBAL_TREATY_CATALOG_MAX_DOCS
-              : detailedMode
-                ? MAX_SYSTEM_PROMPT_LEGAL_DOCS_DETAILED
-                : MAX_SYSTEM_PROMPT_LEGAL_DOCS,
+            : countryBilateralCatalog
+              ? COUNTRY_BILATERAL_INVENTORY_MAX_DOCS
+              : globalTreatyCatalog
+                ? GLOBAL_TREATY_CATALOG_MAX_DOCS
+                : detailedMode
+                  ? MAX_SYSTEM_PROMPT_LEGAL_DOCS_DETAILED
+                  : MAX_SYSTEM_PROMPT_LEGAL_DOCS,
     };
     const systemPromptValidation = validateAiResearchSystemPromptParams(systemPromptParamsRaw, {
       originalLegalContextLength: legalContext.length,
