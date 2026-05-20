@@ -29,6 +29,16 @@ export async function GET(
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
 
+    const row = pageItem as {
+      id: string;
+      title: string;
+      price_cents: number;
+      currency: string | null;
+      published: boolean;
+      package_offers?: unknown;
+      landing_page_html?: string | null;
+    };
+
     const { data: catalog, error: catErr } = await supabase
       .from("marketplace_items")
       .select("id, title, price_cents, currency, published")
@@ -39,18 +49,9 @@ export async function GET(
     }
 
     const config =
-      parsePackageOffersConfigFromLandingHtml(pageItem.landing_page_html) ??
+      parsePackageOffersConfigFromLandingHtml(row.landing_page_html) ??
       parsePackageOffersEnvForPage(id);
 
-    const row = pageItem as {
-      id: string;
-      title: string;
-      price_cents: number;
-      currency: string | null;
-      published: boolean;
-      package_offers?: unknown;
-      landing_page_html?: string | null;
-    };
     const offers = resolvePackageOffersForPageItem(id, row, catalog, config);
 
     return NextResponse.json({ offers: offers ?? null });
