@@ -7,6 +7,9 @@ import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-coun
 import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
 import { LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE } from "@/lib/lomi-marketplace-checkout-cookie";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
+import { fetchPublishedMarketplaceItem } from "@/lib/marketplace-item-db";
+import { checkoutPriceCentsForTier } from "@/lib/marketplace-package-offers";
+import type { PackageOfferTier } from "@/lib/marketplace-package-offers";
 import type { Database } from "@/lib/database.types";
 
 type MarketplaceItemRow = Database["public"]["Tables"]["marketplace_items"]["Row"];
@@ -35,19 +38,21 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getSupabaseServer();
-    const { data, error } = await supabase
-      .from("marketplace_items")
-      .select("id, title, description, price_cents, currency, file_format, file_name")
-      .eq("id", itemId)
-      .eq("published", true)
-      .single();
+    const { data, error } = await fetchPublishedMarketplaceItem(
+      supabase,
+      itemId,
+      "id, title, description, price_cents, currency, file_format, file_name, published, landing_page_html"
+    );
 
     const item = data as MarketplaceItemRow | null;
-    if (error || !item) {
+    if (error || !item || !item.published) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
 
-    if (item.price_cents <= 0) {
+    const tier: PackageOfferTier =
+      body.tier === "bundle" || body.checkoutTier === "bundle" ? "bundle" : "standalone";
+    const chargeCents = checkoutPriceCentsForTier(item, tier);
+    if (chargeCents <= 0) {
       return NextResponse.json(
         { error: "Free items use Get for free – no checkout" },
         { status: 400 }
@@ -80,7 +85,7 @@ export async function POST(request: NextRequest) {
       }
 
       const { checkoutUrl, sessionId } = await createLomiHostedCheckoutSession({
-        amount: item.price_cents,
+        amount: chargeCents,
         currency_code: currencyCode,
         metadata: {
           clerk_user_id: userId,
@@ -116,7 +121,7 @@ export async function POST(request: NextRequest) {
 
     let amountMinor: number;
     try {
-      amountMinor = amountMinorForPawapayCountry(item.price_cents, storedCurrency, gate.country.currency);
+      amountMinor = amountMinorForPawapayCountry(chargeCents, storedCurrency, gate.country.currency);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Currency mismatch";
       return NextResponse.json({ error: msg }, { status: 400 });
