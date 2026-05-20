@@ -13,21 +13,12 @@ export function isMissingDbColumnError(error: unknown, column: string): boolean 
   );
 }
 
-type SupabaseLike = {
-  from: (table: string) => {
-    select: (cols: string) => {
-      eq: (col: string, val: string) => {
-        single: () => Promise<{ data: unknown; error: unknown }>;
-      };
-    };
-  };
-};
-
 /**
  * Fetch one marketplace row; retries without package_offers if the column is not migrated yet.
  */
 export async function fetchPublishedMarketplaceItem(
-  supabase: SupabaseLike,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- loose client typing avoids Postgrest builder depth errors
+  supabase: any,
   id: string,
   baseSelect: string
 ): Promise<{ data: Record<string, unknown> | null; error: unknown }> {
