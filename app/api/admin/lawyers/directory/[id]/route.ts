@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin";
+import { normalizeExpertiseField } from "@/lib/lawyer-expertise";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -61,7 +62,7 @@ export async function PATCH(
   const update: Record<string, unknown> = {
     name,
     country,
-    expertise,
+    expertise: normalizedExpertise,
     email,
     phone,
     primary_language: primaryLanguage,
