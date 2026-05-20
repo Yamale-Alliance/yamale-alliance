@@ -34,7 +34,7 @@ export default function AdminLawsFixOcrPage() {
   const stopRef = useRef(false);
 
   useEffect(() => {
-    fetch(`${window.location.origin}/api/laws`, { credentials: "include" })
+    fetch(`${window.location.origin}/api/laws?skipEnrichment=1`, { credentials: "include" })
       .then((r) => r.json())
       .then((data) => {
         setCountries(data.countries ?? []);
@@ -52,6 +52,7 @@ export default function AdminLawsFixOcrPage() {
     Promise.all(
       countryIds.map(async (countryId) => {
         const params = new URLSearchParams();
+        params.set("skipEnrichment", "1");
         params.set("countryId", countryId);
         const res = await fetch(`${window.location.origin}/api/laws?${params}`, { credentials: "include" });
         const data = await res.json();
