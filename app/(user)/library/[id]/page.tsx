@@ -34,6 +34,7 @@ import {
 import { LawyerMatchBanner } from "@/components/library/LawyerMatchBanner";
 import { LawContentsNav } from "@/components/library/LawContentsNav";
 import { LawExportPreviewDialog } from "@/components/library/LawExportPreviewDialog";
+import { LawFlagDialog } from "@/components/library/LawFlagDialog";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import {
   PaymentMethodPicker,
@@ -1890,6 +1891,15 @@ export default function LawDetailPage({
               </span>
             </div>
           )}
+
+          {law ? (
+            <LawFlagDialog
+              lawId={law.id}
+              lawTitle={law.title}
+              isSignedIn={Boolean(isSignedIn)}
+              variant="toolbar"
+            />
+          ) : null}
 
           {/* Bookmark toggle */}
           <div className="relative group">
