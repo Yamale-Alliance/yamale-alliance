@@ -61,6 +61,8 @@ export const CATEGORY_HINT_KEYWORDS: Readonly<Record<string, YamaleLawCategory>>
   trademarks: "Intellectual Property Law",
   "mark registration": "Intellectual Property Law",
   patent: "Intellectual Property Law",
+  /** Standalone abbreviation (e.g. "Zambia IP laws"); avoid matching inside paths like tcp/ip */
+  ip: "Intellectual Property Law",
   copyright: "Intellectual Property Law",
   "working hours": "Labor/Employment Law",
   "maximum working hours": "Labor/Employment Law",
