@@ -70,7 +70,7 @@ export function isNationalInvestmentLawExistenceQuery(query: string): boolean {
 }
 
 export const RE_INTELLECTUAL_PROPERTY =
-  /\b(intellectual\s+property|industrial\s+property|propri[eé]t[eé]\s+intellectuelle|copyright|trademark|trademarks|patent|patents|oapi|bangui|berne\s+convention|paris\s+convention|trips|wipo|علامة\s+تجارية|ملكية\s+فكرية)\b|(?:ملكية\s+فكرية|علامة\s+تجارية)/iu;
+  /\b(intellectual\s+property|industrial\s+property|propri[eé]t[eé]\s+intellectuelle|copyright|trademark|trademarks|patent|patents|oapi|bangui|berne\s+convention|paris\s+convention|trips|wipo|علامة\s+تجارية|ملكية\s+فكرية)\b|(?<![/-])\bip\b(?![/-])|(?:ملكية\s+فكرية|علامة\s+تجارية)/iu;
 
 export const RE_DISPUTE_RESOLUTION =
   /\b(dispute\s+resolution|arbitration|mediation|conciliation|new\s+york\s+convention|icsid|enforcement\s+of\s+arbitral|settlement\s+of\s+disputes|r[eè]glement\s+des\s+diff[eé]rends|arbitral\s+award)\b|(?:تحكيم|تسوية\s+المنازعات)/iu;
