@@ -1,16 +1,16 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
 import {
-  clampLawPrintPriceUsdCents,
-  DEFAULT_LAW_PRINT_PRICE_USD_CENTS,
-} from "@/lib/law-print-pricing";
+  type ContentPricingSnapshot,
+  CONTENT_PRICING_DEFAULTS,
+  readContentPricingFromRow,
+} from "@/lib/content-pricing";
 
 export type PlatformSettingsSnapshot = {
   logoUrl: string | null;
   faviconUrl: string | null;
   heroImageUrl: string | null;
   founderPortraitUrl: string | null;
-  lawPrintPriceUsdCents: number;
-};
+} & ContentPricingSnapshot;
 
 let cachedSettings: PlatformSettingsSnapshot | null = null;
 let cacheTimestamp = 0;
@@ -23,8 +23,11 @@ function stripNoise(s: string): string {
     .trim();
 }
 
-const PLATFORM_SETTINGS_BASE_SELECT =
-  "logo_url, favicon_url, hero_image_url, law_print_price_usd_cents";
+const PLATFORM_SETTINGS_BRANDING_SELECT =
+  "logo_url, favicon_url, hero_image_url, founder_portrait_url";
+const PLATFORM_SETTINGS_PRICING_SELECT =
+  "law_print_price_usd_cents, lawyer_search_unlock_price_usd_cents, day_pass_price_usd_cents, ai_query_price_usd_cents, afcfta_report_price_usd_cents";
+const PLATFORM_SETTINGS_BASE_SELECT = `logo_url, favicon_url, hero_image_url, ${PLATFORM_SETTINGS_PRICING_SELECT}`;
 const PLATFORM_SETTINGS_FULL_SELECT = `${PLATFORM_SETTINGS_BASE_SELECT}, founder_portrait_url`;
 
 function formatSupabaseError(error: unknown): string {
@@ -41,35 +44,25 @@ function formatSupabaseError(error: unknown): string {
     .join(" — ");
 }
 
-function isMissingFounderPortraitColumnError(error: unknown): boolean {
+function isMissingColumnError(error: unknown, columnHint: string): boolean {
   const text = formatSupabaseError(error).toLowerCase();
   const code = typeof error === "object" && error && "code" in error ? String((error as { code?: string }).code ?? "") : "";
   return (
-    text.includes("founder_portrait_url") ||
+    text.includes(columnHint.toLowerCase()) ||
     (text.includes("column") && text.includes("does not exist")) ||
     code === "42703" ||
     code === "PGRST204"
   );
 }
 
-function rowToSnapshot(row: {
-  logo_url?: string | null;
-  favicon_url?: string | null;
-  hero_image_url?: string | null;
-  founder_portrait_url?: string | null;
-  law_print_price_usd_cents?: number | null;
-} | null): PlatformSettingsSnapshot {
-  const rawPrintCents = row?.law_print_price_usd_cents;
-  const lawPrintPriceUsdCents =
-    typeof rawPrintCents === "number" && Number.isFinite(rawPrintCents)
-      ? clampLawPrintPriceUsdCents(rawPrintCents)
-      : DEFAULT_LAW_PRINT_PRICE_USD_CENTS;
+function rowToSnapshot(row: Record<string, unknown> | null): PlatformSettingsSnapshot {
+  const pricing = readContentPricingFromRow(row);
   return {
-    logoUrl: row?.logo_url || null,
-    faviconUrl: row?.favicon_url || null,
-    heroImageUrl: row?.hero_image_url || null,
-    founderPortraitUrl: row?.founder_portrait_url || null,
-    lawPrintPriceUsdCents,
+    logoUrl: (row?.logo_url as string | null) || null,
+    faviconUrl: (row?.favicon_url as string | null) || null,
+    heroImageUrl: (row?.hero_image_url as string | null) || null,
+    founderPortraitUrl: (row?.founder_portrait_url as string | null) || null,
+    ...pricing,
   };
 }
 
@@ -79,42 +72,29 @@ function emptyPlatformSettings(): PlatformSettingsSnapshot {
     faviconUrl: null,
     heroImageUrl: null,
     founderPortraitUrl: null,
-    lawPrintPriceUsdCents: DEFAULT_LAW_PRINT_PRICE_USD_CENTS,
+    ...CONTENT_PRICING_DEFAULTS,
   };
 }
 
-/**
- * Get platform logo URL (server-side)
- */
 export async function getPlatformLogo(): Promise<string | null> {
   const settings = await getPlatformSettings();
   return settings.logoUrl;
 }
 
-/**
- * Get platform favicon URL (server-side)
- */
 export async function getPlatformFavicon(): Promise<string | null> {
   const settings = await getPlatformSettings();
   return settings.faviconUrl;
 }
 
-/**
- * Get platform hero image URL (server-side) — shown large on the main page
- */
 export async function getPlatformHeroImage(): Promise<string | null> {
   const settings = await getPlatformSettings();
   return settings.heroImageUrl;
 }
 
-/**
- * Get platform settings (server-side, cached)
- */
 export async function getPlatformSettings(): Promise<PlatformSettingsSnapshot> {
   const now = Date.now();
-  
-  // Return cached settings if still valid
-  if (cachedSettings && (now - cacheTimestamp) < CACHE_TTL) {
+
+  if (cachedSettings && now - cacheTimestamp < CACHE_TTL) {
     return cachedSettings;
   }
 
@@ -126,10 +106,18 @@ export async function getPlatformSettings(): Promise<PlatformSettingsSnapshot> {
       .eq("id", "main")
       .maybeSingle();
 
-    // Backward-compatible: DBs without the founder portrait migration still load logo/favicon.
-    if (error && isMissingFounderPortraitColumnError(error)) {
+    if (error && isMissingColumnError(error, "founder_portrait_url")) {
       const retry = await (supabase.from("platform_settings") as any)
         .select(PLATFORM_SETTINGS_BASE_SELECT)
+        .eq("id", "main")
+        .maybeSingle();
+      data = retry.data;
+      error = retry.error;
+    }
+
+    if (error && isMissingColumnError(error, "day_pass_price_usd_cents")) {
+      const retry = await (supabase.from("platform_settings") as any)
+        .select(`${PLATFORM_SETTINGS_BRANDING_SELECT}, law_print_price_usd_cents`)
         .eq("id", "main")
         .maybeSingle();
       data = retry.data;
@@ -145,15 +133,7 @@ export async function getPlatformSettings(): Promise<PlatformSettingsSnapshot> {
       return emptyPlatformSettings();
     }
 
-    const settings = rowToSnapshot(
-      data as {
-        logo_url?: string | null;
-        favicon_url?: string | null;
-        hero_image_url?: string | null;
-        founder_portrait_url?: string | null;
-        law_print_price_usd_cents?: number | null;
-      } | null
-    );
+    const settings = rowToSnapshot(data as Record<string, unknown> | null);
 
     cachedSettings = settings;
     cacheTimestamp = now;
@@ -164,15 +144,31 @@ export async function getPlatformSettings(): Promise<PlatformSettingsSnapshot> {
   }
 }
 
-/** Pay-as-you-go law PDF unlock price (USD cents) for checkout and display. */
 export async function getLawPrintPriceUsdCents(): Promise<number> {
-  const settings = await getPlatformSettings();
-  return settings.lawPrintPriceUsdCents;
+  return (await getPlatformSettings()).lawPrintPriceUsdCents;
 }
 
-/**
- * Clear platform settings cache (call after updates)
- */
+export async function getDayPassPriceUsdCents(): Promise<number> {
+  return (await getPlatformSettings()).dayPassPriceUsdCents;
+}
+
+export async function getLawyerSearchUnlockPriceUsdCents(): Promise<number> {
+  return (await getPlatformSettings()).lawyerSearchUnlockPriceUsdCents;
+}
+
+/** Legacy per-lawyer unlock checkout — uses the same price as lawyer directory search. */
+export async function getLawyerUnlockPriceUsdCents(): Promise<number> {
+  return getLawyerSearchUnlockPriceUsdCents();
+}
+
+export async function getAiQueryPriceUsdCents(): Promise<number> {
+  return (await getPlatformSettings()).aiQueryPriceUsdCents;
+}
+
+export async function getAfcftaReportPriceUsdCents(): Promise<number> {
+  return (await getPlatformSettings()).afcftaReportPriceUsdCents;
+}
+
 export function clearPlatformSettingsCache(): void {
   cachedSettings = null;
   cacheTimestamp = 0;
