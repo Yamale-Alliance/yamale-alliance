@@ -118,7 +118,11 @@ import {
   shouldAttemptContextualWebSearch,
 } from "@/lib/ai-web-search";
 import { isPlatformGuideMetaQuery } from "@/lib/ai-platform-meta-query";
-import { extractCitedDocIndices, citedSlotsAsUsedFlags } from "@/lib/ai-citation-verify";
+import {
+  citedSlotsAsUsedFlags,
+  extractCitedDocIndices,
+  mergeUsedFlagsFromTitleMentions,
+} from "@/lib/ai-citation-verify";
 import { insertAiQueryLog } from "@/lib/ai-query-log";
 import {
   createAiPerfTimer,
@@ -760,6 +764,18 @@ function isClearlyOffTopicForPrimaryIntent(
       if (looksCooperative) return true;
       if (/\bau\s+sommaire\b/i.test(title)) return true;
     }
+  }
+  if (primaryIntentId === "intellectual_property") {
+    const ipSignals =
+      /(intellectual|patent|trademark|trade\s*mark|copyright|industrial\s+design|plant\s+breed|traditional\s+knowledge|folklore|geographical\s+indication|utility\s*model|wipo|berne|paris\s+convention|trips|oapi|bangui|aripo|performers?\s+rights?|neighbou?ring\s+rights?)/i;
+    const head = blob.slice(0, 6000);
+    const taxOnly =
+      /\b(tax|vat|income tax|customs|excise)\b/i.test(category) && !ipSignals.test(title) && !ipSignals.test(head);
+    const laborOnly =
+      /\b(labor|labour|employment|workers?\s+compensation)\b/i.test(category) && !ipSignals.test(title) && !ipSignals.test(head);
+    const privacyOnly =
+      /\b(data\s+protection|privacy|cyber)\b/i.test(category) && !ipSignals.test(title) && !ipSignals.test(head);
+    if (taxOnly || laborOnly || privacyOnly) return true;
   }
   return false;
 }
@@ -2592,6 +2608,76 @@ async function searchLegalLibraryQuickFallback(
 
 type LegalContextItem = LegalLibrarySearchResult[number];
 
+/** Shape expected by {@link isClearlyOffTopicForPrimaryIntent} from a flattened {@link LegalContextItem}. */
+function legalContextItemAsLawRowForIntent(law: LegalContextItem) {
+  return {
+    title: law.title,
+    content_plain: law.content,
+    content: law.content,
+    categories: { name: law.category },
+  };
+}
+
+/**
+ * Ranking-style tokens for gating which retrieved instruments appear as user-facing source cards.
+ * Mirrors the keyword side of library search without DB access.
+ */
+function buildSourceCardQueryContext(userQuery: string): {
+  primaryIntentId: string;
+  overlapTokens: string[];
+} {
+  const qForTokens = normalizeSearchQueryForAi(userQuery);
+  const resolvedIntent = resolveLibrarySearchIntent(qForTokens.toLowerCase());
+  const rawTokens = extractSearchTokens(qForTokens);
+  const expandedLower = resolvedIntent.mergedLexiconExtra.map((t) => t.toLowerCase());
+  const mergedForRank = prioritizeTokensForLibrarySearch(
+    Array.from(new Set([...rawTokens.map((t) => t.toLowerCase()), ...expandedLower])),
+    resolvedIntent.primaryId
+  );
+  const denySet = new Set(resolvedIntent.substantiveTokenDenylist.map((t) => t.toLowerCase()));
+  const substantive = filterSubstantiveSearchTokens(mergedForRank).filter((t) => !denySet.has(t.toLowerCase()));
+  const base = substantive.length > 0 ? substantive : mergedForRank.slice(0, 18);
+  const overlapTokens = Array.from(new Set([...base, ...expandedLower]))
+    .map((t) => t.trim().toLowerCase())
+    .filter((t) => {
+      if (t.length >= 3) return true;
+      return t === "ip";
+    })
+    .slice(0, 40);
+  return { primaryIntentId: resolvedIntent.primaryId, overlapTokens };
+}
+
+/**
+ * Drop loosely-retrieved instruments from source cards unless the model cited them or they clearly
+ * match the user's question (intent guard + token overlap in title/category/body excerpt).
+ */
+function legalContextItemEligibleForDisplayedSourceCard(
+  law: LegalContextItem,
+  userQuery: string,
+  overlapTokens: string[],
+  primaryIntentId: string,
+  usedInAnswer: boolean
+): boolean {
+  if (usedInAnswer) return true;
+  const lawRow = legalContextItemAsLawRowForIntent(law);
+  if (isClearlyOffTopicForPrimaryIntent(lawRow, primaryIntentId, overlapTokens, userQuery)) {
+    return false;
+  }
+  const blob = `${law.title}\n${law.category}\n${law.content}`.toLowerCase();
+  for (const t of overlapTokens) {
+    if (!t) continue;
+    if (t.includes(" ")) {
+      if (blob.includes(t)) return true;
+    } else if (t === "ip") {
+      if (/\bip\b/i.test(blob)) return true;
+    } else if (t.length >= 3 && blob.includes(t)) {
+      return true;
+    }
+  }
+  const rs = typeof law.retrievalScore === "number" ? law.retrievalScore : 0;
+  return rs >= 16;
+}
+
 async function finalizeAssistantTurn(opts: {
   assistantTextRaw: string;
   legalContext: LegalContextItem[];
@@ -2666,23 +2752,43 @@ async function finalizeAssistantTurn(opts: {
     await incrementAiUsage(userId, inputTokens, outputTokens);
   }
 
-  const sources = platformGuideMeta
-    ? []
-    : legalContext.length > 0
-      ? [
-          ...Array.from(new Set(legalContext.map((law) => `${law.title} (${law.country})`))),
-          "Claude AI · African Legal Research",
-        ]
-      : ["Claude AI · African Legal Research"];
-
   const citationParse = extractCitedDocIndices(assistantTextRaw, legalContext.length);
   const content = assistantTextRaw
     .replace(/\s*\[(?=[^\]]*\bdoc:\s*\d+)[^\]]+\]/gi, "")
     .replace(/[ \t]{2,}/g, " ")
     .trim();
-  const usedFlags = citedSlotsAsUsedFlags(citationParse.citedDocIndices, legalContext.length);
+  let usedFlags = citedSlotsAsUsedFlags(citationParse.citedDocIndices, legalContext.length);
+  usedFlags = mergeUsedFlagsFromTitleMentions(
+    assistantTextRaw,
+    legalContext.map((l) => l.title),
+    usedFlags
+  );
 
-  const sourceCardsRaw = legalContext.map((law, idx) => ({
+  const cardCtx = buildSourceCardQueryContext(userQuery);
+  const displayedSlots = legalContext
+    .map((law, idx) => ({ law, idx, usedInAnswer: Boolean(usedFlags[idx]) }))
+    .filter(({ law, usedInAnswer }) =>
+      legalContextItemEligibleForDisplayedSourceCard(
+        law,
+        userQuery,
+        cardCtx.overlapTokens,
+        cardCtx.primaryIntentId,
+        usedInAnswer
+      )
+    );
+
+  const sources = platformGuideMeta
+    ? []
+    : displayedSlots.length > 0
+      ? [
+          ...Array.from(new Set(displayedSlots.map(({ law }) => `${law.title} (${law.country})`))),
+          "Claude AI · African Legal Research",
+        ]
+      : legalContext.length > 0
+        ? ["Claude AI · African Legal Research"]
+        : ["Claude AI · African Legal Research"];
+
+  const sourceCardsRaw = displayedSlots.map(({ law, idx, usedInAnswer }) => ({
     lawId: law.id,
     title: law.title,
     country: law.country,
@@ -2690,7 +2796,7 @@ async function finalizeAssistantTurn(opts: {
     status: law.status || "In force",
     snippet: law.content.slice(0, 220).replace(/\s+/g, " ").trim(),
     retrievalScore: typeof law.retrievalScore === "number" ? law.retrievalScore : undefined,
-    usedInAnswer: Boolean(usedFlags[idx]),
+    usedInAnswer,
     docSlot: idx + 1,
   }));
 
@@ -2703,7 +2809,7 @@ async function finalizeAssistantTurn(opts: {
       }
       return a.usedInAnswer ? -1 : 1;
     })
-  );
+  ).map(({ retrievalScore: _rs, ...card }) => card);
 
   const citationVerification = {
     invalidDocRefs: citationParse.invalidDocRefs,
@@ -2939,7 +3045,6 @@ export async function POST(request: NextRequest) {
         category: "International Trade Laws",
         status: row.status,
         snippet: "",
-        retrievalScore: inventory.length - idx,
         usedInAnswer: true,
         docSlot: idx + 1,
       }));
