@@ -10,11 +10,14 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status") ?? undefined;
     const q = searchParams.get("q") ?? undefined;
 
+    const skipEnrichment = searchParams.get("skipEnrichment") === "1";
+
     const data = await fetchLibraryData({
       countryId,
       categoryId,
       status,
       q: q ?? undefined,
+      skipEnrichment,
     });
 
     return NextResponse.json({
