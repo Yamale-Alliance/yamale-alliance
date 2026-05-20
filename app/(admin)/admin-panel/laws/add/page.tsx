@@ -38,7 +38,7 @@ export default function AdminLawsAddPage() {
 
 
   useEffect(() => {
-    fetch(`${window.location.origin}/api/laws`, { credentials: "include" })
+    fetch(`${window.location.origin}/api/laws?skipEnrichment=1`, { credentials: "include" })
       .then((r) => r.json())
       .then((data) => {
         setCountries(data.countries ?? []);
