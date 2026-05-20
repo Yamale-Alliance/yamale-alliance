@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { normalizeExpertiseField } from "@/lib/lawyer-expertise";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 /** GET: public list of approved lawyers from directory (no contact details). */
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
       .insert({
         name,
         country,
-        expertise,
+        expertise: normalizedExpertise,
         email,
         phone,
         contacts: null,
