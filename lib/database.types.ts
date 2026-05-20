@@ -831,6 +831,43 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["ai_bug_reports"]["Insert"]>;
       };
+      law_flags: {
+        Row: {
+          id: string;
+          law_id: string;
+          user_id: string;
+          user_name: string | null;
+          user_email: string | null;
+          law_title: string;
+          law_country: string | null;
+          law_category: string | null;
+          issue_category: string;
+          issue_details: string | null;
+          status: string;
+          admin_notes: string | null;
+          created_at: string;
+          updated_at: string;
+          resolved_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          law_id: string;
+          user_id: string;
+          user_name?: string | null;
+          user_email?: string | null;
+          law_title: string;
+          law_country?: string | null;
+          law_category?: string | null;
+          issue_category: string;
+          issue_details?: string | null;
+          status?: string;
+          admin_notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          resolved_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["law_flags"]["Insert"]>;
+      };
       law_country_scopes: {
         Row: {
           id: string;
