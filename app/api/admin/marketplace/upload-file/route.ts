@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin";
+import { extractLandingPageHtmlFromZip } from "@/lib/marketplace-zip-landing";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 const BUCKET = "marketplace-files";
@@ -96,9 +97,20 @@ export async function POST(request: NextRequest) {
   }
 
   const fileFormat = ALLOWED_MIMES[contentType] ?? ext;
+
+  let landing_page_html: string | null = null;
+  if (ext === "zip") {
+    try {
+      landing_page_html = await extractLandingPageHtmlFromZip(buffer);
+    } catch (err) {
+      console.warn("ZIP landing HTML extraction skipped:", err);
+    }
+  }
+
   return NextResponse.json({
     path: storagePath,
     file_name: file.name,
     file_format: fileFormat,
+    ...(landing_page_html ? { landing_page_html } : {}),
   });
 }
