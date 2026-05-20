@@ -32,6 +32,14 @@ import { fetchDocumentExportUnlockLawIds } from "@/lib/library-document-export-u
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
 import { formatLawPrintPriceUsd } from "@/lib/law-print-pricing";
 import { LibraryFiltersBar } from "@/components/library/LibraryFiltersBar";
+import {
+  buildLibrarySearchHaystack,
+  detectCountryFromSearchTokens,
+  expandLibrarySearchFromQuery,
+  parseLibrarySearchQuery,
+  scoreLibrarySearchEntry,
+  tokenizeLibrarySearch,
+} from "@/lib/library-client-search";
 
 const PAGE_SIZE = 12;
 const SUPPORT_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
@@ -176,85 +184,23 @@ function mapRowToLaw(row: LibraryLawRow): Law {
   };
 }
 
-function tokenizeSearch(input: string): string[] {
-  return input
-    .toLowerCase()
-    .replace(/[^\w\s:-]/g, " ")
-    .split(/\s+/)
-    .map((t) => t.trim())
-    .filter((t) => t.length >= 2);
-}
-
-function parseSearchQuery(input: string): {
-  freeText: string;
-  tokens: string[];
-  country?: string;
-  category?: string;
-  classification?: string;
-  documentType?: string;
-  yearFrom?: number;
-  yearTo?: number;
-} {
-  const parts = input.trim().split(/\s+/);
-  const filters: Record<string, string> = {};
-  const remaining: string[] = [];
-  for (const part of parts) {
-    const idx = part.indexOf(":");
-    if (idx > 0) {
-      const key = part.slice(0, idx).toLowerCase();
-      const value = part.slice(idx + 1).trim();
-      if (value) filters[key] = value;
-      continue;
-    }
-    remaining.push(part);
-  }
-  const freeText = remaining.join(" ").trim();
-  const parsed = {
-    freeText,
-    tokens: tokenizeSearch(freeText),
-    country: filters.country || filters.jurisdiction,
-    category: filters.category,
-    classification: filters.classification || filters.treaty,
-    documentType: filters.type || filters.document,
-    yearFrom: Number.parseInt(filters.from || filters.yearfrom || "", 10),
-    yearTo: Number.parseInt(filters.to || filters.yearto || "", 10),
-  };
-  return {
-    ...parsed,
-    yearFrom: Number.isFinite(parsed.yearFrom) ? parsed.yearFrom : undefined,
-    yearTo: Number.isFinite(parsed.yearTo) ? parsed.yearTo : undefined,
-  };
-}
-
 type LawSearchIndexEntry = {
   law: Law;
-  nameLower: string;
-  categoryLower: string;
-  countryLower: string;
-  haystack: string;
+  index: ReturnType<typeof buildLibrarySearchHaystack>;
 };
 
 function buildLawSearchIndex(laws: Law[]): LawSearchIndexEntry[] {
   return laws.map((law) => ({
     law,
-    nameLower: law.name.toLowerCase(),
-    categoryLower: law.category.toLowerCase(),
-    countryLower: law.country.toLowerCase(),
-    haystack: `${law.name} ${law.category} ${law.country} ${law.document_type} ${law.treaty_type ?? ""}`.toLowerCase(),
+    index: buildLibrarySearchHaystack({
+      title: law.name,
+      category: law.category,
+      country: law.country,
+      documentType: law.document_type,
+      treatyType: law.treaty_type ?? "",
+      sourceName: law.source_name,
+    }),
   }));
-}
-
-function scoreIndexedLaw(entry: LawSearchIndexEntry, tokens: string[]) {
-  if (tokens.length === 0) return 1;
-  let score = 0;
-  for (const token of tokens) {
-    if (entry.nameLower.includes(token)) score += 5;
-    else if (entry.categoryLower.includes(token)) score += 3;
-    else if (entry.countryLower.includes(token)) score += 2;
-    else if (entry.haystack.includes(token)) score += 1;
-    else return 0;
-  }
-  return score;
 }
 
 /** Update `?q=` in the URL without a Next.js RSC refetch (shareable links, fast typing). */
@@ -667,6 +613,7 @@ export function LibraryView({
       if (id) params.set("categoryId", id);
     }
     if (status) params.set("status", status);
+    if (search.trim()) params.set("q", search.trim());
     const query = params.toString();
     const url = `/api/laws${query ? `?${query}` : ""}`;
 
@@ -699,6 +646,7 @@ export function LibraryView({
     initialLaws,
     initialLawCount,
     hasServerFilters,
+    search,
   ]);
 
 
@@ -829,7 +777,7 @@ export function LibraryView({
       out.push(value);
     };
     for (const entry of lawSearchIndex) {
-      if (entry.nameLower.includes(needle)) push(entry.law.name);
+      if (entry.index.nameLower.includes(needle)) push(entry.law.name);
       if (out.length >= 8) return out;
     }
     for (const c of countries) {
@@ -854,26 +802,39 @@ export function LibraryView({
     return out;
   }, [deferredSearchInput, lawSearchIndex, countries, categories]);
 
+  const countryNames = useMemo(() => countries.map((c) => c.name), [countries]);
+
   const scoredFilteredLaws = useMemo(() => {
-    const parsed = parseSearchQuery(deferredSearch);
-    const freeTokens = parsed.tokens;
+    const parsed = parseLibrarySearchQuery(deferredSearch);
+    const { searchTokens, countryHint } = detectCountryFromSearchTokens(parsed.tokens, countryNames);
+    const { matchTokens: freeTokens, categoryHints } = expandLibrarySearchFromQuery(
+      parsed.freeText,
+      searchTokens
+    );
+    const effectiveCountryFilter = country || countryHint;
     const minYear = Number.parseInt(yearFrom, 10);
     const maxYear = Number.parseInt(yearTo, 10);
     const hasSearch = freeTokens.length > 0;
     const out: { law: Law; score: number }[] = [];
     for (const entry of lawSearchIndex) {
       const law = entry.law;
-      const score = hasSearch ? scoreIndexedLaw(entry, freeTokens) : 1;
+      const score = hasSearch
+        ? scoreLibrarySearchEntry(entry.index, freeTokens, { categoryHints })
+        : 1;
       if (hasSearch && score <= 0) continue;
       const lawTreaty = (law.treaty_type ?? "Not a treaty").toLowerCase();
-      const matchCountry = !country || law.country === country || law.applies_globally;
+      const matchCountry =
+        !effectiveCountryFilter ||
+        law.country === effectiveCountryFilter ||
+        law.applies_globally;
       const matchCategory = !category || law.category === category;
       const matchStatus = !status || law.status === status;
       const matchDocType = !documentType || law.document_type === documentType;
       const matchTreaty = !treatyType || lawTreaty === treatyType.toLowerCase();
       const matchYearFrom = !Number.isFinite(minYear) || (typeof law.year === "number" && law.year >= minYear);
       const matchYearTo = !Number.isFinite(maxYear) || (typeof law.year === "number" && law.year <= maxYear);
-      const matchQueryCountry = !parsed.country || law.country.toLowerCase().includes(parsed.country.toLowerCase());
+      const matchQueryCountry =
+        !parsed.country || law.country.toLowerCase().includes(parsed.country.toLowerCase());
       const matchQueryCategory = !parsed.category || law.category.toLowerCase().includes(parsed.category.toLowerCase());
       const matchQueryDocType = !parsed.documentType || law.document_type.toLowerCase().includes(parsed.documentType.toLowerCase());
       const matchQueryClassification = !parsed.classification || lawTreaty.includes(parsed.classification.toLowerCase());
@@ -898,11 +859,22 @@ export function LibraryView({
       }
     }
     return out;
-  }, [lawSearchIndex, deferredSearch, country, category, status, documentType, treatyType, yearFrom, yearTo]);
+  }, [
+    lawSearchIndex,
+    deferredSearch,
+    country,
+    countryNames,
+    category,
+    status,
+    documentType,
+    treatyType,
+    yearFrom,
+    yearTo,
+  ]);
 
   const sortedLaws = useMemo(() => {
     const list = [...scoredFilteredLaws];
-    const hasSearch = tokenizeSearch(deferredSearch).length > 0;
+    const hasSearch = tokenizeLibrarySearch(parseLibrarySearchQuery(deferredSearch).freeText).length > 0;
     list.sort((a, b) => {
       if (hasSearch && b.score !== a.score) return b.score - a.score;
       switch (sortBy) {
@@ -1117,7 +1089,7 @@ export function LibraryView({
             <Search className="pointer-events-none absolute left-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="search"
-              placeholder="Search by law name, category, or keyword…"
+              placeholder="Search by keyword — e.g. patent, Zambia, labour, investment…"
               value={searchInput}
               onChange={(e) => handleSearchChange(e.target.value)}
               onFocus={() => setShowSuggestions(true)}
@@ -1321,7 +1293,7 @@ export function LibraryView({
             </div>
             {sortedLaws.length === 0 && (
               <p className="py-12 text-center text-muted-foreground">
-                No laws match your filters. Try adjusting your search or filters.
+                No laws match your search. Try one or two keywords (e.g. &quot;patent Zambia&quot;) or clear filters.
               </p>
             )}
             <aside className="mt-12 rounded-xl border border-border bg-muted px-5 py-5 sm:px-6">
