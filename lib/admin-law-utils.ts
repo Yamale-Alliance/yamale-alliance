@@ -2,6 +2,14 @@
 
 export const VALID_LAW_STATUSES = ["In force", "Amended", "Repealed"] as const;
 
+/** Earliest enactment years in the library (colonial-era statutes). */
+export const LAW_YEAR_MIN = 1800;
+export const LAW_YEAR_MAX = 2100;
+
+export function isValidLawYear(year: number): boolean {
+  return Number.isFinite(year) && year >= LAW_YEAR_MIN && year <= LAW_YEAR_MAX;
+}
+
 export function sanitizeLawContent(text: string | null): string | null {
   if (!text?.trim()) return null;
   return text
