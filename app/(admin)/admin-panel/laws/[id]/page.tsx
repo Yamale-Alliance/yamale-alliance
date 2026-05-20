@@ -61,7 +61,7 @@ export default function AdminLawEditPage() {
   const { confirm, confirmDialog } = useConfirm();
 
   useEffect(() => {
-    fetch(`${window.location.origin}/api/laws`, { credentials: "include" })
+    fetch(`${window.location.origin}/api/laws?skipEnrichment=1`, { credentials: "include" })
       .then((r) => r.json())
       .then((data) => {
         setCountries(data.countries ?? []);
