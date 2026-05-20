@@ -4,6 +4,7 @@
  */
 
 import * as XLSX from "xlsx";
+import { isValidLawYear } from "@/lib/admin-law-utils";
 
 export type TreatyBulkParsedRow = {
   /** 1-based data row index for display (first data row = 1) */
@@ -74,7 +75,7 @@ export function headerToField(
 function parseYear(raw: string | undefined): number | null {
   if (!raw?.trim()) return null;
   const n = parseInt(raw.replace(/[^\d]/g, ""), 10);
-  if (Number.isNaN(n) || n < 1800 || n > 2200) return null;
+  if (Number.isNaN(n) || !isValidLawYear(n)) return null;
   return n;
 }
 
