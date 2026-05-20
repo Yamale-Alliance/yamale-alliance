@@ -2,23 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin";
 import {
-  clampLawPrintPriceUsdCents,
-  DEFAULT_LAW_PRINT_PRICE_USD_CENTS,
-  formatLawPrintPriceUsd,
-  parseLawPrintPriceUsdInput,
-} from "@/lib/law-print-pricing";
-import { clearPlatformSettingsCache, getLawPrintPriceUsdCents } from "@/lib/platform-settings";
+  contentPricingDbColumn,
+  contentPricingToApiPayload,
+  CONTENT_PRICING_DEFAULTS,
+  parseContentPricingPatchBody,
+  type ContentPricingKey,
+} from "@/lib/content-pricing";
+import { clearPlatformSettingsCache, getPlatformSettings } from "@/lib/platform-settings";
 
 export async function GET() {
   const admin = await requireAdmin();
   if (admin instanceof NextResponse) return admin;
 
   try {
-    const lawPrintPriceUsdCents = await getLawPrintPriceUsdCents();
+    const settings = await getPlatformSettings();
     return NextResponse.json({
-      lawPrintPriceUsdCents,
-      lawPrintPriceDisplay: formatLawPrintPriceUsd(lawPrintPriceUsdCents),
-      defaultUsdCents: DEFAULT_LAW_PRINT_PRICE_USD_CENTS,
+      ...contentPricingToApiPayload(settings),
+      defaults: CONTENT_PRICING_DEFAULTS,
     });
   } catch (err) {
     console.error("Admin content pricing GET error:", err);
@@ -32,38 +32,42 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json().catch(() => ({}));
-    let cents: number | null = null;
-
-    if (typeof body.lawPrintPriceUsdCents === "number") {
-      cents = clampLawPrintPriceUsdCents(body.lawPrintPriceUsdCents);
-    } else if (typeof body.lawPrintPriceUsd === "string") {
-      cents = parseLawPrintPriceUsdInput(body.lawPrintPriceUsd);
-    }
-
-    if (cents === null) {
+    const patch = parseContentPricingPatchBody(body as Record<string, unknown>);
+    const keys = Object.keys(patch) as ContentPricingKey[];
+    if (keys.length === 0) {
       return NextResponse.json(
-        { error: "Provide lawPrintPriceUsd (e.g. \"3\" or \"2.50\") or lawPrintPriceUsdCents." },
+        {
+          error:
+            "Provide at least one price field (e.g. dayPassPriceUsd, lawyerSearchUnlockPriceUsd, lawPrintPriceUsd).",
+        },
         { status: 400 }
       );
     }
 
+    const updates: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+      updated_by: admin.userId,
+    };
+    for (const key of keys) {
+      const cents = patch[key];
+      if (typeof cents === "number") {
+        updates[contentPricingDbColumn(key)] = cents;
+      }
+    }
+
     const supabase = getSupabaseServer();
     const { error: updateError } = await (supabase.from("platform_settings") as any)
-      .update({
-        law_print_price_usd_cents: cents,
-        updated_at: new Date().toISOString(),
-        updated_by: admin.userId,
-      })
+      .update(updates)
       .eq("id", "main");
 
     if (updateError) {
       console.error("Admin content pricing PATCH error:", updateError);
       const msg = String((updateError as { message?: string }).message ?? "");
-      if (/law_print_price_usd_cents|column/i.test(msg)) {
+      if (/column|does not exist/i.test(msg)) {
         return NextResponse.json(
           {
             error:
-              "Database column law_print_price_usd_cents is missing. Run docs/sql/007_law_print_price.sql in Supabase.",
+              "Pricing columns are missing in platform_settings. Run supabase/migrations/20260520100000_platform_payg_pricing.sql.",
           },
           { status: 500 }
         );
@@ -72,11 +76,11 @@ export async function PATCH(request: NextRequest) {
     }
 
     clearPlatformSettingsCache();
+    const settings = await getPlatformSettings();
 
     return NextResponse.json({
       ok: true,
-      lawPrintPriceUsdCents: cents,
-      lawPrintPriceDisplay: formatLawPrintPriceUsd(cents),
+      ...contentPricingToApiPayload(settings),
     });
   } catch (err) {
     console.error("Admin content pricing PATCH unexpected error:", err);
