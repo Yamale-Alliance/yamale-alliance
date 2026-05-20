@@ -59,9 +59,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "One or more items not found" }, { status: 404 });
     }
 
-    const pricedItems: PricedLine[] = rows.map((r) => ({
+    type ItemRow = {
+      id: string;
+      title: string;
+      price_cents: number;
+      currency: string | null;
+      published: boolean;
+    };
+    const itemRows = rows as ItemRow[];
+
+    const pricedItems: PricedLine[] = itemRows.map((r) => ({
       currency: (r.currency || process.env.PAWAPAY_CURRENCY || "USD").toUpperCase(),
-      title: r.title as string,
+      title: r.title,
       price_cents: Number(r.price_cents) || 0,
       quantity: 1,
     }));
