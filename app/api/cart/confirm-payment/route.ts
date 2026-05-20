@@ -131,6 +131,7 @@ export async function POST(request: NextRequest) {
       itemIds: ids,
       sessionId,
     });
+    await clearUserShoppingCart(userId);
 
     const res = NextResponse.json({ ok: true, marketplace_item_ids: ids, provider: "pawapay" });
     res.cookies.set(LOMI_MARKETPLACE_CART_CHECKOUT_COOKIE, "", { path: "/", maxAge: 0 });
