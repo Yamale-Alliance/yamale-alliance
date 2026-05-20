@@ -190,15 +190,23 @@ export function dedupeLawsByNormalizedTitle<T extends LawSourceDisplayInput & { 
 }
 
 export function dedupeSourceCardsByTitle<
-  T extends { title: string; country: string; retrievalScore?: number },
+  T extends { title: string; country: string; retrievalScore?: number; usedInAnswer?: boolean },
 >(cards: T[]): T[] {
   const byTitle = new Map<string, T>();
   for (const card of cards) {
     const key = normalizeTitleKey(card.title);
     const prev = byTitle.get(key);
-    if (!prev || (card.retrievalScore ?? 0) > (prev.retrievalScore ?? 0)) {
+    if (!prev) {
       byTitle.set(key, card);
+      continue;
     }
+    const preferNew = (card.retrievalScore ?? 0) > (prev.retrievalScore ?? 0);
+    const base = preferNew ? card : prev;
+    const merged = {
+      ...base,
+      usedInAnswer: Boolean((prev as { usedInAnswer?: boolean }).usedInAnswer || card.usedInAnswer),
+    } as T;
+    byTitle.set(key, merged);
   }
   return [...byTitle.values()];
 }
