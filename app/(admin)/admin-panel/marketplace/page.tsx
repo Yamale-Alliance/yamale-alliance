@@ -114,11 +114,25 @@ export default function AdminMarketplacePage() {
     router.replace(url.toString());
   };
 
-  async function parseJsonSafe(res: Response): Promise<{ error?: string; url?: string; path?: string; file_name?: string; file_format?: string }> {
+  async function parseJsonSafe(res: Response): Promise<{
+    error?: string;
+    url?: string;
+    path?: string;
+    file_name?: string;
+    file_format?: string;
+    landing_page_html?: string;
+  }> {
     const text = await res.text();
     if (!text.trim()) return {};
     try {
-      return JSON.parse(text) as { error?: string; url?: string; path?: string; file_name?: string; file_format?: string };
+      return JSON.parse(text) as {
+        error?: string;
+        url?: string;
+        path?: string;
+        file_name?: string;
+        file_format?: string;
+        landing_page_html?: string;
+      };
     } catch {
       return { error: text.slice(0, 200) || "Invalid response from server" };
     }
@@ -173,10 +187,11 @@ export default function AdminMarketplacePage() {
           typeof data.landing_page_html === "string" &&
           data.landing_page_html.trim()
         ) {
+          const landingHtml = data.landing_page_html;
           if (itemId && editing) {
-            setEditLandingHtml(data.landing_page_html);
+            setEditLandingHtml(landingHtml);
           } else if (!itemId) {
-            setLandingPageHtmlAdd((prev) => (prev.trim() ? prev : data.landing_page_html));
+            setLandingPageHtmlAdd((prev) => (prev.trim() ? prev : landingHtml));
           }
         }
       } else {
