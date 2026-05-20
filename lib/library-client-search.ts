@@ -268,29 +268,81 @@ export function buildLibrarySearchHaystack(fields: {
   };
 }
 
-/** Score by matched keywords (OR). Zero only when nothing matches. */
+/**
+ * Sort tier from the user's query tokens (not expanded aliases): title matches rank above body-only matches.
+ * 3 = full phrase in title; 2 = every primary token in title; 1 = some primary token in title; 0 = none.
+ */
+export function librarySearchTitleTier(
+  entry: LibrarySearchIndexEntry,
+  primaryTokens: string[],
+  phraseLower: string
+): number {
+  const phrase = phraseLower.trim().toLowerCase();
+  if (phrase.length >= 2 && entry.nameLower.includes(phrase)) return 3;
+  if (primaryTokens.length === 0) return 0;
+  const inTitle = primaryTokens.filter((t) => entry.nameLower.includes(t));
+  if (inTitle.length === primaryTokens.length) return 2;
+  if (inTitle.length > 0) return 1;
+  return 0;
+}
+
+/** Score by matched keywords (OR). Zero only when nothing matches. Primary tokens in title dominate. */
 export function scoreLibrarySearchEntry(
   entry: LibrarySearchIndexEntry,
   tokens: string[],
-  options?: { categoryHints?: YamaleLawCategory[] }
+  options?: {
+    categoryHints?: YamaleLawCategory[];
+    /** User-typed tokens (before alias expansion); used for title-first scoring */
+    primaryTokens?: string[];
+    phraseLower?: string;
+  }
 ): number {
-  if (tokens.length === 0) return 1;
+  if (tokens.length === 0 && !(options?.phraseLower?.trim())) return 1;
+
+  const primary = options?.primaryTokens?.length ? options.primaryTokens : tokens;
+  const primarySet = new Set(primary);
+  const phraseLower = (options?.phraseLower ?? "").trim().toLowerCase();
 
   let score = 0;
   let matched = 0;
 
+  if (phraseLower.length >= 2 && entry.nameLower.includes(phraseLower)) {
+    score += 200;
+    matched += 1;
+  }
+
+  for (const token of primary) {
+    if (entry.nameLower.includes(token)) {
+      matched += 1;
+      score += 100;
+      if (entry.nameLower.startsWith(token)) score += 25;
+    }
+  }
+
   for (const token of tokens) {
+    if (primarySet.has(token)) continue;
     let tokenScore = 0;
-    if (entry.nameLower.includes(token)) tokenScore = 8;
-    else if (entry.countryLower.includes(token)) tokenScore = 6;
-    else if (entry.categoryLower.includes(token)) tokenScore = 5;
+    if (entry.nameLower.includes(token)) tokenScore = 28;
+    else if (entry.categoryLower.includes(token)) tokenScore = 6;
+    else if (entry.countryLower.includes(token)) tokenScore = 5;
     else if (entry.sourceLower.includes(token)) tokenScore = 4;
     else if (entry.haystack.includes(token)) tokenScore = 2;
-
     if (tokenScore > 0) {
       matched += 1;
       score += tokenScore;
-      if (entry.nameLower.startsWith(token)) score += 3;
+    }
+  }
+
+  for (const token of primary) {
+    if (entry.nameLower.includes(token)) continue;
+    let tokenScore = 0;
+    if (entry.categoryLower.includes(token)) tokenScore = 10;
+    else if (entry.countryLower.includes(token)) tokenScore = 8;
+    else if (entry.sourceLower.includes(token)) tokenScore = 6;
+    else if (entry.haystack.includes(token)) tokenScore = 5;
+    if (tokenScore > 0) {
+      matched += 1;
+      score += tokenScore;
     }
   }
 
@@ -300,17 +352,16 @@ export function scoreLibrarySearchEntry(
     categoryHints.length > 0 &&
     categoryHints.some((c) => c.toLowerCase() === entry.categoryLower)
   ) {
-    score = 6;
+    score = 12;
     matched = 1;
   } else if (
     matched > 0 &&
     categoryHints.some((c) => c.toLowerCase() === entry.categoryLower)
   ) {
-    score += 4;
+    score += 6;
   }
 
   if (matched === 0) return 0;
-  score += matched * 3;
   return score;
 }
 
