@@ -37,6 +37,7 @@ import {
   detectCountryFromSearchTokens,
   expandLibrarySearchFromQuery,
   parseLibrarySearchQuery,
+  librarySearchTitleTier,
   scoreLibrarySearchEntry,
   tokenizeLibrarySearch,
 } from "@/lib/library-client-search";
@@ -309,7 +310,7 @@ export function LibraryView({
     () => !!(initialDocumentType || initialTreatyType || initialYearFrom || initialYearTo)
   );
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showSuggestLawForm, setShowSuggestLawForm] = useState(false);
   const [suggestName, setSuggestName] = useState("");
   const [suggestEmail, setSuggestEmail] = useState("");
   const [suggestCountry, setSuggestCountry] = useState("");
@@ -414,7 +415,7 @@ export function LibraryView({
         setSuggestCategory("");
         setSuggestSourceUrl("");
         setSuggestNotes("");
-        setShowSuggestions(false);
+        setShowSuggestLawForm(false);
         await showAlert("Thanks. Your law suggestion has been submitted to our team.", "Suggestion sent");
       } catch {
         setSuggestError("Something went wrong. Please try again.");
@@ -761,46 +762,9 @@ export function LibraryView({
     showAlert,
   ]);
 
-  const deferredSearchInput = useDeferredValue(searchInput);
   const deferredSearch = useDeferredValue(search);
 
   const lawSearchIndex = useMemo(() => buildLawSearchIndex(laws), [laws]);
-
-  const searchSuggestions = useMemo(() => {
-    const needle = deferredSearchInput.trim().toLowerCase();
-    if (needle.length < 2) return [];
-    const out: string[] = [];
-    const seen = new Set<string>();
-    const push = (value: string) => {
-      if (seen.has(value)) return;
-      seen.add(value);
-      out.push(value);
-    };
-    for (const entry of lawSearchIndex) {
-      if (entry.index.nameLower.includes(needle)) push(entry.law.name);
-      if (out.length >= 8) return out;
-    }
-    for (const c of countries) {
-      const label = `country:${c.name}`;
-      if (label.toLowerCase().includes(needle)) push(label);
-      if (out.length >= 8) return out;
-    }
-    for (const c of categories) {
-      const label = `category:${c.name}`;
-      if (label.toLowerCase().includes(needle)) push(label);
-      if (out.length >= 8) return out;
-    }
-    for (const d of DOCUMENT_TYPES) {
-      const label = `type:${d}`;
-      if (label.toLowerCase().includes(needle)) push(label);
-      if (out.length >= 8) return out;
-    }
-    for (const label of ["classification:Bilateral", "classification:Multilateral", "classification:Not a treaty"]) {
-      if (label.toLowerCase().includes(needle)) push(label);
-      if (out.length >= 8) return out;
-    }
-    return out;
-  }, [deferredSearchInput, lawSearchIndex, countries, categories]);
 
   const countryNames = useMemo(() => countries.map((c) => c.name), [countries]);
 
@@ -815,12 +779,20 @@ export function LibraryView({
     const minYear = Number.parseInt(yearFrom, 10);
     const maxYear = Number.parseInt(yearTo, 10);
     const hasSearch = freeTokens.length > 0;
-    const out: { law: Law; score: number }[] = [];
+    const phraseLower = parsed.freeText.toLowerCase();
+    const out: { law: Law; score: number; titleTier: number }[] = [];
     for (const entry of lawSearchIndex) {
       const law = entry.law;
       const score = hasSearch
-        ? scoreLibrarySearchEntry(entry.index, freeTokens, { categoryHints })
+        ? scoreLibrarySearchEntry(entry.index, freeTokens, {
+            categoryHints,
+            primaryTokens: searchTokens,
+            phraseLower,
+          })
         : 1;
+      const titleTier = hasSearch
+        ? librarySearchTitleTier(entry.index, searchTokens, phraseLower)
+        : 0;
       if (hasSearch && score <= 0) continue;
       const lawTreaty = (law.treaty_type ?? "Not a treaty").toLowerCase();
       const matchCountry =
@@ -855,7 +827,7 @@ export function LibraryView({
         matchQueryYearFrom &&
         matchQueryYearTo
       ) {
-        out.push({ law, score });
+        out.push({ law, score, titleTier });
       }
     }
     return out;
@@ -876,7 +848,10 @@ export function LibraryView({
     const list = [...scoredFilteredLaws];
     const hasSearch = tokenizeLibrarySearch(parseLibrarySearchQuery(deferredSearch).freeText).length > 0;
     list.sort((a, b) => {
-      if (hasSearch && b.score !== a.score) return b.score - a.score;
+      if (hasSearch) {
+        if (b.titleTier !== a.titleTier) return b.titleTier - a.titleTier;
+        if (b.score !== a.score) return b.score - a.score;
+      }
       switch (sortBy) {
         case "title-asc":
           return a.law.name.localeCompare(b.law.name, undefined, { sensitivity: "base" });
@@ -1092,36 +1067,9 @@ export function LibraryView({
               placeholder="Search by keyword — e.g. patent, Zambia, labour, investment…"
               value={searchInput}
               onChange={(e) => handleSearchChange(e.target.value)}
-              onFocus={() => setShowSuggestions(true)}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 120)}
               className="w-full rounded-[12px] border border-border bg-card py-3.5 pl-12 pr-4 text-sm text-foreground shadow-[0_12px_40px_rgba(13,27,42,0.12)] outline-none dark:shadow-[0_12px_40px_rgba(0,0,0,0.35)]"
               autoComplete="off"
-              aria-autocomplete="list"
-              aria-expanded={showSuggestions && searchSuggestions.length > 0}
             />
-            {showSuggestions && searchSuggestions.length > 0 && (
-              <ul role="listbox" className="absolute left-0 right-0 top-full z-50 mt-2 max-h-64 overflow-y-auto rounded-xl border border-border bg-card py-1 shadow-2xl">
-                {searchSuggestions.map((item) => (
-                  <li key={item} role="option">
-                    <button
-                      type="button"
-                      onMouseDown={() => {
-                        setSearchInput(item);
-                        fetch("/api/search/analytics", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ event: "suggestion_click", suggestion: item }),
-                          keepalive: true,
-                        }).catch(() => {});
-                      }}
-                      className="flex w-full items-center px-3 py-2.5 text-left text-sm text-foreground transition hover:bg-muted"
-                    >
-                      <span className="truncate">{item}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
           <p className="mt-3 text-xs text-white/50">All 54 African countries</p>
         </div>
@@ -1313,13 +1261,13 @@ export function LibraryView({
                           return;
                         }
                         setSuggestError(null);
-                        setShowSuggestions((v) => !v);
+                        setShowSuggestLawForm((v) => !v);
                       }}
                       className="font-medium text-foreground underline decoration-[#C8922A] underline-offset-2 hover:text-[#C8922A] dark:text-[#f3e5c8] dark:hover:text-[#e3ba65]"
                     >
                       Suggest a law
                     </button>{" "}
-                    feature to flag it, or{" "}
+                    feature, or open any law and use <strong className="font-medium text-foreground">Flag this law</strong> in the toolbar, or{" "}
                     <Link
                       href="/terms"
                       className="font-medium text-foreground underline decoration-[#C8922A] underline-offset-2 hover:text-[#C8922A] dark:text-[#f3e5c8] dark:hover:text-[#e3ba65]"
@@ -1334,7 +1282,7 @@ export function LibraryView({
                       Browse the Yamalé Lawyer Network →
                     </Link>
                   </p>
-                  {showSuggestions && SUPPORT_LIVE && (
+                  {showSuggestLawForm && SUPPORT_LIVE && (
                     <form onSubmit={submitLawSuggestion} className="mt-4 space-y-3 rounded-lg border border-border bg-background p-4">
                       <p className="text-sm font-semibold text-foreground">Suggest a missing law</p>
                       <div className="grid gap-3 sm:grid-cols-2">
@@ -1401,7 +1349,7 @@ export function LibraryView({
                         </button>
                         <button
                           type="button"
-                          onClick={() => setShowSuggestions(false)}
+                          onClick={() => setShowSuggestLawForm(false)}
                           className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
                         >
                           Cancel
