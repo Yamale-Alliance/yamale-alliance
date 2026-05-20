@@ -3,7 +3,14 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin";
 import { recordAuditLog } from "@/lib/admin-audit";
 import { extractTextFromPdf } from "@/lib/pdf-extract";
-import { sanitizeLawContent, VALID_LAW_STATUSES, normaliseLawTitle } from "@/lib/admin-law-utils";
+import {
+  sanitizeLawContent,
+  VALID_LAW_STATUSES,
+  normaliseLawTitle,
+  isValidLawYear,
+  LAW_YEAR_MIN,
+  LAW_YEAR_MAX,
+} from "@/lib/admin-law-utils";
 import { isLawTreatyType } from "@/lib/law-treaty-type";
 import type { Database } from "@/lib/database.types";
 import { normalizeCategoryIdList, syncLawCategories } from "@/lib/law-categories-sync";
@@ -88,8 +95,11 @@ export async function POST(request: NextRequest) {
     }
 
     const year = yearStr?.trim() ? parseInt(yearStr, 10) : null;
-    if (yearStr?.trim() && (Number.isNaN(year!) || year! < 1900 || year! > 2100)) {
-      return NextResponse.json({ error: "Invalid year" }, { status: 400 });
+    if (yearStr?.trim() && (Number.isNaN(year!) || !isValidLawYear(year!))) {
+      return NextResponse.json(
+        { error: `Invalid year (use ${LAW_YEAR_MIN}–${LAW_YEAR_MAX})` },
+        { status: 400 }
+      );
     }
 
     let text: string;
