@@ -3,6 +3,8 @@
  * Used by POST /api/admin/laws/from-url.
  */
 
+import { isValidLawYear } from "@/lib/admin-law-utils";
+
 const MAX_PDF_BYTES = 95 * 1024 * 1024;
 
 /** Fetch URL and return buffer if response is a PDF (by Content-Type or %PDF magic). */
@@ -221,10 +223,10 @@ export function inferMetadataHeuristic(
   }
 
   let year: number | null = null;
-  const y = plainText.match(/\b(19|20)\d{2}\b/);
+  const y = plainText.match(/\b(18|19|20)\d{2}\b/);
   if (y) {
     const n = parseInt(y[0], 10);
-    if (n >= 1900 && n <= 2100) year = n;
+    if (isValidLawYear(n)) year = n;
   }
 
   return { title, countryId, categoryId, year };
