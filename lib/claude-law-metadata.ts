@@ -3,6 +3,8 @@
  * Requires CLAUDE_API_KEY. Returns null if unavailable or parsing fails.
  */
 
+import { isValidLawYear } from "@/lib/admin-law-utils";
+
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 const DEFAULT_IMPORT_MODEL = "claude-haiku-4-5";
 const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
@@ -98,9 +100,7 @@ JSON only:`;
     const categoryId =
       categoryIds.has(parsed.categoryId as string) ? (parsed.categoryId as string) : null;
     let year: number | null =
-      typeof parsed.year === "number" && parsed.year >= 1900 && parsed.year <= 2100
-        ? parsed.year
-        : null;
+      typeof parsed.year === "number" && isValidLawYear(parsed.year) ? parsed.year : null;
 
     return { title, countryId, categoryId, year };
   } catch (e) {
