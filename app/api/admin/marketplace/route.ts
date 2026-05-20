@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin";
 import { recordAuditLog } from "@/lib/admin-audit";
 import type { Database } from "@/lib/database.types";
 import { parseLandingPageHtmlInput } from "@/lib/marketplace-landing-page";
+import { parseItemPackageOffersInput } from "@/lib/marketplace-package-offers";
 
 type Insert = Database["public"]["Tables"]["marketplace_items"]["Insert"];
 const VALID_TYPES = ["book", "course", "template", "guide"] as const;
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
       file_format = null,
       video_url = null,
       landing_page_html,
+      package_offers,
     } = body as {
       type?: string;
       title?: string;
@@ -68,6 +70,7 @@ export async function POST(request: NextRequest) {
       file_format?: string | null;
       video_url?: string | null;
       landing_page_html?: string | null;
+      package_offers?: unknown;
     };
 
     let landingHtml: string | null = null;
@@ -104,6 +107,7 @@ export async function POST(request: NextRequest) {
       file_format: typeof file_format === "string" && file_format ? file_format : null,
       video_url: typeof video_url === "string" && video_url ? video_url.trim() : null,
       landing_page_html: landingHtml,
+      package_offers: parseItemPackageOffersInput(package_offers),
     };
 
     const supabase = getSupabaseServer();
