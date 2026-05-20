@@ -27,8 +27,8 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { canShareByEmail, canDownloadConversations } from "@/lib/plan-limits";
+import { plainTextForAiChatExport } from "@/lib/ai-chat-plain-text";
 import { downloadAiResearchChatPdf } from "@/lib/ai-research-chat-pdf";
-import { plainTextFromMarkdownish } from "@/lib/library/law-document-pdf";
 import { AIResearchChatExportPreviewDialog } from "@/components/ai-research/AIResearchChatExportPreviewDialog";
 import { SubscriptionCheckoutConfirm } from "@/components/checkout/SubscriptionCheckoutConfirm";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
@@ -644,7 +644,8 @@ export default function AIResearchClient() {
     return currentSession.messages
       .map((m) => {
         const label = m.role === "user" ? "You" : "Yamalé AI";
-        const text = plainTextFromMarkdownish(m.content);
+        const text =
+          m.role === "assistant" ? plainTextForAiChatExport(m.content) : m.content;
         return `${label}: ${text}`;
       })
       .join("\n\n");
@@ -682,7 +683,7 @@ export default function AIResearchClient() {
 
   const handleCopyMessage = useCallback(async (messageId: string, text: string, role: Message["role"]) => {
     try {
-      const plain = role === "assistant" ? plainTextFromMarkdownish(text) : text;
+      const plain = role === "assistant" ? plainTextForAiChatExport(text) : text;
       await navigator.clipboard.writeText(plain);
       setCopiedMessageId(messageId);
       setTimeout(() => {
