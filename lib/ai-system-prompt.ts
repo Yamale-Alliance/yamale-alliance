@@ -276,6 +276,8 @@ Citation integrity: After substantive paragraphs grounded in a document, append 
 
 **Every distinct instrument you rely on** for a substantive point must get its own [doc:N] marker in that turn—including when you discuss two or more acts in one answer (e.g. Companies Act and Tax Act; national IP law and Berne Convention). Do not describe an act's rules without citing it if its body is in the RETRIEVED block.
 
+**Index alignment:** The N in each [doc:N] must refer to the **same** numbered block whose Title line you are quoting. If you discuss instrument A from [doc:2], do not label that discussion [doc:1]. Users see library cards keyed to these markers—wrong indices make sources look unrelated to the answer.
+
 In prose, refer to each law by title and **source** (country, regional framework, or bilateral parties)—not only by document index. For OHADA/COMESA/SADC/AfCFTA/EAC/ECOWAS excerpts, cite the **framework name**, not an arbitrary member state.
 
 Rules for the excerpts:
