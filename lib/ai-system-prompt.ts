@@ -8,7 +8,7 @@ import { buildYamaleCategoriesPromptBlock } from "@/lib/ai-canonical-categories"
  * repeating it). Use SYSTEM_PROMPT_VERSION in API responses and ai_query_log instead.
  */
 
-export const SYSTEM_PROMPT_VERSION = "2026.05.19-categories-africa-v1";
+export const SYSTEM_PROMPT_VERSION = "2026.05.19-export-format-v1";
 
 /** Cap on library excerpts in the system message to limit tokens and citation confusion. */
 export const MAX_SYSTEM_PROMPT_LEGAL_DOCS = 12;
@@ -63,6 +63,8 @@ export type BuildAiResearchSystemPromptParams = {
    * Used for count / coverage questions so the model does not under-count from excerpts alone.
    */
   germanyAfricaBitInventoryBlock?: string | null;
+  /** Authoritative bilateral / trade treaty list for one country (metadata from live DB). */
+  countryBilateralInventoryBlock?: string | null;
   /**
    * Max excerpts in the system message (default {@link MAX_SYSTEM_PROMPT_LEGAL_DOCS}).
    * Should match the number of documents passed in `legalContext` so [doc:N] lines up with UI.
@@ -183,7 +185,7 @@ ${
 - A separate **title index** may also appear below (metadata only: title, source, category, status). Use it for coverage questions ("do we have X?"), spelling variants, and disambiguation. It is **not** operative law text—rules and quotes must still come from the document block (or you must say the excerpt does not contain them).
 - **Regional instruments:** When a block's Source is a framework (OHADA, COMESA, SADC, AfCFTA, ECOWAS, EAC, etc.) or "Multiple countries", that is **one instrument** applying across member states—not a single national code. Do **not** attribute it to one random member country (e.g. do not say "under Kenyan law" for an AfCFTA treaty excerpt whose Source is AfCFTA).
 ${legalQuotesRule}
-- For **catalog / coverage questions** (e.g. "do you have treaties with Latin American countries?", "how many Germany–Africa BITs?"): do **not** say you have "no access to the database" or that you only ever see "four documents" as if that were the whole product. When an **AUTHORITATIVE INVENTORY** block is present below for this turn, use its **count and title list** as the source of truth—do not infer a lower number from excerpt count alone. Otherwise say clearly that you can only **see the excerpts retrieved for this conversation turn**; the site library may contain more or different instruments. Encourage using the Library UI (/library), country filters, or a more specific query when the inventory block is absent or incomplete.
+- For **catalog / coverage questions** (e.g. "do you have treaties with Latin American countries?", "how many Germany–Africa BITs?", "bilateral agreements Tanzania signed"): do **not** say you have "no access to the database" or that you only ever see "four documents" as if that were the whole product. When an **AUTHORITATIVE INVENTORY** block is present below for this turn, use its **full count and title list** as the source of truth—present the complete table from that block; do not infer a lower number from excerpt count alone and do **not** send the user to /library just to discover titles already listed there. Otherwise say clearly that you can only **see the excerpts retrieved for this conversation turn**; the site library may contain more or different instruments. Suggest /library only for **full treaty text** of a named instrument, not for building the inventory list.
 
 User-facing tone (critical): In the **answer you show the user**, do **not** narrate your research mechanics. Avoid phrases like "The retrieved excerpts for this turn…", "Based on the documents provided to me…", "According to the retrieved documents…", or inventorying every attached title before you answer. **Lead with what governs the question** (e.g. "Nigeria handles this under…", "This is governed by…") and weave citations naturally ("Under Section 38 of the EAC CMA…"). You must still follow every **[doc:N]** citation rule below—markers are for traceability, not an excuse to sound like a filing clerk.
 
@@ -333,6 +335,9 @@ function buildAnswerStyleRules(
     "Structure without sounding robotic: You must still cover, in order, these **substance** layers—(1) direct answer, (2) legal basis with short quotes, (3) conditions / exceptions, (4) practical application, (5) risks where relevant, (6) next steps, (7) excerpt limits—but present them as **natural prose with light section headings or bold labels**, not a textbook-style \"1. 2. 3.\" outline unless the user asked for numbered steps or the topic clearly needs a compliance checklist. Decision-useful depth, not a one-line brush-off—even if the user said \"briefly.\""
   );
   parts.push(
+    "Export-friendly formatting: Use plain words in headings (no emoji, checkmarks, or decorative symbols). Do not repeat the user's question verbatim as your opening line. For treaty / BIT / agreement inventories, prefer a **markdown table** with clear columns (e.g. Counterparty | Instrument | Year | Status). When an AUTHORITATIVE INVENTORY block is present, the table must include **every row** from that block (apply the user's year filter in the table, with a short note on older in-force treaties if the block lists them). Do not tell the user the list is incomplete when the inventory block already enumerates the library's titles."
+  );
+  parts.push(
     "When the question is broad or high-stakes (compliance, penalties, cross-border obligations, licensing, labor termination, tax exposure), use richer detail: multiple grounded points with short quote snippets; a short checklist is appropriate here even if you avoid numeric scaffolding elsewhere."
   );
   parts.push(
@@ -402,6 +407,10 @@ export function buildAiResearchSystemPrompt(p: BuildAiResearchSystemPromptParams
   const germanyAfricaInventory = (params.germanyAfricaBitInventoryBlock ?? "").trim();
   if (!platform && germanyAfricaInventory) {
     blocks.push(germanyAfricaInventory);
+  }
+  const countryBilateralInventory = (params.countryBilateralInventoryBlock ?? "").trim();
+  if (!platform && countryBilateralInventory) {
+    blocks.push(countryBilateralInventory);
   }
   blocks.push(
     buildSupranationalScope(params.supranationalFrameworksInQuery),
