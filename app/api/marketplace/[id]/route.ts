@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { auth } from "@clerk/nextjs/server";
+import { fetchPublishedMarketplaceItem } from "@/lib/marketplace-item-db";
 import type { Database } from "@/lib/database.types";
 
 type MarketplaceItemRow = Database["public"]["Tables"]["marketplace_items"]["Row"];
@@ -17,19 +18,14 @@ export async function GET(
     }
 
     const supabase = getSupabaseServer();
-    const { data, error } = await supabase
-      .from("marketplace_items")
-      .select(
-        "id, type, title, author, description, price_cents, currency, image_url, published, sort_order, file_path, file_name, file_format, video_url, landing_page_html, created_at"
-      )
-      .eq("id", id)
-      .single();
+    const { data, error } = await fetchPublishedMarketplaceItem(
+      supabase,
+      id,
+      "id, type, title, author, description, price_cents, currency, image_url, published, sort_order, file_path, file_name, file_format, video_url, landing_page_html, created_at"
+    );
 
     const row = data as (MarketplaceItemRow & { file_path?: string | null; video_url?: string | null }) | null;
-    if (error || !row) {
-      return NextResponse.json({ error: "Item not found" }, { status: 404 });
-    }
-    if (!row.published) {
+    if (error || !row || !row.published) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
 
