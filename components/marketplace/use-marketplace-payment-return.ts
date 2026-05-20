@@ -11,6 +11,7 @@ import {
   shouldRunMarketplacePaymentConfirm,
   type MarketplacePaymentReturnParams,
 } from "@/lib/marketplace-payment-return";
+import { notifyMarketplaceCartUpdated } from "@/lib/marketplace-cart-events";
 
 type UseMarketplacePaymentReturnOptions = {
   /** `cart` for cart / package checkout; `item` for single-item marketplace checkout. */
@@ -63,6 +64,9 @@ export function useMarketplacePaymentReturn(options: UseMarketplacePaymentReturn
       if (result.ok) {
         setShowVerifiedPaymentSuccess(true);
         setShowPaymentNotCompleted(false);
+        if (options.mode === "cart") {
+          notifyMarketplaceCartUpdated();
+        }
         await onConfirmedRef.current?.();
       } else {
         confirmedRef.current = null;
