@@ -32,6 +32,7 @@ import {
 } from "@/components/checkout/PaymentMethodPicker";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { useMarketplacePaymentReturn } from "@/components/marketplace/use-marketplace-payment-return";
+import { notifyMarketplaceCartUpdated } from "@/lib/marketplace-cart-events";
 import { displayVaultProductTitle } from "@/lib/marketplace-display";
 
 const BRAND = {
@@ -219,6 +220,7 @@ export default function MarketplacePage() {
         const itemIds = new Set(cart.map((item) => item.marketplace_item_id));
         setCartCount(count);
         setCartItemIds(itemIds);
+        notifyMarketplaceCartUpdated();
       })
       .catch(() => {});
   };
