@@ -194,6 +194,7 @@ export interface Database {
           file_format: string | null;
           video_url: string | null;
           landing_page_html: string | null;
+          package_offers: Record<string, unknown> | null;
           created_at: string;
           updated_at: string;
         };
@@ -213,6 +214,7 @@ export interface Database {
           file_format?: string | null;
           video_url?: string | null;
           landing_page_html?: string | null;
+          package_offers?: Record<string, unknown> | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -315,6 +317,10 @@ export interface Database {
           hero_image_url: string | null;
           founder_portrait_url: string | null;
           law_print_price_usd_cents: number;
+          day_pass_price_usd_cents: number;
+          lawyer_search_unlock_price_usd_cents: number;
+          ai_query_price_usd_cents: number;
+          afcfta_report_price_usd_cents: number;
           updated_at: string;
           updated_by: string | null;
         };
@@ -325,6 +331,10 @@ export interface Database {
           hero_image_url?: string | null;
           founder_portrait_url?: string | null;
           law_print_price_usd_cents?: number;
+          day_pass_price_usd_cents?: number;
+          lawyer_search_unlock_price_usd_cents?: number;
+          ai_query_price_usd_cents?: number;
+          afcfta_report_price_usd_cents?: number;
           updated_at?: string;
           updated_by?: string | null;
         };
