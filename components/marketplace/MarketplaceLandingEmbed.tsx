@@ -54,7 +54,8 @@ export function MarketplaceLandingEmbed({
   const embedHtml = useMemo(() => prepareMarketplaceLandingEmbedHtml(html), [html]);
 
   const handleShadowClick = useCallback(
-    (event: MouseEvent) => {
+    (event: Event) => {
+      if (!(event instanceof MouseEvent)) return;
       const host = hostRef.current;
       if (!host) return;
       const path = event.composedPath();
