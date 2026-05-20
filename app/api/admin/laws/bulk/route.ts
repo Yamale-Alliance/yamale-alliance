@@ -3,7 +3,14 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin";
 import { recordAuditLog } from "@/lib/admin-audit";
 import { extractTextFromPdf } from "@/lib/pdf-extract";
-import { sanitizeLawContent, VALID_LAW_STATUSES, normaliseLawTitle } from "@/lib/admin-law-utils";
+import {
+  sanitizeLawContent,
+  VALID_LAW_STATUSES,
+  normaliseLawTitle,
+  isValidLawYear,
+  LAW_YEAR_MIN,
+  LAW_YEAR_MAX,
+} from "@/lib/admin-law-utils";
 import type { Database } from "@/lib/database.types";
 import { syncLawCategories } from "@/lib/law-categories-sync";
 
@@ -112,8 +119,12 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      if (year != null && (Number.isNaN(year) || year < 1900 || year > 2100)) {
-        failed.push({ index: i, title, error: "Invalid year" });
+      if (year != null && (Number.isNaN(year) || !isValidLawYear(year))) {
+        failed.push({
+          index: i,
+          title,
+          error: `Invalid year (use ${LAW_YEAR_MIN}–${LAW_YEAR_MAX})`,
+        });
         continue;
       }
 
