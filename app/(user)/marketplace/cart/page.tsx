@@ -13,6 +13,7 @@ import {
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { useAlertDialog } from "@/components/ui/use-confirm";
+import { notifyMarketplaceCartUpdated } from "@/lib/marketplace-cart-events";
 
 const BRAND = {
   dark: "#221913",
@@ -75,6 +76,7 @@ export default function CartPage() {
         credentials: "include",
       });
       setCart((prev) => prev.filter((item) => item.marketplace_item_id !== itemId));
+      notifyMarketplaceCartUpdated();
     } catch {
       await showAlert("Failed to remove from cart", "Cart");
     } finally {
