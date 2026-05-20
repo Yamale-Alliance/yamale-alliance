@@ -1,4 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { librarySearchMatchPlan, lawRowMatchesLibrarySearch } from "@/lib/library-client-search";
 import { escapeIlikePattern, lawsCountryGlobalOrScopedIds } from "@/lib/law-country-scope";
 import { fetchLawIdsForCategory } from "@/lib/law-categories-sync";
 import { fetchLawIdsForCountryScope } from "@/lib/law-country-scope-ids";
@@ -41,7 +42,11 @@ type LibraryFilters = {
   categoryId?: string;
   status?: string;
   q?: string;
+  /** Skip law_categories + shared-link lookups (faster; used by admin list). */
+  skipEnrichment?: boolean;
 };
+
+const ENRICHMENT_ID_CHUNK = 500;
 
 function sortCountriesAlphabetically(countries: LibraryCountry[]): LibraryCountry[] {
   return [...countries].sort((a, b) =>
@@ -49,9 +54,22 @@ function sortCountriesAlphabetically(countries: LibraryCountry[]): LibraryCountr
   );
 }
 
+function buildSearchOrFilter(query: string): string | null {
+  const plan = librarySearchMatchPlan(query);
+  const parts: string[] = [];
+  for (const t of plan.matchTokens.slice(0, 8)) {
+    parts.push(`title.ilike.%${escapeIlikePattern(t)}%`);
+  }
+  for (const cat of plan.categoryHints.slice(0, 3)) {
+    parts.push(`categories.name.ilike.%${escapeIlikePattern(cat)}%`);
+  }
+  if (parts.length === 0) return null;
+  return parts.join(",");
+}
+
 function applyFiltersToCachedData(base: LibraryData, filters?: LibraryFilters): LibraryData {
   if (!filters) return base;
-  const q = (filters.q ?? "").trim().toLowerCase();
+  const searchPlan = filters.q?.trim() ? librarySearchMatchPlan(filters.q) : null;
   const filteredLaws = base.laws.filter((law) => {
     const matchCountry =
       !filters.countryId || law.country_id === filters.countryId || law.applies_to_all_countries;
@@ -63,10 +81,16 @@ function applyFiltersToCachedData(base: LibraryData, filters?: LibraryFilters): 
     if (!matchCategory) return false;
     const matchStatus = !filters.status || law.status === filters.status;
     if (!matchStatus) return false;
-    if (!q) return true;
-    const title = (law.title ?? "").toLowerCase();
-    const category = (law.categories?.name ?? "").toLowerCase();
-    return title.includes(q) || category.includes(q);
+    if (!searchPlan) return true;
+    return lawRowMatchesLibrarySearch(
+      {
+        title: law.title ?? "",
+        category: law.categories?.name ?? "",
+        country: law.countries?.name ?? "",
+        sourceName: law.source_name,
+      },
+      searchPlan
+    );
   });
 
   return {
@@ -78,7 +102,7 @@ function applyFiltersToCachedData(base: LibraryData, filters?: LibraryFilters): 
 }
 
 const CACHE_TTL_MS = 60 * 1000; // 1 minute
-const FETCH_TIMEOUT_MS = 35 * 1000; // 35s max wait so page never hangs on slower DB responses
+const FETCH_TIMEOUT_MS = 55 * 1000; // large catalogs + enrichment; parallelized below
 /**
  * PostgREST builds very long URLs for `.in("id", [hundreds of UUIDs])`, which can exceed
  * Node/undici header limits (~16KB). Chunking keeps each request small.
@@ -103,6 +127,64 @@ function chunkIds<T>(ids: T[], size: number): T[][] {
     out.push(ids.slice(i, i + size));
   }
   return out;
+}
+
+async function fetchLawCategoryIdsMap(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  lawIds: string[]
+): Promise<Map<string, string[]>> {
+  const catMap = new Map<string, string[]>();
+  if (lawIds.length === 0) return catMap;
+  try {
+    const chunks = chunkIds(lawIds, ENRICHMENT_ID_CHUNK);
+    const batches = await Promise.all(
+      chunks.map(async (chunk) => {
+        const { data: lcRows, error: lcErr } = await supabase
+          .from("law_categories")
+          .select("law_id, category_id")
+          .in("law_id", chunk);
+        if (lcErr || !lcRows) return [];
+        return lcRows as { law_id: string; category_id: string }[];
+      })
+    );
+    for (const r of batches.flat()) {
+      const arr = catMap.get(r.law_id) ?? [];
+      arr.push(r.category_id);
+      catMap.set(r.law_id, arr);
+    }
+  } catch {
+    return new Map();
+  }
+  return catMap;
+}
+
+async function fetchLinkedLawIdSet(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  lawIds: string[]
+): Promise<Set<string>> {
+  const linkedLawIds = new Set<string>();
+  if (lawIds.length === 0) return linkedLawIds;
+  try {
+    const chunks = chunkIds(lawIds, ENRICHMENT_ID_CHUNK);
+    const batches = await Promise.all(
+      chunks.map(async (chunk) => {
+        const { data: mRows, error: mErr } = await supabase
+          .from("law_shared_group_members")
+          .select("law_id")
+          .in("law_id", chunk);
+        if (mErr || !mRows) return [];
+        return mRows as { law_id: string }[];
+      })
+    );
+    for (const r of batches.flat()) {
+      if (r.law_id) linkedLawIds.add(r.law_id);
+    }
+  } catch {
+    /* law_shared_group_members may be missing on older DBs */
+  }
+  return linkedLawIds;
 }
 
 function compareLibraryLawRows(a: LibraryLawRow, b: LibraryLawRow): number {
@@ -252,8 +334,12 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
       }
       if (filters?.status) countQuery = countQuery.eq("status", filters.status);
       if (filters?.q?.trim()) {
-        const term = escapeIlikePattern(filters.q.trim());
-        countQuery = countQuery.ilike("title", `%${term}%`);
+        const orFilter = buildSearchOrFilter(filters.q);
+        if (orFilter) countQuery = countQuery.or(orFilter);
+        else {
+          const term = escapeIlikePattern(filters.q.trim());
+          countQuery = countQuery.ilike("title", `%${term}%`);
+        }
       }
 
       let lawsQuery = supabase
@@ -272,8 +358,12 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
       }
       if (filters?.status) lawsQuery = lawsQuery.eq("status", filters.status);
       if (filters?.q?.trim()) {
-        const term = escapeIlikePattern(filters.q.trim());
-        lawsQuery = lawsQuery.ilike("title", `%${term}%`);
+        const orFilter = buildSearchOrFilter(filters.q);
+        if (orFilter) lawsQuery = lawsQuery.or(orFilter);
+        else {
+          const term = escapeIlikePattern(filters.q.trim());
+          lawsQuery = lawsQuery.ilike("title", `%${term}%`);
+        }
       }
 
       const [cRes, catRes, countRes, lawsRes] = await Promise.all([
@@ -295,55 +385,22 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
 
     const ids = rawLaws.map((l) => l.id);
     let catMap = new Map<string, string[]>();
-    if (ids.length > 0) {
-      try {
-        const lcChunk = 500;
-        for (let i = 0; i < ids.length; i += lcChunk) {
-          const chunk = ids.slice(i, i + lcChunk);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: lcRows, error: lcErr } = await (supabase as any)
-            .from("law_categories")
-            .select("law_id, category_id")
-            .in("law_id", chunk);
-          if (!lcErr && lcRows) {
-            for (const r of lcRows as { law_id: string; category_id: string }[]) {
-              const arr = catMap.get(r.law_id) ?? [];
-              arr.push(r.category_id);
-              catMap.set(r.law_id, arr);
-            }
-          }
-        }
-      } catch {
-        catMap = new Map();
-      }
-    }
-
-    const linkedLawIds = new Set<string>();
-    if (ids.length > 0) {
-      try {
-        const chunkSize = 500;
-        for (let i = 0; i < ids.length; i += chunkSize) {
-          const chunk = ids.slice(i, i + chunkSize);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: mRows, error: mErr } = await (supabase as any)
-            .from("law_shared_group_members")
-            .select("law_id")
-            .in("law_id", chunk);
-          if (!mErr && mRows) {
-            for (const r of mRows as { law_id: string }[]) {
-              if (r.law_id) linkedLawIds.add(r.law_id);
-            }
-          }
-        }
-      } catch {
-        /* law_shared_group_members may be missing on older DBs */
-      }
+    let linkedLawIds = new Set<string>();
+    if (ids.length > 0 && !filters?.skipEnrichment) {
+      [catMap, linkedLawIds] = await Promise.all([
+        fetchLawCategoryIdsMap(supabase, ids),
+        fetchLinkedLawIdSet(supabase, ids),
+      ]);
     }
 
     const laws: LibraryLawRow[] = rawLaws.map((law) => ({
       ...law,
-      all_category_ids: catMap.get(law.id) ?? (law.category_id ? [law.category_id] : []),
-      is_linked_shared_law: linkedLawIds.has(law.id),
+      all_category_ids: filters?.skipEnrichment
+        ? law.category_id
+          ? [law.category_id]
+          : []
+        : (catMap.get(law.id) ?? (law.category_id ? [law.category_id] : [])),
+      is_linked_shared_law: filters?.skipEnrichment ? false : linkedLawIds.has(law.id),
     }));
 
     const data: LibraryData = {
@@ -353,7 +410,7 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
       lawCount,
     };
 
-    if (key === "__initial__") {
+    if (key === "__initial__" && !filters?.skipEnrichment) {
       cachedData = data;
       cacheTimestamp = Date.now();
     }
@@ -362,12 +419,7 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
   })();
 }
 
-export async function fetchLibraryData(filters?: {
-  countryId?: string;
-  categoryId?: string;
-  status?: string;
-  q?: string;
-}): Promise<LibraryData> {
+export async function fetchLibraryData(filters?: LibraryFilters): Promise<LibraryData> {
   const key = cacheKey(filters);
   const now = Date.now();
   if (key === "__initial__" && cachedData && now - cacheTimestamp < CACHE_TTL_MS) {
