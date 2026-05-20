@@ -495,7 +495,7 @@ export default function LawyersPage() {
           <div className="mb-5 flex items-start gap-2 rounded-[8px] border border-border bg-card px-4 py-3 text-[16px] text-foreground">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             <p>
-              Select a <strong>country</strong> and <strong>practice area</strong> to search. One search costs ${searchPriceLabel} and
+              Select a <strong>country</strong> and <strong>practice area</strong> to search. One search costs {searchPriceLabel} and
               unlocks contact details for all matching lawyers.
             </p>
           </div>
@@ -526,7 +526,7 @@ export default function LawyersPage() {
             </Link>
             {expertiseRequired && (
               <p className="text-xs text-amber-700 dark:text-amber-400">
-                Please select a practice area. Country + practice area are required so your ${searchPriceLabel} unlock
+                Please select a practice area. Country + practice area are required so your {searchPriceLabel} unlock
                 applies to a specific search.
               </p>
             )}
@@ -564,7 +564,7 @@ export default function LawyersPage() {
                   {filteredLawyers.length} lawyer{filteredLawyers.length !== 1 ? "s" : ""} match your criteria.
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-                  Pay ${searchPriceLabel} to unlock contact details for all{" "}
+                  Pay {searchPriceLabel} to unlock contact details for all{" "}
                   {filteredLawyers.length} lawyer{filteredLawyers.length !== 1 ? "s" : ""} in this search (
                   {selectedCountry} + {selectedExpertise}).
                 </p>
@@ -812,7 +812,7 @@ export default function LawyersPage() {
                         </div>
                       ) : (
                         <div className="rounded-[6px] bg-[#0D1B2A] px-3 py-2 text-center text-[12px] font-semibold text-white">
-                          Unlock contact — ${searchPriceLabel}
+                          Unlock contact — {searchPriceLabel}
                         </div>
                       )}
                     </div>
@@ -825,7 +825,7 @@ export default function LawyersPage() {
 
         {lawyers.length > 0 && (
           <p className="mt-8 text-center text-xs text-muted-foreground sm:text-sm">
-            <strong>${searchPriceLabel} per search</strong> (country + practice area). Your payment unlocks contact details
+            <strong>{searchPriceLabel} per search</strong> (country + practice area). Your payment unlocks contact details
             for the lawyers in that search. Different country or practice area = a new search. Payments are processed
             securely via mobile money.
           </p>
