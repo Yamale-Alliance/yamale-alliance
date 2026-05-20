@@ -3,9 +3,11 @@
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Check } from "lucide-react";
 import { useAlertDialog } from "@/components/ui/use-confirm";
 import { PaymentMethodPicker, type CheckoutPaymentProvider } from "@/components/checkout/PaymentMethodPicker";
+import { DayPassCheckoutConfirm } from "@/components/checkout/DayPassCheckoutConfirm";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import {
@@ -15,6 +17,7 @@ import {
 } from "@/components/layout/prototype-page-styles";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
 import { formatLawPrintPriceUsd } from "@/lib/law-print-pricing";
+import { formatUsdPrice } from "@/lib/content-pricing";
 
 type BillingInterval = "monthly" | "annual";
 
@@ -141,8 +144,18 @@ export default function PricingPage() {
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
     Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
   const lomiComingSoon = false;
-  const { lawPrintPriceUsdCents } = usePlatformSettings();
+  const {
+    lawPrintPriceUsdCents,
+    dayPassPriceUsdCents,
+    lawyerSearchUnlockPriceUsdCents,
+    aiQueryPriceUsdCents,
+    afcftaReportPriceUsdCents,
+  } = usePlatformSettings();
   const lawPrintPriceLabel = formatLawPrintPriceUsd(lawPrintPriceUsdCents);
+  const dayPassPriceLabel = formatUsdPrice(dayPassPriceUsdCents);
+  const lawyerSearchPriceLabel = formatUsdPrice(lawyerSearchUnlockPriceUsdCents);
+  const aiQueryPriceLabel = formatUsdPrice(aiQueryPriceUsdCents);
+  const afcftaReportPriceLabel = formatUsdPrice(afcftaReportPriceUsdCents);
 
   /** Subscription checkout happens under Account (plan, billing period, payment method). */
   const goToSubscriptionCheckout = (planId: string) => {
@@ -296,6 +309,9 @@ export default function PricingPage() {
   return (
     <div className="min-h-screen bg-background">
       {alertDialog}
+      <div className="mx-auto max-w-3xl px-6 pt-6">
+        <DayPassCheckoutConfirm />
+      </div>
       {/* Hero Section */}
       <section className={prototypeNavyHeroSectionClass}>
         <div
@@ -531,6 +547,26 @@ export default function PricingPage() {
               </div>
             </button>
 
+            <Link
+              href="/lawyers"
+              className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm"
+            >
+              <div className="pr-4 sm:pr-6">
+                <div className="text-xl font-semibold leading-tight text-foreground sm:text-[28px]">
+                  Lawyer directory search
+                </div>
+                <div className="mt-1 text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
+                  Unlock contact details for one country + practice area on the curated lawyer network.
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-3xl font-bold leading-none text-[#C8922A] sm:text-[40px]">
+                  {lawyerSearchPriceLabel}
+                </div>
+                <div className="mt-1 text-[10px] text-muted-foreground sm:text-[11px]">per search</div>
+              </div>
+            </Link>
+
             <button
               type="button"
               onClick={() => handleDayPassCheckout()}
@@ -544,7 +580,7 @@ export default function PricingPage() {
                 </div>
               </div>
               <div className="shrink-0 text-right">
-                <div className="text-3xl font-bold leading-none text-[#C8922A] sm:text-[40px]">$9.99</div>
+                <div className="text-3xl font-bold leading-none text-[#C8922A] sm:text-[40px]">{dayPassPriceLabel}</div>
                 <div className="mt-1 text-[10px] text-muted-foreground sm:text-[11px]">per day</div>
               </div>
             </button>
@@ -562,7 +598,7 @@ export default function PricingPage() {
                 </div>
               </div>
               <div className="shrink-0 text-right">
-                <div className="text-3xl font-bold leading-none text-[#C8922A] sm:text-[40px]">$15</div>
+                <div className="text-3xl font-bold leading-none text-[#C8922A] sm:text-[40px]">{afcftaReportPriceLabel}</div>
                 <div className="mt-1 text-[10px] text-muted-foreground sm:text-[11px]">per route</div>
               </div>
             </button>
@@ -580,7 +616,7 @@ export default function PricingPage() {
                 </div>
               </div>
               <div className="shrink-0 text-right">
-                <div className="text-3xl font-bold leading-none text-[#C8922A] sm:text-[40px]">$1</div>
+                <div className="text-3xl font-bold leading-none text-[#C8922A] sm:text-[40px]">{aiQueryPriceLabel}</div>
                 <div className="mt-1 text-[10px] text-muted-foreground sm:text-[11px]">per query</div>
               </div>
             </button>
