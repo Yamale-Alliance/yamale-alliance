@@ -10,8 +10,7 @@ import {
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
 import { PAWAPAY_COUNTRY_BY_NAME } from "@/lib/pawapay-payment-countries";
-
-const SEARCH_UNLOCK_USD_CENTS = 500; // $5 per search
+import { getLawyerSearchUnlockPriceUsdCents } from "@/lib/platform-settings";
 type CheckoutProvider = "pawapay" | "lomi";
 
 /**
@@ -25,6 +24,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Sign in required" }, { status: 401 });
     }
 
+    const searchUnlockCents = await getLawyerSearchUnlockPriceUsdCents();
     const body = await request.json().catch(() => ({}));
     const lawyerIds = body.lawyerIds as unknown;
     const country = typeof body.country === "string" ? body.country.trim() : "";
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Lomi lawyer search unlock expects USD pricing." }, { status: 500 });
       }
       const { checkoutUrl, sessionId } = await createLomiHostedCheckoutSession({
-        amount: SEARCH_UNLOCK_USD_CENTS,
+        amount: searchUnlockCents,
         currency_code: currencyCode,
         metadata: {
           clerk_user_id: userId,
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Lomi lawyer search unlock expects USD pricing." }, { status: 500 });
       }
       const { checkoutUrl, sessionId } = await createLomiHostedCheckoutSession({
-        amount: SEARCH_UNLOCK_USD_CENTS,
+        amount: searchUnlockCents,
         currency_code: currencyCode,
         metadata: {
           clerk_user_id: userId,
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
       );
     }
     const successUrl = `${returnOrigin}/lawyers?${buildReturnQuery(depositId)}`;
-    const pawapayAmountMinor = convertUsdCentsToPawapayMinor(SEARCH_UNLOCK_USD_CENTS, countryConfig.currency);
+    const pawapayAmountMinor = convertUsdCentsToPawapayMinor(searchUnlockCents, countryConfig.currency);
     const { redirectUrl } = await createPaymentPageSession({
       depositId,
       amountCents: pawapayAmountMinor,
