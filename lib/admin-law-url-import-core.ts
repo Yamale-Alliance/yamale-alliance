@@ -1,5 +1,12 @@
 import { extractTextFromPdf } from "@/lib/pdf-extract";
-import { sanitizeLawContent, VALID_LAW_STATUSES, normaliseLawTitle } from "@/lib/admin-law-utils";
+import {
+  sanitizeLawContent,
+  VALID_LAW_STATUSES,
+  normaliseLawTitle,
+  isValidLawYear,
+  LAW_YEAR_MIN,
+  LAW_YEAR_MAX,
+} from "@/lib/admin-law-utils";
 import {
   fetchPdfFromUrl,
   stripTableOfContents,
@@ -144,8 +151,8 @@ export async function saveLawFromPdfUrlImport(params: {
   if (!isLawTreatyType(effectiveTreatyType)) {
     throw new Error("Invalid treaty type");
   }
-  if (year !== null && (Number.isNaN(year) || year < 1900 || year > 2100)) {
-    throw new Error("Invalid year");
+  if (year !== null && (Number.isNaN(year) || !isValidLawYear(year))) {
+    throw new Error(`Invalid year (use ${LAW_YEAR_MIN}–${LAW_YEAR_MAX})`);
   }
 
   let markdown: string;
