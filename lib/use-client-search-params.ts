@@ -9,6 +9,7 @@ let cachedParams: URLSearchParams = EMPTY_SEARCH_PARAMS;
 
 const listeners = new Set<() => void>();
 let historyPatched = false;
+let notifyScheduled = false;
 
 function getSnapshot(): URLSearchParams {
   if (typeof window === "undefined") {
@@ -23,8 +24,14 @@ function getSnapshot(): URLSearchParams {
   return cachedParams;
 }
 
-function notifyListeners() {
-  listeners.forEach((listener) => listener());
+/** Defer so pushState/replaceState during useInsertionEffect does not sync-schedule React updates. */
+function scheduleNotifyListeners() {
+  if (notifyScheduled) return;
+  notifyScheduled = true;
+  queueMicrotask(() => {
+    notifyScheduled = false;
+    listeners.forEach((listener) => listener());
+  });
 }
 
 function patchHistoryOnce() {
@@ -33,11 +40,11 @@ function patchHistoryOnce() {
   const { pushState, replaceState } = history;
   history.pushState = function (...args) {
     pushState.apply(history, args);
-    notifyListeners();
+    scheduleNotifyListeners();
   };
   history.replaceState = function (...args) {
     replaceState.apply(history, args);
-    notifyListeners();
+    scheduleNotifyListeners();
   };
 }
 
@@ -45,7 +52,7 @@ function subscribe(onStoreChange: () => void) {
   if (typeof window === "undefined") return () => {};
   patchHistoryOnce();
   listeners.add(onStoreChange);
-  const onPopState = () => onStoreChange();
+  const onPopState = () => scheduleNotifyListeners();
   window.addEventListener("popstate", onPopState);
   return () => {
     listeners.delete(onStoreChange);
