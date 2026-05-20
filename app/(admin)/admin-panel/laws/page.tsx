@@ -66,6 +66,7 @@ function AdminLawsPageInner() {
 
   const loadLaws = useCallback(() => {
     const params = new URLSearchParams();
+    params.set("skipEnrichment", "1");
     if (countryId) params.set("countryId", countryId);
     if (categoryId) params.set("categoryId", categoryId);
     if (status) params.set("status", status);
