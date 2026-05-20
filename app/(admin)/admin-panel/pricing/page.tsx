@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Loader2, Pencil, X, DollarSign, Sparkles } from "lucide-react";
+import { ContentPricingSection } from "@/components/admin/ContentPricingSection";
 
 type Plan = {
   id: string;
@@ -90,7 +91,7 @@ export default function AdminPricingPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Pricing</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Edit plan names, prices, and features. Changes appear on the public pricing page.
+            Edit subscription tiers above. Below, edit the five pay-as-you-go prices shown on the public pricing page.
           </p>
         </div>
       </div>
@@ -272,6 +273,8 @@ export default function AdminPricingPage() {
           </div>
         </>
       )}
+
+      <ContentPricingSection />
     </div>
   );
 }
