@@ -5,6 +5,7 @@ import { recordAuditLog } from "@/lib/admin-audit";
 import type { Database } from "@/lib/database.types";
 import { parseLandingPageHtmlInput } from "@/lib/marketplace-landing-page";
 import { parseItemPackageOffersInput } from "@/lib/marketplace-package-offers";
+import { resolveVaultSubcategoryForSave } from "@/lib/marketplace-vault-categories";
 
 type Update = Database["public"]["Tables"]["marketplace_items"]["Update"];
 const VALID_TYPES = ["book", "course", "template", "guide"] as const;
@@ -62,6 +63,7 @@ export async function PUT(
       video_url,
       landing_page_html,
       package_offers,
+      vault_subcategory,
     } = body;
 
     const updates: Update = {};
@@ -100,6 +102,19 @@ export async function PUT(
     updates.updated_at = new Date().toISOString();
 
     const supabase = getSupabaseServer();
+
+    if (vault_subcategory !== undefined || typeof price_cents === "number") {
+      let effectivePrice = updates.price_cents;
+      if (effectivePrice === undefined) {
+        const { data: existing } = await supabase
+          .from("marketplace_items")
+          .select("price_cents")
+          .eq("id", id)
+          .single();
+        effectivePrice = (existing as { price_cents?: number } | null)?.price_cents ?? 0;
+      }
+      updates.vault_subcategory = resolveVaultSubcategoryForSave(effectivePrice, vault_subcategory);
+    }
     const { data, error } = await (supabase.from("marketplace_items") as any)
       .update(updates)
       .eq("id", id)
