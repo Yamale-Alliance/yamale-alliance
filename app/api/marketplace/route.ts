@@ -9,7 +9,7 @@ export async function GET() {
     const { data: rows, error } = await supabase
       .from("marketplace_items")
       .select(
-        "id, type, title, author, description, price_cents, currency, image_url, sort_order, video_url, file_format, file_name"
+        "id, type, title, author, description, price_cents, currency, image_url, sort_order, video_url, file_format, file_name, vault_subcategory"
       )
       .eq("published", true)
       .order("sort_order", { ascending: true })
@@ -33,6 +33,7 @@ export async function GET() {
       video_url: string | null;
       file_format: string | null;
       file_name: string | null;
+      vault_subcategory: string | null;
     };
     const items: Row[] = (rows ?? []) as Row[];
     const { userId } = await auth();
