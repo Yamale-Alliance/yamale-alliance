@@ -14,6 +14,7 @@ import {
   X,
   Package,
   LayoutGrid,
+  Gift,
 } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
@@ -34,6 +35,13 @@ import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries
 import { useMarketplacePaymentReturn } from "@/components/marketplace/use-marketplace-payment-return";
 import { notifyMarketplaceCartUpdated } from "@/lib/marketplace-cart-events";
 import { displayVaultProductTitle } from "@/lib/marketplace-display";
+import {
+  VAULT_BROWSE_FREE,
+  VAULT_FREE_SUBCATEGORIES,
+  isFreeVaultItem,
+  labelForVaultSubcategory,
+  parseVaultFreeSeriesParam,
+} from "@/lib/marketplace-vault-categories";
 
 const BRAND = {
   dark: "#221913",
@@ -47,11 +55,14 @@ type ProductCategory = "book" | "course" | "template" | "guide";
 
 type BrowseMode =
   | { kind: "all" }
-  | { kind: "type"; type: ProductCategory };
+  | { kind: "type"; type: ProductCategory }
+  | { kind: "free"; subcategory: string | null };
 
-function parseBrowseMode(categoryParam: string | null): BrowseMode {
-  if (!categoryParam) return { kind: "all" };
-  if (categoryParam === "all") return { kind: "all" };
+function parseBrowseMode(categoryParam: string | null, seriesParam: string | null): BrowseMode {
+  if (!categoryParam || categoryParam === "all") return { kind: "all" };
+  if (categoryParam === VAULT_BROWSE_FREE) {
+    return { kind: "free", subcategory: parseVaultFreeSeriesParam(seriesParam) };
+  }
   if (categoryParam === "book" || categoryParam === "course" || categoryParam === "template" || categoryParam === "guide") {
     return { kind: "type", type: categoryParam };
   }
@@ -72,15 +83,17 @@ type Product = {
   video_url?: string | null;
   file_format?: string | null;
   file_name?: string | null;
+  vault_subcategory?: string | null;
 };
 
-const TYPE_TILES: {
-  param: "all" | ProductCategory;
+const FORMAT_TILES: {
+  param: "all" | ProductCategory | typeof VAULT_BROWSE_FREE;
   label: string;
   blurb: string;
-  icon: "all" | ProductCategory;
+  icon: "all" | ProductCategory | "free";
 }[] = [
   { param: "all", label: "All resources", blurb: "Everything in the vault", icon: "all" },
+  { param: VAULT_BROWSE_FREE, label: "Free", blurb: "Complimentary resources", icon: "free" },
   { param: "book", label: "Books", blurb: "Treatises & references", icon: "book" },
   { param: "course", label: "Courses", blurb: "Structured learning", icon: "course" },
   { param: "template", label: "Templates", blurb: "Ready-to-use documents", icon: "template" },
@@ -102,9 +115,18 @@ function CategoryIcon({ type, className }: { type: string; className?: string })
   }
 }
 
-function TileCategoryIcon({ icon, className }: { icon: "all" | ProductCategory; className?: string }) {
+function TileCategoryIcon({
+  icon,
+  className,
+}: {
+  icon: "all" | ProductCategory | "free";
+  className?: string;
+}) {
   if (icon === "all") {
     return <LayoutGrid className={className ?? "h-8 w-8"} />;
+  }
+  if (icon === "free") {
+    return <Gift className={className ?? "h-8 w-8"} />;
   }
   return <CategoryIcon type={icon} className={className ?? "h-8 w-8"} />;
 }
@@ -146,11 +168,12 @@ export default function MarketplacePage() {
   const { alert: showAlert, alertDialog } = useAlertDialog();
 
   const categoryQs = searchParams.get("category");
-  const browse = parseBrowseMode(categoryQs);
+  const seriesQs = searchParams.get("series");
+  const browse = parseBrowseMode(categoryQs, seriesQs);
 
   useEffect(() => {
     setSearch("");
-  }, [categoryQs]);
+  }, [categoryQs, seriesQs]);
 
   const countsByType = useMemo(() => {
     const m = new Map<string, number>();
@@ -160,10 +183,23 @@ export default function MarketplacePage() {
     return m;
   }, [items]);
 
-  const tileCount = (param: (typeof TYPE_TILES)[number]["param"]) => {
+  const freeItemCount = useMemo(() => items.filter((p) => isFreeVaultItem(p.price_cents)).length, [items]);
+
+  const formatTileCount = (param: (typeof FORMAT_TILES)[number]["param"]) => {
     if (param === "all") return items.length;
+    if (param === VAULT_BROWSE_FREE) return freeItemCount;
     return countsByType.get(param) ?? 0;
   };
+
+  const freeSeriesCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const p of items) {
+      if (!isFreeVaultItem(p.price_cents)) continue;
+      const key = p.vault_subcategory?.trim() || "";
+      m.set(key, (m.get(key) ?? 0) + 1);
+    }
+    return m;
+  }, [items]);
 
   const refreshItems = useCallback(async () => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
@@ -231,7 +267,13 @@ export default function MarketplacePage() {
         !search ||
         p.title.toLowerCase().includes(search.toLowerCase()) ||
         (p.author && p.author.toLowerCase().includes(search.toLowerCase()));
-      const matchBrowse = browse.kind === "all" || p.type === browse.type;
+      const matchBrowse =
+        browse.kind === "all"
+          ? true
+          : browse.kind === "type"
+            ? p.type === browse.type
+            : isFreeVaultItem(p.price_cents) &&
+              (!browse.subcategory || p.vault_subcategory === browse.subcategory);
       return matchSearch && matchBrowse;
     });
   }, [items, browse, search]);
@@ -249,8 +291,12 @@ export default function MarketplacePage() {
 
   const browseTitle =
     browse.kind === "all"
-        ? "All resources"
-        : TYPE_TILES.find((t) => t.param === browse.type)?.label ?? browse.type;
+      ? "All resources"
+      : browse.kind === "free"
+        ? browse.subcategory
+          ? (labelForVaultSubcategory(browse.subcategory) ?? "Free")
+          : "Free"
+        : FORMAT_TILES.find((t) => t.param === browse.type)?.label ?? browse.type;
 
   const handleAddToCart = async (productId: string, e: React.MouseEvent) => {
     e.preventDefault();
@@ -508,10 +554,11 @@ export default function MarketplacePage() {
           <div className="mt-6 flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Format</span>
-              {TYPE_TILES.map((tile) => {
+              {FORMAT_TILES.map((tile) => {
                 const active =
                   (browse.kind === "all" && tile.param === "all") ||
-                  (browse.kind === "type" && tile.param === browse.type);
+                  (browse.kind === "type" && tile.param === browse.type) ||
+                  (browse.kind === "free" && tile.param === VAULT_BROWSE_FREE && !browse.subcategory);
                 return (
                   <Link
                     key={tile.param}
@@ -524,10 +571,50 @@ export default function MarketplacePage() {
                     }`}
                   >
                     {tile.label}
+                    {formatTileCount(tile.param) > 0 ? ` (${formatTileCount(tile.param)})` : ""}
                   </Link>
                 );
               })}
             </div>
+
+            {browse.kind === "free" && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Series
+                </span>
+                <Link
+                  href="/marketplace?category=free"
+                  scroll={false}
+                  className={`rounded-[6px] border px-3 py-1.5 text-xs font-semibold transition ${
+                    !browse.subcategory
+                      ? "border-[#C8922A] bg-[#C8922A] text-white"
+                      : "border-border bg-card text-muted-foreground hover:border-[#d8c5a1]"
+                  }`}
+                >
+                  All free
+                  {freeItemCount > 0 ? ` (${freeItemCount})` : ""}
+                </Link>
+                {VAULT_FREE_SUBCATEGORIES.map((series) => {
+                  const count = freeSeriesCounts.get(series.id) ?? 0;
+                  const active = browse.subcategory === series.id;
+                  return (
+                    <Link
+                      key={series.id}
+                      href={`/marketplace?category=free&series=${encodeURIComponent(series.id)}`}
+                      scroll={false}
+                      className={`rounded-[6px] border px-3 py-1.5 text-xs font-semibold transition ${
+                        active
+                          ? "border-[#C8922A] bg-[#C8922A] text-white"
+                          : "border-border bg-card text-muted-foreground hover:border-[#d8c5a1]"
+                      }`}
+                    >
+                      {series.label}
+                      {count > 0 ? ` (${count})` : ""}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Topic</span>
@@ -610,6 +697,12 @@ export default function MarketplacePage() {
                           >
                             {displayVaultProductTitle(product.title)}
                           </h3>
+                          {isFreeVaultItem(product.price_cents) &&
+                            labelForVaultSubcategory(product.vault_subcategory) && (
+                              <p className="mt-1.5 font-sans text-[11px] font-semibold text-[#b8893b]">
+                                {labelForVaultSubcategory(product.vault_subcategory)}
+                              </p>
+                            )}
                           <p className="mt-2 font-sans text-xs leading-relaxed text-muted-foreground">
                             {product.author || "Yamale Faculty"}
                             {product.owned ? " · Owned" : ""}
