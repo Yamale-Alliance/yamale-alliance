@@ -7,6 +7,8 @@ import { Loader2, Plus, Pencil, Trash2, BookOpen, GraduationCap, FileText, Uploa
 import { useConfirm } from "@/components/ui/use-confirm";
 import { AdminPackageOffersFields } from "@/components/admin/AdminPackageOffersFields";
 import { MarketplaceCoverImageField } from "@/components/admin/MarketplaceCoverImageField";
+import { AdminVaultSubcategorySelect } from "@/components/admin/AdminVaultSubcategorySelect";
+import { labelForVaultSubcategory } from "@/lib/marketplace-vault-categories";
 import { isValidMarketplaceCoverUrl } from "@/lib/marketplace-cover-url";
 import {
   buildItemPackageOffersFromForm,
@@ -31,6 +33,7 @@ type MarketplaceItem = {
   video_url?: string | null;
   landing_page_html?: string | null;
   package_offers?: Record<string, unknown> | null;
+  vault_subcategory?: string | null;
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -390,6 +393,8 @@ export default function AdminMarketplacePage() {
           file_format: removeFile ? null : (pendingFile ? pendingFile.file_format : editing.file_format),
           video_url: (form.elements.namedItem("video_url") as HTMLInputElement)?.value?.trim() || null,
           landing_page_html: editLandingHtml.trim() || null,
+          vault_subcategory:
+            (form.elements.namedItem("vault_subcategory") as HTMLSelectElement)?.value?.trim() || null,
         }),
       });
       const data = await res.json();
@@ -511,6 +516,7 @@ export default function AdminMarketplacePage() {
               <label className="mb-1 block text-sm font-medium">Price (USD)</label>
               <input name="price_cents" type="number" step="0.01" min="0" defaultValue="0" className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="0 = free" />
             </div>
+            <AdminVaultSubcategorySelect className="sm:col-span-2" />
             <div className="sm:col-span-2">
               <label className="mb-1 block text-sm font-medium">Description</label>
               <textarea
@@ -689,6 +695,7 @@ export default function AdminMarketplacePage() {
                 <th className="pb-2 text-left font-medium">Cover</th>
                 <th className="pb-2 text-left font-medium">Type</th>
                 <th className="pb-2 text-left font-medium">Title</th>
+                <th className="pb-2 text-left font-medium">Free series</th>
                 <th className="pb-2 text-left font-medium">Author</th>
                 <th className="pb-2 text-right font-medium">Price</th>
                 <th className="pb-2 text-center font-medium">File</th>
@@ -715,6 +722,11 @@ export default function AdminMarketplacePage() {
                     </span>
                   </td>
                   <td className="py-3 font-medium">{item.title}</td>
+                  <td className="py-3 text-muted-foreground text-xs">
+                    {item.price_cents === 0
+                      ? labelForVaultSubcategory(item.vault_subcategory) ?? "—"
+                      : "—"}
+                  </td>
                   <td className="py-3 text-muted-foreground">{item.author || "—"}</td>
                   <td className="py-3 text-right">
                     {item.price_cents === 0 ? "Free" : `$${(item.price_cents / 100).toFixed(2)}`}
@@ -870,6 +882,10 @@ export default function AdminMarketplacePage() {
                 <label className="mb-1 block text-sm font-medium">Price (USD)</label>
                 <input name="price_cents" type="number" step="0.01" min="0" defaultValue={(editing.price_cents / 100).toFixed(2)} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" />
               </div>
+              <AdminVaultSubcategorySelect
+                className="sm:col-span-2"
+                defaultValue={editing.vault_subcategory}
+              />
               <div className="sm:col-span-2">
                 <label className="mb-1 block text-sm font-medium">Description</label>
                 <textarea name="description" rows={3} defaultValue={editing.description ?? ""} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" />
