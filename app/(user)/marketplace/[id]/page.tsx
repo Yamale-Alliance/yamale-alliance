@@ -4,6 +4,7 @@ import { useCallback, useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 import Link from "next/link";
+import Image from "next/image";
 import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, Eye, Star, ShoppingCart, Zap, X } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
@@ -480,8 +481,21 @@ export default function MarketplaceItemPage() {
               <ArrowLeft className="h-4 w-4" /> Back to The Yamale Vault
             </Link>
             <div className="flex items-start gap-4">
-              <div className="rounded-xl bg-muted p-4">
-                <TypeIcon type={item.type} />
+              <div
+                className="relative h-28 w-28 shrink-0 overflow-hidden rounded-xl border border-border"
+                style={{
+                  background: item.image_url
+                    ? undefined
+                    : `linear-gradient(135deg, ${BRAND.gradientStart}, ${BRAND.gradientEnd})`,
+                }}
+              >
+                {item.image_url ? (
+                  <Image src={item.image_url} alt="" fill className="object-cover" sizes="112px" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-white/95">
+                    <TypeIcon type={item.type} />
+                  </div>
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <span className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground capitalize">
