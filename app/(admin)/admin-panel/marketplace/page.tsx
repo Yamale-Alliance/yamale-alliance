@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Plus, Pencil, Trash2, BookOpen, GraduationCap, FileText, Upload, X } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { AdminPackageOffersFields } from "@/components/admin/AdminPackageOffersFields";
+import { MarketplaceCoverImageField } from "@/components/admin/MarketplaceCoverImageField";
+import { isValidMarketplaceCoverUrl } from "@/lib/marketplace-cover-url";
 import {
   buildItemPackageOffersFromForm,
   itemPackageOffersToFormDefaults,
@@ -68,10 +70,9 @@ export default function AdminMarketplacePage() {
   const [removeFile, setRemoveFile] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
   const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
+  const [coverImageCleared, setCoverImageCleared] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const editImageInputRef = useRef<HTMLInputElement>(null);
   const landingHtmlFileAddRef = useRef<HTMLInputElement>(null);
   const landingHtmlFileEditRef = useRef<HTMLInputElement>(null);
 
@@ -154,12 +155,33 @@ export default function AdminMarketplacePage() {
         setError(data.error ?? "Image upload failed");
         return;
       }
-      if (data.url) setPendingImageUrl(data.url);
-      else setError("Upload succeeded but no image URL was returned. Check Cloudinary env vars on this deployment.");
+      if (data.url) {
+        setPendingImageUrl(data.url);
+        setCoverImageCleared(false);
+      } else {
+        setError("Upload succeeded but no image URL was returned.");
+      }
     } catch {
       setError("Image upload failed (network or blocked response). Check the browser Network tab.");
     }
     setImageUploading(false);
+  };
+
+  const resolveCoverImageUrl = (): string | null => {
+    if (coverImageCleared) return null;
+    if (pendingImageUrl) return pendingImageUrl;
+    if (editing?.image_url) return editing.image_url;
+    return null;
+  };
+
+  const handlePasteCoverUrl = (url: string) => {
+    if (!isValidMarketplaceCoverUrl(url)) {
+      setError("Cover URL must be a valid https Cloudinary link (res.cloudinary.com).");
+      return;
+    }
+    setPendingImageUrl(url.trim());
+    setCoverImageCleared(false);
+    setError(null);
   };
 
   const handleUploadFile = async (file: File, itemId?: string) => {
@@ -293,7 +315,7 @@ export default function AdminMarketplacePage() {
           price_cents: priceCents,
           package_offers: packageOffers,
           currency: "usd",
-          image_url: pendingImageUrl ?? null,
+          image_url: coverImageCleared ? null : pendingImageUrl ?? null,
           published: (form.elements.namedItem("published") as HTMLInputElement)?.checked ?? true,
           sort_order: parseInt((form.elements.namedItem("sort_order") as HTMLInputElement)?.value ?? "0", 10),
           file_path: pendingFile?.path ?? null,
@@ -314,6 +336,7 @@ export default function AdminMarketplacePage() {
       updateViewInUrl(false);
       setPendingFile(null);
       setPendingImageUrl(null);
+      setCoverImageCleared(false);
       setLandingPageHtmlAdd("");
       setAddDualPricing(false);
       setAddStandaloneUsd("199.00");
@@ -359,7 +382,7 @@ export default function AdminMarketplacePage() {
           description: (form.elements.namedItem("description") as HTMLTextAreaElement)?.value?.trim() || null,
           price_cents: priceCents,
           package_offers: editDualPricing && showDualPricingEdit ? packageOffers : null,
-          image_url: pendingImageUrl ?? editing.image_url ?? null,
+          image_url: resolveCoverImageUrl(),
           published: (form.elements.namedItem("published") as HTMLInputElement)?.checked ?? editing.published,
           sort_order: parseInt((form.elements.namedItem("sort_order") as HTMLInputElement)?.value ?? "0", 10),
           file_path: removeFile ? null : (pendingFile ? pendingFile.path : editing.file_path),
@@ -377,6 +400,8 @@ export default function AdminMarketplacePage() {
       }
       setItems((prev) => prev.map((p) => (p.id === editing.id ? { ...p, ...data.item } : p)));
       setEditing(null);
+      setPendingImageUrl(null);
+      setCoverImageCleared(false);
       setPendingFile(null);
       setRemoveFile(false);
     } catch {
@@ -509,37 +534,16 @@ export default function AdminMarketplacePage() {
             </div>
             <div className="sm:col-span-2">
               <label className="mb-1 block text-sm font-medium">Cover image</label>
-              <p className="mb-2 text-xs text-muted-foreground">Optional. Stored in Cloudinary.</p>
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleUploadImage(f);
-                  e.target.value = "";
+              <MarketplaceCoverImageField
+                previewUrl={coverImageCleared ? null : pendingImageUrl}
+                uploading={imageUploading}
+                onUpload={(f) => handleUploadImage(f)}
+                onClear={() => {
+                  setPendingImageUrl(null);
+                  setCoverImageCleared(true);
                 }}
+                onPasteUrl={handlePasteCoverUrl}
               />
-              {pendingImageUrl ? (
-                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
-                  <img src={pendingImageUrl} alt="Cover" className="h-12 w-12 rounded object-cover" />
-                  <span className="truncate text-muted-foreground">Image uploaded</span>
-                  <button type="button" onClick={() => setPendingImageUrl(null)} className="ml-auto rounded p-1 hover:bg-muted" aria-label="Remove">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => imageInputRef.current?.click()}
-                  disabled={imageUploading}
-                  className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-3 py-2 text-sm text-muted-foreground hover:border-primary hover:text-foreground disabled:opacity-50"
-                >
-                  {imageUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                  {imageUploading ? "Uploading…" : "Upload cover image"}
-                </button>
-              )}
             </div>
             <div className="sm:col-span-2">
               <label className="mb-1 block text-sm font-medium">Custom landing page HTML (optional)</label>
@@ -682,6 +686,7 @@ export default function AdminMarketplacePage() {
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-border">
+                <th className="pb-2 text-left font-medium">Cover</th>
                 <th className="pb-2 text-left font-medium">Type</th>
                 <th className="pb-2 text-left font-medium">Title</th>
                 <th className="pb-2 text-left font-medium">Author</th>
@@ -694,6 +699,15 @@ export default function AdminMarketplacePage() {
             <tbody>
               {items.map((item) => (
                 <tr key={item.id} className="border-b border-border/70">
+                  <td className="py-3">
+                    {item.image_url ? (
+                      <img src={item.image_url} alt="" className="h-10 w-10 rounded object-cover border border-border" />
+                    ) : (
+                      <span className="inline-flex h-10 w-10 items-center justify-center rounded border border-dashed border-border text-[10px] text-muted-foreground">
+                        No img
+                      </span>
+                    )}
+                  </td>
                   <td className="py-3">
                     <span className="flex items-center gap-2">
                       <TypeIcon type={item.type} />
@@ -714,7 +728,8 @@ export default function AdminMarketplacePage() {
                         setEditing(item);
                         setRemoveFile(false);
                         setPendingFile(null);
-                        setPendingImageUrl(item.image_url ?? null);
+                        setPendingImageUrl(null);
+                        setCoverImageCleared(false);
                       }}
                       className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                       aria-label="Edit"
@@ -876,42 +891,16 @@ export default function AdminMarketplacePage() {
               </div>
               <div className="sm:col-span-2">
                 <label className="mb-1 block text-sm font-medium">Cover image</label>
-                <input
-                  ref={editImageInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleUploadImage(f);
-                    e.target.value = "";
+                <MarketplaceCoverImageField
+                  previewUrl={coverImageCleared ? null : pendingImageUrl ?? editing.image_url}
+                  uploading={imageUploading}
+                  onUpload={(f) => handleUploadImage(f)}
+                  onClear={() => {
+                    setPendingImageUrl(null);
+                    setCoverImageCleared(true);
                   }}
+                  onPasteUrl={handlePasteCoverUrl}
                 />
-                {(pendingImageUrl ?? editing.image_url) ? (
-                  <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
-                    <img src={pendingImageUrl ?? editing.image_url ?? ""} alt="Cover" className="h-12 w-12 rounded object-cover" />
-                    <span className="truncate text-muted-foreground">{(pendingImageUrl ? "New image" : "Current image")}</span>
-                    <button type="button" onClick={() => setPendingImageUrl(null)} className="ml-auto rounded p-1 hover:bg-muted text-xs">Remove</button>
-                    <button
-                      type="button"
-                      onClick={() => editImageInputRef.current?.click()}
-                      disabled={imageUploading}
-                      className="rounded border border-input px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
-                    >
-                      {imageUploading ? "Uploading…" : "Replace"}
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => editImageInputRef.current?.click()}
-                    disabled={imageUploading}
-                    className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-3 py-2 text-sm text-muted-foreground hover:border-primary hover:text-foreground disabled:opacity-50"
-                  >
-                    {imageUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                    {imageUploading ? "Uploading…" : "Upload cover image"}
-                  </button>
-                )}
               </div>
               <div className="sm:col-span-2">
                 <label className="mb-1 block text-sm font-medium">Custom landing page HTML (optional)</label>
