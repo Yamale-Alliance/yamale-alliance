@@ -8,6 +8,12 @@ import {
 import { POSTGREST_MAX_OR_FILTER_LEN } from "@/lib/postgrest-ilike-tokens";
 import { fetchLawIdsForCategory } from "@/lib/law-categories-sync";
 import { fetchLawIdsForCountryScope } from "@/lib/law-country-scope-ids";
+import {
+  excludeInternalCategoryFromLawsQuery,
+  filterPublicLibraryCategories,
+  filterPublicLibraryLawRows,
+  resolveInternalLibraryCategoryId,
+} from "@/lib/internal-library-categories";
 
 /** Max laws returned in one response (pagination is client-side within this set). */
 const LAWS_LIMIT = 20_000;
@@ -80,10 +86,33 @@ function buildSearchOrFilter(query: string): string | null {
   return parts.join(",");
 }
 
-function applyFiltersToCachedData(base: LibraryData, filters?: LibraryFilters): LibraryData {
-  if (!filters) return base;
+function sanitizeLibraryDataForPublic(
+  data: LibraryData,
+  internalCategoryId: string | null
+): LibraryData {
+  const laws = filterPublicLibraryLawRows(data.laws, internalCategoryId);
+  const removed = data.laws.length - laws.length;
+  const lawCount = removed > 0 ? Math.max(0, data.lawCount - removed) : data.lawCount;
+  return {
+    countries: data.countries,
+    categories: filterPublicLibraryCategories(data.categories),
+    laws,
+    lawCount,
+  };
+}
+
+function applyFiltersToCachedData(
+  base: LibraryData,
+  filters?: LibraryFilters,
+  internalCategoryId?: string | null
+): LibraryData {
+  const publicBase = sanitizeLibraryDataForPublic(base, internalCategoryId ?? null);
+  if (!filters) return publicBase;
+  if (filters.categoryId && filters.categoryId === internalCategoryId) {
+    return { ...publicBase, laws: [], lawCount: 0 };
+  }
   const searchPlan = filters.q?.trim() ? librarySearchMatchPlan(filters.q) : null;
-  const filteredLaws = base.laws.filter((law) => {
+  const filteredLaws = publicBase.laws.filter((law) => {
     const matchCountry =
       !filters.countryId || law.country_id === filters.countryId || law.applies_to_all_countries;
     if (!matchCountry) return false;
@@ -107,8 +136,8 @@ function applyFiltersToCachedData(base: LibraryData, filters?: LibraryFilters): 
   });
 
   return {
-    countries: base.countries,
-    categories: base.categories,
+    countries: publicBase.countries,
+    categories: publicBase.categories,
     laws: filteredLaws,
     lawCount: filteredLaws.length,
   };
@@ -239,12 +268,16 @@ async function sumExactLawCountsInIdChunks(
   supabase: any,
   lawIds: string[],
   filters: LibraryFilters | undefined,
-  scopedCountryLawIds: string[]
+  scopedCountryLawIds: string[],
+  internalCategoryId: string | null
 ): Promise<number> {
   const chunks = chunkIds(lawIds, CATEGORY_ID_IN_CHUNK);
   const counts = await Promise.all(
     chunks.map(async (idChunk) => {
-      let q = supabase.from("laws").select("id", { count: "exact", head: true }).in("id", idChunk);
+      let q = excludeInternalCategoryFromLawsQuery(
+        supabase.from("laws").select("id", { count: "exact", head: true }).in("id", idChunk),
+        internalCategoryId
+      );
       if (filters?.countryId) {
         q = q.or(lawsCountryGlobalOrScopedIds(filters.countryId, scopedCountryLawIds));
       }
@@ -266,7 +299,8 @@ async function fetchLawsRowsInIdChunks(
   supabase: any,
   lawIds: string[],
   filters: LibraryFilters | undefined,
-  scopedCountryLawIds: string[]
+  scopedCountryLawIds: string[],
+  internalCategoryId: string | null
 ): Promise<LibraryLawRow[]> {
   const chunks = chunkIds(lawIds, CATEGORY_ID_IN_CHUNK);
   const batches = await Promise.all(
@@ -277,6 +311,7 @@ async function fetchLawsRowsInIdChunks(
         .in("id", idChunk)
         .order("created_at", { ascending: false })
         .order("title");
+      q = excludeInternalCategoryFromLawsQuery(q, internalCategoryId);
       if (filters?.countryId) {
         q = q.or(lawsCountryGlobalOrScopedIds(filters.countryId, scopedCountryLawIds));
       }
@@ -301,6 +336,22 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
   const key = cacheKey(filters);
   const supabase = getSupabaseServer();
   return (async () => {
+    const internalCategoryId = await resolveInternalLibraryCategoryId(supabase);
+    if (filters?.categoryId && internalCategoryId && filters.categoryId === internalCategoryId) {
+      const [countriesRes, categoriesRes] = await Promise.all([
+        supabase.from("countries").select("id, name, region").order("name"),
+        supabase.from("categories").select("id, name, slug").order("name"),
+      ]);
+      if (countriesRes.error) throw countriesRes.error;
+      if (categoriesRes.error) throw categoriesRes.error;
+      return {
+        countries: sortCountriesAlphabetically((countriesRes.data ?? []) as LibraryCountry[]),
+        categories: filterPublicLibraryCategories((categoriesRes.data ?? []) as LibraryCategory[]),
+        laws: [],
+        lawCount: 0,
+      };
+    }
+
     const scopedCountryLawIds =
       filters?.countryId ? await fetchLawIdsForCountryScope(supabase, filters.countryId) : [];
     let categoryLawIds: string[] | null = null;
@@ -327,7 +378,7 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
         if (categoriesRes.error) throw categoriesRes.error;
         const empty: LibraryData = {
           countries: sortCountriesAlphabetically((countriesRes.data ?? []) as LibraryCountry[]),
-          categories: (categoriesRes.data ?? []) as LibraryCategory[],
+          categories: filterPublicLibraryCategories((categoriesRes.data ?? []) as LibraryCategory[]),
           laws: [],
           lawCount: 0,
         };
@@ -357,13 +408,28 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
 
       const junctionIds = categoryLawIds as string[];
       [lawCount, rawLaws] = await Promise.all([
-        sumExactLawCountsInIdChunks(supabase, junctionIds, filters, scopedCountryLawIds),
-        fetchLawsRowsInIdChunks(supabase, junctionIds, filters, scopedCountryLawIds),
+        sumExactLawCountsInIdChunks(
+          supabase,
+          junctionIds,
+          filters,
+          scopedCountryLawIds,
+          internalCategoryId
+        ),
+        fetchLawsRowsInIdChunks(
+          supabase,
+          junctionIds,
+          filters,
+          scopedCountryLawIds,
+          internalCategoryId
+        ),
       ]);
     } else {
       // `count: "exact"` can be expensive on larger datasets and was causing
       // transient 20s timeouts. `planned` is much faster and good enough for UI totals.
-      let countQuery = supabase.from("laws").select("id", { count: "planned", head: true });
+      let countQuery = excludeInternalCategoryFromLawsQuery(
+        supabase.from("laws").select("id", { count: "planned", head: true }),
+        internalCategoryId
+      );
       if (filters?.countryId) {
         countQuery = countQuery.or(lawsCountryGlobalOrScopedIds(filters.countryId, scopedCountryLawIds));
       }
@@ -401,7 +467,7 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
             lawsQuery = lawsQuery.ilike("title", `%${term}%`);
           }
         }
-        return lawsQuery;
+        return excludeInternalCategoryFromLawsQuery(lawsQuery, internalCategoryId);
       };
 
       const [cRes, catRes, countRes, paginatedLaws] = await Promise.all([
@@ -440,12 +506,15 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
       is_linked_shared_law: filters?.skipEnrichment ? false : linkedLawIds.has(law.id),
     }));
 
-    const data: LibraryData = {
-      countries: sortCountriesAlphabetically((countriesRes.data ?? []) as LibraryCountry[]),
-      categories: (categoriesRes.data ?? []) as LibraryCategory[],
-      laws,
-      lawCount,
-    };
+    const data: LibraryData = sanitizeLibraryDataForPublic(
+      {
+        countries: sortCountriesAlphabetically((countriesRes.data ?? []) as LibraryCountry[]),
+        categories: (categoriesRes.data ?? []) as LibraryCategory[],
+        laws,
+        lawCount,
+      },
+      internalCategoryId
+    );
 
     if (key === "__initial__" && !filters?.skipEnrichment) {
       cachedData = data;
@@ -459,8 +528,11 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
 export async function fetchLibraryData(filters?: LibraryFilters): Promise<LibraryData> {
   const key = cacheKey(filters);
   const now = Date.now();
+  const supabase = getSupabaseServer();
+  const internalCategoryId = await resolveInternalLibraryCategoryId(supabase);
+
   if (key === "__initial__" && cachedData && now - cacheTimestamp < CACHE_TTL_MS) {
-    return cachedData;
+    return sanitizeLibraryDataForPublic(cachedData, internalCategoryId);
   }
 
   let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
@@ -475,10 +547,10 @@ export async function fetchLibraryData(filters?: LibraryFilters): Promise<Librar
     // For filtered requests, gracefully degrade to in-memory filtering from the
     // most recent unfiltered cache instead of throwing a 500.
     if (key !== "__initial__" && cachedData) {
-      return applyFiltersToCachedData(cachedData, filters);
+      return applyFiltersToCachedData(cachedData, filters, internalCategoryId);
     }
     if (key === "__initial__" && cachedData) {
-      return cachedData;
+      return sanitizeLibraryDataForPublic(cachedData, internalCategoryId);
     }
     throw err;
   } finally {
