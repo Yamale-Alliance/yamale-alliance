@@ -104,11 +104,21 @@ const TOPIC_MATCH_ALIASES: Record<string, string[]> = {
   investment: ["investment", "investor", "bit", "bilateral"],
 };
 
-/** Split user input into lowercase tokens (min length 2). */
-export function tokenizeLibrarySearch(input: string): string[] {
-  return input
+/** Collapse hyphens/underscores/punctuation so "algeria-germany" matches "Algeria - Germany". */
+export function normalizeLibraryMatchText(text: string): string {
+  return text
     .toLowerCase()
-    .replace(/[^\w\s:-]/g, " ")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Split user input into lowercase tokens (min length 2). Hyphens count as word breaks. */
+export function tokenizeLibrarySearch(input: string): string[] {
+  return normalizeLibraryMatchText(input)
     .split(/\s+/)
     .map((t) => t.trim())
     .filter((t) => t.length >= 2);
@@ -277,10 +287,11 @@ export function librarySearchTitleTier(
   primaryTokens: string[],
   phraseLower: string
 ): number {
-  const phrase = phraseLower.trim().toLowerCase();
-  if (phrase.length >= 2 && entry.nameLower.includes(phrase)) return 3;
+  const normTitle = normalizeLibraryMatchText(entry.nameLower);
+  const phrase = normalizeLibraryMatchText(phraseLower);
+  if (phrase.length >= 2 && normTitle.includes(phrase)) return 3;
   if (primaryTokens.length === 0) return 0;
-  const inTitle = primaryTokens.filter((t) => entry.nameLower.includes(t));
+  const inTitle = primaryTokens.filter((t) => normTitle.includes(normalizeLibraryMatchText(t)));
   if (inTitle.length === primaryTokens.length) return 2;
   if (inTitle.length > 0) return 1;
   return 0;
@@ -301,32 +312,36 @@ export function scoreLibrarySearchEntry(
 
   const primary = options?.primaryTokens?.length ? options.primaryTokens : tokens;
   const primarySet = new Set(primary);
-  const phraseLower = (options?.phraseLower ?? "").trim().toLowerCase();
+  const phraseNorm = normalizeLibraryMatchText(options?.phraseLower ?? "");
+  const normTitle = normalizeLibraryMatchText(entry.nameLower);
+  const normHaystack = normalizeLibraryMatchText(entry.haystack);
 
   let score = 0;
   let matched = 0;
 
-  if (phraseLower.length >= 2 && entry.nameLower.includes(phraseLower)) {
+  if (phraseNorm.length >= 2 && normTitle.includes(phraseNorm)) {
     score += 200;
     matched += 1;
   }
 
   for (const token of primary) {
-    if (entry.nameLower.includes(token)) {
+    const normToken = normalizeLibraryMatchText(token);
+    if (normTitle.includes(normToken)) {
       matched += 1;
       score += 100;
-      if (entry.nameLower.startsWith(token)) score += 25;
+      if (normTitle.startsWith(normToken)) score += 25;
     }
   }
 
   for (const token of tokens) {
     if (primarySet.has(token)) continue;
+    const normToken = normalizeLibraryMatchText(token);
     let tokenScore = 0;
-    if (entry.nameLower.includes(token)) tokenScore = 28;
+    if (normTitle.includes(normToken)) tokenScore = 28;
     else if (entry.categoryLower.includes(token)) tokenScore = 6;
     else if (entry.countryLower.includes(token)) tokenScore = 5;
     else if (entry.sourceLower.includes(token)) tokenScore = 4;
-    else if (entry.haystack.includes(token)) tokenScore = 2;
+    else if (normHaystack.includes(normToken)) tokenScore = 2;
     if (tokenScore > 0) {
       matched += 1;
       score += tokenScore;
@@ -334,12 +349,13 @@ export function scoreLibrarySearchEntry(
   }
 
   for (const token of primary) {
-    if (entry.nameLower.includes(token)) continue;
+    const normToken = normalizeLibraryMatchText(token);
+    if (normTitle.includes(normToken)) continue;
     let tokenScore = 0;
     if (entry.categoryLower.includes(token)) tokenScore = 10;
     else if (entry.countryLower.includes(token)) tokenScore = 8;
     else if (entry.sourceLower.includes(token)) tokenScore = 6;
-    else if (entry.haystack.includes(token)) tokenScore = 5;
+    else if (normHaystack.includes(normToken)) tokenScore = 5;
     if (tokenScore > 0) {
       matched += 1;
       score += tokenScore;
@@ -376,7 +392,7 @@ export function librarySearchMatchPlan(query: string): {
   return {
     matchTokens: expanded.matchTokens,
     categoryHints: expanded.categoryHints,
-    phraseLower: parsed.freeText.toLowerCase(),
+    phraseLower: normalizeLibraryMatchText(parsed.freeText),
   };
 }
 
@@ -390,16 +406,12 @@ export function lawRowMatchesLibrarySearch(
   plan: ReturnType<typeof librarySearchMatchPlan>
 ): boolean {
   if (plan.matchTokens.length === 0 && !plan.phraseLower) return true;
-  const haystack = [
-    fields.title,
-    fields.category,
-    fields.country,
-    fields.sourceName ?? "",
-  ]
-    .join(" ")
-    .toLowerCase();
-  if (plan.phraseLower && haystack.includes(plan.phraseLower)) return true;
-  if (plan.matchTokens.some((t) => haystack.includes(t))) return true;
+  const haystack = normalizeLibraryMatchText(
+    [fields.title, fields.category, fields.country, fields.sourceName ?? ""].join(" ")
+  );
+  const phraseNorm = normalizeLibraryMatchText(plan.phraseLower);
+  if (phraseNorm && haystack.includes(phraseNorm)) return true;
+  if (plan.matchTokens.some((t) => haystack.includes(normalizeLibraryMatchText(t)))) return true;
   if (
     plan.categoryHints.length > 0 &&
     plan.categoryHints.some((c) => c.toLowerCase() === fields.category.toLowerCase())
