@@ -205,25 +205,74 @@ function buildLawSearchIndex(laws: Law[]): LawSearchIndexEntry[] {
   }));
 }
 
-/** Update `?q=` in the URL without a Next.js RSC refetch (shareable links, fast typing). */
-function syncSearchQueryInUrl(
-  pathname: string,
-  searchParams: URLSearchParams,
-  q: string,
-  page: number
-) {
+type LibraryUrlState = {
+  country: string;
+  category: string;
+  status: string;
+  q: string;
+  documentType: string;
+  treatyType: string;
+  yearFrom: string;
+  yearTo: string;
+  page: number;
+  sort: SortOption;
+};
+
+function buildLibraryQueryString(state: LibraryUrlState): string {
+  const params = new URLSearchParams();
+  if (state.country) params.set("country", state.country);
+  if (state.category) params.set("category", state.category);
+  if (state.status) params.set("status", state.status);
+  const trimmedQ = state.q.trim();
+  if (trimmedQ) params.set("q", trimmedQ);
+  if (state.documentType) params.set("documentType", state.documentType);
+  if (state.treatyType) params.set("classification", state.treatyType);
+  if (state.yearFrom) params.set("yearFrom", state.yearFrom);
+  if (state.yearTo) params.set("yearTo", state.yearTo);
+  if (state.page > 1) params.set("page", String(state.page));
+  if (state.sort !== "title-asc") params.set("sort", state.sort);
+  return params.toString();
+}
+
+/** Sync library filters to the address bar without a Next.js server navigation (preserves scroll). */
+function syncLibraryUrlInHistory(pathname: string, state: LibraryUrlState) {
   if (typeof window === "undefined") return;
-  const params = new URLSearchParams(searchParams.toString());
-  const trimmed = q.trim();
-  if (trimmed) params.set("q", trimmed);
-  else params.delete("q");
-  if (page > 1) params.set("page", String(page));
-  else params.delete("page");
-  const qs = params.toString();
+  const qs = buildLibraryQueryString(state);
   const next = qs ? `${pathname}?${qs}` : pathname;
   if (`${window.location.pathname}${window.location.search}` !== next) {
     window.history.replaceState(window.history.state, "", next);
   }
+}
+
+function readLibraryStateFromUrl(): LibraryUrlState {
+  if (typeof window === "undefined") {
+    return {
+      country: "",
+      category: "",
+      status: "",
+      q: "",
+      documentType: "",
+      treatyType: "",
+      yearFrom: "",
+      yearTo: "",
+      page: 1,
+      sort: "title-asc",
+    };
+  }
+  const params = new URLSearchParams(window.location.search);
+  const sortRaw = params.get("sort") ?? "title-asc";
+  return {
+    country: params.get("country") ?? "",
+    category: params.get("category") ?? "",
+    status: params.get("status") ?? "",
+    q: params.get("q") ?? "",
+    documentType: params.get("documentType") ?? "",
+    treatyType: params.get("classification") ?? "",
+    yearFrom: params.get("yearFrom") ?? "",
+    yearTo: params.get("yearTo") ?? "",
+    page: parsePage(params.get("page") ?? ""),
+    sort: SORT_OPTIONS.some((o) => o.value === sortRaw) ? (sortRaw as SortOption) : "title-asc",
+  };
 }
 
 function getRecentlyOpenedIds(): Set<string> {
@@ -327,7 +376,8 @@ export function LibraryView({
   );
   const [countries] = useState<LibraryCountry[]>(() => initialCountries);
   const [categories] = useState<LibraryCategory[]>(() => initialCategories);
-  const [loadingLaws, setLoadingLaws] = useState(false);
+  const [isRefetchingLaws, setIsRefetchingLaws] = useState(false);
+  const pendingScrollRestore = useRef<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
   const [recentlyOpenedIds, setRecentlyOpenedIds] = useState<Set<string>>(() => new Set());
@@ -540,36 +590,64 @@ export function LibraryView({
       });
   }, [isSignedIn, pathname, router, searchParams]);
 
-  const updateUrl = useCallback(
-    (updates: { country?: string; category?: string; status?: string; q?: string; page?: number; sort?: string; documentType?: string; treatyType?: string; yearFrom?: string; yearTo?: string }) => {
-      const params = new URLSearchParams();
-      const c = updates.country ?? country;
-      const cat = updates.category ?? category;
-      const s = updates.status ?? status;
-      const q = updates.q ?? search;
-      const docType = updates.documentType ?? documentType;
-      const treaty = updates.treatyType ?? treatyType;
-      const yFrom = updates.yearFrom ?? yearFrom;
-      const yTo = updates.yearTo ?? yearTo;
-      const page = updates.page ?? currentPage;
-      const sort = updates.sort ?? sortBy;
-      if (c) params.set("country", c);
-      if (cat) params.set("category", cat);
-      if (s) params.set("status", s);
-      if (q.trim()) params.set("q", q.trim());
-      if (docType) params.set("documentType", docType);
-      if (treaty) params.set("classification", treaty);
-      if (yFrom) params.set("yearFrom", yFrom);
-      if (yTo) params.set("yearTo", yTo);
-      if (page > 1) params.set("page", String(page));
-      if (sort && sort !== "title-asc") params.set("sort", sort);
-      const query = params.toString();
-      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  const syncUrlFromState = useCallback(
+    (updates: {
+      country?: string;
+      category?: string;
+      status?: string;
+      q?: string;
+      page?: number;
+      sort?: SortOption;
+      documentType?: string;
+      treatyType?: string;
+      yearFrom?: string;
+      yearTo?: string;
+    }) => {
+      syncLibraryUrlInHistory(pathname, {
+        country: updates.country ?? country,
+        category: updates.category ?? category,
+        status: updates.status ?? status,
+        q: updates.q ?? search,
+        documentType: updates.documentType ?? documentType,
+        treatyType: updates.treatyType ?? treatyType,
+        yearFrom: updates.yearFrom ?? yearFrom,
+        yearTo: updates.yearTo ?? yearTo,
+        page: updates.page ?? currentPage,
+        sort: updates.sort ?? sortBy,
+      });
     },
-    [country, category, status, search, documentType, treatyType, yearFrom, yearTo, currentPage, sortBy, pathname, router]
+    [country, category, status, search, documentType, treatyType, yearFrom, yearTo, currentPage, sortBy, pathname]
   );
 
-  const hadInitialFilters = !!(initialCountry || initialCategory || initialStatus || initialSearch || initialDocumentType || initialTreatyType || initialYearFrom || initialYearTo);
+  const preserveScrollPosition = useCallback(() => {
+    pendingScrollRestore.current = window.scrollY;
+  }, []);
+
+  useLayoutEffect(() => {
+    if (pendingScrollRestore.current == null) return;
+    const y = pendingScrollRestore.current;
+    pendingScrollRestore.current = null;
+    window.scrollTo({ top: y, left: 0, behavior: "auto" });
+  }, [laws, isRefetchingLaws, country, category, status, search, currentPage]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      const fromUrl = readLibraryStateFromUrl();
+      setCountry(fromUrl.country);
+      setCategory(fromUrl.category);
+      setStatus(fromUrl.status);
+      setSearch(fromUrl.q);
+      setSearchInput(fromUrl.q);
+      setDocumentType(fromUrl.documentType);
+      setTreatyType(fromUrl.treatyType);
+      setYearFrom(fromUrl.yearFrom);
+      setYearTo(fromUrl.yearTo);
+      setCurrentPage(fromUrl.page);
+      setSortBy(fromUrl.sort);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   // Apply search locally (no router navigation — avoids refetching the whole library page per keystroke).
   useEffect(() => {
@@ -592,10 +670,10 @@ export function LibraryView({
   // Keep `?q=` shareable without triggering Next.js server navigation.
   useEffect(() => {
     const timer = setTimeout(() => {
-      syncSearchQueryInUrl(pathname, new URLSearchParams(searchParams.toString()), search, currentPage);
+      syncUrlFromState({ q: search, page: currentPage });
     }, SEARCH_URL_SYNC_MS);
     return () => clearTimeout(timer);
-  }, [search, currentPage, pathname, searchParams]);
+  }, [search, currentPage, syncUrlFromState]);
 
   useEffect(() => {
     const searchQuery = search.trim();
@@ -621,7 +699,7 @@ export function LibraryView({
     const url = `/api/laws${query ? `?${query}` : ""}`;
 
     setError(null);
-    if (!hadInitialFilters) setLoadingLaws(true);
+    setIsRefetchingLaws(true);
 
     fetch(url, { credentials: "include" })
       .then((res) => {
@@ -650,7 +728,7 @@ export function LibraryView({
           );
         }
       })
-      .finally(() => setLoadingLaws(false));
+      .finally(() => setIsRefetchingLaws(false));
   }, [
     country,
     category,
@@ -665,54 +743,64 @@ export function LibraryView({
 
 
   const handleCountryChange = (v: string) => {
+    preserveScrollPosition();
     setCountry(v);
     setCurrentPage(1);
-    updateUrl({ country: v, page: 1 });
+    syncUrlFromState({ country: v, page: 1 });
   };
   const handleCategoryChange = (v: string) => {
+    preserveScrollPosition();
     setCategory(v);
     setCurrentPage(1);
-    updateUrl({ category: v, page: 1 });
+    syncUrlFromState({ category: v, page: 1 });
   };
   const handleStatusChange = (v: string) => {
+    preserveScrollPosition();
     setStatus(v);
     setCurrentPage(1);
-    updateUrl({ status: v, page: 1 });
+    syncUrlFromState({ status: v, page: 1 });
   };
   const handleSearchChange = (v: string) => {
     setSearchInput(v);
   };
   const handleDocumentTypeChange = (v: string) => {
+    preserveScrollPosition();
     setDocumentType(v);
     setCurrentPage(1);
-    updateUrl({ documentType: v, page: 1 });
+    syncUrlFromState({ documentType: v, page: 1 });
   };
   const handleTreatyTypeChange = (v: string) => {
+    preserveScrollPosition();
     setTreatyType(v);
     setCurrentPage(1);
-    updateUrl({ treatyType: v, page: 1 });
+    syncUrlFromState({ treatyType: v, page: 1 });
   };
   const handleYearFromChange = (v: string) => {
+    preserveScrollPosition();
     setYearFrom(v);
     setCurrentPage(1);
-    updateUrl({ yearFrom: v, page: 1 });
+    syncUrlFromState({ yearFrom: v, page: 1 });
   };
   const handleYearToChange = (v: string) => {
+    preserveScrollPosition();
     setYearTo(v);
     setCurrentPage(1);
-    updateUrl({ yearTo: v, page: 1 });
+    syncUrlFromState({ yearTo: v, page: 1 });
   };
   const handleSortChange = (v: string) => {
+    preserveScrollPosition();
     const next = v as SortOption;
     setSortBy(next);
     setCurrentPage(1);
-    updateUrl({ sort: next, page: 1 });
+    syncUrlFromState({ sort: next, page: 1 });
   };
   const handlePageChange = (page: number) => {
+    preserveScrollPosition();
     setCurrentPage(page);
-    updateUrl({ page });
+    syncUrlFromState({ page });
   };
   const clearFilters = () => {
+    preserveScrollPosition();
     setCountry("");
     setCategory("");
     setStatus("");
@@ -723,7 +811,18 @@ export function LibraryView({
     setYearFrom("");
     setYearTo("");
     setCurrentPage(1);
-    router.replace(pathname, { scroll: false });
+    syncLibraryUrlInHistory(pathname, {
+      country: "",
+      category: "",
+      status: "",
+      q: "",
+      documentType: "",
+      treatyType: "",
+      yearFrom: "",
+      yearTo: "",
+      page: 1,
+      sort: sortBy,
+    });
   };
 
   const handlePrintPayment = useCallback(
@@ -897,17 +996,7 @@ export function LibraryView({
   useEffect(() => {
     if (totalPages > 0 && currentPage > totalPages) {
       setCurrentPage(1);
-      const params = new URLSearchParams();
-      if (country) params.set("country", country);
-      if (category) params.set("category", category);
-      if (status) params.set("status", status);
-      if (search.trim()) params.set("q", search.trim());
-      if (documentType) params.set("documentType", documentType);
-      if (treatyType) params.set("classification", treatyType);
-      if (yearFrom) params.set("yearFrom", yearFrom);
-      if (yearTo) params.set("yearTo", yearTo);
-      if (sortBy !== "title-asc") params.set("sort", sortBy);
-      router.replace(params.toString() ? `${pathname}?${params.toString()}` : pathname, { scroll: false });
+      syncUrlFromState({ page: 1 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable deps: only run when page count or current page change
   }, [totalPages, currentPage]);
@@ -1140,27 +1229,31 @@ export function LibraryView({
       />
 
       <div className="mx-auto max-w-[1280px] px-4 py-8 sm:px-8">
-        {loadingLaws && (
-          <div className="space-y-4">
-            <div className="h-5 w-28 animate-pulse rounded-lg bg-muted" />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div
-                  key={i}
-                  className="flex flex-col rounded-2xl border border-border/80 bg-card p-6"
-                >
-                  <div className="h-6 w-4/5 animate-pulse rounded bg-muted" />
-                  <div className="mt-3 h-4 w-1/2 animate-pulse rounded bg-muted" />
-                  <div className="mt-4 h-6 w-24 animate-pulse rounded-full bg-muted" />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
         {error && (
           <p className="py-12 text-center text-muted-foreground">{error}</p>
         )}
-        {!loadingLaws && !error && (
+        {!error && (
+          <div
+            className={`relative transition-opacity duration-200 ${isRefetchingLaws ? "pointer-events-none opacity-60" : ""}`}
+            aria-busy={isRefetchingLaws}
+          >
+            {isRefetchingLaws && laws.length === 0 ? (
+              <div className="space-y-4">
+                <div className="h-5 w-28 animate-pulse rounded-lg bg-muted" />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <div
+                      key={i}
+                      className="flex flex-col rounded-2xl border border-border/80 bg-card p-6"
+                    >
+                      <div className="h-6 w-4/5 animate-pulse rounded bg-muted" />
+                      <div className="mt-3 h-4 w-1/2 animate-pulse rounded bg-muted" />
+                      <div className="mt-4 h-6 w-24 animate-pulse rounded-full bg-muted" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
           <>
             {totalPages > 1 && (
               <div className="mb-5 flex justify-end">
@@ -1381,6 +1474,8 @@ export function LibraryView({
               </div>
             )}
           </>
+            )}
+          </div>
         )}
       </div>
     </div>
