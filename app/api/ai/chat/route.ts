@@ -107,8 +107,6 @@ import {
 import { LAW_HAS_BODY_OR_FILTER, filterLawsWithReadableBody } from "@/lib/law-readable-body";
 import {
   buildAiResearchSystemPrompt,
-  MAX_SYSTEM_PROMPT_LEGAL_DOCS,
-  MAX_SYSTEM_PROMPT_LEGAL_DOCS_DETAILED,
   SYSTEM_PROMPT_VERSION,
   validateAiResearchSystemPromptParams,
 } from "@/lib/ai-system-prompt";
@@ -117,7 +115,11 @@ import {
   getWebSearchMissSystemBlock,
   shouldAttemptContextualWebSearch,
 } from "@/lib/ai-web-search";
-import { isPlatformGuideMetaQuery } from "@/lib/ai-platform-meta-query";
+import { isAssistantWorkflowMetaQuery, isPlatformGuideMetaQuery } from "@/lib/ai-platform-meta-query";
+import {
+  fetchAiMethodologyContext,
+  prependMethodologyContext,
+} from "@/lib/ai-methodology-retrieval";
 import {
   citedSlotsAsUsedFlags,
   extractCitedDocIndices,
@@ -133,10 +135,16 @@ import {
 } from "@/lib/ai-perf";
 import { fastCountryScopedLawFallback } from "@/lib/ai-library-fallback";
 import {
+  isFocusedPrimaryStatuteIntent,
   isMultiInstrumentListQuery,
   ragExcerptBudget,
   RAG_INVESTMENT_CODE_PRIMARY_CHARS,
   RAG_INVESTMENT_EXISTENCE_TOTAL_CHARS,
+  ragMaxSystemDocsDetailedFromEnv,
+  ragMaxSystemDocsFromEnv,
+  ragNamedStatuteTotalFromEnv,
+  ragPrimaryStatutePerDocFromEnv,
+  ragPrimaryStatuteTotalFromEnv,
 } from "@/lib/ai-rag-context-budget";
 import {
   resolveCategoryIdCached,
@@ -722,10 +730,17 @@ function isClearlyOffTopicForPrimaryIntent(
   }
   if (primaryIntentId === "labor") {
     const laborSignals = /(labor|labour|employment|decent work|travail|wage|salary|union|collective|dismissal|worker)/i;
+    const laborTitle =
+      /(basic\s+conditions\s+of\s+employment|labou?r\s+relations|minimum\s+wage|labou?r\s+code|employment\s+act|code\s+du\s+travail|industrial\s+relations)/i;
     const ipSignals = /(intellectual property|patent|trademark|copyright|industrial property)/i;
     const hasLabor = laborSignals.test(blob) || rankingTokens.some((t) => laborSignals.test(t));
     const looksLikeIp = ipSignals.test(title) || ipSignals.test(category);
-    return looksLikeIp && !hasLabor;
+    if (looksLikeIp && !hasLabor) return true;
+    const corporateNoise =
+      /(companies\s+act|environmental|anti[-\s]?corruption|dispute\s+resolution|arbitration|investment\s+proclamation|public\s+financial\s+management)/i;
+    if (corporateNoise.test(title) && !laborTitle.test(title) && !laborSignals.test(blob.slice(0, 4000))) {
+      return true;
+    }
   }
   if (primaryIntentId === "mining" || primaryIntentId === "oil_gas") {
     const resourceSignals =
@@ -776,6 +791,14 @@ function isClearlyOffTopicForPrimaryIntent(
     const privacyOnly =
       /\b(data\s+protection|privacy|cyber)\b/i.test(category) && !ipSignals.test(title) && !ipSignals.test(head);
     if (taxOnly || laborOnly || privacyOnly) return true;
+    if (
+      userQuery &&
+      isTrademarkRegistrationHowToQuery(userQuery) &&
+      /\b(trips|berne|paris\s+convention|wipo|madrid\s+protocol)\b/i.test(title) &&
+      !isNationalTrademarksActTitle(title)
+    ) {
+      return true;
+    }
   }
   return false;
 }
@@ -898,7 +921,67 @@ function buildExcerptAnchorTokens(query: string, primaryIntentId: string): strin
       "breach of his or her duty to thecompany"
     );
   }
+  if (primaryIntentId === "tax") {
+    anchors.push("value added tax", "vat", "goods and services tax", "taxable supply", "reverse charge");
+    if (/\bcross[-\s]?border\b|\bimported\s+services\b|\bnon[-\s]?resident\b|\bplace\s+of\s+supply\b/i.test(q)) {
+      anchors.push(
+        "cross-border",
+        "imported services",
+        "reverse charge",
+        "zero-rating",
+        "zero rating",
+        "place of supply",
+        "non-resident",
+        "digital services"
+      );
+    }
+  }
+  if (primaryIntentId === "intellectual_property" && /\btrademark\b/i.test(q)) {
+    anchors.push(
+      "registration of trademark",
+      "application for registration",
+      "register of trademarks",
+      "trade marks act",
+      "trademarks act",
+      "filing",
+      "renewal",
+      "opposition"
+    );
+  }
   return Array.from(new Set(anchors));
+}
+
+function scoreLawAgainstSpecificHint(law: { title?: string | null }, hint: string): number {
+  const title = String(law.title ?? "").toLowerCase();
+  const hintNorm = hint.trim().toLowerCase();
+  if (!title || !hintNorm) return 0;
+  let score = 0;
+  if (title === hintNorm) score += 200;
+  if (title.includes(hintNorm) || hintNorm.includes(title)) score += 120;
+  const hintTokens = hintNorm.split(/[^a-z0-9]+/).filter((t) => t.length >= 3);
+  for (const t of hintTokens) {
+    if (title.includes(t)) score += 12;
+  }
+  if (/\btrademarks?\s+act\b|\btrade\s+marks?\s+act\b/.test(hintNorm) && isNationalTrademarksActTitle(title)) {
+    score += 90;
+  }
+  const cap = hintNorm.match(/\bcap\.?\s*(\d+)\b/i);
+  if (cap?.[1] && title.includes(cap[1])) score += 40;
+  if (/\btax\s+administration\b/.test(hintNorm) && /\btax\s+administration\b/.test(title)) score += 80;
+  if (/\btax\s+act\b/.test(hintNorm) && /\btax\s+act\b/.test(title) && !/\badministration\b/.test(title)) score += 80;
+  return score;
+}
+
+/** Pick the instrument the user named — not whichever unrelated act ranked first on tokens. */
+function pickLawsForSpecificHint(candidateLaws: any[], hint: string): any[] {
+  if (candidateLaws.length === 0) return [];
+  const scored = candidateLaws
+    .map((law) => ({ law, score: scoreLawAgainstSpecificHint(law, hint) }))
+    .sort((a, b) => b.score - a.score);
+  const best = scored[0];
+  if (!best || best.score < 20) return candidateLaws.slice(0, 1);
+  const tied = scored.filter((s) => s.score >= best.score - 5).map((s) => s.law);
+  return tied.slice(0, 2);
 }
 
 function extractSpecificLawHint(query: string): string | null {
@@ -923,7 +1006,12 @@ function extractSpecificLawHint(query: string): string | null {
     if (/\blaws?\s+of\s+[a-z]/i.test(normalized)) return false;
 
     // Treat as specific only when it resembles a named instrument.
-    return /\b(act|code|regulation|regulations|decree|ordinance|order|proclamation|constitution|bill)\b/i.test(value);
+    if (/\b(act|code|regulation|regulations|decree|ordinance|order|proclamation|constitution|bill)\b/i.test(value)) {
+      return true;
+    }
+    if (/\b(trademarks?|trade\s+marks?)\s+act\b/i.test(value)) return true;
+    if (/\bcap\.?\s*\d+\b/i.test(value) && /\bact\b/i.test(value)) return true;
+    return false;
   };
 
   const q = query.trim().toLowerCase();
@@ -946,6 +1034,11 @@ function extractSpecificLawHint(query: string): string | null {
     }
   }
   // Common named-instrument patterns that users ask in natural language.
+  const trademarksAct = query.match(
+    /\b((?:the\s+)?(?:trade\s+)?marks?\s+act(?:\s*\(cap\.?\s*\d+\))?)\b/i
+  );
+  if (trademarksAct?.[1]?.trim() && looksLikeNamedLawTitle(trademarksAct[1])) return trademarksAct[1].trim();
+
   const explicitNamedAct =
     query.match(/\b([A-Z][A-Za-z'’\-\s]+?\s+Companies\s+Act(?:\s*[-,]?\s*\d{4})?)\b/i) ||
     query.match(/\b([A-Z][A-Za-z'’\-\s]+?\s+Act(?:\s*No\.?\s*[\d/.-]+)?)\b/i);
@@ -2020,7 +2113,16 @@ async function searchLegalLibrary(
       "investment_domestic",
       "intellectual_property",
       "dispute_resolution",
+      "tax",
+      "labor",
     ] as const;
+    const trademarkRegistrationHowTo = isTrademarkRegistrationHowToQuery(query);
+    const resolvedIntentForMandatory = trademarkRegistrationHowTo
+      ? {
+          ...resolvedIntent,
+          matchedIds: Array.from(new Set([...resolvedIntent.matchedIds, "intellectual_property"])),
+        }
+      : resolvedIntent;
     const hasMandatoryIntent =
       Boolean(countryId) &&
       resolvedIntent.matchedIds.some((id) => (intentHydrationIds as readonly string[]).includes(id));
@@ -2067,7 +2169,7 @@ async function searchLegalLibrary(
               countryId: countryId!,
               countryScopeOr,
               query,
-              resolvedIntent,
+              resolvedIntent: resolvedIntentForMandatory,
               excludeIds: have,
               maxLaws: Math.max(8, targetHydratedDocFloor),
             })
@@ -2077,7 +2179,7 @@ async function searchLegalLibrary(
               countryId: countryId!,
               countryScopeOr,
               query,
-              resolvedIntent,
+              resolvedIntent: resolvedIntentForMandatory,
               excludeIds: have,
             })
           : Promise.resolve([] as any[]),
@@ -2264,10 +2366,12 @@ async function searchLegalLibrary(
             : countryCatalogRequest
               ? 20
               : detailedMode
-                ? MAX_SYSTEM_PROMPT_LEGAL_DOCS_DETAILED
-                : MAX_SYSTEM_PROMPT_LEGAL_DOCS;
+                ? ragMaxSystemDocsDetailedFromEnv()
+                : ragMaxSystemDocsFromEnv();
     const lawsForResponse: any[] = (() => {
-      if (specificLawHint && candidateLaws.length > 0) return [candidateLaws[0]];
+      if (specificLawHint && candidateLaws.length > 0) {
+        return pickLawsForSpecificHint(candidateLaws, specificLawHint);
+      }
       // When multiple supranational frameworks are mentioned (e.g. "AfCFTA vs
       // ECOWAS"), guarantee each framework keeps a slot in the response so
       // Claude can actually compare them.
@@ -2352,12 +2456,43 @@ async function searchLegalLibrary(
         }
         return [...treatyFirst, ...rest].slice(0, baseResponseSize);
       }
-      return ensureIntentTopicSlotsInResponse(
+      let picked = ensureIntentTopicSlotsInResponse(
         candidateLaws,
         baseResponseSize,
-        resolvedIntent,
+        resolvedIntentForMandatory,
         mandatorySlotRows
       );
+      if (trademarkRegistrationHowTo) {
+        const national = picked.filter((law) =>
+          isNationalTrademarksActTitle(String((law as any).title ?? ""))
+        );
+        if (national.length > 0) {
+          const rest = picked.filter(
+            (law) => !isNationalTrademarksActTitle(String((law as any).title ?? ""))
+          );
+          picked = [...national, ...rest].slice(0, 5);
+        }
+      }
+      if (
+        resolvedIntent.primaryId === "tax" &&
+        /\bvat\b|\bvalue\s+added\b/i.test(query) &&
+        countryId
+      ) {
+        const taxActs = picked.filter((law) => {
+          const t = String((law as any).title ?? "").toLowerCase();
+          return /\btax\s+act\b/i.test(t) && !/\badministration\b/i.test(t);
+        });
+        const adminActs = picked.filter((law) =>
+          /\btax\s+administration\b/i.test(String((law as any).title ?? "").toLowerCase())
+        );
+        if (taxActs.length > 0) {
+          const rest = picked.filter(
+            (law) => !taxActs.includes(law) && !adminActs.includes(law)
+          );
+          picked = [...taxActs, ...adminActs, ...rest].slice(0, baseResponseSize);
+        }
+      }
+      return picked;
     })();
 
     const requestedArticle = extractRequestedArticle(query);
@@ -2374,8 +2509,12 @@ async function searchLegalLibrary(
       });
     }
 
+    const trademarkRegistrationFocused =
+      trademarkRegistrationHowTo &&
+      lawsForResponse.some((law) => isNationalTrademarksActTitle(String((law as any).title ?? "")));
     const shouldKeepFullTextForSpecificLaw =
       Boolean(specificLawHint) ||
+      trademarkRegistrationFocused ||
       userRequestsFullLawText(query) ||
       lawsForResponse.length === 1 ||
       (detailedMode && lawsForResponse.length <= 3);
@@ -2390,30 +2529,41 @@ async function searchLegalLibrary(
     const standardRagBudget = ragExcerptBudget(lawsForResponse.length, {
       preferMoreDocuments,
     });
+    const focusedStatuteTurn =
+      Boolean(countryId) &&
+      (isFocusedPrimaryStatuteIntent(resolvedIntent.primaryId) ||
+        trademarkRegistrationHowTo ||
+        (resolvedIntent.matchedIds.includes("tax") && /\bvat\b/i.test(query)));
     const maxCharsPerLaw = shouldKeepFullTextForSpecificLaw
       ? 1_000_000
-      : latinAmericaTreatyCatalog ||
-          globalTreatyCatalog ||
-          germanyAfricaBitCatalog ||
-          countryBilateralCatalog
-        ? 4500
-        : countryCatalogRequest
-          ? 600
-          : investmentExistenceQuery
-            ? Math.max(400, Math.floor(RAG_INVESTMENT_EXISTENCE_TOTAL_CHARS / Math.min(lawsForResponse.length, 5)))
-            : standardRagBudget.maxCharsPerDoc;
+      : focusedStatuteTurn
+        ? ragPrimaryStatutePerDocFromEnv()
+        : latinAmericaTreatyCatalog ||
+            globalTreatyCatalog ||
+            germanyAfricaBitCatalog ||
+            countryBilateralCatalog
+          ? 4500
+          : countryCatalogRequest
+            ? 600
+            : investmentExistenceQuery
+              ? Math.max(400, Math.floor(RAG_INVESTMENT_EXISTENCE_TOTAL_CHARS / Math.min(lawsForResponse.length, 5)))
+              : standardRagBudget.maxCharsPerDoc;
     const maxCharsTotal = shouldKeepFullTextForSpecificLaw
-      ? 1_000_000
-      : latinAmericaTreatyCatalog ||
-          globalTreatyCatalog ||
-          germanyAfricaBitCatalog ||
-          countryBilateralCatalog
-        ? 100_000
-        : countryCatalogRequest
-          ? 16_000
-          : investmentExistenceQuery
-            ? RAG_INVESTMENT_EXISTENCE_TOTAL_CHARS
-            : standardRagBudget.maxCharsTotal;
+      ? specificLawHint
+        ? ragNamedStatuteTotalFromEnv()
+        : 1_000_000
+      : focusedStatuteTurn
+        ? ragPrimaryStatuteTotalFromEnv()
+        : latinAmericaTreatyCatalog ||
+            globalTreatyCatalog ||
+            germanyAfricaBitCatalog ||
+            countryBilateralCatalog
+          ? 100_000
+          : countryCatalogRequest
+            ? 16_000
+            : investmentExistenceQuery
+              ? RAG_INVESTMENT_EXISTENCE_TOTAL_CHARS
+              : standardRagBudget.maxCharsTotal;
     let remainingChars = maxCharsTotal;
 
     const retrievalScoreForLaw = (law: any): number => {
@@ -2964,6 +3114,7 @@ export async function POST(request: NextRequest) {
     // Get the last user message for RAG search
     const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
     const userQuery = lastUserMessage?.content || "";
+    const assistantWorkflowMeta = isAssistantWorkflowMetaQuery(userQuery);
     const platformGuideMeta = isPlatformGuideMetaQuery(userQuery);
     const latinAmericaTreatyCatalog = detectLatinAmericaTreatyDiscoveryQuery(userQuery);
     const germanyAfricaBitCatalog = !latinAmericaTreatyCatalog && detectGermanyAfricaBitQuery(userQuery);
@@ -3164,6 +3315,15 @@ export async function POST(request: NextRequest) {
       : useFullLibraryContext
         ? await searchLegalLibraryFull(userQuery, effectiveHints.country, perf)
         : await searchLegalLibrary(userQuery, effectiveHints.country, detailedMode, perf);
+
+    if (assistantWorkflowMeta) {
+      legalContext = await fetchAiMethodologyContext(getSupabaseServer() as any, userQuery, {
+        maxDocs: 3,
+        maxCharsPerDoc: 12_000,
+      });
+      perfStep(perf, "assistant_workflow_context", { docs: legalContext.length });
+    }
+
     perfStep(perf, "library_search", {
       docs: legalContext.length,
       fullLibrary: useFullLibraryContext,
@@ -3183,6 +3343,14 @@ export async function POST(request: NextRequest) {
         strictCountryMode
       );
       perfStep(perf, "country_lock_filter", { docs: legalContext.length });
+    }
+
+    if (!platformGuideMeta && !assistantWorkflowMeta && isLikelyLegalQuestion(userQuery)) {
+      const methodology = await fetchAiMethodologyContext(getSupabaseServer() as any, userQuery, {
+        countryHint: effectiveHints.country ?? null,
+      });
+      legalContext = prependMethodologyContext(legalContext, methodology);
+      perfStep(perf, "methodology_context", { docs: methodology.length });
     }
 
     if (
@@ -3358,6 +3526,7 @@ export async function POST(request: NextRequest) {
       specificLawHint,
       requestedArticle: extractRequestedArticle(userQuery),
       platformGuideMode: platformGuideMeta,
+      assistantWorkflowMode: assistantWorkflowMeta,
       fullLawRetrievalMode: fullLawRetrievalMode || useFullLibraryContext,
       fullLibraryContextMode: useFullLibraryContext,
       lawTitleCatalogText: lawTitleCatalogText || null,
@@ -3375,8 +3544,8 @@ export async function POST(request: NextRequest) {
               : globalTreatyCatalog
                 ? GLOBAL_TREATY_CATALOG_MAX_DOCS
                 : detailedMode
-                  ? MAX_SYSTEM_PROMPT_LEGAL_DOCS_DETAILED
-                  : MAX_SYSTEM_PROMPT_LEGAL_DOCS,
+                  ? ragMaxSystemDocsDetailedFromEnv()
+                  : ragMaxSystemDocsFromEnv(),
     };
     const systemPromptValidation = validateAiResearchSystemPromptParams(systemPromptParamsRaw, {
       originalLegalContextLength: legalContext.length,
