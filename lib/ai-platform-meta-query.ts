@@ -1,9 +1,44 @@
 /**
+ * User asks how the AI assistant reasons (workflow / IRAC on the product), not a statute question.
+ * Skip broad library RAG so "Sources" are not random national laws.
+ */
+export function isAssistantWorkflowMetaQuery(raw: string): boolean {
+  const q = raw.trim().toLowerCase();
+  if (q.length < 12 || q.length > 2800) return false;
+  if (/\barticle\s+\d+/i.test(raw) || /\bsection\s+[\dIVXLCDM]+/i.test(raw)) return false;
+
+  const aboutAssistant =
+    /\bhow\s+you\s+(analyse|analyze|reason|approach|work)\b/.test(q) ||
+    /\bhow\s+(do|does)\s+you\s+(analyse|analyze|reason|approach)\b/.test(q) ||
+    /\b(your|the)\s+(workflow|method|process)\s+on\s+(this\s+)?platform\b/.test(q) ||
+    (/\bwalk\s+me\s+through\b/.test(q) &&
+      /\b(legal\s+problem|legal\s+question|how\s+you)\b/.test(q) &&
+      /\b(on\s+this\s+platform|yamal[eé])\b/.test(q));
+
+  if (!aboutAssistant) return false;
+
+  // Substantive law request disguised with "step by step" — keep normal RAG.
+  if (
+    /\b(step\s+by\s+step|walk\s+me\s+through)\b/.test(q) &&
+    /\b(in|under|for|according\s+to)\s+(the\s+)?(law|act|code|statute)\s+of\b/.test(q)
+  ) {
+    return false;
+  }
+  if (/\b(companies\s+act|labour\s+code|labou?r\s+act|tax\s+code|constitution\s+of)\b/.test(q)) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
  * Detects questions about the Yamalé product / UI / onboarding rather than
  * substantive legal research. Used to skip RAG and avoid misleading "Sources"
  * lists of unrelated statutes.
  */
 export function isPlatformGuideMetaQuery(raw: string): boolean {
+  if (isAssistantWorkflowMetaQuery(raw)) return true;
+
   const q = raw.trim().toLowerCase();
   if (q.length < 12 || q.length > 2000) return false;
 
