@@ -19,6 +19,9 @@ function trimOnlineLawLeadingChrome(source: string): string {
  * Prefer a window of law text around the strongest query-token hit so RAG excerpts
  * stay on-topic instead of always using the start of the document.
  */
+/** Scan at most this many characters when locating excerpt windows (keeps huge acts fast). */
+const EXCERPT_SCAN_CAP = 450_000;
+
 export function pickContentExcerpt(
   fullText: string,
   queryTokens: string[],
@@ -29,7 +32,8 @@ export function pickContentExcerpt(
   if (!text) return "";
   if (text.length <= maxLen) return text;
 
-  const lower = text.toLowerCase();
+  const scanText = text.length > EXCERPT_SCAN_CAP ? text.slice(0, EXCERPT_SCAN_CAP) : text;
+  const lower = scanText.toLowerCase();
   let bestIdx = 0;
   let bestScore = -1;
 
@@ -38,7 +42,7 @@ export function pickContentExcerpt(
     if (t.length < 3) continue;
     let idx = lower.indexOf(t);
     while (idx !== -1) {
-      const score = t.length * 10 + (idx < text.length * 0.35 ? 3 : 0);
+      const score = t.length * 10 + (idx < scanText.length * 0.35 ? 3 : 0);
       if (score > bestScore) {
         bestScore = score;
         bestIdx = idx;
@@ -55,8 +59,8 @@ export function pickContentExcerpt(
       // Anchor phrases are intent-specific (e.g., "capital social", "société anonyme")
       // and should dominate over generic token hits.
       // Prefer substantive body matches over very-early table-of-contents hits.
-      const depthPenalty = idx < text.length * 0.12 ? -16 : idx < text.length * 0.22 ? -8 : 0;
-      const depthBonus = idx > text.length * 0.35 ? 6 : idx > text.length * 0.2 ? 3 : 0;
+      const depthPenalty = idx < scanText.length * 0.12 ? -16 : idx < scanText.length * 0.22 ? -8 : 0;
+      const depthBonus = idx > scanText.length * 0.35 ? 6 : idx > scanText.length * 0.2 ? 3 : 0;
       const score = p.length * 14 + 4 + depthPenalty + depthBonus;
       if (score > bestScore) {
         bestScore = score;
