@@ -12,6 +12,10 @@ The **AI Contextual Brain** (`Yamale_AI_Contextual_Brain_v2.docx` and companion 
 
 On each legal research turn, the chat route prepends up to **two** methodology documents from the library (`lib/ai-methodology-retrieval.ts`) before country-specific hits.
 
+### Hidden from the public library
+
+Rows in **AI Legal Methodology** are **not** shown in `/library`, `/api/laws`, or law detail pages for end users (`lib/internal-library-categories.ts`). AI chat still retrieves them internally. Admins ingest and edit them via the admin panel and `npm run ingest:ai-context`.
+
 System prompt version: `SYSTEM_PROMPT_VERSION` in `lib/ai-system-prompt.ts` (includes contextual brain v1).
 
 ## Adding more files (drop folder)
