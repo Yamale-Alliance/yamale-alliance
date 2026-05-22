@@ -20,6 +20,13 @@
   --surface: #f4f1eb;
   --brand-navy: #0d1b2a;
   --brand-navy-mid: #162436;
+  /* Vault tiles & design-system aliases */
+  --color-background-primary: var(--card);
+  --color-border-tertiary: var(--border);
+  --color-text-primary: var(--foreground);
+  --color-text-secondary: var(--muted-foreground);
+  --border-radius-lg: 0.75rem;
+  --border-radius-md: 0.5rem;
 }
 
 .dark {
@@ -36,6 +43,10 @@
   --surface: #1e3148;
   --brand-navy: #f4f1eb;
   --brand-navy-mid: #e8eef5;
+  --color-background-primary: var(--card);
+  --color-border-tertiary: var(--border);
+  --color-text-primary: var(--foreground);
+  --color-text-secondary: var(--muted-foreground);
 }
 
 body {
