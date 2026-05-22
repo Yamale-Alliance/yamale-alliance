@@ -1,0 +1,233 @@
+.card {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 320px;
+  height: 100%;
+  perspective: 900px;
+  perspective-origin: center center;
+  outline: none;
+}
+
+.flipper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  transform-style: preserve-3d;
+  transform-origin: center center;
+  transition: transform 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 10px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .card:hover .flipper,
+  .card:focus-within .flipper {
+    transform: rotateY(180deg);
+  }
+}
+
+.cardExpanded .flipper {
+  transform: rotateY(180deg);
+}
+
+.face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+}
+
+.faceFront {
+  display: flex;
+  flex-direction: column;
+  transform: rotateY(0deg) translateZ(1px);
+  border: 1px solid var(--border);
+  background: var(--card);
+  z-index: 2;
+}
+
+.faceBack {
+  transform: rotateY(180deg) translateZ(1px);
+  background: #0d1b2a;
+}
+
+.backMedia {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  transform: translateZ(0.1px);
+}
+
+.cover {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: center center;
+  pointer-events: none;
+}
+
+.coverPlaceholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  /* Light full-card tint — cover stays visible like vault landing cards */
+  background: rgba(13, 27, 42, 0.28);
+}
+
+.backTag {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 3;
+  border-radius: 999px;
+  background: rgba(13, 27, 42, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.backBody {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 44%;
+  max-height: 78%;
+  padding: 52px 16px 16px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  background: linear-gradient(
+    180deg,
+    rgba(13, 27, 42, 0) 0%,
+    rgba(13, 27, 42, 0.45) 22%,
+    rgba(13, 27, 42, 0.82) 48%,
+    rgba(13, 27, 42, 0.96) 100%
+  );
+}
+
+.backTitle {
+  margin: 0;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.28;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+}
+
+.backDescription {
+  margin: 10px 0 0;
+  flex: 0 1 auto;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #fff;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+}
+
+.backDescriptionExpanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+
+.readMore {
+  margin-top: 8px;
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.readMore:hover {
+  color: #fff;
+}
+
+.backMeta {
+  margin-top: 12px;
+  padding-top: 10px;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.88);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+
+.frontHeader {
+  position: relative;
+  display: flex;
+  height: 9rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.frontIconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+}
+
+.frontBody {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  padding: 1rem;
+}
+
+@media (min-width: 640px) {
+  .frontBody {
+    padding: 1.125rem;
+  }
+}
+
+.cardExpanded .backBody {
+  max-height: 100%;
+}
