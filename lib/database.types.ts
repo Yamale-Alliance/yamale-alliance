@@ -318,6 +318,8 @@ export interface Database {
           favicon_url: string | null;
           hero_image_url: string | null;
           founder_portrait_url: string | null;
+          lawyers_onboarding_video_url: string | null;
+          lawyers_onboarding_video_public_id: string | null;
           law_print_price_usd_cents: number;
           day_pass_price_usd_cents: number;
           lawyer_search_unlock_price_usd_cents: number;
@@ -332,6 +334,8 @@ export interface Database {
           favicon_url?: string | null;
           hero_image_url?: string | null;
           founder_portrait_url?: string | null;
+          lawyers_onboarding_video_url?: string | null;
+          lawyers_onboarding_video_public_id?: string | null;
           law_print_price_usd_cents?: number;
           day_pass_price_usd_cents?: number;
           lawyer_search_unlock_price_usd_cents?: number;
