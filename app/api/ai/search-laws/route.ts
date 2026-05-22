@@ -11,6 +11,11 @@ import { fetchLawIdsForCountryScope } from "@/lib/law-country-scope-ids";
 import { chunkLawContent } from "@/lib/embeddings/chunking";
 import { resolveUserCountryNameToDbName } from "@/lib/country-db-name-aliases";
 import { tokenizeLibrarySearchQuery } from "@/lib/ai-multilingual-search";
+import {
+  excludeInternalCategoryFromLawsQuery,
+  isInternalLibraryCategoryName,
+  resolveInternalLibraryCategoryId,
+} from "@/lib/internal-library-categories";
 
 function isCountryCatalogLawRequest(query: string): boolean {
   const q = query.toLowerCase();
@@ -80,14 +85,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let lawsQuery = supabase
-      .from("laws")
-      .select(
-        "id, title, content, content_plain, year, status, country_id, category_id, countries(name), categories!laws_category_id_fkey(name)"
-      )
-      .not("content", "is", null)
-      .neq("status", "Repealed")
-      .limit(Math.min((limit || 20) * 10, 250)); // gather candidates, rank in-memory
+    const internalCategoryId = await resolveInternalLibraryCategoryId(supabase);
+    let lawsQuery = excludeInternalCategoryFromLawsQuery(
+      supabase
+        .from("laws")
+        .select(
+          "id, title, content, content_plain, year, status, country_id, category_id, countries(name), categories!laws_category_id_fkey(name)"
+        )
+        .not("content", "is", null)
+        .neq("status", "Repealed")
+        .limit(Math.min((limit || 20) * 10, 250)),
+      internalCategoryId
+    );
 
     if (categoryId) {
       try {
