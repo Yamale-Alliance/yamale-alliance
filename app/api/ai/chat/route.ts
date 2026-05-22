@@ -960,6 +960,25 @@ function isTrademarkIntent(query: string): boolean {
   return /\btrademark\b|\btrademarks\b|\bmark registration\b/i.test(query);
 }
 
+/** Procedural questions should use the national Trademarks Act, not a pick-list of related instruments. */
+function isTrademarkRegistrationHowToQuery(query: string): boolean {
+  if (!isTrademarkIntent(query)) return false;
+  return /\b(register|registration|registering|apply|application|file|filing|obtain|protect|how\s+to|process|procedure|steps)\b/i.test(
+    query
+  );
+}
+
+function isTrademarkInstrumentTitle(title: string): boolean {
+  const t = title.toLowerCase();
+  if (/\btrademarks?\b/.test(t)) return true;
+  if (/\bmadrid\b/.test(t) && /\b(mark|protocol|agreement|registration)\b/.test(t)) return true;
+  return false;
+}
+
+function isNationalTrademarksActTitle(title: string): boolean {
+  return /\btrademarks?\s+act\b/i.test(title) || /\btrade\s+marks?\s+act\b/i.test(title);
+}
+
 async function listTrademarkLawTitlesByCountry(
   country: string
 ): Promise<Array<{ title: string; year?: number | null }>> {
@@ -979,10 +998,11 @@ async function listTrademarkLawTitlesByCountry(
     .select("title, year")
     .eq("country_id", countryId)
     .neq("status", "Repealed")
-    .or("title.ilike.%trademark%,title.ilike.%trademarks%,title.ilike.%mark%")
+    .or("title.ilike.%trademark%,title.ilike.%trademarks%,title.ilike.%madrid%")
     .order("title")
-    .limit(12);
-  return (data ?? []) as Array<{ title: string; year?: number | null }>;
+    .limit(20);
+  const rows = (data ?? []) as Array<{ title: string; year?: number | null }>;
+  return rows.filter((r) => isTrademarkInstrumentTitle(String(r.title ?? "")));
 }
 
 function extractRequestedArticle(query: string): number | null {
@@ -3098,9 +3118,18 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (effectiveHints.country && trademarkIntent && !specificLawHint) {
+    if (
+      effectiveHints.country &&
+      trademarkIntent &&
+      !specificLawHint &&
+      !isTrademarkRegistrationHowToQuery(userQuery)
+    ) {
       const options = await listTrademarkLawTitlesByCountry(effectiveHints.country);
-      if (options.length > 1) {
+      const nationalActs = options.filter((o) => isNationalTrademarksActTitle(o.title));
+      const disambiguate =
+        nationalActs.length > 1 ||
+        (options.length > 1 && nationalActs.length === 0);
+      if (disambiguate) {
         return NextResponse.json({
           content:
             `I found multiple trademark-related laws in ${effectiveHints.country}. Please specify which one you want:\n\n` +
