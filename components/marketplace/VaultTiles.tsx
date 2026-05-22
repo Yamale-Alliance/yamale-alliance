@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import styles from "./VaultTiles.module.css";
 
 export interface VaultTile {
@@ -18,6 +19,8 @@ export interface VaultTile {
   meta: string;
   overlayGradient: string;
   image: string;
+  href?: string;
+  active?: boolean;
 }
 
 export interface VaultTilesProps {
@@ -35,6 +38,7 @@ function VaultTileCard({
   isExpanded: boolean;
   onToggleExpand: (id: string | null) => void;
 }) {
+  const router = useRouter();
   const tileRef = useRef<HTMLDivElement>(null);
   const descObserverCleanup = useRef<(() => void) | null>(null);
   const [overflows, setOverflows] = useState(false);
@@ -81,15 +85,36 @@ function VaultTileCard({
   const showReadMore = !isExpanded && overflows;
   const showReadLess = isExpanded;
 
+  const handleTileActivate = () => {
+    if (tile.href) router.push(tile.href, { scroll: false });
+  };
+
+  const handleTileClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("button")) return;
+    if (isExpanded) return;
+    handleTileActivate();
+  };
+
+  const handleTileKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    if ((e.target as HTMLElement).closest("button")) return;
+    e.preventDefault();
+    if (!isExpanded) handleTileActivate();
+  };
+
   return (
     <div
       ref={tileRef}
-      className={`${styles.tile} ${isExpanded ? styles.tileExpanded : ""} ${isExpanded ? styles.tileFlipped : ""}`}
+      className={`${styles.tile} ${tile.active ? styles.tileActive : ""} ${isExpanded ? styles.tileExpanded : ""} ${isExpanded ? styles.tileFlipped : ""}`}
       style={
         isExpanded && collapsedMinHeight != null
           ? { minHeight: collapsedMinHeight }
           : undefined
       }
+      onClick={tile.href ? handleTileClick : undefined}
+      onKeyDown={tile.href ? handleTileKeyDown : undefined}
+      role={tile.href ? "link" : undefined}
+      tabIndex={tile.href ? 0 : undefined}
     >
       <div className={styles.flipper}>
         <div className={`${styles.face} ${styles.faceFront}`}>
@@ -154,7 +179,7 @@ export default function VaultTiles({ tiles }: VaultTilesProps) {
   return (
     <div className={styles.grid} role="list">
       {tiles.map((tile) => (
-        <div key={tile.id} role="listitem">
+        <div key={tile.id} className={styles.tileSlot} role="listitem">
           <VaultTileCard
             tile={tile}
             isExpanded={expandedId === tile.id}
