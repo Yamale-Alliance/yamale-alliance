@@ -38,6 +38,7 @@ import {
   expandLibrarySearchFromQuery,
   parseLibrarySearchQuery,
   librarySearchTitleTier,
+  normalizeLibraryMatchText,
   scoreLibrarySearchEntry,
   tokenizeLibrarySearch,
 } from "@/lib/library-client-search";
@@ -597,7 +598,8 @@ export function LibraryView({
   }, [search, currentPage, pathname, searchParams]);
 
   useEffect(() => {
-    if (!hasServerFilters) {
+    const searchQuery = search.trim();
+    if (!hasServerFilters && !searchQuery) {
       setLaws(initialLaws.map(mapRowToLaw));
       setLawCount(initialLawCount ?? initialLaws.length);
       setError(null);
@@ -614,7 +616,7 @@ export function LibraryView({
       if (id) params.set("categoryId", id);
     }
     if (status) params.set("status", status);
-    if (search.trim()) params.set("q", search.trim());
+    if (searchQuery) params.set("q", searchQuery);
     const query = params.toString();
     const url = `/api/laws${query ? `?${query}` : ""}`;
 
@@ -635,7 +637,18 @@ export function LibraryView({
         }
       })
       .catch((err: Error) => {
-        setError(err.message?.startsWith("HTTP") ? "Could not load the legal library." : "Check your connection.");
+        if (searchQuery) {
+          // Keep the full catalog; client-side search still filters initialLaws.
+          setLaws(initialLaws.map(mapRowToLaw));
+          setLawCount(initialLawCount ?? initialLaws.length);
+          console.warn("[library] search fetch failed:", err.message);
+        } else {
+          setError(
+            err.message?.startsWith("HTTP")
+              ? "Could not load the legal library."
+              : "Check your connection."
+          );
+        }
       })
       .finally(() => setLoadingLaws(false));
   }, [
@@ -770,16 +783,18 @@ export function LibraryView({
 
   const scoredFilteredLaws = useMemo(() => {
     const parsed = parseLibrarySearchQuery(deferredSearch);
-    const { searchTokens, countryHint } = detectCountryFromSearchTokens(parsed.tokens, countryNames);
+    const { searchTokens } = detectCountryFromSearchTokens(parsed.tokens, countryNames);
     const { matchTokens: freeTokens, categoryHints } = expandLibrarySearchFromQuery(
       parsed.freeText,
       searchTokens
     );
-    const effectiveCountryFilter = country || countryHint;
+    // Dropdown country filter only — do not narrow results from country names in the search box
+    // (e.g. "Algeria - Germany" must not hide the treaty when it is filed under Algeria).
+    const effectiveCountryFilter = country || undefined;
     const minYear = Number.parseInt(yearFrom, 10);
     const maxYear = Number.parseInt(yearTo, 10);
-    const hasSearch = freeTokens.length > 0;
-    const phraseLower = parsed.freeText.toLowerCase();
+    const phraseLower = normalizeLibraryMatchText(parsed.freeText);
+    const hasSearch = freeTokens.length > 0 || phraseLower.length >= 2;
     const out: { law: Law; score: number; titleTier: number }[] = [];
     for (const entry of lawSearchIndex) {
       const law = entry.law;
