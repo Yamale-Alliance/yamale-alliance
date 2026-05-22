@@ -20,6 +20,7 @@ export async function LayoutWithSettings({
     faviconUrl: settings.faviconUrl ?? null,
     heroImageUrl: settings.heroImageUrl ?? null,
     founderPortraitUrl: settings.founderPortraitUrl ?? null,
+    lawyersOnboardingVideoUrl: settings.lawyersOnboardingVideoUrl ?? null,
     lawPrintPriceUsdCents: settings.lawPrintPriceUsdCents,
     dayPassPriceUsdCents: settings.dayPassPriceUsdCents,
     lawyerSearchUnlockPriceUsdCents: settings.lawyerSearchUnlockPriceUsdCents,
@@ -47,6 +48,7 @@ const EMPTY_INITIAL = {
   faviconUrl: null as string | null,
   heroImageUrl: null as string | null,
   founderPortraitUrl: null as string | null,
+  lawyersOnboardingVideoUrl: null as string | null,
   ...CONTENT_PRICING_DEFAULTS,
 };
 
