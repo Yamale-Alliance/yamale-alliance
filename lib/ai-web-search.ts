@@ -171,3 +171,50 @@ export async function fetchTavilyWebContextForPrompt(
 
   return { promptBlock, userNote };
 }
+
+export function webSearchTimeoutMs(): number {
+  const raw = process.env.AI_WEB_SEARCH_TIMEOUT_MS?.trim();
+  const n = raw ? Number.parseInt(raw, 10) : 4500;
+  return Number.isFinite(n) && n >= 1500 && n <= 15_000 ? n : 4500;
+}
+
+/** Runs Tavily when heuristics match; safe to run in parallel with library RAG. */
+export async function fetchContextualWebSearchForTurn(opts: {
+  userQuery: string;
+  platformGuideMeta: boolean;
+}): Promise<{ block: string | null; note: string | null }> {
+  const disabled =
+    process.env.AI_WEB_SEARCH_DISABLED === "1" || process.env.AI_WEB_SEARCH_DISABLED === "true";
+  const hasKey = Boolean(process.env.TAVILY_API_KEY?.trim());
+  if (
+    !shouldAttemptContextualWebSearch({
+      userQuery: opts.userQuery,
+      platformGuideMeta: opts.platformGuideMeta,
+      webSearchDisabled: disabled,
+      hasApiKey: hasKey,
+    })
+  ) {
+    return { block: null, note: null };
+  }
+  try {
+    const webController = new AbortController();
+    const webTimeout = setTimeout(() => webController.abort(), webSearchTimeoutMs());
+    const ctx = await fetchTavilyWebContextForPrompt(opts.userQuery, webController.signal).finally(
+      () => clearTimeout(webTimeout)
+    );
+    if (ctx) {
+      return { block: ctx.promptBlock, note: ctx.userNote };
+    }
+    return {
+      block: getWebSearchMissSystemBlock(),
+      note:
+        "Web search ran for this turn but returned no snippets (check TAVILY_API_KEY, quota, and network). The assistant was told to describe that limit—not a general lack of internet access.",
+    };
+  } catch {
+    return {
+      block: getWebSearchMissSystemBlock(),
+      note:
+        "Web search errored or timed out for this turn. The assistant was told to describe that failure—not a general lack of internet access.",
+    };
+  }
+}
