@@ -1,0 +1,185 @@
+import { escapeIlikePattern } from "@/lib/law-country-scope";
+import { AI_LEGAL_METHODOLOGY_CATEGORY } from "@/lib/ai-contextual-brain";
+
+export type MethodologyContextDoc = {
+  id: string;
+  title: string;
+  country: string;
+  category: string;
+  status?: string;
+  content: string;
+  year?: number;
+  retrievalScore?: number;
+};
+
+const METHODOLOGY_SELECT =
+  "id, title, year, status, content, content_plain, applies_to_all_countries, countries(name), categories!laws_category_id_fkey(name)";
+
+function pickBody(row: {
+  content_plain?: string | null;
+  content?: string | null;
+}): string {
+  const plain = (row.content_plain ?? "").trim();
+  if (plain.length >= 200) return plain;
+  const html = (row.content ?? "").trim();
+  if (!html) return "";
+  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function truncate(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars)}\n\n[… excerpt truncated for context budget …]`;
+}
+
+function rowToDoc(
+  row: Record<string, unknown>,
+  maxCharsPerDoc: number
+): MethodologyContextDoc | null {
+  const body = pickBody(row);
+  if (body.length < 100) return null;
+  const countryName = row.applies_to_all_countries
+    ? "Multiple countries"
+    : ((row.countries as { name?: string } | null)?.name ?? "—");
+  return {
+    id: row.id as string,
+    title: String(row.title ?? "AI methodology"),
+    country: countryName,
+    category: ((row.categories as { name?: string } | null)?.name) ?? AI_LEGAL_METHODOLOGY_CATEGORY,
+    status: row.status as string | undefined,
+    year: row.year as number | undefined,
+    content: truncate(body, maxCharsPerDoc),
+    retrievalScore: 1,
+  };
+}
+
+function deepDiveCountryFromQuery(query: string): string | null {
+  const m = query.match(
+    /\b(?:legal\s+system|law\s+of|laws\s+of|in)\s+([A-Za-z][A-Za-z\s'-]{2,40}?)(?:'s)?\s+(?:legal|court|law\b)/i
+  );
+  if (m?.[1]) return m[1].trim();
+  const m2 = query.match(/\b([A-Za-z][A-Za-z\s'-]{2,35})\s*'s\s+legal\s+system\b/i);
+  if (m2?.[1]) return m2[1].trim();
+  const m3 = query.match(
+    /\bdescribe\s+(?:the\s+)?([A-Za-z][A-Za-z\s'-]{2,35})(?:'s)?\s+legal\s+system\b/i
+  );
+  return m3?.[1]?.trim() ?? null;
+}
+
+/**
+ * Fetch global AI methodology / legal-system deep-dive rows for RAG (prepended to library hits).
+ */
+export async function fetchAiMethodologyContext(
+  supabase: { from: (table: string) => any },
+  query: string,
+  options?: { maxDocs?: number; maxCharsPerDoc?: number; countryHint?: string | null }
+): Promise<MethodologyContextDoc[]> {
+  const maxDocs = options?.maxDocs ?? 2;
+  const maxCharsPerDoc = options?.maxCharsPerDoc ?? 6_000;
+  const countryHint = options?.countryHint ?? deepDiveCountryFromQuery(query);
+
+  const { data: categoryRow } = await supabase
+    .from("categories")
+    .select("id")
+    .eq("name", AI_LEGAL_METHODOLOGY_CATEGORY)
+    .limit(1)
+    .maybeSingle();
+
+  const categoryId = categoryRow?.id as string | undefined;
+  if (!categoryId) return [];
+
+  const out: MethodologyContextDoc[] = [];
+  const used = new Set<string>();
+
+  const { data: brainRows } = await supabase
+    .from("laws")
+    .select(METHODOLOGY_SELECT)
+    .eq("category_id", categoryId)
+    .ilike("title", "%contextual brain%")
+    .neq("status", "Repealed")
+    .limit(1);
+
+  if (Array.isArray(brainRows) && brainRows[0]) {
+    const doc = rowToDoc(brainRows[0] as Record<string, unknown>, maxCharsPerDoc);
+    if (doc) {
+      out.push(doc);
+      used.add(doc.id);
+    }
+  }
+
+  if (countryHint) {
+    const hint = escapeIlikePattern(countryHint);
+    const { data: diveRows } = await supabase
+      .from("laws")
+      .select(METHODOLOGY_SELECT)
+      .eq("category_id", categoryId)
+      .or(`title.ilike.%${hint}%,title.ilike.%Legal System Deep Dive%`)
+      .neq("status", "Repealed")
+      .limit(8);
+
+    if (Array.isArray(diveRows)) {
+      for (const row of diveRows) {
+        if (out.length >= maxDocs) break;
+        const title = String((row as { title?: string }).title ?? "").toLowerCase();
+        if (!title.includes("deep dive") || !title.includes(hint.toLowerCase().split(/\s+/)[0] ?? "___")) {
+          continue;
+        }
+        const doc = rowToDoc(row as Record<string, unknown>, maxCharsPerDoc);
+        if (doc && !used.has(doc.id)) {
+          out.push(doc);
+          used.add(doc.id);
+        }
+      }
+    }
+  }
+
+  const tokens = query
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 4)
+    .slice(0, 6);
+
+  let q = supabase
+    .from("laws")
+    .select(METHODOLOGY_SELECT)
+    .eq("category_id", categoryId)
+    .neq("status", "Repealed")
+    .limit(40);
+
+  if (tokens.length > 0) {
+    const orParts = tokens.map((t) => {
+      const p = `%${escapeIlikePattern(t)}%`;
+      return `title.ilike.${p},content_plain.ilike.${p}`;
+    });
+    q = q.or(orParts.join(","));
+  }
+
+  const { data: rows, error } = await q;
+  if (error || !Array.isArray(rows) || rows.length === 0) {
+    return out;
+  }
+
+  const ranked = [...rows].sort((a, b) => pickBody(b).length - pickBody(a).length);
+
+  for (const row of ranked) {
+    if (out.length >= maxDocs) break;
+    const doc = rowToDoc(row as Record<string, unknown>, maxCharsPerDoc);
+    if (doc && !used.has(doc.id)) {
+      out.push(doc);
+      used.add(doc.id);
+    }
+  }
+
+  return out;
+}
+
+/** Prepend methodology docs without duplicating ids already in the retrieval set. */
+export function prependMethodologyContext<T extends { id: string }>(
+  legalContext: T[],
+  methodology: MethodologyContextDoc[]
+): Array<MethodologyContextDoc | T> {
+  if (methodology.length === 0) return legalContext;
+  const seen = new Set(legalContext.map((d) => d.id));
+  const prepend = methodology.filter((d) => !seen.has(d.id));
+  return [...prepend, ...legalContext];
+}
