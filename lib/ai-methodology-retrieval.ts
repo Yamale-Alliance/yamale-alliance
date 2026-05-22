@@ -77,26 +77,42 @@ export async function fetchAiMethodologyContext(
   const maxCharsPerDoc = options?.maxCharsPerDoc ?? 6_000;
   const countryHint = options?.countryHint ?? deepDiveCountryFromQuery(query);
 
-  const { data: categoryRow } = await supabase
+  const categoryPromise = supabase
     .from("categories")
     .select("id")
     .eq("name", AI_LEGAL_METHODOLOGY_CATEGORY)
     .limit(1)
     .maybeSingle();
 
+  const { data: categoryRow } = await categoryPromise;
   const categoryId = categoryRow?.id as string | undefined;
   if (!categoryId) return [];
 
   const out: MethodologyContextDoc[] = [];
   const used = new Set<string>();
 
-  const { data: brainRows } = await supabase
+  const brainPromise = supabase
     .from("laws")
     .select(METHODOLOGY_SELECT)
     .eq("category_id", categoryId)
     .ilike("title", "%contextual brain%")
     .neq("status", "Repealed")
     .limit(1);
+
+  const divePromise = countryHint
+    ? supabase
+        .from("laws")
+        .select(METHODOLOGY_SELECT)
+        .eq("category_id", categoryId)
+        .or(
+          `title.ilike.%${escapeIlikePattern(countryHint)}%,title.ilike.%Legal System Deep Dive%`
+        )
+        .neq("status", "Repealed")
+        .limit(8)
+    : Promise.resolve({ data: [] as unknown[], error: null });
+
+  const [{ data: brainRows }, diveResult] = await Promise.all([brainPromise, divePromise]);
+  const diveRows = diveResult.data;
 
   if (Array.isArray(brainRows) && brainRows[0]) {
     const doc = rowToDoc(brainRows[0] as Record<string, unknown>, maxCharsPerDoc);
@@ -106,31 +122,23 @@ export async function fetchAiMethodologyContext(
     }
   }
 
-  if (countryHint) {
+  if (countryHint && Array.isArray(diveRows)) {
     const hint = escapeIlikePattern(countryHint);
-    const { data: diveRows } = await supabase
-      .from("laws")
-      .select(METHODOLOGY_SELECT)
-      .eq("category_id", categoryId)
-      .or(`title.ilike.%${hint}%,title.ilike.%Legal System Deep Dive%`)
-      .neq("status", "Repealed")
-      .limit(8);
-
-    if (Array.isArray(diveRows)) {
-      for (const row of diveRows) {
-        if (out.length >= maxDocs) break;
-        const title = String((row as { title?: string }).title ?? "").toLowerCase();
-        if (!title.includes("deep dive") || !title.includes(hint.toLowerCase().split(/\s+/)[0] ?? "___")) {
-          continue;
-        }
-        const doc = rowToDoc(row as Record<string, unknown>, maxCharsPerDoc);
-        if (doc && !used.has(doc.id)) {
-          out.push(doc);
-          used.add(doc.id);
-        }
+    for (const row of diveRows) {
+      if (out.length >= maxDocs) break;
+      const title = String((row as { title?: string }).title ?? "").toLowerCase();
+      if (!title.includes("deep dive") || !title.includes(hint.toLowerCase().split(/\s+/)[0] ?? "___")) {
+        continue;
+      }
+      const doc = rowToDoc(row as Record<string, unknown>, maxCharsPerDoc);
+      if (doc && !used.has(doc.id)) {
+        out.push(doc);
+        used.add(doc.id);
       }
     }
   }
+
+  if (out.length >= maxDocs) return out;
 
   const tokens = query
     .toLowerCase()
