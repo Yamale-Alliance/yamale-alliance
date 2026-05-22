@@ -1,3 +1,5 @@
+import { isInternalLibraryCategoryName } from "@/lib/internal-library-categories";
+
 /**
  * Yamalé library category names (must match `categories.name` in Postgres).
  * Used for retrieval hints, ranking boosts, and system-prompt scope.
@@ -48,10 +50,15 @@ export function canonicalCategoryForLibraryIntent(intentId: string): YamaleLawCa
   return LIBRARY_INTENT_TO_YAMALE_CATEGORY[intentId] ?? null;
 }
 
+/** Categories end users can browse in /library (excludes internal AI methodology). */
+export function publicYamaleLawCategories(): YamaleLawCategory[] {
+  return YAMALE_LAW_CATEGORIES.filter((c) => !isInternalLibraryCategoryName(c));
+}
+
 /** Short block for the AI system prompt (metadata discipline). */
 export function buildYamaleCategoriesPromptBlock(): string {
   return `Yamalé library categories (each law is tagged with one primary Category in the index and excerpts):
-${YAMALE_LAW_CATEGORIES.map((c) => `- ${c}`).join("\n")}
+${publicYamaleLawCategories().map((c) => `- ${c}`).join("\n")}
 
 When the user asks about a subject area, map it to the closest category above and prefer excerpts whose Category field matches. Do not answer a domestic mining-licensing question from an International Trade Laws treaty unless the excerpt clearly governs that point. If retrieved excerpts span multiple categories, say which category each instrument belongs to and keep conclusions tied to the right bucket.`;
 }
