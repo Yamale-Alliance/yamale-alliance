@@ -1,11 +1,19 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { librarySearchMatchPlan, lawRowMatchesLibrarySearch } from "@/lib/library-client-search";
-import { escapeIlikePattern, lawsCountryGlobalOrScopedIds } from "@/lib/law-country-scope";
+import {
+  escapeIlikePattern,
+  lawsCountryGlobalOrScopedIds,
+  postgrestIlikePattern,
+} from "@/lib/law-country-scope";
+import { POSTGREST_MAX_OR_FILTER_LEN } from "@/lib/postgrest-ilike-tokens";
 import { fetchLawIdsForCategory } from "@/lib/law-categories-sync";
 import { fetchLawIdsForCountryScope } from "@/lib/law-country-scope-ids";
 
 /** Max laws returned in one response (pagination is client-side within this set). */
 const LAWS_LIMIT = 20_000;
+
+/** PostgREST returns at most 1000 rows per request unless max-rows is raised server-side. */
+const POSTGREST_PAGE_SIZE = 1000;
 
 export type LibraryCountry = { id: string; name: string };
 export type LibraryCategory = { id: string; name: string };
@@ -57,11 +65,16 @@ function sortCountriesAlphabetically(countries: LibraryCountry[]): LibraryCountr
 function buildSearchOrFilter(query: string): string | null {
   const plan = librarySearchMatchPlan(query);
   const parts: string[] = [];
+  const tryAdd = (clause: string): boolean => {
+    const next = parts.length === 0 ? clause : `${parts.join(",")},${clause}`;
+    if (next.length > POSTGREST_MAX_OR_FILTER_LEN) return false;
+    parts.push(clause);
+    return true;
+  };
+  // Title tokens only — PostgREST rejects `categories.name` inside `.or()` on `laws`
+  // (PGRST100). Category hints are still applied client-side via lawRowMatchesLibrarySearch.
   for (const t of plan.matchTokens.slice(0, 8)) {
-    parts.push(`title.ilike.%${escapeIlikePattern(t)}%`);
-  }
-  for (const cat of plan.categoryHints.slice(0, 3)) {
-    parts.push(`categories.name.ilike.%${escapeIlikePattern(cat)}%`);
+    if (!tryAdd(`title.ilike.%${postgrestIlikePattern(t)}%`)) break;
   }
   if (parts.length === 0) return null;
   return parts.join(",");
@@ -192,6 +205,33 @@ function compareLibraryLawRows(a: LibraryLawRow, b: LibraryLawRow): number {
   const tb = new Date(b.created_at ?? 0).getTime();
   if (tb !== ta) return tb - ta;
   return (a.title ?? "").localeCompare(b.title ?? "", undefined, { sensitivity: "base" });
+}
+
+/** Load the full matching catalog in pages (Supabase caps each response at 1000 rows). */
+async function fetchPaginatedLibraryLawRows(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  applyFilters: (query: any) => any
+): Promise<LibraryLawRow[]> {
+  const rows: LibraryLawRow[] = [];
+  let offset = 0;
+  while (rows.length < LAWS_LIMIT) {
+    const base = supabase
+      .from("laws")
+      .select(LAWS_SELECT_FIELDS)
+      .order("created_at", { ascending: false })
+      .order("title");
+    const { data, error } = await applyFilters(base).range(
+      offset,
+      offset + POSTGREST_PAGE_SIZE - 1
+    );
+    if (error) throw error;
+    const batch = (data ?? []) as LibraryLawRow[];
+    rows.push(...batch);
+    if (batch.length < POSTGREST_PAGE_SIZE) break;
+    offset += POSTGREST_PAGE_SIZE;
+  }
+  return rows.slice(0, LAWS_LIMIT);
 }
 
 async function sumExactLawCountsInIdChunks(
@@ -342,45 +382,42 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
         }
       }
 
-      let lawsQuery = supabase
-        .from("laws")
-        .select(LAWS_SELECT_FIELDS)
-        .order("created_at", { ascending: false })
-        .order("title")
-        .limit(LAWS_LIMIT);
-      if (filters?.countryId) {
-        lawsQuery = lawsQuery.or(lawsCountryGlobalOrScopedIds(filters.countryId, scopedCountryLawIds));
-      }
-      if (useLegacyCategoryColumn && filters?.categoryId) {
-        lawsQuery = lawsQuery.eq("category_id", filters.categoryId);
-      } else if (categoryLawIds && categoryLawIds.length > 0) {
-        lawsQuery = lawsQuery.in("id", categoryLawIds);
-      }
-      if (filters?.status) lawsQuery = lawsQuery.eq("status", filters.status);
-      if (filters?.q?.trim()) {
-        const orFilter = buildSearchOrFilter(filters.q);
-        if (orFilter) lawsQuery = lawsQuery.or(orFilter);
-        else {
-          const term = escapeIlikePattern(filters.q.trim());
-          lawsQuery = lawsQuery.ilike("title", `%${term}%`);
+      const applyLawRowFilters = (query: ReturnType<typeof supabase.from>) => {
+        let lawsQuery = query;
+        if (filters?.countryId) {
+          lawsQuery = lawsQuery.or(lawsCountryGlobalOrScopedIds(filters.countryId, scopedCountryLawIds));
         }
-      }
+        if (useLegacyCategoryColumn && filters?.categoryId) {
+          lawsQuery = lawsQuery.eq("category_id", filters.categoryId);
+        } else if (categoryLawIds && categoryLawIds.length > 0) {
+          lawsQuery = lawsQuery.in("id", categoryLawIds);
+        }
+        if (filters?.status) lawsQuery = lawsQuery.eq("status", filters.status);
+        if (filters?.q?.trim()) {
+          const orFilter = buildSearchOrFilter(filters.q);
+          if (orFilter) lawsQuery = lawsQuery.or(orFilter);
+          else {
+            const term = escapeIlikePattern(filters.q.trim());
+            lawsQuery = lawsQuery.ilike("title", `%${term}%`);
+          }
+        }
+        return lawsQuery;
+      };
 
-      const [cRes, catRes, countRes, lawsRes] = await Promise.all([
+      const [cRes, catRes, countRes, paginatedLaws] = await Promise.all([
         countriesPromise,
         categoriesPromise,
         countQuery,
-        lawsQuery,
+        fetchPaginatedLibraryLawRows(supabase, applyLawRowFilters),
       ]);
       countriesRes = cRes;
       categoriesRes = catRes;
       if (countriesRes.error) throw countriesRes.error;
       if (categoriesRes.error) throw categoriesRes.error;
       if (countRes.error) throw countRes.error;
-      if (lawsRes.error) throw lawsRes.error;
 
-      lawCount = typeof countRes.count === "number" ? countRes.count : (lawsRes.data ?? []).length;
-      rawLaws = (lawsRes.data ?? []) as LibraryLawRow[];
+      lawCount = typeof countRes.count === "number" ? countRes.count : paginatedLaws.length;
+      rawLaws = paginatedLaws;
     }
 
     const ids = rawLaws.map((l) => l.id);
