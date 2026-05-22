@@ -76,7 +76,11 @@ import {
   titleLikelyCountryBilateralTreaty,
 } from "@/lib/ai-country-bilateral-inventory";
 import { pickContentExcerpt } from "@/lib/ai-law-excerpt";
-import { fetchLawTitleCatalogForPrompt } from "@/lib/ai-law-title-catalog";
+import {
+  fetchLawTitleCatalogForPrompt,
+  isLawTitleCatalogForPromptEnabled,
+  queryNeedsLawTitleCatalog,
+} from "@/lib/ai-law-title-catalog";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { fetchLawIdsForCategory } from "@/lib/law-categories-sync";
@@ -110,11 +114,7 @@ import {
   SYSTEM_PROMPT_VERSION,
   validateAiResearchSystemPromptParams,
 } from "@/lib/ai-system-prompt";
-import {
-  fetchTavilyWebContextForPrompt,
-  getWebSearchMissSystemBlock,
-  shouldAttemptContextualWebSearch,
-} from "@/lib/ai-web-search";
+import { fetchContextualWebSearchForTurn } from "@/lib/ai-web-search";
 import { isAssistantWorkflowMetaQuery, isPlatformGuideMetaQuery } from "@/lib/ai-platform-meta-query";
 import {
   fetchAiMethodologyContext,
@@ -1527,6 +1527,26 @@ async function enrichLawsResolveAmended(supabase: any, laws: any[]): Promise<any
   return out;
 }
 
+/** Resolve amended→successor only for top-ranked rows (avoids N+1 DB on hundreds of candidates). */
+async function enrichLawsResolveAmendedTopK(
+  supabase: any,
+  laws: any[],
+  topK = 42
+): Promise<any[]> {
+  if (laws.length <= topK) return enrichLawsResolveAmended(supabase, laws);
+  const enrichedHead = await enrichLawsResolveAmended(supabase, laws.slice(0, topK));
+  const seen = new Set(enrichedHead.map((l) => String(l.id)));
+  const merged = [...enrichedHead];
+  for (const law of laws.slice(topK)) {
+    const id = String(law.id);
+    if (!seen.has(id)) {
+      merged.push(law);
+      seen.add(id);
+    }
+  }
+  return merged;
+}
+
 type LegalLibrarySearchResult = Array<{
   id: string;
   title: string;
@@ -2314,7 +2334,7 @@ async function searchLegalLibrary(
       return total(b, titleB, contentB) - total(a, titleA, contentA);
     });
 
-    const enrichedRanked = await enrichLawsResolveAmended(supabase, rankedLaws);
+    const enrichedRanked = await enrichLawsResolveAmendedTopK(supabase, rankedLaws);
     perfStep(perf, "enrich_amended", { ranked: rankedLaws.length });
     let intentFilteredRanked = enrichedRanked.filter(
       (law) => !isClearlyOffTopicForPrimaryIntent(law, resolvedIntent.primaryId, rankingTokens, query)
@@ -3298,30 +3318,71 @@ export async function POST(request: NextRequest) {
     const perf = createAiPerfTimer(
       `chat ${effectiveHints.country ?? "global"} · ${userQuery.replace(/\s+/g, " ").slice(0, 48)}`
     );
-    const lawTitleCatalogPromise = platformGuideMeta
-      ? Promise.resolve("")
-      : fetchLawTitleCatalogForPrompt(getSupabaseServer() as any, {
-          countryName: effectiveHints.country ?? null,
-        });
-    // Always use deep retrieval, excerpt budgets, and answer-style rules (no "brief mode").
     const detailedMode = true;
     const useFullLibraryContext =
       isFullLibraryContextEnabled() &&
       !platformGuideMeta &&
       !(latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog || countryBilateralCatalog);
 
-    let legalContext = platformGuideMeta
-      ? []
-      : useFullLibraryContext
-        ? await searchLegalLibraryFull(userQuery, effectiveHints.country, perf)
-        : await searchLegalLibrary(userQuery, effectiveHints.country, detailedMode, perf);
+    const searchCountry = effectiveHints.country ?? dbDetectedCountry;
+    const supabaseForTurn = getSupabaseServer() as any;
+    const needsTitleCatalog =
+      !platformGuideMeta &&
+      isLawTitleCatalogForPromptEnabled() &&
+      queryNeedsLawTitleCatalog(userQuery, Boolean(searchCountry));
+
+    const libraryPromise: Promise<LegalLibrarySearchResult> = platformGuideMeta
+      ? Promise.resolve([])
+      : assistantWorkflowMeta
+        ? fetchAiMethodologyContext(supabaseForTurn, userQuery, {
+            maxDocs: 3,
+            maxCharsPerDoc: 12_000,
+          }).then((docs) => docs as LegalLibrarySearchResult)
+        : useFullLibraryContext
+          ? searchLegalLibraryFull(userQuery, searchCountry, perf)
+          : searchLegalLibrary(userQuery, searchCountry, detailedMode, perf);
+
+    const methodologyPromise =
+      !platformGuideMeta && !assistantWorkflowMeta && isLikelyLegalQuestion(userQuery)
+        ? fetchAiMethodologyContext(supabaseForTurn, userQuery, {
+            countryHint: searchCountry ?? null,
+            maxDocs: 2,
+            maxCharsPerDoc: 6_000,
+          })
+        : Promise.resolve([]);
+
+    const catalogPromise = needsTitleCatalog
+      ? fetchLawTitleCatalogForPrompt(supabaseForTurn, { countryName: searchCountry ?? null })
+      : Promise.resolve("");
+
+    const webPromise = fetchContextualWebSearchForTurn({
+      userQuery,
+      platformGuideMeta,
+    });
+
+    const parallelStartedAt = Date.now();
+    let [legalContext, methodology, lawTitleCatalogText, webResult] = await Promise.all([
+      libraryPromise,
+      methodologyPromise,
+      catalogPromise,
+      webPromise,
+    ]);
+    perfStep(perf, "parallel_retrieval", {
+      ms: Date.now() - parallelStartedAt,
+      docs: legalContext.length,
+      methodology: methodology.length,
+      catalogChars: lawTitleCatalogText.length,
+      web: Boolean(webResult.block),
+      fullLibrary: useFullLibraryContext,
+      skippedCatalog: !needsTitleCatalog,
+    });
 
     if (assistantWorkflowMeta) {
-      legalContext = await fetchAiMethodologyContext(getSupabaseServer() as any, userQuery, {
-        maxDocs: 3,
-        maxCharsPerDoc: 12_000,
-      });
       perfStep(perf, "assistant_workflow_context", { docs: legalContext.length });
+    }
+
+    if (!platformGuideMeta && methodology.length > 0) {
+      legalContext = prependMethodologyContext(legalContext, methodology);
     }
 
     perfStep(perf, "library_search", {
@@ -3333,7 +3394,7 @@ export async function POST(request: NextRequest) {
       !legalContext.length &&
       !(latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog || countryBilateralCatalog)
     ) {
-      legalContext = await searchLegalLibraryQuickFallback(userQuery, effectiveHints.country ?? undefined);
+      legalContext = await searchLegalLibraryQuickFallback(userQuery, searchCountry ?? undefined);
       perfStep(perf, "library_quick_fallback", { docs: legalContext.length });
     }
     if (!platformGuideMeta) {
@@ -3345,13 +3406,8 @@ export async function POST(request: NextRequest) {
       perfStep(perf, "country_lock_filter", { docs: legalContext.length });
     }
 
-    if (!platformGuideMeta && !assistantWorkflowMeta && isLikelyLegalQuestion(userQuery)) {
-      const methodology = await fetchAiMethodologyContext(getSupabaseServer() as any, userQuery, {
-        countryHint: effectiveHints.country ?? null,
-      });
-      legalContext = prependMethodologyContext(legalContext, methodology);
-      perfStep(perf, "methodology_context", { docs: methodology.length });
-    }
+    let webSearchSupplementBlock: string | null = webResult.block;
+    let webSearchNote: string | null = webResult.note;
 
     if (
       !platformGuideMeta &&
@@ -3370,47 +3426,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    let webSearchSupplementBlock: string | null = null;
-    let webSearchNote: string | null = null;
-    const webSearchStartedAt = Date.now();
-    if (!platformGuideMeta) {
-      const disabled =
-        process.env.AI_WEB_SEARCH_DISABLED === "1" ||
-        process.env.AI_WEB_SEARCH_DISABLED === "true";
-      const hasKey = Boolean(process.env.TAVILY_API_KEY?.trim());
-      if (
-        shouldAttemptContextualWebSearch({
-          userQuery,
-          platformGuideMeta: false,
-          webSearchDisabled: disabled,
-          hasApiKey: hasKey,
-        })
-      ) {
-        try {
-          const webController = new AbortController();
-          const webTimeout = setTimeout(() => webController.abort(), 6500);
-          const ctx = await fetchTavilyWebContextForPrompt(userQuery, webController.signal).finally(() =>
-            clearTimeout(webTimeout)
-          );
-          if (ctx) {
-            webSearchSupplementBlock = ctx.promptBlock;
-            webSearchNote = ctx.userNote;
-          } else {
-            webSearchSupplementBlock = getWebSearchMissSystemBlock();
-            webSearchNote =
-              "Web search ran for this turn but returned no snippets (check TAVILY_API_KEY, quota, and network). The assistant was told to describe that limit—not a general lack of internet access.";
-          }
-        } catch {
-          webSearchSupplementBlock = getWebSearchMissSystemBlock();
-          webSearchNote =
-            "Web search errored or timed out for this turn. The assistant was told to describe that failure—not a general lack of internet access.";
-        }
-      }
-    }
-    perfStep(perf, "web_search", {
-      ran: Boolean(webSearchSupplementBlock),
-      ms: Date.now() - webSearchStartedAt,
-    });
+    perfStep(perf, "web_search", { ran: Boolean(webSearchSupplementBlock) });
 
     // Build Claude messages format
     const claudeMessages: ClaudeMessage[] = [];
@@ -3481,32 +3497,30 @@ export async function POST(request: NextRequest) {
             .join(" and ")
         : null;
 
-    const lawTitleCatalogText = await lawTitleCatalogPromise;
     perfStep(perf, "title_catalog", { chars: lawTitleCatalogText.length });
-
-    const germanyAfricaBitInventoryBlock =
-      platformGuideMeta || !germanyAfricaBitCatalog
-        ? null
-        : buildGermanyAfricaBitInventoryPromptBlock(
-            await fetchGermanyAfricaBitInventory(getSupabaseServer() as any)
-          );
 
     const countryBilateralYearWindow = countryBilateralCatalog
       ? parseYearWindowFromQuery(userQuery)
       : null;
-    const countryBilateralInventoryBlock =
+    const [germanyAfricaInventoryRows, countryBilateralInventoryRows] = await Promise.all([
+      platformGuideMeta || !germanyAfricaBitCatalog
+        ? Promise.resolve(null)
+        : fetchGermanyAfricaBitInventory(supabaseForTurn),
       platformGuideMeta || !countryBilateralCatalog || !effectiveHints.country
+        ? Promise.resolve(null)
+        : fetchCountryBilateralTreatyInventory(supabaseForTurn, effectiveHints.country),
+    ]);
+    const germanyAfricaBitInventoryBlock =
+      germanyAfricaInventoryRows === null
         ? null
-        : buildCountryBilateralInventoryPromptBlock(
-            await fetchCountryBilateralTreatyInventory(
-              getSupabaseServer() as any,
-              effectiveHints.country
-            ),
-            {
-              countryName: effectiveHints.country,
-              yearWindow: countryBilateralYearWindow,
-            }
-          );
+        : buildGermanyAfricaBitInventoryPromptBlock(germanyAfricaInventoryRows);
+    const countryBilateralInventoryBlock =
+      countryBilateralInventoryRows === null || !effectiveHints.country
+        ? null
+        : buildCountryBilateralInventoryPromptBlock(countryBilateralInventoryRows, {
+            countryName: effectiveHints.country,
+            yearWindow: countryBilateralYearWindow,
+          });
 
     const fullLawRetrievalMode =
       Boolean(specificLawHint) ||
