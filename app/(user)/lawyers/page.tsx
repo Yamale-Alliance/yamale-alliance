@@ -22,6 +22,7 @@ import {
   expertiseMatchesSelection,
   parseExpertiseSegments,
 } from "@/lib/lawyer-expertise";
+import { LawyersOnboardingVideo } from "@/components/lawyers/LawyersOnboardingVideo";
 
 const BRAND = {
   dark: "#221913",
@@ -179,55 +180,90 @@ export default function LawyersPage() {
     }
   };
 
-  useEffect(() => {
-    const sessionId = searchParams.get("session_id");
-    const returnCountry = searchParams.get("country");
-    const returnCity = searchParams.get("city");
-    const returnExpertise = searchParams.get("expertise");
-    const returnLanguage = searchParams.get("language");
-
-    if (!sessionId && !returnCountry && !returnExpertise && !returnCity && !returnLanguage) {
-      try {
-        const raw = localStorage.getItem(SEARCH_STATE_STORAGE_KEY);
-        if (!raw) return;
-        const restored = JSON.parse(raw) as {
-          country?: string;
-          city?: string;
-          expertise?: string;
-          language?: string;
-          hasSearched?: boolean;
-        };
-        if (restored.country) setSelectedCountry(restored.country);
-        if (restored.city) setSelectedCity(restored.city);
-        if (restored.expertise) setSelectedExpertise(restored.expertise);
-        if (restored.language) setSelectedLanguage(restored.language);
-        if (restored.hasSearched) {
-          setHasSearched(true);
-          setShowPaymentChoice(true);
-        }
-      } catch {
-        // ignore restore errors
-      }
-      return;
+  const clearStoredSearchState = () => {
+    try {
+      localStorage.removeItem(SEARCH_STATE_STORAGE_KEY);
+    } catch {
+      // ignore
     }
+  };
 
+  const restoreStoredSearchState = () => {
+    try {
+      const raw = localStorage.getItem(SEARCH_STATE_STORAGE_KEY);
+      if (!raw) return;
+      const restored = JSON.parse(raw) as {
+        country?: string;
+        city?: string;
+        expertise?: string;
+        language?: string;
+        hasSearched?: boolean;
+      };
+      if (restored.country) setSelectedCountry(restored.country);
+      if (restored.city) setSelectedCity(restored.city);
+      if (restored.expertise) setSelectedExpertise(restored.expertise);
+      if (restored.language) setSelectedLanguage(restored.language);
+      if (restored.hasSearched) {
+        setHasSearched(true);
+        setShowPaymentChoice(true);
+      }
+    } catch {
+      // ignore restore errors
+    }
+  };
+
+  const applyReturnFilters = (
+    returnCountry: string | null,
+    returnCity: string | null,
+    returnExpertise: string | null,
+    returnLanguage: string | null
+  ) => {
     if (returnCountry != null) setSelectedCountry(returnCountry || "");
     if (returnCity != null) setSelectedCity(returnCity || "");
     if (returnExpertise != null) setSelectedExpertise(returnExpertise || "all");
     if (returnLanguage != null) setSelectedLanguage(returnLanguage || "all");
     if (returnExpertise != null && returnExpertise !== "all") setHasSearched(true);
-    persistSearchState({
-      country: returnCountry ?? "",
-      city: returnCity ?? "",
-      expertise: returnExpertise ?? "all",
-      language: returnLanguage ?? "all",
-      hasSearched: returnExpertise != null ? returnExpertise !== "all" : false,
-    });
+  };
+
+  useEffect(() => {
+    const sessionId = searchParams.get("session_id");
+    const paymentCanceled = searchParams.get("canceled") === "1";
+    const returnCountry = searchParams.get("country");
+    const returnCity = searchParams.get("city");
+    const returnExpertise = searchParams.get("expertise");
+    const returnLanguage = searchParams.get("language");
+    const hasStaleFilterParams =
+      !sessionId &&
+      (returnCountry != null || returnExpertise != null || returnCity != null || returnLanguage != null);
+
+    // Default landing: fresh search. Drop bookmarked ?country=&expertise= from a past purchase.
+    if (hasStaleFilterParams) {
+      window.history.replaceState({}, "", "/lawyers");
+      return;
+    }
+
+    // Checkout canceled — restore the in-progress search so they can pay again.
+    if (paymentCanceled || sessionId === "canceled") {
+      if (returnCountry != null || returnExpertise != null) {
+        applyReturnFilters(returnCountry, returnCity, returnExpertise, returnLanguage);
+        persistSearchState({
+          country: returnCountry ?? "",
+          city: returnCity ?? "",
+          expertise: returnExpertise ?? "all",
+          language: returnLanguage ?? "all",
+          hasSearched: returnExpertise != null ? returnExpertise !== "all" : false,
+        });
+      } else {
+        restoreStoredSearchState();
+      }
+      return;
+    }
 
     const isDayPassReturn =
       searchParams.get("day_pass") === "1" || searchParams.get("day_pass_return") === "1";
 
     if (sessionId && !confirmingPayment && confirmedSessionRef.current !== sessionId) {
+      applyReturnFilters(returnCountry, returnCity, returnExpertise, returnLanguage);
       confirmedSessionRef.current = sessionId;
       setConfirmingPayment(true);
       setDayPassConfirmError(null);
@@ -261,21 +297,11 @@ export default function LawyersPage() {
         });
         const data = await res.json();
         if (data.ok) {
-          if (returnCountry) setSelectedCountry(returnCountry);
-          if (returnCity) setSelectedCity(returnCity);
-          if (returnExpertise) setSelectedExpertise(returnExpertise);
-          if (returnLanguage) setSelectedLanguage(returnLanguage);
           setHasSearched(true);
-          setShowPaymentChoice(true);
+          setShowPaymentChoice(false);
           await refetchUnlocked();
-          const keep = new URLSearchParams();
-          if (returnCountry) keep.set("country", returnCountry);
-          if (returnExpertise) keep.set("expertise", returnExpertise);
-          if (returnCity) keep.set("city", returnCity);
-          if (returnLanguage) keep.set("language", returnLanguage);
-          if (searchParams.get("canceled") === "1") keep.set("canceled", "1");
-          const path = keep.toString() ? `/lawyers?${keep.toString()}` : "/lawyers";
-          window.history.replaceState({}, "", path);
+          clearStoredSearchState();
+          window.history.replaceState({}, "", "/lawyers");
         }
       };
 
@@ -336,20 +362,15 @@ export default function LawyersPage() {
   const isUnlocked = (lawyerId: string) => dayPassActive || unlockedIds.has(lawyerId);
 
   const clearFilters = () => {
-    setSelectedCountry("all");
+    setSelectedCountry("");
     setSelectedCity("");
     setSelectedExpertise("all");
     setSelectedLanguage("all");
     setHasSearched(false);
     setShowPaymentChoice(false);
     setShowPawapayCountryPrompt(false);
-    persistSearchState({
-      country: "",
-      city: "",
-      expertise: "all",
-      language: "all",
-      hasSearched: false,
-    });
+    setSearchPayError(null);
+    clearStoredSearchState();
   };
 
   const expertiseRequired = selectedExpertise === "all";
@@ -408,6 +429,15 @@ export default function LawyersPage() {
               An invitation-only directory of legal professionals with deep expertise in African business law, mining,
               M&A, and compliance.
             </p>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <LawyersOnboardingVideo className="inline-flex items-center gap-2 rounded-[6px] border border-white/25 bg-white/10 px-3 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15" />
+              <Link
+                href="/lawyers/unlocked"
+                className="inline-flex items-center rounded-[6px] border border-white/25 bg-white/10 px-3 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15"
+              >
+                View unlocked lawyers
+              </Link>
+            </div>
           </div>
           <div className="mt-7 rounded-[10px] border border-white/15 bg-white/10 p-3 backdrop-blur">
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1fr_1fr_1fr_auto]">
@@ -517,25 +547,21 @@ export default function LawyersPage() {
             </p>
           </div>
 
-          <div className="mb-8 flex items-center justify-between">
-            <Link
-              href="/lawyers/unlocked"
-              className="inline-flex items-center rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground transition hover:border-[#d8c5a1]"
-            >
-              View unlocked lawyers
-            </Link>
-            {expertiseRequired && (
-              <p className="text-xs text-amber-700 dark:text-amber-400">
-                Please select a practice area. Country + practice area are required so your {searchPriceLabel} unlock
-                applies to a specific search.
-              </p>
-            )}
-            {!expertiseRequired && countryRequired && (
-              <p className="text-xs text-amber-700 dark:text-amber-400">
-                Please select one country and one practice area before searching.
-              </p>
-            )}
-          </div>
+          {(expertiseRequired || countryRequired) && (
+            <div className="mb-8">
+              {expertiseRequired && (
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  Please select a practice area. Country + practice area are required so your {searchPriceLabel} unlock
+                  applies to a specific search.
+                </p>
+              )}
+              {!expertiseRequired && countryRequired && (
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  Please select one country and one practice area before searching.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Before search: prompt user to enter criteria */}
           {!hasSearched && (
@@ -553,7 +579,25 @@ export default function LawyersPage() {
           if (allUnlocked) {
             return (
               <div className="mb-6 rounded-xl border border-green-200 dark:border-green-500/30 bg-green-50 dark:bg-green-500/10 px-4 py-3 text-sm text-green-800 dark:text-green-200">
-                You have full access to all {filteredLawyers.length} lawyer{filteredLawyers.length !== 1 ? "s" : ""} in this search.
+                <p>
+                  You have full access to all {filteredLawyers.length} lawyer
+                  {filteredLawyers.length !== 1 ? "s" : ""} in this search.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="inline-flex items-center rounded-lg border border-green-700/30 bg-white/80 px-3 py-1.5 text-xs font-semibold text-green-900 transition hover:bg-white dark:border-green-400/30 dark:bg-green-950/40 dark:text-green-100 dark:hover:bg-green-950/60"
+                  >
+                    Start a new search
+                  </button>
+                  <Link
+                    href="/lawyers/unlocked"
+                    className="text-xs font-semibold text-green-800 underline underline-offset-2 hover:no-underline dark:text-green-200"
+                  >
+                    View all unlocked lawyers
+                  </Link>
+                </div>
               </div>
             );
           }
