@@ -35,6 +35,23 @@ export function isLawTitleCatalogForPromptEnabled(): boolean {
 }
 
 /**
+ * Inventory / coverage questions need the metadata index; focused statute Q&A can skip it when RAG already hit acts.
+ */
+export function queryNeedsLawTitleCatalog(userQuery: string, hasCountryScope: boolean): boolean {
+  if (process.env.AI_LAW_TITLE_CATALOG_ALWAYS?.trim() === "1") return true;
+  const q = userQuery.toLowerCase();
+  if (
+    /\b(what laws|which laws|how many laws|do you have|list (all )?(the )?laws|in (the )?library|law count|coverage|catalog|index)\b/.test(
+      q
+    )
+  ) {
+    return true;
+  }
+  if (!hasCountryScope) return true;
+  return false;
+}
+
+/**
  * Returns newline-separated rows: `Title | Source | Category | Status`
  * Truncated to {@link maxCatalogChars} (default 72k). Excludes nothing by status so the index
  * matches “what exists in the library” including Repealed (still listed with status).
