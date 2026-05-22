@@ -10,6 +10,7 @@ export type PlatformSettingsSnapshot = {
   faviconUrl: string | null;
   heroImageUrl: string | null;
   founderPortraitUrl: string | null;
+  lawyersOnboardingVideoUrl: string | null;
 } & ContentPricingSnapshot;
 
 let cachedSettings: PlatformSettingsSnapshot | null = null;
@@ -28,7 +29,7 @@ const PLATFORM_SETTINGS_BRANDING_SELECT =
 const PLATFORM_SETTINGS_PRICING_SELECT =
   "law_print_price_usd_cents, lawyer_search_unlock_price_usd_cents, day_pass_price_usd_cents, ai_query_price_usd_cents, afcfta_report_price_usd_cents";
 const PLATFORM_SETTINGS_BASE_SELECT = `logo_url, favicon_url, hero_image_url, ${PLATFORM_SETTINGS_PRICING_SELECT}`;
-const PLATFORM_SETTINGS_FULL_SELECT = `${PLATFORM_SETTINGS_BASE_SELECT}, founder_portrait_url`;
+const PLATFORM_SETTINGS_FULL_SELECT = `${PLATFORM_SETTINGS_BASE_SELECT}, founder_portrait_url, lawyers_onboarding_video_url`;
 
 function formatSupabaseError(error: unknown): string {
   if (!error || typeof error !== "object" || Array.isArray(error)) {
@@ -62,6 +63,7 @@ function rowToSnapshot(row: Record<string, unknown> | null): PlatformSettingsSna
     faviconUrl: (row?.favicon_url as string | null) || null,
     heroImageUrl: (row?.hero_image_url as string | null) || null,
     founderPortraitUrl: (row?.founder_portrait_url as string | null) || null,
+    lawyersOnboardingVideoUrl: (row?.lawyers_onboarding_video_url as string | null) || null,
     ...pricing,
   };
 }
@@ -72,6 +74,7 @@ function emptyPlatformSettings(): PlatformSettingsSnapshot {
     faviconUrl: null,
     heroImageUrl: null,
     founderPortraitUrl: null,
+    lawyersOnboardingVideoUrl: null,
     ...CONTENT_PRICING_DEFAULTS,
   };
 }
@@ -105,6 +108,15 @@ export async function getPlatformSettings(): Promise<PlatformSettingsSnapshot> {
       .select(PLATFORM_SETTINGS_FULL_SELECT)
       .eq("id", "main")
       .maybeSingle();
+
+    if (error && isMissingColumnError(error, "lawyers_onboarding_video_url")) {
+      const retry = await (supabase.from("platform_settings") as any)
+        .select(`${PLATFORM_SETTINGS_FULL_SELECT.replace(", lawyers_onboarding_video_url", "")}`)
+        .eq("id", "main")
+        .maybeSingle();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error && isMissingColumnError(error, "founder_portrait_url")) {
       const retry = await (supabase.from("platform_settings") as any)
