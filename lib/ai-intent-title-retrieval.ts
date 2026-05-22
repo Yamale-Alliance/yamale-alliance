@@ -85,10 +85,31 @@ export function buildIntentTitleSearchTerms(
     );
   }
   if (resolvedIntent.matchedIds.includes("tax")) {
-    terms.push("tax", "income tax", "value added tax", "finance act");
+    terms.push(
+      "tax act",
+      "tax administration",
+      "income tax",
+      "value added tax",
+      "finance act",
+      "vat act",
+      "general tax"
+    );
+    if (/\bvat\b|\bvalue\s+added\b|\bcross[-\s]?border\b|\breverse\s+charge\b/i.test(q)) {
+      terms.push("value added tax", "vat", "goods and services tax", "tax act");
+    }
   }
   if (resolvedIntent.matchedIds.includes("labor")) {
-    terms.push("labour code", "labor code", "employment act", "code du travail");
+    terms.push(
+      "labour code",
+      "labor code",
+      "employment act",
+      "code du travail",
+      "basic conditions of employment",
+      "labour relations",
+      "labor relations",
+      "minimum wage",
+      "industrial relations"
+    );
   }
 
   if (/\binvestment\b/.test(q) && !terms.some((t) => t.includes("invest"))) {
@@ -172,10 +193,22 @@ const SLOT_TITLE_SEARCH_TERMS: Record<string, string[]> = {
   companies_act: ["companies act", "company act", "commercial code"],
   beneficial_ownership: ["beneficial ownership"],
   investment_code: ["investissement", "investments", "investment code", "code investissement"],
-  ip_national: ["copyright", "trademark", "intellectual property", "patent"],
+  ip_national: ["copyright", "trademark", "trade mark", "intellectual property", "patent"],
   ip_treaty: ["berne", "oapi", "bangui", "trips", "paris convention"],
   ny_convention: ["new york convention"],
   arbitration: ["arbitration", "mediation", "dispute resolution"],
+  tax_primary: ["tax act", "income tax act", "finance act", "general tax code", "tax code"],
+  tax_administration: ["tax administration"],
+  vat_statute: ["value added tax", "vat act", "goods and services tax"],
+  labor_core: [
+    "basic conditions of employment",
+    "labour relations act",
+    "labor relations act",
+    "labour code",
+    "labor code",
+    "employment act",
+  ],
+  labor_wage: ["minimum wage", "national minimum wage"],
 };
 
 const MANDATORY_INTENT_IDS = [
@@ -183,6 +216,8 @@ const MANDATORY_INTENT_IDS = [
   "investment_domestic",
   "intellectual_property",
   "dispute_resolution",
+  "tax",
+  "labor",
 ] as const;
 
 type TopicSlot = { label: string; titleTest: (title: string) => boolean };
@@ -207,6 +242,26 @@ const INTENT_TOPIC_SLOTS: Record<string, TopicSlot[]> = {
   dispute_resolution: [
     { label: "ny_convention", titleTest: (t) => /new\s+york\s+convention/i.test(t) },
     { label: "arbitration", titleTest: (t) => /\b(arbitration|mediation|dispute)\b/i.test(t) },
+  ],
+  tax: [
+    {
+      label: "tax_primary",
+      titleTest: (t) =>
+        /\b(tax\s+act|income\s+tax\s+act|finance\s+act|general\s+tax\s+code|tax\s+code)\b/i.test(t) &&
+        !/\badministration\b/i.test(t),
+    },
+    { label: "vat_statute", titleTest: (t) => /\b(value\s+added\s+tax|vat\s+act|goods\s+and\s+services\s+tax)\b/i.test(t) },
+    { label: "tax_administration", titleTest: (t) => /\btax\s+administration\b/i.test(t) },
+  ],
+  labor: [
+    {
+      label: "labor_core",
+      titleTest: (t) =>
+        /\b(basic\s+conditions\s+of\s+employment|labou?r\s+relations\s+act|employment\s+act|labou?r\s+code|code\s+du\s+travail)\b/i.test(
+          t
+        ),
+    },
+    { label: "labor_wage", titleTest: (t) => /\b(minimum\s+wage|national\s+minimum\s+wage)\b/i.test(t) },
   ],
 };
 
