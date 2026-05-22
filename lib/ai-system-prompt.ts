@@ -1,4 +1,5 @@
 import { buildYamaleCategoriesPromptBlock } from "@/lib/ai-canonical-categories";
+import { buildAiContextualBrainPromptBlock } from "@/lib/ai-contextual-brain";
 
 /**
  * AI Legal Research system prompt — versioned, modular English-first instructions.
@@ -8,7 +9,7 @@ import { buildYamaleCategoriesPromptBlock } from "@/lib/ai-canonical-categories"
  * repeating it). Use SYSTEM_PROMPT_VERSION in API responses and ai_query_log instead.
  */
 
-export const SYSTEM_PROMPT_VERSION = "2026.05.19-export-format-v1";
+export const SYSTEM_PROMPT_VERSION = "2026.05.23-contextual-brain-v1";
 
 /** Cap on library excerpts in the system message to limit tokens and citation confusion. */
 export const MAX_SYSTEM_PROMPT_LEGAL_DOCS = 12;
@@ -47,6 +48,8 @@ export type BuildAiResearchSystemPromptParams = {
   requestedArticle: number | null;
   /** User is asking how the product works — no library RAG; no statute citations */
   platformGuideMode?: boolean;
+  /** How the assistant analyses problems on Yamalé — methodology docs only, with citations */
+  assistantWorkflowMode?: boolean;
   /** When true, retrieved document bodies are often full acts (or max windows)—answer with depth across the whole attached text, not a quick skim. */
   fullLawRetrievalMode?: boolean;
   /** Entire in-scope library bodies were loaded for this turn (not keyword-ranked snippets). */
@@ -131,7 +134,7 @@ export function validateAiResearchSystemPromptParams(
       "requestedArticle is set but legalContext is empty and not platform guide mode — article instructions may not apply."
     );
   }
-  if (p.platformGuideMode && p.legalContext.length > 0) {
+  if (p.platformGuideMode && p.legalContext.length > 0 && !p.assistantWorkflowMode) {
     ok = false;
     warnings.push(
       "platformGuideMode=true but legalContext is non-empty — document block is suppressed; fix caller to avoid leaking docs."
@@ -385,7 +388,8 @@ export function buildAiResearchSystemPrompt(p: BuildAiResearchSystemPromptParams
     );
   }
 
-  const platform = Boolean(params.platformGuideMode);
+  const assistantWorkflow = Boolean(params.assistantWorkflowMode);
+  const platform = Boolean(params.platformGuideMode) && !assistantWorkflow;
   const docsForBlock = platform ? [] : params.legalContext;
   const catalogText = (params.lawTitleCatalogText ?? "").trim();
   const webBlock = (params.webSearchSupplementBlock ?? "").trim();
@@ -400,6 +404,9 @@ export function buildAiResearchSystemPrompt(p: BuildAiResearchSystemPromptParams
       fullLibraryContextMode: Boolean(params.fullLibraryContextMode),
     }),
   ];
+  if (!platform || assistantWorkflow) {
+    blocks.push(buildAiContextualBrainPromptBlock());
+  }
   if (!platform) {
     blocks.push(buildYamaleCategoriesPromptBlock());
   }
@@ -420,12 +427,18 @@ export function buildAiResearchSystemPrompt(p: BuildAiResearchSystemPromptParams
     buildCountryScope(params.effectiveCountry, params.strictCountryMode)
   );
 
-  if (platform) {
-    if (p.legalContext.length > 0) {
+  if (assistantWorkflow) {
+    blocks.push(buildPlatformGuide());
+    if (docsForBlock.length > 0) {
       blocks.push(
-        "INTERNAL NOTE: A document list was passed in error for a platform-guide turn. Ignore any such list completely; follow PLATFORM GUIDE MODE only."
+        buildDocumentContextBlock(docsForBlock, false, false, false),
+        buildAnswerStyleRules(params.detailedMode, null, null, false) +
+          "\n\nASSISTANT WORKFLOW MODE: Explain your step-by-step legal analysis process using the Yamalé AI Contextual Brain excerpts above. Cite methodology with [doc:N] for every major step. Do not cite unrelated national statutes from the library."
       );
+    } else {
+      blocks.push(buildNoDocumentsBlock(false, null));
     }
+  } else if (platform) {
     blocks.push(buildPlatformGuide());
   } else if (docsForBlock.length > 0) {
     blocks.push(
