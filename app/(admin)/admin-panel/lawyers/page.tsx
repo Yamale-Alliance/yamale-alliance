@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { Loader2, Briefcase, Plus, Trash2, Download } from "lucide-react";
+import { Loader2, Briefcase, Plus, Trash2, Download, Upload, Video, X } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { normalizeExpertiseField } from "@/lib/lawyer-expertise";
+import { cloudinaryVideoPlaybackUrl } from "@/lib/cloudinary-video-playback";
 
 type LawyerRow = {
   id: string;
@@ -56,6 +57,19 @@ export default function AdminLawyersPage() {
   const [editImageUrl, setEditImageUrl] = useState("");
   const [editImageUploading, setEditImageUploading] = useState(false);
 
+  const [onboardingVideoUrl, setOnboardingVideoUrl] = useState<string | null>(null);
+  const [onboardingVideoUploading, setOnboardingVideoUploading] = useState(false);
+  const [onboardingVideoRemoving, setOnboardingVideoRemoving] = useState(false);
+
+  const fetchOnboardingVideo = () => {
+    fetch(`${window.location.origin}/api/admin/lawyers/onboarding-video`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data: { url?: string | null }) => {
+        setOnboardingVideoUrl(data.url ?? null);
+      })
+      .catch(() => setOnboardingVideoUrl(null));
+  };
+
   const fetchLawyers = () => {
     setLoading(true);
     fetch(`${window.location.origin}/api/admin/lawyers`, { credentials: "include" })
@@ -69,13 +83,127 @@ export default function AdminLawyersPage() {
 
   useEffect(() => {
     fetchLawyers();
+    fetchOnboardingVideo();
   }, []);
 
-  async function parseJsonSafe(res: Response): Promise<{ error?: string; url?: string }> {
+  const handleOnboardingVideoUpload = async (file: File) => {
+    if (!file.name.toLowerCase().endsWith(".mp4") && file.type !== "video/mp4") {
+      setError("Onboarding video must be an MP4 file");
+      return;
+    }
+    const maxBytes = 100 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      setError("Video must be under 100 MB");
+      return;
+    }
+
+    setOnboardingVideoUploading(true);
+    setError(null);
+    const origin = window.location.origin;
+
+    try {
+      const signRes = await fetch(`${origin}/api/admin/lawyers/onboarding-video/signature`, {
+        credentials: "include",
+      });
+      const sign = await parseJsonSafe(signRes);
+      if (!signRes.ok) {
+        throw new Error(typeof sign.error === "string" ? sign.error : "Failed to prepare upload");
+      }
+
+      const cloudName = typeof sign.cloudName === "string" ? sign.cloudName : undefined;
+      const apiKey = typeof sign.apiKey === "string" ? sign.apiKey : undefined;
+      const timestamp = typeof sign.timestamp === "number" ? sign.timestamp : undefined;
+      const signature = typeof sign.signature === "string" ? sign.signature : undefined;
+      const folder = typeof sign.folder === "string" ? sign.folder : undefined;
+      const publicId = typeof sign.publicId === "string" ? sign.publicId : undefined;
+
+      if (!cloudName || !apiKey || !timestamp || !signature || !folder || !publicId) {
+        throw new Error("Invalid upload signature from server");
+      }
+
+      const uploadForm = new FormData();
+      uploadForm.append("file", file);
+      uploadForm.append("api_key", apiKey);
+      uploadForm.append("timestamp", String(timestamp));
+      uploadForm.append("signature", signature);
+      uploadForm.append("folder", folder);
+      uploadForm.append("public_id", publicId);
+      uploadForm.append("overwrite", "true");
+
+      const cloudRes = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`,
+        { method: "POST", body: uploadForm }
+      );
+      const cloudData = (await cloudRes.json()) as {
+        secure_url?: string;
+        public_id?: string;
+        error?: { message?: string };
+      };
+      if (!cloudRes.ok) {
+        throw new Error(cloudData.error?.message ?? "Cloudinary upload failed");
+      }
+      if (!cloudData.secure_url || !cloudData.public_id) {
+        throw new Error("Cloudinary did not return a video URL");
+      }
+
+      const saveRes = await fetch(`${origin}/api/admin/lawyers/onboarding-video`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          secureUrl: cloudData.secure_url,
+          publicId: cloudData.public_id,
+        }),
+      });
+      const saveData = await parseJsonSafe(saveRes);
+      if (!saveRes.ok) {
+        throw new Error(typeof saveData.error === "string" ? saveData.error : "Failed to save video");
+      }
+      setOnboardingVideoUrl(
+        typeof saveData.url === "string" ? saveData.url : cloudData.secure_url
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Video upload failed");
+    } finally {
+      setOnboardingVideoUploading(false);
+    }
+  };
+
+  const handleOnboardingVideoRemove = async () => {
+    const ok = await confirm({
+      title: "Remove onboarding video?",
+      description: "Visitors will no longer see the lawyers tab intro video until you upload a new one.",
+      confirmLabel: "Remove",
+      cancelLabel: "Cancel",
+      variant: "destructive",
+    });
+    if (!ok) return;
+    setOnboardingVideoRemoving(true);
+    setError(null);
+    try {
+      const res = await fetch(`${window.location.origin}/api/admin/lawyers/onboarding-video`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok) throw new Error(apiErrorMessage(data, "Remove failed"));
+      setOnboardingVideoUrl(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Remove failed");
+    } finally {
+      setOnboardingVideoRemoving(false);
+    }
+  };
+
+  function apiErrorMessage(data: Record<string, unknown>, fallback: string): string {
+    return typeof data.error === "string" ? data.error : fallback;
+  }
+
+  async function parseJsonSafe(res: Response): Promise<Record<string, unknown>> {
     const text = await res.text();
     if (!text.trim()) return {};
     try {
-      return JSON.parse(text) as { error?: string; url?: string };
+      return JSON.parse(text) as Record<string, unknown>;
     } catch {
       return { error: text.slice(0, 200) || "Server returned non-JSON (check deployment logs)." };
     }
@@ -112,7 +240,7 @@ export default function AdminLawyersPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to add lawyer");
+        setError(apiErrorMessage(data, "Failed to add lawyer"));
         return;
       }
       setFormName("");
@@ -179,7 +307,7 @@ export default function AdminLawyersPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error ?? "Failed to update lawyer");
+        setError(apiErrorMessage(data, "Failed to update lawyer"));
         return;
       }
       setLawyers((prev) => prev.map((l) => (l.id === editing.id ? (data as LawyerRow) : l)));
@@ -211,7 +339,7 @@ export default function AdminLawyersPage() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Failed to remove");
+        setError(apiErrorMessage(data, "Failed to remove"));
         return;
       }
       setLawyers((prev) => prev.filter((l) => l.id !== id));
@@ -318,6 +446,71 @@ export default function AdminLawyersPage() {
           </button>
         </div>
       </div>
+
+      <section className="mt-6 rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-medium text-foreground">
+              <Video className="h-5 w-5 text-primary" />
+              Lawyers onboarding video
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              MP4 shown once when someone opens the <strong>Find a Lawyer</strong> tab (<strong>/lawyers</strong>).
+              They can replay it via the onboarding video button in the hero. Uploads go directly to Cloudinary (max
+              100 MB).
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent">
+              {onboardingVideoUploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              {onboardingVideoUrl ? "Replace video" : "Upload MP4"}
+              <input
+                type="file"
+                accept="video/mp4,.mp4"
+                className="sr-only"
+                disabled={onboardingVideoUploading || onboardingVideoRemoving}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void handleOnboardingVideoUpload(f);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            {onboardingVideoUrl && (
+              <button
+                type="button"
+                onClick={() => void handleOnboardingVideoRemove()}
+                disabled={onboardingVideoRemoving || onboardingVideoUploading}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+              >
+                {onboardingVideoRemoving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <X className="h-4 w-4" />
+                )}
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+        {onboardingVideoUrl ? (
+          <div className="mt-4 overflow-hidden rounded-lg border border-border bg-black">
+            <video
+              src={cloudinaryVideoPlaybackUrl(onboardingVideoUrl)}
+              controls
+              playsInline
+              preload="metadata"
+              className="aspect-video w-full max-h-80 object-contain"
+            />
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-muted-foreground">No video uploaded yet.</p>
+        )}
+      </section>
 
       {showForm && (
         <form onSubmit={handleAddSubmit} className="mt-6 rounded-xl border border-border bg-card p-6 shadow-sm">
@@ -470,14 +663,16 @@ export default function AdminLawyersPage() {
                           body: fd,
                         });
                         const d = await parseJsonSafe(r);
-                        if (r.ok && d.url) {
+                        if (r.ok && typeof d.url === "string") {
                           setFormImageUrl(d.url);
                         } else {
                           setError(
-                            d.error ??
-                              (r.status === 413
+                            apiErrorMessage(
+                              d,
+                              r.status === 413
                                 ? "Image too large for the server limit. Use a file under 5 MB or compress the photo."
-                                : "Upload failed. Ensure CLOUDINARY_* env vars are set on Vercel.")
+                                : "Upload failed. Ensure CLOUDINARY_* env vars are set on Vercel."
+                            )
                           );
                         }
                       } finally {
@@ -656,14 +851,16 @@ export default function AdminLawyersPage() {
                           body: fd,
                         });
                         const d = await parseJsonSafe(r);
-                        if (r.ok && d.url) {
+                        if (r.ok && typeof d.url === "string") {
                           setEditImageUrl(d.url);
                         } else {
                           setError(
-                            d.error ??
-                              (r.status === 413
+                            apiErrorMessage(
+                              d,
+                              r.status === 413
                                 ? "Image too large for the server limit. Use a file under 5 MB or compress the photo."
-                                : "Upload failed. Ensure CLOUDINARY_* env vars are set on Vercel.")
+                                : "Upload failed. Ensure CLOUDINARY_* env vars are set on Vercel."
+                            )
                           );
                         }
                       } finally {
