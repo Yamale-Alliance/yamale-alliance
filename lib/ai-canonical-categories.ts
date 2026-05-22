@@ -3,6 +3,7 @@
  * Used for retrieval hints, ranking boosts, and system-prompt scope.
  */
 export const YAMALE_LAW_CATEGORIES = [
+  "AI Legal Methodology",
   "Anti-Bribery and Corruption Law",
   "Banking and Finance",
   "Constitution",
