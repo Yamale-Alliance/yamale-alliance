@@ -5,11 +5,28 @@
   background: transparent;
 }
 
+.tileSlot {
+  min-height: 0;
+}
+
 .tile {
   position: relative;
   aspect-ratio: 3 / 4;
+  width: 100%;
   perspective: 900px;
+  perspective-origin: center center;
   transition: min-height 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+  outline: none;
+}
+
+.tile[role="link"] {
+  cursor: pointer;
+}
+
+.tileActive .faceFront {
+  border-color: #c8922a;
+  box-shadow: 0 0 0 1px rgba(200, 146, 42, 0.35);
 }
 
 .tileExpanded {
@@ -40,10 +57,18 @@
   height: 100%;
   min-height: 100%;
   transform-style: preserve-3d;
+  transform-origin: center center;
   transition: transform 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: var(--border-radius-lg);
 }
 
-.tile:hover .flipper,
+@media (hover: hover) and (pointer: fine) {
+  .tile:hover .flipper,
+  .tile:focus-visible .flipper {
+    transform: rotateY(180deg);
+  }
+}
+
 .tileFlipped .flipper {
   transform: rotateY(180deg);
 }
@@ -56,6 +81,7 @@
   border-radius: var(--border-radius-lg);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+  transform-style: preserve-3d;
 }
 
 .faceFront {
@@ -68,12 +94,14 @@
   text-align: center;
   background: var(--color-background-primary);
   border: 1px solid var(--color-border-tertiary);
+  transform: rotateY(0deg) translateZ(1px);
+  z-index: 2;
 }
 
 .faceBack {
-  transform: rotateY(180deg);
-  overflow: hidden;
+  transform: rotateY(180deg) translateZ(1px);
   border-radius: var(--border-radius-lg);
+  overflow: visible;
 }
 
 .tileExpanded .faceBack {
@@ -87,6 +115,7 @@
   height: 100%;
   object-fit: cover;
   border-radius: var(--border-radius-lg);
+  pointer-events: none;
 }
 
 .overlay {
@@ -105,6 +134,16 @@
   height: 100%;
   padding: 18px 16px 14px;
   box-sizing: border-box;
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+}
+
+.backContent::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
 }
 
 .tag {
