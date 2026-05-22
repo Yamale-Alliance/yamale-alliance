@@ -6,6 +6,8 @@ This guide explains the RAG integration that powers AI Legal Research with real 
 
 **Ingestion runbook:** See `docs/INGESTION.md` for URL/PDF → indexed law steps.
 
+**AI Contextual Brain (reasoning layer):** See `docs/AI_CONTEXTUAL_BRAIN.md` — ingest methodology PDFs/DOCX with `scripts/ingest-ai-context.mjs`; always-on instructions in `lib/ai-contextual-brain.ts`.
+
 ## How RAG Works
 
 When a user asks a question in AI Legal Research:
