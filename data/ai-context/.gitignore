@@ -1,0 +1,5 @@
+# Keep README; do not commit large source PDFs/DOCX
+*.pdf
+*.docx
+*.PDF
+*.DOCX
