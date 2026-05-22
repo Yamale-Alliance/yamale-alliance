@@ -118,6 +118,7 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
       ].join(" "),
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https: https://img.clerk.com",
+      "media-src 'self' blob: https://res.cloudinary.com",
       "font-src 'self' data: https:",
       [
         "connect-src 'self' https:",
