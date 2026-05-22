@@ -6,6 +6,11 @@
 import { isFullLibraryContextEnabled } from "@/lib/ai-full-library-context";
 import { lawsOrGlobalForCountry } from "@/lib/law-country-scope";
 import { resolveCountryIdCached } from "@/lib/country-resolution-cache";
+import {
+  excludeInternalCategoryFromLawsQuery,
+  isInternalLibraryCategoryName,
+  resolveInternalLibraryCategoryId,
+} from "@/lib/internal-library-categories";
 import { lawSourceDisplayLabel } from "@/lib/law-source-display";
 
 const PAGE_SIZE = 1000;
@@ -81,18 +86,22 @@ export async function fetchLawTitleCatalogForPrompt(
   }
 
   const cap = maxCatalogChars(Boolean(countryId));
+  const internalCategoryId = await resolveInternalLibraryCategoryId(supabase);
   const lines: string[] = [];
   let totalLen = 0;
   let offset = 0;
 
   for (;;) {
-    let q = supabase
-      .from("laws")
-      .select(
-        "title, status, source_name, applies_to_all_countries, country_id, countries(name), categories!laws_category_id_fkey(name)"
-      )
-      .order("title", { ascending: true })
-      .range(offset, offset + PAGE_SIZE - 1);
+    let q = excludeInternalCategoryFromLawsQuery(
+      supabase
+        .from("laws")
+        .select(
+          "title, status, source_name, applies_to_all_countries, country_id, countries(name), categories!laws_category_id_fkey(name)"
+        )
+        .order("title", { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1),
+      internalCategoryId
+    );
 
     if (countryId) {
       q = q.or(lawsOrGlobalForCountry(countryId));
@@ -116,6 +125,7 @@ export async function fetchLawTitleCatalogForPrompt(
 
     const seenTitles = new Set<string>();
     for (const row of rows) {
+      if (isInternalLibraryCategoryName(row.categories?.name ?? null)) continue;
       const title = String(row.title ?? "")
         .replace(/\s+/g, " ")
         .trim();
