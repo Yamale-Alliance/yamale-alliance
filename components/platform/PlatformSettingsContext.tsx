@@ -8,6 +8,7 @@ export type PlatformSettings = {
   faviconUrl: string | null;
   heroImageUrl: string | null;
   founderPortraitUrl: string | null;
+  lawyersOnboardingVideoUrl: string | null;
 } & ContentPricingSnapshot;
 
 const defaultSettings: PlatformSettings = {
@@ -15,6 +16,7 @@ const defaultSettings: PlatformSettings = {
   faviconUrl: null,
   heroImageUrl: null,
   founderPortraitUrl: null,
+  lawyersOnboardingVideoUrl: null,
   ...CONTENT_PRICING_DEFAULTS,
 };
 
