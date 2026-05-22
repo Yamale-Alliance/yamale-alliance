@@ -96,6 +96,7 @@ const VALID_COUNTRIES = [
 ];
 
 const VALID_CATEGORIES = [
+  "AI Legal Methodology",
   "Corporate Law",
   "Tax Law",
   "Labor/Employment Law",
