@@ -17,6 +17,11 @@ export function escapeIlikePattern(s: string): string {
 }
 
 /** Multi-word phrases use chained `%` so PostgREST does not break on spaces in filter values. */
+export function postgrestIlikePattern(raw: string): string {
+  const escaped = escapeIlikePattern(raw.toLowerCase().trim());
+  return ilikePatternCore(escaped);
+}
+
 function ilikePatternCore(escapedLowerTerms: string): string {
   const parts = escapedLowerTerms
     .split(/\s+/)
