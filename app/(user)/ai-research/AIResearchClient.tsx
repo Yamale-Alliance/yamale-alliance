@@ -31,6 +31,10 @@ import { plainTextForAiChatExport } from "@/lib/ai-chat-plain-text";
 import { downloadAiResearchChatPdf } from "@/lib/ai-research-chat-pdf";
 import { AIResearchChatExportPreviewDialog } from "@/components/ai-research/AIResearchChatExportPreviewDialog";
 import { SubscriptionCheckoutConfirm } from "@/components/checkout/SubscriptionCheckoutConfirm";
+import {
+  clearPaygAiQueryLomiSessionIdStorage,
+  readPaygAiQueryLomiSessionIdFromStorage,
+} from "@/lib/lomi-payg-ai-query-return";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
 import { parseAiChatResponse } from "@/lib/ai-chat-client-stream";
 import {
@@ -495,8 +499,10 @@ export default function AIResearchClient() {
     const decoded = rawSession ? decodeURIComponent(rawSession) : "";
     const isPlaceholder =
       decoded === "{CHECKOUT_SESSION_ID}" || rawSession === "{CHECKOUT_SESSION_ID}";
-    const sessionId = rawSession && !isPlaceholder ? rawSession : null;
-    const useLomiCookie = fromLomi || (Boolean(rawSession) && isPlaceholder);
+    const sessionIdFromUrl = rawSession && !isPlaceholder ? rawSession : null;
+    const sessionIdFromStorage = fromLomi ? readPaygAiQueryLomiSessionIdFromStorage() : null;
+    const sessionId = sessionIdFromUrl ?? sessionIdFromStorage;
+    const useLomiCookie = fromLomi && !sessionId;
     const confirmationKey = `payg=${payg ?? ""}|sid=${sessionId ?? ""}|lomi=${useLomiCookie ? "1" : "0"}`;
 
     if (payg !== "ai_query" || !user) return;
@@ -506,8 +512,9 @@ export default function AIResearchClient() {
 
     let cancelled = false;
     setConfirmingPayment(true);
-    const body =
-      sessionId && !isPlaceholder ? { session_id: sessionId } : { from_lomi_cookie: true as const };
+    const body = sessionId
+      ? { session_id: sessionId }
+      : { from_lomi_cookie: true as const };
 
     void (async () => {
       const maxAttempts = 4;
@@ -523,6 +530,7 @@ export default function AIResearchClient() {
           const data = (await res.json()) as { ok?: boolean; error?: string };
           if (res.ok && data.ok) {
             if (cancelled) return;
+            clearPaygAiQueryLomiSessionIdStorage();
             await new Promise((resolve) => setTimeout(resolve, 500));
             if (cancelled) return;
             await fetchAiUsage();
@@ -539,6 +547,7 @@ export default function AIResearchClient() {
       } catch (err) {
         if (!cancelled) {
           console.error("Failed to confirm payment:", err);
+          clearPaygAiQueryLomiSessionIdStorage();
           await fetchAiUsage();
           // Avoid infinite re-confirm loops from sticky query params after a failed attempt.
           window.history.replaceState({}, "", "/ai-research");

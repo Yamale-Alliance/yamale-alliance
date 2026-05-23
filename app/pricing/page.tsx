@@ -18,6 +18,7 @@ import {
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
 import { formatLawPrintPriceUsd } from "@/lib/law-print-pricing";
 import { formatUsdPrice } from "@/lib/content-pricing";
+import { stashPaygAiQueryLomiSessionId } from "@/lib/lomi-payg-ai-query-return";
 
 type BillingInterval = "monthly" | "annual";
 
@@ -247,7 +248,12 @@ export default function PricingPage() {
         await showAlert(data.error || "Checkout failed", "Checkout");
         return;
       }
-      if (data.url) window.location.href = data.url;
+      if (data.url) {
+        if (provider === "lomi" && typeof data.lomi_session_id === "string" && data.lomi_session_id.trim()) {
+          stashPaygAiQueryLomiSessionId(data.lomi_session_id);
+        }
+        window.location.href = data.url;
+      }
     } catch {
       await showAlert("Something went wrong. Please try again.", "Checkout");
     } finally {

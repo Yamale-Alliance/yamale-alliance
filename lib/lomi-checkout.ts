@@ -78,6 +78,47 @@ export function getLomiSdk(): LomiSDK {
   return sdk;
 }
 
+function getLomiRestBaseUrl(): string {
+  const environment = resolveLomiEnvironment();
+  const rawOverride = (process.env.LOMI_API_BASE_URL || "").trim();
+  const baseUrlOverride = rawOverride ? normalizeLomiApiBaseUrl(rawOverride) : "";
+  return environment === "test"
+    ? baseUrlOverride || "https://sandbox.api.lomi.africa"
+    : baseUrlOverride || "https://api.lomi.africa";
+}
+
+/**
+ * Lomi stores success_url at session create time. Patch it after we know checkout_session_id
+ * so the browser return includes session_id (Lomi does not substitute `{CHECKOUT_SESSION_ID}`).
+ */
+export async function patchLomiCheckoutSessionSuccessUrl(
+  sessionId: string,
+  successUrl: string
+): Promise<void> {
+  if (!isLomiConfigured() || !sessionId.trim()) return;
+  const apiKey = process.env.LOMI_API_KEY?.trim();
+  if (!apiKey) return;
+  const base = getLomiRestBaseUrl();
+  const id = encodeURIComponent(sessionId.trim());
+  try {
+    const res = await fetch(`${base}/checkout-sessions/${id}`, {
+      method: "PATCH",
+      headers: {
+        "X-API-Key": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ success_url: successUrl }),
+    });
+    if (!res.ok) {
+      console.warn(
+        `Lomi checkout session PATCH success_url failed (${res.status}); confirm may rely on cookie/sessionStorage.`
+      );
+    }
+  } catch (err) {
+    console.warn("Lomi checkout session PATCH success_url error:", err);
+  }
+}
+
 export function toLomiCurrency(code: string): LomiCurrencyCode | null {
   const u = code.trim().toUpperCase();
   if (u === "USD" || u === "EUR" || u === "XOF") return u;

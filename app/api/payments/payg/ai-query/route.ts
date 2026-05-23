@@ -8,8 +8,14 @@ import {
   resolvePawapayReturnOrigin,
 } from "@/lib/pawapay";
 import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
-import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
+import {
+  createLomiHostedCheckoutSession,
+  isLomiConfigured,
+  patchLomiCheckoutSessionSuccessUrl,
+  toLomiCurrency,
+} from "@/lib/lomi-checkout";
 import { LOMI_PAYG_AI_QUERY_SESSION_COOKIE } from "@/lib/lomi-payg-ai-query-cookie";
+import { buildPaygAiQueryLomiSuccessUrl } from "@/lib/lomi-payg-ai-query-return";
 
 import { getAiQueryPriceUsdCents } from "@/lib/platform-settings";
 type CheckoutProvider = "pawapay" | "lomi";
@@ -51,11 +57,16 @@ export async function POST(request: NextRequest) {
         currency_code: currencyCode,
         metadata: { clerk_user_id: userId, kind: "payg_ai_query" },
         title: "AI query",
-        // Lomi does not substitute Stripe's `{CHECKOUT_SESSION_ID}`; use a stable return URL and pass the real session id via HttpOnly cookie.
         success_url: `${origin}/ai-research?payg=ai_query&from_lomi=1`,
         cancel_url: `${origin}/pricing?canceled=1`,
       });
-      const res = NextResponse.json({ url: checkoutUrl, provider: "lomi" });
+      const successUrlWithSession = buildPaygAiQueryLomiSuccessUrl(origin, sessionId);
+      await patchLomiCheckoutSessionSuccessUrl(sessionId, successUrlWithSession);
+      const res = NextResponse.json({
+        url: checkoutUrl,
+        provider: "lomi",
+        lomi_session_id: sessionId,
+      });
       if (sessionId) {
         res.cookies.set(LOMI_PAYG_AI_QUERY_SESSION_COOKIE, sessionId, {
           path: "/",
