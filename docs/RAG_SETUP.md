@@ -143,7 +143,11 @@ More laws = better context for AI:
 - Clean up OCR errors
 - Ensure `content` and `content_plain` fields are populated
 
-### 3. Add Vector Embeddings (Future Enhancement)
+### 3. Database indexes (timeouts)
+
+Apply `supabase/migrations/20260526500000_hot_query_indexes.sql` on production. It adds btree + `pg_trgm` GIN indexes on `laws` (country, status, title, `content_plain`), `(user_id, item_type)` on PAYG, `marketplace_purchases (user_id)`, and `ai_query_log (created_at DESC)`. Without these, slow library/AI queries can hit Vercel timeouts and feel like errors to users.
+
+### 4. Add Vector Embeddings (Future Enhancement)
 
 For semantic similarity search:
 
