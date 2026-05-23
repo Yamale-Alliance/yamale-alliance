@@ -102,6 +102,8 @@ import {
   encodeSseEvent,
   readAnthropicMessageStream,
 } from "@/lib/ai-claude-stream";
+import { getClaudeTimeoutMs } from "@/lib/ai-chat-route-limits";
+import { captureAiChatError, captureClaudeApiError } from "@/lib/monitoring";
 import {
   fetchFullLibraryLawRows,
   fullLibraryMaxCharsPerLaw,
@@ -156,9 +158,13 @@ import {
   logPostgrestError,
 } from "@/lib/postgrest-ilike-tokens";
 
+export const runtime = "nodejs";
+/** Static literal required by Next.js segment config (Pro max 300s). Claude timeout still respects AI_CHAT_MAX_DURATION_SEC. */
+export const maxDuration = 300;
+
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
-const CLAUDE_TIMEOUT_MS = isFullLibraryContextEnabled() ? 300_000 : 95_000;
+const CLAUDE_TIMEOUT_MS = getClaudeTimeoutMs();
 const CLAUDE_MODEL_ENV = process.env.CLAUDE_MODEL;
 const MODELS_URL = "https://api.anthropic.com/v1/models";
 
@@ -3710,6 +3716,14 @@ export async function POST(request: NextRequest) {
               messagesCount: claudeMessages.length,
               systemPromptLength: systemPrompt.length,
             });
+            captureClaudeApiError({
+              status: claudeRes.status,
+              statusText: claudeRes.statusText,
+              modelId,
+              errorData,
+              messagesCount: claudeMessages.length,
+              systemPromptLength: systemPrompt.length,
+            });
 
             let errorMessage = "AI service error";
             if (claudeRes.status === 401) {
@@ -3778,6 +3792,7 @@ export async function POST(request: NextRequest) {
             push("error", { error: "AI request timed out. Please retry your question." });
           } else {
             console.error("AI chat stream error:", err);
+            captureAiChatError(err, { phase: "stream" });
             push("error", { error: "Failed to process chat request" });
           }
         } finally {
@@ -3795,6 +3810,7 @@ export async function POST(request: NextRequest) {
       );
     }
     console.error("AI chat API error:", err);
+    captureAiChatError(err, { phase: "request" });
     return NextResponse.json(
       { error: "Failed to process chat request" },
       { status: 500 }
