@@ -78,7 +78,7 @@ export function getLomiSdk(): LomiSDK {
   return sdk;
 }
 
-function getLomiRestBaseUrl(): string {
+export function getLomiRestBaseUrl(): string {
   const environment = resolveLomiEnvironment();
   const rawOverride = (process.env.LOMI_API_BASE_URL || "").trim();
   const baseUrlOverride = rawOverride ? normalizeLomiApiBaseUrl(rawOverride) : "";
