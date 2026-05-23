@@ -8,6 +8,7 @@ import {
   Users,
   MessageSquare,
   Shield,
+  RotateCcw,
   type LucideIcon,
 } from "lucide-react";
 import { isSupportCenterLive } from "@/lib/support-center-enabled";
@@ -22,6 +23,7 @@ const links: Array<{
   { href: "/account/profile", label: "Profile", icon: User },
   { href: "/account/subscription", label: "Subscription", icon: CreditCard },
   { href: "/account/purchases", label: "Purchased items", icon: Package },
+  { href: "/account/refunds", label: "Refunds", icon: RotateCcw },
   { href: "/account/lawyers", label: "Unlocked lawyers", icon: Users },
   {
     href: "/account/support",
