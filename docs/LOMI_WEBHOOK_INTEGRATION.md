@@ -58,7 +58,7 @@ timing_safe_equal(provided, expected)
 | `PAYMENT_SUCCEEDED` | Read `data.metadata`, `data.checkout_session_id`, `data.transaction_id`; fulfill purchase (see §5). |
 | Other events | Acknowledge `200` `{ "received": true }` only (no fulfillment today). |
 
-If fulfillment throws, we return **`500`** `{ "error": "Webhook handler failed" }` so Lomi can retry. Handlers are written to be **idempotent** (see §6).
+If fulfillment throws, we return **`500`** `{ "error": "Webhook handler failed" }` so Lomi can retry. The claim is **released** on failure so the retry can run again. Successful deliveries are recorded in **`payment_webhook_events`** (`UNIQUE (provider, event_id)`).
 
 ---
 
@@ -137,7 +137,7 @@ We attach metadata when creating hosted checkout sessions via `@lomi./sdk` (`che
 
 2. **Pay-as-you-go double reference:** For `kind` in `payg_document`, `payg_ai_query`, `payg_afcfta_report`, if both `checkout_session_id` and `transaction_id` are present and **different**, we run fulfillment **once per ID** so either identifier can match the user’s return URL or a later reconciliation job.
 
-3. **Retries:** Safe to retry `PAYMENT_SUCCEEDED`; duplicate inserts are skipped when the same `paymentRefId` already exists.
+3. **Retries:** Each webhook delivery is keyed by Lomi `id` (or a fallback composite) in `payment_webhook_events`. Retries with the same id are acknowledged without re-running fulfillment. PAYG rows also use `upsert` on `stripe_session_id`; marketplace uses `upsert` on `(user_id, marketplace_item_id)`.
 
 ---
 
