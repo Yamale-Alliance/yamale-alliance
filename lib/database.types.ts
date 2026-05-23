@@ -906,6 +906,48 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["law_translations"]["Insert"]>;
       };
+      payment_checkout_pending: {
+        Row: {
+          payment_ref: string;
+          user_id: string;
+          provider: string;
+          kind: string | null;
+          metadata: Record<string, unknown>;
+          fulfilled_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          payment_ref: string;
+          user_id: string;
+          provider: string;
+          kind?: string | null;
+          metadata?: Record<string, unknown>;
+          fulfilled_at?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["payment_checkout_pending"]["Insert"]>;
+      };
+      payment_webhook_events: {
+        Row: {
+          id: string;
+          provider: string;
+          event_id: string;
+          event_type: string | null;
+          payment_ref: string | null;
+          processed_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          provider: string;
+          event_id: string;
+          event_type?: string | null;
+          payment_ref?: string | null;
+          processed_at?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["payment_webhook_events"]["Insert"]>;
+      };
       refund_requests: {
         Row: {
           id: string;
