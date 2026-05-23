@@ -80,13 +80,21 @@ export async function recordSearchUnlockGrant(
   const supabase = getSupabaseServer();
   const now = new Date();
   const expiresAt = new Date(now.getTime() + SEARCH_GRANT_DAYS * 24 * 60 * 60 * 1000);
-  // Store search criteria in lawyer_ids JSON field as [country, expertise] for backward compatibility
-  await (supabase.from("lawyer_search_unlock_grants") as any).insert({
+  const sessionId = stripeSessionId?.trim() || null;
+  const row = {
     user_id: userId,
-    lawyer_ids: [country, expertise], // Store search criteria instead of lawyer IDs
+    lawyer_ids: [country, expertise],
     expires_at: expiresAt.toISOString(),
-    stripe_session_id: stripeSessionId ?? null,
-  });
+    stripe_session_id: sessionId,
+  };
+
+  if (sessionId) {
+    await (supabase.from("lawyer_search_unlock_grants") as any).upsert(row, {
+      onConflict: "stripe_session_id",
+    });
+  } else {
+    await (supabase.from("lawyer_search_unlock_grants") as any).insert(row);
+  }
 }
 
 /** Get lawyer IDs unlocked by user's active search grants (country+expertise, 30-day access). Dynamically matches lawyers based on search criteria. */
