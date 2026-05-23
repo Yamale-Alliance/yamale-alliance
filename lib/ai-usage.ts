@@ -47,7 +47,7 @@ export async function getAiUsage(
   };
 }
 
-/** Record one AI query and add token counts for the current month. */
+/** Record one AI query and add token counts for the current month (atomic in Postgres). */
 export async function incrementAiUsage(
   userId: string,
   inputTokens: number,
@@ -55,6 +55,33 @@ export async function incrementAiUsage(
 ): Promise<void> {
   const supabase = getSupabaseServer();
   const month = getCurrentMonthKey();
+  const { error } = await (supabase as any).rpc("increment_ai_usage_atomic", {
+    p_user_id: userId,
+    p_month: month,
+    p_input_tokens: inputTokens,
+    p_output_tokens: outputTokens,
+  });
+  if (!error) return;
+
+  const missingRpc =
+    error.code === "42883" ||
+    error.code === "PGRST202" ||
+    String(error.message || "").includes("increment_ai_usage_atomic");
+  if (missingRpc) {
+    await incrementAiUsageLegacy(supabase, userId, month, inputTokens, outputTokens);
+    return;
+  }
+  console.error("incrementAiUsage rpc:", error.message);
+}
+
+/** Used only when `increment_ai_usage_atomic` migration is not applied yet. */
+async function incrementAiUsageLegacy(
+  supabase: ReturnType<typeof getSupabaseServer>,
+  userId: string,
+  month: string,
+  inputTokens: number,
+  outputTokens: number
+): Promise<void> {
   const now = new Date().toISOString();
   const { data: row } = await supabase
     .from("ai_usage")
@@ -64,28 +91,24 @@ export async function incrementAiUsage(
     .maybeSingle();
 
   const prev = (row as { query_count?: number; input_tokens?: number; output_tokens?: number } | null) ?? null;
-  const newCount = (prev?.query_count ?? 0) + 1;
-  const newInput = (prev?.input_tokens ?? 0) + inputTokens;
-  const newOutput = (prev?.output_tokens ?? 0) + outputTokens;
-
   if (!prev) {
     await (supabase.from("ai_usage") as any).insert({
       user_id: userId,
       month,
-      query_count: newCount,
-      input_tokens: newInput,
-      output_tokens: newOutput,
+      query_count: 1,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
       updated_at: now,
     });
-  } else {
-    await (supabase.from("ai_usage") as any)
-      .update({
-        query_count: newCount,
-        input_tokens: newInput,
-        output_tokens: newOutput,
-        updated_at: now,
-      })
-      .eq("user_id", userId)
-      .eq("month", month);
+    return;
   }
+  await (supabase.from("ai_usage") as any)
+    .update({
+      query_count: (prev.query_count ?? 0) + 1,
+      input_tokens: (prev.input_tokens ?? 0) + inputTokens,
+      output_tokens: (prev.output_tokens ?? 0) + outputTokens,
+      updated_at: now,
+    })
+    .eq("user_id", userId)
+    .eq("month", month);
 }
