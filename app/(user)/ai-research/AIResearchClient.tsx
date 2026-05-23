@@ -1132,28 +1132,28 @@ export default function AIResearchClient() {
 
   return (
     <>
-      {/* Yamalé prototype — AI Research: 280px navy sidebar + cream/white main */}
+      {/* AI Research: 280px sidebar + main — both follow light/dark theme */}
       <div
         className="fixed inset-x-0 z-10 grid grid-cols-1 overflow-hidden bg-background md:grid-cols-[280px_minmax(0,1fr)]"
         style={{ top: shellTopOffset, height: `calc(100dvh - ${shellTopOffset}px)` }}
       >
         <aside
-          className={`absolute inset-y-0 left-0 z-20 flex h-full min-h-0 w-[min(100%,280px)] flex-col bg-[#0D1B2A] text-white shadow-2xl transition-transform duration-200 md:relative md:z-auto md:w-[280px] md:max-w-none md:translate-x-0 md:shadow-none ${
+          className={`absolute inset-y-0 left-0 z-20 flex h-full min-h-0 w-[min(100%,280px)] flex-col border-r border-border bg-background text-foreground shadow-2xl transition-transform duration-200 dark:border-white/[0.08] dark:bg-[#0D1B2A] dark:text-white md:relative md:z-auto md:w-[280px] md:max-w-none md:translate-x-0 md:shadow-none ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
           }`}
         >
-          <div className="flex items-center justify-between border-b border-white/[0.08] px-5 py-4 pt-[max(1rem,env(safe-area-inset-top))] md:hidden">
-            <span className="text-[13px] font-semibold text-white/90">Research history</span>
+          <div className="flex items-center justify-between border-b border-[#E8E4DC] px-5 py-4 pt-[max(1rem,env(safe-area-inset-top))] dark:border-white/[0.08] md:hidden">
+            <span className="text-[13px] font-semibold text-[#0D1B2A]/90 dark:text-white/90">Research history</span>
             <button
               type="button"
               onClick={() => setSidebarOpen(false)}
-              className="rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white"
+              className="rounded-lg p-1.5 text-[#0D1B2A]/60 hover:bg-[#0D1B2A]/5 hover:text-[#0D1B2A] dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white"
               aria-label="Close chat list"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="border-b border-white/[0.08] px-5 py-5">
+          <div className="border-b border-[#E8E4DC] px-5 py-5 dark:border-white/[0.08]">
             <button
               type="button"
               onClick={() => {
@@ -1168,27 +1168,29 @@ export default function AIResearchClient() {
             {tier === "team" && (
               <Link
                 href="/ai-research/team"
-                className="mt-3 flex items-center justify-center gap-2 rounded-[6px] border border-white/15 px-3 py-2 text-[13px] font-medium text-white/80 transition hover:bg-white/10"
+                className="mt-3 flex items-center justify-center gap-2 rounded-[6px] border border-[#E8E4DC] px-3 py-2 text-[13px] font-medium text-[#0D1B2A]/80 transition hover:bg-[#0D1B2A]/5 dark:border-white/15 dark:text-white/80 dark:hover:bg-white/10"
               >
                 <Users className="h-4 w-4" />
                 Manage team
               </Link>
             )}
           </div>
-          <div className="border-b border-white/[0.08] px-5 pb-4 pt-2">
+          <div className="border-b border-[#E8E4DC] px-5 pb-4 pt-2 dark:border-white/[0.08]">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#0D1B2A]/35 dark:text-white/35" />
               <input
                 type="text"
                 value={searchChats}
                 onChange={(e) => setSearchChats(e.target.value)}
                 placeholder="Search previous queries…"
-                className="w-full rounded-[6px] border border-white/10 bg-white/[0.07] py-2.5 pl-10 pr-3 text-[13px] text-white/80 outline-none ring-0 placeholder:text-white/35 focus:border-white/20"
+                className="w-full rounded-[6px] border border-[#E8E4DC] bg-white py-2.5 pl-10 pr-3 text-[13px] text-[#0D1B2A]/80 outline-none ring-0 placeholder:text-[#0D1B2A]/35 focus:border-[#C8922A]/50 dark:border-white/10 dark:bg-white/[0.07] dark:text-white/80 dark:placeholder:text-white/35 dark:focus:border-white/20"
               />
             </div>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <p className="px-5 pb-2.5 pt-4 text-[10px] font-bold uppercase tracking-[0.12em] text-white/30">Recent</p>
+            <p className="px-5 pb-2.5 pt-4 text-[10px] font-bold uppercase tracking-[0.12em] text-[#0D1B2A]/55 dark:text-white/40">
+              Recent
+            </p>
             <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4">
               {filteredSessions.map((s) => (
                 <div key={s.id} className="group mb-0.5 flex items-stretch gap-0.5">
@@ -1200,8 +1202,8 @@ export default function AIResearchClient() {
                     }}
                     className={`min-w-0 flex-1 truncate rounded-[6px] px-2.5 py-2 text-left text-[13px] transition ${
                       currentId === s.id
-                        ? "bg-white/[0.09] font-medium text-white"
-                        : "text-white/60 hover:bg-white/[0.07] hover:text-white/90"
+                        ? "bg-[#0D1B2A]/[0.08] font-semibold text-[#0D1B2A] dark:bg-white/[0.09] dark:text-white"
+                        : "font-medium text-[#0D1B2A]/80 hover:bg-[#0D1B2A]/[0.06] hover:text-[#0D1B2A] dark:font-medium dark:text-white/80 dark:hover:bg-white/[0.07] dark:hover:text-white"
                     }`}
                   >
                     {s.title || "New chat"}
@@ -1209,7 +1211,7 @@ export default function AIResearchClient() {
                   <button
                     type="button"
                     onClick={(e) => deleteChat(s.id, e)}
-                    className="shrink-0 rounded p-1.5 text-white/40 opacity-0 transition hover:bg-red-500/20 hover:text-red-200 group-hover:opacity-100"
+                    className="shrink-0 rounded p-1.5 text-[#0D1B2A]/40 opacity-0 transition hover:bg-red-500/10 hover:text-red-600 group-hover:opacity-100 dark:text-white/40 dark:hover:bg-red-500/20 dark:hover:text-red-200"
                     aria-label="Delete chat"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -1217,19 +1219,19 @@ export default function AIResearchClient() {
                 </div>
               ))}
               {filteredSessions.length === 0 && (
-                <p className="px-2 py-4 text-[13px] text-white/40">
+                <p className="px-2 py-4 text-[13px] font-medium text-[#0D1B2A]/60 dark:text-white/55">
                   {searchChats.trim() ? "No matching queries." : "No queries yet."}
                 </p>
               )}
             </nav>
           </div>
-          <div className="border-t border-white/[0.08] px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-            <div className="flex items-center justify-between gap-2 rounded-[6px] bg-white/[0.06] px-3 py-2.5">
-              <span className="text-[12px] text-white/50">AI queries</span>
-              <span className="text-right text-[12px] font-bold text-[#E8B84B]">{planUsageLabel}</span>
+          <div className="border-t border-[#E8E4DC] px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] dark:border-white/[0.08]">
+            <div className="flex items-center justify-between gap-2 rounded-[6px] bg-[#0D1B2A]/[0.04] px-3 py-2.5 dark:bg-white/[0.06]">
+              <span className="text-[12px] text-[#0D1B2A]/55 dark:text-white/50">AI queries</span>
+              <span className="text-right text-[12px] font-bold text-[#9a7020] dark:text-[#E8B84B]">{planUsageLabel}</span>
             </div>
             {limit !== null && (
-              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[#0D1B2A]/10 dark:bg-white/10">
                 <div
                   className="h-full rounded-full bg-[#C8922A] transition-all duration-500"
                   style={{ width: `${Math.min(100, (used / limit) * 100)}%` }}
@@ -1552,14 +1554,17 @@ export default function AIResearchClient() {
                           );
                         })()}
                         {msg.lawyerNudge && (
-                          <div className="mt-3 rounded-[8px] border border-[#E8E4DC] bg-[#F9F7F2] p-3">
-                            <p className="text-[12px] font-semibold text-[#0D1B2A]">
+                          <div className="mt-3 rounded-[8px] border border-[#E8E4DC] bg-[#F9F7F2] p-3 dark:border-white/10 dark:bg-white/[0.06]">
+                            <p className="text-[12px] font-semibold text-[#0D1B2A] dark:text-white/90">
                               Need a {msg.lawyerNudge.country} {msg.lawyerNudge.category.toLowerCase()} lawyer?
                             </p>
-                            <p className="mt-1 text-[12px] text-[#5D5348]">
+                            <p className="mt-1 text-[12px] text-[#5D5348] dark:text-white/65">
                               {msg.lawyerNudge.count} verified lawyers in the Yamale Network specialize in this area.
                             </p>
-                            <Link href={msg.lawyerNudge.href} className="mt-2 inline-flex text-[12px] font-semibold text-[#C8922A] hover:text-[#b88424]">
+                            <Link
+                              href={msg.lawyerNudge.href}
+                              className="mt-2 inline-flex text-[12px] font-semibold text-[#C8922A] hover:text-[#b88424] dark:text-[#F0C45C] dark:hover:text-[#FFD67A]"
+                            >
                               Browse lawyers →
                             </Link>
                           </div>
