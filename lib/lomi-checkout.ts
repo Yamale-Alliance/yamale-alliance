@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { LomiSDK, OpenAPI } from "@lomi./sdk";
+import { recordPendingPaymentCheckout } from "@/lib/pending-payment-checkout";
 
 /**
  * Lomi REST + webhooks (hosts, `X-API-Key` on **your** API calls only; outbound webhooks use `X-Lomi-Signature`):
@@ -265,6 +266,19 @@ export async function createLomiHostedCheckoutSession(
   if (!checkoutUrl || !sessionId) {
     throw new Error("Lomi checkout session missing checkout_url or id");
   }
+
+  const md = input.metadata ?? {};
+  const userId = String(md.clerk_user_id ?? md.CLERK_USER_ID ?? "").trim();
+  if (userId) {
+    void recordPendingPaymentCheckout({
+      paymentRef: sessionId,
+      userId,
+      provider: "lomi",
+      kind: md.kind ?? md.KIND ?? null,
+      metadata: md,
+    });
+  }
+
   return { checkoutUrl, sessionId };
 }
 
