@@ -906,6 +906,53 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["law_translations"]["Insert"]>;
       };
+      refund_requests: {
+        Row: {
+          id: string;
+          user_id: string;
+          status: string;
+          product_kind: string;
+          purchase_row_id: string | null;
+          entity_id: string | null;
+          item_title: string;
+          payment_ref: string | null;
+          payment_provider: string | null;
+          amount_cents: number | null;
+          currency: string | null;
+          reason: string;
+          admin_notes: string | null;
+          provider_refund_id: string | null;
+          lomi_transaction_id: string | null;
+          provider_status: string | null;
+          provider_error: string | null;
+          processed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          status?: string;
+          product_kind: string;
+          purchase_row_id?: string | null;
+          entity_id?: string | null;
+          item_title: string;
+          payment_ref?: string | null;
+          payment_provider?: string | null;
+          amount_cents?: number | null;
+          currency?: string | null;
+          reason: string;
+          admin_notes?: string | null;
+          provider_refund_id?: string | null;
+          lomi_transaction_id?: string | null;
+          provider_status?: string | null;
+          provider_error?: string | null;
+          processed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["refund_requests"]["Insert"]>;
+      };
       support_tickets: {
         Row: {
           id: string;
