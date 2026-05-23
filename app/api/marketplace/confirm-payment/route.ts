@@ -13,6 +13,7 @@ import {
 } from "@/lib/lomi-checkout";
 import { LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE } from "@/lib/lomi-marketplace-checkout-cookie";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { capturePaymentConfirmError } from "@/lib/monitoring";
 
 /**
  * After Lomi or pawaPay redirect: confirm payment from session_id and record purchase.
@@ -134,6 +135,7 @@ export async function POST(request: NextRequest) {
     return res;
   } catch (err) {
     console.error("Marketplace confirm payment error:", err);
+    capturePaymentConfirmError("/api/marketplace/confirm-payment", err);
     return NextResponse.json({ error: "Failed to confirm payment" }, { status: 500 });
   }
 }
