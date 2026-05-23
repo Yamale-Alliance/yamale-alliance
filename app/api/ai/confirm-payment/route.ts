@@ -4,7 +4,9 @@ import { auth } from "@clerk/nextjs/server";
 import { getDepositStatus, isDepositCompleted } from "@/lib/pawapay";
 import { getCompletedLomiCheckoutMetadata, pollCompletedLomiCheckoutMetadata } from "@/lib/lomi-checkout";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { upsertPayAsYouGoPurchase } from "@/lib/payg-purchases";
 import { LOMI_PAYG_AI_QUERY_SESSION_COOKIE } from "@/lib/lomi-payg-ai-query-cookie";
+import { capturePaymentConfirmError } from "@/lib/monitoring";
 
 /**
  * After pawaPay redirect: confirm pay-as-you-go AI query payment from session_id and record purchase.
@@ -96,35 +98,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Not an AI query purchase session" }, { status: 400 });
     }
 
-    const { data: existing, error: checkError } = await (supabase.from("pay_as_you_go_purchases") as any)
-      .select("id")
-      .eq("stripe_session_id", sessionId)
-      .maybeSingle();
-
-    if (checkError) {
-      console.error("Error checking existing purchase:", checkError);
-    }
-
-    if (!existing) {
-      const { data: inserted, error: insertError } = await (supabase.from("pay_as_you_go_purchases") as any)
-        .insert({
-          user_id: userId,
-          item_type: "ai_query",
-          quantity: 1,
-          stripe_session_id: sessionId,
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        console.error("Error inserting pay-as-you-go purchase:", insertError);
-        return NextResponse.json({ error: "Failed to record purchase", details: insertError.message }, { status: 500 });
-      }
-
-      console.log("Pay-as-you-go AI query purchase recorded:", inserted);
-    } else {
-      console.log("Pay-as-you-go purchase already exists for session:", sessionId);
-    }
+    await upsertPayAsYouGoPurchase(supabase, {
+      user_id: userId,
+      item_type: "ai_query",
+      quantity: 1,
+      stripe_session_id: sessionId,
+    });
 
     const { data: verify } = await (supabase.from("pay_as_you_go_purchases") as any)
       .select("id, quantity")
@@ -143,6 +122,7 @@ export async function POST(request: NextRequest) {
     return res;
   } catch (err) {
     console.error("AI query confirm payment error:", err);
+    capturePaymentConfirmError("/api/ai/confirm-payment", err);
     return NextResponse.json({ error: "Failed to confirm payment" }, { status: 500 });
   }
 }
