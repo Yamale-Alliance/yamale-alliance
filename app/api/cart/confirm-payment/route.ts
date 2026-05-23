@@ -11,6 +11,7 @@ import {
   isLomiConfigured,
   pollCompletedLomiCheckoutMetadata,
 } from "@/lib/lomi-checkout";
+import { capturePaymentConfirmError } from "@/lib/monitoring";
 import {
   clearUserShoppingCart,
   parseCartItemIdsMetadata,
@@ -138,6 +139,7 @@ export async function POST(request: NextRequest) {
     return res;
   } catch (err) {
     console.error("Cart confirm payment error:", err);
+    capturePaymentConfirmError("/api/cart/confirm-payment", err);
     return NextResponse.json({ error: "Failed to confirm cart payment" }, { status: 500 });
   }
 }
