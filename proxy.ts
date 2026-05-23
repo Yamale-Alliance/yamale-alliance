@@ -25,6 +25,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/lomi/webhook", // Lomi (X-Lomi-Signature) + pawaPay callbacks — public; do not require Clerk or X-API-Key here
   "/api/payments/webhook", // legacy docs URL; same handler as /api/lomi/webhook
   "/api/stripe/webhook", // legacy Stripe-era URL; pawaPay may still POST here (not Stripe)
+  "/api/cron/(.*)", // secured with CRON_SECRET inside each handler
 ]);
 
 // Basic HTTP Authentication
@@ -46,6 +47,8 @@ function checkBasicAuth(request: Request): boolean {
 }
 
 export default clerkMiddleware(async (auth, request) => {
+  const { userId } = await auth();
+
   if (isBlockedAiScraperRequest(request)) {
     const forbidden = new NextResponse(
       "Automated access to this content is not permitted. If you are a human user, please open this page in a standard browser without an AI training crawler user agent.",
@@ -57,7 +60,7 @@ export default clerkMiddleware(async (auth, request) => {
     return applySecurityHeaders(forbidden);
   }
 
-  const rateLimit = checkRateLimit(request);
+  const rateLimit = await checkRateLimit(request, { userId });
   if (rateLimit && !rateLimit.allowed) {
     const limited = NextResponse.json(
       { error: "Too many requests. Please slow down and retry." },
@@ -78,7 +81,8 @@ export default clerkMiddleware(async (auth, request) => {
     url.pathname === "/api/lomi/webhook" ||
     url.pathname === "/api/payments/webhook" ||
     url.pathname === "/api/stripe/webhook";
-  if (process.env.ENABLE_BASIC_AUTH === "true" && !isPublicApi && !isWebhookCallback) {
+  const isCronRoute = url.pathname.startsWith("/api/cron/");
+  if (process.env.ENABLE_BASIC_AUTH === "true" && !isPublicApi && !isWebhookCallback && !isCronRoute) {
     if (!checkBasicAuth(request)) {
       const unauthorized = new NextResponse("Authentication required", {
         status: 401,
