@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fulfillPaymentFromMetadata, handlePawaPayDepositWebhook } from "@/lib/payment-webhook-fulfillment";
+import { getSupabaseServer } from "@/lib/supabase/server";
+import { handlePawapayRefundWebhook, markRefundCompleted } from "@/lib/refund-requests";
 import { flattenLomiMetadata, verifyLomiWebhookSignature } from "@/lib/lomi-checkout";
 import crypto from "crypto";
 
@@ -47,6 +49,25 @@ export async function POST(request: NextRequest) {
     if (eventType === "test.webhook") {
       return NextResponse.json({ received: true });
     }
+    const refundEventTypes = new Set([
+      "REFUND_SUCCEEDED",
+      "REFUND_COMPLETED",
+      "refund.succeeded",
+      "refund.completed",
+    ]);
+    if (refundEventTypes.has(eventType) && payload.data) {
+      const refundId = String((payload.data as { refund_id?: string; id?: string }).refund_id ?? (payload.data as { id?: string }).id ?? "").trim();
+      if (refundId) {
+        const supabase = getSupabaseServer();
+        const { data: row } = await (supabase.from("refund_requests") as any)
+          .select("id")
+          .or(`provider_refund_id.eq.${refundId},id.eq.${refundId}`)
+          .maybeSingle();
+        if (row?.id) await markRefundCompleted(supabase, row.id);
+      }
+      return NextResponse.json({ received: true });
+    }
+
     if (eventType === "PAYMENT_SUCCEEDED" && payload.data) {
       const md = flattenLomiMetadata(payload.data.metadata);
       const checkoutId = String(payload.data.checkout_session_id ?? "").trim();
@@ -75,11 +96,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true });
   }
 
-  let callback: { depositId?: string; status?: string; metadata?: unknown };
+  let callback: { depositId?: string; refundId?: string; status?: string; metadata?: unknown };
   try {
     callback = JSON.parse(rawBody || "{}") as typeof callback;
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  if (callback.refundId && !callback.depositId) {
+    try {
+      await handlePawapayRefundWebhook({ refundId: callback.refundId, status: callback.status });
+    } catch (err) {
+      console.error("pawaPay refund webhook error:", err);
+      return NextResponse.json({ error: "Refund webhook handler failed" }, { status: 500 });
+    }
+    return NextResponse.json({ received: true });
   }
 
   try {
