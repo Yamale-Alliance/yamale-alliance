@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import {
+  claimRefundRequestForProcessing,
+  claimRefundRequestForRejection,
+} from "@/lib/refund-request-claims";
+import {
   enrichRefundRowsWithUserNames,
   processRefundWithProvider,
   type RefundRequestRow,
@@ -49,28 +53,15 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getSupabaseServer();
-    const { data: row, error: fetchErr } = await (supabase.from("refund_requests") as any)
-      .select("*")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (fetchErr || !row) {
-      return NextResponse.json({ error: "Refund request not found" }, { status: 404 });
-    }
-
-    const refund = row as RefundRequestRow;
-    if (refund.status !== "pending") {
-      return NextResponse.json({ error: `Request is already ${refund.status}.` }, { status: 409 });
-    }
 
     if (action === "reject") {
-      await (supabase.from("refund_requests") as any)
-        .update({
-          status: "rejected",
-          admin_notes: adminNotes || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id);
+      const rejected = await claimRefundRequestForRejection(supabase, id, adminNotes || null);
+      if (!rejected) {
+        return NextResponse.json(
+          { error: "Refund request not found or already handled." },
+          { status: 409 }
+        );
+      }
 
       await recordAuditLog(supabase, {
         adminId: admin.userId,
@@ -78,10 +69,18 @@ export async function POST(request: NextRequest) {
         action: "refund.reject",
         entityType: "refund_request",
         entityId: id,
-        details: { user_id: refund.user_id, item_title: refund.item_title },
+        details: { user_id: rejected.user_id, item_title: rejected.item_title },
       });
 
       return NextResponse.json({ ok: true, status: "rejected" });
+    }
+
+    const refund = await claimRefundRequestForProcessing(supabase, id);
+    if (!refund) {
+      return NextResponse.json(
+        { error: "Refund request not found or already being processed." },
+        { status: 409 }
+      );
     }
 
     const result = await processRefundWithProvider(supabase, refund);
