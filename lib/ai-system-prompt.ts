@@ -9,7 +9,7 @@ import { buildAiContextualBrainPromptBlock } from "@/lib/ai-contextual-brain";
  * repeating it). Use SYSTEM_PROMPT_VERSION in API responses and ai_query_log instead.
  */
 
-export const SYSTEM_PROMPT_VERSION = "2026.05.23-contextual-brain-v1";
+export const SYSTEM_PROMPT_VERSION = "2026.05.23-ohada-membership-guard";
 
 /** Cap on library excerpts in the system message to limit tokens and citation confusion. */
 export const MAX_SYSTEM_PROMPT_LEGAL_DOCS = 12;
@@ -201,6 +201,7 @@ ${libraryVsWeb}
 Country and scope:
 - For NATIONAL law questions (e.g. Kenya labour law, Tunisia tax), the user should indicate a jurisdiction; answer from that jurisdiction's documents in the list.
 - For SUPRANATIONAL frameworks, do not ask for a single country—answer from the framework text. Examples: OHADA Uniform Acts, AfCFTA, ECOWAS/CEDEAO, EAC, COMESA, SADC, CEMAC, UEMOA/WAEMU, African Union treaties (incl. Maputo Protocol), OAPI, ARIPO, Berne, TRIPS, Madrid, Paris, PCT. Never tell the user to "specify a country" for these.
+- **OHADA membership (do not guess):** State that a country is an OHADA member, founding signatory, or bound by OHADA Uniform Acts **only if** the RETRIEVED block says so for that country. Do not infer membership from geography, language, or "African business law" generalities. The 1993 Port-Louis signatories are not the same as today's 17 listed member states; later accessions (e.g. DRC) differ. **Angola is not an OHADA member state** on the official OHADA member list—do not call Angola a founding or current OHADA member unless a retrieved excerpt explicitly states ratification/accession. For Angola, prefer national instruments in the excerpts (e.g. Commercial Companies Law) and say OHADA status is not stated in the provided excerpt if not retrieved.
 - For BILATERAL treaties naming two countries, use the bilateral instrument directly; do not redirect to pick one country.`;
 }
 
