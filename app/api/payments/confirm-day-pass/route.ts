@@ -11,6 +11,7 @@ import {
   pollCompletedLomiCheckoutMetadata,
 } from "@/lib/lomi-checkout";
 import { fulfillPaymentFromMetadata } from "@/lib/payment-webhook-fulfillment";
+import { capturePaymentConfirmError } from "@/lib/monitoring";
 
 function isDayPassMetadata(md: Record<string, string>): boolean {
   const kind = String(md.kind || "")
@@ -95,6 +96,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, kind: "day_pass", expiresAt, provider: "pawapay" });
   } catch (err) {
     console.error("confirm-day-pass error:", err);
+    capturePaymentConfirmError("/api/payments/confirm-day-pass", err);
     return NextResponse.json({ error: "Failed to confirm day pass payment" }, { status: 500 });
   }
 }
