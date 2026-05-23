@@ -47,3 +47,6 @@ next-env.d.ts
 backup.sql
 data-only.sql
 supabase_backup_*.sql
+
+# Sentry Config File
+.env.sentry-build-plugin
