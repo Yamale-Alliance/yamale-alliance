@@ -5,8 +5,14 @@ import type { Database } from "@/lib/database.types";
 import { createLomiRefund, resolveLomiTransactionIdFromCheckoutSession } from "@/lib/lomi-refunds";
 import { initiatePawapayRefund, isPawapayDepositRef } from "@/lib/pawapay-refunds";
 import { getCompletedLomiCheckoutMetadata, isLomiConfigured } from "@/lib/lomi-checkout";
-import { revokeEntitlementForRefund } from "@/lib/refund-entitlements";
+import {
+  isPostgresUniqueViolation,
+  markRefundCompletedIfProcessing,
+} from "@/lib/refund-request-claims";
 import { randomUUID } from "crypto";
+
+export { claimRefundRequestForProcessing, claimRefundRequestForRejection } from "@/lib/refund-request-claims";
+export { markRefundCompletedIfProcessing };
 
 export type RefundRequestStatus = "pending" | "rejected" | "processing" | "completed" | "failed";
 
@@ -284,8 +290,14 @@ export async function createRefundRequest(params: {
     .select("id")
     .single();
 
-  if (error || !data) {
+  if (error) {
+    if (isPostgresUniqueViolation(error)) {
+      return { error: "You already have an open refund request for this purchase." };
+    }
     console.error("createRefundRequest:", error);
+    return { error: "Could not submit refund request." };
+  }
+  if (!data) {
     return { error: "Could not submit refund request." };
   }
 
@@ -345,15 +357,18 @@ export async function processRefundWithProvider(
       const st = String(result.status || "").toUpperCase();
       if (st === "REJECTED") {
         const msg = result.rejectionReason?.rejectionMessage || "pawaPay rejected the refund.";
-        await updateRefundRow(supabase, row.id, {
-          status: "failed",
-          provider_error: msg,
-          provider_status: st,
-        });
+        await (supabase.from("refund_requests") as any)
+          .update({
+            status: "failed",
+            provider_error: msg,
+            provider_status: st,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", row.id)
+          .eq("status", "processing");
         return { error: msg };
       }
       await updateRefundRow(supabase, row.id, {
-        status: "processing",
         payment_provider: "pawapay",
         provider_refund_id: refundId,
         provider_status: st,
@@ -376,7 +391,6 @@ export async function processRefundWithProvider(
     });
 
     await updateRefundRow(supabase, row.id, {
-      status: "processing",
       payment_provider: "lomi",
       lomi_transaction_id: txnId,
       provider_refund_id: refund.id ?? null,
@@ -385,39 +399,24 @@ export async function processRefundWithProvider(
     return { ok: true };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Provider refund failed";
-    await updateRefundRow(supabase, row.id, {
-      status: "failed",
-      provider_error: msg,
-    });
+    await (supabase.from("refund_requests") as any)
+      .update({
+        status: "failed",
+        provider_error: msg,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", row.id)
+      .eq("status", "processing");
     return { error: msg };
   }
 }
 
+/** @deprecated Use markRefundCompletedIfProcessing */
 export async function markRefundCompleted(
   supabase: SupabaseClient<Database>,
   refundRequestId: string
 ): Promise<void> {
-  const { data: row } = await (supabase.from("refund_requests") as any)
-    .select("*")
-    .eq("id", refundRequestId)
-    .maybeSingle();
-  if (!row) return;
-
-  const r = row as RefundRequestRow;
-  const now = new Date().toISOString();
-  await updateRefundRow(supabase, refundRequestId, {
-    status: "completed",
-    processed_at: now,
-    provider_status: "COMPLETED",
-  });
-
-  await revokeEntitlementForRefund(supabase, {
-    userId: r.user_id,
-    productKind: r.product_kind,
-    purchaseRowId: r.purchase_row_id,
-    entityId: r.entity_id,
-    paymentRef: r.payment_ref,
-  });
+  await markRefundCompletedIfProcessing(supabase, refundRequestId);
 }
 
 async function updateRefundRow(
@@ -447,7 +446,7 @@ export async function handlePawapayRefundWebhook(payload: {
 
   const id = (row as RefundRequestRow).id;
   if (status === "COMPLETED") {
-    await markRefundCompleted(supabase, id);
+    await markRefundCompletedIfProcessing(supabase, id);
     return;
   }
   if (status === "FAILED") {
