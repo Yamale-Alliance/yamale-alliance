@@ -1,3 +1,5 @@
+import { withSentryConfig } from "@sentry/nextjs";
+
 /** @type {import('next').NextConfig} */
 const supabaseHostname =
   typeof process.env.NEXT_PUBLIC_SUPABASE_URL === "string"
@@ -44,4 +46,20 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+const hasSentry = Boolean(
+  process.env.NEXT_PUBLIC_SENTRY_DSN?.trim() || process.env.SENTRY_DSN?.trim()
+);
+
+/** @type {import('@sentry/nextjs').SentryBuildOptions} */
+const sentryBuildOptions = {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  hideSourceMaps: true,
+  disableLogger: true,
+  automaticVercelMonitors: true,
+};
+
+export default hasSentry ? withSentryConfig(nextConfig, sentryBuildOptions) : nextConfig;
