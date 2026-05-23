@@ -1,6 +1,8 @@
 type PawaPayMetadata = Record<string, string>;
 type PawaPayMetadataWire = Array<Record<string, string | number | boolean>>;
 
+import { recordPendingPaymentCheckout } from "@/lib/pending-payment-checkout";
+
 type PaymentPageSessionInput = {
   depositId: string;
   amountCents: number;
@@ -321,6 +323,19 @@ export async function createPaymentPageSession(input: PaymentPageSessionInput): 
     const details = data.failureReason?.failureMessage || `HTTP ${res.status}`;
     throw new Error(`Failed to create pawaPay session: ${details}`);
   }
+
+  const md = input.metadata ?? {};
+  const userId = String(md.clerk_user_id ?? "").trim();
+  if (userId && input.depositId) {
+    void recordPendingPaymentCheckout({
+      paymentRef: input.depositId,
+      userId,
+      provider: "pawapay",
+      kind: md.kind ?? null,
+      metadata: md,
+    });
+  }
+
   return { redirectUrl: data.redirectUrl };
 }
 
