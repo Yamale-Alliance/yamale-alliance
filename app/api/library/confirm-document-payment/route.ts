@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { upsertPayAsYouGoPurchase } from "@/lib/payg-purchases";
 import { resolvePaygDocumentSessionFromPaymentRef } from "@/lib/resolve-payg-document-session-from-payment-ref";
+import { capturePaymentConfirmError } from "@/lib/monitoring";
 
 /**
  * After checkout redirect: ensure the document purchase row exists (and includes `law_id`)
@@ -35,40 +37,13 @@ export async function POST(request: NextRequest) {
 
     const supabase = getSupabaseServer();
 
-    const { data: existing, error: checkError } = await (supabase.from("pay_as_you_go_purchases") as any)
-      .select("id, law_id")
-      .eq("stripe_session_id", sessionId)
-      .maybeSingle();
-
-    if (checkError) {
-      console.error("confirm-document-payment check:", checkError);
-    }
-
-    if (!existing) {
-      const { error: insertError } = await (supabase.from("pay_as_you_go_purchases") as any).insert({
-        user_id: userId,
-        item_type: "document",
-        quantity: 1,
-        stripe_session_id: sessionId,
-        law_id: lawId ?? null,
-      });
-
-      if (insertError) {
-        console.error("confirm-document-payment insert:", insertError);
-        return NextResponse.json(
-          { error: "Failed to record purchase", details: insertError.message },
-          { status: 500 }
-        );
-      }
-    } else if (lawId && !(existing as { law_id?: string | null }).law_id) {
-      const { error: updateError } = await (supabase.from("pay_as_you_go_purchases") as any)
-        .update({ law_id: lawId })
-        .eq("id", (existing as { id: string }).id);
-
-      if (updateError) {
-        console.error("confirm-document-payment update law_id:", updateError);
-      }
-    }
+    await upsertPayAsYouGoPurchase(supabase, {
+      user_id: userId,
+      item_type: "document",
+      quantity: 1,
+      stripe_session_id: sessionId,
+      law_id: lawId ?? null,
+    });
 
     const { data: verify } = await (supabase.from("pay_as_you_go_purchases") as any)
       .select("id, law_id")
@@ -85,6 +60,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     console.error("confirm-document-payment:", err);
+    capturePaymentConfirmError("/api/library/confirm-document-payment", err);
     return NextResponse.json({ error: "Failed to confirm payment" }, { status: 500 });
   }
 }
