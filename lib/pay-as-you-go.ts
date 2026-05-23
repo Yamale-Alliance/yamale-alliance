@@ -52,8 +52,28 @@ export async function consumePayAsYouGoPurchase(
   itemType: PayAsYouGoItemType
 ): Promise<boolean> {
   const supabase = getSupabaseServer();
-  
-  // Find the oldest unused purchase
+  const { data, error } = await (supabase as any).rpc("consume_payg_purchase_atomic", {
+    p_user_id: userId,
+    p_item_type: itemType,
+  });
+  if (!error) return data === true;
+
+  const missingRpc =
+    error.code === "42883" ||
+    error.code === "PGRST202" ||
+    String(error.message || "").includes("consume_payg_purchase_atomic");
+  if (missingRpc) {
+    return consumePayAsYouGoPurchaseLegacy(supabase, userId, itemType);
+  }
+  console.error("consumePayAsYouGoPurchase rpc:", error.message);
+  return false;
+}
+
+async function consumePayAsYouGoPurchaseLegacy(
+  supabase: ReturnType<typeof getSupabaseServer>,
+  userId: string,
+  itemType: PayAsYouGoItemType
+): Promise<boolean> {
   const { data, error } = await (supabase.from("pay_as_you_go_purchases") as any)
     .select("id, quantity")
     .eq("user_id", userId)
@@ -62,23 +82,15 @@ export async function consumePayAsYouGoPurchase(
     .limit(1)
     .maybeSingle();
 
-  if (error || !data) {
-    return false;
-  }
+  if (error || !data) return false;
 
   const row = data as { id: string; quantity: number };
-  
   if (row.quantity > 1) {
-    // Decrement quantity
     await (supabase.from("pay_as_you_go_purchases") as any)
       .update({ quantity: row.quantity - 1 })
       .eq("id", row.id);
   } else {
-    // Delete the record if quantity is 1
-    await (supabase.from("pay_as_you_go_purchases") as any)
-      .delete()
-      .eq("id", row.id);
+    await (supabase.from("pay_as_you_go_purchases") as any).delete().eq("id", row.id);
   }
-
   return true;
 }
