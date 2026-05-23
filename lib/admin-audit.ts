@@ -16,7 +16,9 @@ export type AuditAction =
   | "lawyer.removed"
   | "marketplace_item.add"
   | "marketplace_item.update"
-  | "marketplace_item.delete";
+  | "marketplace_item.delete"
+  | "refund.approve"
+  | "refund.reject";
 
 export async function recordAuditLog(
   supabase: SupabaseClient<Database>,
