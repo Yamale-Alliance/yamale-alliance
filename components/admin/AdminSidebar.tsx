@@ -18,6 +18,7 @@ import {
   LineChart,
   Store,
   Flag,
+  RotateCcw,
 } from "lucide-react";
 
 const SUPPORT_CENTER_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/admin-panel/users", label: "Users", icon: Users },
   { href: "/admin-panel/ai-usage", label: "AI Usage", icon: Cpu },
   { href: "/admin-panel/revenue", label: "Revenue & analytics", icon: LineChart },
+  { href: "/admin-panel/refunds", label: "Refunds", icon: RotateCcw },
   { href: "/admin-panel/marketplace", label: "Yamalé Vault", icon: Store },
   {
     href: "/admin-panel/support",
