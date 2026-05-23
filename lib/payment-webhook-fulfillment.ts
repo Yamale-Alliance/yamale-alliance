@@ -4,6 +4,9 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { recordUnlock, recordSearchUnlockGrant } from "@/lib/unlocks";
 import { clearUserShoppingCart, parseCartItemIdsMetadata } from "@/lib/marketplace-cart-purchases";
 import { readPaygDocumentLawIdFromMetadata } from "@/lib/lomi-checkout";
+import { upsertPayAsYouGoPurchase } from "@/lib/payg-purchases";
+import { pawapayDepositEventId, runIdempotentPaymentWebhook } from "@/lib/payment-webhook-idempotency";
+import { markPendingPaymentCheckoutFulfilled } from "@/lib/pending-payment-checkout";
 
 type DepositCallback = {
   depositId?: string;
@@ -35,21 +38,6 @@ function normalizePawaMetadata(value: unknown): Record<string, string> {
   return {};
 }
 
-async function insertPayAsYouGoRowIfAbsent(
-  supabase: ReturnType<typeof getSupabaseServer>,
-  row: { user_id: string; item_type: string; quantity: number; stripe_session_id: string; law_id: string | null }
-): Promise<void> {
-  const { data: existing } = await (supabase.from("pay_as_you_go_purchases") as any)
-    .select("id")
-    .eq("stripe_session_id", row.stripe_session_id)
-    .maybeSingle();
-  if (existing) return;
-  const { error } = await (supabase.from("pay_as_you_go_purchases") as any).insert(row);
-  if (error) {
-    console.error("insertPayAsYouGoRowIfAbsent:", error.message);
-  }
-}
-
 /**
  * Shared fulfillment for pawaPay deposit callbacks and Lomi `PAYMENT_SUCCEEDED` payloads.
  * `paymentRefId` is stored in `stripe_session_id` columns (legacy name — holds any checkout/deposit id).
@@ -64,6 +52,7 @@ export async function fulfillPaymentFromMetadata(metadata: Record<string, string
   if (!clerkUserId || !paymentRefId) return;
 
   const supabase = getSupabaseServer();
+  const done = () => markPendingPaymentCheckoutFulfilled(paymentRefId);
 
   if (kind === "marketplace" && metadata.marketplace_item_id) {
     await (supabase.from("marketplace_purchases") as any).upsert(
@@ -74,6 +63,7 @@ export async function fulfillPaymentFromMetadata(metadata: Record<string, string
       },
       { onConflict: "user_id,marketplace_item_id" }
     );
+    await done();
     return;
   }
 
@@ -86,18 +76,20 @@ export async function fulfillPaymentFromMetadata(metadata: Record<string, string
       );
     }
     await clearUserShoppingCart(clerkUserId);
+    await done();
     return;
   }
 
   if (kind === "lawyer_unlock" && metadata.lawyer_id) {
     await recordUnlock(clerkUserId, metadata.lawyer_id, paymentRefId);
+    await done();
     return;
   }
 
   if (kind === "lawyer_search_unlock" || kind === "payg_lawyer_search") {
     if (metadata.expertise) {
       await recordSearchUnlockGrant(clerkUserId, metadata.country || "all", metadata.expertise, paymentRefId);
-      await insertPayAsYouGoRowIfAbsent(supabase, {
+      await upsertPayAsYouGoPurchase(supabase, {
         user_id: clerkUserId,
         item_type: "lawyer_search",
         quantity: 1,
@@ -105,6 +97,7 @@ export async function fulfillPaymentFromMetadata(metadata: Record<string, string
         law_id: null,
       });
     }
+    await done();
     return;
   }
 
@@ -113,13 +106,14 @@ export async function fulfillPaymentFromMetadata(metadata: Record<string, string
       kindNorm === "payg_document" ? "document" : kindNorm === "payg_ai_query" ? "ai_query" : "afcfta_report";
     const lawId =
       kindNorm === "payg_document" ? readPaygDocumentLawIdFromMetadata(metadata) : null;
-    await insertPayAsYouGoRowIfAbsent(supabase, {
+    await upsertPayAsYouGoPurchase(supabase, {
       user_id: clerkUserId,
       item_type: itemType,
       quantity: 1,
       stripe_session_id: paymentRefId,
       law_id: lawId,
     });
+    await done();
     return;
   }
 
@@ -134,6 +128,7 @@ export async function fulfillPaymentFromMetadata(metadata: Record<string, string
         publicMetadata: { ...existing, team_extra_seats: current + seats },
       });
     }
+    await done();
     return;
   }
 
@@ -151,6 +146,7 @@ export async function fulfillPaymentFromMetadata(metadata: Record<string, string
         day_pass_last_purchase_at: now.toISOString(),
       },
     });
+    await done();
     return;
   }
 
@@ -161,6 +157,7 @@ export async function fulfillPaymentFromMetadata(metadata: Record<string, string
       change_type: metadata.change_type,
       payment_provider: metadata.payment_provider,
     });
+    await done();
   }
 }
 
@@ -168,10 +165,21 @@ export async function handlePawaPayDepositWebhook(callback: DepositCallback): Pr
   const status = String(callback.status || "").toUpperCase();
   if (status !== "COMPLETED") return;
 
-  const depositId = callback.depositId;
+  const depositId = callback.depositId?.trim();
   const metadata = normalizePawaMetadata(callback.metadata);
   const clerkUserId = metadata.clerk_user_id;
   if (!depositId || !clerkUserId) return;
 
-  await fulfillPaymentFromMetadata(metadata, depositId);
+  const eventId = pawapayDepositEventId(depositId, status);
+  await runIdempotentPaymentWebhook(
+    {
+      provider: "pawapay",
+      eventId,
+      eventType: "deposit.completed",
+      paymentRef: depositId,
+    },
+    async () => {
+      await fulfillPaymentFromMetadata(metadata, depositId);
+    }
+  );
 }
