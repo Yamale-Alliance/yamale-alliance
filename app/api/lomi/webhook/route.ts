@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fulfillPaymentFromMetadata, handlePawaPayDepositWebhook } from "@/lib/payment-webhook-fulfillment";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { handlePawapayRefundWebhook, markRefundCompleted } from "@/lib/refund-requests";
+import { handlePawapayRefundWebhook } from "@/lib/refund-requests";
+import { markRefundCompletedIfProcessing } from "@/lib/refund-request-claims";
+import {
+  lomiWebhookEventId,
+  pawapayRefundEventId,
+  runIdempotentPaymentWebhook,
+} from "@/lib/payment-webhook-idempotency";
 import { flattenLomiMetadata, verifyLomiWebhookSignature } from "@/lib/lomi-checkout";
+import { captureWebhookError } from "@/lib/monitoring";
 import crypto from "crypto";
 
 /**
@@ -24,6 +31,8 @@ type LomiWebhookEvent = {
     metadata?: unknown;
     checkout_session_id?: string | null;
     transaction_id?: string;
+    refund_id?: string;
+    id?: string;
   };
 };
 
@@ -49,6 +58,7 @@ export async function POST(request: NextRequest) {
     if (eventType === "test.webhook") {
       return NextResponse.json({ received: true });
     }
+
     const refundEventTypes = new Set([
       "REFUND_SUCCEEDED",
       "REFUND_COMPLETED",
@@ -56,14 +66,39 @@ export async function POST(request: NextRequest) {
       "refund.completed",
     ]);
     if (refundEventTypes.has(eventType) && payload.data) {
-      const refundId = String((payload.data as { refund_id?: string; id?: string }).refund_id ?? (payload.data as { id?: string }).id ?? "").trim();
-      if (refundId) {
-        const supabase = getSupabaseServer();
-        const { data: row } = await (supabase.from("refund_requests") as any)
-          .select("id")
-          .or(`provider_refund_id.eq.${refundId},id.eq.${refundId}`)
-          .maybeSingle();
-        if (row?.id) await markRefundCompleted(supabase, row.id);
+      const refundId = String(
+        payload.data.refund_id ?? payload.data.id ?? ""
+      ).trim();
+      const eventId =
+        lomiWebhookEventId({
+          id: payload.id,
+          event: eventType,
+          transaction_id: refundId,
+        }) || (refundId ? `refund:${refundId}:${eventType}` : "");
+
+      if (eventId && refundId) {
+        try {
+          await runIdempotentPaymentWebhook(
+            {
+              provider: "lomi",
+              eventId,
+              eventType,
+              paymentRef: refundId,
+            },
+            async () => {
+              const supabase = getSupabaseServer();
+              const { data: row } = await (supabase.from("refund_requests") as any)
+                .select("id")
+                .or(`provider_refund_id.eq.${refundId},id.eq.${refundId}`)
+                .maybeSingle();
+              if (row?.id) await markRefundCompletedIfProcessing(supabase, row.id);
+            }
+          );
+        } catch (err) {
+          console.error("Lomi refund webhook error:", err);
+          captureWebhookError("lomi", err, { eventType, refundId });
+          return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
+        }
       }
       return NextResponse.json({ received: true });
     }
@@ -72,24 +107,46 @@ export async function POST(request: NextRequest) {
       const md = flattenLomiMetadata(payload.data.metadata);
       const checkoutId = String(payload.data.checkout_session_id ?? "").trim();
       const txnId = String(payload.data.transaction_id ?? "").trim();
-      const kindNorm = String(md.kind || "")
-        .trim()
-        .toLowerCase()
-        .replace(/-/g, "_");
-      /** Browser return URL uses checkout session id; Lomi sometimes only echoes transaction id in webhooks — record both. */
-      const paygMultiRefKinds = new Set(["payg_document", "payg_ai_query", "payg_afcfta_report"]);
-      const refs =
-        paygMultiRefKinds.has(kindNorm) && checkoutId && txnId && checkoutId !== txnId
-          ? [checkoutId, txnId]
-          : [checkoutId || txnId].filter(Boolean);
-      for (const ref of refs) {
-        if (!ref || !md.clerk_user_id) continue;
-        try {
-          await fulfillPaymentFromMetadata(md, ref);
-        } catch (err) {
-          console.error("Lomi webhook fulfillment error:", err);
-          return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
-        }
+      const eventId = lomiWebhookEventId({
+        id: payload.id,
+        event: eventType,
+        checkout_session_id: checkoutId,
+        transaction_id: txnId,
+      });
+
+      if (!eventId) {
+        console.warn("Lomi PAYMENT_SUCCEEDED without event id — skipping fulfillment");
+        return NextResponse.json({ received: true });
+      }
+
+      try {
+        await runIdempotentPaymentWebhook(
+          {
+            provider: "lomi",
+            eventId,
+            eventType,
+            paymentRef: checkoutId || txnId || null,
+          },
+          async () => {
+            const kindNorm = String(md.kind || "")
+              .trim()
+              .toLowerCase()
+              .replace(/-/g, "_");
+            const paygMultiRefKinds = new Set(["payg_document", "payg_ai_query", "payg_afcfta_report"]);
+            const refs =
+              paygMultiRefKinds.has(kindNorm) && checkoutId && txnId && checkoutId !== txnId
+                ? [checkoutId, txnId]
+                : [checkoutId || txnId].filter(Boolean);
+            for (const ref of refs) {
+              if (!ref || !md.clerk_user_id) continue;
+              await fulfillPaymentFromMetadata(md, ref);
+            }
+          }
+        );
+      } catch (err) {
+        console.error("Lomi webhook fulfillment error:", err);
+        captureWebhookError("lomi", err, { eventType, checkoutId, txnId });
+        return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
       }
     }
 
@@ -104,10 +161,24 @@ export async function POST(request: NextRequest) {
   }
 
   if (callback.refundId && !callback.depositId) {
+    const refundId = String(callback.refundId).trim();
+    const status = String(callback.status || "").toUpperCase();
+    const eventId = pawapayRefundEventId(refundId, status || "UNKNOWN");
     try {
-      await handlePawapayRefundWebhook({ refundId: callback.refundId, status: callback.status });
+      await runIdempotentPaymentWebhook(
+        {
+          provider: "pawapay",
+          eventId,
+          eventType: `refund.${status || "unknown"}`,
+          paymentRef: refundId,
+        },
+        async () => {
+          await handlePawapayRefundWebhook({ refundId, status: callback.status });
+        }
+      );
     } catch (err) {
       console.error("pawaPay refund webhook error:", err);
+      captureWebhookError("pawapay", err, { flow: "refund", refundId });
       return NextResponse.json({ error: "Refund webhook handler failed" }, { status: 500 });
     }
     return NextResponse.json({ received: true });
@@ -127,6 +198,7 @@ export async function POST(request: NextRequest) {
     await handlePawaPayDepositWebhook(callback);
   } catch (err) {
     console.error("pawaPay webhook handler error:", err);
+    captureWebhookError("pawapay", err, { depositId: callback.depositId });
     return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
   }
 
