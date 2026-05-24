@@ -754,6 +754,21 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["deleted_laws"]["Insert"]>;
       };
+      ai_usage_daily: {
+        Row: {
+          user_id: string;
+          usage_date: string;
+          query_count: number;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          usage_date: string;
+          query_count?: number;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ai_usage_daily"]["Insert"]>;
+      };
       ai_query_log: {
         Row: {
           id: string;
@@ -905,6 +920,45 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["law_translations"]["Insert"]>;
+      };
+      subscription_ledger: {
+        Row: {
+          id: string;
+          user_id: string;
+          provider: string;
+          payment_ref: string;
+          entry_kind: string;
+          plan_id: string | null;
+          billing_interval: string | null;
+          change_type: string | null;
+          seats_delta: number | null;
+          amount_cents: number | null;
+          currency: string | null;
+          webhook_event_id: string | null;
+          metadata: Json;
+          clerk_metadata_before: Json | null;
+          clerk_metadata_after: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          provider: string;
+          payment_ref: string;
+          entry_kind: string;
+          plan_id?: string | null;
+          billing_interval?: string | null;
+          change_type?: string | null;
+          seats_delta?: number | null;
+          amount_cents?: number | null;
+          currency?: string | null;
+          webhook_event_id?: string | null;
+          metadata?: Json;
+          clerk_metadata_before?: Json | null;
+          clerk_metadata_after?: Json | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["subscription_ledger"]["Insert"]>;
       };
       payment_checkout_pending: {
         Row: {
