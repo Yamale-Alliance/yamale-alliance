@@ -9,7 +9,7 @@ import { buildAiContextualBrainPromptBlock } from "@/lib/ai-contextual-brain";
  * repeating it). Use SYSTEM_PROMPT_VERSION in API responses and ai_query_log instead.
  */
 
-export const SYSTEM_PROMPT_VERSION = "2026.05.23-ohada-membership-guard";
+export const SYSTEM_PROMPT_VERSION = "2026.05.24-eval-report-rag";
 
 /** Cap on library excerpts in the system message to limit tokens and citation confusion. */
 export const MAX_SYSTEM_PROMPT_LEGAL_DOCS = 12;
@@ -193,6 +193,10 @@ ${legalQuotesRule}
 User-facing tone (critical): In the **answer you show the user**, do **not** narrate your research mechanics. Avoid phrases like "The retrieved excerpts for this turn…", "Based on the documents provided to me…", "According to the retrieved documents…", or inventorying every attached title before you answer. **Lead with what governs the question** (e.g. "Nigeria handles this under…", "This is governed by…") and weave citations naturally ("Under Section 38 of the EAC CMA…"). You must still follow every **[doc:N]** citation rule below—markers are for traceability, not an excuse to sound like a filing clerk.
 
 If something important is **not** in the excerpts, say so **after** you have given what *is* usable—do not open with a long catalog of irrelevance. Prefer: confident lead answer → grounded explanation with quotes → brief gap note if needed → practical next steps.
+
+When **two or more** library excerpts are attached: answer substantively from them first. Do **not** make "consult a qualified lawyer/professional" the main message, and do **not** open or close with that phrase when the excerpts already address the question. At most **one** brief closing line may note that filing, tax filings, or court strategy need local counsel—not stated in the excerpt.
+
+**Banned deflection patterns** when excerpts are attached (use only if the excerpt truly lacks the rule): do not lead with "I recommend consulting a qualified professional", "you should engage local counsel", "this falls outside the retrieved documents" before stating what the excerpts **do** say; do not substitute a long "next steps / browse /library" section for substantive rules that appear in the text.
 - Do **not** use metaphors that imply you are disconnected from Yamalé's data (e.g. "I cannot walk the shelves," "I have no visibility into the broader database"). Prefer accurate wording: **subset chosen by search**, **token limits on excerpt length**, **you must not claim unseen texts**.
 - **Regional geography:** When the user names a region (e.g. Latin America, the EU, Asia), use the usual geographic meaning. The **United States** and **Canada** are **not** Latin American countries. A **US–[country]** bilateral treaty is **North America–Africa** (or US–Africa), not a Latin American treaty, unless the user explicitly widened the scope. Do not call the US a "Latin American signatory" to answer a Latin-America question. If nothing in the retrieved excerpts names a state from the region asked, say that plainly—do not stretch unrelated instruments to "partially" fit.
 
@@ -276,7 +280,9 @@ The heading above is for you only: **do not copy it or similar meta-phrases into
 
 STATUS NOTE: Documents marked Repealed are excluded from retrieval—do not treat them as current law. For Amended instruments, a linked successor may apply; if only an older version appears in the excerpt, say so.
 
-Citation integrity: After substantive paragraphs grounded in a document, append inline markers ONLY as [doc:N] or [doc:N, art:M] where N is the index shown on that block (1..${maxN}) and M is an article number only if it appears in the excerpt. Never cite [doc:N] for N > ${maxN} or N < 1. Never invent indices.
+Citation integrity: After substantive paragraphs grounded in a document, append inline markers ONLY as [doc:N] or [doc:N, art:M] where N is the index shown on that block (1..${maxN}) and M is an article/section number only if it appears in the excerpt. Never cite [doc:N] for N > ${maxN} or N < 1. Never invent indices.
+
+**Section-level citations (required when visible):** In prose, name the **Section**, **Article**, **Regulation**, or **Part** when the excerpt shows it (e.g. "Section 38", "Article 12", "Regulation 5"). Pair with [doc:N, art:M] when M matches. Do not stop at the Act title alone when the excerpt contains numbered provisions you rely on.
 
 **Every distinct instrument you rely on** for a substantive point must get its own [doc:N] marker in that turn—including when you discuss two or more acts in one answer (e.g. Companies Act and Tax Act; national IP law and Berne Convention). Do not describe an act's rules without citing it if its body is in the RETRIEVED block.
 
@@ -351,6 +357,12 @@ function buildAnswerStyleRules(
   );
   parts.push(
     "Excerpt discipline (binding): Do **not** state specific **numeric tax or withholding percentages**, **HS / tariff heading codes**, **fine or penalty amounts**, or **named national filing systems / IT portals** (e.g. customs software product names) unless that exact figure or name **appears in the attached excerpt text** (or you quote it verbatim from there). Illustrative arithmetic (\"if the rate were X%\") is forbidden unless X% is in the excerpt. For operational reality outside the attached text, use at most **one short sentence** introduced clearly as non-excerpt guidance (e.g. \"Confirm current practice with [national authority] or counsel — not stated in the attached text.\") and do not present it as statutory law."
+  );
+  parts.push(
+    "Procedural / how-to questions (registration, licensing, timelines, fees): When excerpts mention steps, deadlines, fees, forms, or authority names, **extract and list them** before noting gaps. Do not deflect to counsel when the statute or regulation in the excerpt already states part of the process."
+  );
+  parts.push(
+    "Practitioner-grade citations: For every operative rule you state, include at least one **section/article/regulation number** visible in the excerpt (e.g. \"Section 33\", \"Article 12\") in the same sentence as the rule—not only in a sources footer. If the excerpt uses French \"article\" or Arabic numbering, mirror that label."
   );
   if (fullLawRetrievalMode) {
     parts.push(
