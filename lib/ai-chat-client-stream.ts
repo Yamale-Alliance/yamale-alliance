@@ -19,6 +19,14 @@ export type AiChatSseHandlers = {
   onDelta: (text: string) => void;
 };
 
+/** User clicked Stop — partial streamed text may already be in the UI. */
+export class AiChatStoppedError extends Error {
+  constructor() {
+    super("Response stopped");
+    this.name = "AiChatStoppedError";
+  }
+}
+
 function handleSseBlock(block: string, handlers: AiChatSseHandlers): AiChatDonePayload | null | "error_thrown" {
   let event = "message";
   let data = "";
@@ -95,8 +103,12 @@ export function isAiChatSseResponse(response: Response): boolean {
 
 export async function consumeAiChatSse(
   response: Response,
-  handlers: AiChatSseHandlers
+  handlers: AiChatSseHandlers,
+  options?: { signal?: AbortSignal }
 ): Promise<AiChatDonePayload> {
+  const signal = options?.signal;
+  if (signal?.aborted) throw new AiChatStoppedError();
+
   if (!response.body) {
     const text = await response.text();
     if (looksLikeAiChatSseBody(text)) {
@@ -110,7 +122,14 @@ export async function consumeAiChatSse(
   let buffer = "";
   let donePayload: AiChatDonePayload | null = null;
 
+  const onAbort = () => {
+    void reader.cancel().catch(() => {});
+  };
+  signal?.addEventListener("abort", onAbort);
+
+  try {
   while (true) {
+    if (signal?.aborted) throw new AiChatStoppedError();
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
@@ -136,9 +155,13 @@ export async function consumeAiChatSse(
   }
 
   if (!donePayload) {
+    if (signal?.aborted) throw new AiChatStoppedError();
     throw new Error("The response ended before the assistant finished.");
   }
   return donePayload;
+  } finally {
+    signal?.removeEventListener("abort", onAbort);
+  }
 }
 
 export type AiChatParseResult = {
@@ -150,13 +173,15 @@ export type AiChatParseResult = {
 /** When Content-Type was rewritten but the body is still SSE (e.g. some proxies). */
 export async function parseAiChatResponse(
   response: Response,
-  handlers: AiChatSseHandlers
+  handlers: AiChatSseHandlers,
+  options?: { signal?: AbortSignal }
 ): Promise<AiChatParseResult> {
   if (isAiChatSseResponse(response)) {
     try {
-      const payload = await consumeAiChatSse(response, handlers);
+      const payload = await consumeAiChatSse(response, handlers, options);
       return { payload, streamed: true };
     } catch (err) {
+      if (err instanceof AiChatStoppedError) throw err;
       throw err instanceof Error ? err : new Error("Failed to get AI response");
     }
   }
