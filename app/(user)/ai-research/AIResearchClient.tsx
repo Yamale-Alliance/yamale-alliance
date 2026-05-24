@@ -8,6 +8,8 @@ import remarkGfm from "remark-gfm";
 import { useUser } from "@clerk/nextjs";
 import {
   Send,
+  Square,
+  Pencil,
   Lock,
   Plus,
   Search,
@@ -36,7 +38,7 @@ import {
   readPaygAiQueryLomiSessionIdFromStorage,
 } from "@/lib/lomi-payg-ai-query-return";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
-import { parseAiChatResponse } from "@/lib/ai-chat-client-stream";
+import { AiChatStoppedError, parseAiChatResponse } from "@/lib/ai-chat-client-stream";
 import {
   finalizeProcessLog,
   mergeProcessStep,
@@ -229,6 +231,10 @@ export default function AIResearchClient() {
   } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const chatAbortRef = useRef<AbortController | null>(null);
+  const stopRequestedRef = useRef(false);
+  const streamingContentRef = useRef("");
   /** When "live", skip history restore so send/reply scrolling is not overridden. */
   const historyScrollModeRef = useRef<"history" | "live">("history");
   const historyScrollDoneFingerprintRef = useRef<string | null>(null);
@@ -297,6 +303,34 @@ export default function AIResearchClient() {
   const currentSession = sessions.find((s) => s.id === currentId);
   const messages = currentSession?.messages ?? [];
   const isTurnBusy = Boolean(streamingAssistantId);
+
+  const stopGenerating = useCallback(() => {
+    if (!streamingAssistantId) return;
+    stopRequestedRef.current = true;
+    chatAbortRef.current?.abort();
+  }, [streamingAssistantId]);
+
+  const handleEditUserMessage = useCallback(
+    (messageId: string) => {
+      if (isTurnBusy || !currentId) return;
+      const session = sessions.find((s) => s.id === currentId);
+      if (!session) return;
+      const idx = session.messages.findIndex((m) => m.id === messageId);
+      if (idx < 0 || session.messages[idx]?.role !== "user") return;
+      const content = session.messages[idx].content;
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === currentId
+            ? { ...s, messages: s.messages.slice(0, idx), updatedAt: Date.now() }
+            : s
+        )
+      );
+      setInput(content);
+      historyScrollModeRef.current = "live";
+      requestAnimationFrame(() => composerTextareaRef.current?.focus());
+    },
+    [isTurnBusy, currentId, sessions]
+  );
   const used = aiUsage?.used ?? 0;
   const remaining = aiUsage?.remaining ?? (limit === null ? null : Math.max(0, limit - used));
   const payAsYouGoCount = aiUsage?.payAsYouGoCount ?? 0;
@@ -782,6 +816,8 @@ export default function AIResearchClient() {
     historyScrollDoneFingerprintRef.current = null;
     setStreamingAssistantId(assistantId);
     setIsLoading(false);
+    stopRequestedRef.current = false;
+    streamingContentRef.current = "";
     scrollChatToBottom("auto");
 
     let pendingAssistantScrollId: string | null = assistantId;
@@ -808,6 +844,7 @@ export default function AIResearchClient() {
 
       const effectiveModelId = allowedModelIds.includes(selectedModelId ?? "") ? selectedModelId : defaultModelId;
       const chatController = new AbortController();
+      chatAbortRef.current = chatController;
       const chatTimeout = setTimeout(() => chatController.abort(), AI_CHAT_TIMEOUT_MS);
       const res = await fetch("/api/ai/chat", {
         method: "POST",
@@ -840,6 +877,7 @@ export default function AIResearchClient() {
           );
         },
         onDelta: (text: string) => {
+          streamingContentRef.current += text;
           setSessions((prev) =>
             prev.map((s) => {
               if (s.id !== sessionId) return s;
@@ -855,7 +893,9 @@ export default function AIResearchClient() {
         },
       };
 
-      const { payload: data, streamed } = await parseAiChatResponse(res, streamHandlers);
+      const { payload: data, streamed } = await parseAiChatResponse(res, streamHandlers, {
+        signal: chatController.signal,
+      });
 
       if (!streamed) {
         setSessions((prev) =>
@@ -944,48 +984,88 @@ export default function AIResearchClient() {
         fetchAiUsage();
       }
     } catch (err) {
-      const isAbort = err instanceof DOMException && err.name === "AbortError";
-      const errorMessage = isAbort
-        ? "The request timed out. Please try again."
-        : err instanceof Error
-          ? err.message
-          : "Something went wrong. Please try again.";
-      const errorContent = `I apologize, but I encountered an error: ${errorMessage}. Please try again or contact support if the issue persists.`;
+      const stopped =
+        stopRequestedRef.current || err instanceof AiChatStoppedError;
+      const isTimeoutAbort =
+        !stopped && err instanceof DOMException && err.name === "AbortError";
       const id = sessionIdToUpdate;
-      setSessions((prev) =>
-        prev.map((s) => {
-          if (s.id !== id) return s;
-          const last = s.messages[s.messages.length - 1];
-          if (last?.role === "assistant" && last.content === "") {
-            pendingAssistantScrollId = last.id;
-            const completedAt = Date.now();
+
+      if (stopped) {
+        const partial = streamingContentRef.current.trim();
+        const stoppedContent = partial
+          ? `${partial}\n\n*Response stopped.*`
+          : "*Response stopped before an answer was generated.*";
+        const completedAt = Date.now();
+        setSessions((prev) =>
+          prev.map((s) => {
+            if (s.id !== id) return s;
             return {
               ...s,
               messages: s.messages.map((m) =>
-                m.id === last.id
+                m.id === assistantId
                   ? {
                       ...m,
-                      content: errorContent,
-                      sources: [],
-                      processLog: finalizeProcessLog(m.processLog ?? []),
+                      content: stoppedContent,
+                      sources: m.sources?.length ? m.sources : ["Claude AI · African Legal Research"],
+                      processLog: finalizeProcessLog(
+                        (m.processLog ?? []).map((step) =>
+                          step.status === "active" ? { ...step, status: "done" as const } : step
+                        )
+                      ),
+                      processStartedAt: m.processStartedAt ?? processStartedAt,
                       processCompletedAt: completedAt,
                     }
                   : m
               ),
               updatedAt: Date.now(),
             };
-          }
-          const errorResponse: Message = {
-            id: `assistant-${Date.now()}`,
-            role: "assistant",
-            content: errorContent,
-            sources: [],
-          };
-          pendingAssistantScrollId = errorResponse.id;
-          return { ...s, messages: [...s.messages, errorResponse], updatedAt: Date.now() };
-        })
-      );
+          })
+        );
+        pendingAssistantScrollId = assistantId;
+      } else {
+        const errorMessage = isTimeoutAbort
+          ? "The request timed out. Please try again."
+          : err instanceof Error
+            ? err.message
+            : "Something went wrong. Please try again.";
+        const errorContent = `I apologize, but I encountered an error: ${errorMessage}. Please try again or contact support if the issue persists.`;
+        setSessions((prev) =>
+          prev.map((s) => {
+            if (s.id !== id) return s;
+            const last = s.messages[s.messages.length - 1];
+            if (last?.role === "assistant" && last.content === "") {
+              pendingAssistantScrollId = last.id;
+              const completedAt = Date.now();
+              return {
+                ...s,
+                messages: s.messages.map((m) =>
+                  m.id === last.id
+                    ? {
+                        ...m,
+                        content: errorContent,
+                        sources: [],
+                        processLog: finalizeProcessLog(m.processLog ?? []),
+                        processCompletedAt: completedAt,
+                      }
+                    : m
+                ),
+                updatedAt: Date.now(),
+              };
+            }
+            const errorResponse: Message = {
+              id: `assistant-${Date.now()}`,
+              role: "assistant",
+              content: errorContent,
+              sources: [],
+            };
+            pendingAssistantScrollId = errorResponse.id;
+            return { ...s, messages: [...s.messages, errorResponse], updatedAt: Date.now() };
+          })
+        );
+      }
     } finally {
+      chatAbortRef.current = null;
+      stopRequestedRef.current = false;
       setIsLoading(false);
       setStreamingAssistantId(null);
     }
@@ -1461,9 +1541,36 @@ export default function AIResearchClient() {
                             </ReactMarkdown>
                           </div>
                         ) : msg.role === "user" ? (
-                          <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-foreground/85">
-                            {msg.content}
-                          </p>
+                          <>
+                            <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-foreground/85">
+                              {msg.content}
+                            </p>
+                            <div className="mt-2 flex justify-end gap-1">
+                              <button
+                                type="button"
+                                disabled={isTurnBusy}
+                                onClick={() => handleEditUserMessage(msg.id)}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#FAFAF7] text-[#0D1B2A]/60 transition hover:bg-white hover:text-[#0D1B2A] disabled:opacity-40 dark:border-white/15 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
+                                aria-label="Edit message"
+                                title="Edit"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void handleCopyMessage(msg.id, msg.content, msg.role)}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#FAFAF7] text-[#0D1B2A]/60 transition hover:bg-white hover:text-[#0D1B2A] dark:border-white/15 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
+                                aria-label="Copy message"
+                                title="Copy"
+                              >
+                                {copiedMessageId === msg.id ? (
+                                  <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-300" />
+                                ) : (
+                                  <Copy className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          </>
                         ) : null}
                         {msg.sources && msg.sources.length > 0 && (
                           <p className="mt-2 border-t border-border/80 pt-2 text-[11px] text-muted-foreground">
@@ -1670,6 +1777,7 @@ export default function AIResearchClient() {
               <form onSubmit={handleSubmit}>
                 <div className="flex items-end gap-2 rounded-[8px] border border-border bg-background p-1.5 shadow-inner focus-within:border-[#C8922A]/35 focus-within:ring-2 focus-within:ring-[#C8922A]/15">
                   <textarea
+                    ref={composerTextareaRef}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => {
@@ -1685,17 +1793,31 @@ export default function AIResearchClient() {
                     rows={2}
                     className="min-h-[38px] flex-1 resize-none bg-transparent px-2 py-1.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-50"
                   />
-                  <button
-                    type="submit"
-                    disabled={!input.trim() || atLimit || isTurnBusy}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] bg-[#0D1B2A] text-white transition hover:bg-[#162436] disabled:opacity-40"
-                    aria-label="Send"
-                  >
-                    <Send className="h-3.5 w-3.5" strokeWidth={2} />
-                  </button>
+                  {isTurnBusy ? (
+                    <button
+                      type="button"
+                      onClick={stopGenerating}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] border border-[#0D1B2A] bg-[#0D1B2A] text-white transition hover:bg-[#162436] dark:border-white/25"
+                      aria-label="Stop generating"
+                      title="Stop"
+                    >
+                      <Square className="h-3.5 w-3.5 fill-current" strokeWidth={0} />
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={!input.trim() || atLimit}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] bg-[#0D1B2A] text-white transition hover:bg-[#162436] disabled:opacity-40"
+                      aria-label="Send"
+                    >
+                      <Send className="h-3.5 w-3.5" strokeWidth={2} />
+                    </button>
+                  )}
                 </div>
                 <p className="mt-1.5 text-center text-[10px] text-muted-foreground">
-                  {activeModelName} · Enter to send, Shift+Enter for new line
+                  {isTurnBusy
+                    ? "Generating… Click stop to cancel"
+                    : `${activeModelName} · Enter to send, Shift+Enter for new line`}
                 </p>
               </form>
               {negativeModal ? (
