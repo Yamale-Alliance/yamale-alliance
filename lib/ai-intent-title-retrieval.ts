@@ -98,6 +98,29 @@ export function buildIntentTitleSearchTerms(
       terms.push("value added tax", "vat", "goods and services tax", "tax act");
     }
   }
+  if (resolvedIntent.matchedIds.includes("corruption")) {
+    terms.push(
+      "anti-corruption",
+      "prevention of corruption",
+      "money laundering",
+      "proceeds of crime",
+      "UNCAC",
+      "convention against corruption",
+      "African Union Convention",
+      "FATF",
+      "bribery"
+    );
+  }
+  if (resolvedIntent.matchedIds.includes("telecommunications")) {
+    terms.push(
+      "communications act",
+      "telecommunications act",
+      "communications authority",
+      "ICT act",
+      "regulatory authority",
+      "spectrum"
+    );
+  }
   if (resolvedIntent.matchedIds.includes("labor")) {
     terms.push(
       "labour code",
@@ -191,6 +214,7 @@ export function lawMatchesNationalInvestmentCodeTitle(law: { title?: string | nu
 
 const SLOT_TITLE_SEARCH_TERMS: Record<string, string[]> = {
   companies_act: ["companies act", "company act", "commercial code"],
+  commercial_code: ["commercial code", "code de commerce", "business names act"],
   beneficial_ownership: ["beneficial ownership"],
   investment_code: ["investissement", "investments", "investment code", "code investissement"],
   ip_national: ["copyright", "trademark", "trade mark", "intellectual property", "patent"],
@@ -209,6 +233,16 @@ const SLOT_TITLE_SEARCH_TERMS: Record<string, string[]> = {
     "employment act",
   ],
   labor_wage: ["minimum wage", "national minimum wage"],
+  corruption_national: [
+    "anti-corruption",
+    "prevention of corruption",
+    "corrupt practices",
+    "public officers",
+  ],
+  money_laundering: ["money laundering", "proceeds of crime", "financial intelligence"],
+  corruption_treaty: ["convention against corruption", "uncac", "african union convention"],
+  telecom_act: ["communications act", "telecommunications act", "ict act"],
+  telecom_regulator: ["communications authority", "telecommunications authority", "regulatory authority"],
 };
 
 const MANDATORY_INTENT_IDS = [
@@ -218,6 +252,8 @@ const MANDATORY_INTENT_IDS = [
   "dispute_resolution",
   "tax",
   "labor",
+  "corruption",
+  "telecommunications",
 ] as const;
 
 type TopicSlot = { label: string; titleTest: (title: string) => boolean };
@@ -262,6 +298,36 @@ const INTENT_TOPIC_SLOTS: Record<string, TopicSlot[]> = {
         ),
     },
     { label: "labor_wage", titleTest: (t) => /\b(minimum\s+wage|national\s+minimum\s+wage)\b/i.test(t) },
+  ],
+  corruption: [
+    {
+      label: "corruption_national",
+      titleTest: (t) =>
+        /\b(anti[-\s]?corruption|prevention\s+of\s+corruption|corrupt\s+practices|public\s+officers)\b/i.test(t),
+    },
+    {
+      label: "money_laundering",
+      titleTest: (t) => /\b(money\s+laundering|proceeds\s+of\s+crime|financial\s+intelligence)\b/i.test(t),
+    },
+    {
+      label: "corruption_treaty",
+      titleTest: (t) =>
+        /\b(convention\s+against\s+corruption|uncac|african\s+union\s+convention)\b/i.test(t),
+    },
+  ],
+  telecommunications: [
+    {
+      label: "telecom_act",
+      titleTest: (t) =>
+        /\b(communications?\s+act|telecommunications?\s+act|ict\s+act|postal\s+and\s+telecommunications)\b/i.test(
+          t
+        ),
+    },
+    {
+      label: "telecom_regulator",
+      titleTest: (t) =>
+        /\b(communications?\s+authority|telecommunications?\s+authority|regulatory\s+authority)\b/i.test(t),
+    },
   ],
 };
 
