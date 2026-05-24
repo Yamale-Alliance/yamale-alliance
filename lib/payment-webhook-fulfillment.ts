@@ -7,6 +7,11 @@ import { readPaygDocumentLawIdFromMetadata } from "@/lib/lomi-checkout";
 import { upsertPayAsYouGoPurchase } from "@/lib/payg-purchases";
 import { pawapayDepositEventId, runIdempotentPaymentWebhook } from "@/lib/payment-webhook-idempotency";
 import { markPendingPaymentCheckoutFulfilled } from "@/lib/pending-payment-checkout";
+import {
+  ledgerProviderFromMetadata,
+  recordSubscriptionLedgerEntry,
+  subscriptionLedgerEntryKindFromMetadata,
+} from "@/lib/subscription-ledger";
 
 type DepositCallback = {
   depositId?: string;
@@ -36,6 +41,28 @@ function normalizePawaMetadata(value: unknown): Record<string, string> {
     return out;
   }
   return {};
+}
+
+async function appendSubscriptionLedgerIfApplicable(
+  clerkUserId: string,
+  paymentRefId: string,
+  metadata: Record<string, string>
+): Promise<void> {
+  const entryKind = subscriptionLedgerEntryKindFromMetadata(metadata);
+  if (!entryKind) return;
+  const seats =
+    entryKind === "team_extra_seats" ? Number(metadata.seats) || null : null;
+  await recordSubscriptionLedgerEntry({
+    userId: clerkUserId,
+    provider: ledgerProviderFromMetadata(metadata),
+    paymentRef: paymentRefId,
+    entryKind,
+    planId: metadata.plan_id || null,
+    billingInterval: metadata.interval === "annual" ? "annual" : metadata.interval === "monthly" ? "monthly" : null,
+    changeType: metadata.change_type || null,
+    seatsDelta: seats && seats > 0 ? seats : null,
+    metadata,
+  });
 }
 
 /**
@@ -127,6 +154,7 @@ export async function fulfillPaymentFromMetadata(metadata: Record<string, string
       await clerk.users.updateUserMetadata(clerkUserId, {
         publicMetadata: { ...existing, team_extra_seats: current + seats },
       });
+      await appendSubscriptionLedgerIfApplicable(clerkUserId, paymentRefId, metadata);
     }
     await done();
     return;
@@ -146,6 +174,10 @@ export async function fulfillPaymentFromMetadata(metadata: Record<string, string
         day_pass_last_purchase_at: now.toISOString(),
       },
     });
+    await appendSubscriptionLedgerIfApplicable(clerkUserId, paymentRefId, {
+      ...metadata,
+      plan_id: "day-pass",
+    });
     await done();
     return;
   }
@@ -157,6 +189,7 @@ export async function fulfillPaymentFromMetadata(metadata: Record<string, string
       change_type: metadata.change_type,
       payment_provider: metadata.payment_provider,
     });
+    await appendSubscriptionLedgerIfApplicable(clerkUserId, paymentRefId, metadata);
     await done();
   }
 }
