@@ -22,19 +22,32 @@ export function fullLibraryMaxLaws(): number {
   return Number.isFinite(n) && n >= 1 ? n : 50_000;
 }
 
+function isProductionEnv(): boolean {
+  return (
+    process.env.VERCEL_ENV === "production" ||
+    (process.env.NODE_ENV === "production" && process.env.VERCEL_ENV !== "preview")
+  );
+}
+
 /** Total characters budget across all law bodies in one system prompt. */
 export function fullLibraryMaxInputChars(): number {
   const raw = process.env.AI_FULL_LIBRARY_MAX_INPUT_CHARS?.trim();
-  if (!raw) return 48_000_000;
+  const devDefault = 1_500_000;
+  const prodDefault = 1_200_000;
+  const fallback = isProductionEnv() ? prodDefault : devDefault;
+  if (!raw) return fallback;
   const n = Number.parseInt(raw, 10);
-  return Number.isFinite(n) && n >= 500_000 ? n : 48_000_000;
+  return Number.isFinite(n) && n >= 500_000 ? n : fallback;
 }
 
 export function fullLibraryMaxCharsPerLaw(): number {
   const raw = process.env.AI_FULL_LIBRARY_MAX_CHARS_PER_LAW?.trim();
-  if (!raw) return 2_000_000;
+  const devDefault = 120_000;
+  const prodDefault = 100_000;
+  const fallback = isProductionEnv() ? prodDefault : devDefault;
+  if (!raw) return fallback;
   const n = Number.parseInt(raw, 10);
-  return Number.isFinite(n) && n >= 10_000 ? n : 2_000_000;
+  return Number.isFinite(n) && n >= 10_000 ? n : fallback;
 }
 
 /**
