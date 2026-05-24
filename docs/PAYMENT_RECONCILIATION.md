@@ -2,6 +2,8 @@
 
 Catches payments where the user paid at Lomi or pawaPay but Yamalé never recorded access (missed webhook / failed browser confirm).
 
+**Subscription / tier writes** use Clerk `publicMetadata` (last-write-wins). Duplicate webhooks are generally safe at launch; see [SUBSCRIPTION_STATE.md](./SUBSCRIPTION_STATE.md).
+
 ## How it works
 
 1. **At checkout create** — `payment_checkout_pending` stores `payment_ref`, `user_id`, `provider`, `kind`, and metadata (via `createLomiHostedCheckoutSession` / `createPaymentPageSession`).
