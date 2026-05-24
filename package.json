@@ -11,7 +11,10 @@
     "fix-law-ocr": "node --env-file=.env --import tsx scripts/fix-law-ocr-with-ai.ts",
     "scan-law-copyright-glyphs": "node --env-file=.env scripts/scan-law-copyright-glyphs.mjs",
     "ingest:ai-context": "node --env-file=.env scripts/ingest-ai-context.mjs",
-    "ingest:ai-context:dry-run": "node --env-file=.env scripts/ingest-ai-context.mjs --dry-run"
+    "ingest:ai-context:dry-run": "node --env-file=.env scripts/ingest-ai-context.mjs --dry-run",
+    "eval:golden": "node --env-file=.env scripts/run-ai-golden-batch.mjs",
+    "eval:golden:dry-run": "node --env-file=.env scripts/run-ai-golden-batch.mjs --dry-run",
+    "eval:parse-report": "node scripts/parse-eval-report-pdf.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.37.1",
