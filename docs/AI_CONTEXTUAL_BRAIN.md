@@ -53,6 +53,15 @@ Files can live in `data/ai-context/` or any folder you pass to the script:
 | `CompanyLaw_BOOK.pdf` | Company Law (Treatise) | Global |
 | `Corporate Law.pdf` | Corporate Law (Treatise) | Global |
 | `Contracts Law Africa.pdf` | Contracts Law Africa | Global |
+| `Yamale_AI_Brain_Contracts_Law.docx` | Yamalé AI Brain — Contracts Law | Global |
+| `Yamale_AI_Brain_Corporate_Law.docx` | Yamalé AI Brain — Corporate Law | Global |
+| `Yamale_AI_Brain_Employment_Law.docx` | Yamalé AI Brain — Employment Law | Global |
+| `Yamale_AI_Brain_Environmental_Law.docx` | Yamalé AI Brain — Environmental Law | Global |
+| `Yamale_AI_Brain_Finance_and_Banking_Law.docx` | Yamalé AI Brain — Finance And Banking Law | Global |
+| `Yamale_AI_Brain_Litigation_and_Arbitration.docx` | Yamalé AI Brain — Litigation And Arbitration | Global |
+| `Yamale_AI_Brain_Mediation.docx` | Yamalé AI Brain — Mediation | Global |
+| `Yamale_AI_Brain_Mining_Law.docx` | Yamalé AI Brain — Mining Law | Global |
+| `Yamale_AI_Brain_Oil_and_Gas_Law.docx` | Yamalé AI Brain — Oil And Gas Law | Global |
 | `ALSF Mining.pdf` | ALSF Mining Law Guide | Global |
 | `Angola_Legal_System_Deep_Dive.docx` | Angola Legal System Deep Dive | Angola |
 | `Benin_Legal_System_Deep_Dive.docx` | Benin Legal System Deep Dive | Benin |
@@ -101,6 +110,12 @@ Country deep dives use a specific `country_id` and `applies_to_all_countries: fa
 1. Admin → Laws: filter by category **AI Legal Methodology**.
 2. AI Research: ask *"How should I read Section 14 of a labour code?"* — response should follow IRAC and cite methodology or library excerpts.
 3. Check API logs for `methodology_context` perf step and `systemPromptVersion` `2026.05.23-contextual-brain-v1`.
+
+## Latency
+
+A long answer (~4–5k output tokens) can take **60–90s total**: ~25–45s library RAG + methodology retrieval, then ~35–55s streaming. Filter server logs with `[PERF]` (`AI_PERF_LOG` is on by default).
+
+**Tuning (optional):** `AI_CHAT_MAX_OUTPUT_TOKENS`, `AI_METHODOLOGY_MAX_CHARS_PER_DOC`, `AI_METHODOLOGY_MAX_DOCS`. Practice modules are loaded via `fetchAiMethodologyContext` only — they are excluded from national-law RAG so 80k-char brain rows are not fetched twice.
 
 ## Maintenance
 
