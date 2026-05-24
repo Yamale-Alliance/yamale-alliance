@@ -1479,18 +1479,18 @@ export default function AIResearchClient() {
                     <div
                       key={msg.id}
                       id={`msg-${msg.id}`}
-                      className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
+                      className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
                     >
                       {msg.role === "assistant" ? (
                         <div
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#0D1B2A] text-[11px] font-bold text-white"
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#0D1B2A] text-[11px] font-bold text-white dark:border-white/15"
                           aria-hidden
                         >
                           Y
                         </div>
                       ) : (
                         <div
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#C8922A]/15 text-[11px] font-bold text-[#0D1B2A]"
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#C8922A]/15 text-[11px] font-bold text-[#0D1B2A] dark:border-white/15 dark:bg-[#C8922A]/20 dark:text-[#F5D793]"
                           aria-hidden
                         >
                           {user?.imageUrl ? (
@@ -1505,13 +1505,41 @@ export default function AIResearchClient() {
                           )}
                         </div>
                       )}
-                      <div
-                        className={`min-w-0 max-w-[min(100%,560px)] rounded-[10px] border px-4 py-3 shadow-sm ${
-                          msg.role === "user"
-                            ? "border-[#C8922A]/25 bg-[#FFFDF8] text-[#0D1B2A]"
-                            : "border-border bg-card text-foreground"
-                        }`}
-                      >
+                      {msg.role === "user" ? (
+                        <div className="flex min-w-0 max-w-[min(100%,560px)] flex-col items-end gap-1.5">
+                          <div className="w-fit max-w-full rounded-[10px] border border-[#C8922A]/25 bg-[#FFFDF8] px-3 py-2 shadow-sm dark:border-[#C8922A]/35 dark:bg-[#243044] dark:text-white/90">
+                            <p className="whitespace-pre-wrap text-[14px] leading-snug text-[#0D1B2A] dark:text-white/90">
+                              {msg.content}
+                            </p>
+                          </div>
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              disabled={isTurnBusy}
+                              onClick={() => handleEditUserMessage(msg.id)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#FAFAF7] text-[#0D1B2A]/60 transition hover:bg-white hover:text-[#0D1B2A] disabled:opacity-40 dark:border-white/15 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
+                              aria-label="Edit message"
+                              title="Edit"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleCopyMessage(msg.id, msg.content, msg.role)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#FAFAF7] text-[#0D1B2A]/60 transition hover:bg-white hover:text-[#0D1B2A] dark:border-white/15 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
+                              aria-label="Copy message"
+                              title="Copy"
+                            >
+                              {copiedMessageId === msg.id ? (
+                                <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-300" />
+                              ) : (
+                                <Copy className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                      <div className="min-w-0 max-w-[min(100%,560px)] flex-1 rounded-[10px] border border-border bg-card px-4 py-3 text-foreground shadow-sm">
                         {msg.role === "assistant" && msg.processLog && msg.processLog.length > 0 ? (
                           <AiResearchProcessPanel
                             steps={msg.processLog}
@@ -1540,37 +1568,6 @@ export default function AIResearchClient() {
                               {msg.content}
                             </ReactMarkdown>
                           </div>
-                        ) : msg.role === "user" ? (
-                          <>
-                            <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-foreground/85">
-                              {msg.content}
-                            </p>
-                            <div className="mt-2 flex justify-end gap-1">
-                              <button
-                                type="button"
-                                disabled={isTurnBusy}
-                                onClick={() => handleEditUserMessage(msg.id)}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#FAFAF7] text-[#0D1B2A]/60 transition hover:bg-white hover:text-[#0D1B2A] disabled:opacity-40 dark:border-white/15 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
-                                aria-label="Edit message"
-                                title="Edit"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => void handleCopyMessage(msg.id, msg.content, msg.role)}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#FAFAF7] text-[#0D1B2A]/60 transition hover:bg-white hover:text-[#0D1B2A] dark:border-white/15 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10"
-                                aria-label="Copy message"
-                                title="Copy"
-                              >
-                                {copiedMessageId === msg.id ? (
-                                  <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-300" />
-                                ) : (
-                                  <Copy className="h-3.5 w-3.5" />
-                                )}
-                              </button>
-                            </div>
-                          </>
                         ) : null}
                         {msg.sources && msg.sources.length > 0 && (
                           <p className="mt-2 border-t border-border/80 pt-2 text-[11px] text-muted-foreground">
@@ -1764,6 +1761,7 @@ export default function AIResearchClient() {
                           </div>
                         )}
                       </div>
+                      )}
                     </div>
                   ))}
                   <div ref={messagesEndRef} />
