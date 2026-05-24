@@ -82,7 +82,21 @@ export default clerkMiddleware(async (auth, request) => {
     url.pathname === "/api/payments/webhook" ||
     url.pathname === "/api/stripe/webhook";
   const isCronRoute = url.pathname.startsWith("/api/cron/");
-  if (process.env.ENABLE_BASIC_AUTH === "true" && !isPublicApi && !isWebhookCallback && !isCronRoute) {
+  const isAiEvalChat =
+    request.method === "POST" &&
+    url.pathname === "/api/ai/chat" &&
+    (() => {
+      const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+      const secret = process.env.AI_EVAL_SECRET?.trim();
+      return Boolean(bearer && secret && bearer === secret);
+    })();
+  if (
+    process.env.ENABLE_BASIC_AUTH === "true" &&
+    !isPublicApi &&
+    !isWebhookCallback &&
+    !isCronRoute &&
+    !isAiEvalChat
+  ) {
     if (!checkBasicAuth(request)) {
       const unauthorized = new NextResponse("Authentication required", {
         status: 401,
@@ -94,8 +108,8 @@ export default clerkMiddleware(async (auth, request) => {
     }
   }
 
-  // Clerk authentication
-  if (!isPublicRoute(request)) {
+  // Clerk authentication (batch eval uses AI_EVAL_SECRET + AI_EVAL_CLERK_USER_ID on POST /api/ai/chat)
+  if (!isPublicRoute(request) && !isAiEvalChat) {
     await auth.protect();
   }
 
