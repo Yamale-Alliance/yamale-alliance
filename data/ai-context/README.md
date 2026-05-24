@@ -3,7 +3,7 @@
 Drop **PDF** or **DOCX** here, **or** set your bundle path in `.env`:
 
 ```env
-AI_CONTEXT_SOURCE_DIR=/Users/fahimrashid/Downloads/AI-Context/v2
+AI_CONTEXT_SOURCE_DIR=/Users/fahimrashid/Documents/brain
 ```
 
 Then ingest from the project root:
@@ -24,6 +24,7 @@ npm run ingest:ai-context -- "/Users/fahimrashid/Downloads/AI-Context/v2"
 | Pattern | Example | Result |
 |---------|---------|--------|
 | Main brain | `Yamale_AI_Contextual_Brain_v2.docx` | Global methodology |
+| Practice module | `Yamale_AI_Brain_Mining_Law.docx` | Global → **Yamalé AI Brain — Mining Law** |
 | Any other PDF/DOCX | `Mining Due Diligence Guide.pdf` | Global methodology |
 | Country deep dive | `Senegal_Legal_System_Deep_Dive.docx` | Scoped to that country in the library |
 
