@@ -41,6 +41,38 @@ export function isTeamAdmin(metadata: Record<string, unknown> | undefined): bool
   return metadata?.team_admin !== false; // true if team_admin is true or not set (payer before we added the flag)
 }
 
+/** Team billing admin for a user (self if admin, else inviting admin). */
+export async function getTeamBillingAdminUserId(userId: string): Promise<string | null> {
+  const clerk = await clerkClient();
+  const user = await clerk.users.getUser(userId);
+  const metadata = user.publicMetadata as Record<string, unknown> | undefined;
+  if (isTeamAdmin(metadata)) return userId;
+
+  const supabase = getSupabaseServer();
+  const { data } = await supabase
+    .from("team_members")
+    .select("admin_user_id")
+    .eq("member_user_id", userId)
+    .maybeSingle();
+  const adminId = (data as { admin_user_id?: string } | null)?.admin_user_id?.trim();
+  return adminId || null;
+}
+
+/** Admin + all member user ids (for shared daily AI caps). */
+export async function getTeamMemberUserIds(adminUserId: string): Promise<string[]> {
+  const supabase = getSupabaseServer();
+  const { data } = await supabase
+    .from("team_members")
+    .select("member_user_id")
+    .eq("admin_user_id", adminUserId);
+  const ids = new Set<string>([adminUserId]);
+  for (const row of data ?? []) {
+    const id = String((row as { member_user_id?: string }).member_user_id ?? "").trim();
+    if (id) ids.add(id);
+  }
+  return [...ids];
+}
+
 /** Count current members for an admin. */
 export async function getTeamMemberCount(adminUserId: string): Promise<number> {
   const supabase = getSupabaseServer();
