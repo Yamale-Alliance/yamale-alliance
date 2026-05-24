@@ -84,11 +84,20 @@ function resolveDeepDiveDbCountry(label, countries) {
   );
 }
 
+function titleCaseWords(s) {
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function titleFromFilename(file) {
   const base = basename(file, extname(file));
   const country = countryFromDeepDiveFilename(basename(file));
   if (country) return `${country} Legal System Deep Dive`;
   if (/contextual_brain/i.test(base)) return "Yamalé AI Contextual Brain v2";
+  const brainModule = base.match(/^yamale_ai_brain_(.+)$/i);
+  if (brainModule) {
+    const topic = brainModule[1].replace(/[-_]+/g, " ").trim();
+    return `Yamalé AI Brain — ${titleCaseWords(topic)}`;
+  }
   return base.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
 }
 
