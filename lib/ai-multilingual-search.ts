@@ -85,7 +85,10 @@ export const RE_DATA_PROTECTION =
   /\b(data\s+protection|privacy|rgpd|gdpr|donnees\s+personnelles|protection\s+des\s+donnees|personal\s+data|ndp\s+act|حماية\s+البيانات|البيانات\s+الشخصية|خصوصية)\b|(?:حماية\s+البيانات|خصوصية)/iu;
 
 export const RE_CORRUPTION =
-  /\b(anti[-\s]?bribery|corruption|anti\s+corruption|money\s+laundering|lutte\s+contre\s+la\s+corruption|prevention\s+of\s+corruption|فساد|رشوة|مكافحة\s+الفساد|غسل\s+الأموال)\b|(?:فساد|رشوة)/iu;
+  /\b(anti[-\s]?bribery|corruption|anti\s+corruption|money\s+laundering|uncac|fatf|proceeds\s+of\s+crime|lutte\s+contre\s+la\s+corruption|prevention\s+of\s+corruption|فساد|رشوة|مكافحة\s+الفساد|غسل\s+الأموال)\b|(?:فساد|رشوة)/iu;
+
+export const RE_TELECOMMUNICATIONS =
+  /\b(telecom|telecommunication|telecommunications|communications?\s+authority|communications\s+act|ict\s+act|regulat(?:or|ory)\s+.*\s+telecom|internet\s+service\s+provider|mobile\s+network|spectrum\s+licen[cs]e|licen[cs]e\s+to\s+operate|ncc\b|icasa|ca\s+kenya|cak\b|arcep|crbt|اتصالات|هيئة\s+الاتصالات)\b/iu;
 
 export const RE_BANKING =
   /\b(banking|bank\s+law|central\s+bank|financial\s+institution|microfinance|credit\s+institution|payment\s+system|bancaire|banque\s+centrale|services\s+financiers|institution\s+financiere|نظام\s+مصرفي|مصرف|بنك\s+مركزي|الخدمات\s+المالية)\b|(?:مصرف|بنك\s+مركزي)/iu;
