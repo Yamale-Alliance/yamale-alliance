@@ -139,6 +139,8 @@ We attach metadata when creating hosted checkout sessions via `@lomi./sdk` (`che
 
 3. **Retries:** Each webhook delivery is keyed by Lomi `id` (or a fallback composite) in `payment_webhook_events`. Retries with the same id are acknowledged without re-running fulfillment. PAYG rows also use `upsert` on `stripe_session_id`; marketplace uses `upsert` on `(user_id, marketplace_item_id)`.
 
+4. **Subscriptions / tier / day pass / team seats:** Stored in Clerk `publicMetadata` (not transactional). Duplicate deliveries of the **same** webhook are safe via `payment_webhook_events`. See [SUBSCRIPTION_STATE.md](./SUBSCRIPTION_STATE.md). Longer term: append-only `subscription_ledger` (one row per payment event).
+
 ---
 
 ## 7. Response summary
