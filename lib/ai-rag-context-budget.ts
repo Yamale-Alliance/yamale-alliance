@@ -1,53 +1,69 @@
 /** Default total characters for law excerpts injected into the AI system prompt (RAG). */
 export const RAG_MAX_CONTEXT_CHARS = 12_000;
 
-function envInt(name: string, fallback: number, min: number, max: number): number {
+function isProductionEnv(): boolean {
+  return (
+    process.env.VERCEL_ENV === "production" ||
+    (process.env.NODE_ENV === "production" && process.env.VERCEL_ENV !== "preview")
+  );
+}
+
+/** Dev default when env unset; prod default when unset on Vercel production. Explicit env always wins. */
+function envInt(
+  name: string,
+  devFallback: number,
+  prodFallback: number,
+  min: number,
+  max: number
+): number {
   const raw = process.env[name]?.trim();
-  if (!raw) return fallback;
+  const fallback = isProductionEnv() ? prodFallback : devFallback;
+  if (!raw) return Math.min(max, Math.max(min, fallback));
   const n = Number.parseInt(raw, 10);
-  if (!Number.isFinite(n)) return fallback;
+  if (!Number.isFinite(n)) return Math.min(max, Math.max(min, fallback));
   return Math.min(max, Math.max(min, n));
 }
 
-/** Override via `AI_RAG_MAX_CONTEXT_CHARS` (e.g. 48000 or 96000). */
+/** Override via `AI_RAG_MAX_CONTEXT_CHARS` (raise only when needed; prod default is conservative). */
 export function ragMaxContextCharsFromEnv(): number {
-  return envInt("AI_RAG_MAX_CONTEXT_CHARS", RAG_MAX_CONTEXT_CHARS, 8_000, 800_000);
+  return envInt("AI_RAG_MAX_CONTEXT_CHARS", RAG_MAX_CONTEXT_CHARS, 10_000, 8_000, 800_000);
 }
 
 /** Override via `AI_RAG_MULTI_DOC_CAP` when listing many instruments. */
 export function ragMultiDocCapFromEnv(): number {
-  return envInt("AI_RAG_MULTI_DOC_CAP", RAG_MULTI_DOC_CONTEXT_CAP, 12_000, 1_200_000);
+  return envInt("AI_RAG_MULTI_DOC_CAP", RAG_MULTI_DOC_CONTEXT_CAP, 18_000, 12_000, 1_200_000);
 }
 
 /** Override via `AI_RAG_MAX_DOC_SLOTS` (also raise `AI_RAG_MAX_SYSTEM_DOCS` in chat). */
 export function ragMaxDocSlotsFromEnv(): number {
-  return envInt("AI_RAG_MAX_DOC_SLOTS", RAG_MAX_DOC_SLOTS, 4, 40);
+  return envInt("AI_RAG_MAX_DOC_SLOTS", RAG_MAX_DOC_SLOTS, 10, 4, 40);
 }
 
 export function ragPrimaryStatuteTotalFromEnv(): number {
-  return envInt("AI_RAG_PRIMARY_STATUTE_TOTAL_CHARS", RAG_PRIMARY_STATUTE_TOTAL_CHARS, 20_000, 800_000);
+  return envInt("AI_RAG_PRIMARY_STATUTE_TOTAL_CHARS", RAG_PRIMARY_STATUTE_TOTAL_CHARS, 24_000, 20_000, 800_000);
 }
 
 export function ragPrimaryStatutePerDocFromEnv(): number {
   return envInt(
     "AI_RAG_PRIMARY_STATUTE_PER_DOC_CHARS",
     RAG_PRIMARY_STATUTE_PER_DOC_CHARS,
+    9_000,
     8_000,
     400_000
   );
 }
 
 export function ragNamedStatuteTotalFromEnv(): number {
-  return envInt("AI_RAG_NAMED_STATUTE_TOTAL_CHARS", RAG_NAMED_STATUTE_TOTAL_CHARS, 24_000, 1_200_000);
+  return envInt("AI_RAG_NAMED_STATUTE_TOTAL_CHARS", RAG_NAMED_STATUTE_TOTAL_CHARS, 36_000, 24_000, 1_200_000);
 }
 
 /** Max law documents in the system prompt for normal RAG (not full-library mode). */
 export function ragMaxSystemDocsFromEnv(): number {
-  return envInt("AI_RAG_MAX_SYSTEM_DOCS", 12, 4, 40);
+  return envInt("AI_RAG_MAX_SYSTEM_DOCS", 12, 10, 4, 40);
 }
 
 export function ragMaxSystemDocsDetailedFromEnv(): number {
-  return envInt("AI_RAG_MAX_SYSTEM_DOCS_DETAILED", 14, 6, 40);
+  return envInt("AI_RAG_MAX_SYSTEM_DOCS_DETAILED", 14, 12, 6, 40);
 }
 
 /**
@@ -94,7 +110,14 @@ export function isMultiInstrumentListQuery(query: string): boolean {
 }
 
 export function isFocusedPrimaryStatuteIntent(primaryIntentId: string): boolean {
-  return primaryIntentId === "tax" || primaryIntentId === "labor" || primaryIntentId === "intellectual_property";
+  return (
+    primaryIntentId === "tax" ||
+    primaryIntentId === "labor" ||
+    primaryIntentId === "intellectual_property" ||
+    primaryIntentId === "registration" ||
+    primaryIntentId === "corruption" ||
+    primaryIntentId === "telecommunications"
+  );
 }
 
 export function ragExcerptBudget(
