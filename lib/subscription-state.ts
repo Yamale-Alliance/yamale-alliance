@@ -1,5 +1,7 @@
 import { clerkClient } from "@clerk/nextjs/server";
 
+/** Clerk publicMetadata is last-write-wins (not transactional). See docs/SUBSCRIPTION_STATE.md. */
+
 export type PaidTier = "basic" | "pro" | "team";
 export type BillingInterval = "monthly" | "annual";
 
