@@ -50,3 +50,6 @@ supabase_backup_*.sql
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# AI golden eval batch outputs (may contain long answers)
+data/eval/runs/
