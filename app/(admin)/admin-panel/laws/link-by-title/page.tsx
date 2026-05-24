@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Loader2, Link2 } from "lucide-react";
+import { ArrowLeft, Link2, Loader2, Search } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 
 type CandidateLaw = {
@@ -30,6 +30,7 @@ export default function AdminLinkLawsByTitlePage() {
   const [selectedByGroup, setSelectedByGroup] = useState<Record<string, Set<string>>>({});
   const [sourceByGroup, setSourceByGroup] = useState<Record<string, string>>({});
   const [linkingKey, setLinkingKey] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -137,10 +138,25 @@ export default function AdminLinkLawsByTitlePage() {
 
   const totalGroups = groups.length;
 
-  const sortedGroups = useMemo(
-    () => [...groups].sort((a, b) => b.laws.length - a.laws.length || a.normalized_title.localeCompare(b.normalized_title)),
-    [groups]
-  );
+  const sortedGroups = useMemo(() => {
+    const list = [...groups].sort((a, b) => {
+      const titleA = a.laws[0]?.title ?? a.normalized_title;
+      const titleB = b.laws[0]?.title ?? b.normalized_title;
+      return titleA.localeCompare(titleB, undefined, { sensitivity: "base" });
+    });
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((g) => {
+      const title = (g.laws[0]?.title ?? g.normalized_title).toLowerCase();
+      if (title.includes(q) || g.normalized_title.includes(q)) return true;
+      return g.laws.some(
+        (l) =>
+          l.country_name.toLowerCase().includes(q) ||
+          l.title.toLowerCase().includes(q) ||
+          l.status.toLowerCase().includes(q)
+      );
+    });
+  }, [groups, searchQuery]);
 
   return (
     <div className="p-4 sm:p-6">
@@ -156,9 +172,10 @@ export default function AdminLinkLawsByTitlePage() {
           </Link>
           <h1 className="mt-3 text-2xl font-semibold text-foreground">Link laws by title</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Find laws with the same title across different countries (e.g. OHADA uniform acts). Link them so edits to
-            shared fields propagate to all members. Each law remains attached to its country; only content and shared
-            metadata stay in sync when you save from the law editor.
+            Find every law record that shares the same title (member states, regional blocs such as ECOWAS / COMESA /
+            EAC / OIC, or “All countries”). Link them so edits to shared fields propagate to all members. Each law
+            remains attached to its country; only content and shared metadata stay in sync when you save from the law
+            editor.
           </p>
           {scanned != null && (
             <p className="mt-2 text-xs text-muted-foreground">Scanned {scanned.toLocaleString()} law rows.</p>
@@ -194,13 +211,42 @@ export default function AdminLinkLawsByTitlePage() {
         </div>
       )}
 
+      {!loading && totalGroups > 0 && (
+        <div className="mb-4 max-w-3xl">
+          <label htmlFor="link-by-title-search" className="mb-1 block text-xs font-medium text-muted-foreground">
+            Search groups
+          </label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              id="link-by-title-search"
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Filter by title, country (e.g. ECOWAS, COMESA, EAC, OIC), or status…"
+              className="w-full rounded-md border border-input bg-background py-2 pl-9 pr-3 text-sm"
+              autoComplete="off"
+            />
+          </div>
+        </div>
+      )}
+
       {loading && groups.length === 0 ? (
         <div className="flex min-h-[40vh] items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : totalGroups === 0 ? (
-        <p className="text-sm text-muted-foreground">No groups found with the same title in two or more jurisdictions.</p>
+        <p className="text-sm text-muted-foreground">
+          No groups found with the same title on two or more law records.
+        </p>
+      ) : sortedGroups.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No groups match your search.</p>
       ) : (
+        <>
+        <p className="mb-3 text-xs text-muted-foreground">
+          {sortedGroups.length} group{sortedGroups.length === 1 ? "" : "s"}
+          {searchQuery.trim() ? ` matching “${searchQuery.trim()}”` : ""} · sorted A–Z by title
+        </p>
         <ul className="space-y-3">
           {sortedGroups.map((g) => {
             const key = g.normalized_title;
@@ -223,13 +269,13 @@ export default function AdminLinkLawsByTitlePage() {
                       });
                     }
                   }}
-                  className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-medium hover:bg-muted/50"
+                  className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left text-sm font-medium hover:bg-muted/50"
                 >
-                  <span className="min-w-0 truncate">
+                  <span className="min-w-0 flex-1 break-words whitespace-normal leading-snug">
                     <span className="text-muted-foreground">{n} laws · </span>
                     <span className="text-foreground">{g.laws[0]?.title ?? key}</span>
                   </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">{open ? "Hide" : "Expand"}</span>
+                  <span className="shrink-0 pt-0.5 text-xs text-muted-foreground">{open ? "Hide" : "Expand"}</span>
                 </button>
                 {open && (
                   <div className="border-t border-border px-4 py-3">
@@ -253,22 +299,24 @@ export default function AdminLinkLawsByTitlePage() {
                       Source law (text copied to others on link): pick one radio, then tick laws to include (min 2).
                       Long country lists scroll inside this box if you do not see every member.
                     </p>
-                    <ul className="max-h-72 space-y-2 overflow-y-auto">
+                    <ul className="max-h-[min(28rem,70vh)] space-y-2 overflow-y-auto">
                       {g.laws.map((law) => (
                         <li
                           key={law.id}
-                          className="flex flex-wrap items-center gap-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-sm"
+                          className="flex flex-wrap items-start gap-3 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-sm"
                         >
-                          <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
+                          <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2">
                             <input
                               type="checkbox"
                               checked={selected.has(law.id)}
                               onChange={() => toggleLaw(key, law.id)}
-                              className="h-4 w-4 rounded border-input"
+                              className="mt-1 h-4 w-4 shrink-0 rounded border-input"
                             />
-                            <span className="min-w-0 truncate font-medium">{law.country_name}</span>
-                            <span className="text-muted-foreground">·</span>
-                            <span className="truncate text-muted-foreground">{law.status}</span>
+                            <span className="min-w-0 break-words">
+                              <span className="font-medium text-foreground">{law.country_name}</span>
+                              <span className="text-muted-foreground"> · </span>
+                              <span className="text-muted-foreground">{law.status}</span>
+                            </span>
                           </label>
                           <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
                             <input
@@ -310,6 +358,7 @@ export default function AdminLinkLawsByTitlePage() {
             );
           })}
         </ul>
+        </>
       )}
     </div>
   );
