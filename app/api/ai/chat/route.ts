@@ -85,6 +85,11 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { fetchLawIdsForCategory } from "@/lib/law-categories-sync";
 import {
+  excludeInternalCategoryFromLawsQuery,
+  filterPublicLibraryLawRows,
+  resolveInternalLibraryCategoryId,
+} from "@/lib/internal-library-categories";
+import {
   getAiUsage,
   getAiQueryLimitForTier,
   incrementAiUsage,
@@ -102,6 +107,11 @@ import {
   encodeSseEvent,
   readAnthropicMessageStream,
 } from "@/lib/ai-claude-stream";
+import {
+  checkDuplicatePrompt,
+  reserveDailyAiQuery,
+  validateAiChatRequest,
+} from "@/lib/ai-abuse-caps";
 import { getClaudeTimeoutMs } from "@/lib/ai-chat-route-limits";
 import { captureAiChatError, captureClaudeApiError } from "@/lib/monitoring";
 import {
@@ -112,10 +122,14 @@ import {
 } from "@/lib/ai-full-library-context";
 import { LAW_HAS_BODY_OR_FILTER, filterLawsWithReadableBody } from "@/lib/law-readable-body";
 import {
-  buildAiResearchSystemPrompt,
   SYSTEM_PROMPT_VERSION,
   validateAiResearchSystemPromptParams,
 } from "@/lib/ai-system-prompt";
+import {
+  aiRagSourcingFloorFromEnv,
+  fitSystemPromptToInputBudget,
+  mergeLegalContextDeduped,
+} from "@/lib/ai-prompt-budget";
 import { fetchContextualWebSearchForTurn } from "@/lib/ai-web-search";
 import { isAssistantWorkflowMetaQuery, isPlatformGuideMetaQuery } from "@/lib/ai-platform-meta-query";
 import {
@@ -130,7 +144,6 @@ import {
 import { insertAiQueryLog } from "@/lib/ai-query-log";
 import {
   createAiPerfTimer,
-  estimatePromptTokensFromChars,
   perfStep,
   sumLegalContextChars,
   type AiPerfTimer,
@@ -954,6 +967,63 @@ function buildExcerptAnchorTokens(query: string, primaryIntentId: string): strin
       "opposition"
     );
   }
+  if (primaryIntentId === "registration") {
+    if (/\b(share\s+capital|minimum\s+capital|authorised\s+capital|paid[-\s]?up|stated\s+capital)\b/i.test(q)) {
+      anchors.push(
+        "share capital",
+        "minimum capital",
+        "authorised capital",
+        "authorized capital",
+        "stated capital",
+        "nominal value",
+        "shares"
+      );
+    }
+    if (/\b(how\s+long|timeline|time\s+to|days?\s+to|within\s+\d+\s+days|how\s+many\s+days)\b/i.test(q)) {
+      anchors.push("within", "days", "business days", "certificate", "registration", "incorporation");
+    }
+    if (/\b(online|portal|ecitizen|electronic\s+filing|e-?filing)\b/i.test(q)) {
+      anchors.push("electronic", "online", "portal", "filing", "submission");
+    }
+    if (/\b(branch\s+office|foreign\s+company|representative\s+office)\b/i.test(q)) {
+      anchors.push("branch", "foreign company", "place of business", "representative");
+    }
+    if (/\b(steps?\s+to\s+register|how\s+(do\s+)?i\s+register|incorporat|register\s+a\s+company)\b/i.test(q)) {
+      anchors.push(
+        "incorporation",
+        "application",
+        "memorandum",
+        "articles of association",
+        "registrar",
+        "certificate of incorporation",
+        "register"
+      );
+    }
+    if (/\b(business\s+name|sole\s+proprietor|partnership)\b/i.test(q)) {
+      anchors.push("business name", "firm name", "sole proprietor", "partnership");
+    }
+  }
+  if (primaryIntentId === "corruption") {
+    anchors.push(
+      "corruption",
+      "bribery",
+      "money laundering",
+      "proceeds of crime",
+      "public officer",
+      "financial intelligence"
+    );
+  }
+  if (primaryIntentId === "telecommunications" || /\b(telecom|who\s+regulates)\b/i.test(q)) {
+    anchors.push(
+      "communications authority",
+      "telecommunications",
+      "communications act",
+      "licence",
+      "license",
+      "regulator",
+      "regulatory authority"
+    );
+  }
   return Array.from(new Set(anchors));
 }
 
@@ -1681,6 +1751,7 @@ async function searchLegalLibrary(
 ): Promise<LegalLibrarySearchResult> {
   try {
     const supabase = getSupabaseServer() as any;
+    const internalCategoryId = await resolveInternalLibraryCategoryId(supabase);
     const hints = extractQueryHints(query);
     const dbDetectedCountry = !country && !hints.country ? await detectCountryFromQueryUsingDatabase(query) : undefined;
     const searchCountry = country || hints.country || dbDetectedCountry;
@@ -1927,11 +1998,14 @@ async function searchLegalLibrary(
         .filter((t) => t.length >= 3 && !specificStop.has(t))
         .slice(0, 5);
       if (specificTokens.length > 0) {
-        let sq = supabase
-          .from("laws")
-          .select(LAWS_AI_SELECT)
-          .or(LAW_HAS_BODY_OR_FILTER)
-          .neq("status", "Repealed");
+        let sq = excludeInternalCategoryFromLawsQuery(
+          supabase
+            .from("laws")
+            .select(LAWS_AI_SELECT)
+            .or(LAW_HAS_BODY_OR_FILTER)
+            .neq("status", "Repealed"),
+          internalCategoryId
+        );
         if (countryId) {
           sq = sq.or(lawsCountryOrGlobalWithTitleTerms(countryId, specificTokens));
         } else {
@@ -1947,12 +2021,15 @@ async function searchLegalLibrary(
     let laws: any[] | null = specificLawRows;
     let error: any = null;
     if (!skipBroadLibraryTextSearch) {
-      let lawsQuery = supabase
-        .from("laws")
-        .select(LAWS_AI_SELECT)
-        .or(LAW_HAS_BODY_OR_FILTER)
-        .neq("status", "Repealed")
-        .limit(250);
+      let lawsQuery = excludeInternalCategoryFromLawsQuery(
+        supabase
+          .from("laws")
+          .select(LAWS_AI_SELECT)
+          .or(LAW_HAS_BODY_OR_FILTER)
+          .neq("status", "Repealed")
+          .limit(250),
+        internalCategoryId
+      );
 
       if (categoryId) {
         try {
@@ -2141,6 +2218,8 @@ async function searchLegalLibrary(
       "dispute_resolution",
       "tax",
       "labor",
+      "corruption",
+      "telecommunications",
     ] as const;
     const trademarkRegistrationHowTo = isTrademarkRegistrationHowToQuery(query);
     const resolvedIntentForMandatory = trademarkRegistrationHowTo
@@ -2268,6 +2347,7 @@ async function searchLegalLibrary(
     }
 
     lawsRows = filterLawsWithReadableBody(lawsRows);
+    lawsRows = filterPublicLibraryLawRows(lawsRows, internalCategoryId);
 
     if (!lawsRows.length) {
       return [];
@@ -2544,6 +2624,11 @@ async function searchLegalLibrary(
       userRequestsFullLawText(query) ||
       lawsForResponse.length === 1 ||
       (detailedMode && lawsForResponse.length <= 3);
+    const namedStatuteTotalCap = ragNamedStatuteTotalFromEnv();
+    const fullActPerDocCap = Math.min(
+      ragPrimaryStatutePerDocFromEnv() * 2,
+      Math.max(ragPrimaryStatutePerDocFromEnv(), Math.floor(namedStatuteTotalCap / Math.max(1, lawsForResponse.length)))
+    );
 
     const preferMoreDocuments =
       countryCatalogRequest ||
@@ -2561,7 +2646,7 @@ async function searchLegalLibrary(
         trademarkRegistrationHowTo ||
         (resolvedIntent.matchedIds.includes("tax") && /\bvat\b/i.test(query)));
     const maxCharsPerLaw = shouldKeepFullTextForSpecificLaw
-      ? 1_000_000
+      ? fullActPerDocCap
       : focusedStatuteTurn
         ? ragPrimaryStatutePerDocFromEnv()
         : latinAmericaTreatyCatalog ||
@@ -2576,8 +2661,8 @@ async function searchLegalLibrary(
               : standardRagBudget.maxCharsPerDoc;
     const maxCharsTotal = shouldKeepFullTextForSpecificLaw
       ? specificLawHint
-        ? ragNamedStatuteTotalFromEnv()
-        : 1_000_000
+        ? namedStatuteTotalCap
+        : namedStatuteTotalCap
       : focusedStatuteTurn
         ? ragPrimaryStatuteTotalFromEnv()
         : latinAmericaTreatyCatalog ||
@@ -3068,21 +3153,38 @@ async function finalizeAssistantTurn(opts: {
   };
 }
 
+function isAiEvalBatchRequest(request: NextRequest): boolean {
+  const evalBearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  const evalSecret = process.env.AI_EVAL_SECRET?.trim();
+  const evalUserId = process.env.AI_EVAL_CLERK_USER_ID?.trim();
+  return Boolean(evalBearer && evalSecret && evalUserId && evalBearer === evalSecret);
+}
+
+function resolveChatUserId(request: NextRequest, clerkUserId: string | null | undefined): string | null {
+  if (isAiEvalBatchRequest(request)) {
+    return process.env.AI_EVAL_CLERK_USER_ID!.trim();
+  }
+  return clerkUserId ?? null;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    const { userId: clerkUserId } = await auth();
+    const userId = resolveChatUserId(request, clerkUserId);
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const isEvalBatch = isAiEvalBatchRequest(request);
+
     // Enforce plan limits: Basic 10, Pro 50, Team unlimited (incl. team members)
     // Check if user has pay-as-you-go purchases
-    const hasPayAsYouGoQuery = await hasUnusedPayAsYouGo(userId, "ai_query");
-    
+    const hasPayAsYouGoQuery = isEvalBatch ? false : await hasUnusedPayAsYouGo(userId, "ai_query");
+
     const { getEffectiveTierForUser } = await import("@/lib/team");
     const tier = await getEffectiveTierForUser(userId);
-    const limit = getAiQueryLimitForTier(tier);
-    
+    const limit = isEvalBatch ? null : getAiQueryLimitForTier(tier);
+
     let usedPayAsYouGo = false;
     if (limit !== null) {
       const usage = await getAiUsage(userId);
@@ -3113,6 +3215,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const body = await request.json();
+    const { messages, attachments, model: requestedModel } = body as {
+      messages: Array<{ role: "user" | "assistant"; content: string }>;
+      attachments?: Array<{ type: string; data: string; name?: string }>;
+      model?: string | null;
+    };
+
+    const payloadCheck = validateAiChatRequest(messages, attachments);
+    if (!payloadCheck.ok) {
+      return NextResponse.json({ error: payloadCheck.error }, { status: payloadCheck.status });
+    }
+
+    const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
+    const userQuery = lastUserMessage?.content || "";
+    const assistantWorkflowMeta = isAssistantWorkflowMetaQuery(userQuery);
+    const platformGuideMeta = isPlatformGuideMetaQuery(userQuery);
+
+    if (!platformGuideMeta && !assistantWorkflowMeta && !isEvalBatch) {
+      const dup = await checkDuplicatePrompt(userId, userQuery);
+      if (!dup.allowed) {
+        return NextResponse.json({ error: dup.reason }, { status: dup.status });
+      }
+
+      const daily = await reserveDailyAiQuery(userId, tier);
+      if (!daily.allowed) {
+        return NextResponse.json({ error: daily.reason }, { status: daily.status });
+      }
+    }
+
     if (!CLAUDE_API_KEY || CLAUDE_API_KEY === "sk-ant-api03-..." || CLAUDE_API_KEY.includes("...")) {
       return NextResponse.json(
         { 
@@ -3122,26 +3253,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
-    const body = await request.json();
-    const { messages, attachments, model: requestedModel } = body as {
-      messages: Array<{ role: "user" | "assistant"; content: string }>;
-      attachments?: Array<{ type: string; data: string; name?: string }>;
-      model?: string | null;
-    };
-
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return NextResponse.json(
-        { error: "Messages array required" },
-        { status: 400 }
-      );
-    }
-
-    // Get the last user message for RAG search
-    const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
-    const userQuery = lastUserMessage?.content || "";
-    const assistantWorkflowMeta = isAssistantWorkflowMetaQuery(userQuery);
-    const platformGuideMeta = isPlatformGuideMetaQuery(userQuery);
     const latinAmericaTreatyCatalog = detectLatinAmericaTreatyDiscoveryQuery(userQuery);
     const germanyAfricaBitCatalog = !latinAmericaTreatyCatalog && detectGermanyAfricaBitQuery(userQuery);
     const globalTreatyCatalog =
@@ -3332,6 +3443,7 @@ export async function POST(request: NextRequest) {
 
     const searchCountry = effectiveHints.country ?? dbDetectedCountry;
     const supabaseForTurn = getSupabaseServer() as any;
+    const modelIdPromise = resolveModelIdForRequest(tier, requestedModel);
     const needsTitleCatalog =
       !platformGuideMeta &&
       isLawTitleCatalogForPromptEnabled() &&
@@ -3352,8 +3464,6 @@ export async function POST(request: NextRequest) {
       !platformGuideMeta && !assistantWorkflowMeta && isLikelyLegalQuestion(userQuery)
         ? fetchAiMethodologyContext(supabaseForTurn, userQuery, {
             countryHint: searchCountry ?? null,
-            maxDocs: 2,
-            maxCharsPerDoc: 6_000,
           })
         : Promise.resolve([]);
 
@@ -3402,6 +3512,24 @@ export async function POST(request: NextRequest) {
     ) {
       legalContext = await searchLegalLibraryQuickFallback(userQuery, searchCountry ?? undefined);
       perfStep(perf, "library_quick_fallback", { docs: legalContext.length });
+    }
+    const sourcingFloor = aiRagSourcingFloorFromEnv();
+    if (
+      !platformGuideMeta &&
+      !assistantWorkflowMeta &&
+      sourcingFloor > 0 &&
+      legalContext.length > 0 &&
+      legalContext.length < sourcingFloor
+    ) {
+      const supplemental = await searchLegalLibraryQuickFallback(userQuery, searchCountry ?? undefined);
+      const merged = mergeLegalContextDeduped(legalContext, supplemental);
+      if (merged.length > legalContext.length) {
+        legalContext = merged.slice(0, sourcingFloor);
+        perfStep(perf, "library_sourcing_floor", {
+          floor: sourcingFloor,
+          docs: legalContext.length,
+        });
+      }
     }
     if (!platformGuideMeta) {
       legalContext = filterLegalLibraryDocsForCountryLock(
@@ -3576,16 +3704,41 @@ export async function POST(request: NextRequest) {
       console.warn("[AI chat] System prompt warnings:", systemPromptValidation.warnings);
     }
 
-    const systemPrompt = buildAiResearchSystemPrompt(systemPromptParamsRaw);
+    const conversationCharEst = messages.reduce(
+      (sum, m) => sum + String(m.content ?? "").length,
+      0
+    );
+    const fitted = fitSystemPromptToInputBudget(systemPromptParamsRaw, {
+      userMessagesCharCount: conversationCharEst,
+    });
+    if (fitted.trimmed) {
+      const trimmedKeys = new Set(
+        fitted.params.legalContext.map((d) => `${d.title}::${d.country}`.toLowerCase())
+      );
+      legalContext = legalContext
+        .filter((d) => trimmedKeys.has(`${d.title}::${d.country}`.toLowerCase()))
+        .map((d) => {
+          const match = fitted.params.legalContext.find(
+            (t) =>
+              t.title === d.title &&
+              t.country === d.country
+          );
+          return match ? { ...d, content: match.content } : d;
+        });
+      lawTitleCatalogText = fitted.params.lawTitleCatalogText ?? lawTitleCatalogText;
+    }
+    const systemPrompt = fitted.systemPrompt;
     const catalogChars = lawTitleCatalogText.length;
     const contextChars = sumLegalContextChars(legalContext);
     const totalPromptChars = systemPrompt.length;
-    const promptTokensEst = estimatePromptTokensFromChars(totalPromptChars);
+    const promptTokensEst = fitted.promptTokensEst;
     perfStep(perf, "prompt_build", {
       catalogChars,
       contextChars,
       totalPromptChars,
       promptTokensEst,
+      totalInputTokensEst: fitted.totalInputTokensEst,
+      promptTrimmed: fitted.trimmed,
       legalDocs: legalContext.length,
       avgContextCharsPerDoc:
         legalContext.length > 0 ? Math.round(contextChars / legalContext.length) : 0,
@@ -3595,13 +3748,18 @@ export async function POST(request: NextRequest) {
       contextChars,
       totalPromptChars,
       promptTokensEst,
+      totalInputTokensEst: fitted.totalInputTokensEst,
+      promptTrimmed: fitted.trimmed,
       legalDocs: legalContext.length,
       streaming: true,
     });
 
-    const modelId = await resolveModelIdForRequest(tier, requestedModel);
+    const modelId = await modelIdPromise;
     perfStep(perf, "pre_stream", { preStreamMs: Date.now() - aiTurnStartedAt, modelId });
 
+    const outputCapEnv = Number.parseInt(process.env.AI_CHAT_MAX_OUTPUT_TOKENS ?? "", 10);
+    const detailedOutputCap =
+      Number.isFinite(outputCapEnv) && outputCapEnv > 0 ? outputCapEnv : 4_096;
     const maxTokens =
       latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog
         ? detailedMode
@@ -3612,7 +3770,7 @@ export async function POST(request: NextRequest) {
             ? 5200
             : 3400
           : detailedMode
-            ? 4800
+            ? detailedOutputCap
             : 2800;
 
     const finalizeTurnBase = {
@@ -3645,7 +3803,12 @@ export async function POST(request: NextRequest) {
             status: "active" | "done";
           }) => push("process", payload);
 
-          pushProcess({ step: "understand", message: "Reading your question", status: "done" });
+          pushProcess({
+            step: "understand",
+            message: "Reading your question",
+            status: "done",
+            detail: `Pre-stream ${Date.now() - aiTurnStartedAt}ms`,
+          });
           if (effectiveHints.country) {
             pushProcess({
               step: "scope",
