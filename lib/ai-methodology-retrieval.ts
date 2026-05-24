@@ -15,6 +15,28 @@ export type MethodologyContextDoc = {
 const METHODOLOGY_SELECT =
   "id, title, year, status, content, content_plain, applies_to_all_countries, countries(name), categories!laws_category_id_fkey(name)";
 
+const PRACTICE_MODULE_RE = /yamal[eé]\s+ai\s+brain\s*[—\-]/i;
+
+function envInt(name: string, devDefault: number, prodDefault: number, min: number, max: number): number {
+  const isProd =
+    process.env.VERCEL_ENV === "production" ||
+    (process.env.NODE_ENV === "production" && process.env.VERCEL_ENV !== "preview");
+  const raw = process.env[name]?.trim();
+  const fallback = isProd ? prodDefault : devDefault;
+  if (!raw) return Math.min(max, Math.max(min, fallback));
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n)) return Math.min(max, Math.max(min, fallback));
+  return Math.min(max, Math.max(min, n));
+}
+
+export function methodologyMaxDocsFromEnv(): number {
+  return envInt("AI_METHODOLOGY_MAX_DOCS", 2, 2, 1, 3);
+}
+
+export function methodologyMaxCharsPerDocFromEnv(): number {
+  return envInt("AI_METHODOLOGY_MAX_CHARS_PER_DOC", 6_000, 4_500, 2_000, 12_000);
+}
+
 function pickBody(row: {
   content_plain?: string | null;
   content?: string | null;
@@ -65,6 +87,43 @@ function deepDiveCountryFromQuery(query: string): string | null {
   return m3?.[1]?.trim() ?? null;
 }
 
+function queryTokens(query: string): string[] {
+  return query
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 4);
+}
+
+function isContextualBrainTitle(title: string): boolean {
+  return /contextual\s+brain/i.test(title);
+}
+
+function isPracticeModuleTitle(title: string): boolean {
+  return PRACTICE_MODULE_RE.test(title);
+}
+
+function practiceModuleTopic(title: string): string {
+  return title.replace(PRACTICE_MODULE_RE, "").trim().toLowerCase();
+}
+
+/** Score practice-module titles against query tokens (higher = better match). */
+function practiceModuleTitleScore(title: string, tokens: string[]): number {
+  if (!isPracticeModuleTitle(title)) return 0;
+  const topic = practiceModuleTopic(title);
+  let score = 0;
+  for (const tok of tokens) {
+    if (topic.includes(tok)) score += 12;
+    if (tok.length >= 6 && topic.split(/\s+/).some((w) => w.startsWith(tok.slice(0, 5)))) score += 4;
+  }
+  if (/\bmediation\b/.test(topic) && tokens.some((x) => x === "mediation")) score += 20;
+  if (/\bmining\b/.test(topic) && tokens.some((x) => x === "mining")) score += 20;
+  if (/\barbitration|litigation\b/.test(topic) && tokens.some((x) => x === "arbitration" || x === "litigation")) {
+    score += tokens.includes("mediation") && !tokens.includes("arbitration") ? 4 : 14;
+  }
+  return score;
+}
+
 /**
  * Fetch global AI methodology / legal-system deep-dive rows for RAG (prepended to library hits).
  */
@@ -73,9 +132,10 @@ export async function fetchAiMethodologyContext(
   query: string,
   options?: { maxDocs?: number; maxCharsPerDoc?: number; countryHint?: string | null }
 ): Promise<MethodologyContextDoc[]> {
-  const maxDocs = options?.maxDocs ?? 2;
-  const maxCharsPerDoc = options?.maxCharsPerDoc ?? 6_000;
+  const maxDocs = options?.maxDocs ?? methodologyMaxDocsFromEnv();
+  const maxCharsPerDoc = options?.maxCharsPerDoc ?? methodologyMaxCharsPerDocFromEnv();
   const countryHint = options?.countryHint ?? deepDiveCountryFromQuery(query);
+  const tokens = queryTokens(query);
 
   const categoryPromise = supabase
     .from("categories")
@@ -91,14 +151,6 @@ export async function fetchAiMethodologyContext(
   const out: MethodologyContextDoc[] = [];
   const used = new Set<string>();
 
-  const brainPromise = supabase
-    .from("laws")
-    .select(METHODOLOGY_SELECT)
-    .eq("category_id", categoryId)
-    .ilike("title", "%contextual brain%")
-    .neq("status", "Repealed")
-    .limit(1);
-
   const divePromise = countryHint
     ? supabase
         .from("laws")
@@ -111,14 +163,57 @@ export async function fetchAiMethodologyContext(
         .limit(8)
     : Promise.resolve({ data: [] as unknown[], error: null });
 
-  const [{ data: brainRows }, diveResult] = await Promise.all([brainPromise, divePromise]);
-  const diveRows = diveResult.data;
+  const tokenOrParts =
+    tokens.length > 0
+      ? tokens.map((t) => {
+          const p = `%${escapeIlikePattern(t)}%`;
+          return `title.ilike.${p},content_plain.ilike.${p}`;
+        })
+      : [];
 
-  if (Array.isArray(brainRows) && brainRows[0]) {
-    const doc = rowToDoc(brainRows[0] as Record<string, unknown>, maxCharsPerDoc);
-    if (doc) {
-      out.push(doc);
-      used.add(doc.id);
+  let candidateQuery = supabase
+    .from("laws")
+    .select(METHODOLOGY_SELECT)
+    .eq("category_id", categoryId)
+    .neq("status", "Repealed")
+    .limit(40);
+  if (tokenOrParts.length > 0) {
+    candidateQuery = candidateQuery.or(tokenOrParts.join(","));
+  }
+
+  const [{ data: diveRows }, { data: candidateRows, error: candidateErr }] = await Promise.all([
+    divePromise,
+    candidateQuery,
+  ]);
+
+  const candidates = (candidateErr || !Array.isArray(candidateRows) ? [] : candidateRows) as Record<
+    string,
+    unknown
+  >[];
+
+  let bestPracticeScore = 0;
+  for (const row of candidates) {
+    const title = String(row.title ?? "");
+    bestPracticeScore = Math.max(bestPracticeScore, practiceModuleTitleScore(title, tokens));
+  }
+
+  const skipContextualBrain = bestPracticeScore >= 12;
+
+  if (!skipContextualBrain) {
+    const { data: brainRows } = await supabase
+      .from("laws")
+      .select(METHODOLOGY_SELECT)
+      .eq("category_id", categoryId)
+      .ilike("title", "%contextual brain%")
+      .neq("status", "Repealed")
+      .limit(1);
+
+    if (Array.isArray(brainRows) && brainRows[0]) {
+      const doc = rowToDoc(brainRows[0] as Record<string, unknown>, maxCharsPerDoc);
+      if (doc) {
+        out.push(doc);
+        used.add(doc.id);
+      }
     }
   }
 
@@ -140,38 +235,25 @@ export async function fetchAiMethodologyContext(
 
   if (out.length >= maxDocs) return out;
 
-  const tokens = query
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .map((t) => t.trim())
-    .filter((t) => t.length >= 4)
-    .slice(0, 6);
-
-  let q = supabase
-    .from("laws")
-    .select(METHODOLOGY_SELECT)
-    .eq("category_id", categoryId)
-    .neq("status", "Repealed")
-    .limit(40);
-
-  if (tokens.length > 0) {
-    const orParts = tokens.map((t) => {
-      const p = `%${escapeIlikePattern(t)}%`;
-      return `title.ilike.${p},content_plain.ilike.${p}`;
-    });
-    q = q.or(orParts.join(","));
-  }
-
-  const { data: rows, error } = await q;
-  if (error || !Array.isArray(rows) || rows.length === 0) {
-    return out;
-  }
-
-  const ranked = [...rows].sort((a, b) => pickBody(b).length - pickBody(a).length);
+  const ranked = [...candidates].sort((a, b) => {
+    const titleA = String(a.title ?? "");
+    const titleB = String(b.title ?? "");
+    const scoreA =
+      practiceModuleTitleScore(titleA, tokens) +
+      (isContextualBrainTitle(titleA) ? 2 : 0) +
+      tokens.reduce((s, t) => (pickBody(a).toLowerCase().includes(t) ? 1 : s), 0);
+    const scoreB =
+      practiceModuleTitleScore(titleB, tokens) +
+      (isContextualBrainTitle(titleB) ? 2 : 0) +
+      tokens.reduce((s, t) => (pickBody(b).toLowerCase().includes(t) ? 1 : s), 0);
+    return scoreB - scoreA;
+  });
 
   for (const row of ranked) {
     if (out.length >= maxDocs) break;
-    const doc = rowToDoc(row as Record<string, unknown>, maxCharsPerDoc);
+    const title = String(row.title ?? "");
+    if (skipContextualBrain && isContextualBrainTitle(title)) continue;
+    const doc = rowToDoc(row, maxCharsPerDoc);
     if (doc && !used.has(doc.id)) {
       out.push(doc);
       used.add(doc.id);
