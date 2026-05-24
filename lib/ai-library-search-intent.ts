@@ -27,6 +27,7 @@ import {
   RE_REGIONAL_TRADE,
   RE_REGISTRATION,
   RE_TAX,
+  RE_TELECOMMUNICATIONS,
   shouldPreferLaborOverRegistration,
   shouldPreferTaxOverRegistration,
 } from "@/lib/ai-multilingual-search";
@@ -72,6 +73,7 @@ function demoteWrongCategory(law: LawTextFields, primaryId: string): number {
     { intent: "oil_gas", wrong: /international trade|intellectual property|tax law/i },
     { intent: "banking_finance", wrong: /international trade|intellectual property|environmental/i },
     { intent: "corruption", wrong: /international trade|intellectual property|tax law/i },
+    { intent: "telecommunications", wrong: /international trade|intellectual property|tax law|mining/i },
     { intent: "data_protection", wrong: /tax law|international trade|mining/i },
   ];
   for (const row of mismatches) {
@@ -518,6 +520,43 @@ function boostMining(law: LawTextFields, tokens: string[]): number {
   }
   for (const tok of tokens) {
     if (tok.length >= 4 && /min(e|ing|eral)|quarry|تعدين|معادن/i.test(tok) && blob.includes(tok)) b += 2;
+  }
+  return Math.min(b, 52);
+}
+
+function boostTelecommunications(law: LawTextFields, tokens: string[]): number {
+  const title = String(law.title ?? "").toLowerCase();
+  const blob = `${title}\n${String(law.content_plain ?? law.content ?? "").toLowerCase()}`;
+  let b = 0;
+  if (
+    /\b(communications?\s+act|telecommunications?\s+act|ict\s+act|postal\s+and\s+telecommunications)\b/i.test(
+      title
+    )
+  ) {
+    b += 36;
+  }
+  if (/\b(communications?\s+authority|telecommunications?\s+authority|regulatory\s+authority)\b/i.test(title)) {
+    b += 32;
+  }
+  const needles = [
+    "telecommunications",
+    "communications authority",
+    "spectrum",
+    "licence to operate",
+    "license to operate",
+    "internet service",
+    "mobile network",
+    "postal",
+    "اتصالات",
+    "هيئة الاتصالات",
+  ];
+  for (const n of needles) {
+    if (blob.includes(n)) b += 12;
+  }
+  for (const tok of tokens) {
+    if (tok.length >= 4 && /telecom|communicat|spectrum|licen[cs]e|اتصالات/i.test(tok) && blob.includes(tok)) {
+      b += 2;
+    }
   }
   return Math.min(b, 52);
 }
