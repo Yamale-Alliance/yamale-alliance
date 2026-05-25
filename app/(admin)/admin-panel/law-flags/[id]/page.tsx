@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ExternalLink, Loader2 } from "lucide-react";
-import { lawFlagCategoryLabel } from "@/lib/law-flag-categories";
+import { isAiAutoLawFlagCategory, lawFlagCategoryLabel } from "@/lib/law-flag-categories";
 
 type Flag = {
   id: string;
@@ -82,9 +82,24 @@ export default function AdminLawFlagDetailPage() {
 
   return (
     <div className="p-4 sm:p-6">
-      <Link href="/admin-panel/law-flags" className="text-sm font-medium text-primary hover:underline">
-        ← All law flags
+      <Link
+        href={
+          isAiAutoLawFlagCategory(flag.issue_category)
+            ? "/admin-panel/ai-quality?tab=corpus-gaps"
+            : "/admin-panel/law-flags"
+        }
+        className="text-sm font-medium text-primary hover:underline"
+      >
+        {isAiAutoLawFlagCategory(flag.issue_category) ? "← Corpus gaps" : "← All law flags"}
       </Link>
+      {isAiAutoLawFlagCategory(flag.issue_category) ? (
+        <Link
+          href={`/admin-panel/ai-quality/corpus-gaps/${flag.id}`}
+          className="ml-4 text-sm font-medium text-primary hover:underline"
+        >
+          Open full corpus gap report →
+        </Link>
+      ) : null}
 
       <h1 className="heading mt-4 text-2xl font-bold">Law flag</h1>
       <p className="mt-1 text-sm text-muted-foreground">
