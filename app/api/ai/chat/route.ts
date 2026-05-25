@@ -82,7 +82,7 @@ import {
   isLawTitleCatalogForPromptEnabled,
   queryNeedsLawTitleCatalog,
 } from "@/lib/ai-law-title-catalog";
-import { auth, clerkClient } from "@clerk/nextjs/server";
+import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { fetchLawIdsForCategory } from "@/lib/law-categories-sync";
 import {
@@ -143,6 +143,7 @@ import {
   mergeUsedFlagsFromTitleMentions,
 } from "@/lib/ai-citation-verify";
 import { insertAiQueryLog } from "@/lib/ai-query-log";
+import { recordAutoAiQualityFlags } from "@/lib/ai-auto-quality-flag";
 import {
   createAiPerfTimer,
   perfStep,
@@ -3010,6 +3011,9 @@ async function finalizeAssistantTurn(opts: {
   legalContext: LegalContextItem[];
   platformGuideMeta: boolean;
   userId: string;
+  userName: string | null;
+  userEmail: string | null;
+  skipAutoQualityFlags?: boolean;
   userQuery: string;
   effectiveCountry: string | null;
   currentCategory: string | null;
@@ -3028,6 +3032,9 @@ async function finalizeAssistantTurn(opts: {
     legalContext,
     platformGuideMeta,
     userId,
+    userName,
+    userEmail,
+    skipAutoQualityFlags,
     userQuery,
     effectiveCountry,
     currentCategory,
@@ -3158,6 +3165,25 @@ async function finalizeAssistantTurn(opts: {
     citation_issues: citationVerification,
   });
 
+  if (!platformGuideMeta) {
+    await recordAutoAiQualityFlags({
+      supabase: getSupabaseServer(),
+      userId,
+      userName,
+      userEmail,
+      queryLogId,
+      userQuery,
+      assistantText: assistantTextRaw,
+      legalContext: legalContext.map((l) => ({
+        id: l.id,
+        title: l.title,
+        country: l.country,
+        category: l.category,
+      })),
+      skip: skipAutoQualityFlags,
+    });
+  }
+
   let lawyerNudge: { country: string; category: string; count: number; href: string } | null = null;
   const nudgeCountry = effectiveCountry ?? legalContext[0]?.country;
   const nudgeCategory = currentCategory ?? legalContext[0]?.category;
@@ -3222,6 +3248,15 @@ export async function POST(request: NextRequest) {
     }
 
     const isEvalBatch = isAiEvalBatchRequest(request);
+
+    let reporterName: string | null = null;
+    let reporterEmail: string | null = null;
+    if (!isEvalBatch) {
+      const clerkUser = await currentUser();
+      const fallbackName = [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(" ").trim();
+      reporterName = clerkUser?.fullName ?? (fallbackName || clerkUser?.username || null);
+      reporterEmail = clerkUser?.emailAddresses?.[0]?.emailAddress ?? null;
+    }
 
     // Enforce plan limits: Basic 10, Pro 50, Team unlimited (incl. team members)
     // Check if user has pay-as-you-go purchases
@@ -3827,6 +3862,9 @@ export async function POST(request: NextRequest) {
       legalContext,
       platformGuideMeta,
       userId,
+      userName: reporterName,
+      userEmail: reporterEmail,
+      skipAutoQualityFlags: isEvalBatch,
       userQuery,
       effectiveCountry: effectiveHints.country ?? null,
       currentCategory: currentHints.category ?? null,
