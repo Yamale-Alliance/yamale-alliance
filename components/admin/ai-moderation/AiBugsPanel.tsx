@@ -89,7 +89,11 @@ export function AiBugsPanel() {
                 </span>
               </div>
               <p className="mt-3 text-sm text-foreground">
-                {r.issue_category ? `Issue: ${r.issue_category}` : "Issue: not categorized"}
+                {r.issue_category?.startsWith("auto_ai_")
+                  ? `Auto gap: ${r.issue_category.replace(/^auto_ai_/, "").replace(/_/g, " ")}`
+                  : r.issue_category
+                    ? `Issue: ${r.issue_category}`
+                    : "Issue: not categorized"}
               </p>
               {r.issue_details ? (
                 <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{r.issue_details}</p>
