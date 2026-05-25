@@ -6,12 +6,14 @@ import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-
-type ConversationMessage = {
-  id?: string;
-  role: string;
-  content: string;
-};
+import type { AiResponseGapKind } from "@/lib/ai-response-gap-detect";
+import { gapKindLabel } from "@/lib/ai-auto-quality-flag";
+import {
+  parseBugConversationSnapshot,
+  type AutoGapSnapshotMeta,
+  type BugConversationMessage,
+} from "@/lib/ai-bug-conversation-snapshot";
+import { lawFlagCategoryLabel } from "@/lib/law-flag-categories";
 
 type Report = {
   id: string;
@@ -24,13 +26,21 @@ type Report = {
   created_at: string;
   updated_at: string;
   resolved_at: string | null;
-  conversation_snapshot: ConversationMessage[] | null;
+  conversation_snapshot: unknown;
+  query_log_id?: string | null;
+};
+
+type QueryLogFallback = {
+  query: string;
+  response_preview: string | null;
+  model: string | null;
 };
 
 export default function AdminAiBugDetailPage() {
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
   const [report, setReport] = useState<Report | null>(null);
+  const [queryLog, setQueryLog] = useState<QueryLogFallback | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<"open" | "in_progress" | "resolved">("open");
@@ -40,22 +50,45 @@ export default function AdminAiBugDetailPage() {
     setLoading(true);
     fetch(`/api/admin/ai-bugs/${id}`, { credentials: "include" })
       .then((r) => r.json())
-      .then((d: { report?: Report }) => {
+      .then((d: { report?: Report; queryLog?: QueryLogFallback | null }) => {
         if (d.report) {
           setReport(d.report);
           setStatus(d.report.status);
+          setQueryLog(d.queryLog ?? null);
         } else {
           setReport(null);
+          setQueryLog(null);
         }
       })
-      .catch(() => setReport(null))
+      .catch(() => {
+        setReport(null);
+        setQueryLog(null);
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
-  const conversation = useMemo(
-    () => (Array.isArray(report?.conversation_snapshot) ? report?.conversation_snapshot : []),
+  const parsedConversation = useMemo(
+    () => parseBugConversationSnapshot(report?.conversation_snapshot),
     [report?.conversation_snapshot]
   );
+
+  const conversation: BugConversationMessage[] = useMemo(() => {
+    if (parsedConversation.kind === "messages" || parsedConversation.kind === "auto_gap") {
+      if (parsedConversation.messages.length > 0) return parsedConversation.messages;
+    }
+    if (queryLog) {
+      const out: BugConversationMessage[] = [];
+      if (queryLog.query.trim()) out.push({ role: "user", content: queryLog.query });
+      if (queryLog.response_preview?.trim()) {
+        out.push({ role: "assistant", content: queryLog.response_preview });
+      }
+      return out;
+    }
+    return [];
+  }, [parsedConversation, queryLog]);
+
+  const autoGapMeta: AutoGapSnapshotMeta | null =
+    parsedConversation.kind === "auto_gap" ? parsedConversation.meta : null;
 
   const saveStatus = async () => {
     if (!report) return;
@@ -131,10 +164,44 @@ export default function AdminAiBugDetailPage() {
         </button>
       </div>
 
+      {autoGapMeta ? (
+        <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
+            Auto-detected corpus gap
+          </p>
+          {autoGapMeta.gapKind ? (
+            <p className="mt-2 text-sm text-foreground">
+              Gap type: {gapKindLabel(autoGapMeta.gapKind as AiResponseGapKind)}
+            </p>
+          ) : null}
+          {autoGapMeta.matchedPhrases?.length ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Matched phrase: &quot;{autoGapMeta.matchedPhrases.join('"; "')}&quot;
+            </p>
+          ) : null}
+          {autoGapMeta.laws?.length ? (
+            <ul className="mt-3 list-inside list-disc text-sm text-foreground">
+              {autoGapMeta.laws.map((law) => (
+                <li key={law.lawId}>
+                  {law.title}
+                  {law.country ? ` (${law.country})` : ""} — {lawFlagCategoryLabel(law.flagCategory)}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {report.query_log_id ? (
+            <p className="mt-2 text-xs text-muted-foreground">Query log: {report.query_log_id}</p>
+          ) : null}
+        </div>
+      ) : null}
+
       <h2 className="mt-8 text-lg font-semibold text-foreground">Full conversation snapshot</h2>
       {conversation.length === 0 ? (
         <p className="mt-2 rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
           Conversation snapshot not available.
+          {report.query_log_id
+            ? " (Query log row missing or empty — check ai_query_log in Supabase.)"
+            : null}
         </p>
       ) : (
         <div className="mt-3 space-y-3">
