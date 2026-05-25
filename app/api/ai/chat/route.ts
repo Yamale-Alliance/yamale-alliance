@@ -76,6 +76,7 @@ import {
   titleLikelyCountryBilateralTreaty,
 } from "@/lib/ai-country-bilateral-inventory";
 import { pickContentExcerpt } from "@/lib/ai-law-excerpt";
+import { selectInstrumentContentForReview } from "@/lib/ai-law-full-content";
 import {
   fetchLawTitleCatalogForPrompt,
   isLawTitleCatalogForPromptEnabled,
@@ -157,9 +158,14 @@ import {
   RAG_INVESTMENT_EXISTENCE_TOTAL_CHARS,
   ragMaxSystemDocsDetailedFromEnv,
   ragMaxSystemDocsFromEnv,
+  ragFullReviewPrimaryPerDocFromEnv,
+  ragFullReviewSecondaryPerDocFromEnv,
+  ragFullReviewTotalFromEnv,
   ragNamedStatuteTotalFromEnv,
   ragPrimaryStatutePerDocFromEnv,
   ragPrimaryStatuteTotalFromEnv,
+  ragQuickFallbackCharsFromEnv,
+  shouldPreferFullInstrumentReview,
 } from "@/lib/ai-rag-context-budget";
 import {
   resolveCategoryIdCached,
@@ -2618,7 +2624,25 @@ async function searchLegalLibrary(
     const trademarkRegistrationFocused =
       trademarkRegistrationHowTo &&
       lawsForResponse.some((law) => isNationalTrademarksActTitle(String((law as any).title ?? "")));
+
+    const preferMoreDocuments =
+      countryCatalogRequest ||
+      latinAmericaTreatyCatalog ||
+      globalTreatyCatalog ||
+      germanyAfricaBitCatalog ||
+      countryBilateralCatalog ||
+      (isBilateralOrMultiCountryQuery && isMultiInstrumentListQuery(query));
+    const preferFullInstrumentReview = shouldPreferFullInstrumentReview({
+      countryCatalogRequest,
+      latinAmericaTreatyCatalog,
+      globalTreatyCatalog,
+      germanyAfricaBitCatalog,
+      countryBilateralCatalog,
+      preferMoreDocuments,
+    });
+
     const shouldKeepFullTextForSpecificLaw =
+      preferFullInstrumentReview ||
       Boolean(specificLawHint) ||
       trademarkRegistrationFocused ||
       userRequestsFullLawText(query) ||
@@ -2629,14 +2653,6 @@ async function searchLegalLibrary(
       ragPrimaryStatutePerDocFromEnv() * 2,
       Math.max(ragPrimaryStatutePerDocFromEnv(), Math.floor(namedStatuteTotalCap / Math.max(1, lawsForResponse.length)))
     );
-
-    const preferMoreDocuments =
-      countryCatalogRequest ||
-      latinAmericaTreatyCatalog ||
-      globalTreatyCatalog ||
-      germanyAfricaBitCatalog ||
-      countryBilateralCatalog ||
-      (isBilateralOrMultiCountryQuery && isMultiInstrumentListQuery(query));
     const standardRagBudget = ragExcerptBudget(lawsForResponse.length, {
       preferMoreDocuments,
     });
@@ -2646,7 +2662,9 @@ async function searchLegalLibrary(
         trademarkRegistrationHowTo ||
         (resolvedIntent.matchedIds.includes("tax") && /\bvat\b/i.test(query)));
     const maxCharsPerLaw = shouldKeepFullTextForSpecificLaw
-      ? fullActPerDocCap
+      ? preferFullInstrumentReview
+        ? ragFullReviewSecondaryPerDocFromEnv()
+        : fullActPerDocCap
       : focusedStatuteTurn
         ? ragPrimaryStatutePerDocFromEnv()
         : latinAmericaTreatyCatalog ||
@@ -2662,7 +2680,9 @@ async function searchLegalLibrary(
     const maxCharsTotal = shouldKeepFullTextForSpecificLaw
       ? specificLawHint
         ? namedStatuteTotalCap
-        : namedStatuteTotalCap
+        : preferFullInstrumentReview
+          ? ragFullReviewTotalFromEnv()
+          : namedStatuteTotalCap
       : focusedStatuteTurn
         ? ragPrimaryStatuteTotalFromEnv()
         : latinAmericaTreatyCatalog ||
@@ -2728,15 +2748,33 @@ async function searchLegalLibrary(
       bilateralTitleTokens: isBilateralOrMultiCountryQuery ? bilateralTitleTokens : undefined,
     };
 
+    const tokenFallback = [qForTokens.trim().toLowerCase(), query.trim().toLowerCase()].filter(Boolean);
+    const rankTokens = rankingTokens.length ? rankingTokens : tokenFallback;
+    const primaryFullReviewIds = new Set<string>();
+    if (preferFullInstrumentReview && lawsForResponse.length > 0) {
+      const ranked = [...(lawsForResponse as any[])].sort(
+        (a, b) => retrievalScoreForLaw(b) - retrievalScoreForLaw(a)
+      );
+      for (const law of ranked.slice(0, 2)) {
+        if (law?.id) primaryFullReviewIds.add(String(law.id));
+      }
+    }
+
     let nationalInvestmentExcerptPrioritized = false;
     for (const law of lawsForResponse as any[]) {
       if (remainingChars <= 0) break;
       const fullText = law.content_plain || law.content || "";
       let selectedContent = fullText;
 
-      const tokenFallback = [qForTokens.trim().toLowerCase(), query.trim().toLowerCase()].filter(Boolean);
+      const useFullInstrumentBody =
+        shouldKeepFullTextForSpecificLaw &&
+        (preferFullInstrumentReview ||
+          userRequestsFullLawText(query) ||
+          Boolean(specificLawHint) ||
+          trademarkRegistrationFocused ||
+          lawsForResponse.length === 1);
 
-      if (!shouldKeepFullTextForSpecificLaw) {
+      if (!useFullInstrumentBody) {
         let perLawCap = Math.min(maxCharsPerLaw, remainingChars);
         if (
           investmentExistenceQuery &&
@@ -2746,28 +2784,30 @@ async function searchLegalLibrary(
           perLawCap = Math.min(RAG_INVESTMENT_CODE_PRIMARY_CHARS, remainingChars);
           nationalInvestmentExcerptPrioritized = true;
         }
-        selectedContent = pickContentExcerpt(
+        selectedContent = pickContentExcerpt(fullText, rankTokens, perLawCap, excerptAnchorTokens);
+        if (selectedContent.length > perLawCap) {
+          selectedContent = selectedContent.slice(0, perLawCap);
+        }
+      } else {
+        let perLawCap = Math.min(maxCharsPerLaw, remainingChars);
+        if (preferFullInstrumentReview) {
+          perLawCap = Math.min(
+            primaryFullReviewIds.has(String(law.id))
+              ? ragFullReviewPrimaryPerDocFromEnv()
+              : ragFullReviewSecondaryPerDocFromEnv(),
+            remainingChars
+          );
+        } else if (specificLawHint || userRequestsFullLawText(query)) {
+          perLawCap = Math.min(fullActPerDocCap, remainingChars);
+        }
+        selectedContent = selectInstrumentContentForReview(
           fullText,
-          rankingTokens.length ? rankingTokens : tokenFallback,
           perLawCap,
+          rankTokens,
           excerptAnchorTokens
         );
         if (selectedContent.length > perLawCap) {
           selectedContent = selectedContent.slice(0, perLawCap);
-        }
-      } else if (fullText.length <= remainingChars) {
-        selectedContent = fullText;
-      } else {
-        // Long acts (e.g. ~800k character NamibLII exports): a leading slice omits middle/later chapters
-        // such as Directors (Chapter 8). Prefer a budget-sized window around query anchors/tokens.
-        selectedContent = pickContentExcerpt(
-          fullText,
-          rankingTokens.length ? rankingTokens : tokenFallback,
-          remainingChars,
-          excerptAnchorTokens
-        );
-        if (selectedContent.length > remainingChars) {
-          selectedContent = selectedContent.slice(0, remainingChars);
         }
       }
 
@@ -2815,6 +2855,7 @@ async function searchLegalLibrary(
       maxCharsTotal,
       maxCharsPerDoc: maxCharsPerLaw,
       shouldKeepFullTextForSpecificLaw,
+      preferFullInstrumentReview,
     });
     return compacted;
   } catch (err) {
@@ -2878,7 +2919,12 @@ async function searchLegalLibraryQuickFallback(
       country: lawCountryDisplayName(law),
       category: law.categories?.name || "",
       status: law.status || undefined,
-      content: String(law.content_plain || law.content || "").slice(0, 5000),
+      content: selectInstrumentContentForReview(
+        String(law.content_plain || law.content || ""),
+        ragQuickFallbackCharsFromEnv(),
+        extractSearchTokens(normalizeSearchQueryForAi(query)),
+        []
+      ),
       year: law.year,
       retrievalScore: 0,
     }));
@@ -3657,9 +3703,13 @@ export async function POST(request: NextRequest) {
           });
 
     const fullLawRetrievalMode =
+      useFullLibraryContext ||
+      (!platformGuideMeta &&
+        !(latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog || countryBilateralCatalog) &&
+        !isMultiInstrumentListQuery(userQuery) &&
+        legalContext.length >= 1) ||
       Boolean(specificLawHint) ||
-      userRequestsFullLawText(userQuery) ||
-      (!platformGuideMeta && legalContext.length >= 1 && legalContext.length <= 3);
+      userRequestsFullLawText(userQuery);
 
     const systemPromptParamsRaw = {
       supranationalFrameworksInQuery: supranationalFrameworksInQuery.map((m) => ({
