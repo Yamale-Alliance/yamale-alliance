@@ -2,15 +2,16 @@
 
 import * as Tabs from "@radix-ui/react-tabs";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Bug, MessageSquareWarning } from "lucide-react";
+import { Bug, MessageSquareWarning, Scale } from "lucide-react";
 import { AiBugsPanel } from "@/components/admin/ai-moderation/AiBugsPanel";
+import { AiCorpusGapsPanel } from "@/components/admin/ai-moderation/AiCorpusGapsPanel";
 import { AiFlaggedFeedbackPanel } from "@/components/admin/ai-moderation/AiFlaggedFeedbackPanel";
 
-const TAB_VALUES = ["bugs", "feedback"] as const;
+const TAB_VALUES = ["bugs", "corpus-gaps", "feedback"] as const;
 export type AiQualityTab = (typeof TAB_VALUES)[number];
 
 function normalizeTab(raw: string | null): AiQualityTab {
-  if (raw === "feedback" || raw === "bugs") return raw;
+  if (raw === "feedback" || raw === "bugs" || raw === "corpus-gaps") return raw;
   return "bugs";
 }
 
@@ -30,7 +31,7 @@ export function AdminAiModerationHub() {
         <p className="text-xs font-semibold uppercase tracking-widest text-primary/90">Moderation</p>
         <h1 className="mt-1 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">AI quality</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-          Bug triage and user-flagged feedback in one workspace.
+          Bug triage, auto corpus gaps, and user-flagged feedback in one workspace.
         </p>
       </div>
 
@@ -44,6 +45,13 @@ export function AdminAiModerationHub() {
             Bug reports
           </Tabs.Trigger>
           <Tabs.Trigger
+            value="corpus-gaps"
+            className="inline-flex min-h-[42px] flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-md data-[state=inactive]:hover:text-foreground sm:flex-none"
+          >
+            <Scale className="h-4 w-4" />
+            Corpus gaps
+          </Tabs.Trigger>
+          <Tabs.Trigger
             value="feedback"
             className="inline-flex min-h-[42px] flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-md data-[state=inactive]:hover:text-foreground sm:flex-none"
           >
@@ -53,6 +61,9 @@ export function AdminAiModerationHub() {
         </Tabs.List>
         <Tabs.Content value="bugs" className="mt-8 outline-none">
           <AiBugsPanel />
+        </Tabs.Content>
+        <Tabs.Content value="corpus-gaps" className="mt-8 outline-none">
+          <AiCorpusGapsPanel />
         </Tabs.Content>
         <Tabs.Content value="feedback" className="mt-8 outline-none">
           <AiFlaggedFeedbackPanel />
