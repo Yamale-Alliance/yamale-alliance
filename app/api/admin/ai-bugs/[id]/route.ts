@@ -16,7 +16,27 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json({ report: data });
+
+  const report = data as Record<string, unknown>;
+  let queryLog: { query: string; response_preview: string | null; model: string | null } | null =
+    null;
+  const queryLogId = typeof report.query_log_id === "string" ? report.query_log_id : null;
+  if (queryLogId) {
+    const { data: logRow } = await (supabase.from("ai_query_log") as any)
+      .select("query, response_preview, model")
+      .eq("id", queryLogId)
+      .maybeSingle();
+    if (logRow) {
+      queryLog = {
+        query: String(logRow.query ?? ""),
+        response_preview:
+          logRow.response_preview != null ? String(logRow.response_preview) : null,
+        model: logRow.model != null ? String(logRow.model) : null,
+      };
+    }
+  }
+
+  return NextResponse.json({ report: data, queryLog });
 }
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
