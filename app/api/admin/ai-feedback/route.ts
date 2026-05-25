@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     const supabase = getSupabaseServer();
     let q = (supabase.from("ai_bug_reports") as any)
       .select(
-        "id,query_log_id,related_message_id,issue_category,issue_details,user_id,user_email,created_at,status",
+        "id,query_log_id,related_message_id,issue_category,issue_details,user_id,user_name,user_email,created_at,status",
         { count: "exact" }
       )
       .order("created_at", { ascending: false });
@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
       issue_category: r.issue_category ?? null,
       issue_details: r.issue_details ?? null,
       user_id: r.user_id ?? null,
+      user_name: r.user_name ?? null,
       user_email: r.user_email ?? null,
       created_at: r.created_at,
       related_message_id: r.related_message_id ?? null,
