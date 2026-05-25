@@ -9,7 +9,7 @@ import { buildAiContextualBrainPromptBlock } from "@/lib/ai-contextual-brain";
  * repeating it). Use SYSTEM_PROMPT_VERSION in API responses and ai_query_log instead.
  */
 
-export const SYSTEM_PROMPT_VERSION = "2026.05.24-eval-report-rag";
+export const SYSTEM_PROMPT_VERSION = "2026.05.25-full-instrument-review";
 
 /** Cap on library excerpts in the system message to limit tokens and citation confusion. */
 export const MAX_SYSTEM_PROMPT_LEGAL_DOCS = 12;
@@ -272,7 +272,7 @@ function buildDocumentContextBlock(
   const scopeLabel = fullLibraryContextMode
     ? `${maxN} document(s) — **full in-scope Yamalé library** for this turn (every matching law body loaded, ordered by relevance). Treat the entire Content under each [doc:N] as authoritative for that instrument unless marked truncated.`
     : fullLawRetrievalMode
-      ? `${maxN} document(s); bodies are often long slices or full acts for this turn (subject to size limits)—treat the entire Content under each [doc:N] as the governing text unless it clearly starts/ends with ellipsis as a partial window.`
+      ? `${maxN} document(s); bodies are **full instruments or multi-part coverage** (opening, operative articles, schedules where present)—treat all Content under each [doc:N] as governing text. Segments marked omitted are length limits only; do not treat the act as unavailable.`
       : `${maxN} excerpt(s). These are search-ranked snippets, not the entire catalog.`;
   const header = `RETRIEVED FOR THIS TURN (from the Yamalé library) — ${scopeLabel} Each block starts with its canonical index; use only those indices in [doc:N] markers.
 
