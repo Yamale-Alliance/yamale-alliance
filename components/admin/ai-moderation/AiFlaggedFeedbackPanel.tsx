@@ -11,6 +11,7 @@ type FeedbackRow = {
   issue_category: string | null;
   issue_details: string | null;
   user_id: string | null;
+  user_name: string | null;
   user_email: string | null;
   created_at: string;
   related_message_id: string | null;
@@ -45,7 +46,9 @@ export function AiFlaggedFeedbackPanel() {
           {rows.map((row) => (
             <article key={row.id} className="rounded-xl border border-border bg-card p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-medium">{row.user_email || row.user_id || "Unknown user"}</p>
+                <p className="text-sm font-medium">
+                  {row.user_name || row.user_email || row.user_id || "Unknown user"}
+                </p>
                 <p className="text-xs text-muted-foreground">{new Date(row.created_at).toLocaleString()}</p>
               </div>
               <p className="mt-2 text-sm">
