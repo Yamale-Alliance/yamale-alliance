@@ -24,14 +24,14 @@ function envInt(
   return Math.min(max, Math.max(min, n));
 }
 
-/** Override via `AI_RAG_MAX_CONTEXT_CHARS` (raise only when needed; prod default is conservative). */
+/** Override via `AI_RAG_MAX_CONTEXT_CHARS`. Prod default favors full-instrument review (prompt budget trims if needed). */
 export function ragMaxContextCharsFromEnv(): number {
-  return envInt("AI_RAG_MAX_CONTEXT_CHARS", RAG_MAX_CONTEXT_CHARS, 10_000, 8_000, 800_000);
+  return envInt("AI_RAG_MAX_CONTEXT_CHARS", RAG_MAX_CONTEXT_CHARS, 220_000, 8_000, 800_000);
 }
 
 /** Override via `AI_RAG_MULTI_DOC_CAP` when listing many instruments. */
 export function ragMultiDocCapFromEnv(): number {
-  return envInt("AI_RAG_MULTI_DOC_CAP", RAG_MULTI_DOC_CONTEXT_CAP, 18_000, 12_000, 1_200_000);
+  return envInt("AI_RAG_MULTI_DOC_CAP", RAG_MULTI_DOC_CONTEXT_CAP, 320_000, 12_000, 1_200_000);
 }
 
 /** Override via `AI_RAG_MAX_DOC_SLOTS` (also raise `AI_RAG_MAX_SYSTEM_DOCS` in chat). */
@@ -40,21 +40,64 @@ export function ragMaxDocSlotsFromEnv(): number {
 }
 
 export function ragPrimaryStatuteTotalFromEnv(): number {
-  return envInt("AI_RAG_PRIMARY_STATUTE_TOTAL_CHARS", RAG_PRIMARY_STATUTE_TOTAL_CHARS, 24_000, 20_000, 800_000);
+  return envInt("AI_RAG_PRIMARY_STATUTE_TOTAL_CHARS", RAG_PRIMARY_STATUTE_TOTAL_CHARS, 280_000, 20_000, 800_000);
 }
 
 export function ragPrimaryStatutePerDocFromEnv(): number {
   return envInt(
     "AI_RAG_PRIMARY_STATUTE_PER_DOC_CHARS",
     RAG_PRIMARY_STATUTE_PER_DOC_CHARS,
-    9_000,
+    90_000,
     8_000,
     400_000
   );
 }
 
 export function ragNamedStatuteTotalFromEnv(): number {
-  return envInt("AI_RAG_NAMED_STATUTE_TOTAL_CHARS", RAG_NAMED_STATUTE_TOTAL_CHARS, 36_000, 24_000, 1_200_000);
+  return envInt("AI_RAG_NAMED_STATUTE_TOTAL_CHARS", RAG_NAMED_STATUTE_TOTAL_CHARS, 360_000, 24_000, 1_200_000);
+}
+
+/** Total chars across retrieved instruments on a normal legal turn (full-body review). */
+export function ragFullReviewTotalFromEnv(): number {
+  return envInt("AI_RAG_FULL_REVIEW_TOTAL_CHARS", 320_000, 320_000, 40_000, 1_200_000);
+}
+
+/** Top-ranked governing acts on a full-review turn. */
+export function ragFullReviewPrimaryPerDocFromEnv(): number {
+  return envInt("AI_RAG_FULL_REVIEW_PRIMARY_PER_DOC_CHARS", 120_000, 120_000, 20_000, 400_000);
+}
+
+/** Supporting instruments on a full-review turn. */
+export function ragFullReviewSecondaryPerDocFromEnv(): number {
+  return envInt("AI_RAG_FULL_REVIEW_SECONDARY_PER_DOC_CHARS", 48_000, 48_000, 8_000, 200_000);
+}
+
+/** Quick fallback rows when widening the sourcing floor (same pass). */
+export function ragQuickFallbackCharsFromEnv(): number {
+  return envInt("AI_RAG_QUICK_FALLBACK_CHARS", 24_000, 24_000, 5_000, 120_000);
+}
+
+export type FullInstrumentReviewFlags = {
+  countryCatalogRequest: boolean;
+  latinAmericaTreatyCatalog: boolean;
+  globalTreatyCatalog: boolean;
+  germanyAfricaBitCatalog: boolean;
+  countryBilateralCatalog: boolean;
+  preferMoreDocuments: boolean;
+};
+
+/** Default for country-scoped legal Q&A: load full bodies (or multi-segment coverage), not thin snippets. */
+export function shouldPreferFullInstrumentReview(flags: FullInstrumentReviewFlags): boolean {
+  if (flags.countryCatalogRequest) return false;
+  if (
+    flags.latinAmericaTreatyCatalog ||
+    flags.globalTreatyCatalog ||
+    flags.germanyAfricaBitCatalog ||
+    flags.countryBilateralCatalog
+  ) {
+    return false;
+  }
+  return !flags.preferMoreDocuments;
 }
 
 /** Max law documents in the system prompt for normal RAG (not full-library mode). */
