@@ -33,6 +33,22 @@ const GAP_PATTERNS: Array<{ kind: AiResponseGapKind; re: RegExp }> = [
     re: /\bcannot\s+(?:quote|confirm|verify|locate).{0,80}\s+from\s+the\s+library\b/i,
   },
   {
+    kind: "missing_from_library",
+    re: /\b(?:do|does|did)\s+not\s+have\s+(?:an?\s+)?(?:excerpt|copy|text)\b/i,
+  },
+  {
+    kind: "missing_from_library",
+    re: /\bnot\s+located\s+in\s+(?:the\s+)?retrieved\b/i,
+  },
+  {
+    kind: "excerpt_insufficient",
+    re: /\bnot\s+provided\s+in\s+the\s+attached\s+excerpts?\b/i,
+  },
+  {
+    kind: "excerpt_insufficient",
+    re: /\b(not (stated|found|covered|addressed|included|located|provided|available)) in (the )?(provided |attached |retrieved )?(library )?excerpts?\b/i,
+  },
+  {
     kind: "excerpt_insufficient",
     re: /\b(not (stated|found|covered|addressed|included) in (the )?(provided |attached |retrieved )?(library )?excerpt|excerpt does not|excerpts (do not|does not)|not in the (provided |attached |retrieved )?excerpt|what is not covered in the excerpts|outside (the )?attached text|library text does not cover|does not contain (the |this |that )?(rule|provision|section|article)|cannot locate .{0,40} in the excerpt)\b/i,
   },
@@ -78,11 +94,13 @@ export function detectAiResponseQualityGap(
   }
 
   const userQuery = options?.userQuery?.trim() ?? "";
-  if (!kind && userQuery) {
+  if (userQuery) {
     const named = detectNamedInstrumentGap(userQuery, text);
-    if (named) {
+    if (named && (!kind || priority(named) >= priority(kind))) {
+      if (!kind) {
+        matchedPhrases.push("User asked for a named instrument; assistant reported a library coverage gap");
+      }
       kind = named;
-      matchedPhrases.push("User asked for a named instrument; assistant reported a library coverage gap");
     }
   }
 
@@ -107,7 +125,13 @@ function detectNamedInstrumentGap(userQuery: string, assistantText: string): AiR
   if (!asksForInstrument) return null;
 
   const deflection =
-    /\b(does not contain|not in the excerpt|not in the excerpts|not in the library|cannot quote|cannot confirm|cannot verify|not retrieved|no statute|does not appear|none of which is|not in the excerpts retrieved)\b/i.test(
+    /\b(does not contain|not in the excerpt|not in the excerpts|not in the library|cannot quote|cannot confirm|cannot verify|not retrieved|no statute|does not appear|none of which is|not in the excerpts retrieved|do not have an excerpt|don't have an excerpt|not located in retrieved|not provided in the attached)\b/i.test(
+      assistantText
+    ) ||
+    /\b(?:I|we)\s+(?:do|does)\s+not\s+have\b[^.]{0,120}\b(?:excerpt|act|statute|law|instrument)\b/i.test(
+      assistantText
+    ) ||
+    /\bnot\s+(?:located|found|provided|available|included)\b[^.]{0,80}\b(?:excerpt|library|retrieved|attached)\b/i.test(
       assistantText
     );
 
@@ -173,9 +197,17 @@ export function aiBugCategoryForGap(gapKind: AiResponseGapKind): string {
 export function lawsToFlagForGap(
   assistantText: string,
   laws: ReadonlyArray<{ id: string; title: string }>,
-  userQuery?: string
+  userQuery?: string,
+  gapKind?: AiResponseGapKind | null
 ): Array<{ id: string; title: string }> {
   if (laws.length === 0) return [];
+
+  const requestedHint = userQuery ? extractRequestedInstrumentHint(userQuery) : null;
+
+  // User asked for a specific Act that is missing — flag retrieved context docs for triage.
+  if (gapKind === "missing_from_library" && requestedHint) {
+    return laws.slice(0, 6);
+  }
 
   const lower = assistantText.toLowerCase();
   const mentioned = laws.filter((law) => {
@@ -187,9 +219,7 @@ export function lawsToFlagForGap(
 
   if (mentioned.length > 0) return mentioned.slice(0, 6);
 
-  // Wrong retrieval: user asked for a named instrument; flag top retrieved docs for triage.
-  const hint = userQuery ? extractRequestedInstrumentHint(userQuery) : null;
-  if (hint) return laws.slice(0, 4);
+  if (requestedHint) return laws.slice(0, 4);
 
   return laws.slice(0, 4);
 }
