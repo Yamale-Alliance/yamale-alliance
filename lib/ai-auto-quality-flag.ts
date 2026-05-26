@@ -1,6 +1,7 @@
 import {
   aiBugCategoryForGap,
   detectAiResponseQualityGap,
+  extractRequestedInstrumentHint,
   lawFlagCategoryForGap,
   lawsToFlagForGap,
   type AiResponseGapKind,
@@ -41,13 +42,16 @@ export function isAutoAiQualityFlagsEnabled(): boolean {
 export async function recordAutoAiQualityFlags(params: RecordAutoAiQualityFlagsParams): Promise<void> {
   if (params.skip || !isAutoAiQualityFlagsEnabled()) return;
 
-  const detection = detectAiResponseQualityGap(params.assistantText);
+  const detection = detectAiResponseQualityGap(params.assistantText, {
+    userQuery: params.userQuery,
+  });
   if (!detection.hasGap || !detection.kind) return;
 
   const gapKind = detection.kind;
   const laws = params.legalContext.filter((l) => l.id?.trim());
   const hadRetrievedLaws = laws.length > 0;
-  const lawsToFlag = lawsToFlagForGap(params.assistantText, laws);
+  const lawsToFlag = lawsToFlagForGap(params.assistantText, laws, params.userQuery);
+  const requestedHint = extractRequestedInstrumentHint(params.userQuery);
   const flagCategory = lawFlagCategoryForGap(gapKind, hadRetrievedLaws);
   const bugCategory = aiBugCategoryForGap(gapKind);
   const now = new Date().toISOString();
@@ -81,9 +85,13 @@ export async function recordAutoAiQualityFlags(params: RecordAutoAiQualityFlagsP
 
     const issueDetails = [
       `Auto-flagged: AI reported a library coverage gap (${categoryLabel}).`,
+      requestedHint ? `User likely sought: ${requestedHint}` : null,
+      params.userQuery.trim()
+        ? `Question: ${params.userQuery.trim().slice(0, 500)}`
+        : null,
       detection.matchedPhrases.length ? `Matched: "${detection.matchedPhrases.join('"; "')}"` : null,
       lawsToFlag.length
-        ? `Instruments: ${lawsToFlag.map((l) => l.title).join("; ")}`
+        ? `Retrieved context flagged: ${lawsToFlag.map((l) => l.title).join("; ")}`
         : hadRetrievedLaws
           ? null
           : "No instruments were attached to this turn.",
