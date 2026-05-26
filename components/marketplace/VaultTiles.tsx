@@ -27,7 +27,7 @@ export interface VaultTilesProps {
   tiles: VaultTile[];
 }
 
-const DESCRIPTION_COLLAPSED_MAX = "4.35em";
+const DESCRIPTION_COLLAPSED_MAX = "5.5em";
 
 function VaultTileCard({
   tile,
@@ -102,6 +102,10 @@ function VaultTileCard({
     if (!isExpanded) handleTileActivate();
   };
 
+  const backGradient =
+    tile.overlayGradient ||
+    `linear-gradient(155deg, ${tile.iconBg} 0%, rgba(13,27,42,0.95) 100%)`;
+
   return (
     <div
       ref={tileRef}
@@ -115,34 +119,33 @@ function VaultTileCard({
       onKeyDown={tile.href ? handleTileKeyDown : undefined}
       role={tile.href ? "link" : undefined}
       tabIndex={tile.href ? 0 : undefined}
+      aria-label={tile.label}
     >
-      <div className={styles.flipper}>
-        <div className={`${styles.face} ${styles.faceFront}`}>
-          <div
-            className={styles.iconWrap}
-            style={{ backgroundColor: tile.iconBg, color: tile.iconColor }}
-          >
-            <i className={tile.iconClass} aria-hidden />
+      <div className={styles.flipStage}>
+        <div className={styles.flipper}>
+          <div className={`${styles.face} ${styles.faceFront}`}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className={styles.image} src={tile.image} alt="" />
           </div>
-          <p className={styles.label}>{tile.label}</p>
-          <p className={styles.sub}>{tile.sub}</p>
-        </div>
 
-        <div className={`${styles.face} ${styles.faceBack}`}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className={styles.image} src={tile.image} alt="" />
-          <div className={styles.overlay} style={{ background: tile.overlayGradient }} aria-hidden />
+          <div className={`${styles.face} ${styles.faceBack}`} style={{ background: backGradient }}>
+          <span
+            className={styles.tag}
+            style={{
+              backgroundColor: tile.tagBg,
+              color: tile.tagColor,
+            }}
+          >
+            {tile.tag}
+          </span>
           <div className={styles.backContent}>
-            <span
-              className={styles.tag}
-              style={{
-                backgroundColor: tile.tagBg,
-                color: tile.tagColor,
-              }}
+            <div
+              className={styles.iconWrap}
+              style={{ backgroundColor: tile.iconBg, color: tile.iconColor }}
             >
-              {tile.tag}
-            </span>
-            <h3 className={styles.title}>{tile.title}</h3>
+              <i className={tile.iconClass} aria-hidden />
+            </div>
+            <p className={styles.label}>{tile.label}</p>
             <div className={styles.descriptionWrap}>
               <p
                 ref={descriptionRef}
@@ -163,8 +166,10 @@ function VaultTileCard({
             </div>
             {tile.meta ? <p className={styles.meta}>{tile.meta}</p> : null}
           </div>
+          </div>
         </div>
       </div>
+      <p className={styles.frontCaption}>{tile.label}</p>
     </div>
   );
 }
