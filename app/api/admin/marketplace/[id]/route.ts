@@ -5,7 +5,7 @@ import { recordAuditLog } from "@/lib/admin-audit";
 import type { Database } from "@/lib/database.types";
 import { parseLandingPageHtmlInput } from "@/lib/marketplace-landing-page";
 import { parseItemPackageOffersInput } from "@/lib/marketplace-package-offers";
-import { resolveVaultSubcategoryForSave } from "@/lib/marketplace-vault-categories";
+import { isFreeVaultItem, resolveVaultSubcategoryForSave } from "@/lib/marketplace-vault-categories";
 
 type Update = Database["public"]["Tables"]["marketplace_items"]["Update"];
 const VALID_TYPES = ["book", "course", "template", "guide"] as const;
@@ -103,18 +103,31 @@ export async function PUT(
 
     const supabase = getSupabaseServer();
 
-    if (vault_subcategory !== undefined || typeof price_cents === "number") {
-      let effectivePrice = updates.price_cents;
-      if (effectivePrice === undefined) {
-        const { data: existing } = await supabase
-          .from("marketplace_items")
-          .select("price_cents")
-          .eq("id", id)
-          .single();
-        effectivePrice = (existing as { price_cents?: number } | null)?.price_cents ?? 0;
-      }
-      updates.vault_subcategory = resolveVaultSubcategoryForSave(effectivePrice, vault_subcategory);
+    // Load existing row so we can compute effective price, subcategory, and previous image.
+    const { data: existingRaw, error: existingError } = await supabase
+      .from("marketplace_items")
+      .select("price_cents, vault_subcategory, image_url")
+      .eq("id", id)
+      .single();
+
+    if (existingError || !existingRaw) {
+      return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
+
+    const existing = existingRaw as { price_cents: number | null; vault_subcategory: string | null; image_url: string | null };
+
+    let effectivePrice = updates.price_cents ?? existing.price_cents ?? 0;
+
+    if (vault_subcategory !== undefined || typeof price_cents === "number") {
+      updates.vault_subcategory = resolveVaultSubcategoryForSave(
+        effectivePrice,
+        vault_subcategory ?? existing.vault_subcategory
+      );
+    }
+
+    const previousImage = existing.image_url;
+    const previousSubcategory = existing.vault_subcategory;
+
     const { data, error } = await (supabase.from("marketplace_items") as any)
       .update(updates)
       .eq("id", id)
@@ -123,6 +136,26 @@ export async function PUT(
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const updated = data as { image_url: string | null; vault_subcategory: string | null; price_cents: number };
+
+    // If a free-series item's image changed, propagate to all free items in that series
+    // so admin and marketplace views stay in sync visually.
+    const nextImage = updates.image_url !== undefined ? updates.image_url : previousImage;
+    const nextSubcategory = updates.vault_subcategory ?? previousSubcategory;
+
+    if (
+      nextImage &&
+      nextImage !== previousImage &&
+      nextSubcategory &&
+      isFreeVaultItem(effectivePrice)
+    ) {
+      await supabase
+        .from("marketplace_items")
+        .update({ image_url: nextImage })
+        .eq("vault_subcategory", nextSubcategory)
+        .eq("price_cents", updated.price_cents);
     }
 
     await recordAuditLog(supabase, {
