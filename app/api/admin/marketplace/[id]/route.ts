@@ -151,8 +151,7 @@ export async function PUT(
       nextSubcategory &&
       isFreeVaultItem(effectivePrice)
     ) {
-      await supabase
-        .from("marketplace_items")
+      await (supabase.from("marketplace_items") as any)
         .update({ image_url: nextImage })
         .eq("vault_subcategory", nextSubcategory)
         .eq("price_cents", updated.price_cents);
