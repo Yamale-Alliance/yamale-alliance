@@ -12,7 +12,7 @@ const BRAND = {
   gradientEnd: "#c18c43",
 };
 
-/** Distinct front-face palettes per vault product type (cover image is back-only). */
+/** Distinct back-face palettes per vault product type. */
 const TYPE_THEMES: Record<string, { from: string; to: string; iconColor: string }> = {
   book: { from: "#4a3224", to: "#8b5e3c", iconColor: "#f5e8d8" },
   course: { from: "#152d4a", to: "#2a5080", iconColor: "#d8e8f8" },
@@ -69,7 +69,7 @@ function CategoryIcon({ type, className }: { type: string; className?: string })
 }
 
 const DEFAULT_BACK_DESCRIPTION =
-  "Open this resource for the full overview, contents, and download or purchase options.";
+  "Open for the full overview, contents, and download or purchase options.";
 
 export function MarketplaceProductCard({
   product,
@@ -98,6 +98,7 @@ export function MarketplaceProductCard({
   const backDescription =
     product.description?.trim() || DEFAULT_BACK_DESCRIPTION;
   const typeTheme = themeForType(product.type);
+  const backGradient = `linear-gradient(155deg, ${typeTheme.from} 0%, ${typeTheme.to} 100%)`;
 
   const descriptionRef = useCallback(
     (el: HTMLParagraphElement | null) => {
@@ -146,130 +147,49 @@ export function MarketplaceProductCard({
       onKeyDown={handleCardKeyDown}
       role="link"
       tabIndex={0}
+      aria-label={displayTitle}
     >
-      <div className={styles.flipper}>
-        <div className={`${styles.face} ${styles.faceFront}`}>
-          <div
-            className={styles.frontHeader}
-            style={{ background: `linear-gradient(145deg, ${typeTheme.from}, ${typeTheme.to})` }}
-          >
-            <div className={styles.frontIconWrap} style={{ color: typeTheme.iconColor }}>
-              <CategoryIcon type={product.type} className="h-11 w-11" />
+      <div className={styles.flipStage}>
+        <div className={styles.flipper}>
+          <div className={`${styles.face} ${styles.faceFront}`}>
+            <div className={styles.frontMedia}>
+              {product.image_url && !coverFailed ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={product.image_url}
+                  src={product.image_url}
+                  alt=""
+                  className={styles.cover}
+                  loading="lazy"
+                  decoding="async"
+                  onError={() => setCoverFailed(true)}
+                />
+              ) : (
+                <div className={styles.coverPlaceholder} style={{ background: backGradient }}>
+                  <span style={{ color: typeTheme.iconColor }}>
+                    <CategoryIcon type={product.type} className="h-14 w-14" />
+                  </span>
+                </div>
+              )}
             </div>
-            <div className="absolute left-3 top-3">
-              <span className="rounded-full bg-[#0D1B2A] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
-                {typeBadgeLabel}
+            <span className={styles.frontPrice}>{priceLabel}</span>
+            {product.owned ? (
+              <span className={styles.frontOwned}>
+                <Check className="h-3 w-3" aria-hidden />
+                Owned
               </span>
-            </div>
-            <div className="absolute right-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold tabular-nums text-[#0D1B2A]">
-              {priceLabel}
-            </div>
-          </div>
-
-          <div className={styles.frontBody}>
-            <h3
-              className="vault-product-title line-clamp-3 font-sans text-[15px] font-semibold leading-snug tracking-normal text-foreground"
-              title={product.title}
-            >
-              {displayTitle}
-            </h3>
-            {seriesLabel ? (
-              <p className="mt-1.5 font-sans text-[11px] font-semibold text-[#b8893b]">{seriesLabel}</p>
             ) : null}
-            <p className="mt-2 font-sans text-xs leading-relaxed text-muted-foreground">
-              {product.author || "Yamale Faculty"}
-              {product.owned ? <span> · Owned</span> : null}
-            </p>
-            <p className="mt-1 font-sans text-[11px] text-muted-foreground/85">{formatHint}</p>
+          </div>
 
-            <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-3">
-              <span className="truncate font-sans text-xs font-medium text-muted-foreground">{topicLabel}</span>
-              <div className="flex shrink-0 items-center gap-2">
-                {isMarketplaceZip(product) && !product.owned && (
-                  <span className="rounded-[6px] border border-[#C8922A]/40 bg-[#C8922A]/10 px-2 py-1 text-[11px] font-semibold text-[#b8893b]">
-                    View package
-                    {product.price_cents === 0 ? " · Free" : ""}
-                  </span>
-                )}
-                {isSignedIn && !product.owned && product.price_cents > 0 && !isMarketplaceZip(product) && (
-                  <>
-                    {cartItemIds.has(product.id) ? (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          stop(e);
-                          onRemoveFromCart(product.id, e);
-                        }}
-                        disabled={addingToCart === product.id}
-                        className="rounded-[6px] border border-red-300 px-2 py-1 text-[11px] font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-50"
-                      >
-                        {addingToCart === product.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          stop(e);
-                          onAddToCart(product.id, e);
-                        }}
-                        disabled={addingToCart === product.id}
-                        className="rounded-[6px] border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
-                      >
-                        {addingToCart === product.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Add"}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        stop(e);
-                        onBuy(product, e);
-                      }}
-                      className="rounded-[6px] bg-[#0D1B2A] px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-[#162436]"
-                    >
-                      Buy
-                    </button>
-                  </>
-                )}
-                {product.owned && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700">
-                    <Check className="h-3 w-3" aria-hidden />
-                    Owned
-                  </span>
-                )}
-              </div>
+          <div
+            className={`${styles.face} ${styles.faceBack}`}
+            style={{ background: backGradient }}
+          >
+            <span className={styles.backTag}>{typeBadgeLabel}</span>
+          <div className={styles.backMain}>
+            <div className={styles.backIconWrap} style={{ color: typeTheme.iconColor }}>
+              <CategoryIcon type={product.type} className="h-12 w-12" />
             </div>
-          </div>
-        </div>
-
-        <div className={`${styles.face} ${styles.faceBack}`}>
-          <div className={styles.backMedia}>
-            {product.image_url && !coverFailed ? (
-              // Native img: Next/Image `fill` often fails inside CSS 3D flip (backface-hidden).
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={product.image_url}
-                src={product.image_url}
-                alt=""
-                className={styles.cover}
-                loading="lazy"
-                decoding="async"
-                onError={() => setCoverFailed(true)}
-              />
-            ) : (
-              <div
-                className={styles.coverPlaceholder}
-                style={{ background: `linear-gradient(145deg, ${typeTheme.from}, ${typeTheme.to})` }}
-              >
-                <span style={{ color: typeTheme.iconColor }}>
-                  <CategoryIcon type={product.type} className="h-10 w-10" />
-                </span>
-              </div>
-            )}
-          </div>
-          <div className={styles.overlay} aria-hidden />
-          <span className={styles.backTag}>{typeBadgeLabel}</span>
-          <div className={styles.backBody}>
-            <h3 className={styles.backTitle}>{displayTitle}</h3>
             <p
               ref={descriptionRef}
               className={`${styles.backDescription} ${expanded ? styles.backDescriptionExpanded : ""}`}
@@ -288,13 +208,77 @@ export function MarketplaceProductCard({
                 {expanded ? "Read less" : "Read more"}
               </button>
             )}
-            <p className={styles.backMeta}>
-              {priceLabel}
+          </div>
+          <div className={styles.backFooter}>
+            <span className={styles.backMeta}>
+              {topicLabel}
               {seriesLabel ? ` · ${seriesLabel}` : ""}
               {` · ${formatHint}`}
-            </p>
+            </span>
+            <div className={styles.backActions}>
+              {isMarketplaceZip(product) && !product.owned && (
+                <span className={styles.backActionHint}>
+                  View package
+                  {product.price_cents === 0 ? " · Free" : ""}
+                </span>
+              )}
+              {isSignedIn && !product.owned && product.price_cents > 0 && !isMarketplaceZip(product) && (
+                <>
+                  {cartItemIds.has(product.id) ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        stop(e);
+                        onRemoveFromCart(product.id, e);
+                      }}
+                      disabled={addingToCart === product.id}
+                      className={styles.backBtnSecondary}
+                    >
+                      {addingToCart === product.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        "Remove"
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        stop(e);
+                        onAddToCart(product.id, e);
+                      }}
+                      disabled={addingToCart === product.id}
+                      className={styles.backBtnSecondary}
+                    >
+                      {addingToCart === product.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        "Add"
+                      )}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      stop(e);
+                      onBuy(product, e);
+                    }}
+                    className={styles.backBtnPrimary}
+                  >
+                    Buy
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
           </div>
         </div>
+      </div>
+      <div className={styles.frontCaption}>
+        <h3 className={`vault-product-title ${styles.frontTitle}`} title={product.title}>
+          {displayTitle}
+        </h3>
+        {seriesLabel ? <p className={styles.frontSeries}>{seriesLabel}</p> : null}
       </div>
     </div>
   );
