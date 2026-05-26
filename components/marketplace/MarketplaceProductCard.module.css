@@ -1,71 +1,23 @@
 .card {
-  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
-  perspective: 900px;
-  perspective-origin: center center;
-  outline: none;
-  cursor: pointer;
-  border-radius: 10px;
-  overflow: hidden;
+  height: 100%;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: hsl(var(--card));
+  overflow: hidden;
+  outline: none;
+  cursor: pointer;
+  text-align: left;
 }
 
-.flipStage {
+.media {
   position: relative;
   width: 100%;
-  aspect-ratio: 3 / 4;
-  min-height: 220px;
-}
-
-.flipper {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  transform-style: preserve-3d;
-  transform-origin: center center;
-  transition: transform 0.65s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .card:hover .flipper,
-  .card:focus-within .flipper {
-    transform: rotateY(180deg);
-  }
-}
-
-.cardExpanded .flipStage {
-  aspect-ratio: auto;
-  min-height: 320px;
-}
-
-.cardExpanded .flipper {
-  transform: rotateY(180deg);
-}
-
-.face {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  overflow: hidden;
-}
-
-/* —— Front: cover image only —— */
-.faceFront {
-  transform: rotateY(0deg) translateZ(1px);
+  aspect-ratio: 16 / 9;
+  flex-shrink: 0;
   background: #0d1b2a;
-  z-index: 2;
-}
-
-.frontMedia {
-  position: absolute;
-  inset: 0;
 }
 
 .cover {
@@ -74,64 +26,85 @@
   height: 100%;
   object-fit: cover;
   object-position: center center;
-  pointer-events: none;
 }
 
 .coverPlaceholder {
-  position: absolute;
-  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  height: 100%;
 }
 
-.frontPrice {
+.badgePrice,
+.badgeOwned {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 2;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.95);
-  padding: 4px 10px;
+  top: 10px;
+  right: 10px;
+  z-index: 1;
+  border-radius: 4px;
+  padding: 4px 8px;
   font-size: 11px;
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: #0d1b2a;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  pointer-events: none;
+  line-height: 1.2;
 }
 
-.frontOwned {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 2;
+.badgePrice {
+  background: #fff;
+  color: #1c1d1f;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.badgeOwned {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  border-radius: 999px;
-  background: rgba(22, 101, 52, 0.92);
-  padding: 4px 10px;
-  font-size: 10px;
-  font-weight: 700;
+  background: rgba(22, 101, 52, 0.95);
   color: #fff;
-  pointer-events: none;
 }
 
-.frontCaption {
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0;
+  padding: 16px;
+}
+
+.publisher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.publisherIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
-  padding: 10px 12px 12px;
-  border-top: 1px solid var(--border);
-  background: hsl(var(--card));
-  pointer-events: none;
+  border-radius: 4px;
+  background: hsl(var(--muted));
 }
 
-.frontTitle {
-  margin: 0;
-  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+.publisherName {
   font-size: 0.8125rem;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.25;
+  color: hsl(var(--foreground));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.title {
+  margin: 0 0 8px;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.3;
   color: hsl(var(--foreground));
   overflow: hidden;
   display: -webkit-box;
@@ -139,183 +112,84 @@
   -webkit-line-clamp: 2;
 }
 
-.frontSeries {
-  margin: 4px 0 0;
-  font-size: 0.65rem;
-  font-weight: 600;
-  line-height: 1.3;
-  color: #c8922a;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* —— Back: type color + icon + description —— */
-.faceBack {
-  display: flex;
-  flex-direction: column;
-  transform: rotateY(180deg) translateZ(1px);
-  color: #fff;
-}
-
-.backTag {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 2;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  padding: 4px 10px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.backMain {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 48px 18px 12px;
-  text-align: center;
-  min-height: 0;
-}
-
-.backIconWrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 4.5rem;
-  height: 4.5rem;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.14);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.2);
-}
-
-.backDescription {
-  margin: 0;
-  width: 100%;
-  max-width: 100%;
+.description {
+  margin: 0 0 10px;
   font-size: 0.8125rem;
-  font-weight: 500;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.92);
+  font-weight: 400;
+  line-height: 1.45;
+  color: hsl(var(--muted-foreground));
   overflow: hidden;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 5;
+  -webkit-line-clamp: 3;
 }
 
-.backDescriptionExpanded {
-  display: block;
-  -webkit-line-clamp: unset;
-  overflow: visible;
-  max-height: none;
-}
-
-.readMore {
+.meta {
   margin: 0;
-  padding: 0;
-  border: none;
-  background: none;
   font-size: 0.75rem;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.95);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-}
-
-.readMore:hover {
-  color: #fff;
-}
-
-.backFooter {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 0 14px 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.18);
-  padding-top: 12px;
-  margin-top: auto;
-}
-
-.backMeta {
-  margin: 0;
-  font-size: 0.65rem;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.4;
-  color: rgba(255, 255, 255, 0.72);
-  text-align: center;
+  color: hsl(var(--muted-foreground));
 }
 
-.backActions {
+.metaSub {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: hsl(var(--muted-foreground));
+}
+
+.tag {
+  align-self: flex-start;
+  margin-top: 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted) / 0.35);
+}
+
+.packageHint {
+  margin: 10px 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+}
+
+.actions {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
   gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
 }
 
-.backActionHint {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.88);
-}
-
-.backBtnPrimary {
-  border: none;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.95);
+.actionBtn,
+.actionBtnPrimary {
+  border-radius: 4px;
   padding: 6px 12px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #0d1b2a;
-  cursor: pointer;
-}
-
-.backBtnPrimary:hover {
-  background: #fff;
-}
-
-.backBtnSecondary {
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  border-radius: 6px;
-  background: transparent;
-  padding: 5px 10px;
-  font-size: 11px;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: #fff;
   cursor: pointer;
 }
 
-.backBtnSecondary:hover {
-  background: rgba(255, 255, 255, 0.12);
+.actionBtn {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: hsl(var(--foreground));
 }
 
-.backBtnSecondary:disabled {
-  opacity: 0.55;
+.actionBtnPrimary {
+  border: none;
+  background: #c8922a;
+  color: #fff;
 }
 
-.cardExpanded .faceBack {
-  position: relative;
-  inset: unset;
-  height: auto;
-  min-height: 100%;
-}
-
-.cardExpanded .flipper {
-  height: auto;
-  min-height: 100%;
-}
-
-.cardExpanded .flipStage {
-  min-height: 100%;
+.actionBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
