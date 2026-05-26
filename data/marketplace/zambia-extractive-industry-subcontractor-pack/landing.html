@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zambia Mining Subcontractor Legal Kit — Yamalé</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ebony: #221913;
+    --gold: #c18c43;
+    --saddlewood: #603b1c;
+    --copper: #9a632a;
+    --pale-gold: #e3ba65;
+    --warm-gray: #f5f0eb;
+    --off-white: #faf8f5;
+    --white: #ffffff;
+    --text-dark: #1a1410;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--ebony);
+    color: var(--off-white);
+    overflow-x: hidden;
+  }
+
+  /* ── NOISE TEXTURE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 20px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(to bottom, rgba(34,25,19,0.95), transparent);
+  }
+  .nav-logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--gold);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+  }
+  .nav-cta {
+    background: var(--gold);
+    color: var(--ebony);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 10px 24px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.2s, transform 0.2s;
+  }
+  .nav-cta:hover { background: var(--pale-gold); transform: translateY(-1px); }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 0 48px 80px;
+    overflow: hidden;
+  }
+
+  /* Copper mesh background */
+  .hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 70% 30%, rgba(193,140,67,0.12) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 80% at 10% 80%, rgba(96,59,28,0.3) 0%, transparent 50%),
+      linear-gradient(160deg, var(--ebony) 50%, #2e1a0e 100%);
+    z-index: 0;
+  }
+
+  /* Decorative diagonal lines */
+  .hero-lines {
+    position: absolute;
+    top: 0; right: 0;
+    width: 45%;
+    height: 100%;
+    z-index: 1;
+    overflow: hidden;
+    opacity: 0.15;
+  }
+  .hero-lines::before {
+    content: '';
+    position: absolute;
+    top: -20%;
+    right: -10%;
+    width: 200%;
+    height: 200%;
+    background: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 40px,
+      var(--gold) 40px,
+      var(--gold) 41px
+    );
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 2;
+    max-width: 820px;
+  }
+
+  .hero-eyebrow {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: fadeUp 0.8s ease both;
+  }
+  .hero-eyebrow::before {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 1px;
+    background: var(--gold);
+  }
+
+  .hero-headline {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(3rem, 6vw, 5.5rem);
+    font-weight: 700;
+    line-height: 1.0;
+    color: var(--white);
+    margin-bottom: 32px;
+    animation: fadeUp 0.8s 0.15s ease both;
+  }
+  .hero-headline em {
+    font-style: italic;
+    color: var(--gold);
+  }
+
+  .hero-sub {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 300;
+    line-height: 1.7;
+    color: rgba(250,248,245,0.75);
+    max-width: 560px;
+    margin-bottom: 48px;
+    animation: fadeUp 0.8s 0.3s ease both;
+  }
+
+  .hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    animation: fadeUp 0.8s 0.45s ease both;
+  }
+
+  .btn-primary {
+    background: var(--gold);
+    color: var(--ebony);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 16px 36px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-primary::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.15);
+    transform: translateX(-100%);
+    transition: transform 0.3s;
+  }
+  .btn-primary:hover::after { transform: translateX(0); }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(193,140,67,0.3); }
+
+  .btn-secondary {
+    color: var(--pale-gold);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 400;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(193,140,67,0.4);
+    padding-bottom: 2px;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .btn-secondary:hover { color: var(--gold); border-color: var(--gold); }
+
+  .hero-price-tag {
+    position: absolute;
+    top: 140px;
+    right: 48px;
+    z-index: 2;
+    text-align: right;
+    animation: fadeUp 0.8s 0.6s ease both;
+  }
+  .price-amount {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 4.5rem;
+    font-weight: 700;
+    color: var(--gold);
+    line-height: 1;
+  }
+  .price-currency {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 300;
+    color: var(--pale-gold);
+    vertical-align: super;
+    margin-right: 4px;
+  }
+  .price-label {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 400;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(250,248,245,0.5);
+    margin-top: 6px;
+  }
+
+  /* ── GOLD DIVIDER ── */
+  .gold-bar {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--gold), transparent);
+    opacity: 0.4;
+  }
+
+  /* ── CITIES STRIP ── */
+  .cities-strip {
+    background: var(--saddlewood);
+    padding: 16px 48px;
+    display: flex;
+    align-items: center;
+    gap: 48px;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+  }
+  .cities-label {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(227,186,101,0.7);
+    white-space: nowrap;
+  }
+  .cities-list {
+    display: flex;
+    gap: 32px;
+    align-items: center;
+  }
+  .city-item {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem;
+    font-weight: 400;
+    color: var(--pale-gold);
+    white-space: nowrap;
+    letter-spacing: 0.05em;
+  }
+  .city-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--gold);
+    opacity: 0.5;
+  }
+
+  /* ── SECTIONS ── */
+  section {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── THE PROBLEM ── */
+  .problem-section {
+    padding: 100px 48px;
+    background: var(--ebony);
+  }
+  .problem-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+    align-items: start;
+  }
+  .section-label {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-label::before {
+    content: '';
+    display: block;
+    width: 24px;
+    height: 1px;
+    background: var(--gold);
+  }
+  .problem-heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2rem, 3.5vw, 3rem);
+    font-weight: 600;
+    line-height: 1.15;
+    color: var(--white);
+    margin-bottom: 0;
+  }
+  .problem-heading em {
+    font-style: italic;
+    color: var(--pale-gold);
+  }
+  .problem-statements {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .problem-item {
+    padding: 28px 0;
+    border-bottom: 1px solid rgba(193,140,67,0.15);
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+  }
+  .problem-item:first-child { padding-top: 0; }
+  .problem-num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: rgba(193,140,67,0.25);
+    line-height: 1;
+    min-width: 36px;
+  }
+  .problem-text {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 300;
+    line-height: 1.7;
+    color: rgba(250,248,245,0.7);
+  }
+  .problem-text strong {
+    color: var(--off-white);
+    font-weight: 500;
+  }
+
+  /* ── KIT CONTENTS ── */
+  .kit-section {
+    padding: 100px 48px;
+    background: linear-gradient(180deg, #1a0f09 0%, var(--ebony) 100%);
+  }
+  .kit-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .kit-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    align-items: end;
+    margin-bottom: 64px;
+  }
+  .kit-heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2.2rem, 3.5vw, 3.2rem);
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--white);
+  }
+  .kit-heading em { font-style: italic; color: var(--gold); }
+  .kit-desc {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 300;
+    line-height: 1.75;
+    color: rgba(250,248,245,0.65);
+  }
+  .kit-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+  }
+  .kit-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(193,140,67,0.12);
+    padding: 36px 28px;
+    position: relative;
+    transition: background 0.3s, border-color 0.3s;
+    cursor: default;
+  }
+  .kit-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 0;
+    height: 2px;
+    background: var(--gold);
+    transition: width 0.4s ease;
+  }
+  .kit-card:hover { background: rgba(255,255,255,0.06); border-color: rgba(193,140,67,0.3); }
+  .kit-card:hover::before { width: 100%; }
+  .kit-card-num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--copper);
+    letter-spacing: 0.1em;
+    margin-bottom: 14px;
+  }
+  .kit-card-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.2rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--white);
+    margin-bottom: 12px;
+  }
+  .kit-card-desc {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 300;
+    line-height: 1.65;
+    color: rgba(250,248,245,0.5);
+  }
+  .kit-card-tag {
+    display: inline-block;
+    margin-top: 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--gold);
+    border: 1px solid rgba(193,140,67,0.35);
+    padding: 4px 10px;
+  }
+
+  /* ── LAW CALLOUT ── */
+  .law-callout {
+    margin-top: 48px;
+    padding: 36px 40px;
+    background: rgba(193,140,67,0.08);
+    border-left: 3px solid var(--gold);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 28px;
+    align-items: center;
+  }
+  .law-callout-icon {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 3rem;
+    line-height: 1;
+    color: var(--gold);
+    opacity: 0.6;
+  }
+  .law-callout-text {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 400;
+    line-height: 1.7;
+    color: rgba(250,248,245,0.75);
+  }
+  .law-callout-text strong { color: var(--pale-gold); font-weight: 500; }
+
+  /* ── WHO IT'S FOR ── */
+  .who-section {
+    padding: 100px 48px;
+    background: var(--warm-gray);
+  }
+  .who-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .who-heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2.2rem, 3.5vw, 3rem);
+    font-weight: 700;
+    color: var(--ebony);
+    margin-bottom: 56px;
+    line-height: 1.1;
+  }
+  .who-heading em { font-style: italic; color: var(--saddlewood); }
+  .who-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+  }
+  .who-card {
+    background: var(--white);
+    padding: 40px 32px;
+    border-bottom: 3px solid var(--gold);
+    position: relative;
+  }
+  .who-card-city {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--copper);
+    margin-bottom: 16px;
+  }
+  .who-card-role {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--ebony);
+    line-height: 1.2;
+    margin-bottom: 16px;
+  }
+  .who-card-desc {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 400;
+    line-height: 1.7;
+    color: rgba(34,25,19,0.65);
+  }
+
+  /* ── STATS STRIP ── */
+  .stats-strip {
+    background: var(--saddlewood);
+    padding: 60px 48px;
+  }
+  .stats-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 40px;
+  }
+  .stat-item {
+    text-align: center;
+  }
+  .stat-num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 3.5rem;
+    font-weight: 700;
+    color: var(--pale-gold);
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .stat-label {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: rgba(250,248,245,0.65);
+    letter-spacing: 0.05em;
+  }
+
+  /* ── PRICING ── */
+  .pricing-section {
+    padding: 100px 48px;
+    background: var(--ebony);
+  }
+  .pricing-inner {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .pricing-heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2rem, 3.5vw, 3rem);
+    font-weight: 700;
+    color: var(--white);
+    text-align: center;
+    margin-bottom: 12px;
+    line-height: 1.1;
+  }
+  .pricing-heading em { font-style: italic; color: var(--gold); }
+  .pricing-sub {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 300;
+    color: rgba(250,248,245,0.55);
+    text-align: center;
+    margin-bottom: 64px;
+    line-height: 1.6;
+  }
+  .pricing-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+  }
+  .pricing-card {
+    padding: 56px 44px;
+    position: relative;
+  }
+  .pricing-card.standard {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(193,140,67,0.2);
+  }
+  .pricing-card.bundle {
+    background: linear-gradient(135deg, rgba(193,140,67,0.12) 0%, rgba(96,59,28,0.2) 100%);
+    border: 1px solid var(--gold);
+  }
+  .bundle-badge {
+    position: absolute;
+    top: -1px;
+    right: 28px;
+    background: var(--gold);
+    color: var(--ebony);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 5px 12px;
+  }
+  .pricing-tier {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--copper);
+    margin-bottom: 20px;
+  }
+  .pricing-price {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 5rem;
+    font-weight: 700;
+    color: var(--white);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .pricing-price .currency {
+    font-size: 1.8rem;
+    vertical-align: super;
+    color: var(--gold);
+    margin-right: 4px;
+  }
+  .pricing-card.bundle .pricing-price { color: var(--pale-gold); }
+  .pricing-period {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 300;
+    color: rgba(250,248,245,0.45);
+    margin-bottom: 32px;
+    letter-spacing: 0.05em;
+  }
+  .pricing-includes {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(250,248,245,0.4);
+    margin-bottom: 20px;
+  }
+  .pricing-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 40px;
+  }
+  .pricing-list li {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 300;
+    line-height: 1.5;
+    color: rgba(250,248,245,0.7);
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .pricing-list li::before {
+    content: '—';
+    color: var(--gold);
+    font-size: 0.7rem;
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+  .pricing-card.bundle .pricing-list li { color: rgba(250,248,245,0.85); }
+  .pricing-note {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 300;
+    color: rgba(250,248,245,0.4);
+    font-style: italic;
+    margin-top: 16px;
+    line-height: 1.6;
+  }
+
+  /* ── TESTIMONIAL / CONTEXT BLOCK ── */
+  .context-section {
+    padding: 80px 48px;
+    background: #150d08;
+    border-top: 1px solid rgba(193,140,67,0.15);
+    border-bottom: 1px solid rgba(193,140,67,0.15);
+  }
+  .context-inner {
+    max-width: 800px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .context-quote {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(1.5rem, 2.5vw, 2rem);
+    font-weight: 400;
+    font-style: italic;
+    line-height: 1.55;
+    color: rgba(250,248,245,0.85);
+    margin-bottom: 28px;
+  }
+  .context-quote em { color: var(--pale-gold); font-style: normal; }
+  .context-attr {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--copper);
+  }
+
+  /* ── ABOUT YAMALE ── */
+  .about-section {
+    padding: 80px 48px;
+    background: var(--ebony);
+  }
+  .about-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 80px;
+    align-items: center;
+  }
+  .about-logo-area {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .about-wordmark {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 0.05em;
+    line-height: 1;
+  }
+  .about-tagline {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 400;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(193,140,67,0.6);
+  }
+  .about-divider {
+    width: 40px;
+    height: 1px;
+    background: var(--gold);
+    opacity: 0.4;
+    margin: 8px 0;
+  }
+  .about-text {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 300;
+    line-height: 1.8;
+    color: rgba(250,248,245,0.6);
+  }
+  .about-text strong { color: var(--pale-gold); font-weight: 500; }
+
+  /* ── CTA FOOTER ── */
+  .cta-section {
+    padding: 100px 48px;
+    background: linear-gradient(135deg, #2e1a0e 0%, var(--ebony) 60%);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .cta-section::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(193,140,67,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .cta-heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2.5rem, 4vw, 4rem);
+    font-weight: 700;
+    color: var(--white);
+    line-height: 1.1;
+    margin-bottom: 20px;
+    position: relative;
+  }
+  .cta-heading em { font-style: italic; color: var(--gold); }
+  .cta-sub {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 300;
+    color: rgba(250,248,245,0.55);
+    margin-bottom: 48px;
+    line-height: 1.6;
+    position: relative;
+  }
+  .cta-buttons {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    position: relative;
+  }
+  .cta-contact {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 300;
+    color: rgba(250,248,245,0.4);
+    margin-top: 32px;
+    position: relative;
+  }
+  .cta-contact a { color: var(--gold); text-decoration: none; }
+  .cta-contact a:hover { text-decoration: underline; }
+
+  /* ── FOOTER ── */
+  footer {
+    background: #0e0906;
+    padding: 32px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(193,140,67,0.1);
+  }
+  .footer-left {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 300;
+    color: rgba(250,248,245,0.3);
+  }
+  .footer-right {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.9rem;
+    color: rgba(193,140,67,0.5);
+    letter-spacing: 0.08em;
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    nav { padding: 16px 24px; }
+    .hero { padding: 0 24px 60px; }
+    .hero-price-tag { display: none; }
+    .hero-headline { font-size: 2.8rem; }
+    .problem-inner, .kit-header, .about-inner { grid-template-columns: 1fr; gap: 40px; }
+    .kit-grid { grid-template-columns: 1fr 1fr; }
+    .who-grid { grid-template-columns: 1fr; }
+    .stats-inner { grid-template-columns: 1fr 1fr; }
+    .pricing-cards { grid-template-columns: 1fr; }
+    .problem-section, .kit-section, .who-section, .pricing-section,
+    .about-section, .cta-section { padding: 60px 24px; }
+    .cities-strip { padding: 14px 24px; }
+    footer { flex-direction: column; gap: 12px; text-align: center; }
+  }
+  @media (max-width: 600px) {
+    .kit-grid { grid-template-columns: 1fr; }
+    .stats-inner { grid-template-columns: 1fr 1fr; gap: 24px; }
+    .hero-headline { font-size: 2.2rem; }
+    .hero-actions { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-logo" href="#">Yamalé</a>
+  <a class="nav-cta" href="#pricing">Get the Kit</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-lines"></div>
+
+  <div class="hero-price-tag">
+    <div class="price-amount"><span class="price-currency">$</span>199</div>
+    <div class="price-label">Standalone Kit</div>
+  </div>
+
+  <div class="hero-content">
+    <div class="hero-eyebrow">Yamalé — Zambia Mining Series</div>
+    <h1 class="hero-headline">
+      The prime contractor<br>has lawyers.<br>
+      <em>Now so does<br>your client.</em>
+    </h1>
+    <p class="hero-sub">
+      Nine practice-ready documents for Zambian lawyers advising SME subcontractors 
+      in the mining sector. Built on the 2024 Minerals Regulation Commission Act, 
+      the new local content regulations, and the Employment Code Act 2019.
+    </p>
+    <div class="hero-actions">
+      <a class="btn-primary" href="#pricing">Get the Kit — $199</a>
+      <a class="btn-secondary" href="#contents">See what's inside ↓</a>
+    </div>
+  </div>
+</section>
+
+<!-- CITIES STRIP -->
+<div class="cities-strip">
+  <span class="cities-label">Built for lawyers in</span>
+  <div class="cities-list">
+    <span class="city-item">Lusaka</span>
+    <span class="city-dot"></span>
+    <span class="city-item">Ndola</span>
+    <span class="city-dot"></span>
+    <span class="city-item">Kitwe</span>
+    <span class="city-dot"></span>
+    <span class="city-item">Solwezi</span>
+    <span class="city-dot"></span>
+    <span class="city-item">Chingola</span>
+    <span class="city-dot"></span>
+    <span class="city-item">Livingstone</span>
+  </div>
+</div>
+
+<!-- THE PROBLEM -->
+<section class="problem-section">
+  <div class="problem-inner">
+    <div>
+      <div class="section-label">The Reality</div>
+      <h2 class="problem-heading">
+        Most SME subcontractors<br>sign what they're given.<br>
+        <em>And pay for it.</em>
+      </h2>
+    </div>
+    <div class="problem-statements">
+      <div class="problem-item">
+        <div class="problem-num">01</div>
+        <div class="problem-text">
+          <strong>The subcontract was drafted by the prime contractor's lawyers.</strong> Every clause — payment terms, termination rights, liability caps — was written to protect the prime contractor, not your client.
+        </div>
+      </div>
+      <div class="problem-item">
+        <div class="problem-num">02</div>
+        <div class="problem-text">
+          <strong>The new local content regulations give your client real rights.</strong> SI No. 68 of 2025 came into force on 1 January 2026. Most SME subcontractors — and many of their lawyers — don't yet know how to use them.
+        </div>
+      </div>
+      <div class="problem-item">
+        <div class="problem-num">03</div>
+        <div class="problem-text">
+          <strong>Payment disputes, wrongful terminations, and site injuries are not rare.</strong> They are the day-to-day reality of subcontracting on a Zambian mine site. A lawyer without the right tools takes twice as long and charges twice as much.
+        </div>
+      </div>
+      <div class="problem-item">
+        <div class="problem-num">04</div>
+        <div class="problem-text">
+          <strong>No toolkit existed specifically for this market.</strong> Until now, Zambian lawyers advising mining subcontractors had to build every framework, checklist, and precedent from scratch. This kit changes that.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTENTS -->
+<section class="kit-section" id="contents">
+  <div class="kit-inner">
+    <div class="kit-header">
+      <div>
+        <div class="section-label">What's Inside</div>
+        <h2 class="kit-heading">
+          Nine documents.<br>
+          <em>Every situation<br>covered.</em>
+        </h2>
+      </div>
+      <p class="kit-desc">
+        From the first client meeting to the final demand letter — every document in this kit is designed to be used immediately. Replace the placeholders, add the facts, send the letter. No starting from scratch. No research from first principles on a deadline.
+      </p>
+    </div>
+
+    <div class="kit-grid">
+      <div class="kit-card">
+        <div class="kit-card-num">ZMS-01</div>
+        <div class="kit-card-title">Legal Landscape for Subcontractors</div>
+        <div class="kit-card-desc">The MRCA 2024, the new MRC regulator, SI No. 68 of 2025, and the key dispute forums. Everything you need to know before you advise a client on any mining subcontract matter.</div>
+        <span class="kit-card-tag">Practitioner's Guide</span>
+      </div>
+      <div class="kit-card">
+        <div class="kit-card-num">ZMS-02</div>
+        <div class="kit-card-title">Local Content Compliance Checklist</div>
+        <div class="kit-card-desc">Does your client qualify? What preference rights do they hold? What is the mining company obligated to do — and what can you do when it doesn't? Built on SI No. 68 of 2025, in force January 2026.</div>
+        <span class="kit-card-tag">Checklist + Explainer</span>
+      </div>
+      <div class="kit-card">
+        <div class="kit-card-num">ZMS-03</div>
+        <div class="kit-card-title">Subcontract Review and Red Flag Checklist</div>
+        <div class="kit-card-desc">25 high-risk clause types across payment, scope, termination, liability, and dispute resolution — each with what to look for, why it matters, and the recommended negotiating position.</div>
+        <span class="kit-card-tag">Checklist</span>
+      </div>
+      <div class="kit-card">
+        <div class="kit-card-num">ZMS-04</div>
+        <div class="kit-card-title">Payment Protection and Dispute Toolkit</div>
+        <div class="kit-card-desc">From invoice submission to High Court proceedings. Payment monitoring systems, an evidence checklist, a step-by-step response protocol, and three ready-to-adapt letter templates.</div>
+        <span class="kit-card-tag">Toolkit + Templates</span>
+      </div>
+      <div class="kit-card">
+        <div class="kit-card-num">ZMS-05</div>
+        <div class="kit-card-title">Site Injury and Liability Framework</div>
+        <div class="kit-card-desc">Workers' Compensation Act, Mines Safety Act, ECA 2019, and civil liability — all mapped to your client's specific exposure. Pre-site checklists and a 12-step incident response protocol.</div>
+        <span class="kit-card-tag">Framework + Checklist</span>
+      </div>
+      <div class="kit-card">
+        <div class="kit-card-num">ZMS-06</div>
+        <div class="kit-card-title">Worker Rights and Employment Protections</div>
+        <div class="kit-card-desc">Employment Code Act 2019 obligations mapped to what an SME subcontractor must actually have in place — contracts, wages, leave, termination procedure, and worker claims response.</div>
+        <span class="kit-card-tag">Guide + Checklist</span>
+      </div>
+      <div class="kit-card">
+        <div class="kit-card-num">ZMS-07</div>
+        <div class="kit-card-title">Subcontractor Engagement Letter Template</div>
+        <div class="kit-card-desc">A purpose-built engagement letter for the mining subcontractor context — three fee structure options, precise scope and exclusion language, liability limitation, and a scope variation note.</div>
+        <span class="kit-card-tag">Template</span>
+      </div>
+      <div class="kit-card">
+        <div class="kit-card-num">ZMS-08</div>
+        <div class="kit-card-title">Demand Letter and Dispute Escalation Templates</div>
+        <div class="kit-card-desc">Five templates: formal payment demand, wrongful termination notice, scope dispute notice, local content non-compliance notice, and without prejudice settlement offer. Ready to adapt and send.</div>
+        <span class="kit-card-tag">5 Templates</span>
+      </div>
+      <div class="kit-card">
+        <div class="kit-card-num">ZMS-09</div>
+        <div class="kit-card-title">Client Onboarding Checklist</div>
+        <div class="kit-card-desc">Capture everything you need at the first meeting — corporate structure, citizenship, contracts, financial position, insurance, disputes, and legal history. Includes an immediate risk assessment framework.</div>
+        <span class="kit-card-tag">Checklist</span>
+      </div>
+    </div>
+
+    <div class="law-callout">
+      <div class="law-callout-icon">§</div>
+      <div class="law-callout-text">
+        Every document reflects <strong>Zambian law as at 2026</strong> — including the Minerals Regulation Commission Act No. 14 of 2024, the Geological and Minerals Development Act 2025, the Local Content Regulations (SI No. 68 of 2025, in force 1 January 2026), and the Employment Code Act No. 3 of 2019. This is not a generic African legal toolkit adapted for Zambia. It was built for Zambia from the ground up.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WHO IT'S FOR -->
+<section class="who-section">
+  <div class="who-inner">
+    <div class="section-label" style="color: var(--saddlewood);">
+      <span style="display:inline-block; width:24px; height:1px; background:var(--saddlewood); margin-right:10px;"></span>
+      Who This Is For
+    </div>
+    <h2 class="who-heading">
+      Built for the lawyers<br>
+      <em>working on the ground.</em>
+    </h2>
+    <div class="who-grid">
+      <div class="who-card">
+        <div class="who-card-city">Lusaka · Ndola · Kitwe</div>
+        <div class="who-card-role">The Solo Practitioner</div>
+        <div class="who-card-desc">You have SME clients approaching you about mining contracts. You know the law — but you're building every checklist and precedent from scratch, on a client budget that doesn't allow for six hours of research. This kit gives you the framework. You do the advice.</div>
+      </div>
+      <div class="who-card">
+        <div class="who-card-city">Copperbelt · North-Western Province</div>
+        <div class="who-card-role">The Small Firm Adding Mining to its Practice</div>
+        <div class="who-card-desc">You have general commercial clients who are starting to subcontract to mines. The new local content regulations create opportunity — but also complexity your team hasn't navigated before. This kit is the infrastructure for a new practice area.</div>
+      </div>
+      <div class="who-card">
+        <div class="who-card-city">Anywhere in Zambia</div>
+        <div class="who-card-role">The In-House Counsel at an SME</div>
+        <div class="who-card-desc">Your company subcontracts to mines and you're managing the legal risk with limited external support. This kit gives you the frameworks your external lawyers should be using — so you can ask the right questions and spot the right risks yourself.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-strip">
+  <div class="stats-inner">
+    <div class="stat-item">
+      <div class="stat-num">9</div>
+      <div class="stat-label">Practice-ready<br>documents</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">5</div>
+      <div class="stat-label">Ready-to-adapt<br>letter templates</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">2026</div>
+      <div class="stat-label">Law as at<br>January 2026</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">$199</div>
+      <div class="stat-label">Full kit,<br>one payment</div>
+    </div>
+  </div>
+</div>
+
+<!-- CONTEXT BLOCK -->
+<section class="context-section">
+  <div class="context-inner">
+    <div class="gold-bar" style="margin-bottom: 48px; opacity: 0.2;"></div>
+    <p class="context-quote">
+      "Only <em>6% of mining inputs</em> historically went to local Zambian suppliers. The new local content regulations exist to change that. The lawyers who understand those regulations will be the ones who help their clients capture the opportunity — and protect them when the prime contractor doesn't play fair."
+    </p>
+    <div class="context-attr">Yamalé — Lusaka &amp; Dakar</div>
+    <div class="gold-bar" style="margin-top: 48px; opacity: 0.2;"></div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing-section" id="pricing">
+  <div class="pricing-inner">
+    <div class="section-label" style="justify-content: center; margin-bottom: 16px;">Pricing</div>
+    <h2 class="pricing-heading">Simple. <em>One price.</em> Everything included.</h2>
+    <p class="pricing-sub">No subscription. No per-document fees. Download all nine documents, use them immediately, update them as your practice develops.</p>
+
+    <div class="pricing-cards">
+      <div class="pricing-card standard">
+        <div class="pricing-tier">Standalone Kit</div>
+        <div class="pricing-price"><span class="currency">$</span>199</div>
+        <div class="pricing-period">one-time payment · immediate download</div>
+        <div class="pricing-includes">What you get</div>
+        <ul class="pricing-list">
+          <li>All 9 ZMS documents in editable .docx format</li>
+          <li>ZMS-01 Legal Landscape Practitioner's Guide</li>
+          <li>ZMS-02 Local Content Compliance Checklist</li>
+          <li>ZMS-03 Subcontract Red Flag Checklist (25 clause types)</li>
+          <li>ZMS-04 Payment Protection Toolkit + 3 letter templates</li>
+          <li>ZMS-05 Site Injury and Liability Framework</li>
+          <li>ZMS-06 Worker Rights and Employment Protections</li>
+          <li>ZMS-07 Engagement Letter Template</li>
+          <li>ZMS-08 Five Dispute Escalation Templates</li>
+          <li>ZMS-09 Client Onboarding Checklist</li>
+        </ul>
+        <a class="btn-primary" href="mailto:advisory@yamalealliance.org?subject=ZMS Kit Purchase" style="display: block; text-align: center;">Purchase — $199</a>
+        <p class="pricing-note">Contact us to arrange payment and immediate delivery. We accept ZMW bank transfer, USD wire, and major cards.</p>
+      </div>
+
+      <div class="pricing-card bundle">
+        <div class="bundle-badge">Best Value</div>
+        <div class="pricing-tier">Bundle with Law Firm Development Package</div>
+        <div class="pricing-price"><span class="currency">$</span>129</div>
+        <div class="pricing-period">add-on price when purchased with the Package</div>
+        <div class="pricing-includes">Everything in the standalone kit, plus</div>
+        <ul class="pricing-list">
+          <li>All 9 ZMS documents at the discounted add-on rate</li>
+          <li>Access to the full African Law Firm Development Package — 150+ documents across 8 phases of firm management</li>
+          <li>Financial systems, HR frameworks, client relations, marketing, technology infrastructure</li>
+          <li>Built for African legal practice: OHADA and common law, multi-currency, 54 jurisdictions</li>
+          <li>Save $70 on the mining kit when you invest in the firm infrastructure that delivers the advice</li>
+        </ul>
+        <a class="btn-primary" href="mailto:advisory@yamalealliance.org?subject=Law Firm Package + ZMS Bundle" style="display: block; text-align: center; background: var(--gold);">Get the Bundle</a>
+        <p class="pricing-note">The Law Firm Development Package is $499 — a one-time payment. Combined with the ZMS kit at $129, the bundle gives you both the practice tools and the firm infrastructure to use them — a total of $628 for everything.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ABOUT YAMALE -->
+<section class="about-section">
+  <div class="about-inner">
+    <div class="about-logo-area">
+      <div class="about-wordmark">Yamalé</div>
+      <div class="about-tagline">Putting Africa on Equal Footing</div>
+      <div class="about-divider"></div>
+      <div class="about-tagline" style="color: rgba(193,140,67,0.4);">Dakar · Lusaka</div>
+    </div>
+    <div class="about-text">
+      Yamalé is an African legal advisory firm with offices in Dakar, Senegal and Lusaka, Zambia. We work at the intersection of African legal infrastructure, extractive industry governance, and the development of practical legal tools for African lawyers and their clients.<br><br>
+      <strong>This kit was built by practitioners who understand the Zambian mining sector from the inside</strong> — the power imbalances, the contract templates, the regulatory gaps, and the real-world pressures on SME subcontractors trying to participate in one of the world's most significant copper industries.<br><br>
+      We believe that access to quality legal tools should not depend on the size of a firm's budget. The Zambia Mining Subcontractor Legal Kit is part of our broader commitment to <strong>putting African lawyers and their clients on equal footing</strong> with the multinational firms and companies they negotiate against every day.
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <h2 class="cta-heading">
+    Your next mining client<br>
+    deserves <em>the right tools.</em>
+  </h2>
+  <p class="cta-sub">
+    Nine documents. Built for Zambia. Available today.
+  </p>
+  <div class="cta-buttons">
+    <a class="btn-primary" href="mailto:advisory@yamalealliance.org?subject=ZMS Kit Purchase" style="font-size: 0.9rem; padding: 18px 44px;">Get the Kit — $199</a>
+    <a class="btn-primary" href="mailto:advisory@yamalealliance.org?subject=Law Firm Package + ZMS Bundle" style="font-size: 0.9rem; padding: 18px 44px; background: rgba(193,140,67,0.15); color: var(--pale-gold); border: 1px solid rgba(193,140,67,0.4);">Bundle with Law Firm Package — $129</a>
+  </div>
+  <p class="cta-contact">
+    Questions? Write to us at <a href="mailto:advisory@yamalealliance.org">advisory@yamalealliance.org</a>
+  </p>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-left">© 2026 Yamalé. All rights reserved. Content reflects Zambian law as at January 2026. Not a substitute for legal advice in your specific jurisdiction.</div>
+  <div class="footer-right">Yamalé</div>
+</footer>
+
+</body>
+</html>
