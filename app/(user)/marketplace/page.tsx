@@ -95,6 +95,13 @@ type Product = {
   vault_subcategory?: string | null;
 };
 
+type DisplayProductCard = {
+  product: Product;
+  collectionHref?: string;
+  collectionCount?: number;
+  collectionLabel?: string;
+};
+
 function normalizeSeriesImages(items: Product[]): Product[] {
   if (!items.length) return items;
 
@@ -350,6 +357,52 @@ export default function MarketplacePage() {
     () => sortVaultProducts(filteredByTopic, vaultSort),
     [filteredByTopic, vaultSort]
   );
+  const browseSeries = browse.kind === "free" ? browse.subcategory : null;
+
+  const displayCards = useMemo<DisplayProductCard[]>(() => {
+    const shouldGroupSeries = browse.kind === "all" || (browse.kind === "free" && !browse.subcategory);
+    if (!shouldGroupSeries) {
+      return sortedProducts.map((product) => ({ product }));
+    }
+
+    const cards: DisplayProductCard[] = [];
+    const groupedIndexBySeries = new Map<string, number>();
+
+    for (const product of sortedProducts) {
+      const subcategory = product.vault_subcategory?.trim() ?? "";
+      if (!isFreeVaultItem(product.price_cents) || !subcategory) {
+        cards.push({ product });
+        continue;
+      }
+
+      const existingIndex = groupedIndexBySeries.get(subcategory);
+      if (existingIndex !== undefined) {
+        const existing = cards[existingIndex];
+        cards[existingIndex] = {
+          ...existing,
+          collectionCount: (existing.collectionCount ?? 1) + 1,
+        };
+        continue;
+      }
+
+      const label = labelForVaultSubcategory(subcategory) ?? "Series";
+      const qs = buildMarketplaceSearchQuery({
+        category: VAULT_BROWSE_FREE,
+        series: subcategory,
+        sort: vaultSort,
+      });
+
+      groupedIndexBySeries.set(subcategory, cards.length);
+      cards.push({
+        product,
+        collectionLabel: label,
+        collectionCount: 1,
+        collectionHref: qs ? `/marketplace?${qs}` : "/marketplace",
+      });
+    }
+
+    return cards;
+  }, [browse.kind, browseSeries, sortedProducts, vaultSort]);
 
   const browseTitle =
     browse.kind === "all"
@@ -734,45 +787,48 @@ export default function MarketplacePage() {
             <div className="flex justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : sortedProducts.length === 0 ? (
+          ) : displayCards.length === 0 ? (
             <div className="mt-8 rounded-[10px] border border-dashed border-border bg-card px-8 py-12 text-center">
               <h3 className="text-xl font-semibold text-foreground">No resources match your filters</h3>
               <p className="mt-2 text-sm text-muted-foreground">Try another format, topic, or broader search keyword.</p>
             </div>
           ) : (
-            <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-              {sortedProducts.map((product) => (
+            <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {displayCards.map((card) => (
                 <MarketplaceProductCard
-                  key={product.id}
-                  product={product}
-                  topicLabel={inferTopic(product)}
+                  key={card.collectionHref ?? card.product.id}
+                  product={card.product}
+                  topicLabel={inferTopic(card.product)}
                   typeBadgeLabel={
-                    product.type === "course"
+                    card.product.type === "course"
                       ? "Course"
-                      : product.type === "guide"
+                      : card.product.type === "guide"
                         ? "Guide"
-                        : product.type === "template"
+                        : card.product.type === "template"
                           ? "Template"
                           : "Book"
                   }
                   formatHint={
-                    product.type === "course"
+                    card.product.type === "course"
                       ? "Structured modules"
-                      : product.type === "template"
+                      : card.product.type === "template"
                         ? "Instant download"
                         : "Reference material"
                   }
                   seriesLabel={
-                    isFreeVaultItem(product.price_cents)
-                      ? labelForVaultSubcategory(product.vault_subcategory)
+                    isFreeVaultItem(card.product.price_cents)
+                      ? labelForVaultSubcategory(card.product.vault_subcategory)
                       : null
                   }
+                  collectionHref={card.collectionHref}
+                  collectionCount={card.collectionCount}
+                  collectionLabel={card.collectionLabel}
                   isSignedIn={!!isSignedIn}
                   cartItemIds={cartItemIds}
                   addingToCart={addingToCart}
                   onAddToCart={handleAddToCart}
                   onRemoveFromCart={handleRemoveFromCart}
-                  onBuy={(_, e) => openBuyModal(product, e)}
+                  onBuy={(_, e) => openBuyModal(card.product, e)}
                 />
               ))}
             </div>
