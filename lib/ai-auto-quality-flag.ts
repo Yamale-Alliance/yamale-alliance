@@ -50,7 +50,7 @@ export async function recordAutoAiQualityFlags(params: RecordAutoAiQualityFlagsP
   const gapKind = detection.kind;
   const laws = params.legalContext.filter((l) => l.id?.trim());
   const hadRetrievedLaws = laws.length > 0;
-  const lawsToFlag = lawsToFlagForGap(params.assistantText, laws, params.userQuery);
+  const lawsToFlag = lawsToFlagForGap(params.assistantText, laws, params.userQuery, gapKind);
   const requestedHint = extractRequestedInstrumentHint(params.userQuery);
   const flagCategory = lawFlagCategoryForGap(gapKind, hadRetrievedLaws);
   const bugCategory = aiBugCategoryForGap(gapKind);
