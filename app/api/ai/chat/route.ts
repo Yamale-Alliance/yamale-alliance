@@ -134,6 +134,12 @@ import {
 import { fetchContextualWebSearchForTurn } from "@/lib/ai-web-search";
 import { isAssistantWorkflowMetaQuery, isPlatformGuideMetaQuery } from "@/lib/ai-platform-meta-query";
 import {
+  buildOfficialSourceLookupResponse,
+  isOfficialSourceLookupQuery,
+  parseOfficialSourceLookupIntent,
+} from "@/lib/ai-official-source-lookup";
+import { enrichAiResearchAnswerWithOfficialSource } from "@/lib/ai-system-prompt";
+import {
   fetchAiMethodologyContext,
   prependMethodologyContext,
 } from "@/lib/ai-methodology-retrieval";
@@ -3087,10 +3093,19 @@ async function finalizeAssistantTurn(opts: {
   }
 
   const citationParse = extractCitedDocIndices(assistantTextRaw, legalContext.length);
-  const content = assistantTextRaw
+  let content = assistantTextRaw
     .replace(/\s*\[(?=[^\]]*\bdoc:\s*\d+)[^\]]+\]/gi, "")
     .replace(/[ \t]{2,}/g, " ")
     .trim();
+
+  if (!platformGuideMeta) {
+    content = await enrichAiResearchAnswerWithOfficialSource({
+      userQuery,
+      country: effectiveCountry ?? dbDetectedCountry ?? legalContext[0]?.country ?? null,
+      yamaleCategory: currentCategory,
+      assistantAnswer: content,
+    });
+  }
   let usedFlags = citedSlotsAsUsedFlags(citationParse.citedDocIndices, legalContext.length);
   usedFlags = mergeUsedFlagsFromTitleMentions(
     assistantTextRaw,
@@ -3390,6 +3405,37 @@ export async function POST(request: NextRequest) {
       globalTreatyCatalog ||
       countryBilateralCatalog;
     const strictCountryMode = !skipCountryRequirement && Boolean(effectiveHints.country);
+
+    if (
+      !platformGuideMeta &&
+      !assistantWorkflowMeta &&
+      isOfficialSourceLookupQuery(userQuery)
+    ) {
+      const lookup = parseOfficialSourceLookupIntent(
+        userQuery,
+        effectiveHints.country ?? dbDetectedCountry ?? conversationHints.country
+      );
+      if (lookup) {
+        const { content, found } = await buildOfficialSourceLookupResponse(
+          lookup.country,
+          lookup.category
+        );
+        return NextResponse.json({
+          content,
+          sources: found
+            ? [`Official source · ${lookup.category} (${lookup.country})`, "Yamalé Reference · Government sources"]
+            : ["Yamalé AI · African Legal Research"],
+          sourceCards: [],
+        });
+      }
+      return NextResponse.json({
+        content:
+          "Please specify the country and what you need to verify (for example tax, labour, business registration, customs, investment, or official gazette). " +
+          'Example: "Where can I verify tax filings in Zambia?"',
+        sources: ["Yamalé AI · African Legal Research"],
+        sourceCards: [],
+      });
+    }
 
     if (allCountriesBreakdownIntent) {
       const counts = await getAllCountriesLawCounts();

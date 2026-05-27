@@ -58,8 +58,13 @@ const sentryBuildOptions = {
   silent: !process.env.CI,
   widenClientFileUpload: true,
   hideSourceMaps: true,
-  disableLogger: true,
-  automaticVercelMonitors: true,
+  // Webpack-only (no-op under Turbopack); replaces deprecated top-level disableLogger / automaticVercelMonitors.
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+    automaticVercelMonitors: true,
+  },
 };
 
 export default hasSentry ? withSentryConfig(nextConfig, sentryBuildOptions) : nextConfig;

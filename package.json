@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "NODE_OPTIONS='--max-old-space-size=4096' next dev -H 0.0.0.0",
-    "build": "next build",
+    "dev": "NODE_OPTIONS='--max-old-space-size=4096 --disable-warning=ExperimentalWarning' next dev -H 0.0.0.0",
+    "build": "NODE_OPTIONS='--disable-warning=ExperimentalWarning' next build",
     "start": "next start",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -15,7 +15,8 @@
     "eval:golden": "node --env-file=.env scripts/run-ai-golden-batch.mjs",
     "eval:golden:dry-run": "node --env-file=.env scripts/run-ai-golden-batch.mjs --dry-run",
     "eval:parse-report": "node scripts/parse-eval-report-pdf.mjs",
-    "marketplace:update-zambia-landing": "node --env-file=.env scripts/update-marketplace-landing.mjs --title \"Zambia Extractive Industry Subcontractor Pack\" --html data/marketplace/zambia-extractive-industry-subcontractor-pack/landing.html --description data/marketplace/zambia-extractive-industry-subcontractor-pack/description.txt --verify-zip"
+    "marketplace:update-zambia-landing": "node --env-file=.env scripts/update-marketplace-landing.mjs --title \"Zambia Extractive Industry Subcontractor Pack\" --html data/marketplace/zambia-extractive-industry-subcontractor-pack/landing.html --description data/marketplace/zambia-extractive-industry-subcontractor-pack/description.txt --verify-zip",
+    "seed:official-sources": "node --env-file=.env --import tsx scripts/seed-official-sources.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.37.1",

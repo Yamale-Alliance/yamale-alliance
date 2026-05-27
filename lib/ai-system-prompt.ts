@@ -1,5 +1,6 @@
 import { buildYamaleCategoriesPromptBlock } from "@/lib/ai-canonical-categories";
 import { buildAiContextualBrainPromptBlock } from "@/lib/ai-contextual-brain";
+import { appendOfficialSourceVerificationToAnswer } from "@/lib/official-sources";
 
 /**
  * AI Legal Research system prompt — versioned, modular English-first instructions.
@@ -478,4 +479,28 @@ export function buildAiResearchSystemPrompt(p: BuildAiResearchSystemPromptParams
   }
 
   return blocks.filter(Boolean).join("\n\n");
+}
+
+export type EnrichAiAnswerWithOfficialSourceParams = {
+  userQuery: string;
+  country: string | null | undefined;
+  yamaleCategory?: string | null;
+  assistantAnswer: string;
+  /** Skip append for product/meta turns with no substantive regulatory question. */
+  skip?: boolean;
+};
+
+/**
+ * Post-process model output: append official government verification links when seeded data exists.
+ */
+export async function enrichAiResearchAnswerWithOfficialSource(
+  params: EnrichAiAnswerWithOfficialSourceParams
+): Promise<string> {
+  if (params.skip) return params.assistantAnswer;
+  return appendOfficialSourceVerificationToAnswer({
+    userQuery: params.userQuery,
+    country: params.country,
+    yamaleCategory: params.yamaleCategory,
+    assistantAnswer: params.assistantAnswer,
+  });
 }

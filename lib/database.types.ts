@@ -1101,6 +1101,29 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["support_ticket_messages"]["Insert"]>;
       };
+      official_sources: {
+        Row: {
+          id: string;
+          country: string;
+          region: string | null;
+          category: string;
+          agency_name: string;
+          url: string | null;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          country: string;
+          region?: string | null;
+          category: string;
+          agency_name: string;
+          url?: string | null;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["official_sources"]["Insert"]>;
+      };
     };
   };
 }
