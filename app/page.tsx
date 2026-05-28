@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { auth } from "@clerk/nextjs/server";
-import { BookOpen, Search, ChevronRight } from "lucide-react";
+import { BookOpen, Search } from "lucide-react";
+import { HomeDashboardLink } from "@/components/home/HomeDashboardLink";
 import { PROTOTYPE_HERO_GRID_PATTERN } from "@/components/layout/prototype-page-styles";
 
-export default async function Home() {
-  const { userId } = await auth();
-  const isSignedIn = !!userId;
+/** Static marketing page — no server auth; improves TTFB and LCP vs dynamic render. */
+export const dynamic = "force-static";
 
+export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       {/* ─── Hero (prototype: PAGE 1 — HOME) ─── */}
@@ -23,7 +23,7 @@ export default async function Home() {
         </div>
 
         <div className="relative z-[1] mx-auto w-full max-w-[1280px] px-4 pb-6 pt-16 sm:px-8 sm:pb-8 sm:pt-20">
-          <h1 className="heading max-w-[680px] text-[2.75rem] font-bold leading-[1.1] tracking-[-0.02em] text-white sm:text-5xl md:text-[56px] lg:text-[62px]">
+          <h1 className="hero-lcp-title max-w-[680px] text-[2.75rem] font-bold leading-[1.1] tracking-[-0.02em] text-white sm:text-5xl md:text-[56px] lg:text-[62px]">
             Law Without Barriers.
             <br />
             <em className="not-italic text-[#E8B84B]">Business Without Borders.</em>
@@ -48,20 +48,13 @@ export default async function Home() {
             </Link>
             <Link
               href="/ai-research"
+              prefetch
               className="inline-flex items-center gap-2 rounded-[6px] border-[1.5px] border-white/40 bg-transparent px-6 py-3 text-base font-semibold text-white transition hover:border-white hover:bg-white hover:text-[#0D1B2A]"
             >
               <Search className="h-4 w-4" strokeWidth={2} />
               Try AI Research
             </Link>
-            {isSignedIn && (
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center gap-2 rounded-[6px] border border-white/25 px-5 py-3 text-sm font-semibold text-white/90 transition hover:bg-white/10"
-              >
-                Dashboard
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            )}
+            <HomeDashboardLink />
           </div>
 
           <div className="mt-10 flex flex-wrap gap-x-10 gap-y-6 border-t border-white/10 pt-6 md:gap-x-14">
