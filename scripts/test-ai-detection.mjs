@@ -83,6 +83,13 @@ const cases = [
   // Hawa — supranational
   { id: "Hawa-1", q: "Under the OHADA Uniform Act on Commercial Companies, what are the minimum capital requirements for a Société à Responsabilité Limitée (SARL)?",
     expectFrameworks: ["ohada"], expectCountries: [], expectBilateralPair: false },
+  {
+    id: "Hawa-1b",
+    q: "I'm structuring a joint venture in Senegal. Does the OHADA Uniform Act on Commercial Companies allow for a limited partnership structure similar to a US LP, and what are the liability protections for limited partners under OHADA law?",
+    expectFrameworks: ["ohada"],
+    expectCountries: ["Senegal"],
+    expectBilateralPair: false,
+  },
   { id: "Hawa-2", q: "What dispute resolution mechanisms does the ECOWAS Revised Treaty provide for member states?",
     expectFrameworks: ["ecowas"], expectCountries: [], expectBilateralPair: false },
   { id: "Hawa-3", q: "Under the AfCFTA Protocol on Trade in Goods, what non-tariff barriers are prohibited between member states?",
