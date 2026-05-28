@@ -8,13 +8,30 @@ import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } fro
 import { LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE } from "@/lib/lomi-marketplace-checkout-cookie";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
 import { fetchPublishedMarketplaceItem } from "@/lib/marketplace-item-db";
-import { checkoutPriceCentsForTier } from "@/lib/marketplace-package-offers";
-import type { PackageOfferTier } from "@/lib/marketplace-package-offers";
+import {
+  checkoutPriceCentsForTier,
+  parsePackageOffersConfigFromLandingHtml,
+  parsePackageOffersEnvForPage,
+  resolvePackageOffersForPageItem,
+  type PackageOfferTier,
+  type PackageOffersResolved,
+} from "@/lib/marketplace-package-offers";
 import type { Database } from "@/lib/database.types";
 
 type MarketplaceItemRow = Database["public"]["Tables"]["marketplace_items"]["Row"];
 
 type CheckoutProvider = "pawapay" | "lomi";
+
+function partnerItemIdFromBundleOffers(
+  resolved: PackageOffersResolved | null,
+  pageItemId: string
+): string | null {
+  if (!resolved) return null;
+  const partner = resolved.bundle.partner;
+  if (partner?.id && partner.id !== pageItemId) return partner.id;
+  const extra = resolved.bundle.items.find((line) => line.id !== pageItemId);
+  return extra?.id ?? null;
+}
 
 /**
  * Create checkout for a single marketplace item — pawaPay (mobile money) or Lomi (hosted checkout).
@@ -41,7 +58,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await fetchPublishedMarketplaceItem(
       supabase,
       itemId,
-      "id, title, description, price_cents, currency, file_format, file_name, published, landing_page_html"
+      "id, title, description, price_cents, currency, file_format, file_name, published, landing_page_html, package_offers"
     );
 
     const item = data as MarketplaceItemRow | null;
@@ -49,9 +66,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
 
+    const { data: catalog } = await supabase
+      .from("marketplace_items")
+      .select("id, title, price_cents, currency, published")
+      .eq("published", true);
+    const catalogRows = (catalog ?? []) as Array<{
+      id: string;
+      title: string;
+      price_cents: number;
+      currency: string | null;
+      published: boolean;
+    }>;
+
     const tier: PackageOfferTier =
       body.tier === "bundle" || body.checkoutTier === "bundle" ? "bundle" : "standalone";
-    const chargeCents = checkoutPriceCentsForTier(item, tier);
+    const chargeCents = checkoutPriceCentsForTier(item, tier, catalogRows);
+    const offersConfig =
+      parsePackageOffersConfigFromLandingHtml(item.landing_page_html) ??
+      parsePackageOffersEnvForPage(itemId);
+    const resolvedOffers = resolvePackageOffersForPageItem(itemId, item, catalogRows, offersConfig);
+    const bundlePartnerItemId =
+      tier === "bundle" ? partnerItemIdFromBundleOffers(resolvedOffers, itemId) : null;
     if (chargeCents <= 0) {
       return NextResponse.json(
         { error: "Free items use Get for free – no checkout" },
@@ -91,6 +126,8 @@ export async function POST(request: NextRequest) {
           clerk_user_id: userId,
           kind: "marketplace",
           marketplace_item_id: itemId,
+          checkout_tier: tier,
+          ...(bundlePartnerItemId ? { bundle_partner_item_id: bundlePartnerItemId } : {}),
         },
         title: item.title.slice(0, 80),
         description: (item.description || item.title).slice(0, 200),
@@ -143,6 +180,8 @@ export async function POST(request: NextRequest) {
         clerk_user_id: userId,
         marketplace_item_id: itemId,
         kind: "marketplace",
+        checkout_tier: tier,
+        ...(bundlePartnerItemId ? { bundle_partner_item_id: bundlePartnerItemId } : {}),
         payment_country: gate.country.label,
       },
     });
