@@ -43,7 +43,8 @@ import {
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
-import { formatLawPrintPriceUsd } from "@/lib/law-print-pricing";
+import { MarketingDiscountPrice } from "@/components/pricing/MarketingDiscountPrice";
+import { formatUsdPrice } from "@/lib/content-pricing";
 import { downloadLawDocumentPdf } from "@/lib/library/law-document-pdf";
 import { fetchDocumentExportUnlockLawIds } from "@/lib/library-document-export-unlocks-client";
 import {
@@ -788,7 +789,10 @@ export default function LawDetailPage({
   const lomiComingSoon = false;
 
   const { logoUrl: platformLogoUrl, lawPrintPriceUsdCents } = usePlatformSettings();
-  const lawPrintPriceLabel = formatLawPrintPriceUsd(lawPrintPriceUsdCents);
+  const lawPrintPricePlain = formatUsdPrice(lawPrintPriceUsdCents);
+  const lawPrintPrice = (
+    <MarketingDiscountPrice currentCents={lawPrintPriceUsdCents} size="inline" />
+  );
 
   const sections = useMemo((): Section[] => {
     if (!law) return [];
@@ -1826,7 +1830,7 @@ export default function LawDetailPage({
                   hasPaidForThisLaw
                     ? "Download PDF"
                     : isSignedIn
-                      ? `Unlock download (${lawPrintPriceLabel})`
+                      ? `Unlock download (${lawPrintPricePlain})`
                       : "Sign in to unlock download"
                 }
                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-[#C8922A] hover:bg-accent/80 hover:text-[#E8B84B] disabled:opacity-50"
@@ -1834,8 +1838,8 @@ export default function LawDetailPage({
                   hasPaidForThisLaw
                     ? "Download"
                     : isSignedIn
-                      ? `Unlock download — ${lawPrintPriceLabel} (opens checkout)`
-                      : `Sign in to unlock download (${lawPrintPriceLabel})`
+                      ? `Unlock download — ${lawPrintPricePlain} (opens checkout)`
+                      : `Sign in to unlock download (${lawPrintPricePlain})`
                 }
               >
                 {printLoading ? (
@@ -1850,7 +1854,7 @@ export default function LawDetailPage({
                 {hasPaidForThisLaw
                   ? "Download"
                   : isSignedIn
-                    ? `Unlock — ${lawPrintPriceLabel}`
+                    ? `Unlock — ${lawPrintPricePlain}`
                     : "Sign in"}
               </span>
             </div>
@@ -1977,7 +1981,7 @@ export default function LawDetailPage({
               Unlock download
             </Dialog.Title>
             <Dialog.Description className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              A one-time <span className="font-medium text-foreground">{lawPrintPriceLabel}</span> unlock lets you preview the document in the app and download it as a PDF. Choose a payment method to continue to checkout.
+              A one-time <span className="font-medium text-foreground">{lawPrintPrice}</span> unlock lets you preview the document in the app and download it as a PDF. Choose a payment method to continue to checkout.
             </Dialog.Description>
             <div className="mt-5 min-w-0 space-y-4">
               <PaymentMethodPicker
