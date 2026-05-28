@@ -57,10 +57,27 @@ const LANDING_SHADOW_ROOT_DEFAULTS = `
 const LANDING_SHADOW_OVERRIDES_CSS = `
 ${LANDING_SHADOW_ROOT_DEFAULTS}
 nav,.navbar,.site-nav,.top-nav{display:none!important}
+nav:has(.lang-selector){
+  display:flex!important;
+  justify-content:flex-end!important;
+  align-items:center!important;
+  position:relative!important;
+  top:auto!important;
+  padding:.75rem 5%!important;
+  background:var(--ebony-deep,#161009)!important;
+  border-bottom:1px solid rgba(193,140,67,.2)!important;
+  z-index:10!important;
+}
+nav:has(.lang-selector) .nav-brand,
+nav:has(.lang-selector) .nav-price,
+nav:has(.lang-selector) .nav-cta{display:none!important}
+nav:has(.lang-selector) .nav-right{display:flex!important;align-items:center!important;gap:1rem!important}
 .hero{position:relative!important;top:auto!important;min-height:min(70vh,720px)!important;padding-top:2rem!important;padding-bottom:3rem!important;margin-top:0!important}
 .hero::before,.hero::after{position:absolute!important}
 .hero-price-tag{position:absolute!important;top:1rem!important;right:1.5rem!important}
 #contents,.kit-section[id="contents"]{scroll-margin-top:1.5rem}
+.yamale-landing-root .dtype.guide{color:#603b1c!important}
+.yamale-landing-root .dtype.checklist{color:#9a632a!important}
 `;
 
 const LANDING_SHADOW_ROOT_CLASS = "yamale-landing-root";
@@ -386,6 +403,55 @@ export function prepareMarketplaceLandingEmbedHtml(raw: string): string {
   }
 
   return `${styleTag}\n${wrapLandingBodyMarkup(doc)}`;
+}
+
+export type LandingPageLanguage = "fr" | "en";
+
+const LANDING_LANG_STORAGE_KEY = "yamale-lang";
+
+/** Bilingual landing pages use data-lang blocks + .lang-btn toggles (scripts are stripped in embed mode). */
+export function readSavedLandingLanguage(): LandingPageLanguage {
+  if (typeof window === "undefined") return "fr";
+  try {
+    const saved = window.localStorage.getItem(LANDING_LANG_STORAGE_KEY);
+    return saved === "en" ? "en" : "fr";
+  } catch {
+    return "fr";
+  }
+}
+
+export function saveLandingLanguage(lang: LandingPageLanguage): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LANDING_LANG_STORAGE_KEY, lang);
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+/** Toggle [data-lang] sections and .lang-btn state inside a shadow root or document. */
+export function applyLandingLanguage(root: ParentNode, lang: LandingPageLanguage): void {
+  root.querySelectorAll("[data-lang]").forEach((el) => {
+    if (!(el instanceof HTMLElement)) return;
+    const blockLang = el.getAttribute("data-lang");
+    el.classList.toggle("lang-hidden", blockLang !== lang);
+  });
+
+  root.querySelectorAll(".lang-btn[data-select-lang]").forEach((btn) => {
+    if (!(btn instanceof HTMLElement)) return;
+    btn.classList.toggle("active", btn.getAttribute("data-select-lang") === lang);
+  });
+
+  const cta = root.querySelector("#nav-cta-text");
+  if (cta) cta.textContent = lang === "fr" ? "Obtenir le Kit" : "Get the Kit";
+
+  const price = root.querySelector("#nav-price-text");
+  if (price) price.textContent = lang === "fr" ? "199 USD" : "$199";
+}
+
+export function landingLanguageFromButton(button: Element): LandingPageLanguage | null {
+  const lang = button.getAttribute("data-select-lang");
+  return lang === "en" || lang === "fr" ? lang : null;
 }
 
 /** Validates admin-submitted HTML for marketplace landing pages. */
