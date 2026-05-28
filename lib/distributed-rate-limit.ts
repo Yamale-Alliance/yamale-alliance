@@ -23,6 +23,8 @@ const BUCKETS = {
   paymentsUser: { requests: 20, window: "1 m" } satisfies LimiterBucket,
   paymentsIp: { requests: 40, window: "1 m" } satisfies LimiterBucket,
   apiIp: { requests: 120, window: "1 m" } satisfies LimiterBucket,
+  /** Public GET JSON (pricing, laws list) — higher ceiling; pricing is also CDN + in-memory cached. */
+  publicReadIp: { requests: 600, window: "1 m" } satisfies LimiterBucket,
 } as const;
 
 let redis: Redis | null | undefined;
@@ -123,6 +125,15 @@ function isWebhook(path: string): boolean {
   );
 }
 
+/** Cached or low-cost public reads — separate bucket so pricing page load tests do not exhaust `apiIp`. */
+function isPublicReadApi(path: string, method: string): boolean {
+  if (method !== "GET") return false;
+  if (path === "/api/pricing") return true;
+  if (path === "/api/laws" || path.startsWith("/api/laws/")) return true;
+  if (path.startsWith("/api/marketplace")) return true;
+  return false;
+}
+
 /**
  * Distributed rate limits (Upstash Redis) with in-memory fallback for local dev.
  * Applies the strictest failing check when multiple buckets match.
@@ -157,6 +168,8 @@ export async function checkDistributedRateLimit(
     if (userId) {
       checks.push(limit("payments_user", BUCKETS.paymentsUser, userId));
     }
+  } else if (isPublicReadApi(path, request.method)) {
+    checks.push(limit("public_read", BUCKETS.publicReadIp, ip));
   } else {
     checks.push(limit("api", BUCKETS.apiIp, ip));
   }
