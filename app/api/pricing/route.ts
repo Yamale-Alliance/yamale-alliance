@@ -1,3 +1,6 @@
+export const runtime = 'edge';
+export const revalidate = 600;
+
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
@@ -77,7 +80,7 @@ const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
   },
 };
 
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_TTL_MS = 10 * 60 * 1000;
 const SUPABASE_TIMEOUT_MS = 3000;
 const PRICING_CACHE_HEADERS = {
   "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
