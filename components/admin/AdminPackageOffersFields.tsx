@@ -89,9 +89,8 @@ export function AdminPackageOffersFields({
             </select>
             {showHint && (
               <p className="mt-1 text-xs text-muted-foreground">
-                Bundle checkout charges only the add-on price (e.g. $129 — discounted from $199 standalone).
-                The partner item is shown for context; customers buy it separately in the Vault if they do not
-                already own it.
+                Bundle checkout charges the add-on (e.g. $129) plus the selected vault item&apos;s list price.
+                Customers receive access to both the kit and the partner item after payment.
               </p>
             )}
           </div>
