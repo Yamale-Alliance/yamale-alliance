@@ -95,6 +95,8 @@ Please ensure **`metadata` on the checkout session is echoed unchanged** on the 
 
 We attach metadata when creating hosted checkout sessions via `@lomi./sdk` (`checkoutSessions.create`). All values are strings.
 
+When `LOMI_PRICE_*` env vars are set, subscription and PAYG checkouts pass `price_id` (and `quantity` for team extra seats) instead of a bare `amount`. Amount is still sent for prorated subscription upgrades and multi-seat totals. See `lib/lomi-catalog-prices.ts` and `lib/lomi-catalog-checkout.ts`.
+
 ### Common keys
 
 | Key | Description |
