@@ -17,7 +17,7 @@ type PricedLine = {
 /**
  * Replace the user's cart with the given marketplace item ids, then start checkout.
  * Multi-item cart checkout at catalog list prices. ZIP package bundle tiers use
- * {@link /api/payments/marketplace-checkout} with tier=bundle (add-on price only).
+ * {@link /api/payments/marketplace-checkout} with tier=bundle (add-on + selected partner item).
  */
 export async function POST(request: NextRequest) {
   try {
