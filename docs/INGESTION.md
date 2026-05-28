@@ -33,7 +33,6 @@ Canonical path from raw source to a searchable, AI-retrievable law row.
 
 - Verify row in Library filters (country, category, status).
 - Smoke-test AI Research with a query that names the instrument or topic.
-- Optional: Team-plan law summary via `/api/laws/[id]/summary` (manual POST until backfill script ships).
 
 ## 5. Related docs
 
