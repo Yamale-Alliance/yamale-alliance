@@ -3,6 +3,7 @@ import { escapeIlikePattern, lawsCountryOrGlobalWithTitleTerms } from "@/lib/law
 import { LAW_HAS_BODY_OR_FILTER, filterLawsWithReadableBody } from "@/lib/law-readable-body";
 import type { ResolvedLibrarySearchIntent } from "@/lib/ai-library-search-intent";
 import { expandCommercialRegistrationTokens } from "@/lib/ai-library-search-intent";
+import { isOhadaCommercialCompaniesQuery } from "@/lib/ohada-commercial-companies-retrieval";
 import { tokenWordsForPostgrestSearch } from "@/lib/postgrest-ilike-tokens";
 
 const LAWS_AI_SELECT =
@@ -46,6 +47,16 @@ export function buildIntentTitleSearchTerms(
       "beneficial ownership",
       "business registration",
       "incorporation"
+    );
+  }
+  if (isOhadaCommercialCompaniesQuery(query)) {
+    terms.push(
+      "sociétés commerciales",
+      "societes commerciales",
+      "commercial companies",
+      "acte uniforme",
+      "economic interest groups",
+      "commandite"
     );
   }
   if (resolvedIntent.matchedIds.includes("investment_domestic")) {
@@ -243,6 +254,13 @@ const SLOT_TITLE_SEARCH_TERMS: Record<string, string[]> = {
   corruption_treaty: ["convention against corruption", "uncac", "african union convention"],
   telecom_act: ["communications act", "telecommunications act", "ict act"],
   telecom_regulator: ["communications authority", "telecommunications authority", "regulatory authority"],
+  ohada_commercial_companies: [
+    "sociétés commerciales",
+    "societes commerciales",
+    "commercial companies",
+    "acte uniforme",
+    "economic interest groups",
+  ],
 };
 
 const MANDATORY_INTENT_IDS = [
@@ -262,6 +280,11 @@ const INTENT_TOPIC_SLOTS: Record<string, TopicSlot[]> = {
   registration: [
     { label: "companies_act", titleTest: (t) => /\bcompanies?\s+act\b|\bcompany\s+act\b/i.test(t) },
     { label: "beneficial_ownership", titleTest: (t) => /\bbeneficial\s+ownership\b/i.test(t) },
+    {
+      label: "ohada_commercial_companies",
+      titleTest: (t) =>
+        /soci[eé]t[eé]s?\s+commerciales?|commercial companies|groupement d'?int[eé]r[eê]t [ée]conomique/i.test(t),
+    },
   ],
   investment_domestic: [
     {
