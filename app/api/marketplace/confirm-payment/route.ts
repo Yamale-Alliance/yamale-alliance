@@ -12,6 +12,7 @@ import {
   pollCompletedLomiCheckoutMetadata,
 } from "@/lib/lomi-checkout";
 import { LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE } from "@/lib/lomi-marketplace-checkout-cookie";
+import { recordMarketplaceItemPurchase } from "@/lib/marketplace-cart-purchases";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { capturePaymentConfirmError } from "@/lib/monitoring";
 
@@ -70,15 +71,15 @@ export async function POST(request: NextRequest) {
         return res;
       }
 
-      const supabase = getSupabaseServer();
-      await (supabase.from("marketplace_purchases") as any).upsert(
-        {
-          user_id: userId,
-          marketplace_item_id: marketplaceItemId,
-          stripe_session_id: sessionId,
-        },
-        { onConflict: "user_id,marketplace_item_id" }
-      );
+      await recordMarketplaceItemPurchase({
+        userId,
+        marketplaceItemId,
+        sessionId,
+        bundlePartnerItemId:
+          (lomiMd.checkout_tier ?? lomiMd.CHECKOUT_TIER) === "bundle"
+            ? (lomiMd.bundle_partner_item_id ?? lomiMd.BUNDLE_PARTNER_ITEM_ID)
+            : null,
+      });
 
       const res = NextResponse.json({ ok: true, marketplace_item_id: marketplaceItemId, provider: "lomi" });
       res.cookies.set(LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE, "", { path: "/", maxAge: 0 });
@@ -120,15 +121,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Not a marketplace session" }, { status: 400 });
     }
 
-    const supabase = getSupabaseServer();
-    await (supabase.from("marketplace_purchases") as any).upsert(
-      {
-        user_id: userId,
-        marketplace_item_id: marketplaceItemId,
-        stripe_session_id: sessionId,
-      },
-      { onConflict: "user_id,marketplace_item_id" }
-    );
+    await recordMarketplaceItemPurchase({
+      userId,
+      marketplaceItemId,
+      sessionId,
+      bundlePartnerItemId:
+        deposit.metadata?.checkout_tier === "bundle"
+          ? deposit.metadata?.bundle_partner_item_id
+          : null,
+    });
 
     const res = NextResponse.json({ ok: true, marketplace_item_id: marketplaceItemId });
     res.cookies.set(LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE, "", { path: "/", maxAge: 0 });
