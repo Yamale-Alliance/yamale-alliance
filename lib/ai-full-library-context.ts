@@ -4,6 +4,11 @@
  */
 
 import { LAW_HAS_BODY_OR_FILTER, filterLawsWithReadableBody } from "@/lib/law-readable-body";
+import {
+  excludeInternalCategoryFromLawsQuery,
+  filterPublicLibraryLawRows,
+  resolveInternalLibraryCategoryId,
+} from "@/lib/internal-library-categories";
 
 const PAGE_SIZE = 500;
 
@@ -58,19 +63,23 @@ export async function fetchFullLibraryLawRows(
   opts: { countryScopeOr: string | null }
 ): Promise<any[]> {
   const cap = fullLibraryMaxLaws();
+  const internalCategoryId = await resolveInternalLibraryCategoryId(supabase);
   const collected: any[] = [];
   let offset = 0;
 
   for (;;) {
     if (collected.length >= cap) break;
 
-    let q = supabase
-      .from("laws")
-      .select(FULL_LIBRARY_LAWS_SELECT)
-      .or(LAW_HAS_BODY_OR_FILTER)
-      .neq("status", "Repealed")
-      .order("title", { ascending: true })
-      .range(offset, offset + PAGE_SIZE - 1);
+    let q = excludeInternalCategoryFromLawsQuery(
+      supabase
+        .from("laws")
+        .select(FULL_LIBRARY_LAWS_SELECT)
+        .or(LAW_HAS_BODY_OR_FILTER)
+        .neq("status", "Repealed")
+        .order("title", { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1),
+      internalCategoryId
+    );
 
     if (opts.countryScopeOr) {
       q = q.or(opts.countryScopeOr);
@@ -93,5 +102,5 @@ export async function fetchFullLibraryLawRows(
     if (offset > 2_000_000) break;
   }
 
-  return collected.slice(0, cap);
+  return filterPublicLibraryLawRows(collected.slice(0, cap), internalCategoryId);
 }
