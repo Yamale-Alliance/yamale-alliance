@@ -35,7 +35,7 @@ export const RE_LABOR =
   /\b(labor|labour|employment|workplace|wage|salary|overtime|union|collective\s+bargaining|wrongful\s+dismissal|termination|travail|salari[eé]|code\s+du\s+travail|convention\s+collective|licenciement|syndicat|d[eé]l[eé]gation\s+du\s+personnel|minimum\s+wage|droit\s+du\s+travail|code\s+du\s+travail|licenciement|heures\s+supplementaires|salaire|remuneration|conges|نقابة|عمال|عامل|عمل|تشغيل|أجور|اجور|راتب|فصل|إنهاء|انهاء|قانون\s+العمل|العمال|الأجور|الاجور|شغل)\b|(?:قانون\s+العمل|الأجور|العمال)/iu;
 
 export const RE_REGISTRATION =
-  /\b(regist|incorpor|compan(?:y|ies)?|business|enterprise|commercial|soci[eé]t[eé]|sarl|gie|llc|ffc|ohada|uemoa|uniform\s+act|acte\s+uniform|immatriculation|enregistrement|registre\s+du\s+commerce|creation\s+de\s+societe|creer\s+une\s+societe|constituer\s+une\s+societe|شركة|شركات|تسجيل|تأسيس|تاسيس|سجل\s+تجاري|السجل\s+التجاري|تأسيس\s+شركة)\b|(?:شركة|تسجيل|تأسيس)/iu;
+  /\b(regist|incorpor|compan(?:y|ies)?|business|enterprise|commercial|soci[eé]t[eé]|sarl|sas|gie|llc|ffc|ohada|uemoa|uniform\s+act|acte\s+uniform|immatriculation|enregistrement|registre\s+du\s+commerce|creation\s+de\s+societe|creer\s+une\s+societe|constituer\s+une\s+societe|joint\s+venture|limited\s+partnership|\blp\b|scs|commandit|commanditaires?|partnership\s+structure|liability\s+protection|شركة|شركات|تسجيل|تأسيس|تاسيس|سجل\s+تجاري|السجل\s+التجاري|تأسيس\s+شركة)\b|(?:شركة|تسجيل|تأسيس)/iu;
 
 export const RE_CRIMINAL =
   /\b(criminal|penal|p[eé]nal|offense|offence|prosecution|prison|code\s+p[eé]nal|infraction|police\s+judiciaire|code\s+penal|procedure\s+penale|delit|d[eé]lit|جرائم|جزائي|جنائي|عقوبات|قانون\s+العقوبات|الجزاء|العقوبات|جريمة)\b|(?:جنائي|عقوبات|جزائي)/iu;
