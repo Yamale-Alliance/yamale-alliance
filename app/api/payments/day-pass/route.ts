@@ -9,6 +9,7 @@ import {
 } from "@/lib/pawapay";
 import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
 import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
+import { buildLomiOneTimeCatalogCheckoutInput } from "@/lib/lomi-catalog-checkout";
 import { getDayPassPriceUsdCents } from "@/lib/platform-settings";
 
 const DAY_PASS_CURRENCY = (process.env.PAWAPAY_CURRENCY || "USD").toUpperCase();
@@ -42,18 +43,21 @@ export async function POST(request: NextRequest) {
       }
       const dayPassCents = await getDayPassPriceUsdCents();
       const amountMinor = convertUsdCentsToPawapayMinor(dayPassCents, currencyCode);
-      const { checkoutUrl } = await createLomiHostedCheckoutSession({
-        amount: amountMinor,
-        currency_code: currencyCode,
-        metadata: {
-          clerk_user_id: userId,
-          plan_id: "day-pass",
-          kind: "day-pass",
-        },
-        title: "24-hour day pass",
-        success_url: `${origin}/pricing?day_pass_return=1&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}/pricing?canceled=1`,
-      });
+      const { checkoutUrl } = await createLomiHostedCheckoutSession(
+        buildLomiOneTimeCatalogCheckoutInput({
+          catalogKey: "day_pass",
+          amountMinor,
+          currency_code: currencyCode,
+          metadata: {
+            clerk_user_id: userId,
+            plan_id: "day-pass",
+            kind: "day-pass",
+          },
+          title: "24-hour day pass",
+          success_url: `${origin}/pricing?day_pass_return=1&session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${origin}/pricing?canceled=1`,
+        })
+      );
       return NextResponse.json({ url: checkoutUrl, provider: "lomi" });
     }
 
