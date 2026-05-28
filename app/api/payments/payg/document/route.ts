@@ -9,6 +9,7 @@ import {
 } from "@/lib/pawapay";
 import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
 import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
+import { buildLomiOneTimeCatalogCheckoutInput } from "@/lib/lomi-catalog-checkout";
 import { extractLawIdFromLibraryReturnPath } from "@/lib/library-document-export-path";
 import { getLawPrintPriceUsdCents } from "@/lib/platform-settings";
 
@@ -54,18 +55,21 @@ export async function POST(request: NextRequest) {
       }
       const successUrl = `${origin}${successPath.replace(encodeURIComponent(depositId), "{CHECKOUT_SESSION_ID}")}`;
       const amountMinor = convertUsdCentsToPawapayMinor(documentPriceCents, currencyCode);
-      const { checkoutUrl } = await createLomiHostedCheckoutSession({
-        amount: amountMinor,
-        currency_code: currencyCode,
-        metadata: {
-          clerk_user_id: userId,
-          kind: "payg_document",
-          ...(lawId ? { law_id: lawId } : {}),
-        },
-        title: "Document download",
-        success_url: successUrl,
-        cancel_url: `${origin}/library?canceled=1`,
-      });
+      const { checkoutUrl } = await createLomiHostedCheckoutSession(
+        buildLomiOneTimeCatalogCheckoutInput({
+          catalogKey: "payg_document",
+          amountMinor,
+          currency_code: currencyCode,
+          metadata: {
+            clerk_user_id: userId,
+            kind: "payg_document",
+            ...(lawId ? { law_id: lawId } : {}),
+          },
+          title: "Document download",
+          success_url: successUrl,
+          cancel_url: `${origin}/library?canceled=1`,
+        })
+      );
       return NextResponse.json({ url: checkoutUrl, provider: "lomi" });
     }
 
