@@ -8,7 +8,7 @@ import { lawsOrGlobalForCountry } from "@/lib/law-country-scope";
 import { resolveCountryIdCached } from "@/lib/country-resolution-cache";
 import {
   excludeInternalCategoryFromLawsQuery,
-  isInternalLibraryCategoryName,
+  isInternalLibraryForUserDisplay,
   resolveInternalLibraryCategoryId,
 } from "@/lib/internal-library-categories";
 import { lawSourceDisplayLabel } from "@/lib/law-source-display";
@@ -125,7 +125,7 @@ export async function fetchLawTitleCatalogForPrompt(
 
     const seenTitles = new Set<string>();
     for (const row of rows) {
-      if (isInternalLibraryCategoryName(row.categories?.name ?? null)) continue;
+      if (isInternalLibraryForUserDisplay(row, internalCategoryId)) continue;
       const title = String(row.title ?? "")
         .replace(/\s+/g, " ")
         .trim();
