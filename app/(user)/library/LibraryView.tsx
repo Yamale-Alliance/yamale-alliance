@@ -38,7 +38,8 @@ import {
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import { fetchDocumentExportUnlockLawIds } from "@/lib/library-document-export-unlocks-client";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
-import { formatLawPrintPriceUsd } from "@/lib/law-print-pricing";
+import { MarketingDiscountPrice } from "@/components/pricing/MarketingDiscountPrice";
+import { formatUsdPrice } from "@/lib/content-pricing";
 import { LibraryFiltersBar } from "@/components/library/LibraryFiltersBar";
 import {
   buildLibrarySearchHaystack,
@@ -354,7 +355,10 @@ export function LibraryView({
   const lomiComingSoon = false;
   const isAdmin = (user?.publicMetadata?.role as string | undefined) === "admin";
   const { lawPrintPriceUsdCents } = usePlatformSettings();
-  const lawPrintPriceLabel = formatLawPrintPriceUsd(lawPrintPriceUsdCents);
+  const lawPrintPricePlain = formatUsdPrice(lawPrintPriceUsdCents);
+  const lawPrintPrice = (
+    <MarketingDiscountPrice currentCents={lawPrintPriceUsdCents} size="inline" />
+  );
   const [search, setSearch] = useState(initialSearch);
   const [searchInput, setSearchInput] = useState(initialSearch);
   const [country, setCountry] = useState(initialCountry);
@@ -1096,7 +1100,7 @@ export function LibraryView({
               Unlock download
             </Dialog.Title>
             <Dialog.Description className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              A one-time <span className="font-medium text-foreground">{lawPrintPriceLabel}</span> unlock for this law. Choose mobile money or card, then continue to checkout.
+              A one-time <span className="font-medium text-foreground">{lawPrintPrice}</span> unlock for this law. Choose mobile money or card, then continue to checkout.
             </Dialog.Description>
             <div className="mt-5 min-w-0 space-y-4">
               <PaymentMethodPicker
@@ -1330,7 +1334,7 @@ export function LibraryView({
                           title={
                             paidLawIds.has(law.id)
                               ? "Download PDF"
-                              : `Download (${lawPrintPriceLabel}) — one-time unlock`
+                              : `Download (${lawPrintPricePlain}) — one-time unlock`
                           }
                         >
                           {printLoadingId === law.id ? (
@@ -1338,8 +1342,14 @@ export function LibraryView({
                           ) : (
                             <FileDown className="h-3.5 w-3.5" />
                           )}
-                          <span>
-                            {paidLawIds.has(law.id) ? "Download" : `Download (${lawPrintPriceLabel})`}
+                          <span className="inline-flex items-center gap-1">
+                            {paidLawIds.has(law.id) ? (
+                              "Download"
+                            ) : (
+                              <>
+                                Download {lawPrintPrice}
+                              </>
+                            )}
                           </span>
                         </button>
                         <Link
