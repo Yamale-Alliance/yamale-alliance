@@ -39,7 +39,7 @@ export function AdminHeader() {
     <header className={`yamale-site-chrome ${prototypeNavHeaderClass}`}>
       <div className={prototypeNavInnerClass}>
         <Link href="/" className="flex items-center transition-opacity hover:opacity-90">
-          <PlatformLogo height={72} width={240} className="h-18 sm:h-20" />
+          <PlatformLogo height={56} width={200} className="h-14 w-[200px] sm:h-16" />
         </Link>
 
         {/* Desktop nav */}
