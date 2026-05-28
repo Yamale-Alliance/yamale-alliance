@@ -1,4 +1,5 @@
 import { clerkClient } from "@clerk/nextjs/server";
+import { recordMarketplaceItemPurchase } from "@/lib/marketplace-cart-purchases";
 import { fulfillSubscriptionPlanPayment } from "@/lib/subscription-state";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { recordUnlock, recordSearchUnlockGrant } from "@/lib/unlocks";
@@ -82,14 +83,13 @@ export async function fulfillPaymentFromMetadata(metadata: Record<string, string
   const done = () => markPendingPaymentCheckoutFulfilled(paymentRefId);
 
   if (kind === "marketplace" && metadata.marketplace_item_id) {
-    await (supabase.from("marketplace_purchases") as any).upsert(
-      {
-        user_id: clerkUserId,
-        marketplace_item_id: metadata.marketplace_item_id,
-        stripe_session_id: paymentRefId,
-      },
-      { onConflict: "user_id,marketplace_item_id" }
-    );
+    await recordMarketplaceItemPurchase({
+      userId: clerkUserId,
+      marketplaceItemId: metadata.marketplace_item_id,
+      sessionId: paymentRefId,
+      bundlePartnerItemId:
+        metadata.checkout_tier === "bundle" ? metadata.bundle_partner_item_id : null,
+    });
     await done();
     return;
   }
