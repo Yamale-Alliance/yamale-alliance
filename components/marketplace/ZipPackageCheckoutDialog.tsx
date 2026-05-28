@@ -124,6 +124,15 @@ export function ZipPackageCheckoutDialog({
                     </p>
                   </button>
                 </div>
+                {selectedTier === "bundle" && offers!.bundle.items.length > 1 ? (
+                  <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                    {offers!.bundle.items.map((line) => (
+                      <li key={line.id}>
+                        {line.title} — {formatUsd(line.price_cents)}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
                 {selectedTier === "bundle" && offers!.bundle.note ? (
                   <p className="mt-2 text-xs text-muted-foreground">{offers!.bundle.note}</p>
                 ) : null}
