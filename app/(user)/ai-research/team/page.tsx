@@ -13,6 +13,10 @@ import {
   CreditCard,
 } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
+import {
+  PaymentMethodPicker,
+  type CheckoutPaymentProvider,
+} from "@/components/checkout/PaymentMethodPicker";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 
@@ -34,7 +38,11 @@ export default function ManageTeamPage() {
   const [extraSeats, setExtraSeats] = useState(1);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
+  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
   const [confirming, setConfirming] = useState(false);
+  const lomiAvailable =
+    process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
+    Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
   const confirmedRef = useRef<string | null>(null);
   const { confirm, confirmDialog } = useConfirm();
 
@@ -179,7 +187,11 @@ export default function ManageTeamPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ seats: n, paymentCountry: pawapayPaymentCountry }),
+        body: JSON.stringify({
+          seats: n,
+          provider: paymentProvider,
+          ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
+        }),
       });
       const data = await res.json();
       if (data.url) {
@@ -308,12 +320,19 @@ export default function ManageTeamPage() {
             <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
               Add more seats for $6 each. How many do you need?
             </p>
-            <div className="mt-4 max-w-sm">
-              <PawapayCountrySelect
-                label="Mobile money country"
-                value={pawapayPaymentCountry}
-                onChange={setPawapayPaymentCountry}
+            <div className="mt-4 max-w-md space-y-4">
+              <PaymentMethodPicker
+                value={paymentProvider}
+                onChange={setPaymentProvider}
+                lomiAvailable={lomiAvailable}
               />
+              {paymentProvider === "pawapay" && (
+                <PawapayCountrySelect
+                  label="Mobile money country"
+                  value={pawapayPaymentCountry}
+                  onChange={setPawapayPaymentCountry}
+                />
+              )}
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <input
