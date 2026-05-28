@@ -17,6 +17,7 @@ import {
 import { LOMI_PAYG_AI_QUERY_SESSION_COOKIE } from "@/lib/lomi-payg-ai-query-cookie";
 import { buildPaygAiQueryLomiSuccessUrl } from "@/lib/lomi-payg-ai-query-return";
 
+import { buildLomiOneTimeCatalogCheckoutInput } from "@/lib/lomi-catalog-checkout";
 import { getAiQueryPriceUsdCents } from "@/lib/platform-settings";
 type CheckoutProvider = "pawapay" | "lomi";
 
@@ -52,14 +53,17 @@ export async function POST(request: NextRequest) {
       }
       const priceCents = await getAiQueryPriceUsdCents();
       const amountMinor = convertUsdCentsToPawapayMinor(priceCents, currencyCode);
-      const { checkoutUrl, sessionId } = await createLomiHostedCheckoutSession({
-        amount: amountMinor,
-        currency_code: currencyCode,
-        metadata: { clerk_user_id: userId, kind: "payg_ai_query" },
-        title: "AI query",
-        success_url: `${origin}/ai-research?payg=ai_query&from_lomi=1`,
-        cancel_url: `${origin}/pricing?canceled=1`,
-      });
+      const { checkoutUrl, sessionId } = await createLomiHostedCheckoutSession(
+        buildLomiOneTimeCatalogCheckoutInput({
+          catalogKey: "payg_ai_query",
+          amountMinor,
+          currency_code: currencyCode,
+          metadata: { clerk_user_id: userId, kind: "payg_ai_query" },
+          title: "AI query",
+          success_url: `${origin}/ai-research?payg=ai_query&from_lomi=1`,
+          cancel_url: `${origin}/pricing?canceled=1`,
+        })
+      );
       const successUrlWithSession = buildPaygAiQueryLomiSuccessUrl(origin, sessionId);
       await patchLomiCheckoutSessionSuccessUrl(sessionId, successUrlWithSession);
       const res = NextResponse.json({
