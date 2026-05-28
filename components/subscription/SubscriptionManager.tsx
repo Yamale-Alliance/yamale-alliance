@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { MarketingDiscountSubscriptionPrice } from "@/components/pricing/MarketingDiscountPrice";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { Check, Loader2 } from "lucide-react";
@@ -468,9 +469,8 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
                     }`}
                   >
                     <div className="font-semibold">{tier.name}</div>
-                    <div className="mt-2 text-2xl font-bold">
-                      ${price}
-                      <span className="text-sm font-normal text-muted-foreground">/mo</span>
+                    <div className="mt-2">
+                      <MarketingDiscountSubscriptionPrice currentUsd={price} period="/mo" />
                     </div>
                     {isAnnual && tier.priceMonthly > 0 && (
                       <p className="mt-1 text-xs text-muted-foreground">${tier.priceAnnualTotal} billed annually</p>
