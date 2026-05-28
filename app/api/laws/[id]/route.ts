@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { lawRowIsInternalLibraryCategory } from "@/lib/internal-library-categories";
+import { isInternalLibraryForUserDisplay } from "@/lib/internal-library-categories";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 export async function GET(
@@ -23,7 +23,11 @@ export async function GET(
     if (error || !data) {
       return NextResponse.json({ error: "Law not found" }, { status: 404 });
     }
-    if (lawRowIsInternalLibraryCategory(data as { category_id?: string; categories?: { name?: string } })) {
+    if (
+      isInternalLibraryForUserDisplay(
+        data as { title?: string; category_id?: string; categories?: { name?: string } }
+      )
+    ) {
       return NextResponse.json({ error: "Law not found" }, { status: 404 });
     }
     const { data: translationRows } = await (supabase.from("law_translations") as any)
