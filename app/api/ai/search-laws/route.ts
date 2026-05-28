@@ -13,7 +13,7 @@ import { resolveUserCountryNameToDbName } from "@/lib/country-db-name-aliases";
 import { tokenizeLibrarySearchQuery } from "@/lib/ai-multilingual-search";
 import {
   excludeInternalCategoryFromLawsQuery,
-  isInternalLibraryCategoryName,
+  filterPublicLibraryLawRows,
   resolveInternalLibraryCategoryId,
 } from "@/lib/internal-library-categories";
 
@@ -138,7 +138,8 @@ export async function POST(request: NextRequest) {
     // Use chunking strategy: paragraph/sentence-aware, then take first chunks per law (max 2000 chars)
     const maxCharsPerLaw = 2000;
     const tokens = tokenizeLibrarySearchQuery(query, 8);
-    const rankedLaws = [...(laws || [])].sort((a: any, b: any) => {
+    const publicLaws = filterPublicLibraryLawRows(laws || [], internalCategoryId);
+    const rankedLaws = [...publicLaws].sort((a: any, b: any) => {
       const titleA = String(a.title ?? "").toLowerCase();
       const titleB = String(b.title ?? "").toLowerCase();
       const contentA = String(a.content_plain ?? a.content ?? "").toLowerCase();
