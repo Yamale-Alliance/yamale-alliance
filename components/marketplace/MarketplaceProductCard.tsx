@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, Check, GraduationCap, LayoutTemplate, Loader2, Map } from "lucide-react";
+import { BookOpen, Check, Eye, GraduationCap, LayoutTemplate, Loader2, Map } from "lucide-react";
 import { displayVaultProductTitle } from "@/lib/marketplace-display";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
 import styles from "./MarketplaceProductCard.module.css";
@@ -22,6 +22,13 @@ const TYPE_THEMES: Record<string, { from: string; to: string; iconColor: string 
 function themeForType(type: string) {
   return TYPE_THEMES[type] ?? { from: BRAND.gradientStart, to: BRAND.gradientEnd, iconColor: "#fff8eb" };
 }
+
+const TYPE_CARD_CLASS: Record<string, string> = {
+  book: "typeBook",
+  course: "typeCourse",
+  guide: "typeGuide",
+  template: "typeTemplate",
+};
 
 export type MarketplaceProductCardProduct = {
   id: string;
@@ -46,6 +53,12 @@ type MarketplaceProductCardProps = {
   collectionHref?: string | null;
   collectionCount?: number | null;
   collectionLabel?: string | null;
+  /** Inline series expand (collection card stays visible). */
+  isCollection?: boolean;
+  collectionExpanded?: boolean;
+  onCollectionToggle?: () => void;
+  /** Series member tiles: icon only, no cover image. */
+  iconOnlyMedia?: boolean;
   isSignedIn: boolean;
   cartItemIds: Set<string>;
   addingToCart: string | null;
@@ -55,7 +68,7 @@ type MarketplaceProductCardProps = {
 };
 
 function CategoryIcon({ type, className }: { type: string; className?: string }) {
-  const cn = className ?? "h-4 w-4";
+  const cn = className ?? "h-3.5 w-3.5";
   switch (type) {
     case "book":
       return <BookOpen className={cn} strokeWidth={1.75} />;
@@ -71,7 +84,7 @@ function CategoryIcon({ type, className }: { type: string; className?: string })
 }
 
 function plainDescription(raw: string | null): string {
-  const fallback = "Open for the full overview, contents, and download or purchase options.";
+  const fallback = "View overview, contents, and download or purchase options.";
   if (!raw?.trim()) return fallback;
   const text = raw
     .replace(/<[^>]+>/g, " ")
@@ -89,6 +102,10 @@ export function MarketplaceProductCard({
   collectionHref,
   collectionCount,
   collectionLabel,
+  isCollection = false,
+  collectionExpanded = false,
+  onCollectionToggle,
+  iconOnlyMedia = false,
   isSignedIn,
   cartItemIds,
   addingToCart,
@@ -100,7 +117,9 @@ export function MarketplaceProductCard({
   const [coverFailed, setCoverFailed] = useState(false);
 
   const priceLabel = product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(2)}`;
-  const isCollectionCard = Boolean(collectionHref && collectionCount && collectionLabel);
+  const isCollectionCard =
+    isCollection || Boolean(collectionHref && collectionCount && collectionLabel);
+  const useInlineCollection = isCollectionCard && Boolean(onCollectionToggle);
   const displayTitle = isCollectionCard ? (collectionLabel as string) : displayVaultProductTitle(product.title);
   const publisher = isCollectionCard
     ? `${collectionCount} resources`
@@ -112,6 +131,7 @@ export function MarketplaceProductCard({
     ? `/marketplace/${product.id}/package`
     : `/marketplace/${product.id}`);
   const typeTheme = themeForType(product.type);
+  const typeCardClass = styles[TYPE_CARD_CLASS[product.type] ?? "typeDefault"];
   const placeholderGradient = `linear-gradient(155deg, ${typeTheme.from} 0%, ${typeTheme.to} 100%)`;
   const tagLabel = isCollectionCard ? "Collection" : seriesLabel || typeBadgeLabel;
   const fileLabel = product.file_format ? `.${product.file_format.replace(/^\./, "")}` : null;
@@ -119,12 +139,19 @@ export function MarketplaceProductCard({
   const metaParts = [topicLabel, typeBadgeLabel, priceLabel, fileLabel].filter(Boolean);
 
   const showCartActions =
-    !isCollectionCard && isSignedIn && !product.owned && product.price_cents > 0 && !isMarketplaceZip(product);
+    !isCollectionCard && !product.owned && product.price_cents > 0 && !isMarketplaceZip(product);
+
+  const showPackageCta =
+    !isCollectionCard && !product.owned && isMarketplaceZip(product);
 
   const navigate = () => router.push(href);
 
   const handleCardClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("button")) return;
+    if (useInlineCollection && onCollectionToggle) {
+      onCollectionToggle();
+      return;
+    }
     navigate();
   };
 
@@ -132,6 +159,10 @@ export function MarketplaceProductCard({
     if (e.key !== "Enter" && e.key !== " ") return;
     if ((e.target as HTMLElement).closest("button")) return;
     e.preventDefault();
+    if (useInlineCollection && onCollectionToggle) {
+      onCollectionToggle();
+      return;
+    }
     navigate();
   };
 
@@ -142,15 +173,22 @@ export function MarketplaceProductCard({
 
   return (
     <article
-      className={`vault-product-card ${styles.card}`}
+      className={`vault-product-card ${styles.card} ${typeCardClass} ${useInlineCollection ? styles.cardCollection : ""} ${collectionExpanded ? styles.cardCollectionExpanded : ""}`}
       onClick={handleCardClick}
       onKeyDown={handleCardKeyDown}
-      role="link"
+      role={useInlineCollection ? "button" : "link"}
       tabIndex={0}
       aria-label={displayTitle}
+      aria-expanded={useInlineCollection ? collectionExpanded : undefined}
     >
       <div className={styles.media}>
-        {product.image_url && !coverFailed ? (
+        {iconOnlyMedia || !(product.image_url && !coverFailed) ? (
+          <div className={styles.coverPlaceholder} style={{ background: placeholderGradient }}>
+            <span style={{ color: typeTheme.iconColor }}>
+              <CategoryIcon type={product.type} className="h-8 w-8" />
+            </span>
+          </div>
+        ) : product.image_url && !coverFailed ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             key={product.image_url}
@@ -161,13 +199,15 @@ export function MarketplaceProductCard({
             decoding="async"
             onError={() => setCoverFailed(true)}
           />
-        ) : (
-          <div className={styles.coverPlaceholder} style={{ background: placeholderGradient }}>
-            <span style={{ color: typeTheme.iconColor }}>
-              <CategoryIcon type={product.type} className="h-12 w-12" />
+        ) : null}
+        {useInlineCollection ? (
+          <div className={styles.collectionHover} aria-hidden>
+            <Eye className="h-6 w-6" strokeWidth={1.75} />
+            <span className={styles.collectionHoverLabel}>
+              {collectionExpanded ? "Hide series" : "Show series"}
             </span>
           </div>
-        )}
+        ) : null}
         {product.owned ? (
           <span className={styles.badgeOwned}>
             <Check className="h-3 w-3" aria-hidden />
@@ -192,13 +232,27 @@ export function MarketplaceProductCard({
 
         <p className={styles.description}>{description}</p>
 
-        <p className={styles.meta}>{metaParts.join(" · ")}</p>
-        {formatHint ? <p className={styles.metaSub}>{formatHint}</p> : null}
+        <div className={styles.footer}>
+          <p className={styles.meta}>
+            {[metaParts.join(" · "), formatHint].filter(Boolean).join(" · ")}
+          </p>
+          {tagLabel ? <span className={styles.tag}>{tagLabel}</span> : null}
+        </div>
 
-        {tagLabel ? <span className={styles.tag}>{tagLabel}</span> : null}
-
-        {!isCollectionCard && isMarketplaceZip(product) && !product.owned ? (
-          <p className={styles.packageHint}>Package · {product.price_cents === 0 ? "Free" : priceLabel}</p>
+        {showPackageCta ? (
+          <div className={styles.actions}>
+            <button
+              type="button"
+              onClick={(e) => {
+                stop(e);
+                navigate();
+              }}
+              className={styles.actionBtnPrimary}
+              style={{ flex: "1 1 100%" }}
+            >
+              {product.price_cents === 0 ? "Get package" : `View · ${priceLabel}`}
+            </button>
+          </div>
         ) : null}
 
         {showCartActions ? (
