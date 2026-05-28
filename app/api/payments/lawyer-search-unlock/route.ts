@@ -9,6 +9,7 @@ import {
 } from "@/lib/pawapay";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
+import { buildLomiOneTimeCatalogCheckoutInput } from "@/lib/lomi-catalog-checkout";
 import { PAWAPAY_COUNTRY_BY_NAME } from "@/lib/pawapay-payment-countries";
 import { getLawyerSearchUnlockPriceUsdCents } from "@/lib/platform-settings";
 type CheckoutProvider = "pawapay" | "lomi";
@@ -58,30 +59,36 @@ export async function POST(request: NextRequest) {
       return params.toString();
     };
 
-    if (provider === "lomi") {
-      if (!isLomiConfigured()) {
+    const pawCurrency = (process.env.PAWAPAY_CURRENCY || "USD").toUpperCase();
+
+    const startLomiLawyerSearchCheckout = async () => {
+      const currencyCode = toLomiCurrency(pawCurrency);
+      if (!currencyCode) {
         return NextResponse.json(
-          { error: "Lomi checkout is not configured. Choose mobile money or set LOMI_API_KEY." },
-          { status: 503 }
+          {
+            error:
+              "Lomi checkout supports USD, EUR, or XOF. Set PAWAPAY_CURRENCY accordingly or use mobile money.",
+          },
+          { status: 400 }
         );
       }
-      const currencyCode = toLomiCurrency("USD");
-      if (!currencyCode) {
-        return NextResponse.json({ error: "Lomi lawyer search unlock expects USD pricing." }, { status: 500 });
-      }
-      const { checkoutUrl, sessionId } = await createLomiHostedCheckoutSession({
-        amount: searchUnlockCents,
-        currency_code: currencyCode,
-        metadata: {
-          clerk_user_id: userId,
-          kind: "payg_lawyer_search",
-          country,
-          expertise,
-        },
-        title: `Lawyer search unlock — ${countryLabel} · ${expertise}`,
-        success_url: `${origin}/lawyers?${buildReturnQuery("{CHECKOUT_SESSION_ID}")}`,
-        cancel_url: `${origin}/lawyers?${buildReturnQuery("canceled", { canceled: true })}`,
-      });
+      const amountMinor = convertUsdCentsToPawapayMinor(searchUnlockCents, currencyCode);
+      const { checkoutUrl, sessionId } = await createLomiHostedCheckoutSession(
+        buildLomiOneTimeCatalogCheckoutInput({
+          catalogKey: "payg_lawyer_search",
+          amountMinor,
+          currency_code: currencyCode,
+          metadata: {
+            clerk_user_id: userId,
+            kind: "payg_lawyer_search",
+            country,
+            expertise,
+          },
+          title: `Lawyer search unlock — ${countryLabel} · ${expertise}`,
+          success_url: `${origin}/lawyers?${buildReturnQuery("{CHECKOUT_SESSION_ID}")}`,
+          cancel_url: `${origin}/lawyers?${buildReturnQuery("canceled", { canceled: true })}`,
+        })
+      );
 
       const supabase = getSupabaseServer();
       await (supabase.from("lawyer_search_purchases") as any).upsert(
@@ -96,6 +103,16 @@ export async function POST(request: NextRequest) {
       );
 
       return NextResponse.json({ url: checkoutUrl, provider: "lomi" });
+    };
+
+    if (provider === "lomi") {
+      if (!isLomiConfigured()) {
+        return NextResponse.json(
+          { error: "Lomi checkout is not configured. Choose mobile money or set LOMI_API_KEY." },
+          { status: 503 }
+        );
+      }
+      return startLomiLawyerSearchCheckout();
     }
 
     if (!isPawapayConfigured()) {
@@ -108,37 +125,7 @@ export async function POST(request: NextRequest) {
           { status: 503 }
         );
       }
-      const currencyCode = toLomiCurrency("USD");
-      if (!currencyCode) {
-        return NextResponse.json({ error: "Lomi lawyer search unlock expects USD pricing." }, { status: 500 });
-      }
-      const { checkoutUrl, sessionId } = await createLomiHostedCheckoutSession({
-        amount: searchUnlockCents,
-        currency_code: currencyCode,
-        metadata: {
-          clerk_user_id: userId,
-          kind: "payg_lawyer_search",
-          country,
-          expertise,
-        },
-        title: `Lawyer search unlock — ${countryLabel} · ${expertise}`,
-        success_url: `${origin}/lawyers?${buildReturnQuery("{CHECKOUT_SESSION_ID}")}`,
-        cancel_url: `${origin}/lawyers?${buildReturnQuery("canceled", { canceled: true })}`,
-      });
-
-      const supabase = getSupabaseServer();
-      await (supabase.from("lawyer_search_purchases") as any).upsert(
-        {
-          stripe_session_id: sessionId,
-          user_id: userId,
-          lawyer_ids: Array.isArray(lawyerIds) ? lawyerIds : [],
-          country,
-          expertise,
-        },
-        { onConflict: "stripe_session_id" }
-      );
-
-      return NextResponse.json({ url: checkoutUrl, provider: "lomi" });
+      return startLomiLawyerSearchCheckout();
     }
 
     const depositId = crypto.randomUUID();
