@@ -12,9 +12,8 @@ export type ResolvedPackageOfferItem = {
 export type PackageOffersResolved = {
   standalone: ResolvedPackageOfferItem;
   bundle: {
-    /** Line item charged at checkout (kit add-on only). */
+    /** Line items included in bundle checkout (kit add-on + partner vault item). */
     items: ResolvedPackageOfferItem[];
-    /** Partner vault item shown for context — not added to checkout total. */
     partner?: ResolvedPackageOfferItem;
     total_cents: number;
     label: string;
@@ -120,7 +119,7 @@ export function standaloneCheckoutPriceCents(
   return pageItem.price_cents;
 }
 
-/** Bundle-tier checkout: discounted kit add-on (not partner vault price + add-on). */
+/** Bundle-tier kit add-on portion only (before partner item). */
 export function bundleAddonCheckoutPriceCents(
   pageItem: MarketplaceItemRow & { package_offers?: unknown }
 ): number | null {
@@ -129,16 +128,65 @@ export function bundleAddonCheckoutPriceCents(
   return cfg.bundle_addon_price_cents;
 }
 
-/** Checkout/display offers from admin package_offers on the page item (no catalog required). */
+function findBundlePartnerInCatalog(
+  cfg: ItemPackageOffers,
+  catalog: MarketplaceItemRow[]
+): MarketplaceItemRow | null {
+  if (cfg.bundle_with_item_id) {
+    const picked = catalog.find((r) => r.id === cfg.bundle_with_item_id && r.published);
+    if (picked) return picked;
+  }
+  return catalog.find((r) => r.published && titleLooksLikeLawFirmPackage(r.title)) ?? null;
+}
+
+function buildBundleOfferSection(params: {
+  addon: ResolvedPackageOfferItem;
+  partner: ResolvedPackageOfferItem | null;
+  standaloneCents: number;
+}): PackageOffersResolved["bundle"] {
+  const { addon, partner, standaloneCents } = params;
+  const saveCents = Math.max(0, standaloneCents - addon.price_cents);
+  const total_cents = partner ? addon.price_cents + partner.price_cents : addon.price_cents;
+  const items = partner ? [addon, partner] : [addon];
+
+  const note = partner
+    ? `Bundle ${formatUsd(total_cents)}: ${formatUsd(addon.price_cents)} kit add-on + ${formatUsd(partner.price_cents)} ${partner.title}.${saveCents > 0 ? ` Kit add-on saves ${formatUsd(saveCents)} vs standalone ${formatUsd(standaloneCents)}.` : ""}`
+    : `Kit add-on ${formatUsd(addon.price_cents)}${saveCents > 0 ? ` — save ${formatUsd(saveCents)} vs standalone ${formatUsd(standaloneCents)}` : ""}.`;
+
+  return {
+    items,
+    partner: partner ?? undefined,
+    total_cents,
+    label: partner ? `Bundle (${partner.title})` : "Bundle add-on",
+    note,
+  };
+}
+
+/** Checkout/display offers from admin package_offers (pass catalog to include partner vault price). */
 export function packageOffersFromItemConfig(
   pageItemId: string,
-  pageItem: MarketplaceItemRow & { package_offers?: unknown }
+  pageItem: MarketplaceItemRow & { package_offers?: unknown },
+  catalog: MarketplaceItemRow[] = []
 ): PackageOffersResolved | null {
   const cfg = parseItemPackageOffers(pageItem.package_offers);
   if (!cfg) return null;
 
   const currency = (pageItem.currency || "USD").toUpperCase();
-  const saveCents = Math.max(0, cfg.standalone_price_cents - cfg.bundle_addon_price_cents);
+  const addon: ResolvedPackageOfferItem = {
+    id: pageItemId,
+    title: pageItem.title,
+    price_cents: cfg.bundle_addon_price_cents,
+    currency,
+  };
+  const partnerRow = catalog.length ? findBundlePartnerInCatalog(cfg, catalog) : null;
+  const partner = partnerRow
+    ? {
+        id: partnerRow.id,
+        title: partnerRow.title,
+        price_cents: partnerRow.price_cents,
+        currency: (partnerRow.currency || currency).toUpperCase(),
+      }
+    : null;
 
   return {
     standalone: {
@@ -147,19 +195,11 @@ export function packageOffersFromItemConfig(
       price_cents: cfg.standalone_price_cents,
       currency,
     },
-    bundle: {
-      items: [
-        {
-          id: pageItemId,
-          title: pageItem.title,
-          price_cents: cfg.bundle_addon_price_cents,
-          currency,
-        },
-      ],
-      total_cents: cfg.bundle_addon_price_cents,
-      label: "Bundle add-on (with Law Firm Package)",
-      note: `Kit add-on ${formatUsd(cfg.bundle_addon_price_cents)}${saveCents > 0 ? ` — save ${formatUsd(saveCents)} vs standalone ${formatUsd(cfg.standalone_price_cents)}` : ""}. Law Firm package sold separately in the Vault if needed.`,
-    },
+    bundle: buildBundleOfferSection({
+      addon,
+      partner,
+      standaloneCents: cfg.standalone_price_cents,
+    }),
   };
 }
 
@@ -214,17 +254,37 @@ export function parseDualUsdCentsFromLandingHtml(
   return { standaloneCents, bundleCents };
 }
 
-/** Resolved offers from landing-page pricing cards ($199 standalone + $129 bundle). */
+/** Resolved offers from landing-page pricing cards ($199 standalone + $129 bundle add-on). */
 export function packageOffersFromLandingHtml(
   pageItemId: string,
-  pageItem: { title: string; currency?: string | null },
-  html: string | null | undefined
+  pageItem: MarketplaceItemRow & { package_offers?: unknown },
+  html: string | null | undefined,
+  catalog: MarketplaceItemRow[] = []
 ): PackageOffersResolved | null {
   const prices = parseDualUsdCentsFromLandingHtml(html);
   if (!prices) return null;
 
   const currency = (pageItem.currency || "USD").toUpperCase();
-  const saveCents = Math.max(0, prices.standaloneCents - prices.bundleCents);
+  const addon: ResolvedPackageOfferItem = {
+    id: pageItemId,
+    title: pageItem.title,
+    price_cents: prices.bundleCents,
+    currency,
+  };
+
+  const cfg = parseItemPackageOffers(pageItem.package_offers);
+  const partnerRow =
+    cfg && catalog.length
+      ? findBundlePartnerInCatalog(cfg, catalog)
+      : catalog.find((r) => r.published && titleLooksLikeLawFirmPackage(r.title)) ?? null;
+  const partner = partnerRow
+    ? {
+        id: partnerRow.id,
+        title: partnerRow.title,
+        price_cents: partnerRow.price_cents,
+        currency: (partnerRow.currency || currency).toUpperCase(),
+      }
+    : null;
 
   return {
     standalone: {
@@ -233,22 +293,11 @@ export function packageOffersFromLandingHtml(
       price_cents: prices.standaloneCents,
       currency,
     },
-    bundle: {
-      items: [
-        {
-          id: pageItemId,
-          title: pageItem.title,
-          price_cents: prices.bundleCents,
-          currency,
-        },
-      ],
-      total_cents: prices.bundleCents,
-      label: "Bundle add-on (with Law Firm Package)",
-      note:
-        saveCents > 0
-          ? `Kit add-on ${formatUsd(prices.bundleCents)} — save ${formatUsd(saveCents)} vs standalone ${formatUsd(prices.standaloneCents)}. Law Firm package sold separately in the Vault if needed.`
-          : `Kit add-on ${formatUsd(prices.bundleCents)}. Law Firm package sold separately in the Vault if needed.`,
-    },
+    bundle: buildBundleOfferSection({
+      addon,
+      partner,
+      standaloneCents: prices.standaloneCents,
+    }),
   };
 }
 
@@ -260,18 +309,23 @@ export function resolvePackageOffersForPageItem(
 ): PackageOffersResolved | null {
   return (
     resolvePackageOffers(pageItemId, pageItem, catalog, externalConfig) ??
-    packageOffersFromItemConfig(pageItemId, pageItem) ??
-    packageOffersFromLandingHtml(pageItemId, pageItem, pageItem.landing_page_html)
+    packageOffersFromItemConfig(pageItemId, pageItem, catalog) ??
+    packageOffersFromLandingHtml(pageItemId, pageItem, pageItem.landing_page_html, catalog)
   );
 }
 
 export function checkoutPriceCentsForTier(
   pageItem: MarketplaceItemRow & { package_offers?: unknown; landing_page_html?: string | null },
-  tier: PackageOfferTier
+  tier: PackageOfferTier,
+  catalog: MarketplaceItemRow[] = []
 ): number {
+  const config =
+    parsePackageOffersConfigFromLandingHtml(pageItem.landing_page_html) ??
+    parsePackageOffersEnvForPage(pageItem.id);
   const resolved =
-    packageOffersFromItemConfig(pageItem.id, pageItem) ??
-    packageOffersFromLandingHtml(pageItem.id, pageItem, pageItem.landing_page_html);
+    resolvePackageOffersForPageItem(pageItem.id, pageItem, catalog, config) ??
+    packageOffersFromItemConfig(pageItem.id, pageItem, catalog) ??
+    packageOffersFromLandingHtml(pageItem.id, pageItem, pageItem.landing_page_html, catalog);
   if (resolved) {
     return tier === "bundle" ? resolved.bundle.total_cents : resolved.standalone.price_cents;
   }
@@ -381,32 +435,28 @@ export function resolvePackageOffersFromCatalog(
   const addonCents = bundleAddon.price_cents;
   const standaloneCents = standalone.price_cents;
 
+  const currency = (standalone.currency || "USD").toUpperCase();
+  const addon: ResolvedPackageOfferItem = {
+    id: bundleAddon.id,
+    title: bundleAddon.title,
+    price_cents: addonCents,
+    currency: (bundleAddon.currency || currency).toUpperCase(),
+  };
+  const partner: ResolvedPackageOfferItem = {
+    id: bundleWith.id,
+    title: bundleWith.title,
+    price_cents: bundleWith.price_cents,
+    currency: (bundleWith.currency || currency).toUpperCase(),
+  };
+
   return {
     standalone: {
       id: standalone.id,
       title: standalone.title,
       price_cents: standaloneCents,
-      currency: (standalone.currency || "USD").toUpperCase(),
+      currency,
     },
-    bundle: {
-      items: [
-        {
-          id: bundleAddon.id,
-          title: bundleAddon.title,
-          price_cents: addonCents,
-          currency: (bundleAddon.currency || "USD").toUpperCase(),
-        },
-      ],
-      partner: {
-        id: bundleWith.id,
-        title: bundleWith.title,
-        price_cents: bundleWith.price_cents,
-        currency: (bundleWith.currency || "USD").toUpperCase(),
-      },
-      total_cents: addonCents,
-      label: "Bundle add-on (with Law Firm Package)",
-      note: `Kit add-on ${formatUsd(addonCents)} (save ${formatUsd(Math.max(0, standaloneCents - addonCents))} vs ${formatUsd(standaloneCents)} standalone). Requires ${bundleWith.title} — purchase it separately in the Vault if you do not already own it.`,
-    },
+    bundle: buildBundleOfferSection({ addon, partner, standaloneCents }),
   };
 }
 
@@ -425,14 +475,18 @@ function resolveFromItemPackageOffers(
 
   if (!bundleWith) return null;
 
-  const addonLine: ResolvedPackageOfferItem = {
+  const addon: ResolvedPackageOfferItem = {
     id: pageItemId,
     title: pageItem.title,
     price_cents: cfg.bundle_addon_price_cents,
     currency,
   };
-
-  const saveCents = Math.max(0, cfg.standalone_price_cents - cfg.bundle_addon_price_cents);
+  const partner: ResolvedPackageOfferItem = {
+    id: bundleWith.id,
+    title: bundleWith.title,
+    price_cents: bundleWith.price_cents,
+    currency: (bundleWith.currency || currency).toUpperCase(),
+  };
 
   return {
     standalone: {
@@ -441,18 +495,11 @@ function resolveFromItemPackageOffers(
       price_cents: cfg.standalone_price_cents,
       currency,
     },
-    bundle: {
-      items: [addonLine],
-      partner: {
-        id: bundleWith.id,
-        title: bundleWith.title,
-        price_cents: bundleWith.price_cents,
-        currency: (bundleWith.currency || currency).toUpperCase(),
-      },
-      total_cents: cfg.bundle_addon_price_cents,
-      label: "Bundle add-on (with Law Firm Package)",
-      note: `Kit add-on ${formatUsd(cfg.bundle_addon_price_cents)}${saveCents > 0 ? ` — save ${formatUsd(saveCents)} vs standalone ${formatUsd(cfg.standalone_price_cents)}` : ""}. Pair with ${bundleWith.title} (${formatUsd(bundleWith.price_cents)} in the Vault if you need it).`,
-    },
+    bundle: buildBundleOfferSection({
+      addon,
+      partner,
+      standaloneCents: cfg.standalone_price_cents,
+    }),
   };
 }
 
