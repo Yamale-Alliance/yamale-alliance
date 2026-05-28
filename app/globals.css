@@ -123,6 +123,14 @@ h4,
   font-family: var(--font-playfair), ui-serif, Georgia, serif;
 }
 
+/*
+ * Home hero LCP: Playfair is optional (see root layout). If it is not ready immediately,
+ * the browser uses Inter from the stack without blocking LCP on the font file.
+ */
+.hero-lcp-title {
+  font-family: var(--font-playfair), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
 /* Vault product titles: sans (global h1–h3 use Playfair). */
 .vault-product-title {
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
