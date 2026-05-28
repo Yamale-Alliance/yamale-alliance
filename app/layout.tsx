@@ -1,30 +1,25 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Inter, Playfair_Display } from "next/font/google";
-import localFont from "next/font/local";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
-import { LayoutWithSettings, LayoutWithSettingsFallback } from "@/components/platform/LayoutWithSettings";
+import { LayoutWithSettings } from "@/components/platform/LayoutWithSettings";
 import "./globals.css";
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
   display: "swap",
+  adjustFontFallback: true,
 });
 
+/** Optional: hero LCP can paint with adjusted fallback; Playfair applies when ready in ~100ms. */
 const playfair = Playfair_Display({
   subsets: ["latin"],
+  weight: ["600", "700"],
   variable: "--font-playfair",
-  display: "swap",
-});
-
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-  display: "swap",
+  display: "optional",
   preload: true,
+  adjustFontFallback: true,
 });
 
 export const metadata: Metadata = {
@@ -51,10 +46,6 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
         <head>
-          <link
-            rel="stylesheet"
-            href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.0/dist/tabler-icons.min.css"
-          />
           <script
             dangerouslySetInnerHTML={{
               __html: `
@@ -68,12 +59,10 @@ export default function RootLayout({
           />
         </head>
         <body
-          className={`${inter.variable} ${playfair.variable} ${geistMono.variable} antialiased`}
+          className={`${inter.variable} ${playfair.variable} antialiased`}
         >
           <ThemeProvider>
-            <Suspense fallback={<LayoutWithSettingsFallback>{children}</LayoutWithSettingsFallback>}>
-              <LayoutWithSettings>{children}</LayoutWithSettings>
-            </Suspense>
+            <LayoutWithSettings>{children}</LayoutWithSettings>
           </ThemeProvider>
         </body>
       </html>
