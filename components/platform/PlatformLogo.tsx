@@ -5,28 +5,25 @@ import Image from "next/image";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
 import { useTheme } from "@/components/theme/ThemeProvider";
 
-// Cache logo URL so it persists across client-side navigations (avoids flash of "Yamalé" on route change)
-let cachedLogoUrl: string | null = null;
-
 const CACHE_KEY = "yamale-platform-logo-url";
 
-function getCachedLogo(): string | null {
-  if (typeof window === "undefined") return cachedLogoUrl;
+function readCachedLogo(): string | null {
+  if (typeof window === "undefined") return null;
   try {
-    const stored = sessionStorage.getItem(CACHE_KEY);
-    if (stored) return stored;
-  } catch {}
-  return cachedLogoUrl;
+    return sessionStorage.getItem(CACHE_KEY);
+  } catch {
+    return null;
+  }
 }
 
-function setCachedLogo(url: string | null) {
-  cachedLogoUrl = url;
+function writeCachedLogo(url: string | null) {
   try {
-    if (typeof window !== "undefined") {
-      if (url) sessionStorage.setItem(CACHE_KEY, url);
-      else sessionStorage.removeItem(CACHE_KEY);
-    }
-  } catch {}
+    if (typeof window === "undefined") return;
+    if (url) sessionStorage.setItem(CACHE_KEY, url);
+    else sessionStorage.removeItem(CACHE_KEY);
+  } catch {
+    // ignore
+  }
 }
 
 interface PlatformLogoProps {
@@ -37,47 +34,54 @@ interface PlatformLogoProps {
 }
 
 export function PlatformLogo({ className = "", height = 44, width = 160, fallback = "Yamalé" }: PlatformLogoProps) {
-  const { logoUrl: initialLogoUrl } = usePlatformSettings();
+  const { logoUrl: settingsLogoUrl } = usePlatformSettings();
   const { theme } = useTheme();
-  const [logoUrl, setLogoUrl] = useState<string | null>(() => initialLogoUrl ?? getCachedLogo());
-  const [loading, setLoading] = useState(() => !(initialLogoUrl ?? getCachedLogo()));
+  const [hydrated, setHydrated] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(settingsLogoUrl);
 
   useEffect(() => {
-    const fromServer = initialLogoUrl ?? null;
-    const cached = getCachedLogo();
-    const effective = fromServer ?? cached;
+    setHydrated(true);
+  }, []);
 
-    if (effective) {
-      setCachedLogo(effective);
-      setLogoUrl(effective);
-      setLoading(false);
+  useEffect(() => {
+    if (settingsLogoUrl) {
+      writeCachedLogo(settingsLogoUrl);
+      setLogoUrl(settingsLogoUrl);
       return;
     }
 
-    // Defer fetch until after page is interactive so library/navigation aren't blocked
+    if (!hydrated) return;
+
+    const cached = readCachedLogo();
+    if (cached) {
+      setLogoUrl(cached);
+      return;
+    }
+
     const id =
       typeof requestIdleCallback !== "undefined"
-        ? requestIdleCallback(() => {
+        ? requestIdleCallback(
+            () => {
+              fetch("/api/admin/platform-settings")
+                .then((res) => res.json())
+                .then((data: { logoUrl?: string | null }) => {
+                  const url = data.logoUrl || null;
+                  writeCachedLogo(url);
+                  setLogoUrl(url);
+                })
+                .catch(() => setLogoUrl(readCachedLogo()));
+            },
+            { timeout: 2000 }
+          )
+        : window.setTimeout(() => {
             fetch("/api/admin/platform-settings")
               .then((res) => res.json())
               .then((data: { logoUrl?: string | null }) => {
                 const url = data.logoUrl || null;
-                setCachedLogo(url);
+                writeCachedLogo(url);
                 setLogoUrl(url);
               })
-              .catch(() => setLogoUrl(getCachedLogo()))
-              .finally(() => setLoading(false));
-          }, { timeout: 2000 })
-        : setTimeout(() => {
-            fetch("/api/admin/platform-settings")
-              .then((res) => res.json())
-              .then((data: { logoUrl?: string | null }) => {
-                const url = data.logoUrl || null;
-                setCachedLogo(url);
-                setLogoUrl(url);
-              })
-              .catch(() => setLogoUrl(getCachedLogo()))
-              .finally(() => setLoading(false));
+              .catch(() => setLogoUrl(readCachedLogo()));
           }, 500);
 
     return () => {
@@ -87,34 +91,42 @@ export function PlatformLogo({ className = "", height = 44, width = 160, fallbac
         clearTimeout(id);
       }
     };
-  }, [initialLogoUrl]);
+  }, [settingsLogoUrl, hydrated]);
 
-  if (loading && !logoUrl) {
-    return <span className={className}>{fallback}</span>;
-  }
+  const displayUrl = hydrated ? (settingsLogoUrl ?? logoUrl) : settingsLogoUrl;
 
-  if (logoUrl) {
-    const isSvgLogo = /\.svg(?:$|[?#])/i.test(logoUrl) || logoUrl.includes("image/svg+xml");
-    const darkSvgStyle =
-      theme === "dark" && isSvgLogo
-        ? ({
-            // Helps hide white SVG backgrounds on dark headers without editing the source file.
-            mixBlendMode: "multiply",
-          } as const)
-        : undefined;
+  const isSvgLogo =
+    displayUrl && (/\.svg(?:$|[?#])/i.test(displayUrl) || displayUrl.includes("image/svg+xml"));
+  const darkSvgStyle =
+    theme === "dark" && isSvgLogo
+      ? ({
+          mixBlendMode: "multiply",
+        } as const)
+      : undefined;
 
-    return (
-      <Image
-        src={logoUrl}
-        alt="Platform logo"
-        height={height}
-        width={width}
-        className={className}
-        style={{ objectFit: "contain", height: `${height}px`, width: "auto", ...darkSvgStyle }}
-        unoptimized
-      />
-    );
-  }
-
-  return <span className={className}>{fallback}</span>;
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center justify-start overflow-hidden ${className}`}
+      style={{ height: `${height}px`, width: `${width}px`, maxWidth: "100%" }}
+    >
+      {displayUrl ? (
+        <Image
+          src={displayUrl}
+          alt="Platform logo"
+          height={height}
+          width={width}
+          className="max-h-full w-auto max-w-full"
+          style={{ objectFit: "contain", height: `${height}px`, width: "auto", ...darkSvgStyle }}
+          unoptimized
+        />
+      ) : (
+        <span
+          className="truncate font-semibold tracking-tight text-foreground"
+          style={{ fontSize: Math.max(14, Math.round(height * 0.38)) }}
+        >
+          {fallback}
+        </span>
+      )}
+    </span>
+  );
 }
