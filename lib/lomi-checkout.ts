@@ -230,30 +230,58 @@ function isLomiCheckoutSessionPaid(session: unknown): boolean {
 }
 
 export type HostedLomiCheckoutInput = {
-  /** Minor units (USD/EUR cents; XOF whole francs) — converted to Lomi major units before API call. */
-  amount: number;
   currency_code: LomiCurrencyCode;
   success_url: string;
   cancel_url: string;
   metadata?: Record<string, string>;
   title?: string;
   description?: string;
+  /** Lomi catalog price (subscriptions / one-time products). Preferred when set in env. */
+  price_id?: string | null;
+  /** Line quantity (e.g. team extra seats). Default 1. */
+  quantity?: number;
+  /**
+   * Minor units (USD/EUR cents; XOF whole francs). Required when `price_id` is omitted.
+   * With `price_id`, pass for proration or variable totals (e.g. seats × unit price).
+   */
+  amount?: number;
 };
 
 export async function createLomiHostedCheckoutSession(
   input: HostedLomiCheckoutInput
 ): Promise<{ checkoutUrl: string; sessionId: string }> {
+  const priceId = input.price_id?.trim() || null;
+  const quantity =
+    typeof input.quantity === "number" && input.quantity >= 1 ? Math.floor(input.quantity) : undefined;
+
+  if (!priceId && (input.amount == null || !Number.isFinite(input.amount))) {
+    throw new Error("Lomi checkout requires price_id or amount");
+  }
+
   const lomi = getLomiSdk();
-  const amountMajor = lomiAmountMajorFromMinorUnits(input.amount, input.currency_code);
-  const session = await lomi.checkoutSessions.create({
-    amount: amountMajor,
+  const body: Record<string, unknown> = {
     currency_code: input.currency_code,
     success_url: input.success_url,
     cancel_url: input.cancel_url,
     metadata: input.metadata ?? {},
     title: input.title ?? undefined,
     description: input.description ?? undefined,
-  } as never);
+  };
+
+  if (priceId) {
+    body.price_id = priceId;
+    if (quantity != null && quantity > 1) {
+      body.quantity = quantity;
+    }
+  }
+
+  if (input.amount != null && Number.isFinite(input.amount)) {
+    body.amount = lomiAmountMajorFromMinorUnits(input.amount, input.currency_code);
+  } else if (!priceId) {
+    throw new Error("Lomi checkout requires price_id or amount");
+  }
+
+  const session = await lomi.checkoutSessions.create(body as never);
 
   const rec = session as {
     checkout_url?: string;
