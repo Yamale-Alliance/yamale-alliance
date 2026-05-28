@@ -16,8 +16,10 @@ import {
   prototypeNavyHeroSectionClass,
 } from "@/components/layout/prototype-page-styles";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
-import { formatLawPrintPriceUsd } from "@/lib/law-print-pricing";
-import { formatUsdPrice } from "@/lib/content-pricing";
+import {
+  MarketingDiscountPrice,
+  MarketingDiscountSubscriptionPrice,
+} from "@/components/pricing/MarketingDiscountPrice";
 import { stashPaygAiQueryLomiSessionId } from "@/lib/lomi-payg-ai-query-return";
 
 type BillingInterval = "monthly" | "annual";
@@ -152,12 +154,6 @@ export default function PricingPage() {
     aiQueryPriceUsdCents,
     afcftaReportPriceUsdCents,
   } = usePlatformSettings();
-  const lawPrintPriceLabel = formatLawPrintPriceUsd(lawPrintPriceUsdCents);
-  const dayPassPriceLabel = formatUsdPrice(dayPassPriceUsdCents);
-  const lawyerSearchPriceLabel = formatUsdPrice(lawyerSearchUnlockPriceUsdCents);
-  const aiQueryPriceLabel = formatUsdPrice(aiQueryPriceUsdCents);
-  const afcftaReportPriceLabel = formatUsdPrice(afcftaReportPriceUsdCents);
-
   /** Subscription checkout happens under Account (plan, billing period, payment method). */
   const goToSubscriptionCheckout = (planId: string) => {
     if (planId === "free") return;
@@ -402,12 +398,11 @@ export default function PricingPage() {
                     {tier.name}
                   </h3>
                   <div className="mb-4">
-                    <span
-                      className={`text-4xl font-bold sm:text-5xl ${tier.highlighted ? "text-[#E8B84B]" : "text-foreground"}`}
-                    >
-                      ${price}
-                    </span>
-                    <span className={`${tier.highlighted ? "text-white/65" : "text-muted-foreground"} ml-1`}>{period}</span>
+                    <MarketingDiscountSubscriptionPrice
+                      currentUsd={price}
+                      period={period}
+                      highlighted={tier.highlighted}
+                    />
                   </div>
                   {tier.description && (
                     <p className={`${tier.highlighted ? "text-white/65" : "text-muted-foreground"} mb-3 text-sm`}>{tier.description}</p>
@@ -547,10 +542,7 @@ export default function PricingPage() {
                   Download a full law as a clean, print-ready PDF - including amendments and metadata.
                 </div>
               </div>
-              <div className="shrink-0 text-right">
-                <div className="text-3xl font-bold leading-none text-[#C8922A] sm:text-[40px]">{lawPrintPriceLabel}</div>
-                <div className="mt-1 text-[10px] text-muted-foreground sm:text-[11px]">per law</div>
-              </div>
+              <MarketingDiscountPrice currentCents={lawPrintPriceUsdCents} size="hero" suffix="per law" />
             </button>
 
             <Link
@@ -565,12 +557,11 @@ export default function PricingPage() {
                   Unlock contact details for one country + practice area on the curated lawyer network.
                 </div>
               </div>
-              <div className="shrink-0 text-right">
-                <div className="text-3xl font-bold leading-none text-[#C8922A] sm:text-[40px]">
-                  {lawyerSearchPriceLabel}
-                </div>
-                <div className="mt-1 text-[10px] text-muted-foreground sm:text-[11px]">per search</div>
-              </div>
+              <MarketingDiscountPrice
+                currentCents={lawyerSearchUnlockPriceUsdCents}
+                size="hero"
+                suffix="per search"
+              />
             </Link>
 
             <button
@@ -585,10 +576,7 @@ export default function PricingPage() {
                   Full platform access for 24 hours with expanded usage across the platform.
                 </div>
               </div>
-              <div className="shrink-0 text-right">
-                <div className="text-3xl font-bold leading-none text-[#C8922A] sm:text-[40px]">{dayPassPriceLabel}</div>
-                <div className="mt-1 text-[10px] text-muted-foreground sm:text-[11px]">per day</div>
-              </div>
+              <MarketingDiscountPrice currentCents={dayPassPriceUsdCents} size="hero" suffix="per day" />
             </button>
 
             <button
@@ -603,10 +591,7 @@ export default function PricingPage() {
                   One origin-to-destination country pair with checklist, rules of origin, and tariff data.
                 </div>
               </div>
-              <div className="shrink-0 text-right">
-                <div className="text-3xl font-bold leading-none text-[#C8922A] sm:text-[40px]">{afcftaReportPriceLabel}</div>
-                <div className="mt-1 text-[10px] text-muted-foreground sm:text-[11px]">per route</div>
-              </div>
+              <MarketingDiscountPrice currentCents={afcftaReportPriceUsdCents} size="hero" suffix="per route" />
             </button>
 
             <button
@@ -621,10 +606,7 @@ export default function PricingPage() {
                   Additional AI research query with citations back to the Yamalé Legal Library.
                 </div>
               </div>
-              <div className="shrink-0 text-right">
-                <div className="text-3xl font-bold leading-none text-[#C8922A] sm:text-[40px]">{aiQueryPriceLabel}</div>
-                <div className="mt-1 text-[10px] text-muted-foreground sm:text-[11px]">per query</div>
-              </div>
+              <MarketingDiscountPrice currentCents={aiQueryPriceUsdCents} size="hero" suffix="per query" />
             </button>
           </div>
         </div>
