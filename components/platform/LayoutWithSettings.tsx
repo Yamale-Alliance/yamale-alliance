@@ -1,49 +1,10 @@
+import { Suspense } from "react";
 import { CONTENT_PRICING_DEFAULTS } from "@/lib/content-pricing";
-import { getPlatformSettings } from "@/lib/platform-settings";
-import { Header } from "@/components/layout/Header";
-import { ConditionalFooter } from "@/components/layout/ConditionalFooter";
-import { DynamicFavicon } from "@/components/platform/DynamicFavicon";
 import { PlatformSettingsProvider } from "@/components/platform/PlatformSettingsContext";
-import { OfflineProvider } from "@/components/offline/OfflineProvider";
-import { SubscriptionRenewalReminder } from "@/components/subscription/SubscriptionRenewalReminder";
-import { FoundersNoteGate } from "@/components/founders-note/FoundersNoteGate";
+import { PlatformSettingsStream } from "@/components/platform/PlatformSettingsStream";
+import { LayoutShell } from "@/components/platform/LayoutShell";
 
-/** Server component: fetches platform settings and renders layout with logo/favicon/hero in context. */
-export async function LayoutWithSettings({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const settings = await getPlatformSettings();
-  const initial = {
-    logoUrl: settings.logoUrl ?? null,
-    faviconUrl: settings.faviconUrl ?? null,
-    heroImageUrl: settings.heroImageUrl ?? null,
-    founderPortraitUrl: settings.founderPortraitUrl ?? null,
-    lawyersOnboardingVideoUrl: settings.lawyersOnboardingVideoUrl ?? null,
-    lawPrintPriceUsdCents: settings.lawPrintPriceUsdCents,
-    dayPassPriceUsdCents: settings.dayPassPriceUsdCents,
-    lawyerSearchUnlockPriceUsdCents: settings.lawyerSearchUnlockPriceUsdCents,
-    aiQueryPriceUsdCents: settings.aiQueryPriceUsdCents,
-    afcftaReportPriceUsdCents: settings.afcftaReportPriceUsdCents,
-  };
-
-  return (
-    <PlatformSettingsProvider initial={initial}>
-      <DynamicFavicon />
-      <div className="flex min-h-screen flex-col">
-        <Header />
-        <SubscriptionRenewalReminder />
-        <FoundersNoteGate />
-        <div className="flex-1">{children}</div>
-        <ConditionalFooter />
-      </div>
-      <OfflineProvider />
-    </PlatformSettingsProvider>
-  );
-}
-
-const EMPTY_INITIAL = {
+export const EMPTY_PLATFORM_SETTINGS = {
   logoUrl: null as string | null,
   faviconUrl: null as string | null,
   heroImageUrl: null as string | null,
@@ -52,23 +13,23 @@ const EMPTY_INITIAL = {
   ...CONTENT_PRICING_DEFAULTS,
 };
 
-/** Fallback when settings are still loading — same layout with null so client can show "Yamalé" / default favicon. */
-export function LayoutWithSettingsFallback({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+/** Layout shell streams immediately; branding/pricing hydrate via Suspense (faster LCP). */
+export function LayoutWithSettings({ children }: { children: React.ReactNode }) {
   return (
-    <PlatformSettingsProvider initial={EMPTY_INITIAL}>
-      <DynamicFavicon />
-      <div className="flex min-h-screen flex-col">
-        <Header />
-        <SubscriptionRenewalReminder />
-        <FoundersNoteGate />
-        <div className="flex-1">{children}</div>
-        <ConditionalFooter />
-      </div>
-      <OfflineProvider />
+    <PlatformSettingsProvider initial={EMPTY_PLATFORM_SETTINGS}>
+      <LayoutShell>{children}</LayoutShell>
+      <Suspense fallback={null}>
+        <PlatformSettingsStream />
+      </Suspense>
+    </PlatformSettingsProvider>
+  );
+}
+
+/** Same shell without waiting on settings (used if a parent Suspense boundary suspends). */
+export function LayoutWithSettingsFallback({ children }: { children: React.ReactNode }) {
+  return (
+    <PlatformSettingsProvider initial={EMPTY_PLATFORM_SETTINGS}>
+      <LayoutShell>{children}</LayoutShell>
     </PlatformSettingsProvider>
   );
 }
