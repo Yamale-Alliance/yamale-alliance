@@ -88,6 +88,7 @@ import { fetchLawIdsForCategory } from "@/lib/law-categories-sync";
 import {
   excludeInternalCategoryFromLawsQuery,
   filterPublicLibraryLawRows,
+  isInternalLibraryForUserDisplay,
   resolveInternalLibraryCategoryId,
 } from "@/lib/internal-library-categories";
 import {
@@ -103,6 +104,14 @@ import {
   ensureIntentTopicSlotsInResponse,
   lawMatchesNationalInvestmentCodeTitle,
 } from "@/lib/ai-intent-title-retrieval";
+import {
+  buildOhadaCommercialCompaniesExcerptAnchors,
+  fetchOhadaCommercialCompaniesInstrumentLaws,
+  isLikelyOhadaCommercialCompaniesLaw,
+  isOffTopicForOhadaCommercialCompanies,
+  isOhadaCommercialCompaniesQuery,
+  isOhadaInstrument,
+} from "@/lib/ohada-commercial-companies-retrieval";
 import {
   AI_CHAT_SSE_HEADERS,
   encodeSseEvent,
@@ -360,7 +369,14 @@ const SUPRANATIONAL_FRAMEWORKS: SupranationalFramework[] = [
     id: "ohada",
     canonicalName: "OHADA Uniform Acts",
     detect: /\b(ohada|acte\s+uniforme|uniform\s+act\s+(?:on|relating|organising|organizing))\b/i,
-    titleSearchTerms: ["ohada", "acte uniforme", "uniform act"],
+    titleSearchTerms: [
+      "ohada",
+      "acte uniforme",
+      "uniform act",
+      "sociétés commerciales",
+      "societes commerciales",
+      "commercial companies",
+    ],
     description:
       "OHADA Uniform Acts apply uniformly across all 17 OHADA member states; no single country must be specified.",
   },
@@ -800,7 +816,9 @@ function isClearlyOffTopicForPrimaryIntent(
     const tokenBlob = rankingTokens.join(" ").toLowerCase();
     const isOhadaCompanyQuery =
       /\bohada\b/.test(tokenBlob) &&
-      /\b(sarl|societe|société|commercial|companies|company|gie|capital)\b/.test(tokenBlob);
+      /\b(sarl|sas|societe|société|commercial|companies|company|gie|capital|commandit|limited\s+partnership|\blp\b|scs|joint\s+venture|partnership)\b/.test(
+        tokenBlob
+      );
     if (isOhadaCompanyQuery) {
       if (/\b(cooperative|coop[eé]rative|soci[eé]t[eé]s?\s+coop[eé]ratives?)\b/.test(tokenBlob)) {
         return false;
@@ -835,62 +853,14 @@ function isClearlyOffTopicForPrimaryIntent(
   return false;
 }
 
-function isOhadaCommercialCompaniesQuery(query: string): boolean {
-  const q = query.toLowerCase();
-  return (
-    /\bohada\b/.test(q) &&
-    /\b(sarl|s\.?a\.?|soci[eé]t[eé]\s+anonyme|soci[eé]t[eé]\s+[aà]\s+responsabilit[eé]\s+limit[eé]e|commercial companies|soci[eé]t[eé]s?\s+commerciales?|capital)\b/.test(
-      q
-    )
-  );
-}
-
-function isOffTopicForOhadaCommercialCompanies(law: any): boolean {
-  const title = String(law?.title ?? "").toLowerCase();
-  const category = String(law?.categories?.name ?? "").toLowerCase();
-  const blob = `${title}\n${category}`;
-  if (/\bau\s+sommaire\b/.test(blob)) return true;
-  if (/(soci[eé]t[eé]s?\s+coop[eé]ratives?|cooperatives?)/i.test(blob)) return true;
-  if (/(proc[eé]dures?\s+collectives?|apurement\s+du\s+passif|insolvency|bankruptcy)/i.test(blob)) return true;
-  if (/(m[eé]diation|mediation|arbitrage|arbitration)/i.test(blob)) return true;
-  return false;
-}
-
-function isLikelyOhadaCommercialCompaniesLaw(law: any): boolean {
-  const title = String(law?.title ?? "").toLowerCase();
-  const category = String(law?.categories?.name ?? "").toLowerCase();
-  const titleSignals =
-    /(soci[eé]t[eé]s?\s+commerciales?|commercial companies|groupement d'?int[eé]r[eê]t [ée]conomique|economic interest groups)/i;
-  const offTopicSignals =
-    /(droit du travail|labou?r|m[eé]diation|mediation|arbitrage|arbitration|dispute|proc[eé]dures?\s+collectives?|apurement\s+du\s+passif|coop[eé]ratives?)/i;
-  const categoryLooksCorporate = /corporate|company|commercial/.test(category);
-  return (titleSignals.test(title) || categoryLooksCorporate) && !offTopicSignals.test(title);
-}
-
-function isOhadaInstrument(law: any): boolean {
-  const title = String(law?.title ?? "").toLowerCase();
-  const sourceName = String(law?.source_name ?? "").toLowerCase();
-  return /\bohada\b|organisation for the harmonization of business law in africa|acte uniforme|uniform act/i.test(
-    `${title}\n${sourceName}`
-  );
-}
-
 function buildExcerptAnchorTokens(query: string, primaryIntentId: string): string[] {
   const q = query.toLowerCase();
   const anchors: string[] = [];
-  const mentionsOhada = /\bohada\b/.test(q);
+  if (isOhadaCommercialCompaniesQuery(query)) {
+    anchors.push(...buildOhadaCommercialCompaniesExcerptAnchors(query));
+  }
   const mentionsSA = /\bsoci[eé]t[eé]\s+anonyme\b|\b\bs\.?a\.?\b/.test(q);
   const mentionsSARL = /\bsarl\b|\bsoci[eé]t[eé]\s+[aà]\s+responsabilit[eé]\s+limit[eé]e\b/.test(q);
-  if (mentionsOhada || mentionsSA || mentionsSARL) {
-    anchors.push(
-      "acte uniforme",
-      "sociétés commerciales",
-      "societes commerciales",
-      "capital social",
-      "formation",
-      "constitution de la société"
-    );
-  }
   if (mentionsSA) {
     anchors.push("société anonyme", "societe anonyme", "capital minimum", "articles 385", "part iv");
   }
@@ -1690,12 +1660,14 @@ async function searchLegalLibraryFull(
     );
     const rankingTokens = Array.from(new Set(mergedForRank)).slice(0, 28);
 
+    const internalCategoryIdFull = await resolveInternalLibraryCategoryId(supabase);
     let lawsRows = await fetchFullLibraryLawRows(supabase, { countryScopeOr });
     perfStep(perf, "full_library.db_fetch", { rows: lawsRows.length });
     lawsRows = filterLawsWithReadableBody(lawsRows).filter(
       (row) => normalizeLawStatus(row.status) !== "repealed"
     );
     lawsRows = dedupeLawsByNormalizedTitle(lawsRows);
+    lawsRows = filterPublicLibraryLawRows(lawsRows, internalCategoryIdFull);
 
     const rankedLaws = [...lawsRows].sort((a: any, b: any) => {
       const titleA = String(a.title ?? "").toLowerCase();
@@ -2241,9 +2213,11 @@ async function searchLegalLibrary(
           matchedIds: Array.from(new Set([...resolvedIntent.matchedIds, "intellectual_property"])),
         }
       : resolvedIntent;
+    const ohadaCommercialCompaniesQuery = isOhadaCommercialCompaniesQuery(query);
     const hasMandatoryIntent =
       Boolean(countryId) &&
-      resolvedIntent.matchedIds.some((id) => (intentHydrationIds as readonly string[]).includes(id));
+      (resolvedIntent.matchedIds.some((id) => (intentHydrationIds as readonly string[]).includes(id)) ||
+        ohadaCommercialCompaniesQuery);
     const needSupplemental =
       !skipBroadLibraryTextSearch &&
       supEsc.length > 0 &&
@@ -2303,6 +2277,20 @@ async function searchLegalLibrary(
           : Promise.resolve([] as any[]),
       ]);
       mandatorySlotRows = mandatoryRows;
+
+      if (ohadaCommercialCompaniesQuery) {
+        const ohadaCcRows = await fetchOhadaCommercialCompaniesInstrumentLaws(supabase, {
+          excludeIds: have,
+          maxLaws: 4,
+        });
+        for (const row of ohadaCcRows) {
+          const id = String((row as { id?: string }).id ?? "");
+          if (!id || have.has(id)) continue;
+          have.add(id);
+          (lawsRows as { id: string }[]).unshift(row as { id: string });
+          intentHydratedIds.add(id);
+        }
+      }
 
       for (const row of supplementalRows) {
         const id = String((row as any).id);
@@ -2443,11 +2431,17 @@ async function searchLegalLibrary(
       searchCountry,
       query
     );
-    if (isOhadaCommercialCompaniesQuery(query)) {
-      intentFilteredRanked = intentFilteredRanked
+    if (ohadaCommercialCompaniesQuery) {
+      const ohadaScoped = intentFilteredRanked
         .filter((law) => isOhadaInstrument(law))
-        .filter((law) => !isOffTopicForOhadaCommercialCompanies(law))
-        .filter((law) => isLikelyOhadaCommercialCompaniesLaw(law));
+        .filter((law) => !isOffTopicForOhadaCommercialCompanies(law));
+      const strict = ohadaScoped.filter((law) => isLikelyOhadaCommercialCompaniesLaw(law));
+      intentFilteredRanked =
+        strict.length > 0
+          ? strict
+          : ohadaScoped.filter((law) =>
+              /soci[eé]t[eé]s?\s+commerciales?|commercial companies/i.test(String((law as { title?: string }).title ?? ""))
+            );
     }
 
     // For supranational / bilateral framework queries, the same instrument is
@@ -2590,6 +2584,13 @@ async function searchLegalLibrary(
             (law) => !isNationalTrademarksActTitle(String((law as any).title ?? ""))
           );
           picked = [...national, ...rest].slice(0, 5);
+        }
+      }
+      if (ohadaCommercialCompaniesQuery) {
+        const ccFirst = picked.filter((law) => isLikelyOhadaCommercialCompaniesLaw(law as { title?: string; categories?: { name?: string } }));
+        const ccRest = picked.filter((law) => !ccFirst.includes(law));
+        if (ccFirst.length > 0) {
+          picked = [...ccFirst, ...ccRest].slice(0, baseResponseSize);
         }
       }
       if (
@@ -3114,17 +3115,21 @@ async function finalizeAssistantTurn(opts: {
   );
 
   const cardCtx = buildSourceCardQueryContext(userQuery);
+  const internalCategoryId = await resolveInternalLibraryCategoryId(getSupabaseServer());
   const displayedSlots = legalContext
     .map((law, idx) => ({ law, idx, usedInAnswer: Boolean(usedFlags[idx]) }))
-    .filter(({ law, usedInAnswer }) =>
-      legalContextItemEligibleForDisplayedSourceCard(
+    .filter(({ law, usedInAnswer }) => {
+      if (isInternalLibraryForUserDisplay({ title: law.title, category: law.category }, internalCategoryId)) {
+        return false;
+      }
+      return legalContextItemEligibleForDisplayedSourceCard(
         law,
         userQuery,
         cardCtx.overlapTokens,
         cardCtx.primaryIntentId,
         usedInAnswer
-      )
-    );
+      );
+    });
 
   const sources = platformGuideMeta
     ? []
