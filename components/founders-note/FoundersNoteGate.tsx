@@ -75,9 +75,22 @@ export function FoundersNoteGate() {
       }
     };
 
-    void run();
+    const schedule =
+      typeof requestIdleCallback === "function"
+        ? (cb: () => void) => requestIdleCallback(cb, { timeout: 4000 })
+        : (cb: () => void) => window.setTimeout(cb, 2000);
+
+    const idleId = schedule(() => {
+      if (!cancelled) void run();
+    });
+
     return () => {
       cancelled = true;
+      if (typeof cancelIdleCallback === "function" && typeof idleId === "number") {
+        cancelIdleCallback(idleId);
+      } else {
+        clearTimeout(idleId as number);
+      }
     };
   }, [isLoaded, checked, pathname, user?.id]);
 
