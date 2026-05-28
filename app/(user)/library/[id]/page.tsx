@@ -751,8 +751,6 @@ export default function LawDetailPage({
   const [printCheckoutOpen, setPrintCheckoutOpen] = useState(false);
   const [printCheckoutProvider, setPrintCheckoutProvider] = useState<CheckoutPaymentProvider>("pawapay");
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
-  const [summary, setSummary] = useState<{ summary_text: string; generated_at: string } | null>(null);
-  const [summaryLoading, setSummaryLoading] = useState(false);
   const { isSignedIn, user } = useUser();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
@@ -879,7 +877,6 @@ export default function LawDetailPage({
   }, [documentPaymentSuccessVisible]);
 
   // Check if user has team plan
-  const isTeamPlan = user?.publicMetadata?.tier === "team" || user?.publicMetadata?.subscriptionTier === "team";
   const isAdmin = (user?.publicMetadata?.role as string | undefined) === "admin";
 
   const handleFixOcr = async () => {
@@ -942,22 +939,6 @@ export default function LawDetailPage({
       })
       .catch(() => setIsBookmarked(false));
   }, [isSignedIn, resolvedId]);
-
-  // Fetch law summary (Team plan only)
-  useEffect(() => {
-    if (!isTeamPlan || !resolvedId) {
-      setSummary(null);
-      return;
-    }
-    setSummaryLoading(true);
-    fetch(`/api/laws/${resolvedId}/summary`)
-      .then((r) => r.json())
-      .then((data: { summary?: { summary_text: string; generated_at: string } | null }) => {
-        setSummary(data.summary ?? null);
-      })
-      .catch(() => setSummary(null))
-      .finally(() => setSummaryLoading(false));
-  }, [isTeamPlan, resolvedId]);
 
   const toggleBookmark = async () => {
     if (!isSignedIn || !resolvedId) return;
@@ -1476,26 +1457,6 @@ export default function LawDetailPage({
               </p>
               {fixOcrBanner && (
                 <p className="w-full text-sm text-white/90 sm:order-last">{fixOcrBanner}</p>
-              )}
-            </div>
-          )}
-          {/* Law Summary (Team Plan Only) */}
-          {isTeamPlan && (
-            <div className="law-reading-hide-when-reading mt-4">
-              {summaryLoading ? (
-                <div className="flex items-center gap-2 text-sm text-white/65">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Loading summary...</span>
-                </div>
-              ) : summary ? (
-                <div className="rounded-2xl border border-border bg-card p-5 shadow-md">
-                  <h3 className="mb-2.5 text-sm font-bold uppercase tracking-wider text-card-foreground">AI Summary</h3>
-                  <p className="text-sm leading-relaxed text-card-foreground/90">{summary.summary_text}</p>
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-border/80 bg-card p-5 text-sm text-muted-foreground shadow-sm">
-                  <p>No summary available for this law yet.</p>
-                </div>
               )}
             </div>
           )}
