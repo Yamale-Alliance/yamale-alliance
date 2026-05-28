@@ -63,7 +63,7 @@ export function Footer() {
         <div className="mx-auto grid max-w-[1280px] gap-12 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] lg:gap-10">
           <div className="max-w-md">
             <Link href="/" className="inline-block opacity-95 transition hover:opacity-100" aria-label="Yamalé home">
-              <PlatformLogo height={64} width={220} className="h-14 w-auto max-w-[220px]" />
+              <PlatformLogo height={64} width={220} className="h-14 w-[220px]" />
             </Link>
             <p className="heading mt-6 text-2xl font-semibold tracking-tight text-white sm:text-[1.75rem] sm:leading-snug">
               African law, accessible to those who shape the continent&apos;s future.
