@@ -34,6 +34,8 @@ When both variables are set, all instances share one counter in Redis.
 
 Adjust buckets in `lib/distributed-rate-limit.ts` (`BUCKETS`).
 
+Public cached GET APIs (`/api/pricing`, `/api/laws`, `/api/marketplace`) use the **`publicReadIp`** bucket (600 req/min per IP), not the generic `apiIp` (120/min), so pricing page traffic does not starve other API calls during load tests.
+
 ## Response headers
 
 - `X-RateLimit-Limit`, `X-RateLimit-Remaining`
