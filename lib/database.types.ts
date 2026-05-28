@@ -504,23 +504,6 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["law_bookmarks"]["Insert"]>;
       };
-      law_summaries: {
-        Row: {
-          id: string;
-          law_id: string;
-          summary_text: string;
-          generated_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          law_id: string;
-          summary_text: string;
-          generated_at?: string;
-          updated_at?: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["law_summaries"]["Insert"]>;
-      };
       ai_query_templates: {
         Row: {
           id: string;
