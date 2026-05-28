@@ -9,6 +9,7 @@ import {
 } from "@/lib/pawapay";
 import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
 import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
+import { buildLomiOneTimeCatalogCheckoutInput } from "@/lib/lomi-catalog-checkout";
 import { getAfcftaReportPriceUsdCents } from "@/lib/platform-settings";
 const AFCFTA_REPORTS_DISABLED = true;
 type CheckoutProvider = "pawapay" | "lomi";
@@ -54,14 +55,17 @@ export async function POST(request: NextRequest) {
       }
       const priceCents = await getAfcftaReportPriceUsdCents();
       const amountMinor = convertUsdCentsToPawapayMinor(priceCents, currencyCode);
-      const { checkoutUrl } = await createLomiHostedCheckoutSession({
-        amount: amountMinor,
-        currency_code: currencyCode,
-        metadata: { clerk_user_id: userId, kind: "payg_afcfta_report" },
-        title: "AfCFTA report",
-        success_url: `${origin}/dashboard?session_id={CHECKOUT_SESSION_ID}&payg=afcfta_report`,
-        cancel_url: `${origin}/pricing?canceled=1`,
-      });
+      const { checkoutUrl } = await createLomiHostedCheckoutSession(
+        buildLomiOneTimeCatalogCheckoutInput({
+          catalogKey: "payg_afcfta_report",
+          amountMinor,
+          currency_code: currencyCode,
+          metadata: { clerk_user_id: userId, kind: "payg_afcfta_report" },
+          title: "AfCFTA report",
+          success_url: `${origin}/dashboard?session_id={CHECKOUT_SESSION_ID}&payg=afcfta_report`,
+          cancel_url: `${origin}/pricing?canceled=1`,
+        })
+      );
       return NextResponse.json({ url: checkoutUrl, provider: "lomi" });
     }
 
