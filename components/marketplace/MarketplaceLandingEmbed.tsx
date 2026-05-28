@@ -2,12 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
+  applyLandingLanguage,
   detectCheckoutTierFromAnchor,
   detectCheckoutTierFromCtaText,
   isLandingInPageSectionAnchor,
   landingHashFromAnchor,
+  landingLanguageFromButton,
   prepareMarketplaceLandingEmbedHtml,
+  readSavedLandingLanguage,
+  saveLandingLanguage,
   shouldInterceptVaultCheckoutAnchor,
+  type LandingPageLanguage,
   type PackageOfferTier,
 } from "@/lib/marketplace-landing-page";
 
@@ -60,6 +65,21 @@ export function MarketplaceLandingEmbed({
       if (!host) return;
       const path = event.composedPath();
 
+      const langBtn = findClickTargetInComposedPath(path, ".lang-btn[data-select-lang]");
+      if (langBtn) {
+        const lang = landingLanguageFromButton(langBtn);
+        if (lang) {
+          event.preventDefault();
+          event.stopPropagation();
+          const shadow = host.shadowRoot;
+          if (shadow) {
+            applyLandingLanguage(shadow, lang);
+            saveLandingLanguage(lang);
+          }
+          return;
+        }
+      }
+
       const anchor = findClickTargetInComposedPath(path, "a");
       if (anchor) {
         if (isLandingInPageSectionAnchor(anchor)) {
@@ -106,6 +126,9 @@ export function MarketplaceLandingEmbed({
       shadow = host.attachShadow({ mode: "open" });
     }
     shadow.innerHTML = embedHtml;
+
+    const initialLang: LandingPageLanguage = readSavedLandingLanguage();
+    applyLandingLanguage(shadow, initialLang);
 
     shadow.addEventListener("click", handleShadowClick, true);
     return () => shadow.removeEventListener("click", handleShadowClick, true);
