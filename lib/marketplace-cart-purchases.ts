@@ -21,6 +21,31 @@ export function parseCartItemIdsMetadata(itemIdsRaw: string | undefined): string
     .filter((id) => id.length > 0);
 }
 
+/** Record one marketplace purchase; bundle tier also unlocks the partner vault item when provided. */
+export async function recordMarketplaceItemPurchase(params: {
+  userId: string;
+  marketplaceItemId: string;
+  sessionId: string;
+  bundlePartnerItemId?: string | null;
+}): Promise<void> {
+  const supabase = getSupabaseServer();
+  const ids = [params.marketplaceItemId];
+  const partner = params.bundlePartnerItemId?.trim();
+  if (partner && partner !== params.marketplaceItemId) {
+    ids.push(partner);
+  }
+  for (const itemId of Array.from(new Set(ids))) {
+    await (supabase.from("marketplace_purchases") as any).upsert(
+      {
+        user_id: params.userId,
+        marketplace_item_id: itemId,
+        stripe_session_id: params.sessionId,
+      },
+      { onConflict: "user_id,marketplace_item_id" }
+    );
+  }
+}
+
 /** Record marketplace purchases for a cart checkout (pawaPay deposit id or Stripe Checkout session id). */
 export async function recordMarketplaceCartPurchases(params: {
   userId: string;
