@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { Loader2 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { PlatformLogo } from "@/components/platform/PlatformLogo";
 import { prototypeNavHeaderClass, prototypeNavInnerClass, prototypeNavLinkClass } from "./prototype-nav-styles";
 import { userNavLinks } from "./nav-config";
 
@@ -33,8 +34,8 @@ function HeaderNavSkeleton() {
   return (
     <header className={`yamale-site-chrome ${prototypeNavHeaderClass}`}>
       <div className={prototypeNavInnerClass}>
-        <Link href="/" className="font-semibold text-foreground">
-          <span className="tracking-tight">Yamalé</span>
+        <Link href="/" className="flex shrink-0 items-center">
+          <PlatformLogo height={56} width={200} className="h-14 w-[200px] sm:h-16" />
         </Link>
         <nav className="hidden items-center gap-1 lg:flex">
           {userNavLinks.map(({ href, label }) => {
