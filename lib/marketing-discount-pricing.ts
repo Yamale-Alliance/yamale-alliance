@@ -11,7 +11,22 @@ export function marketingListPriceCentsFromCurrent(currentCents: number): number
 export function marketingListPriceUsdFromCurrent(currentUsd: number): number {
   if (currentUsd <= 0) return 0;
   const factor = 1 - PLATFORM_MARKETING_DISCOUNT_PERCENT / 100;
-  return Math.round(currentUsd / factor);
+  return currentUsd / factor;
+}
+
+/** Whole-dollar list price for UI; always strictly above rounded current when discounted. */
+export function marketingListPriceDisplayDollarsFromCents(currentCents: number): number {
+  const currentDollars = Math.round(currentCents / 100);
+  if (currentDollars <= 0) return 0;
+  const listDollars = Math.ceil(marketingListPriceCentsFromCurrent(currentCents) / 100);
+  return Math.max(listDollars, currentDollars + 1);
+}
+
+export function marketingListPriceDisplayDollarsFromUsd(currentUsd: number): number {
+  const currentDollars = Math.round(currentUsd);
+  if (currentDollars <= 0) return 0;
+  const listDollars = Math.ceil(marketingListPriceUsdFromCurrent(currentUsd));
+  return Math.max(listDollars, currentDollars + 1);
 }
 
 /** Marketing UI: whole dollars only (decimals rounded). */
@@ -24,9 +39,9 @@ export function formatMarketingDisplayUsdFromDollars(usd: number): string {
 }
 
 export function formatMarketingListPriceUsd(cents: number): string {
-  return formatMarketingDisplayUsdFromCents(marketingListPriceCentsFromCurrent(cents));
+  return `$${marketingListPriceDisplayDollarsFromCents(cents)}`;
 }
 
 export function formatMarketingListPriceUsdFromDollars(usd: number): string {
-  return formatMarketingDisplayUsdFromDollars(marketingListPriceUsdFromCurrent(usd));
+  return `$${marketingListPriceDisplayDollarsFromUsd(usd)}`;
 }
