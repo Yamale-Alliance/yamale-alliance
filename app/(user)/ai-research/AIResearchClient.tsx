@@ -1,6 +1,14 @@
 "use client";
 
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, type FormEvent } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  startTransition,
+  type FormEvent,
+} from "react";
 import Link from "next/link";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 import ReactMarkdown from "react-markdown";
@@ -1134,15 +1142,24 @@ export default function AIResearchClient() {
 
   const acknowledgeNotice = () => {
     if (!user) return;
-    try {
-      const raw = localStorage.getItem(AI_RESEARCH_NOTICE_KEY);
-      const acknowledgedUsers = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
-      acknowledgedUsers[user.id] = true;
-      localStorage.setItem(AI_RESEARCH_NOTICE_KEY, JSON.stringify(acknowledgedUsers));
-    } catch {
-      // ignore
+    startTransition(() => {
+      setHasAcknowledgedNotice(true);
+    });
+    const persist = () => {
+      try {
+        const raw = localStorage.getItem(AI_RESEARCH_NOTICE_KEY);
+        const acknowledgedUsers = raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+        acknowledgedUsers[user.id] = true;
+        localStorage.setItem(AI_RESEARCH_NOTICE_KEY, JSON.stringify(acknowledgedUsers));
+      } catch {
+        // ignore
+      }
+    };
+    if (typeof requestIdleCallback !== "undefined") {
+      requestIdleCallback(persist, { timeout: 500 });
+    } else {
+      setTimeout(persist, 0);
     }
-    setHasAcknowledgedNotice(true);
   };
 
   if (!isLoaded && !clerkLoadTimedOut) {
