@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { Fragment, useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -100,6 +100,8 @@ type DisplayProductCard = {
   collectionHref?: string;
   collectionCount?: number;
   collectionLabel?: string;
+  /** Free vault subcategory slug for inline expand (e.g. at_a_glance). */
+  seriesKey?: string;
 };
 
 function normalizeSeriesImages(items: Product[]): Product[] {
@@ -200,6 +202,7 @@ export default function MarketplacePage() {
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
   const [buyModalProduct, setBuyModalProduct] = useState<Product | null>(null);
   const [buyCheckoutLoading, setBuyCheckoutLoading] = useState(false);
+  const [expandedSeriesKey, setExpandedSeriesKey] = useState<string | null>(null);
 
   const lomiAvailable =
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
@@ -359,14 +362,18 @@ export default function MarketplacePage() {
   );
   const browseSeries = browse.kind === "free" ? browse.subcategory : null;
 
-  const displayCards = useMemo<DisplayProductCard[]>(() => {
+  const { displayCards, seriesMembersByKey } = useMemo(() => {
     const shouldGroupSeries = browse.kind === "all" || (browse.kind === "free" && !browse.subcategory);
     if (!shouldGroupSeries) {
-      return sortedProducts.map((product) => ({ product }));
+      return {
+        displayCards: sortedProducts.map((product) => ({ product })) as DisplayProductCard[],
+        seriesMembersByKey: new Map<string, Product[]>(),
+      };
     }
 
     const cards: DisplayProductCard[] = [];
-    const groupedIndexBySeries = new Map<string, number>();
+    const membersByKey = new Map<string, Product[]>();
+    const cardIndexBySeries = new Map<string, number>();
 
     for (const product of sortedProducts) {
       const subcategory = product.vault_subcategory?.trim() ?? "";
@@ -375,34 +382,51 @@ export default function MarketplacePage() {
         continue;
       }
 
-      const existingIndex = groupedIndexBySeries.get(subcategory);
-      if (existingIndex !== undefined) {
-        const existing = cards[existingIndex];
-        cards[existingIndex] = {
-          ...existing,
-          collectionCount: (existing.collectionCount ?? 1) + 1,
-        };
+      let members = membersByKey.get(subcategory);
+      if (!members) {
+        members = [];
+        membersByKey.set(subcategory, members);
+        const label = labelForVaultSubcategory(subcategory) ?? "Series";
+        cardIndexBySeries.set(subcategory, cards.length);
+        cards.push({
+          product,
+          collectionLabel: label,
+          collectionCount: 1,
+          seriesKey: subcategory,
+        });
+      } else {
+        members.push(product);
+        const idx = cardIndexBySeries.get(subcategory);
+        if (idx !== undefined) {
+          const existing = cards[idx];
+          cards[idx] = {
+            ...existing,
+            collectionCount: (existing.collectionCount ?? 1) + 1,
+          };
+        }
         continue;
       }
-
-      const label = labelForVaultSubcategory(subcategory) ?? "Series";
-      const qs = buildMarketplaceSearchQuery({
-        category: VAULT_BROWSE_FREE,
-        series: subcategory,
-        sort: vaultSort,
-      });
-
-      groupedIndexBySeries.set(subcategory, cards.length);
-      cards.push({
-        product,
-        collectionLabel: label,
-        collectionCount: 1,
-        collectionHref: qs ? `/marketplace?${qs}` : "/marketplace",
-      });
+      members.push(product);
     }
 
-    return cards;
+    for (const card of cards) {
+      if (!card.seriesKey) continue;
+      const members = membersByKey.get(card.seriesKey) ?? [];
+      card.collectionCount = members.length;
+      const coverProduct = members.find((m) => m.image_url) ?? members[0];
+      if (coverProduct) card.product = coverProduct;
+    }
+
+    return { displayCards: cards, seriesMembersByKey: membersByKey };
   }, [browse.kind, browseSeries, sortedProducts, vaultSort]);
+
+  const toggleSeries = useCallback((seriesKey: string) => {
+    setExpandedSeriesKey((prev) => (prev === seriesKey ? null : seriesKey));
+  }, []);
+
+  useEffect(() => {
+    setExpandedSeriesKey(null);
+  }, [categoryQs, seriesQs]);
 
   const browseTitle =
     browse.kind === "all"
@@ -793,44 +817,83 @@ export default function MarketplacePage() {
               <p className="mt-2 text-sm text-muted-foreground">Try another format, topic, or broader search keyword.</p>
             </div>
           ) : (
-            <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {displayCards.map((card) => (
-                <MarketplaceProductCard
-                  key={card.collectionHref ?? card.product.id}
-                  product={card.product}
-                  topicLabel={inferTopic(card.product)}
-                  typeBadgeLabel={
-                    card.product.type === "course"
-                      ? "Course"
-                      : card.product.type === "guide"
-                        ? "Guide"
-                        : card.product.type === "template"
-                          ? "Template"
-                          : "Book"
-                  }
-                  formatHint={
-                    card.product.type === "course"
-                      ? "Structured modules"
-                      : card.product.type === "template"
-                        ? "Instant download"
-                        : "Reference material"
-                  }
-                  seriesLabel={
-                    isFreeVaultItem(card.product.price_cents)
-                      ? labelForVaultSubcategory(card.product.vault_subcategory)
-                      : null
-                  }
-                  collectionHref={card.collectionHref}
-                  collectionCount={card.collectionCount}
-                  collectionLabel={card.collectionLabel}
-                  isSignedIn={!!isSignedIn}
-                  cartItemIds={cartItemIds}
-                  addingToCart={addingToCart}
-                  onAddToCart={handleAddToCart}
-                  onRemoveFromCart={handleRemoveFromCart}
-                  onBuy={(_, e) => openBuyModal(card.product, e)}
-                />
-              ))}
+            <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {displayCards.map((card) => {
+                const seriesKey = card.seriesKey;
+                const isInlineCollection = Boolean(seriesKey && card.collectionLabel);
+                const expanded = isInlineCollection && expandedSeriesKey === seriesKey;
+                const members =
+                  seriesKey && expanded ? (seriesMembersByKey.get(seriesKey) ?? []) : [];
+
+                const renderProductCard = (
+                  product: Product,
+                  opts?: { iconOnlyMedia?: boolean; keySuffix?: string }
+                ) => (
+                  <MarketplaceProductCard
+                    key={`${product.id}${opts?.keySuffix ?? ""}`}
+                    product={product}
+                    topicLabel={inferTopic(product)}
+                    typeBadgeLabel={
+                      product.type === "course"
+                        ? "Course"
+                        : product.type === "guide"
+                          ? "Guide"
+                          : product.type === "template"
+                            ? "Template"
+                            : "Book"
+                    }
+                    formatHint={
+                      product.type === "course"
+                        ? "Structured modules"
+                        : product.type === "template"
+                          ? "Instant download"
+                          : "Reference material"
+                    }
+                    seriesLabel={
+                      isFreeVaultItem(product.price_cents) && !opts?.iconOnlyMedia
+                        ? labelForVaultSubcategory(product.vault_subcategory)
+                        : null
+                    }
+                    collectionHref={opts?.iconOnlyMedia ? undefined : card.collectionHref}
+                    collectionCount={opts?.iconOnlyMedia ? undefined : card.collectionCount}
+                    collectionLabel={opts?.iconOnlyMedia ? undefined : card.collectionLabel}
+                    isCollection={opts?.iconOnlyMedia ? false : isInlineCollection}
+                    collectionExpanded={expanded}
+                    onCollectionToggle={
+                      isInlineCollection && !opts?.iconOnlyMedia
+                        ? () => toggleSeries(seriesKey!)
+                        : undefined
+                    }
+                    iconOnlyMedia={opts?.iconOnlyMedia}
+                    isSignedIn={!!isSignedIn}
+                    cartItemIds={cartItemIds}
+                    addingToCart={addingToCart}
+                    onAddToCart={handleAddToCart}
+                    onRemoveFromCart={handleRemoveFromCart}
+                    onBuy={(_, e) => openBuyModal(product, e)}
+                  />
+                );
+
+                if (isInlineCollection && expanded && members.length > 0) {
+                  return (
+                    <div
+                      key={seriesKey}
+                      className="col-span-full grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                    >
+                      {renderProductCard(card.product)}
+                      {members.map((member) =>
+                        renderProductCard(member, { iconOnlyMedia: true, keySuffix: "-member" })
+                      )}
+                    </div>
+                  );
+                }
+
+                return (
+                  <Fragment key={seriesKey ?? card.product.id}>
+                    {renderProductCard(card.product)}
+                  </Fragment>
+                );
+              })}
             </div>
           )}
         </div>
