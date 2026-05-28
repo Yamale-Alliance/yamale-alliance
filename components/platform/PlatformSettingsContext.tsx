@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { CONTENT_PRICING_DEFAULTS, type ContentPricingSnapshot } from "@/lib/content-pricing";
 
 export type PlatformSettings = {
@@ -22,6 +22,10 @@ const defaultSettings: PlatformSettings = {
 
 const PlatformSettingsContext = createContext<PlatformSettings>(defaultSettings);
 
+export const PlatformSettingsSetterContext = createContext<
+  ((settings: PlatformSettings) => void) | null
+>(null);
+
 export function PlatformSettingsProvider({
   initial,
   children,
@@ -29,10 +33,13 @@ export function PlatformSettingsProvider({
   initial: PlatformSettings;
   children: ReactNode;
 }) {
+  const [settings, setSettings] = useState(initial);
   return (
-    <PlatformSettingsContext.Provider value={initial}>
-      {children}
-    </PlatformSettingsContext.Provider>
+    <PlatformSettingsSetterContext.Provider value={setSettings}>
+      <PlatformSettingsContext.Provider value={settings}>
+        {children}
+      </PlatformSettingsContext.Provider>
+    </PlatformSettingsSetterContext.Provider>
   );
 }
 
