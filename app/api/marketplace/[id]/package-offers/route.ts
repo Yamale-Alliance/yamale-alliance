@@ -22,7 +22,7 @@ export async function GET(
     const { data: pageItem, error: pageErr } = await fetchPublishedMarketplaceItem(
       supabase,
       id,
-      "id, title, price_cents, currency, published, landing_page_html"
+      "id, title, price_cents, currency, published, landing_page_html, package_offers"
     );
 
     if (pageErr || !pageItem?.published) {
