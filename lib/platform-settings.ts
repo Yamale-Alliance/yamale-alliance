@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import {
   type ContentPricingSnapshot,
@@ -94,7 +95,7 @@ export async function getPlatformHeroImage(): Promise<string | null> {
   return settings.heroImageUrl;
 }
 
-export async function getPlatformSettings(): Promise<PlatformSettingsSnapshot> {
+export const getPlatformSettings = cache(async function getPlatformSettings(): Promise<PlatformSettingsSnapshot> {
   const now = Date.now();
 
   if (cachedSettings && now - cacheTimestamp < CACHE_TTL) {
@@ -154,7 +155,7 @@ export async function getPlatformSettings(): Promise<PlatformSettingsSnapshot> {
     console.error("Platform settings unexpected error:", err);
     return emptyPlatformSettings();
   }
-}
+});
 
 export async function getLawPrintPriceUsdCents(): Promise<number> {
   return (await getPlatformSettings()).lawPrintPriceUsdCents;
