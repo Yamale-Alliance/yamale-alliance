@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BookOpen, Search } from "lucide-react";
 import { HomeDashboardLink } from "@/components/home/HomeDashboardLink";
+import { LawFirmDevelopmentPackagePromo } from "@/components/home/LawFirmDevelopmentPackagePromo";
 import { PROTOTYPE_HERO_GRID_PATTERN } from "@/components/layout/prototype-page-styles";
 
 /** Static marketing page — no server auth; improves TTFB and LCP vs dynamic render. */
@@ -103,6 +104,8 @@ export default function Home() {
           </Link>
         </div>
       </section>
+
+      <LawFirmDevelopmentPackagePromo />
 
       {/* Features */}
       <section className="border-b border-border bg-background px-4 py-20 sm:px-8">
