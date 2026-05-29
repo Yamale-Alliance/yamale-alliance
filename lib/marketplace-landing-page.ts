@@ -1,3 +1,9 @@
+import {
+  lawFirmAdvisoryMailto,
+  lawFirmTierEnrollmentMailto,
+  type LawFirmEnrollmentTier,
+} from "@/lib/law-firm-enrollment-contact";
+
 const MAX_LANDING_HTML_CHARS = 500_000;
 
 /** Injected into iframe documents so hash links land below sticky bars and paths like /pricing scroll in-doc. */
@@ -216,7 +222,7 @@ export function prepareMarketplaceLandingSrcDoc(
   raw: string,
   options?: PrepareMarketplaceLandingSrcDocOptions
 ): string {
-  const trimmed = rewriteLandingNavAnchors(raw.trim());
+  const trimmed = prepareLandingHtmlPipeline(raw);
   if (!trimmed) return trimmed;
 
   const styleTag = `<style ${LANDING_BASE_STYLE_MARK}>${LANDING_BASE_CSS}</style>`;
@@ -310,19 +316,208 @@ export function detectCheckoutTierFromCtaText(
   return null;
 }
 
+/** Tier 2/3 advisory CTAs — must navigate or open mail, not vault checkout. */
+export function isAdvisoryEnrollmentAnchor(anchor: {
+  getAttribute(name: string): string | null;
+  textContent?: string | null;
+}): boolean {
+  const href = (anchor.getAttribute("href") || "").trim();
+  const hrefLower = href.toLowerCase();
+  const text = (anchor.textContent || "").toLowerCase();
+
+  if (
+    hrefLower === "/contact" ||
+    hrefLower.startsWith("/contact?") ||
+    hrefLower === "contact" ||
+    hrefLower.endsWith("/contact")
+  ) {
+    return true;
+  }
+
+  if (hrefLower.startsWith("mailto:")) {
+    if (/purchase|kit|bundle|checkout/i.test(hrefLower)) return false;
+    if (/enroll|enquire|tier\s*[23]|guided implementation|advisory/i.test(hrefLower + text)) {
+      return true;
+    }
+  }
+
+  return /contact us to enroll|enquire about tier|yamalé advisory to enroll|tier 2.*enquir|tier 3.*enquir/i.test(
+    text
+  );
+}
+
+function tierFromContactQuery(query: string | undefined): LawFirmEnrollmentTier | null {
+  if (!query) return null;
+  if (/[?&]tier=3(?:&|$)/i.test(query) || /tier\s*3/i.test(query)) return 3;
+  if (/[?&]tier=2(?:&|$)/i.test(query) || /tier\s*2/i.test(query)) return 2;
+  return null;
+}
+
+const DEV_ORIGIN_HOST = /^(?:localhost|127\.0\.0\.1)$/i;
+
+/** Remove `<base>` and turn localhost absolute URLs into same-site paths (avoids iframe ERR_BLOCKED_BY_RESPONSE). */
+export function stripDevOriginsFromLandingHtml(html: string): string {
+  let out = html.replace(/<base\b[^>]*>/gi, "");
+
+  const toSameSitePath = (url: string): string => {
+    const trimmed = url.trim();
+    if (!/^https?:\/\//i.test(trimmed)) return trimmed;
+    try {
+      const u = new URL(trimmed);
+      if (!DEV_ORIGIN_HOST.test(u.hostname)) return trimmed;
+      return `${u.pathname || "/"}${u.search}${u.hash}`;
+    } catch {
+      return trimmed;
+    }
+  };
+
+  out = out.replace(/\b(href|src|action)=(["'])([^"']+)\2/gi, (full, attr, quote, value) => {
+    const lower = value.toLowerCase();
+    if (!lower.includes("localhost") && !lower.includes("127.0.0.1")) return full;
+    return `${attr}=${quote}${toSameSitePath(value)}${quote}`;
+  });
+
+  return out;
+}
+
+function vaultCheckoutHashForTier(tier: "standalone" | "bundle"): string {
+  return tier === "bundle" ? "#pricing-bundle" : "#pricing-standalone";
+}
+
+function ensureMailtoSubject(href: string, tier: LawFirmEnrollmentTier | null): string {
+  if (tier === 2 || tier === 3) return lawFirmTierEnrollmentMailto(tier);
+  if (!href.toLowerCase().startsWith("mailto:")) return href;
+  if (/[?&]subject=/i.test(href)) return href;
+  return lawFirmAdvisoryMailto();
+}
+
+/**
+ * Vault kit purchase CTAs → in-page `#pricing-*` hashes (section exists in landing HTML).
+ * Avoids mailto (CSP), localhost URLs (dev copy-paste), and loading /pricing in an iframe.
+ */
+export function rewriteVaultCheckoutAnchors(html: string): string {
+  let out = html;
+
+  const rewritePurchaseAnchor = (
+    before: string,
+    quote: string,
+    tier: "standalone" | "bundle",
+    after: string,
+    inner: string
+  ) => {
+    const hash = vaultCheckoutHashForTier(tier);
+    return `<a${before}href=${quote}${hash}${quote} data-yamale-tier="${tier}"${after}>${inner}</a>`;
+  };
+
+  out = out.replace(
+    /<a\b([^>]*)\bhref=(["'])(mailto:[^"']+)\2([^>]*)>([\s\S]*?)<\/a>/gi,
+    (full, before, quote, mailtoHref, after, inner) => {
+      const lower = mailtoHref.toLowerCase();
+      if (!/purchase|kit|bundle|checkout|zms/i.test(lower)) return full;
+      const tier = /bundle|law firm package \+ zms/i.test(lower) ? "bundle" : "standalone";
+      return rewritePurchaseAnchor(before, quote, tier, after, inner);
+    }
+  );
+
+  out = out.replace(
+    /<a\b([^>]*)\bhref=(["'])(https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?[^"']*)\2([^>]*)>([\s\S]*?)<\/a>/gi,
+    (full, before, quote, href, after, inner) => {
+      const blob = `${href} ${inner}`.toLowerCase();
+      if (!/purchase|kit|bundle|checkout|zms|marketplace|package/i.test(blob)) return full;
+      const tier = /bundle|law firm package \+ zms/i.test(blob) ? "bundle" : "standalone";
+      return rewritePurchaseAnchor(before, quote, tier, after, inner);
+    }
+  );
+
+  out = out.replace(
+    /<a\b([^>]*)\bhref=(["'])#yamale-checkout\2([^>]*)>/gi,
+    (full, before, quote, after) => {
+      const tierMatch = full.match(/data-yamale-tier=(["'])(standalone|bundle)\1/i);
+      const tier = tierMatch?.[2] === "bundle" ? "bundle" : "standalone";
+      return `<a${before}href=${quote}${vaultCheckoutHashForTier(tier)}${quote}${after}>`;
+    }
+  );
+
+  return out;
+}
+
+function prepareLandingHtmlPipeline(raw: string): string {
+  return rewriteVaultCheckoutAnchors(
+    rewriteEnrollmentContactAnchors(
+      rewriteLandingNavAnchors(stripDevOriginsFromLandingHtml(raw.trim()))
+    )
+  );
+}
+
+/** Broken /contact links → mailto with subject; enrollment mailto opens in a new tab. */
+export function rewriteEnrollmentContactAnchors(html: string): string {
+  let out = html;
+
+  out = out.replace(/\bhref=(["'])\/contact(\?[^"']*)?\1/gi, (_m, quote: string, query?: string) => {
+    const tier = tierFromContactQuery(query);
+    const mailto = tier ? lawFirmTierEnrollmentMailto(tier) : lawFirmAdvisoryMailto();
+    return `href=${quote}${mailto}${quote}`;
+  });
+  out = out.replace(/\bhref=(["'])contact\1/gi, `href=$1${lawFirmAdvisoryMailto()}$1`);
+
+  out = out.replace(
+    /<a\b([^>]*)\bhref=(["'])mailto:info@yamalealliance\.org\/?\2([^>]*)>([\s\S]*?)<\/a>/gi,
+    (full, before: string, quote: string, after: string, inner: string) => {
+      const text = inner.replace(/<[^>]+>/g, " ").toLowerCase();
+      let tier: LawFirmEnrollmentTier | null = null;
+      if (/enquire about tier\s*3|tier\s*3.*enquir/i.test(text)) tier = 3;
+      else if (/contact us to enroll|tier\s*2/i.test(text)) tier = 2;
+      if (!tier) return full;
+
+      const href = lawFirmTierEnrollmentMailto(tier);
+      const attrs = `${before}href=${quote}${href}${quote}${after}`;
+      if (/\btarget\s*=/i.test(attrs)) {
+        return `<a${before}href=${quote}${href}${quote}${after}>${inner}</a>`;
+      }
+      return `<a${before}href=${quote}${href}${quote} target="_blank" rel="noopener noreferrer"${after}>${inner}</a>`;
+    }
+  );
+
+  out = out.replace(
+    /<a\b([^>]*)\bhref=(["'])(mailto:[^"']+)\2([^>]*)>/gi,
+    (full, before: string, quote: string, mailtoHref: string, after: string) => {
+      const lower = mailtoHref.toLowerCase();
+      if (/purchase|kit|bundle|checkout/i.test(lower)) return full;
+      if (!/enroll|enquire|tier|advisory|info@yamale/i.test(lower)) return full;
+
+      let href = mailtoHref;
+      const tier =
+        /tier\s*3|tier3/i.test(lower) ? 3 : /tier\s*2|tier2/i.test(lower) ? 2 : null;
+      href = ensureMailtoSubject(href, tier);
+
+      const attrs = `${before}href=${quote}${href}${quote}${after}`;
+      if (/\btarget\s*=/i.test(attrs)) {
+        return `<a${before}href=${quote}${href}${quote}${after}>`;
+      }
+      return `<a${before}href=${quote}${href}${quote} target="_blank" rel="noopener noreferrer"${after}>`;
+    }
+  );
+
+  return out;
+}
+
 /** True when this anchor should scroll the host page to Yamale checkout (not navigate). */
 export function shouldInterceptVaultCheckoutAnchor(anchor: {
   getAttribute(name: string): string | null;
   classList?: { contains(name: string): boolean };
   closest?(selector: string): Element | null;
+  textContent?: string | null;
 }): boolean {
+  if (isAdvisoryEnrollmentAnchor(anchor)) return false;
+
   const href = (anchor.getAttribute("href") || "").toLowerCase();
   if (href.startsWith("mailto:") && /purchase|kit|bundle|checkout/i.test(href)) return true;
   if (href === "#pricing" || href.startsWith("#pricing") || href === "#yamale-checkout") return true;
+  if (href === "#pricing-standalone" || href === "#pricing-bundle") return true;
   if (href.includes("/pricing")) return true;
   if (anchor.classList?.contains("nav-cta")) return true;
   if (anchor.classList?.contains("btn-primary")) return true;
-  if (anchor.closest?.(".cta-section, .pricing-section, .pricing-cards, .cta-buttons")) {
+  if (anchor.closest?.(".cta-section, .pricing-section, .pricing-cards, .cta-buttons, .hero-actions")) {
     return true;
   }
   return false;
@@ -386,11 +581,14 @@ function extractHeadSnippets(doc: string): string {
  * HTML fragment for in-page embed (no iframe). Strips scripts, rewrites /pricing links, keeps external CSS/fonts.
  */
 export function prepareMarketplaceLandingEmbedHtml(raw: string): string {
-  const trimmed = rewriteLandingNavAnchors(raw.trim());
+  const trimmed = prepareLandingHtmlPipeline(raw);
   if (!trimmed) return trimmed;
 
   let doc = stripViewportFixedInlineStyles(
-    trimmed.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    trimmed
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+      .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, "")
+      .replace(/<iframe\b[^>]*\/>/gi, "")
   );
   const styleTag = `<style ${LANDING_BASE_STYLE_MARK}>${LANDING_SHADOW_OVERRIDES_CSS}</style>`;
 
