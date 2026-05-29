@@ -3119,9 +3119,11 @@ async function finalizeAssistantTurn(opts: {
   const displayedSlots = legalContext
     .map((law, idx) => ({ law, idx, usedInAnswer: Boolean(usedFlags[idx]) }))
     .filter(({ law, usedInAnswer }) => {
-      if (isInternalLibraryForUserDisplay({ title: law.title, category: law.category }, internalCategoryId)) {
-        return false;
-      }
+      const isMethodology = isInternalLibraryForUserDisplay(
+        { title: law.title, category: law.category },
+        internalCategoryId
+      );
+      if (isMethodology) return true;
       return legalContextItemEligibleForDisplayedSourceCard(
         law,
         userQuery,
@@ -3135,24 +3137,44 @@ async function finalizeAssistantTurn(opts: {
     ? []
     : displayedSlots.length > 0
       ? [
-          ...Array.from(new Set(displayedSlots.map(({ law }) => `${law.title} (${law.country})`))),
+          ...Array.from(
+            new Set(
+              displayedSlots.map(({ law }) => {
+                const isMethodology = isInternalLibraryForUserDisplay(
+                  { title: law.title, category: law.category },
+                  internalCategoryId
+                );
+                return isMethodology
+                  ? `${law.title} (Yamalé methodology)`
+                  : `${law.title} (${law.country})`;
+              })
+            )
+          ),
           "Claude AI · African Legal Research",
         ]
       : legalContext.length > 0
         ? ["Claude AI · African Legal Research"]
         : ["Claude AI · African Legal Research"];
 
-  const sourceCardsRaw = displayedSlots.map(({ law, idx, usedInAnswer }) => ({
-    lawId: law.id,
-    title: law.title,
-    country: law.country,
-    category: law.category,
-    status: law.status || "In force",
-    snippet: law.content.slice(0, 220).replace(/\s+/g, " ").trim(),
-    retrievalScore: typeof law.retrievalScore === "number" ? law.retrievalScore : undefined,
-    usedInAnswer,
-    docSlot: idx + 1,
-  }));
+  const sourceCardsRaw = displayedSlots.map(({ law, idx, usedInAnswer }) => {
+    const isMethodology = isInternalLibraryForUserDisplay(
+      { title: law.title, category: law.category },
+      internalCategoryId
+    );
+    const snippetMax = isMethodology ? 480 : 220;
+    return {
+      lawId: law.id,
+      title: law.title,
+      country: law.country,
+      category: law.category,
+      status: law.status || "In force",
+      snippet: law.content.slice(0, snippetMax).replace(/\s+/g, " ").trim(),
+      sourceKind: isMethodology ? ("methodology" as const) : ("law" as const),
+      retrievalScore: typeof law.retrievalScore === "number" ? law.retrievalScore : undefined,
+      usedInAnswer,
+      docSlot: idx + 1,
+    };
+  });
 
   const sourceCards = dedupeSourceCardsByTitle(
     [...sourceCardsRaw].sort((a, b) => {
