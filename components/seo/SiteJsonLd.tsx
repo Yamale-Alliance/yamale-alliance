@@ -1,5 +1,12 @@
 import { SITE, absoluteUrl, getSiteUrl } from "@/lib/site-seo";
 
+/** Official Yamalé profiles (schema.org sameAs) */
+const ORGANIZATION_SAME_AS = [
+  "https://www.facebook.com/yamalealliance",
+  "https://www.instagram.com/yamale.a",
+  "https://www.linkedin.com/company/yamale",
+] as const;
+
 /** Organization + WebSite structured data for rich results */
 export function SiteJsonLd() {
   const siteUrl = getSiteUrl();
@@ -10,7 +17,7 @@ export function SiteJsonLd() {
     url: siteUrl,
     description: SITE.description,
     logo: absoluteUrl("/opengraph-image"),
-    sameAs: [] as string[],
+    sameAs: [...ORGANIZATION_SAME_AS],
   };
 
   const website = {

@@ -26,7 +26,7 @@ This sets `metadataBase`, canonical URLs, `robots.txt` host, and `sitemap.xml` e
 
 ## Optional next steps
 
-- Add `sameAs` social URLs in `components/seo/SiteJsonLd.tsx` when profiles are live
+- Update `ORGANIZATION_SAME_AS` in `components/seo/SiteJsonLd.tsx` when social profiles change
 - Upload a dedicated 512×512 PWA icon in admin branding (manifest currently references OG image)
 - Per-law or per-vault-product metadata via `generateMetadata` on dynamic routes
 - `hreflang` if French UI ships later
