@@ -3,6 +3,11 @@ export const revalidate = 600;
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import {
+  PRICING_AFCFTA_COMING_SOON,
+  PRICING_LAWYERS_COMING_SOON,
+  applyPricingComingSoonFeatures,
+} from "@/lib/pricing-coming-soon-features";
 
 export type PricingTier = {
   id: string;
@@ -24,7 +29,7 @@ const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
     features: [
       "Unlimited browsing of full texts of laws",
       "Save up to 10 documents for easy access",
-      "Browse lawyer directory",
+      PRICING_LAWYERS_COMING_SOON,
       "Browse marketplace",
     ],
     cta: "Get Started Free",
@@ -38,8 +43,8 @@ const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
       "Unlimited browsing of full texts of laws",
       "<strong>5 document downloads/month</strong>",
       "<strong>Basic level AI queries/month</strong> (limited)",
-      "<strong>1 AfCFTA report/month</strong> (view &amp; download)",
-      "Browse lawyer directory",
+      PRICING_AFCFTA_COMING_SOON,
+      PRICING_LAWYERS_COMING_SOON,
       "Browse marketplace",
     ],
     cta: "Choose Basic",
@@ -53,8 +58,8 @@ const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
       "Unlimited browsing of full texts of laws",
       "<strong>20 document downloads/month</strong>",
       "<strong>Pro level AI queries/month</strong> (limited)",
-      "<strong>5 AfCFTA reports/month</strong> (view &amp; download)",
-      "Browse lawyer directory",
+      PRICING_AFCFTA_COMING_SOON,
+      PRICING_LAWYERS_COMING_SOON,
       "Browse marketplace",
       "Download AI conversation",
     ],
@@ -69,8 +74,8 @@ const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
       "<strong>5 users included</strong>",
       "<strong>25 document downloads per user/month</strong>",
       "<strong>Team level AI queries per user/month</strong> (limited)",
-      "<strong>2 AfCFTA reports per user/month</strong> (view &amp; download)",
-      "Browse lawyer directory",
+      PRICING_AFCFTA_COMING_SOON,
+      PRICING_LAWYERS_COMING_SOON,
       "Browse marketplace",
       "Download AI conversation",
       "<strong>Additional user: $6/month each</strong>",
@@ -121,10 +126,11 @@ function mapRowsToTiers(data: Row[]): PricingTier[] {
       priceAnnualTotal: row.price_annual_total ?? 0,
       description: row.description?.trim() ? row.description : (fallback?.description ?? ""),
       subtitle: row.subtitle?.trim() ? row.subtitle : (fallback?.subtitle ?? undefined),
-      features:
+      features: applyPricingComingSoonFeatures(
         Array.isArray(row.features) && (row.features as string[]).length > 0
           ? (row.features as string[])
-          : (fallback?.features ?? []),
+          : (fallback?.features ?? [])
+      ),
       cta: row.cta?.trim() ? row.cta : (fallback?.cta ?? "Get Started"),
       highlighted: row.highlighted ?? false,
     };
