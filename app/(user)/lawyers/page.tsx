@@ -23,6 +23,8 @@ import {
   parseExpertiseSegments,
 } from "@/lib/lawyer-expertise";
 import { LawyersOnboardingVideo } from "@/components/lawyers/LawyersOnboardingVideo";
+import { LawyersNetworkComingSoonBanner } from "@/components/lawyers/LawyersNetworkComingSoonBanner";
+import { isLawyersNetworkLive } from "@/lib/lawyers-network-enabled";
 
 const BRAND = {
   dark: "#221913",
@@ -76,6 +78,7 @@ function pseudoCountries(name: string): number {
 }
 
 export default function LawyersPage() {
+  const searchEnabled = isLawyersNetworkLive();
   const [lawyers, setLawyers] = useState<Lawyer[]>([]);
   const [loading, setLoading] = useState(true);
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
@@ -97,6 +100,14 @@ export default function LawyersPage() {
   const [showPawapayCountryPrompt, setShowPawapayCountryPrompt] = useState(false);
   const [pawapayCountry, setPawapayCountry] = useState<string>(PAWAPAY_SUPPORTED_COUNTRIES[0]);
   const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (!searchEnabled) {
+      setHasSearched(false);
+      setShowPaymentChoice(false);
+      setShowPawapayCountryPrompt(false);
+    }
+  }, [searchEnabled]);
   const confirmedSessionRef = useRef<string | null>(null);
   const { isLoaded: userLoaded, isSignedIn } = useUser();
   const lomiAvailable =
@@ -140,6 +151,7 @@ export default function LawyersPage() {
   };
 
   const handlePayForSearch = async (provider: CheckoutPaymentProvider) => {
+    if (!searchEnabled) return;
     if (selectedExpertise === "all" || selectedCountry === "") {
       setSearchPayError("Please select one country and one practice area.");
       return;
@@ -205,7 +217,7 @@ export default function LawyersPage() {
       if (restored.city) setSelectedCity(restored.city);
       if (restored.expertise) setSelectedExpertise(restored.expertise);
       if (restored.language) setSelectedLanguage(restored.language);
-      if (restored.hasSearched) {
+      if (searchEnabled && restored.hasSearched) {
         setHasSearched(true);
         setShowPaymentChoice(true);
       }
@@ -224,7 +236,7 @@ export default function LawyersPage() {
     if (returnCity != null) setSelectedCity(returnCity || "");
     if (returnExpertise != null) setSelectedExpertise(returnExpertise || "all");
     if (returnLanguage != null) setSelectedLanguage(returnLanguage || "all");
-    if (returnExpertise != null && returnExpertise !== "all") setHasSearched(true);
+    if (searchEnabled && returnExpertise != null && returnExpertise !== "all") setHasSearched(true);
   };
 
   useEffect(() => {
@@ -381,6 +393,7 @@ export default function LawyersPage() {
     selectedCountry !== "" &&
     PAWAPAY_SUPPORTED_COUNTRIES.includes(selectedCountry as (typeof PAWAPAY_SUPPORTED_COUNTRIES)[number]);
   const runSearch = () => {
+    if (!searchEnabled) return;
     if (expertiseRequired || countryRequired) return;
     setHasSearched(true);
     setShowPaymentChoice(true);
@@ -509,11 +522,12 @@ export default function LawyersPage() {
                 <button
                   type="button"
                   onClick={runSearch}
-                  disabled={expertiseRequired || countryRequired}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-[6px] bg-[#0D1B2A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#162436] disabled:opacity-60"
+                  disabled={!searchEnabled || expertiseRequired || countryRequired}
+                  title={!searchEnabled ? "Search and unlock are coming soon" : undefined}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-[6px] bg-[#0D1B2A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#162436] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Search className="h-4 w-4" />
-                  Search
+                  {searchEnabled ? "Search" : "Search (coming soon)"}
                 </button>
               </div>
             </div>
@@ -524,6 +538,11 @@ export default function LawyersPage() {
       {/* Filters + results */}
       <section className="pb-16 pt-10">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          {!searchEnabled && (
+            <div className="mb-6">
+              <LawyersNetworkComingSoonBanner />
+            </div>
+          )}
           <div className="mb-5 flex items-start gap-2 rounded-[8px] border border-border bg-card px-4 py-3 text-[16px] text-foreground">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             <p>
@@ -569,14 +588,23 @@ export default function LawyersPage() {
           {!hasSearched && (
             <div className="rounded-2xl border border-dashed border-border/80 bg-card/90 p-8 text-center shadow-sm">
               <p className="text-sm text-muted-foreground">
-                Select <strong>country</strong> and <strong>practice area</strong>, then click{" "}
-                <strong>Search directory</strong> to see matching lawyers.
+                {searchEnabled ? (
+                  <>
+                    Select <strong>country</strong> and <strong>practice area</strong>, then click{" "}
+                    <strong>Search</strong> to see matching lawyers.
+                  </>
+                ) : (
+                  <>
+                    Search and contact unlock are <strong>coming soon</strong>. You can explore the filters above to
+                    preview how the directory will work.
+                  </>
+                )}
               </p>
             </div>
           )}
 
         {/* Pay $5 for this search — show when user has searched with a specific expertise, there are results, and at least one is locked */}
-        {hasSearched && selectedExpertise !== "all" && filteredLawyers.length > 0 && (() => {
+        {searchEnabled && hasSearched && selectedExpertise !== "all" && filteredLawyers.length > 0 && (() => {
           const allUnlocked = filteredLawyers.every((l) => isUnlocked(l.id));
           if (allUnlocked) {
             return (
