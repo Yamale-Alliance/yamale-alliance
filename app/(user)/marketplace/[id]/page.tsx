@@ -759,7 +759,7 @@ export default function MarketplaceItemPage() {
         />
       ) : null}
 
-      {viewerUrl && item && !isZip ? (
+      {viewerUrl && item && !shouldUseVaultPackagePage(item) ? (
         <FileViewer
           fileUrl={viewerUrl}
           fileName={item.file_name ?? null}
