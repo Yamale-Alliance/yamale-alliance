@@ -22,6 +22,7 @@ const companyLinks = [
 const legalLinks = [
   { href: "/privacy", label: "Privacy" },
   { href: "/terms", label: "Terms" },
+  { href: "/payment-refund", label: "Payment & refunds" },
 ];
 
 function FooterLink({ href, children }: { href: string; children: ReactNode }) {
@@ -87,8 +88,10 @@ export function Footer() {
             before making decisions.
           </p>
           <p className="mt-3">
-            By using this platform, you agree to our <FooterLink href="/terms">Terms</FooterLink> and{" "}
-            <FooterLink href="/privacy">Privacy Policy</FooterLink>. We collect usage data to improve the platform. We do not sell personal data to third parties.
+            By using this platform, you agree to our <FooterLink href="/terms">Terms</FooterLink>,{" "}
+            <FooterLink href="/privacy">Privacy Policy</FooterLink>, and{" "}
+            <FooterLink href="/payment-refund">Payment &amp; Refund Policy</FooterLink>. We collect usage data to
+            improve the platform. We do not sell personal data to third parties.
           </p>
         </div>
       </div>
