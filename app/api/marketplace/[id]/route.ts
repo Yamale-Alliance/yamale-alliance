@@ -21,7 +21,7 @@ export async function GET(
     const { data, error } = await fetchPublishedMarketplaceItem(
       supabase,
       id,
-      "id, type, title, author, description, price_cents, currency, image_url, published, sort_order, file_path, file_name, file_format, video_url, landing_page_html, created_at"
+      "id, type, title, author, description, price_cents, currency, image_url, published, sort_order, file_path, file_name, file_format, video_url, landing_page_html, package_offers, created_at"
     );
 
     const row = data as (MarketplaceItemRow & { file_path?: string | null; video_url?: string | null }) | null;
