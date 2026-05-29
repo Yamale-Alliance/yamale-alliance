@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
 import { ArrowUpRight, Mail } from "lucide-react";
+import { PLATFORM_BUSINESS_EMAIL } from "@/lib/platform-emails";
 
 const productLinks = [
   { href: "/library", label: "Legal Library" },
@@ -95,11 +96,11 @@ export function Footer() {
       <div className="border-t border-white/10 bg-[#0D1B2A] px-4 py-8 sm:px-8">
         <div className="mx-auto flex max-w-[1280px] flex-col items-center gap-6 sm:flex-row sm:justify-between sm:gap-4">
           <a
-            href="mailto:it@yamalealliance.org"
+            href={`mailto:${PLATFORM_BUSINESS_EMAIL}`}
             className="group inline-flex items-center gap-2 rounded-[6px] border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-medium text-white/90 transition hover:border-primary/50 hover:bg-white/10"
           >
             <Mail className="h-4 w-4 text-primary" />
-            <span>it@yamalealliance.org</span>
+            <span>{PLATFORM_BUSINESS_EMAIL}</span>
             <ArrowUpRight className="h-4 w-4 text-primary opacity-80 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
           </a>
           <p className="text-center text-xs text-white/45 sm:text-left">
