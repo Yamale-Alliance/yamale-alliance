@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Mail } from "lucide-react";
 import {
@@ -9,12 +8,14 @@ import {
   lawFirmTierLabel,
   parseLawFirmEnrollmentTier,
 } from "@/lib/law-firm-enrollment-contact";
+import { createPageMetadata } from "@/lib/site-seo";
 
-export const metadata: Metadata = {
-  title: "Contact Yamalé Advisory",
+export const metadata = createPageMetadata({
+  title: "Contact",
   description:
-    "Enquire about the African Law Firm Development Package and other Yamalé Advisory services.",
-};
+    "Contact Yamalé for the African Law Firm Development Package, enterprise licensing, and advisory enquiries.",
+  path: "/contact",
+});
 
 type Props = {
   searchParams?: { product?: string; tier?: string };
