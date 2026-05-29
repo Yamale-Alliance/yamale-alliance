@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import {
   PolicyBulletList,
   PolicyCallout,
@@ -11,12 +10,14 @@ import {
   PolicySubHeading,
   PolicyUpdatedBanner,
 } from "@/components/legal/policy-document-primitives";
+import { createPageMetadata } from "@/lib/site-seo";
 
-export const metadata: Metadata = {
-  title: "Privacy Policy | Yamalé Legal Platform",
+export const metadata = createPageMetadata({
+  title: "Privacy Policy",
   description:
-    "Privacy Policy for Yamalé Legal Platform – how we collect, use, and protect your data.",
-};
+    "How Yamalé Legal Platform collects, uses, stores, and protects your personal data across our African legal research services.",
+  path: "/privacy",
+});
 
 export default function PrivacyPolicyPage() {
   return (
