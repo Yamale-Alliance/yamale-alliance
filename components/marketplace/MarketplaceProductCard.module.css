@@ -131,6 +131,16 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+.badgePriceDiscount {
+  display: inline-flex;
+  max-width: calc(100% - 12px);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px 4px;
+  padding: 4px 8px;
+}
+
 .badgeOwned {
   display: inline-flex;
   align-items: center;
