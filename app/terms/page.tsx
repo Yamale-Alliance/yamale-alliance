@@ -250,11 +250,11 @@ export default function TermsOfServicePage() {
           <P>
             For questions about these Terms, contact us at{" "}
             <a
-              href="mailto:it@yamalealliance.org"
+              href="mailto:info@yamalealliance.org"
               className="font-medium underline"
               style={{ color: BRAND.gradientEnd }}
             >
-              it@yamalealliance.org
+              info@yamalealliance.org
             </a>
             .
           </P>
