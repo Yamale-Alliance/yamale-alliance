@@ -2,15 +2,24 @@
 
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import {
+  lawFirmAdvisoryMailLinkProps,
+  lawFirmTierEnrollmentMailLinkProps,
+} from "@/lib/law-firm-enrollment-contact";
+import { LawFirmPackageDiscountPrice } from "@/components/marketplace/LawFirmPackageDiscountPrice";
+import { LawFirmDevelopmentSubnav } from "@/components/marketplace/law-firm-development-package/LawFirmDevelopmentSubnav";
+import { LAW_FIRM_PACKAGE_SALE_PRICE_CENTS } from "@/lib/law-firm-package-marketing";
 
 /**
  * Built-in sales landing for the African Law Firm Development ZIP package (converted from static HTML).
- * Fixed nav sits below the platform header (72px / 88px) so both remain visible.
+ * Sub-nav is portaled to document.body with fixed positioning below the site header.
  */
 
 type Props = {
-  /** Formatted price e.g. "$499.00" */
+  /** Formatted sale price e.g. "$499.00" */
   priceDisplay: string;
+  /** Sale price in cents for marketing strikeout (defaults to Tier 1 list price). */
+  saleCents?: number;
   /** User already owns Tier 1 — CTAs show “Download” only and trigger file download. */
   owned: boolean;
   /** Signed-in, not owned: add to cart (if needed) and scroll to payment method + checkout. */
@@ -23,24 +32,24 @@ type Props = {
 
 export function LawFirmDevelopmentZipLanding({
   priceDisplay,
+  saleCents = LAW_FIRM_PACKAGE_SALE_PRICE_CENTS,
   owned,
   onBeginPaidDownload,
   onOwnedDownload,
   onBrowseZipContents,
 }: Props) {
+  const showTier1Discount = !owned && priceDisplay !== "Free";
   const navCtaLabel = owned ? "Download" : `Download — ${priceDisplay}`;
   const heroPrimaryLabel = owned ? "Download" : `Download Tier 1 — ${priceDisplay}`;
   const tier1CtaLabel = owned ? "Download" : `Download now — ${priceDisplay}`;
   const finalPrimaryLabel = owned ? "Download" : `Download Tier 1 — ${priceDisplay}`;
 
-  const sectionScrollClass = "scroll-mt-[calc(72px+5.5rem)] sm:scroll-mt-[calc(88px+5.5rem)]";
+  const sectionScrollClass =
+    "scroll-mt-[calc(var(--site-nav-h)+var(--vault-chrome-h))]";
 
   return (
-    <div
-      className="[font-family:var(--font-lfp-sans),system-ui,sans-serif] text-[16px] leading-relaxed text-white"
-      style={{ overflowX: "hidden" }}
-    >
-      <nav className="fixed left-0 right-0 top-[72px] z-40 flex items-center justify-between border-b border-[rgba(193,140,67,0.2)] bg-[rgba(34,25,19,0.95)] px-4 py-4 backdrop-blur-[8px] sm:top-[88px] sm:px-8 sm:py-5">
+    <div className="law-firm-package-landing [font-family:var(--font-lfp-sans),system-ui,sans-serif] text-[16px] leading-relaxed text-white">
+      <LawFirmDevelopmentSubnav>
         <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-5">
           <Link
             href="/marketplace"
@@ -80,9 +89,9 @@ export function LawFirmDevelopmentZipLanding({
             {navCtaLabel}
           </button>
         </div>
-      </nav>
+      </LawFirmDevelopmentSubnav>
 
-      <section className="relative flex min-h-screen items-center overflow-hidden pb-24 pt-[calc(72px+5.5rem+6rem)] sm:pt-[calc(88px+5.5rem+6rem)]">
+      <section className="relative flex min-h-screen items-center overflow-x-hidden pb-24 pt-10 sm:pt-12">
         <div
           className="pointer-events-none absolute inset-0"
           style={{
@@ -148,8 +157,17 @@ export function LawFirmDevelopmentZipLanding({
             </div>
             <div className="border-t border-[rgba(193,140,67,0.2)] pt-6 text-center">
               <div className="mb-2 text-[0.75rem] uppercase tracking-[0.1em] text-white/50">Tier 1 — Self-Service Library</div>
-              <div className="[font-family:var(--font-lfp-serif),Georgia,serif] text-[3.5rem] font-bold leading-none text-[#E3BA65]">
-                {priceDisplay}
+              <div className="[font-family:var(--font-lfp-serif),Georgia,serif] text-[3.5rem] font-bold leading-none">
+                {showTier1Discount ? (
+                  <LawFirmPackageDiscountPrice
+                    saleCents={saleCents}
+                    tone="dark"
+                    size="hero"
+                    className="justify-center [&>div>span:nth-child(2)]:text-[3.5rem] [&>div>span:nth-child(2)]:leading-none [&>div>span:first-child]:text-[1.75rem]"
+                  />
+                ) : (
+                  <span className="text-[#E3BA65]">{priceDisplay}</span>
+                )}
               </div>
               <div className="mt-2 text-[0.8rem] text-white/45">One-time download · Immediate full access</div>
             </div>
@@ -321,8 +339,17 @@ export function LawFirmDevelopmentZipLanding({
               <div className="border-b border-[rgba(193,140,67,0.1)] px-8 pb-6 pt-8">
                 <div className="mb-2 text-[0.72rem] font-semibold uppercase tracking-[0.15em] text-[#C18C43]">Tier 1</div>
                 <div className="mb-5 text-[1.3rem] font-semibold text-white">Self-Service Library</div>
-                <div className="[font-family:var(--font-lfp-serif),Georgia,serif] text-[2.75rem] font-bold leading-none text-[#E3BA65]">
-                  {priceDisplay}
+                <div className="[font-family:var(--font-lfp-serif),Georgia,serif] text-[2.75rem] font-bold leading-none">
+                  {showTier1Discount ? (
+                    <LawFirmPackageDiscountPrice
+                      saleCents={saleCents}
+                      tone="dark"
+                      size="hero"
+                      className="[&>div>span:nth-child(2)]:text-[2.75rem] [&>div>span:nth-child(2)]:leading-none [&>div>span:first-child]:text-[1.35rem]"
+                    />
+                  ) : (
+                    <span className="text-[#E3BA65]">{priceDisplay}</span>
+                  )}
                 </div>
                 <div className="mt-2 text-[0.8rem] text-white/45">One-time download from the Yamalé Vault</div>
               </div>
@@ -371,7 +398,7 @@ export function LawFirmDevelopmentZipLanding({
                   </li>
                 </ul>
                 <a
-                  href="mailto:info@yamalealliance.org"
+                  {...lawFirmTierEnrollmentMailLinkProps(2)}
                   className="block w-full rounded-[2px] bg-[#C18C43] py-3.5 text-center text-[0.9rem] font-semibold text-[#221913] transition hover:bg-[#E3BA65]"
                 >
                   Contact us to enroll
@@ -396,7 +423,7 @@ export function LawFirmDevelopmentZipLanding({
                   </li>
                 </ul>
                 <a
-                  href="mailto:info@yamalealliance.org"
+                  {...lawFirmTierEnrollmentMailLinkProps(3)}
                   className="block w-full rounded-[2px] border border-[rgba(193,140,67,0.3)] py-3.5 text-center text-[0.9rem] font-semibold text-[#C18C43] transition hover:border-[#C18C43] hover:text-[#E3BA65]"
                 >
                   Enquire about Tier 3
@@ -467,7 +494,7 @@ export function LawFirmDevelopmentZipLanding({
           </div>
           <div className="mt-8">
             <a
-              href="mailto:info@yamalealliance.org"
+              {...lawFirmAdvisoryMailLinkProps()}
               className="inline-flex rounded-[2px] border border-[rgba(193,140,67,0.4)] px-7 py-3.5 text-[0.95rem] font-medium text-[#C18C43] transition hover:border-[#C18C43] hover:text-[#E3BA65]"
             >
               Discuss your needs with Yamalé Advisory
@@ -526,7 +553,7 @@ export function LawFirmDevelopmentZipLanding({
               {finalPrimaryLabel}
             </button>
             <a
-              href="mailto:info@yamalealliance.org"
+              {...lawFirmAdvisoryMailLinkProps()}
               className="inline-flex items-center gap-2 rounded-[2px] border border-[rgba(193,140,67,0.4)] px-7 py-3.5 text-[0.95rem] font-medium text-[#C18C43] transition hover:border-[#C18C43]"
             >
               Tier 2 &amp; 3 enquiries
