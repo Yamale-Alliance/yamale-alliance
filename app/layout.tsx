@@ -37,6 +37,7 @@ export default function RootLayout({
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY || undefined}>
       <html lang="en" suppressHydrationWarning>
         <head>
+          <SiteJsonLd />
           <script
             dangerouslySetInnerHTML={{
               __html: `
@@ -52,7 +53,6 @@ export default function RootLayout({
         <body
           className={`${inter.variable} ${playfair.variable} antialiased`}
         >
-          <SiteJsonLd />
           <ClerkDevOriginWarning />
           <ThemeProvider>
             <LayoutWithSettings>{children}</LayoutWithSettings>

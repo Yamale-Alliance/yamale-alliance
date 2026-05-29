@@ -15,7 +15,25 @@ This sets `metadataBase`, canonical URLs, `robots.txt` host, and `sitemap.xml` e
 | Sitemap | `/sitemap.xml` |
 | Robots | `/robots.txt` |
 | Open Graph image | `/opengraph-image` (auto-generated) |
-| JSON-LD | Organization + WebSite on every page |
+| JSON-LD | Organization + WebSite in `<head>` on every page (`components/seo/SiteJsonLd.tsx`) |
+
+## Verify JSON-LD
+
+After deploy, **View Source** (not DevTools Elements) should show two tags:
+
+```html
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization",…}</script>
+```
+
+Or run:
+
+```bash
+curl -s https://www.yamalelegal.com | grep -c 'application/ld+json'
+```
+
+Expect `2`. If you still see the old homepage title (`Law Without Barriers…` only, no `African Legal Research`), the SEO commit is not deployed yet — push `main` and redeploy on Vercel.
+
+The Rich Results Test **screenshot** can show a Clerk error modal even when JSON-LD is present in HTML; use the tool’s **raw HTML / detected items** panel, or re-test after a hard refresh.
 
 ## After deploy
 
