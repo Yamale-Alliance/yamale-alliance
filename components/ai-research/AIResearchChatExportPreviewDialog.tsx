@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Loader2, FileDown, X } from "lucide-react";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
+import { isAiResearchMethodologySourceCard } from "@/lib/ai-research-source-cards";
 import { containsArabicScript } from "@/lib/jspdf-unicode-text";
 
 export type AIResearchExportPreviewMessage = {
@@ -21,6 +22,7 @@ export type AIResearchExportPreviewMessage = {
     snippet: string;
     docSlot?: number;
     usedInAnswer?: boolean;
+    sourceKind?: "law" | "methodology";
   }>;
 };
 
@@ -217,22 +219,30 @@ function PreviewMessages({
               <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
                 Library excerpts ({msg.sourceCards.length})
               </p>
-              {msg.sourceCards.map((card, idx) => (
+              {msg.sourceCards.map((card, idx) => {
+                const isMethodology = isAiResearchMethodologySourceCard(card);
+                return (
                 <div
                   key={`${msg.id}-card-${card.lawId}-${idx}`}
                   className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-[12px]"
                 >
                   <p className="font-semibold text-[#0D1B2A]">
                     {card.docSlot ?? idx + 1}. {card.title}
+                    {isMethodology ? (
+                      <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                        Methodology
+                      </span>
+                    ) : null}
                   </p>
                   <p className="text-[11px] text-neutral-500">
-                    {card.country} · {card.category} · {card.status}
+                    {isMethodology ? "Yamalé Advisory" : card.country} · {card.category} · {card.status}
                   </p>
                   {card.snippet ? (
                     <p className="mt-1 text-[11px] leading-snug text-neutral-600">&ldquo;{card.snippet}&rdquo;</p>
                   ) : null}
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : null}
         </section>
