@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Inter, Playfair_Display } from "next/font/google";
 import { ClerkDevOriginWarning } from "@/components/auth/ClerkDevOriginWarning";
+import { SiteJsonLd } from "@/components/seo/SiteJsonLd";
 import { CLERK_PUBLISHABLE_KEY } from "@/lib/clerk-config";
+import { createRootMetadata } from "@/lib/site-seo";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { LayoutWithSettings } from "@/components/platform/LayoutWithSettings";
 import "./globals.css";
@@ -24,20 +26,7 @@ const playfair = Playfair_Display({
   adjustFontFallback: true,
 });
 
-export const metadata: Metadata = {
-  title: "Yamalé Legal Platform — Law Without Barriers. Business Without Borders.",
-  description:
-    "The first unified platform for African legal research — covering all 54 countries, AfCFTA compliance, AI-powered queries, and a curated network of African legal professionals.",
-  applicationName: "Yamalé",
-  appleWebApp: {
-    capable: true,
-    title: "Yamalé",
-    statusBarStyle: "black-translucent",
-  },
-  formatDetection: {
-    telephone: false,
-  },
-};
+export const metadata: Metadata = createRootMetadata();
 
 export default function RootLayout({
   children,
@@ -63,6 +52,7 @@ export default function RootLayout({
         <body
           className={`${inter.variable} ${playfair.variable} antialiased`}
         >
+          <SiteJsonLd />
           <ClerkDevOriginWarning />
           <ThemeProvider>
             <LayoutWithSettings>{children}</LayoutWithSettings>
