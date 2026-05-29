@@ -1383,7 +1383,8 @@ export function LibraryView({
                       type="button"
                       onClick={() => {
                         if (!SUPPORT_LIVE) {
-                          window.location.href = "mailto:it@yamalealliance.org?subject=Suggest%20a%20law";
+                          window.location.href =
+                            "mailto:info@yamalealliance.org?subject=Suggest%20a%20law";
                           return;
                         }
                         setSuggestError(null);
