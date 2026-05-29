@@ -15,8 +15,13 @@ import {
   resolveInternalLibraryCategoryId,
 } from "@/lib/internal-library-categories";
 
-/** Max laws returned in one response (pagination is client-side within this set). */
+/** Max laws returned in one response (admin bulk / legacy API without pagination). */
 const LAWS_LIMIT = 20_000;
+
+/** Public library grid: one server page at a time. */
+export const LIBRARY_PAGE_SIZE = 12;
+
+export type LibrarySortOption = "title-asc" | "title-desc" | "country" | "category" | "newest";
 
 /** PostgREST returns at most 1000 rows per request unless max-rows is raised server-side. */
 const POSTGREST_PAGE_SIZE = 1000;
@@ -56,8 +61,20 @@ type LibraryFilters = {
   categoryId?: string;
   status?: string;
   q?: string;
+  /** 1-based page index (public library). When set with pageSize, only that slice is fetched. */
+  page?: number;
+  pageSize?: number;
+  sort?: LibrarySortOption;
+  yearFrom?: string;
+  yearTo?: string;
+  treatyType?: string;
+  documentType?: string;
+  /** Cap rows returned (admin bulk). Ignored when page/pageSize are set. */
+  lawsLimit?: number;
   /** Skip law_categories + shared-link lookups (faster; used by admin list). */
   skipEnrichment?: boolean;
+  /** Admin-only linked-law flair; skips extra DB round-trips on public library loads. */
+  includeLinkedLawFlairs?: boolean;
 };
 
 const ENRICHMENT_ID_CHUNK = 500;
@@ -157,9 +174,100 @@ const LAWS_SELECT_FIELDS =
 let cachedData: LibraryData | null = null;
 let cacheTimestamp = 0;
 
-function cacheKey(filters?: { countryId?: string; categoryId?: string; status?: string; q?: string }): string {
+function cacheKey(filters?: LibraryFilters): string {
   if (!filters) return "__initial__";
-  return [filters.countryId ?? "", filters.categoryId ?? "", filters.status ?? "", (filters.q ?? "").trim()].join("|");
+  if (filters.page != null || filters.pageSize != null) {
+    return [
+      "page",
+      String(filters.page ?? 1),
+      String(filters.pageSize ?? LIBRARY_PAGE_SIZE),
+      filters.countryId ?? "",
+      filters.categoryId ?? "",
+      filters.status ?? "",
+      (filters.q ?? "").trim(),
+      filters.sort ?? "title-asc",
+      filters.yearFrom ?? "",
+      filters.yearTo ?? "",
+      filters.treatyType ?? "",
+      filters.documentType ?? "",
+    ].join("|");
+  }
+  const partial =
+    filters.lawsLimit != null && filters.lawsLimit < LAWS_LIMIT
+      ? `:limit:${filters.lawsLimit}`
+      : "";
+  return [
+    filters.countryId ?? "",
+    filters.categoryId ?? "",
+    filters.status ?? "",
+    (filters.q ?? "").trim(),
+    partial,
+  ].join("|");
+}
+
+function isPaginatedRequest(filters?: LibraryFilters): boolean {
+  return filters?.page != null || filters?.pageSize != null;
+}
+
+function parseYearFilter(value: string | undefined): number | null {
+  if (!value?.trim()) return null;
+  const y = Number.parseInt(value, 10);
+  return Number.isFinite(y) ? y : null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyScalarLibraryFilters(query: any, filters?: LibraryFilters): any {
+  let q = query;
+  const minYear = parseYearFilter(filters?.yearFrom);
+  const maxYear = parseYearFilter(filters?.yearTo);
+  if (minYear != null) q = q.gte("year", minYear);
+  if (maxYear != null) q = q.lte("year", maxYear);
+  if (filters?.treatyType?.trim()) {
+    const term = escapeIlikePattern(filters.treatyType.trim());
+    q = q.ilike("treaty_type", `%${term}%`);
+  }
+  if (filters?.documentType?.trim()) {
+    const term = escapeIlikePattern(filters.documentType.trim().toLowerCase());
+    q = q.or(`title.ilike.%${term}%,source_name.ilike.%${term}%`);
+  }
+  return q;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyLibrarySort(query: any, sort?: LibrarySortOption): any {
+  switch (sort) {
+    case "title-desc":
+      return query.order("title", { ascending: false });
+    case "newest":
+      return query.order("created_at", { ascending: false }).order("title", { ascending: true });
+    case "country":
+      return query.order("country_id", { ascending: true, nullsFirst: false }).order("title", { ascending: true });
+    case "category":
+      return query.order("category_id", { ascending: true }).order("title", { ascending: true });
+    case "title-asc":
+    default:
+      return query.order("title", { ascending: true });
+  }
+}
+
+/** Fetch a single page of law rows (PostgREST range). */
+async function fetchLibraryLawPage(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  applyLawRowFilters: (query: any) => any,
+  page: number,
+  pageSize: number,
+  sort?: LibrarySortOption
+): Promise<LibraryLawRow[]> {
+  const safePage = Math.max(1, page);
+  const offset = (safePage - 1) * pageSize;
+  let base = supabase.from("laws").select(LAWS_SELECT_FIELDS);
+  base = applyLawRowFilters(base);
+  base = applyLibrarySort(base, sort);
+  const { data, error } = await base.range(offset, offset + pageSize - 1);
+  if (error) throw error;
+  return (data ?? []) as LibraryLawRow[];
 }
 
 function chunkIds<T>(ids: T[], size: number): T[][] {
@@ -240,11 +348,12 @@ function compareLibraryLawRows(a: LibraryLawRow, b: LibraryLawRow): number {
 async function fetchPaginatedLibraryLawRows(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
-  applyFilters: (query: any) => any
+  applyFilters: (query: any) => any,
+  maxRows: number = LAWS_LIMIT
 ): Promise<LibraryLawRow[]> {
   const rows: LibraryLawRow[] = [];
   let offset = 0;
-  while (rows.length < LAWS_LIMIT) {
+  while (rows.length < maxRows) {
     const base = supabase
       .from("laws")
       .select(LAWS_SELECT_FIELDS)
@@ -260,7 +369,7 @@ async function fetchPaginatedLibraryLawRows(
     if (batch.length < POSTGREST_PAGE_SIZE) break;
     offset += POSTGREST_PAGE_SIZE;
   }
-  return rows.slice(0, LAWS_LIMIT);
+  return rows.slice(0, maxRows);
 }
 
 async function sumExactLawCountsInIdChunks(
@@ -300,7 +409,8 @@ async function fetchLawsRowsInIdChunks(
   lawIds: string[],
   filters: LibraryFilters | undefined,
   scopedCountryLawIds: string[],
-  internalCategoryId: string | null
+  internalCategoryId: string | null,
+  maxRows: number = LAWS_LIMIT
 ): Promise<LibraryLawRow[]> {
   const chunks = chunkIds(lawIds, CATEGORY_ID_IN_CHUNK);
   const batches = await Promise.all(
@@ -329,7 +439,7 @@ async function fetchLawsRowsInIdChunks(
   for (const row of batches.flat()) {
     merged.set(row.id, row);
   }
-  return Array.from(merged.values()).sort(compareLibraryLawRows).slice(0, LAWS_LIMIT);
+  return Array.from(merged.values()).sort(compareLibraryLawRows).slice(0, maxRows);
 }
 
 function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<LibraryData> {
@@ -356,10 +466,11 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
       filters?.countryId ? await fetchLawIdsForCountryScope(supabase, filters.countryId) : [];
     let categoryLawIds: string[] | null = null;
     let useLegacyCategoryColumn = false;
+    const paginated = isPaginatedRequest(filters);
     if (filters?.categoryId) {
       // Country-scoped category filtering should remain resilient even when some older
       // rows were not backfilled into law_categories yet.
-      if (filters.countryId) {
+      if (filters.countryId || paginated) {
         useLegacyCategoryColumn = true;
       } else {
         try {
@@ -401,7 +512,11 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
     let lawCount: number;
     let rawLaws: LibraryLawRow[];
 
-    if (useJunctionIdChunks) {
+    const rowCap = paginated ? LIBRARY_PAGE_SIZE : (filters?.lawsLimit ?? LAWS_LIMIT);
+    const page = Math.max(1, filters?.page ?? 1);
+    const pageSize = Math.max(1, Math.min(filters?.pageSize ?? LIBRARY_PAGE_SIZE, 100));
+
+    if (useJunctionIdChunks && !paginated) {
       [countriesRes, categoriesRes] = await Promise.all([countriesPromise, categoriesPromise]);
       if (countriesRes.error) throw countriesRes.error;
       if (categoriesRes.error) throw categoriesRes.error;
@@ -420,7 +535,8 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
           junctionIds,
           filters,
           scopedCountryLawIds,
-          internalCategoryId
+          internalCategoryId,
+          rowCap
         ),
       ]);
     } else {
@@ -447,6 +563,7 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
           countQuery = countQuery.ilike("title", `%${term}%`);
         }
       }
+      countQuery = applyScalarLibraryFilters(countQuery, filters);
 
       const applyLawRowFilters = (query: ReturnType<typeof supabase.from>) => {
         let lawsQuery = query;
@@ -467,14 +584,30 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
             lawsQuery = lawsQuery.ilike("title", `%${term}%`);
           }
         }
+        lawsQuery = applyScalarLibraryFilters(lawsQuery, filters);
         return excludeInternalCategoryFromLawsQuery(lawsQuery, internalCategoryId);
       };
 
+      if (paginated) {
+        const [cRes, catRes, countRes, pageLaws] = await Promise.all([
+          countriesPromise,
+          categoriesPromise,
+          countQuery,
+          fetchLibraryLawPage(supabase, applyLawRowFilters, page, pageSize, filters?.sort),
+        ]);
+        countriesRes = cRes;
+        categoriesRes = catRes;
+        if (countriesRes.error) throw countriesRes.error;
+        if (categoriesRes.error) throw categoriesRes.error;
+        if (countRes.error) throw countRes.error;
+        lawCount = typeof countRes.count === "number" ? countRes.count : pageLaws.length;
+        rawLaws = pageLaws;
+      } else {
       const [cRes, catRes, countRes, paginatedLaws] = await Promise.all([
         countriesPromise,
         categoriesPromise,
         countQuery,
-        fetchPaginatedLibraryLawRows(supabase, applyLawRowFilters),
+        fetchPaginatedLibraryLawRows(supabase, applyLawRowFilters, rowCap),
       ]);
       countriesRes = cRes;
       categoriesRes = catRes;
@@ -484,16 +617,17 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
 
       lawCount = typeof countRes.count === "number" ? countRes.count : paginatedLaws.length;
       rawLaws = paginatedLaws;
+      }
     }
 
     const ids = rawLaws.map((l) => l.id);
     let catMap = new Map<string, string[]>();
     let linkedLawIds = new Set<string>();
     if (ids.length > 0 && !filters?.skipEnrichment) {
-      [catMap, linkedLawIds] = await Promise.all([
-        fetchLawCategoryIdsMap(supabase, ids),
-        fetchLinkedLawIdSet(supabase, ids),
-      ]);
+      catMap = await fetchLawCategoryIdsMap(supabase, ids);
+      if (filters?.includeLinkedLawFlairs) {
+        linkedLawIds = await fetchLinkedLawIdSet(supabase, ids);
+      }
     }
 
     const laws: LibraryLawRow[] = rawLaws.map((law) => ({
@@ -516,7 +650,12 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
       internalCategoryId
     );
 
-    if (key === "__initial__" && !filters?.skipEnrichment) {
+    const isFullUnfilteredCache =
+      key === "__initial__" &&
+      !filters?.skipEnrichment &&
+      !paginated &&
+      rowCap >= LAWS_LIMIT;
+    if (isFullUnfilteredCache) {
       cachedData = data;
       cacheTimestamp = Date.now();
     }
@@ -556,4 +695,28 @@ export async function fetchLibraryData(filters?: LibraryFilters): Promise<Librar
   } finally {
     if (timeoutHandle) clearTimeout(timeoutHandle);
   }
+}
+
+let cachedMeta: Pick<LibraryData, "countries" | "categories"> | null = null;
+let metaCacheTimestamp = 0;
+
+/** Countries + categories only (fast path for resolving URL filters without loading all laws). */
+export async function fetchLibraryMeta(): Promise<Pick<LibraryData, "countries" | "categories">> {
+  const now = Date.now();
+  if (cachedMeta && now - metaCacheTimestamp < CACHE_TTL_MS) {
+    return cachedMeta;
+  }
+  const supabase = getSupabaseServer();
+  const [countriesRes, categoriesRes] = await Promise.all([
+    supabase.from("countries").select("id, name, region").order("name"),
+    supabase.from("categories").select("id, name, slug").order("name"),
+  ]);
+  if (countriesRes.error) throw countriesRes.error;
+  if (categoriesRes.error) throw categoriesRes.error;
+  cachedMeta = {
+    countries: sortCountriesAlphabetically((countriesRes.data ?? []) as LibraryCountry[]),
+    categories: filterPublicLibraryCategories((categoriesRes.data ?? []) as LibraryCategory[]),
+  };
+  metaCacheTimestamp = now;
+  return cachedMeta;
 }
