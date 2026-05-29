@@ -167,7 +167,14 @@ export function MarketingDiscountSubscriptionPrice({
           {formatMarketingDisplayUsdFromDollars(currentUsd)}
         </span>
         <span className={cx(highlighted ? "text-white/65" : "text-muted-foreground")}>{period}</span>
-        <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-200">
+        <span
+          className={cx(
+            "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+            highlighted
+              ? "bg-emerald-500/25 text-emerald-100"
+              : "border border-emerald-600/20 bg-emerald-100 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
+          )}
+        >
           {PLATFORM_MARKETING_DISCOUNT_PERCENT}% off
         </span>
       </div>
