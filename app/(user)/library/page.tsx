@@ -1,55 +1,129 @@
 import { Suspense } from "react";
-import { LibraryView } from "./LibraryView";
-import { fetchLibraryData } from "@/lib/library-data";
+import dynamic from "next/dynamic";
+import {
+  fetchLibraryData,
+  fetchLibraryMeta,
+  LIBRARY_PAGE_SIZE,
+  type LibrarySortOption,
+} from "@/lib/library-data";
 import LibraryLoading from "./loading";
+
+const LibraryView = dynamic(
+  () => import("./LibraryView").then((m) => ({ default: m.LibraryView })),
+  { loading: () => <LibraryLoading /> }
+);
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-export default async function LibraryPage({ searchParams }: { searchParams: SearchParams }) {
-  const params = await searchParams;
-  const country = typeof params.country === "string" ? decodeURIComponent(params.country) : "";
-  const category = typeof params.category === "string" ? decodeURIComponent(params.category) : "";
-  const status = typeof params.status === "string" ? params.status : "";
-  const q = typeof params.q === "string" ? params.q : "";
-  const documentType = typeof params.documentType === "string" ? params.documentType : "";
-  const classification = typeof params.classification === "string" ? params.classification : "";
-  const yearFrom = typeof params.yearFrom === "string" ? params.yearFrom : "";
-  const yearTo = typeof params.yearTo === "string" ? params.yearTo : "";
-  const pageParam = typeof params.page === "string" ? params.page : "";
-  const sortParam = typeof params.sort === "string" ? params.sort : "";
+type ResolvedLibraryParams = {
+  country: string;
+  category: string;
+  status: string;
+  q: string;
+  documentType: string;
+  classification: string;
+  yearFrom: string;
+  yearTo: string;
+  pageParam: string;
+  sortParam: string;
+};
 
-  // One catalog fetch (countries/categories + laws). Search text (`q`) is applied client-side
-  // so typing in the search box does not trigger a full server round-trip per keystroke.
-  const catalog = await fetchLibraryData();
-  const countryId = country ? catalog.countries.find((c) => c.name === country)?.id : undefined;
-  const categoryId = category ? catalog.categories.find((c) => c.name === category)?.id : undefined;
-  const hasListFilters = !!(countryId || categoryId || status);
-  const listData = hasListFilters
-    ? await fetchLibraryData({
-        countryId,
-        categoryId,
-        status: status || undefined,
-      })
-    : catalog;
+const SORT_OPTIONS: LibrarySortOption[] = [
+  "title-asc",
+  "title-desc",
+  "country",
+  "category",
+  "newest",
+];
+
+function parseLibraryPage(s: string): number {
+  const n = Number.parseInt(s, 10);
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+}
+
+function parseLibrarySort(s: string): LibrarySortOption {
+  return SORT_OPTIONS.includes(s as LibrarySortOption) ? (s as LibrarySortOption) : "title-asc";
+}
+
+async function resolveLibraryParams(searchParams: SearchParams): Promise<ResolvedLibraryParams> {
+  const params = await searchParams;
+  return {
+    country: typeof params.country === "string" ? decodeURIComponent(params.country) : "",
+    category: typeof params.category === "string" ? decodeURIComponent(params.category) : "",
+    status: typeof params.status === "string" ? params.status : "",
+    q: typeof params.q === "string" ? params.q : "",
+    documentType: typeof params.documentType === "string" ? params.documentType : "",
+    classification: typeof params.classification === "string" ? params.classification : "",
+    yearFrom: typeof params.yearFrom === "string" ? params.yearFrom : "",
+    yearTo: typeof params.yearTo === "string" ? params.yearTo : "",
+    pageParam: typeof params.page === "string" ? params.page : "",
+    sortParam: typeof params.sort === "string" ? params.sort : "",
+  };
+}
+
+async function LibraryPageContent({ resolved }: { resolved: ResolvedLibraryParams }) {
+  const {
+    country,
+    category,
+    status,
+    q,
+    documentType,
+    classification,
+    yearFrom,
+    yearTo,
+    pageParam,
+    sortParam,
+  } = resolved;
+
+  const page = parseLibraryPage(pageParam);
+  const sort = parseLibrarySort(sortParam || "title-asc");
+  const meta = await fetchLibraryMeta();
+  const countryId = country ? meta.countries.find((c) => c.name === country)?.id : undefined;
+  const categoryId = category ? meta.categories.find((c) => c.name === category)?.id : undefined;
+
+  const data = await fetchLibraryData({
+    countryId,
+    categoryId,
+    status: status || undefined,
+    q: q.trim() || undefined,
+    page,
+    pageSize: LIBRARY_PAGE_SIZE,
+    sort,
+    yearFrom: yearFrom || undefined,
+    yearTo: yearTo || undefined,
+    treatyType: classification || undefined,
+    documentType: documentType || undefined,
+  });
 
   return (
+    <LibraryView
+      initialCountries={meta.countries}
+      initialCategories={meta.categories}
+      initialLaws={data.laws}
+      initialLawCount={data.lawCount}
+      initialCountry={country}
+      initialCategory={category}
+      initialStatus={status}
+      initialSearch={q}
+      initialDocumentType={documentType}
+      initialTreatyType={classification}
+      initialYearFrom={yearFrom}
+      initialYearTo={yearTo}
+      initialPage={String(page)}
+      initialSort={sort}
+    />
+  );
+}
+
+export default function LibraryPage({ searchParams }: { searchParams: SearchParams }) {
+  return (
     <Suspense fallback={<LibraryLoading />}>
-      <LibraryView
-        initialCountries={catalog.countries}
-        initialCategories={catalog.categories}
-        initialLaws={listData.laws}
-        initialLawCount={listData.lawCount}
-        initialCountry={country}
-        initialCategory={category}
-        initialStatus={status}
-        initialSearch={q}
-        initialDocumentType={documentType}
-        initialTreatyType={classification}
-        initialYearFrom={yearFrom}
-        initialYearTo={yearTo}
-        initialPage={pageParam}
-        initialSort={sortParam}
-      />
+      <LibraryPageLoader searchParams={searchParams} />
     </Suspense>
   );
+}
+
+async function LibraryPageLoader({ searchParams }: { searchParams: SearchParams }) {
+  const resolved = await resolveLibraryParams(searchParams);
+  return <LibraryPageContent resolved={resolved} />;
 }
