@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, Check, Eye, GraduationCap, LayoutTemplate, Loader2, Map } from "lucide-react";
+import { LawFirmPackageDiscountPrice } from "@/components/marketplace/LawFirmPackageDiscountPrice";
 import { displayVaultProductTitle } from "@/lib/marketplace-display";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
+import { shouldShowLawFirmPackageMarketingDiscount } from "@/lib/law-firm-package-marketing";
 import styles from "./MarketplaceProductCard.module.css";
 
 const BRAND = {
@@ -117,6 +119,7 @@ export function MarketplaceProductCard({
   const [coverFailed, setCoverFailed] = useState(false);
 
   const priceLabel = product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(2)}`;
+  const showLawFirmDiscount = shouldShowLawFirmPackageMarketingDiscount(product);
   const isCollectionCard =
     isCollection || Boolean(collectionHref && collectionCount && collectionLabel);
   const useInlineCollection = isCollectionCard && Boolean(onCollectionToggle);
@@ -136,7 +139,11 @@ export function MarketplaceProductCard({
   const tagLabel = isCollectionCard ? "Collection" : seriesLabel || typeBadgeLabel;
   const fileLabel = product.file_format ? `.${product.file_format.replace(/^\./, "")}` : null;
 
-  const metaParts = [topicLabel, typeBadgeLabel, priceLabel, fileLabel].filter(Boolean);
+  const metaParts = (
+    showLawFirmDiscount
+      ? [topicLabel, typeBadgeLabel, fileLabel]
+      : [topicLabel, typeBadgeLabel, priceLabel, fileLabel]
+  ).filter(Boolean);
 
   const showCartActions =
     !isCollectionCard && !product.owned && product.price_cents > 0 && !isMarketplaceZip(product);
@@ -213,6 +220,10 @@ export function MarketplaceProductCard({
             <Check className="h-3 w-3" aria-hidden />
             Owned
           </span>
+        ) : showLawFirmDiscount ? (
+          <span className={`${styles.badgePrice} ${styles.badgePriceDiscount}`}>
+            <LawFirmPackageDiscountPrice saleCents={product.price_cents} size="compact" />
+          </span>
         ) : (
           <span className={styles.badgePrice}>{priceLabel}</span>
         )}
@@ -234,7 +245,14 @@ export function MarketplaceProductCard({
 
         <div className={styles.footer}>
           <p className={styles.meta}>
-            {[metaParts.join(" · "), formatHint].filter(Boolean).join(" · ")}
+            {metaParts.join(" · ")}
+            {showLawFirmDiscount ? (
+              <>
+                {metaParts.length > 0 ? " · " : null}
+                <LawFirmPackageDiscountPrice saleCents={product.price_cents} size="inline" />
+              </>
+            ) : null}
+            {formatHint ? `${metaParts.length > 0 || showLawFirmDiscount ? " · " : ""}${formatHint}` : null}
           </p>
           {tagLabel ? <span className={styles.tag}>{tagLabel}</span> : null}
         </div>
@@ -250,7 +268,20 @@ export function MarketplaceProductCard({
               className={styles.actionBtnPrimary}
               style={{ flex: "1 1 100%" }}
             >
-              {product.price_cents === 0 ? "Get package" : `View · ${priceLabel}`}
+              {product.price_cents === 0 ? (
+                "Get package"
+              ) : showLawFirmDiscount ? (
+                <span className="inline-flex items-center justify-center gap-1.5">
+                  View ·{" "}
+                  <LawFirmPackageDiscountPrice
+                    saleCents={product.price_cents}
+                    size="inline"
+                    className="text-white [&_span:first-child]:text-white/70 [&_span:nth-child(2)]:text-white"
+                  />
+                </span>
+              ) : (
+                `View · ${priceLabel}`
+              )}
             </button>
           </div>
         ) : null}
