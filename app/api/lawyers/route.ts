@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normalizeExpertiseField } from "@/lib/lawyer-expertise";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import {
+  isLawyersNetworkLive,
+  lawyersNetworkApiDisabledResponse,
+} from "@/lib/lawyers-network-enabled";
 
 /** GET: public list of approved lawyers from directory (no contact details). */
 export async function GET() {
@@ -35,6 +39,9 @@ export async function GET() {
 
 /** POST: public form submission to join the lawyer directory. No auth required. */
 export async function POST(request: NextRequest) {
+  if (!isLawyersNetworkLive()) {
+    return lawyersNetworkApiDisabledResponse();
+  }
   try {
     const body = await request.json().catch(() => ({}));
     const name = typeof body.name === "string" ? body.name.trim() : "";
