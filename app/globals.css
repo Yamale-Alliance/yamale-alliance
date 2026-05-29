@@ -294,11 +294,35 @@ body:has(.marketplace-landing-zone)::after {
   pointer-events: none !important;
 }
 
-/* Platform header/footer stay above injected landing markup. */
-.yamale-site-chrome,
-.yamale-site-footer {
+/* Platform chrome stacking (do not set position:relative on header — it breaks sticky top-0). */
+footer.yamale-site-footer,
+div.yamale-site-chrome {
   position: relative;
   z-index: 100;
+}
+
+header.yamale-site-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 110;
+}
+
+/* Law Firm Development Package — portaled sub-nav locked under site header height. */
+body:has(.law-firm-package-landing) {
+  --site-nav-h: 4.5rem;
+  --vault-chrome-h: 5.25rem;
+}
+
+@media (min-width: 640px) {
+  body:has(.law-firm-package-landing) {
+    --site-nav-h: 5.5rem;
+    --vault-chrome-h: 4.75rem;
+  }
+}
+
+.law-firm-package-subnav {
+  top: var(--site-nav-h, 4.5rem);
+  z-index: 105;
 }
 
 /* Landing ZIP pages: nav layout only — must not target footer (also used yamale-site-chrome). */
