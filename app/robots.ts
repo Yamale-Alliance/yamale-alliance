@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { getSiteUrl } from "@/lib/site-seo";
 
 /**
  * Known AI / dataset crawlers used for model training or broad ingestion.
@@ -25,12 +26,7 @@ const AI_TRAINING_USER_AGENTS = [
 ] as const;
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl =
-    typeof process.env.NEXT_PUBLIC_APP_URL === "string"
-      ? process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")
-      : typeof process.env.VERCEL_URL === "string"
-        ? `https://${process.env.VERCEL_URL}`
-        : undefined;
+  const baseUrl = getSiteUrl();
 
   const rules: MetadataRoute.Robots["rules"] = [
     {
@@ -44,13 +40,9 @@ export default function robots(): MetadataRoute.Robots {
     })),
   ];
 
-  const out: MetadataRoute.Robots = { rules };
-  if (baseUrl) {
-    try {
-      out.host = new URL(baseUrl).host;
-    } catch {
-      /* ignore invalid URL */
-    }
-  }
-  return out;
+  return {
+    rules,
+    host: new URL(baseUrl).host,
+    sitemap: `${baseUrl}/sitemap.xml`,
+  };
 }
