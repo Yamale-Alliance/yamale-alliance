@@ -7,7 +7,6 @@ import {
   useLayoutEffect,
   useCallback,
   useRef,
-  useDeferredValue,
 } from "react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -28,7 +27,8 @@ import {
   FileDown,
   Link2,
 } from "lucide-react";
-import type { LibraryCountry, LibraryCategory, LibraryLawRow } from "@/lib/library-data";
+import type { LibraryCountry, LibraryCategory, LibraryLawRow, LibrarySortOption } from "@/lib/library-data";
+import { LIBRARY_PAGE_SIZE } from "@/lib/library-data";
 import { useUser } from "@clerk/nextjs";
 import { useAlertDialog } from "@/components/ui/use-confirm";
 import {
@@ -41,20 +41,10 @@ import { usePlatformSettings } from "@/components/platform/PlatformSettingsConte
 import { MarketingDiscountPrice } from "@/components/pricing/MarketingDiscountPrice";
 import { formatUsdPrice } from "@/lib/content-pricing";
 import { LibraryFiltersBar } from "@/components/library/LibraryFiltersBar";
-import {
-  buildLibrarySearchHaystack,
-  detectCountryFromSearchTokens,
-  expandLibrarySearchFromQuery,
-  parseLibrarySearchQuery,
-  librarySearchTitleTier,
-  normalizeLibraryMatchText,
-  scoreLibrarySearchEntry,
-  tokenizeLibrarySearch,
-} from "@/lib/library-client-search";
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = LIBRARY_PAGE_SIZE;
 const SUPPORT_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
-type SortOption = "title-asc" | "title-desc" | "country" | "category" | "newest";
+type SortOption = LibrarySortOption;
 type DocumentType = "Law" | "Decree" | "Regulation" | "Code" | "Directive" | "Treaty" | "Agreement" | "Other";
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: "title-asc", label: "Title (A–Z)" },
@@ -195,24 +185,6 @@ function mapRowToLaw(row: LibraryLawRow): Law {
   };
 }
 
-type LawSearchIndexEntry = {
-  law: Law;
-  index: ReturnType<typeof buildLibrarySearchHaystack>;
-};
-
-function buildLawSearchIndex(laws: Law[]): LawSearchIndexEntry[] {
-  return laws.map((law) => ({
-    law,
-    index: buildLibrarySearchHaystack({
-      title: law.name,
-      category: law.category,
-      country: law.country,
-      documentType: law.document_type,
-      treatyType: law.treaty_type ?? "",
-      sourceName: law.source_name,
-    }),
-  }));
-}
 
 type LibraryUrlState = {
   country: string;
@@ -320,6 +292,57 @@ function parsePage(s: string): number {
   return Number.isFinite(n) && n >= 1 ? n : 1;
 }
 
+function buildLibraryListUrl(input: {
+  countries: LibraryCountry[];
+  categories: LibraryCategory[];
+  country: string;
+  category: string;
+  status: string;
+  search: string;
+  documentType: string;
+  treatyType: string;
+  yearFrom: string;
+  yearTo: string;
+  page: number;
+  sort: SortOption;
+}): string {
+  const params = new URLSearchParams();
+  params.set("page", String(input.page));
+  params.set("pageSize", String(PAGE_SIZE));
+  params.set("sort", input.sort);
+  if (input.country) {
+    const id = input.countries.find((c) => c.name === input.country)?.id;
+    if (id) params.set("countryId", id);
+  }
+  if (input.category) {
+    const id = input.categories.find((c) => c.name === input.category)?.id;
+    if (id) params.set("categoryId", id);
+  }
+  if (input.status) params.set("status", input.status);
+  const q = input.search.trim();
+  if (q) params.set("q", q);
+  if (input.documentType) params.set("documentType", input.documentType);
+  if (input.treatyType) params.set("treatyType", input.treatyType);
+  if (input.yearFrom) params.set("yearFrom", input.yearFrom);
+  if (input.yearTo) params.set("yearTo", input.yearTo);
+  return `/api/laws?${params.toString()}`;
+}
+
+function listFetchKey(input: {
+  country: string;
+  category: string;
+  status: string;
+  search: string;
+  documentType: string;
+  treatyType: string;
+  yearFrom: string;
+  yearTo: string;
+  page: number;
+  sort: SortOption;
+}): string {
+  return JSON.stringify(input);
+}
+
 export function LibraryView({
   initialCountries,
   initialCategories,
@@ -398,9 +421,23 @@ export function LibraryView({
   );
   const [currentPage, setCurrentPage] = useState(() => parsePage(initialPage) || 1);
   const { alert: showAlert, alertDialog } = useAlertDialog();
+  const ssrFetchKey = useRef(
+    listFetchKey({
+      country: initialCountry,
+      category: initialCategory,
+      status: initialStatus,
+      search: initialSearch,
+      documentType: initialDocumentType,
+      treatyType: initialTreatyType,
+      yearFrom: initialYearFrom,
+      yearTo: initialYearTo,
+      page: parsePage(initialPage) || 1,
+      sort: SORT_OPTIONS.some((o) => o.value === initialSort) ? (initialSort as SortOption) : "title-asc",
+    })
+  );
+  const skipInitialFetchRef = useRef(true);
 
   const hasFilters = !!(country || category || status || search.trim() || documentType || treatyType || yearFrom || yearTo);
-  const hasServerFilters = !!(country || category || status);
   const primaryFilterCount = [country, category, status].filter(Boolean).length;
   const advancedFilterCount = [documentType, treatyType, yearFrom, yearTo].filter(Boolean).length;
   const filterBadgeCount = primaryFilterCount + advancedFilterCount;
@@ -408,14 +445,24 @@ export function LibraryView({
     ((user?.publicMetadata?.tier ?? user?.publicMetadata?.subscriptionTier) as string | undefined) || "free";
 
   useEffect(() => {
-    fetch("/api/bookmarks", { credentials: "include" })
-      .then((res) => res.ok ? res.json() : { bookmarks: [] })
-      .then((data: { bookmarks?: Array<{ law_id: string }> }) => {
-        const list = data.bookmarks ?? [];
-        setBookmarkedIds(new Set(list.map((b) => b.law_id)));
-      })
-      .catch(() => {});
-  }, []);
+    const timer = setTimeout(() => {
+      if (!isSignedIn) {
+        setPaidLawIds(new Set());
+        return;
+      }
+      fetch("/api/bookmarks", { credentials: "include" })
+          .then((res) => (res.ok ? res.json() : { bookmarks: [] }))
+          .then((data: { bookmarks?: Array<{ law_id: string }> }) => {
+            const list = data.bookmarks ?? [];
+            setBookmarkedIds(new Set(list.map((b) => b.law_id)));
+          })
+          .catch(() => {});
+        void fetchDocumentExportUnlockLawIds().then((res) => {
+          if (res.ok) setPaidLawIds(new Set(res.law_ids));
+        });
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [isSignedIn]);
 
   useEffect(() => {
     if (!user) return;
@@ -550,30 +597,6 @@ export function LibraryView({
     }
   }, [currentTier, isSignedIn]);
 
-  // Paid PDF unlocks: Supabase via API only (no localStorage).
-  useEffect(() => {
-    if (typeof window === "undefined" || !isSignedIn) {
-      setPaidLawIds(new Set());
-      return;
-    }
-    let cancelled = false;
-    void fetchDocumentExportUnlockLawIds().then((res) => {
-      if (cancelled || !res.ok) return;
-      setPaidLawIds(new Set(res.law_ids));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [isSignedIn]);
-
-  // Refetch when landing on the main library route (e.g. after pay redirect to a law, then "Library").
-  useEffect(() => {
-    if (!isSignedIn || pathname !== "/library") return;
-    void fetchDocumentExportUnlockLawIds().then((res) => {
-      if (res.ok) setPaidLawIds(new Set(res.law_ids));
-    });
-  }, [pathname, isSignedIn]);
-
   // pawaPay returnUrl may be /library?...&payg=document&session_id= — confirm so unlocks sync without opening the law page first.
   useEffect(() => {
     if (!isSignedIn || pathname !== "/library") return;
@@ -689,36 +712,51 @@ export function LibraryView({
 
   useEffect(() => {
     const searchQuery = search.trim();
-    if (!hasServerFilters && !searchQuery) {
-      setLaws(initialLaws.map(mapRowToLaw));
-      setLawCount(initialLawCount ?? initialLaws.length);
-      setError(null);
+    const fetchKey = listFetchKey({
+      country,
+      category,
+      status,
+      search: searchQuery,
+      documentType,
+      treatyType,
+      yearFrom,
+      yearTo,
+      page: currentPage,
+      sort: sortBy,
+    });
+
+    if (skipInitialFetchRef.current && fetchKey === ssrFetchKey.current) {
+      skipInitialFetchRef.current = false;
       return;
     }
 
-    const params = new URLSearchParams();
-    if (country) {
-      const id = countries.find((c) => c.name === country)?.id;
-      if (id) params.set("countryId", id);
-    }
-    if (category) {
-      const id = categories.find((c) => c.name === category)?.id;
-      if (id) params.set("categoryId", id);
-    }
-    if (status) params.set("status", status);
-    if (searchQuery) params.set("q", searchQuery);
-    const query = params.toString();
-    const url = `/api/laws${query ? `?${query}` : ""}`;
-
+    let cancelled = false;
     setError(null);
     setIsRefetchingLaws(true);
 
-    fetch(url, { credentials: "include" })
+    fetch(
+      buildLibraryListUrl({
+        countries,
+        categories,
+        country,
+        category,
+        status,
+        search: searchQuery,
+        documentType,
+        treatyType,
+        yearFrom,
+        yearTo,
+        page: currentPage,
+        sort: sortBy,
+      }),
+      { credentials: "include" }
+    )
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
       .then((data: { laws: LibraryLawRow[]; lawCount?: number }) => {
+        if (cancelled) return;
         setLaws((data.laws ?? []).map(mapRowToLaw));
         if (typeof data.lawCount === "number") {
           setLawCount(data.lawCount);
@@ -727,30 +765,33 @@ export function LibraryView({
         }
       })
       .catch((err: Error) => {
-        if (searchQuery) {
-          // Keep the full catalog; client-side search still filters initialLaws.
-          setLaws(initialLaws.map(mapRowToLaw));
-          setLawCount(initialLawCount ?? initialLaws.length);
-          console.warn("[library] search fetch failed:", err.message);
-        } else {
-          setError(
-            err.message?.startsWith("HTTP")
-              ? "Could not load the legal library."
-              : "Check your connection."
-          );
-        }
+        if (cancelled) return;
+        setError(
+          err.message?.startsWith("HTTP")
+            ? "Could not load the legal library."
+            : "Check your connection."
+        );
       })
-      .finally(() => setIsRefetchingLaws(false));
+      .finally(() => {
+        if (!cancelled) setIsRefetchingLaws(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     country,
     category,
     status,
+    search,
+    documentType,
+    treatyType,
+    yearFrom,
+    yearTo,
+    currentPage,
+    sortBy,
     countries,
     categories,
-    initialLaws,
-    initialLawCount,
-    hasServerFilters,
-    search,
   ]);
 
 
@@ -807,9 +848,11 @@ export function LibraryView({
     syncUrlFromState({ sort: next, page: 1 });
   };
   const handlePageChange = (page: number) => {
-    preserveScrollPosition();
     setCurrentPage(page);
     syncUrlFromState({ page });
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
   };
   const clearFilters = () => {
     preserveScrollPosition();
@@ -886,124 +929,14 @@ export function LibraryView({
     showAlert,
   ]);
 
-  const deferredSearch = useDeferredValue(search);
-
-  const lawSearchIndex = useMemo(() => buildLawSearchIndex(laws), [laws]);
-
-  const countryNames = useMemo(() => countries.map((c) => c.name), [countries]);
-
-  const scoredFilteredLaws = useMemo(() => {
-    const parsed = parseLibrarySearchQuery(deferredSearch);
-    const { searchTokens } = detectCountryFromSearchTokens(parsed.tokens, countryNames);
-    const { matchTokens: freeTokens, categoryHints } = expandLibrarySearchFromQuery(
-      parsed.freeText,
-      searchTokens
-    );
-    // Dropdown country filter only — do not narrow results from country names in the search box
-    // (e.g. "Algeria - Germany" must not hide the treaty when it is filed under Algeria).
-    const effectiveCountryFilter = country || undefined;
-    const minYear = Number.parseInt(yearFrom, 10);
-    const maxYear = Number.parseInt(yearTo, 10);
-    const phraseLower = normalizeLibraryMatchText(parsed.freeText);
-    const hasSearch = freeTokens.length > 0 || phraseLower.length >= 2;
-    const out: { law: Law; score: number; titleTier: number }[] = [];
-    for (const entry of lawSearchIndex) {
-      const law = entry.law;
-      const score = hasSearch
-        ? scoreLibrarySearchEntry(entry.index, freeTokens, {
-            categoryHints,
-            primaryTokens: searchTokens,
-            phraseLower,
-          })
-        : 1;
-      const titleTier = hasSearch
-        ? librarySearchTitleTier(entry.index, searchTokens, phraseLower)
-        : 0;
-      if (hasSearch && score <= 0) continue;
-      const lawTreaty = (law.treaty_type ?? "Not a treaty").toLowerCase();
-      const matchCountry =
-        !effectiveCountryFilter ||
-        law.country === effectiveCountryFilter ||
-        law.applies_globally;
-      const matchCategory = !category || law.category === category;
-      const matchStatus = !status || law.status === status;
-      const matchDocType = !documentType || law.document_type === documentType;
-      const matchTreaty = !treatyType || lawTreaty === treatyType.toLowerCase();
-      const matchYearFrom = !Number.isFinite(minYear) || (typeof law.year === "number" && law.year >= minYear);
-      const matchYearTo = !Number.isFinite(maxYear) || (typeof law.year === "number" && law.year <= maxYear);
-      const matchQueryCountry =
-        !parsed.country || law.country.toLowerCase().includes(parsed.country.toLowerCase());
-      const matchQueryCategory = !parsed.category || law.category.toLowerCase().includes(parsed.category.toLowerCase());
-      const matchQueryDocType = !parsed.documentType || law.document_type.toLowerCase().includes(parsed.documentType.toLowerCase());
-      const matchQueryClassification = !parsed.classification || lawTreaty.includes(parsed.classification.toLowerCase());
-      const matchQueryYearFrom = !parsed.yearFrom || (typeof law.year === "number" && law.year >= parsed.yearFrom);
-      const matchQueryYearTo = !parsed.yearTo || (typeof law.year === "number" && law.year <= parsed.yearTo);
-      if (
-        matchCountry &&
-        matchCategory &&
-        matchStatus &&
-        matchDocType &&
-        matchTreaty &&
-        matchYearFrom &&
-        matchYearTo &&
-        matchQueryCountry &&
-        matchQueryCategory &&
-        matchQueryDocType &&
-        matchQueryClassification &&
-        matchQueryYearFrom &&
-        matchQueryYearTo
-      ) {
-        out.push({ law, score, titleTier });
-      }
-    }
-    return out;
-  }, [
-    lawSearchIndex,
-    deferredSearch,
-    country,
-    countryNames,
-    category,
-    status,
-    documentType,
-    treatyType,
-    yearFrom,
-    yearTo,
-  ]);
-
-  const sortedLaws = useMemo(() => {
-    const list = [...scoredFilteredLaws];
-    const hasSearch = tokenizeLibrarySearch(parseLibrarySearchQuery(deferredSearch).freeText).length > 0;
-    list.sort((a, b) => {
-      if (hasSearch) {
-        if (b.titleTier !== a.titleTier) return b.titleTier - a.titleTier;
-        if (b.score !== a.score) return b.score - a.score;
-      }
-      switch (sortBy) {
-        case "title-asc":
-          return a.law.name.localeCompare(b.law.name, undefined, { sensitivity: "base" });
-        case "title-desc":
-          return b.law.name.localeCompare(a.law.name, undefined, { sensitivity: "base" });
-        case "country":
-          return (
-            (a.law.country || "").localeCompare(b.law.country || "", undefined, { sensitivity: "base" }) ||
-            a.law.name.localeCompare(b.law.name)
-          );
-        case "category":
-          return (
-            (a.law.category || "").localeCompare(b.law.category || "", undefined, { sensitivity: "base" }) ||
-            a.law.name.localeCompare(b.law.name)
-          );
-        case "newest":
-          return new Date(b.law.created_at ?? 0).getTime() - new Date(a.law.created_at ?? 0).getTime();
-        default:
-          return a.law.name.localeCompare(b.law.name);
-      }
-    });
-    return list.map((row) => row.law);
-  }, [scoredFilteredLaws, deferredSearch, sortBy]);
-
-  const totalPages = Math.max(1, Math.ceil(sortedLaws.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(lawCount / PAGE_SIZE));
   const safePage = Math.min(Math.max(1, currentPage), totalPages);
+  const resultsTotal = lawCount;
+
+  const categoryNames = useMemo(
+    () => categories.map((c) => c.name).filter(Boolean).sort(),
+    [categories]
+  );
 
   useEffect(() => {
     if (totalPages > 0 && currentPage > totalPages) {
@@ -1012,16 +945,6 @@ export function LibraryView({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable deps: only run when page count or current page change
   }, [totalPages, currentPage]);
-
-  const paginatedLaws = useMemo(() => {
-    const start = (safePage - 1) * PAGE_SIZE;
-    return sortedLaws.slice(start, start + PAGE_SIZE);
-  }, [sortedLaws, safePage]);
-
-  const showingSearch = search.trim().length > 0 || !!documentType || !!treatyType || !!yearFrom || !!yearTo;
-  const resultsTotal = showingSearch ? sortedLaws.length : lawCount;
-
-  const categoryNames = useMemo(() => [...new Set(laws.map((l) => l.category))].filter(Boolean).sort(), [laws]);
 
   function PageSelector() {
     if (totalPages <= 1) return null;
@@ -1273,7 +1196,7 @@ export function LibraryView({
               </div>
             )}
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {paginatedLaws.map((law) => {
+              {laws.map((law) => {
                 const lawHref =
                   (hasFilters || sortBy !== "title-asc" || safePage > 1)
                     ? `/library/${law.id}?returnTo=${encodeURIComponent(
@@ -1365,7 +1288,7 @@ export function LibraryView({
                 );
               })}
             </div>
-            {sortedLaws.length === 0 && (
+            {laws.length === 0 && (
               <p className="py-12 text-center text-muted-foreground">
                 No laws match your search. Try one or two keywords (e.g. &quot;patent Zambia&quot;) or clear filters.
               </p>
@@ -1487,7 +1410,7 @@ export function LibraryView({
                 </div>
               </div>
             </aside>
-            {totalPages > 1 && sortedLaws.length > 0 && (
+            {totalPages > 1 && laws.length > 0 && (
               <div className="mt-8 flex justify-center">
                 <PageSelector />
               </div>
