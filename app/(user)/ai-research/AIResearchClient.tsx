@@ -10,6 +10,7 @@ import {
   type FormEvent,
 } from "react";
 import Link from "next/link";
+import { isAiResearchMethodologySourceCard } from "@/lib/ai-research-source-cards";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -109,6 +110,7 @@ type Message = {
     snippet: string;
     usedInAnswer?: boolean;
     docSlot?: number;
+    sourceKind?: "law" | "methodology";
   }>;
   lawyerNudge?: {
     country: string;
@@ -1601,7 +1603,9 @@ export default function AIResearchClient() {
                             card: NonNullable<Message["sourceCards"]>[number],
                             idx: number,
                             keySuffix: string
-                          ) => (
+                          ) => {
+                            const isMethodology = isAiResearchMethodologySourceCard(card);
+                            return (
                             <div
                               key={`${msg.id}-${card.lawId}-${keySuffix}-${idx}`}
                               className={`rounded-[8px] border p-3 ${
@@ -1614,6 +1618,11 @@ export default function AIResearchClient() {
                                 <span>
                                   {card.docSlot ?? idx + 1}. {card.title}
                                 </span>
+                                {isMethodology ? (
+                                  <span className="rounded-full bg-[#0D1B2A]/8 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#0D1B2A]/70 dark:bg-white/10 dark:text-white/75">
+                                    Methodology
+                                  </span>
+                                ) : null}
                                 {card.usedInAnswer ? (
                                   <span className="rounded-full bg-[#C8922A]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8a6820] dark:bg-[#C8922A]/30 dark:text-[#F5D793]">
                                     Used in answer
@@ -1625,17 +1634,28 @@ export default function AIResearchClient() {
                                 )}
                               </p>
                               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                                {card.country} · {card.category} · {card.status}
+                                {isMethodology ? "Yamalé Advisory" : card.country} · {card.category} · {card.status}
                               </p>
-                              <p className="mt-1 text-[12px] text-foreground/70 dark:text-foreground/85">&quot;{card.snippet}...&quot;</p>
-                              <Link
-                                href={`/library/${card.lawId}?returnTo=${encodeURIComponent("/ai-research")}`}
-                                className="mt-2 inline-flex text-[12px] font-semibold text-[#C8922A] hover:text-[#b88424] dark:text-[#F0C45C] dark:hover:text-[#FFD67A]"
-                              >
-                                View law →
-                              </Link>
+                              <p className="mt-1 text-[12px] text-foreground/70 dark:text-foreground/85">
+                                &quot;{card.snippet}
+                                {card.snippet.length >= 200 ? "…" : ""}&quot;
+                              </p>
+                              {isMethodology ? (
+                                <p className="mt-2 text-[11px] text-muted-foreground">
+                                  Yamalé AI Contextual Brain — reasoning framework used with library statutes (not in the
+                                  public Legal Library).
+                                </p>
+                              ) : (
+                                <Link
+                                  href={`/library/${card.lawId}?returnTo=${encodeURIComponent("/ai-research")}`}
+                                  className="mt-2 inline-flex text-[12px] font-semibold text-[#C8922A] hover:text-[#b88424] dark:text-[#F0C45C] dark:hover:text-[#FFD67A]"
+                                >
+                                  View law →
+                                </Link>
+                              )}
                             </div>
-                          );
+                            );
+                          };
 
                           return (
                             <div className="mt-3 space-y-2 border-t border-[#E8E4DC]/80 pt-3 dark:border-white/10">
