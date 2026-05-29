@@ -1,6 +1,7 @@
 /**
  * Categories whose law bodies are for AI reasoning only — hidden from the public library UI/API.
- * AI chat still retrieves them via `fetchAiMethodologyContext` and the contextual brain block.
+ * AI chat still retrieves them via `fetchAiMethodologyContext` and the contextual brain block,
+ * and lists them in AI research source cards as methodology (not as browsable laws).
  */
 import { AI_LEGAL_METHODOLOGY_CATEGORY } from "@/lib/ai-contextual-brain";
 
@@ -8,7 +9,7 @@ export { AI_LEGAL_METHODOLOGY_CATEGORY };
 
 const INTERNAL_CATEGORY_NAMES = new Set<string>([AI_LEGAL_METHODOLOGY_CATEGORY]);
 
-/** Titles that must never appear in library search, law detail, or AI source cards. */
+/** Titles that must never appear in library search or law detail (still shown on AI source cards). */
 const INTERNAL_LIBRARY_TITLE_PATTERNS: RegExp[] = [
   /yamal[eé]\s+ai\s+brain/i,
   /contextual\s+brain/i,
