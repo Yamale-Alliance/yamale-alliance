@@ -70,7 +70,7 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
       ].join(" "),
       "frame-ancestors 'none'",
       "base-uri 'self'",
-      "form-action 'self' https://*.clerk.accounts.dev https://*.clerk.com",
+      "form-action 'self' mailto: https://*.clerk.accounts.dev https://*.clerk.com",
     ].join("; ")
   );
   return response;
