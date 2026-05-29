@@ -1,14 +1,16 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { FoundersNoteBody } from "@/components/founders-note/FoundersNoteBody";
 import { getPlatformSettings } from "@/lib/platform-settings";
+import { createPageMetadata } from "@/lib/site-seo";
 
-export const metadata: Metadata = {
-  title: "Founder's Note — Yamalé",
+export const metadata = createPageMetadata({
+  title: "Founder's Note",
   description:
-    "Why we built Yamalé — a message from Meghan Waters, Chief Executive Officer, on African legal infrastructure and launching together.",
-};
+    "Why we built Yamalé — a message from Meghan Waters, CEO, on the gap in African legal infrastructure and building the platform together.",
+  path: "/founders-note",
+  ogType: "article",
+});
 
 export default async function FoundersNotePage() {
   const { founderPortraitUrl } = await getPlatformSettings();
