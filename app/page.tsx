@@ -2,9 +2,12 @@ import Link from "next/link";
 import { BookOpen, Search } from "lucide-react";
 import { HomeDashboardLink } from "@/components/home/HomeDashboardLink";
 import { PROTOTYPE_HERO_GRID_PATTERN } from "@/components/layout/prototype-page-styles";
+import { createHomeMetadata } from "@/lib/site-seo";
 
 /** Static marketing page — no server auth; improves TTFB and LCP vs dynamic render. */
 export const dynamic = "force-static";
+
+export const metadata = createHomeMetadata();
 
 export default function Home() {
   return (
