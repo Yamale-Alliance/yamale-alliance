@@ -18,6 +18,9 @@ type MarketingDiscountPriceProps = {
   suffix?: string;
   size?: Size;
   showBadge?: boolean;
+  /** Fixed strikethrough price; overrides percent-based list price (e.g. $699 → $499). */
+  listPriceCents?: number;
+  listPriceUsd?: number;
 } & (
   | { currentCents: number; currentUsd?: never }
   | { currentUsd: number; currentCents?: never }
@@ -85,9 +88,14 @@ export function MarketingDiscountPrice({
   const currentLabel = isCents
     ? formatMarketingDisplayUsdFromCents(currentCents)
     : formatMarketingDisplayUsdFromDollars(currentUsd!);
-  const listLabel = isCents
-    ? formatMarketingListPriceUsd(currentCents)
-    : formatMarketingListPriceUsdFromDollars(currentUsd!);
+  const listLabel =
+    amount.listPriceCents != null
+      ? formatMarketingDisplayUsdFromCents(amount.listPriceCents)
+      : amount.listPriceUsd != null
+        ? formatMarketingDisplayUsdFromDollars(amount.listPriceUsd)
+        : isCents
+          ? formatMarketingListPriceUsd(currentCents)
+          : formatMarketingListPriceUsdFromDollars(currentUsd!);
 
   if (size === "inline") {
     return (
