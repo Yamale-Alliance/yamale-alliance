@@ -16,7 +16,7 @@ import { ZipPackageCheckoutDialog } from "@/components/marketplace/ZipPackageChe
 import { VaultPackageSubheader } from "@/components/marketplace/VaultPackageSubheader";
 import {
   hasLawFirmDevelopmentBuiltInLanding,
-  isMarketplaceZip,
+  shouldUseVaultPackagePage,
 } from "@/lib/marketplace-zip-package";
 import {
   packageOffersFromItemConfig,
@@ -72,7 +72,10 @@ export default function MarketplaceZipPackagePage() {
   const searchParams = useClientSearchParams();
   const bundlePaymentReturn = searchParams.get("bundle") === "1";
 
-  const customLandingHtml = item?.landing_page_html?.trim() ?? "";
+  const useLawFirmBuiltInLanding = Boolean(item && hasLawFirmDevelopmentBuiltInLanding(item));
+  const customLandingHtml = useLawFirmBuiltInLanding
+    ? ""
+    : (item?.landing_page_html?.trim() ?? "");
   const purchaseSectionId = customLandingHtml
     ? CUSTOM_LANDING_PURCHASE_SECTION_ID
     : DEFAULT_PURCHASE_SECTION_ID;
@@ -129,7 +132,7 @@ export default function MarketplaceZipPackagePage() {
   }, [id]);
 
   useEffect(() => {
-    if (!loading && item && !isMarketplaceZip(item)) {
+    if (!loading && item && !shouldUseVaultPackagePage(item)) {
       router.replace(`/marketplace/${id}`);
     }
   }, [loading, item, id, router]);
@@ -202,6 +205,18 @@ export default function MarketplaceZipPackagePage() {
     },
     [item, isLoaded, isSignedIn, router, id, effectiveOffers]
   );
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data;
+      if (!data || data.type !== "yamale-vault-scroll-checkout") return;
+      const tier = data.tier === "bundle" || data.tier === "standalone" ? data.tier : null;
+      openCheckoutDialog(tier);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [openCheckoutDialog]);
 
   const fetchDownloadUrl = async () => {
     if (!item?.id || !item.has_file) return null;
@@ -334,7 +349,7 @@ export default function MarketplaceZipPackagePage() {
     );
   }
 
-  if (!item || !isMarketplaceZip(item)) {
+  if (!item || !shouldUseVaultPackagePage(item)) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center bg-[#221913]">
         <Loader2 className="h-8 w-8 animate-spin text-[#C18C43]" />
@@ -354,7 +369,7 @@ export default function MarketplaceZipPackagePage() {
         ).toFixed(2)}`
       : `$${(item.price_cents / 100).toFixed(2)}`;
 
-  const lawFirmLanding = !customLandingHtml && hasLawFirmDevelopmentBuiltInLanding(item);
+  const lawFirmLanding = useLawFirmBuiltInLanding;
   const usePlatformChrome = Boolean(customLandingHtml);
 
   return (
@@ -425,6 +440,13 @@ export default function MarketplaceZipPackagePage() {
       {lawFirmLanding ? (
         <LawFirmDevelopmentZipLanding
           priceDisplay={priceDisplay}
+          saleCents={
+            free
+              ? 0
+              : selectedTier === "standalone"
+                ? effectiveOffers?.standalone.price_cents ?? item.price_cents
+                : effectiveOffers?.bundle.total_cents ?? item.price_cents
+          }
           owned={!!owned}
           onBeginPaidDownload={beginPaidDownload}
           onOwnedDownload={handleOwnedDownload}
