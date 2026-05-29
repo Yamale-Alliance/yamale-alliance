@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import {
   PolicyBulletList,
   PolicyCallout,
@@ -10,12 +9,14 @@ import {
   PolicySectionHeading,
   PolicyUpdatedBanner,
 } from "@/components/legal/policy-document-primitives";
+import { createPageMetadata } from "@/lib/site-seo";
 
-export const metadata: Metadata = {
-  title: "Terms of Service | Yamalé Legal Platform",
+export const metadata = createPageMetadata({
+  title: "Terms of Service",
   description:
-    "Terms of Service for Yamalé Legal Platform – rules and conditions for using our services.",
-};
+    "Terms and conditions for using Yamalé Legal Platform, including subscriptions, The Yamalé Vault, AI research, and the lawyer directory.",
+  path: "/terms",
+});
 
 export default function TermsOfServicePage() {
   return (
