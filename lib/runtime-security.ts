@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getClerkCspHosts } from "@/lib/clerk-csp-hosts";
 import { checkDistributedRateLimit } from "@/lib/distributed-rate-limit";
 import type { RateLimitResult } from "@/lib/runtime-security-types";
 
@@ -32,15 +33,14 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
     );
   }
 
+  const clerkHosts = getClerkCspHosts();
   response.headers.set(
     "Content-Security-Policy",
     [
       "default-src 'self'",
       [
         "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-        "https://*.clerk.accounts.dev",
-        "https://*.clerk.com",
-        "https://clerk.com",
+        ...clerkHosts,
         "https://challenges.cloudflare.com",
         "https://*.js.stripe.com",
         "https://js.stripe.com",
@@ -51,18 +51,14 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
       "font-src 'self' data: https:",
       [
         "connect-src 'self' https:",
-        "https://*.clerk.accounts.dev",
-        "https://*.clerk.com",
-        "https://clerk.com",
+        ...clerkHosts,
         "https://clerk-telemetry.com",
         "https://*.clerk-telemetry.com",
       ].join(" "),
       "worker-src 'self' blob:",
       [
         "frame-src 'self'",
-        "https://*.clerk.accounts.dev",
-        "https://*.clerk.com",
-        "https://clerk.com",
+        ...clerkHosts,
         "https://challenges.cloudflare.com",
         "https://*.js.stripe.com",
         "https://js.stripe.com",
@@ -70,7 +66,7 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
       ].join(" "),
       "frame-ancestors 'none'",
       "base-uri 'self'",
-      "form-action 'self' mailto: https://*.clerk.accounts.dev https://*.clerk.com",
+      ["form-action 'self' mailto:", ...clerkHosts].join(" "),
     ].join("; ")
   );
   return response;
