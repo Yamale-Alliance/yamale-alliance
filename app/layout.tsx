@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Inter, Playfair_Display } from "next/font/google";
+import { ClerkDevOriginWarning } from "@/components/auth/ClerkDevOriginWarning";
+import { CLERK_PUBLISHABLE_KEY } from "@/lib/clerk-config";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { LayoutWithSettings } from "@/components/platform/LayoutWithSettings";
 import "./globals.css";
@@ -43,7 +45,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY || undefined}>
       <html lang="en" suppressHydrationWarning>
         <head>
           <script
@@ -61,6 +63,7 @@ export default function RootLayout({
         <body
           className={`${inter.variable} ${playfair.variable} antialiased`}
         >
+          <ClerkDevOriginWarning />
           <ThemeProvider>
             <LayoutWithSettings>{children}</LayoutWithSettings>
           </ThemeProvider>
