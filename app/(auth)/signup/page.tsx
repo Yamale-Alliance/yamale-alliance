@@ -21,7 +21,7 @@ export default function SignUpPage() {
 
         <SignUp
           afterSignUpUrl={afterSignUpUrl}
-          signInUrl="/login"
+          signInUrl="/sign-in"
           routing="hash"
         />
 
