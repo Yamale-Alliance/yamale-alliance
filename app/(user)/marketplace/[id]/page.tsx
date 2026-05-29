@@ -27,7 +27,7 @@ import {
   marketplacePaymentReturnQuerySuffix,
   parseMarketplacePaymentReturn,
 } from "@/lib/marketplace-payment-return";
-import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
+import { shouldUseVaultPackagePage } from "@/lib/marketplace-zip-package";
 import { displayVaultProductTitle } from "@/lib/marketplace-display";
 
 const BRAND = {
@@ -54,6 +54,7 @@ type Item = {
   file_format?: string | null;
   video_url?: string | null;
   landing_page_html?: string | null;
+  package_offers?: unknown;
 };
 
 function TypeIcon({ type }: { type: string }) {
@@ -212,7 +213,7 @@ export default function MarketplaceItemPage() {
 
   useEffect(() => {
     if (loading || !item || !id) return;
-    if (!isMarketplaceZip(item)) return;
+    if (!shouldUseVaultPackagePage(item)) return;
     const returnParams = parseMarketplacePaymentReturn(searchParams);
     const suffix = marketplacePaymentReturnQuerySuffix(returnParams);
     router.replace(`/marketplace/${id}/package${suffix}`);
@@ -440,11 +441,10 @@ export default function MarketplaceItemPage() {
 
   const fileFmt = item.file_format?.toLowerCase() ?? "";
   const fileNameLower = item.file_name?.toLowerCase() ?? "";
-  const isZip = isMarketplaceZip(item);
-
   const landingHtml = item.landing_page_html?.trim();
+  const hideInlineVaultCheckout = Boolean(landingHtml);
 
-  if (isZip) {
+  if (shouldUseVaultPackagePage(item)) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -608,7 +608,9 @@ export default function MarketplaceItemPage() {
           </section>
         )}
 
+        {(!hideInlineVaultCheckout || owned || free) ? (
         <section className="rounded-xl border border-border bg-card p-6">
+          {!hideInlineVaultCheckout ? (
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-2xl font-semibold">{priceDisplay}</p>
@@ -710,6 +712,7 @@ export default function MarketplaceItemPage() {
               </div>
             )}
           </div>
+          ) : null}
           {(owned || free) && item.has_file && (
             <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-border pt-6">
               <button
@@ -738,6 +741,7 @@ export default function MarketplaceItemPage() {
             </p>
           )}
         </section>
+        ) : null}
 
         {error && (
           <p className="mt-4 text-sm text-destructive">{error}</p>
