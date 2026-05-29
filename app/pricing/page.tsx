@@ -21,6 +21,12 @@ import {
   MarketingDiscountSubscriptionPrice,
 } from "@/components/pricing/MarketingDiscountPrice";
 import { stashPaygAiQueryLomiSessionId } from "@/lib/lomi-payg-ai-query-return";
+import {
+  PRICING_AFCFTA_COMING_SOON,
+  PRICING_LAWYERS_COMING_SOON,
+  applyPricingComingSoonFeatures,
+} from "@/lib/pricing-coming-soon-features";
+import { PLATFORM_MAIL_LINK_REL, platformBusinessMailto } from "@/lib/platform-emails";
 
 type BillingInterval = "monthly" | "annual";
 
@@ -48,7 +54,7 @@ const FALLBACK_TIERS: Tier[] = [
     features: [
       "Unlimited browsing of full texts of laws",
       "Save up to 10 documents for easy access",
-      "Browse lawyer directory",
+      PRICING_LAWYERS_COMING_SOON,
       "Browse The Yamale Vault",
     ],
     cta: "Get Started Free",
@@ -65,8 +71,8 @@ const FALLBACK_TIERS: Tier[] = [
       "Unlimited browsing of full texts of laws",
       "<strong>5 document downloads/month</strong>",
       "<strong>Basic level AI queries/month</strong> (limited)",
-      "<strong>1 AfCFTA report/month</strong> (view &amp; download)",
-      "Browse lawyer directory",
+      PRICING_AFCFTA_COMING_SOON,
+      PRICING_LAWYERS_COMING_SOON,
       "Browse The Yamale Vault",
     ],
     cta: "Choose Basic",
@@ -84,8 +90,8 @@ const FALLBACK_TIERS: Tier[] = [
       "Unlimited browsing of full texts of laws",
       "<strong>20 document downloads/month</strong>",
       "<strong>Pro level AI queries/month</strong> (limited)",
-      "<strong>5 AfCFTA reports/month</strong> (view &amp; download)",
-      "Browse lawyer directory",
+      PRICING_AFCFTA_COMING_SOON,
+      PRICING_LAWYERS_COMING_SOON,
       "Browse The Yamale Vault",
       "Download AI conversation",
     ],
@@ -104,8 +110,8 @@ const FALLBACK_TIERS: Tier[] = [
       "<strong>5 user seats included</strong>",
       "<strong>25 document downloads per user/month</strong>",
       "<strong>Team level AI queries per user/month</strong> (limited)",
-      "<strong>2 AfCFTA reports per user/month</strong> (view &amp; download)",
-      "Browse lawyer directory",
+      PRICING_AFCFTA_COMING_SOON,
+      PRICING_LAWYERS_COMING_SOON,
       "Browse The Yamale Vault",
       "Download AI conversation",
       "<strong>Additional user: $6/month each</strong>",
@@ -114,10 +120,12 @@ const FALLBACK_TIERS: Tier[] = [
   },
 ];
 
+const INSTITUTIONAL_SALES_MAILTO = platformBusinessMailto("Institutional Plans enquiry");
+
 const FAQ_ITEMS = [
   {
     q: "How does pay-as-you-go work?",
-    a: "All users (including free) can purchase additional documents, AI queries, lawyer contacts, and reports at the rates shown above. Subscribers get lower rates and included usage each month.",
+    a: "All users (including free) can purchase additional documents and AI queries at the rates shown above. AfCFTA Passport and the lawyers network are coming soon. Subscribers get lower rates and included usage each month.",
   },
   {
     q: "Can I change plans anytime?",
@@ -147,13 +155,7 @@ export default function PricingPage() {
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
     Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
   const lomiComingSoon = false;
-  const {
-    lawPrintPriceUsdCents,
-    dayPassPriceUsdCents,
-    lawyerSearchUnlockPriceUsdCents,
-    aiQueryPriceUsdCents,
-    afcftaReportPriceUsdCents,
-  } = usePlatformSettings();
+  const { lawPrintPriceUsdCents, dayPassPriceUsdCents, aiQueryPriceUsdCents } = usePlatformSettings();
   /** Subscription checkout happens under Account (plan, billing period, payment method). */
   const goToSubscriptionCheckout = (planId: string) => {
     if (planId === "free") return;
@@ -261,7 +263,14 @@ export default function PricingPage() {
     fetch("/api/pricing")
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data) && data.length > 0) setTiers(data);
+        if (Array.isArray(data) && data.length > 0) {
+          setTiers(
+            data.map((tier: Tier) => ({
+              ...tier,
+              features: applyPricingComingSoonFeatures(tier.features),
+            }))
+          );
+        }
       })
       .catch(() => {});
   }, []);
@@ -297,9 +306,9 @@ export default function PricingPage() {
       return () => clearTimeout(timeoutId);
     } else {
       const payg = params.get("payg");
-      if (payg && ["document", "ai_query", "afcfta_report"].includes(payg)) {
+      if (payg && (payg === "document" || payg === "ai_query")) {
         const timeoutId = setTimeout(() => {
-          handlePayAsYouGoCheckout(payg as "document" | "ai_query" | "afcfta_report", provider);
+          handlePayAsYouGoCheckout(payg as "document" | "ai_query", provider);
         }, 100);
         window.history.replaceState({}, "", "/pricing");
         return () => clearTimeout(timeoutId);
@@ -458,15 +467,17 @@ export default function PricingPage() {
                 For universities, governments, and large organizations
               </p>
               <p className="text-sm text-[#C8922A] font-medium">
-                Starting at $1,000/year • Unlimited users • Custom training
+                Starting at $1,000/year • Custom training
               </p>
             </div>
-            <button
-              type="button"
-              className="whitespace-nowrap rounded-[6px] bg-[#0D1B2A] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#162436] sm:px-8 sm:py-4 sm:text-lg"
+            <a
+              href={INSTITUTIONAL_SALES_MAILTO}
+              target="_blank"
+              rel={PLATFORM_MAIL_LINK_REL}
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-[6px] bg-[#0D1B2A] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#162436] sm:px-8 sm:py-4 sm:text-lg"
             >
               Contact Sales
-            </button>
+            </a>
           </div>
         </div>
 
@@ -545,24 +556,19 @@ export default function PricingPage() {
               <MarketingDiscountPrice currentCents={lawPrintPriceUsdCents} size="hero" suffix="per law" />
             </button>
 
-            <Link
-              href="/lawyers"
-              className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm"
-            >
+            <div className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left">
               <div className="pr-4 sm:pr-6">
                 <div className="text-xl font-semibold leading-tight text-foreground sm:text-[28px]">
-                  Lawyer directory search
+                  Lawyers network
                 </div>
                 <div className="mt-1 text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
-                  Unlock contact details for one country + practice area on the curated lawyer network.
+                  Curated directory search and contact unlock — coming soon.
                 </div>
               </div>
-              <MarketingDiscountPrice
-                currentCents={lawyerSearchUnlockPriceUsdCents}
-                size="hero"
-                suffix="per search"
-              />
-            </Link>
+              <span className="shrink-0 rounded-lg border border-amber-300/80 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100">
+                Coming soon
+              </span>
+            </div>
 
             <button
               type="button"
@@ -579,20 +585,19 @@ export default function PricingPage() {
               <MarketingDiscountPrice currentCents={dayPassPriceUsdCents} size="hero" suffix="per day" />
             </button>
 
-            <button
-              type="button"
-              onClick={() => handlePayAsYouGoCheckout("afcfta_report")}
-              disabled={checkoutLoading !== null}
-              className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
-            >
+            <div className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left">
               <div className="pr-4 sm:pr-6">
-                <div className="text-xl font-semibold leading-tight text-foreground sm:text-[28px]">Additional AfCFTA Passport route</div>
+                <div className="text-xl font-semibold leading-tight text-foreground sm:text-[28px]">
+                  AfCFTA Passport
+                </div>
                 <div className="mt-1 text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
-                  One origin-to-destination country pair with checklist, rules of origin, and tariff data.
+                  Cross-border trade compliance routes — coming soon.
                 </div>
               </div>
-              <MarketingDiscountPrice currentCents={afcftaReportPriceUsdCents} size="hero" suffix="per route" />
-            </button>
+              <span className="shrink-0 rounded-lg border border-amber-300/80 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100">
+                Coming soon
+              </span>
+            </div>
 
             <button
               type="button"
