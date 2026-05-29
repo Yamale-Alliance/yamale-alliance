@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { Loader2 } from "lucide-react";
+import { isClerkConfigured } from "@/lib/clerk-config";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
 import { prototypeNavHeaderClass, prototypeNavInnerClass, prototypeNavLinkClass } from "./prototype-nav-styles";
@@ -58,8 +60,21 @@ function HeaderNavSkeleton() {
   );
 }
 
+const CLERK_LOAD_TIMEOUT_MS = 6000;
+
 export function Header() {
   const { isLoaded, isSignedIn, user } = useUser();
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (isLoaded || !isClerkConfigured()) return;
+    const id = window.setTimeout(() => setLoadTimedOut(true), CLERK_LOAD_TIMEOUT_MS);
+    return () => window.clearTimeout(id);
+  }, [isLoaded]);
+
+  if (!isClerkConfigured() || loadTimedOut) {
+    return <GuestHeader />;
+  }
 
   if (!isLoaded) {
     return <HeaderNavSkeleton />;
