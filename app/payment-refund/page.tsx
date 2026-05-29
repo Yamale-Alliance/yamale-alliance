@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import {
   PolicyBulletList,
   PolicyCallout,
@@ -11,12 +10,14 @@ import {
   PolicySubHeading,
   PolicyUpdatedBanner,
 } from "@/components/legal/policy-document-primitives";
+import { createPageMetadata } from "@/lib/site-seo";
 
-export const metadata: Metadata = {
-  title: "Payment & Refund Policy | Yamalé Legal Platform",
+export const metadata = createPageMetadata({
+  title: "Payment & Refund Policy",
   description:
-    "Payment & Refund Policy for Yamalé Legal Platform — billing, accepted payment methods, cancellations, and refunds.",
-};
+    "Billing, mobile money and card payments, subscriptions, cancellations, and refunds for Yamalé Legal Platform and The Yamalé Vault.",
+  path: "/payment-refund",
+});
 
 const BILLING_EMAIL = "info@yamalealliance.org";
 
