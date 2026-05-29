@@ -8,6 +8,16 @@ export function isMarketplaceZip(item: {
   return fmt === "zip" || name.endsWith(".zip");
 }
 
+/** Vault package route (`/marketplace/[id]/package`) — ZIP bundles and admin HTML landings. */
+export function shouldUseVaultPackagePage(item: {
+  file_format?: string | null;
+  file_name?: string | null;
+  landing_page_html?: string | null;
+}): boolean {
+  if (isMarketplaceZip(item)) return true;
+  return Boolean(item.landing_page_html?.trim());
+}
+
 /**
  * Built-in rich landing for the African Law Firm Development Package (repo-maintained, not admin HTML).
  * Other ZIP products use a minimal package summary until a dedicated template exists.
