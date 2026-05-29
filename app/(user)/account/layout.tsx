@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
+import { createPageMetadata } from "@/lib/site-seo";
 import {
   LayoutDashboard,
   User,
@@ -32,6 +33,13 @@ const links: Array<{
     icon: MessageSquare,
   },
 ];
+
+export const metadata = createPageMetadata({
+  title: "Account",
+  description: "Manage your Yamalé subscription, purchases, and profile.",
+  path: "/account",
+  noIndex: true,
+});
 
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
   const supportLive = isSupportCenterLive();
