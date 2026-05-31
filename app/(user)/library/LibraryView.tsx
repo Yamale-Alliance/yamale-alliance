@@ -41,6 +41,7 @@ import { usePlatformSettings } from "@/components/platform/PlatformSettingsConte
 import { MarketingDiscountPrice } from "@/components/pricing/MarketingDiscountPrice";
 import { formatUsdPrice } from "@/lib/content-pricing";
 import { LibraryFiltersBar } from "@/components/library/LibraryFiltersBar";
+import { platformBusinessMailto } from "@/lib/platform-emails";
 
 const PAGE_SIZE = LIBRARY_PAGE_SIZE;
 const SUPPORT_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
@@ -448,18 +449,17 @@ export function LibraryView({
     const timer = setTimeout(() => {
       if (!isSignedIn) {
         setPaidLawIds(new Set());
+        setBookmarkedIds(new Set());
         return;
       }
-      fetch("/api/bookmarks", { credentials: "include" })
-          .then((res) => (res.ok ? res.json() : { bookmarks: [] }))
-          .then((data: { bookmarks?: Array<{ law_id: string }> }) => {
-            const list = data.bookmarks ?? [];
-            setBookmarkedIds(new Set(list.map((b) => b.law_id)));
-          })
-          .catch(() => {});
-        void fetchDocumentExportUnlockLawIds().then((res) => {
-          if (res.ok) setPaidLawIds(new Set(res.law_ids));
-        });
+      fetch("/api/library/user-state", { credentials: "include" })
+        .then((res) => (res.ok ? res.json() : { bookmarks: [], law_ids: [] }))
+        .then((data: { bookmarks?: Array<{ law_id: string }>; law_ids?: string[] }) => {
+          const list = data.bookmarks ?? [];
+          setBookmarkedIds(new Set(list.map((b) => b.law_id)));
+          setPaidLawIds(new Set(data.law_ids ?? []));
+        })
+        .catch(() => {});
     }, 150);
     return () => clearTimeout(timer);
   }, [isSignedIn]);
@@ -555,16 +555,14 @@ export function LibraryView({
       // Avoid calling authenticated APIs when signed out — Clerk protect() redirects can
       // cause fetch to reject with "Failed to fetch" (cross-origin / opaque redirect).
       if (!isSignedIn) return;
-      fetch("/api/bookmarks", { credentials: "include" })
-        .then((res) => (res.ok ? res.json() : { bookmarks: [] }))
-        .then((data: { bookmarks?: Array<{ law_id: string }> }) => {
+      fetch("/api/library/user-state", { credentials: "include" })
+        .then((res) => (res.ok ? res.json() : { bookmarks: [], law_ids: [] }))
+        .then((data: { bookmarks?: Array<{ law_id: string }>; law_ids?: string[] }) => {
           const list = data.bookmarks ?? [];
           setBookmarkedIds(new Set(list.map((b) => b.law_id)));
+          setPaidLawIds(new Set(data.law_ids ?? []));
         })
         .catch(() => {});
-      void fetchDocumentExportUnlockLawIds().then((res) => {
-        if (res.ok) setPaidLawIds(new Set(res.law_ids));
-      });
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
@@ -1306,8 +1304,7 @@ export function LibraryView({
                       type="button"
                       onClick={() => {
                         if (!SUPPORT_LIVE) {
-                          window.location.href =
-                            "mailto:info@yamalealliance.org?subject=Suggest%20a%20law";
+                          window.location.href = platformBusinessMailto("Suggest a law");
                           return;
                         }
                         setSuggestError(null);
