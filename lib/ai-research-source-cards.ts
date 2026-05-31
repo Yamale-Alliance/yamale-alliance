@@ -1,3 +1,17 @@
+/** User-facing label when listing AI alongside library laws in sources. */
+export const AI_RESEARCH_ENGINE_SOURCE_LABEL = "Yamalé Legal Library · AI Research";
+
+const LEGACY_CLAUDE_SOURCE_RE = /^Claude\s/i;
+
+/** Normalize stored/API source strings for display (hides legacy Claude branding). */
+export function normalizeAiResearchSourceLabels(sources: string[]): string[] {
+  return sources.map((s) =>
+    LEGACY_CLAUDE_SOURCE_RE.test(s.trim()) || s.includes("Claude AI")
+      ? AI_RESEARCH_ENGINE_SOURCE_LABEL
+      : s
+  );
+}
+
 /** Discriminator for AI research source cards returned from `/api/ai/chat`. */
 export type AiResearchSourceCardKind = "law" | "methodology";
 
