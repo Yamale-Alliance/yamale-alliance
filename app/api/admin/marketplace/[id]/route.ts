@@ -5,7 +5,7 @@ import { recordAuditLog } from "@/lib/admin-audit";
 import type { Database } from "@/lib/database.types";
 import { parseLandingPageHtmlInput } from "@/lib/marketplace-landing-page";
 import { parseItemPackageOffersInput } from "@/lib/marketplace-package-offers";
-import { isFreeVaultItem, resolveVaultSubcategoryForSave } from "@/lib/marketplace-vault-categories";
+import { isFreeVaultItem, isPaidVaultSubcategory, resolveVaultSubcategoryForSave } from "@/lib/marketplace-vault-categories";
 
 type Update = Database["public"]["Tables"]["marketplace_items"]["Update"];
 const VALID_TYPES = ["book", "course", "template", "guide"] as const;
@@ -149,12 +149,15 @@ export async function PUT(
       nextImage &&
       nextImage !== previousImage &&
       nextSubcategory &&
-      isFreeVaultItem(effectivePrice)
+      (isFreeVaultItem(effectivePrice) || isPaidVaultSubcategory(nextSubcategory))
     ) {
-      await (supabase.from("marketplace_items") as any)
+      let imageQuery = (supabase.from("marketplace_items") as any)
         .update({ image_url: nextImage })
-        .eq("vault_subcategory", nextSubcategory)
-        .eq("price_cents", updated.price_cents);
+        .eq("vault_subcategory", nextSubcategory);
+      if (isFreeVaultItem(effectivePrice)) {
+        imageQuery = imageQuery.eq("price_cents", updated.price_cents);
+      }
+      await imageQuery;
     }
 
     await recordAuditLog(supabase, {
