@@ -195,6 +195,7 @@ export interface Database {
           video_url: string | null;
           landing_page_html: string | null;
           package_offers: Record<string, unknown> | null;
+          item_pack: Record<string, unknown> | null;
           vault_subcategory: string | null;
           created_at: string;
           updated_at: string;
@@ -216,6 +217,7 @@ export interface Database {
           video_url?: string | null;
           landing_page_html?: string | null;
           package_offers?: Record<string, unknown> | null;
+          item_pack?: Record<string, unknown> | null;
           vault_subcategory?: string | null;
           created_at?: string;
           updated_at?: string;
