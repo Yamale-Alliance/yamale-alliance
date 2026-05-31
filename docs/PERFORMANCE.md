@@ -65,14 +65,20 @@ After implementing these optimizations, you should see improvements in:
 - **Time to Interactive (TTI)**: Reduced with code splitting
 - **Bundle Size**: Reduced initial bundle by ~30-40KB
 
+## Library & global load (2026-05)
+
+- **Library SSR**: one `fetchLibraryData` call (filter names resolved inside; no extra `fetchLibraryMeta` round trip).
+- **Signed-in library**: `/api/library/user-state` returns bookmarks + paid export IDs in one request.
+- **Bookmarks / purchased lists**: batch `/api/laws/summaries` or `?with_laws=1` on bookmarks (no N+1 full law documents).
+- **Law detail**: route `loading.tsx`, dynamic `LawSectionMarkdown` + PDF export + preview dialog chunks.
+- **Header**: product routes show Sign in/up links while Clerk loads (2.5s fallback to guest header).
+- **Founder's note**: auto-prompt skipped on `/library` paths.
+
 ## Next Steps
 
 1. Run Lighthouse audit in Chrome DevTools
 2. Monitor Core Web Vitals in production
-3. Consider adding:
-   - Service Worker for offline support
-   - Image optimization for any future images
-   - Further code splitting for heavy admin components
+3. Consider: server-rendered law detail shell (metadata + hero) with streamed body
 
 ## Testing
 
