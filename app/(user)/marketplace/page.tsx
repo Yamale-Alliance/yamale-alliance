@@ -49,6 +49,7 @@ import {
   computeSeriesOfferFromBrowseItems,
   type MarketplaceSeriesOffer,
 } from "@/lib/marketplace-series-offers";
+import type { MarketplaceItemPackOffer } from "@/lib/marketplace-item-packs";
 import { MarketplaceProductCard } from "@/components/marketplace/MarketplaceProductCard";
 import {
   VAULT_SORT_OPTIONS,
@@ -209,6 +210,7 @@ export default function MarketplacePage() {
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
   const [buyModalProduct, setBuyModalProduct] = useState<Product | null>(null);
   const [buyModalSeriesOffer, setBuyModalSeriesOffer] = useState<MarketplaceSeriesOffer | null>(null);
+  const [buyModalPackOffer, setBuyModalPackOffer] = useState<MarketplaceItemPackOffer | null>(null);
   const [buyModalSeriesId, setBuyModalSeriesId] = useState<VaultSubcategoryId | null>(null);
   const [checkoutChoice, setCheckoutChoice] = useState<MarketplaceVaultCheckoutChoice>("item");
   const [buyCheckoutLoading, setBuyCheckoutLoading] = useState(false);
@@ -440,6 +442,7 @@ export default function MarketplacePage() {
   const closeBuyModal = () => {
     setBuyModalProduct(null);
     setBuyModalSeriesOffer(null);
+    setBuyModalPackOffer(null);
     setBuyModalSeriesId(null);
     setBuyCheckoutLoading(false);
     setCheckoutChoice("item");
@@ -505,6 +508,7 @@ export default function MarketplacePage() {
     }
     setBuyModalProduct(product);
     setCheckoutChoice("item");
+    setBuyModalPackOffer(null);
     const seriesId = product.vault_subcategory?.trim();
     if (seriesId && isPaidVaultSubcategory(seriesId)) {
       const members = items.filter((p) => p.vault_subcategory === seriesId);
@@ -514,6 +518,14 @@ export default function MarketplacePage() {
     } else {
       setBuyModalSeriesOffer(null);
       setBuyModalSeriesId(null);
+    }
+    if (product.price_cents > 0) {
+      fetch(`/api/marketplace/${product.id}/pack-offer`, { credentials: "include" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: { offer?: MarketplaceItemPackOffer } | null) => {
+          setBuyModalPackOffer(data?.offer ?? null);
+        })
+        .catch(() => setBuyModalPackOffer(null));
     }
   };
 
@@ -528,6 +540,7 @@ export default function MarketplacePage() {
     const offer = computeSeriesOfferFromBrowseItems(seriesId, members);
     setBuyModalProduct(null);
     setBuyModalSeriesOffer(offer);
+    setBuyModalPackOffer(null);
     setBuyModalSeriesId(seriesId);
     setCheckoutChoice("series");
   };
@@ -538,9 +551,13 @@ export default function MarketplacePage() {
     try {
       const useSeries =
         checkoutChoice === "series" && buyModalSeriesId && buyModalSeriesOffer && !buyModalSeriesOffer.fullyOwned;
-      const res = await fetch(
-        useSeries ? "/api/payments/marketplace-series-checkout" : "/api/payments/marketplace-checkout",
-        {
+      const usePack = checkoutChoice === "pack" && buyModalPackOffer && !buyModalPackOffer.fullyOwned;
+      const checkoutUrl = useSeries
+        ? "/api/payments/marketplace-series-checkout"
+        : usePack
+          ? "/api/payments/marketplace-pack-checkout"
+          : "/api/payments/marketplace-checkout";
+      const res = await fetch(checkoutUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -550,7 +567,12 @@ export default function MarketplacePage() {
                   seriesId: buyModalSeriesId,
                   success_path: "/marketplace",
                 }
-              : { itemId: buyModalProduct!.id }),
+              : usePack
+                ? {
+                    anchorItemId: buyModalPackOffer!.anchorItemId,
+                    success_path: "/marketplace",
+                  }
+                : { itemId: buyModalProduct!.id }),
             provider: paymentProvider,
             ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
           }),
@@ -579,6 +601,7 @@ export default function MarketplacePage() {
         }}
         product={buyModalProduct}
         seriesOffer={buyModalSeriesOffer}
+        packOffer={buyModalPackOffer}
         choice={checkoutChoice}
         onChoiceChange={setCheckoutChoice}
         paymentProvider={paymentProvider}
