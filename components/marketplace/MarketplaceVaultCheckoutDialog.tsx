@@ -9,9 +9,10 @@ import {
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import { displayVaultProductTitle } from "@/lib/marketplace-display";
 import type { MarketplaceSeriesOffer } from "@/lib/marketplace-series-offers";
+import type { MarketplaceItemPackOffer } from "@/lib/marketplace-item-packs";
 import { formatUsdPrice } from "@/lib/content-pricing";
 
-export type MarketplaceVaultCheckoutChoice = "item" | "series";
+export type MarketplaceVaultCheckoutChoice = "item" | "pack" | "series";
 
 type ProductSummary = {
   id: string;
@@ -24,6 +25,7 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   product: ProductSummary | null;
   seriesOffer: MarketplaceSeriesOffer | null;
+  packOffer: MarketplaceItemPackOffer | null;
   choice: MarketplaceVaultCheckoutChoice;
   onChoiceChange: (choice: MarketplaceVaultCheckoutChoice) => void;
   paymentProvider: CheckoutPaymentProvider;
@@ -45,6 +47,7 @@ export function MarketplaceVaultCheckoutDialog({
   onOpenChange,
   product,
   seriesOffer,
+  packOffer,
   choice,
   onChoiceChange,
   paymentProvider,
@@ -57,8 +60,14 @@ export function MarketplaceVaultCheckoutDialog({
   onCheckout,
 }: Props) {
   const showSeriesChoice = Boolean(seriesOffer && !seriesOffer.fullyOwned && seriesOffer.remainingCount > 0);
+  const showPackChoice = Boolean(packOffer && !packOffer.fullyOwned && packOffer.remainingCount > 0);
+  const showPurchaseChoice = showSeriesChoice || showPackChoice;
   const activeCents =
-    choice === "series" && seriesOffer ? seriesOffer.chargeCents : product?.price_cents ?? 0;
+    choice === "series" && seriesOffer
+      ? seriesOffer.chargeCents
+      : choice === "pack" && packOffer
+        ? packOffer.chargeCents
+        : product?.price_cents ?? 0;
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -90,7 +99,7 @@ export function MarketplaceVaultCheckoutDialog({
 
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
             <div className="space-y-4">
-              {showSeriesChoice ? (
+              {showPurchaseChoice ? (
                 <div className="grid gap-3">
                   {product ? (
                     <button
@@ -111,6 +120,48 @@ export function MarketplaceVaultCheckoutDialog({
                       <p className="mt-1 text-xs text-muted-foreground">Unlock just this template</p>
                     </button>
                   ) : null}
+                  {showPackChoice ? (
+                    <button
+                      type="button"
+                      onClick={() => onChoiceChange("pack")}
+                      className={`rounded-lg border p-4 text-left transition ${
+                        choice === "pack"
+                          ? "border-[#C8922A] bg-[#C8922A]/10 ring-1 ring-[#C8922A]/35"
+                          : "border-border bg-background hover:border-[#C8922A]/40"
+                      }`}
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[#8a6518] dark:text-[#e3ba65]">
+                        {packOffer!.label}
+                        {packOffer!.packSavingsCents > 0 && packOffer!.ownedCount === 0 ? (
+                          <span className="ml-2 normal-case text-emerald-700 dark:text-emerald-300">
+                            Save {formatPrice(packOffer!.packSavingsCents)}
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold text-foreground">
+                        {formatPrice(packOffer!.chargeCents)}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {packOffer!.itemCount} item{packOffer!.itemCount === 1 ? "" : "s"} · pack{" "}
+                        <span className="font-medium text-foreground">{formatPrice(packOffer!.packCents)}</span>
+                        {packOffer!.packSavingsCents > 0 ? (
+                          <>
+                            {" "}
+                            <span className="line-through">{formatPrice(packOffer!.totalCents)}</span> if bought
+                            separately
+                          </>
+                        ) : null}
+                      </p>
+                      {packOffer!.ownedCount > 0 ? (
+                        <p className="mt-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                          You already own {packOffer!.ownedCount} item
+                          {packOffer!.ownedCount === 1 ? "" : "s"} — pack price is reduced by what you&apos;ve
+                          already paid ({formatPrice(packOffer!.ownedCents)}).
+                        </p>
+                      ) : null}
+                    </button>
+                  ) : null}
+                  {showSeriesChoice ? (
                   <button
                     type="button"
                     onClick={() => onChoiceChange("series")}
@@ -156,6 +207,7 @@ export function MarketplaceVaultCheckoutDialog({
                       </p>
                     ) : null}
                   </button>
+                  ) : null}
                 </div>
               ) : product ? (
                 <p className="text-sm text-muted-foreground">
