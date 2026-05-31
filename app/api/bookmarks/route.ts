@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import { fetchLawSummariesByIds } from "@/lib/law-summaries";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
-/** GET: fetch user's bookmarked laws */
+/** GET: fetch user's bookmarked laws (`?with_laws=1` includes card metadata in one response). */
 export async function GET(request: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json({ bookmarks: [] });
+      return NextResponse.json({ bookmarks: [], laws: [] });
     }
 
+    const withLaws = new URL(request.url).searchParams.get("with_laws") === "1";
     const supabase = getSupabaseServer();
     const { data, error } = await supabase
       .from("law_bookmarks")
@@ -22,7 +24,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch bookmarks" }, { status: 500 });
     }
 
-    return NextResponse.json({ bookmarks: data ?? [] });
+    const bookmarks = (data ?? []) as Array<{ law_id: string; created_at: string }>;
+    if (!withLaws || bookmarks.length === 0) {
+      return NextResponse.json({ bookmarks, laws: withLaws ? [] : undefined });
+    }
+
+    const lawIds = bookmarks.map((b) => b.law_id);
+    const laws = await fetchLawSummariesByIds(supabase, lawIds);
+    return NextResponse.json({ bookmarks, laws });
   } catch (err) {
     console.error("Bookmarks GET error:", err);
     return NextResponse.json({ error: "Failed to fetch bookmarks" }, { status: 500 });
