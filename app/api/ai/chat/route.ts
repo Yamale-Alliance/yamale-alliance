@@ -123,6 +123,7 @@ import {
   validateAiChatRequest,
 } from "@/lib/ai-abuse-caps";
 import { getClaudeTimeoutMs } from "@/lib/ai-chat-route-limits";
+import { AI_RESEARCH_ENGINE_SOURCE_LABEL } from "@/lib/ai-research-source-cards";
 import { captureAiChatError, captureClaudeApiError } from "@/lib/monitoring";
 import {
   fetchFullLibraryLawRows,
@@ -3150,11 +3151,11 @@ async function finalizeAssistantTurn(opts: {
               })
             )
           ),
-          "Claude AI · African Legal Research",
+          AI_RESEARCH_ENGINE_SOURCE_LABEL,
         ]
       : legalContext.length > 0
-        ? ["Claude AI · African Legal Research"]
-        : ["Claude AI · African Legal Research"];
+        ? [AI_RESEARCH_ENGINE_SOURCE_LABEL]
+        : [AI_RESEARCH_ENGINE_SOURCE_LABEL];
 
   const sourceCardsRaw = displayedSlots.map(({ law, idx, usedInAnswer }) => {
     const isMethodology = isInternalLibraryForUserDisplay(
@@ -4060,7 +4061,7 @@ export async function POST(request: NextRequest) {
             } else if (claudeRes.status === 400) {
               errorMessage = errorData.error?.message || "Invalid request format.";
             } else if (claudeRes.status >= 500) {
-              errorMessage = "Claude API is temporarily unavailable. Please try again later.";
+              errorMessage = "AI service is temporarily unavailable. Please try again later.";
             }
 
             push("error", { error: errorMessage, details: errorData });
