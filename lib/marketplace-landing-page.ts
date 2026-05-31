@@ -461,7 +461,7 @@ export function rewriteEnrollmentContactAnchors(html: string): string {
   out = out.replace(/\bhref=(["'])contact\1/gi, `href=$1${lawFirmAdvisoryMailto()}$1`);
 
   out = out.replace(
-    /<a\b([^>]*)\bhref=(["'])mailto:info@yamalealliance\.org\/?\2([^>]*)>([\s\S]*?)<\/a>/gi,
+    /<a\b([^>]*)\bhref=(["'])mailto:(?:info@yamaleadvisory\.com|info@yamalealliance\.org)\/?\2([^>]*)>([\s\S]*?)<\/a>/gi,
     (full, before: string, quote: string, after: string, inner: string) => {
       const text = inner.replace(/<[^>]+>/g, " ").toLowerCase();
       let tier: LawFirmEnrollmentTier | null = null;
