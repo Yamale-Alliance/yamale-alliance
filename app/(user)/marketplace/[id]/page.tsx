@@ -29,6 +29,12 @@ import {
 } from "@/lib/marketplace-payment-return";
 import { shouldUseVaultPackagePage } from "@/lib/marketplace-zip-package";
 import { displayVaultProductTitle } from "@/lib/marketplace-display";
+import { isPaidVaultSubcategory, type VaultSubcategoryId } from "@/lib/marketplace-vault-categories";
+import type { MarketplaceSeriesOffer } from "@/lib/marketplace-series-offers";
+import {
+  MarketplaceVaultCheckoutDialog,
+  type MarketplaceVaultCheckoutChoice,
+} from "@/components/marketplace/MarketplaceVaultCheckoutDialog";
 
 const BRAND = {
   dark: "#221913",
@@ -55,6 +61,7 @@ type Item = {
   video_url?: string | null;
   landing_page_html?: string | null;
   package_offers?: unknown;
+  vault_subcategory?: string | null;
 };
 
 function TypeIcon({ type }: { type: string }) {
@@ -119,6 +126,9 @@ export default function MarketplaceItemPage() {
   const [ratingError, setRatingError] = useState<string | null>(null);
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutChoice, setCheckoutChoice] = useState<MarketplaceVaultCheckoutChoice>("item");
+  const [seriesOffer, setSeriesOffer] = useState<MarketplaceSeriesOffer | null>(null);
 
   const lomiAvailable =
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
@@ -254,26 +264,59 @@ export default function MarketplaceItemPage() {
       .catch(() => setIsInCart(false));
   }, [isSignedIn, id]);
 
-  const handlePurchase = async () => {
+  useEffect(() => {
+    if (!item?.vault_subcategory || !isPaidVaultSubcategory(item.vault_subcategory)) {
+      setSeriesOffer(null);
+      return;
+    }
+    const seriesId = item.vault_subcategory.trim() as VaultSubcategoryId;
+    fetch(`/api/marketplace/series/${seriesId}/offer`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data: { offer?: MarketplaceSeriesOffer }) => {
+        setSeriesOffer(data.offer ?? null);
+      })
+      .catch(() => setSeriesOffer(null));
+  }, [item?.vault_subcategory, item?.purchased]);
+
+  const handlePurchase = () => {
     if (!item || item.price_cents <= 0) return;
     if (!isLoaded) return;
     if (!isSignedIn) {
       router.push(`/sign-in?redirect_url=${encodeURIComponent(`/marketplace/${id}`)}`);
       return;
     }
+    setCheckoutChoice("item");
+    setCheckoutOpen(true);
+  };
+
+  const submitCheckout = async () => {
+    if (!item) return;
     setPurchasing(true);
     setError(null);
     try {
-      const res = await fetch("/api/payments/marketplace-checkout", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          itemId: item.id,
-          provider: paymentProvider,
-          ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
-        }),
-      });
+      const useSeries =
+        checkoutChoice === "series" &&
+        item.vault_subcategory &&
+        seriesOffer &&
+        !seriesOffer.fullyOwned;
+      const res = await fetch(
+        useSeries ? "/api/payments/marketplace-series-checkout" : "/api/payments/marketplace-checkout",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...(useSeries
+              ? {
+                  seriesId: item.vault_subcategory,
+                  success_path: "/marketplace",
+                }
+              : { itemId: item.id }),
+            provider: paymentProvider,
+            ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
+          }),
+        }
+      );
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Checkout failed");
@@ -455,6 +498,22 @@ export default function MarketplaceItemPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      <MarketplaceVaultCheckoutDialog
+        open={checkoutOpen}
+        onOpenChange={setCheckoutOpen}
+        product={item ? { id: item.id, title: item.title, price_cents: item.price_cents } : null}
+        seriesOffer={seriesOffer}
+        choice={checkoutChoice}
+        onChoiceChange={setCheckoutChoice}
+        paymentProvider={paymentProvider}
+        onPaymentProviderChange={setPaymentProvider}
+        pawapayPaymentCountry={pawapayPaymentCountry}
+        onPawapayPaymentCountryChange={setPawapayPaymentCountry}
+        lomiAvailable={lomiAvailable}
+        lomiComingSoon={lomiComingSoon}
+        loading={purchasing}
+        onCheckout={() => void submitCheckout()}
+      />
       {landingHtml ? (
         <div className="sticky top-0 z-20 border-b border-border bg-background/90 px-4 py-2.5 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
           <div className="mx-auto flex max-w-7xl items-center gap-3 sm:gap-4">
