@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Loader2, X } from "lucide-react";
 import {
@@ -60,14 +61,23 @@ export function MarketplaceVaultCheckoutDialog({
   onCheckout,
 }: Props) {
   const showSeriesChoice = Boolean(seriesOffer && !seriesOffer.fullyOwned && seriesOffer.remainingCount > 0);
-  const showPackChoice = Boolean(packOffer && !packOffer.fullyOwned && packOffer.remainingCount > 0);
-  const showPurchaseChoice = showSeriesChoice || showPackChoice;
+  const showPackChoice = Boolean(packOffer?.packEligible);
+  const showPackIneligibleNotice = Boolean(
+    packOffer && !packOffer.fullyOwned && !packOffer.packEligible && packOffer.ownedCount > 0
+  );
+  const showPurchaseChoice = showSeriesChoice || showPackChoice || Boolean(product);
   const activeCents =
     choice === "series" && seriesOffer
       ? seriesOffer.chargeCents
-      : choice === "pack" && packOffer
+      : choice === "pack" && packOffer?.packEligible
         ? packOffer.chargeCents
         : product?.price_cents ?? 0;
+
+  useEffect(() => {
+    if (choice === "pack" && packOffer && !packOffer.packEligible) {
+      onChoiceChange("item");
+    }
+  }, [choice, packOffer, onChoiceChange]);
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -132,14 +142,14 @@ export function MarketplaceVaultCheckoutDialog({
                     >
                       <p className="text-xs font-semibold uppercase tracking-wide text-[#8a6518] dark:text-[#e3ba65]">
                         {packOffer!.label}
-                        {packOffer!.packSavingsCents > 0 && packOffer!.ownedCount === 0 ? (
+                        {packOffer!.packSavingsCents > 0 ? (
                           <span className="ml-2 normal-case text-emerald-700 dark:text-emerald-300">
                             Save {formatPrice(packOffer!.packSavingsCents)}
                           </span>
                         ) : null}
                       </p>
                       <p className="mt-2 text-2xl font-semibold text-foreground">
-                        {formatPrice(packOffer!.chargeCents)}
+                        {formatPrice(packOffer!.packCents)}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {packOffer!.itemCount} item{packOffer!.itemCount === 1 ? "" : "s"} · pack{" "}
@@ -152,14 +162,28 @@ export function MarketplaceVaultCheckoutDialog({
                           </>
                         ) : null}
                       </p>
-                      {packOffer!.ownedCount > 0 ? (
-                        <p className="mt-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                          You already own {packOffer!.ownedCount} item
-                          {packOffer!.ownedCount === 1 ? "" : "s"} — pack price is reduced by what you&apos;ve
-                          already paid ({formatPrice(packOffer!.ownedCents)}).
-                        </p>
-                      ) : null}
+                      <ul className="mt-3 space-y-1 border-t border-border/60 pt-3">
+                        {packOffer!.items.map((line) => (
+                          <li key={line.id} className="text-xs text-foreground/90">
+                            · {displayVaultProductTitle(line.title)}
+                          </li>
+                        ))}
+                      </ul>
                     </button>
+                  ) : null}
+                  {showPackIneligibleNotice ? (
+                    <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs text-amber-950 dark:text-amber-100">
+                      <p className="font-medium">Bundle price unavailable</p>
+                      <p className="mt-1 text-amber-900/90 dark:text-amber-100/90">
+                        You already own{" "}
+                        {packOffer!.items
+                          .filter((i) => i.owned)
+                          .map((i) => displayVaultProductTitle(i.title))
+                          .join(", ")}
+                        . The bundle is only offered when you purchase all paired documents together — buy any
+                        remaining items individually instead.
+                      </p>
+                    </div>
                   ) : null}
                   {showSeriesChoice ? (
                   <button
