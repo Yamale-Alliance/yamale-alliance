@@ -5,6 +5,7 @@ import { recordAuditLog } from "@/lib/admin-audit";
 import type { Database } from "@/lib/database.types";
 import { parseLandingPageHtmlInput } from "@/lib/marketplace-landing-page";
 import { parseItemPackageOffersInput } from "@/lib/marketplace-package-offers";
+import { parseItemPackInput } from "@/lib/marketplace-item-packs";
 import { isFreeVaultItem, isPaidVaultSubcategory, resolveVaultSubcategoryForSave } from "@/lib/marketplace-vault-categories";
 
 type Update = Database["public"]["Tables"]["marketplace_items"]["Update"];
@@ -63,6 +64,7 @@ export async function PUT(
       video_url,
       landing_page_html,
       package_offers,
+      item_pack,
       vault_subcategory,
     } = body;
 
@@ -98,6 +100,9 @@ export async function PUT(
     }
     if (package_offers !== undefined) {
       updates.package_offers = parseItemPackageOffersInput(package_offers);
+    }
+    if (item_pack !== undefined) {
+      updates.item_pack = parseItemPackInput(item_pack);
     }
     updates.updated_at = new Date().toISOString();
 
