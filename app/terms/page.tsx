@@ -9,6 +9,7 @@ import {
   PolicySectionHeading,
   PolicyUpdatedBanner,
 } from "@/components/legal/policy-document-primitives";
+import { PLATFORM_BUSINESS_EMAIL } from "@/lib/platform-emails";
 import { createPageMetadata } from "@/lib/site-seo";
 
 export const metadata = createPageMetadata({
@@ -196,7 +197,7 @@ export default function TermsOfServicePage() {
 
           <PolicySectionHeading number="15" title="Contact" />
           <PolicyP>
-            For questions about these Terms, contact us at <PolicyMailLink email="info@yamalealliance.org" />.
+            For questions about these Terms, contact us at <PolicyMailLink email={PLATFORM_BUSINESS_EMAIL} />.
           </PolicyP>
 
           <PolicyUpdatedBanner>
