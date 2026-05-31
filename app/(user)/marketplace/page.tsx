@@ -551,7 +551,7 @@ export default function MarketplacePage() {
     try {
       const useSeries =
         checkoutChoice === "series" && buyModalSeriesId && buyModalSeriesOffer && !buyModalSeriesOffer.fullyOwned;
-      const usePack = checkoutChoice === "pack" && buyModalPackOffer && !buyModalPackOffer.fullyOwned;
+      const usePack = checkoutChoice === "pack" && buyModalPackOffer?.packEligible;
       const checkoutUrl = useSeries
         ? "/api/payments/marketplace-series-checkout"
         : usePack
