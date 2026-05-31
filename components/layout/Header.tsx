@@ -9,7 +9,13 @@ import { Loader2 } from "lucide-react";
 import { isClerkConfigured } from "@/lib/clerk-config";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
-import { prototypeNavHeaderClass, prototypeNavInnerClass, prototypeNavLinkClass } from "./prototype-nav-styles";
+import {
+  prototypeNavGhostClass,
+  prototypeNavHeaderClass,
+  prototypeNavInnerClass,
+  prototypeNavLinkClass,
+  prototypeNavSignUpClass,
+} from "./prototype-nav-styles";
 import { userNavLinks } from "./nav-config";
 
 function isActivePath(pathname: string | null, href: string): boolean {
@@ -31,7 +37,19 @@ const AdminHeader = dynamic(() => import("./AdminHeader").then((m) => ({ default
 
 type UserRole = "user" | "lawyer" | "admin";
 
-function HeaderNavSkeleton() {
+function isFastPublicNav(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return (
+    pathname.startsWith("/library") ||
+    pathname.startsWith("/lawyers") ||
+    pathname.startsWith("/afcfta") ||
+    pathname.startsWith("/marketplace") ||
+    pathname === "/pricing" ||
+    pathname === "/ai-research"
+  );
+}
+
+function HeaderNavSkeleton({ showAuthLinks = false }: { showAuthLinks?: boolean }) {
   const pathname = usePathname();
   return (
     <header className={`yamale-site-chrome ${prototypeNavHeaderClass}`}>
@@ -51,20 +69,33 @@ function HeaderNavSkeleton() {
         </nav>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted/80">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          </span>
+          {showAuthLinks ? (
+            <>
+              <Link href="/login" className={prototypeNavGhostClass}>
+                Sign in
+              </Link>
+              <Link href="/signup" className={prototypeNavSignUpClass}>
+                Sign up
+              </Link>
+            </>
+          ) : (
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted/80">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </span>
+          )}
         </div>
       </div>
     </header>
   );
 }
 
-const CLERK_LOAD_TIMEOUT_MS = 6000;
+const CLERK_LOAD_TIMEOUT_MS = 2500;
 
 export function Header() {
+  const pathname = usePathname();
   const { isLoaded, isSignedIn, user } = useUser();
   const [loadTimedOut, setLoadTimedOut] = useState(false);
+  const fastPublic = isFastPublicNav(pathname);
 
   useEffect(() => {
     if (isLoaded || !isClerkConfigured()) return;
@@ -77,7 +108,7 @@ export function Header() {
   }
 
   if (!isLoaded) {
-    return <HeaderNavSkeleton />;
+    return <HeaderNavSkeleton showAuthLinks={fastPublic} />;
   }
 
   if (!isSignedIn || !user) {
