@@ -1,6 +1,7 @@
 import {
   PolicyBulletList,
   PolicyCallout,
+  PolicyContactBlock,
   PolicyFooterNav,
   PolicyHero,
   PolicyLabelBlock,
@@ -10,6 +11,7 @@ import {
   PolicySubHeading,
   PolicyUpdatedBanner,
 } from "@/components/legal/policy-document-primitives";
+import { PLATFORM_TECHNICAL_EMAIL } from "@/lib/platform-emails";
 import { createPageMetadata } from "@/lib/site-seo";
 
 export const metadata = createPageMetadata({
@@ -137,7 +139,7 @@ export default function PrivacyPolicyPage() {
           <PolicyP>If you contact us for support or inquiries:</PolicyP>
           <PolicyBulletList
             items={[
-              "Email correspondence with our support team (it@yamalealliance.org)",
+              `Email correspondence with our support team (${PLATFORM_TECHNICAL_EMAIL})`,
               "Customer support tickets and chat messages",
               "Feedback and survey responses",
               "Messages sent through the Platform",
@@ -253,7 +255,7 @@ export default function PrivacyPolicyPage() {
               "Authentication services (e.g., Clerk, Auth0) — to manage user accounts and login",
               "Database and storage providers (e.g., Supabase, AWS) — to store Platform data and documents",
               "Payment processors (e.g., pawaPay, mobile money providers) — to process subscription and unlock payments",
-              "AI providers (e.g., Anthropic Claude) — to power our AI legal research features",
+              "AI providers (e.g., Anthropic) — to power our AI legal research features",
               "Email service providers — to send transactional and notification emails",
               "Analytics providers — to understand Platform usage and performance",
               "Cloud infrastructure providers — to host and operate the Platform",
@@ -450,7 +452,7 @@ export default function PrivacyPolicyPage() {
             You can update most of your account information directly through your profile settings.
             For lawyer profiles, you can update your practice information, contact details, and other
             profile data. If you cannot update information yourself, contact us at{" "}
-            <PolicyMailLink email="it@yamalealliance.org" />
+            <PolicyMailLink email={PLATFORM_TECHNICAL_EMAIL} />
             .
           </PolicyP>
 
@@ -459,7 +461,7 @@ export default function PrivacyPolicyPage() {
             You may request deletion of your personal information, subject to certain exceptions
             (e.g., legal obligations, fraud prevention, transaction records). To delete your account,
             contact us at{" "}
-            <PolicyMailLink email="it@yamalealliance.org" />
+            <PolicyMailLink email={PLATFORM_TECHNICAL_EMAIL} />
             .
           </PolicyP>
           <PolicyCallout label="Note for Lawyers">
@@ -498,7 +500,7 @@ export default function PrivacyPolicyPage() {
           <PolicySubHeading number="7.8" title="How to Exercise Your Rights" />
           <PolicyP>
             To exercise any of these rights, please contact us at{" "}
-            <PolicyMailLink email="it@yamalealliance.org" />
+            <PolicyMailLink email={PLATFORM_TECHNICAL_EMAIL} />
             . We will respond to your request within the timeframe required by applicable law
             (typically 30 days). We may need to verify your identity before processing your request.
           </PolicyP>
@@ -599,7 +601,7 @@ export default function PrivacyPolicyPage() {
           <PolicyP>
             If you are a parent or guardian and believe your child has provided personal information to
             us, please contact us immediately at{" "}
-            <PolicyMailLink email="it@yamalealliance.org" />
+            <PolicyMailLink email={PLATFORM_TECHNICAL_EMAIL} />
             . Upon verification, we will promptly delete such information from our systems.
           </PolicyP>
 
@@ -609,20 +611,18 @@ export default function PrivacyPolicyPage() {
             If you have questions, concerns, or requests regarding this Privacy Policy or our data
             practices, please contact us:
           </PolicyP>
-          <div className="my-4 rounded-lg border border-border bg-gray-50 dark:bg-muted/30 p-5 space-y-2 text-[15px]">
+          <PolicyContactBlock>
             <p>
-              <strong className="text-[#603b1c] dark:text-[#e3ba65]">Email:</strong>{" "}
-              <PolicyMailLink email="it@yamalealliance.org" />
+              <strong>Email:</strong> <PolicyMailLink email={PLATFORM_TECHNICAL_EMAIL} />
             </p>
             <p>
-              <strong className="text-[#603b1c] dark:text-[#e3ba65]">Subject Line:</strong> Privacy Inquiry — [Your
-              Topic]
+              <strong>Subject Line:</strong> Privacy Inquiry — [Your Topic]
             </p>
-          </div>
+          </PolicyContactBlock>
           <PolicyLabelBlock label="Data Protection Officer">
             For GDPR or other data protection inquiries, you may request to speak with our Data
             Protection Officer by emailing{" "}
-            <PolicyMailLink email="it@yamalealliance.org" />{" "}
+            <PolicyMailLink email={PLATFORM_TECHNICAL_EMAIL} />{" "}
             with the subject line &ldquo;Attention: DPO&rdquo;.
           </PolicyLabelBlock>
           <PolicyLabelBlock label="Response Time">
@@ -720,7 +720,7 @@ export default function PrivacyPolicyPage() {
           </PolicyLabelBlock>
           <PolicyLabelBlock label="How to Exercise">
             Contact us at{" "}
-            <PolicyMailLink email="it@yamalealliance.org" />{" "}
+            <PolicyMailLink email={PLATFORM_TECHNICAL_EMAIL} />{" "}
             with &ldquo;California Privacy Rights&rdquo; in the subject line. We will verify your
             identity before processing your request.
           </PolicyLabelBlock>
@@ -756,7 +756,7 @@ export default function PrivacyPolicyPage() {
             <PolicyBulletList items={["Obtain human intervention", "Express your point of view", "Contest the decision"]} />
             <p>
               Contact us at{" "}
-              <PolicyMailLink email="it@yamalealliance.org" />{" "}
+              <PolicyMailLink email={PLATFORM_TECHNICAL_EMAIL} />{" "}
               if you have concerns about automated processing.
             </p>
           </PolicyLabelBlock>
@@ -773,7 +773,7 @@ export default function PrivacyPolicyPage() {
           </PolicyP>
           <PolicyUpdatedBanner>
             This Privacy Policy was last updated on <strong>February 12, 2026</strong>. For questions or concerns,
-            contact: <PolicyMailLink email="it@yamalealliance.org" />
+            contact: <PolicyMailLink email={PLATFORM_TECHNICAL_EMAIL} />
           </PolicyUpdatedBanner>
         </div>
 
