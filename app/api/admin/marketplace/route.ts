@@ -5,6 +5,7 @@ import { recordAuditLog } from "@/lib/admin-audit";
 import type { Database } from "@/lib/database.types";
 import { parseLandingPageHtmlInput } from "@/lib/marketplace-landing-page";
 import { parseItemPackageOffersInput } from "@/lib/marketplace-package-offers";
+import { parseItemPackInput } from "@/lib/marketplace-item-packs";
 import { resolveVaultSubcategoryForSave } from "@/lib/marketplace-vault-categories";
 
 type Insert = Database["public"]["Tables"]["marketplace_items"]["Insert"];
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest) {
       video_url = null,
       landing_page_html,
       package_offers,
+      item_pack,
       vault_subcategory,
     } = body as {
       type?: string;
@@ -73,6 +75,7 @@ export async function POST(request: NextRequest) {
       video_url?: string | null;
       landing_page_html?: string | null;
       package_offers?: unknown;
+      item_pack?: unknown;
       vault_subcategory?: string | null;
     };
 
@@ -111,6 +114,7 @@ export async function POST(request: NextRequest) {
       video_url: typeof video_url === "string" && video_url ? video_url.trim() : null,
       landing_page_html: landingHtml,
       package_offers: parseItemPackageOffersInput(package_offers),
+      item_pack: parseItemPackInput(item_pack),
       vault_subcategory: resolveVaultSubcategoryForSave(price, vault_subcategory),
     };
 
