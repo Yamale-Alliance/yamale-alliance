@@ -12,14 +12,12 @@ import {
   Check,
   Loader2,
   ShoppingCart,
-  X,
   Package,
   LayoutGrid,
   Gift,
 } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
-import * as Dialog from "@radix-ui/react-dialog";
 import { useAlertDialog } from "@/components/ui/use-confirm";
 import {
   PROTOTYPE_HERO_GRID_PATTERN,
@@ -27,22 +25,30 @@ import {
   prototypeNavyHeroSectionClass,
 } from "@/components/layout/prototype-page-styles";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
-import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
-import {
-  PaymentMethodPicker,
-  type CheckoutPaymentProvider,
-} from "@/components/checkout/PaymentMethodPicker";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { useMarketplacePaymentReturn } from "@/components/marketplace/use-marketplace-payment-return";
 import { notifyMarketplaceCartUpdated } from "@/lib/marketplace-cart-events";
-import { displayVaultProductTitle } from "@/lib/marketplace-display";
+import {
+  MarketplaceVaultCheckoutDialog,
+  type MarketplaceVaultCheckoutChoice,
+} from "@/components/marketplace/MarketplaceVaultCheckoutDialog";
+import type { CheckoutPaymentProvider } from "@/components/checkout/PaymentMethodPicker";
 import {
   VAULT_BROWSE_FREE,
-  VAULT_FREE_SUBCATEGORIES,
+  VAULT_SUBCATEGORIES,
+  compareVaultSeriesOrder,
   isFreeVaultItem,
+  isPaidVaultSubcategory,
   labelForVaultSubcategory,
-  parseVaultFreeSeriesParam,
+  parseVaultSeriesParam,
+  shouldCollapseVaultSeries,
+  shouldGroupVaultItem,
+  type VaultSubcategoryId,
 } from "@/lib/marketplace-vault-categories";
+import {
+  computeSeriesOfferFromBrowseItems,
+  type MarketplaceSeriesOffer,
+} from "@/lib/marketplace-series-offers";
 import { MarketplaceProductCard } from "@/components/marketplace/MarketplaceProductCard";
 import {
   VAULT_SORT_OPTIONS,
@@ -64,12 +70,13 @@ type ProductCategory = "book" | "course" | "template" | "guide";
 type BrowseMode =
   | { kind: "all" }
   | { kind: "type"; type: ProductCategory }
-  | { kind: "free"; subcategory: string | null };
+  | { kind: "free"; subcategory: VaultSubcategoryId | null };
 
 function parseBrowseMode(categoryParam: string | null, seriesParam: string | null): BrowseMode {
-  if (!categoryParam || categoryParam === "all") return { kind: "all" };
+  if (!categoryParam || categoryParam === "all" || categoryParam === "series") return { kind: "all" };
   if (categoryParam === VAULT_BROWSE_FREE) {
-    return { kind: "free", subcategory: parseVaultFreeSeriesParam(seriesParam) };
+    const sub = parseVaultSeriesParam(seriesParam);
+    return { kind: "free", subcategory: sub && !isPaidVaultSubcategory(sub) ? sub : null };
   }
   if (categoryParam === "book" || categoryParam === "course" || categoryParam === "template" || categoryParam === "guide") {
     return { kind: "type", type: categoryParam };
@@ -110,7 +117,7 @@ function normalizeSeriesImages(items: Product[]): Product[] {
   const sharedImageBySubcategory = new Map<string, string>();
 
   for (const item of items) {
-    if (!isFreeVaultItem(item.price_cents)) continue;
+    if (!shouldGroupVaultItem(item)) continue;
     const sub = item.vault_subcategory?.trim();
     if (!sub) continue;
     if (sharedImageBySubcategory.has(sub)) continue;
@@ -121,7 +128,7 @@ function normalizeSeriesImages(items: Product[]): Product[] {
   if (!sharedImageBySubcategory.size) return items;
 
   return items.map((item) => {
-    if (!isFreeVaultItem(item.price_cents)) return item;
+    if (!shouldGroupVaultItem(item)) return item;
     const sub = item.vault_subcategory?.trim();
     if (!sub) return item;
     const shared = sharedImageBySubcategory.get(sub);
@@ -201,6 +208,9 @@ export default function MarketplacePage() {
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
   const [buyModalProduct, setBuyModalProduct] = useState<Product | null>(null);
+  const [buyModalSeriesOffer, setBuyModalSeriesOffer] = useState<MarketplaceSeriesOffer | null>(null);
+  const [buyModalSeriesId, setBuyModalSeriesId] = useState<VaultSubcategoryId | null>(null);
+  const [checkoutChoice, setCheckoutChoice] = useState<MarketplaceVaultCheckoutChoice>("item");
   const [buyCheckoutLoading, setBuyCheckoutLoading] = useState(false);
   const [expandedSeriesKey, setExpandedSeriesKey] = useState<string | null>(null);
 
@@ -262,6 +272,7 @@ export default function MarketplacePage() {
     for (const p of items) {
       if (!isFreeVaultItem(p.price_cents)) continue;
       const key = p.vault_subcategory?.trim() || "";
+      if (!key || isPaidVaultSubcategory(key)) continue;
       m.set(key, (m.get(key) ?? 0) + 1);
     }
     return m;
@@ -360,65 +371,54 @@ export default function MarketplacePage() {
     () => sortVaultProducts(filteredByTopic, vaultSort),
     [filteredByTopic, vaultSort]
   );
-  const browseSeries = browse.kind === "free" ? browse.subcategory : null;
 
   const { displayCards, seriesMembersByKey } = useMemo(() => {
-    const shouldGroupSeries = browse.kind === "all" || (browse.kind === "free" && !browse.subcategory);
-    if (!shouldGroupSeries) {
+    const freeSubcategory = browse.kind === "free" ? browse.subcategory : null;
+    const collapseSeries = shouldCollapseVaultSeries(
+      browse.kind === "free" ? "free" : browse.kind === "type" ? "type" : "all",
+      freeSubcategory
+    );
+
+    if (!collapseSeries) {
       return {
         displayCards: sortedProducts.map((product) => ({ product })) as DisplayProductCard[],
         seriesMembersByKey: new Map<string, Product[]>(),
       };
     }
 
-    const cards: DisplayProductCard[] = [];
     const membersByKey = new Map<string, Product[]>();
-    const cardIndexBySeries = new Map<string, number>();
+    const regularProducts: Product[] = [];
 
     for (const product of sortedProducts) {
       const subcategory = product.vault_subcategory?.trim() ?? "";
-      if (!isFreeVaultItem(product.price_cents) || !subcategory) {
-        cards.push({ product });
-        continue;
-      }
-
-      let members = membersByKey.get(subcategory);
-      if (!members) {
-        members = [];
-        membersByKey.set(subcategory, members);
-        const label = labelForVaultSubcategory(subcategory) ?? "Series";
-        cardIndexBySeries.set(subcategory, cards.length);
-        cards.push({
-          product,
-          collectionLabel: label,
-          collectionCount: 1,
-          seriesKey: subcategory,
-        });
-      } else {
+      if (shouldGroupVaultItem(product) && subcategory) {
+        const members = membersByKey.get(subcategory) ?? [];
         members.push(product);
-        const idx = cardIndexBySeries.get(subcategory);
-        if (idx !== undefined) {
-          const existing = cards[idx];
-          cards[idx] = {
-            ...existing,
-            collectionCount: (existing.collectionCount ?? 1) + 1,
-          };
-        }
-        continue;
+        membersByKey.set(subcategory, members);
+      } else {
+        regularProducts.push(product);
       }
-      members.push(product);
     }
 
-    for (const card of cards) {
-      if (!card.seriesKey) continue;
-      const members = membersByKey.get(card.seriesKey) ?? [];
-      card.collectionCount = members.length;
-      const coverProduct = members.find((m) => m.image_url) ?? members[0];
-      if (coverProduct) card.product = coverProduct;
-    }
+    const seriesCards: DisplayProductCard[] = Array.from(membersByKey.entries())
+      .sort(([a], [b]) => compareVaultSeriesOrder(a, b))
+      .map(([subcategory, members]) => {
+        const coverProduct = members.find((m) => m.image_url) ?? members[0];
+        return {
+          product: coverProduct,
+          collectionLabel: labelForVaultSubcategory(subcategory) ?? "Series",
+          collectionCount: members.length,
+          seriesKey: subcategory,
+        };
+      });
 
-    return { displayCards: cards, seriesMembersByKey: membersByKey };
-  }, [browse.kind, browseSeries, sortedProducts, vaultSort]);
+    const regularCards: DisplayProductCard[] = regularProducts.map((product) => ({ product }));
+
+    return {
+      displayCards: [...seriesCards, ...regularCards],
+      seriesMembersByKey: membersByKey,
+    };
+  }, [browse, sortedProducts]);
 
   const toggleSeries = useCallback((seriesKey: string) => {
     setExpandedSeriesKey((prev) => (prev === seriesKey ? null : seriesKey));
@@ -436,6 +436,14 @@ export default function MarketplacePage() {
           ? (labelForVaultSubcategory(browse.subcategory) ?? "Free")
           : "Free"
         : FORMAT_TILES.find((t) => t.param === browse.type)?.label ?? browse.type;
+
+  const closeBuyModal = () => {
+    setBuyModalProduct(null);
+    setBuyModalSeriesOffer(null);
+    setBuyModalSeriesId(null);
+    setBuyCheckoutLoading(false);
+    setCheckoutChoice("item");
+  };
 
   const handleAddToCart = async (productId: string, e: React.MouseEvent) => {
     e.preventDefault();
@@ -496,22 +504,58 @@ export default function MarketplacePage() {
       return;
     }
     setBuyModalProduct(product);
+    setCheckoutChoice("item");
+    const seriesId = product.vault_subcategory?.trim();
+    if (seriesId && isPaidVaultSubcategory(seriesId)) {
+      const members = items.filter((p) => p.vault_subcategory === seriesId);
+      const offer = computeSeriesOfferFromBrowseItems(seriesId as VaultSubcategoryId, members);
+      setBuyModalSeriesOffer(offer);
+      setBuyModalSeriesId(seriesId as VaultSubcategoryId);
+    } else {
+      setBuyModalSeriesOffer(null);
+      setBuyModalSeriesId(null);
+    }
+  };
+
+  const openSeriesBuyModal = (seriesId: VaultSubcategoryId, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isSignedIn) {
+      window.location.href = `/sign-in?redirect_url=${encodeURIComponent("/marketplace")}`;
+      return;
+    }
+    const members = items.filter((p) => p.vault_subcategory === seriesId);
+    const offer = computeSeriesOfferFromBrowseItems(seriesId, members);
+    setBuyModalProduct(null);
+    setBuyModalSeriesOffer(offer);
+    setBuyModalSeriesId(seriesId);
+    setCheckoutChoice("series");
   };
 
   const submitBuyCheckout = async () => {
-    if (!buyModalProduct) return;
+    if (!buyModalProduct && !buyModalSeriesId) return;
     setBuyCheckoutLoading(true);
     try {
-      const res = await fetch("/api/payments/marketplace-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          itemId: buyModalProduct.id,
-          provider: paymentProvider,
-          ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
-        }),
-      });
+      const useSeries =
+        checkoutChoice === "series" && buyModalSeriesId && buyModalSeriesOffer && !buyModalSeriesOffer.fullyOwned;
+      const res = await fetch(
+        useSeries ? "/api/payments/marketplace-series-checkout" : "/api/payments/marketplace-checkout",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            ...(useSeries
+              ? {
+                  seriesId: buyModalSeriesId,
+                  success_path: "/marketplace",
+                }
+              : { itemId: buyModalProduct!.id }),
+            provider: paymentProvider,
+            ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
+          }),
+        }
+      );
       const data = await res.json();
       if (res.ok && data.url) {
         window.location.href = data.url as string;
@@ -528,99 +572,24 @@ export default function MarketplacePage() {
   return (
     <div className="min-h-screen bg-background">
       {alertDialog}
-      <Dialog.Root
-        open={buyModalProduct != null}
+      <MarketplaceVaultCheckoutDialog
+        open={buyModalProduct != null || buyModalSeriesId != null}
         onOpenChange={(open) => {
-          if (!open) {
-            setBuyModalProduct(null);
-            setBuyCheckoutLoading(false);
-          }
+          if (!open) closeBuyModal();
         }}
-      >
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm print:hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-[101] flex max-h-[min(90vh,640px)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-border bg-card shadow-2xl print:hidden focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
-            <div className="border-b border-border px-5 py-4 pr-12">
-              <Dialog.Title className="text-lg font-semibold tracking-tight text-foreground">
-                Choose payment method
-              </Dialog.Title>
-              {buyModalProduct ? (
-                <Dialog.Description asChild>
-                  <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                    <p className="font-sans font-medium leading-snug text-foreground line-clamp-3" title={buyModalProduct.title}>
-                      {displayVaultProductTitle(buyModalProduct.title)}
-                    </p>
-                    <p>
-                      {buyModalProduct.price_cents === 0
-                        ? "Free"
-                        : `$${(buyModalProduct.price_cents / 100).toFixed(2)}`}
-                    </p>
-                  </div>
-                </Dialog.Description>
-              ) : (
-                <Dialog.Description className="mt-2 text-sm text-muted-foreground">
-                  Select how you would like to pay.
-                </Dialog.Description>
-              )}
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-              <div className="space-y-4">
-                {lomiAvailable && (
-                  <PaymentMethodPicker
-                    value={paymentProvider}
-                    onChange={setPaymentProvider}
-                    lomiAvailable={lomiAvailable}
-                    lomiComingSoon={lomiComingSoon}
-                  />
-                )}
-                {paymentProvider === "pawapay" && (
-                  <PawapayCountrySelect
-                    label="Mobile money country"
-                    value={pawapayPaymentCountry}
-                    onChange={setPawapayPaymentCountry}
-                  />
-                )}
-              </div>
-            </div>
-            <div className="flex flex-wrap justify-end gap-2 border-t border-border bg-muted/30 px-5 py-4">
-              <Dialog.Close asChild>
-                <button
-                  type="button"
-                  disabled={buyCheckoutLoading}
-                  className="inline-flex items-center justify-center rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-              </Dialog.Close>
-              <button
-                type="button"
-                onClick={() => void submitBuyCheckout()}
-                disabled={buyCheckoutLoading}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-              >
-                {buyCheckoutLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                    Redirecting…
-                  </>
-                ) : (
-                  "Continue to payment"
-                )}
-              </button>
-            </div>
-            <Dialog.Close asChild>
-              <button
-                type="button"
-                className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-                aria-label="Close"
-                disabled={buyCheckoutLoading}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </Dialog.Close>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+        product={buyModalProduct}
+        seriesOffer={buyModalSeriesOffer}
+        choice={checkoutChoice}
+        onChoiceChange={setCheckoutChoice}
+        paymentProvider={paymentProvider}
+        onPaymentProviderChange={setPaymentProvider}
+        pawapayPaymentCountry={pawapayPaymentCountry}
+        onPawapayPaymentCountryChange={setPawapayPaymentCountry}
+        lomiAvailable={lomiAvailable}
+        lomiComingSoon={lomiComingSoon}
+        loading={buyCheckoutLoading}
+        onCheckout={() => void submitBuyCheckout()}
+      />
       <section className={`relative overflow-hidden ${prototypeNavyHeroSectionClass}`}>
         <div
           className="absolute inset-0 z-0"
@@ -737,7 +706,7 @@ export default function MarketplacePage() {
                   All free
                   {freeItemCount > 0 ? ` (${freeItemCount})` : ""}
                 </Link>
-                {VAULT_FREE_SUBCATEGORIES.map((series) => {
+                {VAULT_SUBCATEGORIES.filter((s) => !s.paid).map((series) => {
                   const count = freeSeriesCounts.get(series.id) ?? 0;
                   const active = browse.subcategory === series.id;
                   return (
@@ -824,6 +793,26 @@ export default function MarketplacePage() {
                 const expanded = isInlineCollection && expandedSeriesKey === seriesKey;
                 const members =
                   seriesKey && expanded ? (seriesMembersByKey.get(seriesKey) ?? []) : [];
+                const paidSeriesSummary =
+                  seriesKey && isInlineCollection && isPaidVaultSubcategory(seriesKey)
+                    ? (() => {
+                        const seriesMembers = seriesMembersByKey.get(seriesKey) ?? [];
+                        const offer = computeSeriesOfferFromBrowseItems(
+                          seriesKey as VaultSubcategoryId,
+                          seriesMembers
+                        );
+                        if (!offer) return null;
+                        return {
+                          chargeCents: offer.chargeCents,
+                          totalCents: offer.totalCents,
+                          bundleCents: offer.bundleCents,
+                          bundleSavingsCents: offer.bundleSavingsCents,
+                          ownedCount: offer.ownedCount,
+                          itemCount: offer.itemCount,
+                          fullyOwned: offer.fullyOwned,
+                        };
+                      })()
+                    : null;
 
                 const renderProductCard = (
                   product: Product,
@@ -871,6 +860,12 @@ export default function MarketplacePage() {
                     onAddToCart={handleAddToCart}
                     onRemoveFromCart={handleRemoveFromCart}
                     onBuy={(_, e) => openBuyModal(product, e)}
+                    paidSeriesSummary={opts?.iconOnlyMedia ? undefined : paidSeriesSummary}
+                    onBuySeries={
+                      paidSeriesSummary && seriesKey && !opts?.iconOnlyMedia
+                        ? (e) => openSeriesBuyModal(seriesKey as VaultSubcategoryId, e)
+                        : undefined
+                    }
                   />
                 );
 
