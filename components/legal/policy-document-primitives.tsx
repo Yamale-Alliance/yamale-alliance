@@ -80,6 +80,14 @@ export function PolicyLabelBlock({ label, children }: { label: string; children:
   );
 }
 
+export function PolicyContactBlock({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="my-4 space-y-2 rounded-lg border border-border bg-surface p-5 text-[15px] leading-relaxed text-foreground/90 dark:border-[#e3ba65]/25 [&_strong]:font-semibold [&_strong]:text-[#603b1c] dark:[&_strong]:text-[#e3ba65]">
+      {children}
+    </div>
+  );
+}
+
 export function PolicyInlineLink({
   href,
   children,
