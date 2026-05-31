@@ -53,6 +53,6 @@ The Software is provided “as is”, without warranty of any kind, express or i
 ### 7. Contact
 
 For permissions or licensing inquiries, contact:
-Yamale Alliance — info@yamalealliance.org
+Yamalé Advisory — info@yamaleadvisory.com
 
 ---
