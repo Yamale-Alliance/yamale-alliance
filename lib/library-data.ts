@@ -59,6 +59,9 @@ export type LibraryData = {
 type LibraryFilters = {
   countryId?: string;
   categoryId?: string;
+  /** Resolve to countryId via cached meta (avoids duplicate fetchLibraryMeta on page). */
+  countryName?: string;
+  categoryName?: string;
   status?: string;
   q?: string;
   /** 1-based page index (public library). When set with pageSize, only that slice is fetched. */
@@ -442,6 +445,29 @@ async function fetchLawsRowsInIdChunks(
   return Array.from(merged.values()).sort(compareLibraryLawRows).slice(0, maxRows);
 }
 
+async function resolveLibraryFilterIds(
+  filters: LibraryFilters | undefined
+): Promise<LibraryFilters | undefined> {
+  if (!filters) return filters;
+  if (!filters.countryName && !filters.categoryName) return filters;
+  if (filters.countryId && filters.categoryId) return filters;
+
+  const meta = await fetchLibraryMeta();
+  const countryId =
+    filters.countryId ??
+    (filters.countryName
+      ? meta.countries.find((c) => c.name === filters.countryName)?.id
+      : undefined);
+  const categoryId =
+    filters.categoryId ??
+    (filters.categoryName
+      ? meta.categories.find((c) => c.name === filters.categoryName)?.id
+      : undefined);
+
+  const { countryName: _cn, categoryName: _catn, ...rest } = filters;
+  return { ...rest, countryId, categoryId };
+}
+
 function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<LibraryData> {
   const key = cacheKey(filters);
   const supabase = getSupabaseServer();
@@ -665,7 +691,8 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
 }
 
 export async function fetchLibraryData(filters?: LibraryFilters): Promise<LibraryData> {
-  const key = cacheKey(filters);
+  const resolvedFilters = await resolveLibraryFilterIds(filters);
+  const key = cacheKey(resolvedFilters);
   const now = Date.now();
   const supabase = getSupabaseServer();
   const internalCategoryId = await resolveInternalLibraryCategoryId(supabase);
@@ -680,13 +707,13 @@ export async function fetchLibraryData(filters?: LibraryFilters): Promise<Librar
   });
 
   try {
-    const data = await Promise.race([doFetch(filters), timeoutPromise]);
+    const data = await Promise.race([doFetch(resolvedFilters), timeoutPromise]);
     return data;
   } catch (err) {
     // For filtered requests, gracefully degrade to in-memory filtering from the
     // most recent unfiltered cache instead of throwing a 500.
     if (key !== "__initial__" && cachedData) {
-      return applyFiltersToCachedData(cachedData, filters, internalCategoryId);
+      return applyFiltersToCachedData(cachedData, resolvedFilters, internalCategoryId);
     }
     if (key === "__initial__" && cachedData) {
       return sanitizeLibraryDataForPublic(cachedData, internalCategoryId);
