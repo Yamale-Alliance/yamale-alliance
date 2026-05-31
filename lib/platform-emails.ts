@@ -1,8 +1,8 @@
-/** Sales, advisory, institutional, and package enquiries. */
-export const PLATFORM_BUSINESS_EMAIL = "info@yamalealliance.org";
+/** Sales, advisory, institutional, and package enquiries (Yamalé Advisory). */
+export const PLATFORM_BUSINESS_EMAIL = "info@yamaleadvisory.com";
 
-/** Technical support, bugs, and account issues. */
-export const PLATFORM_TECHNICAL_EMAIL = "it@yamalealliance.org";
+/** Technical support, bugs, and account issues — same inbox as business contact. */
+export const PLATFORM_TECHNICAL_EMAIL = "info@yamaleadvisory.com";
 
 export const PLATFORM_MAIL_LINK_REL = "noopener noreferrer";
 
