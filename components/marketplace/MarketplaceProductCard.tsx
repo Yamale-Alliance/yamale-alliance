@@ -67,6 +67,17 @@ type MarketplaceProductCardProps = {
   onAddToCart: (productId: string, e: React.MouseEvent) => void;
   onRemoveFromCart: (productId: string, e: React.MouseEvent) => void;
   onBuy: (product: MarketplaceProductCardProduct, e: React.MouseEvent) => void;
+  /** Paid series collection card — buy remaining items at bundle / prorated price. */
+  paidSeriesSummary?: {
+    chargeCents: number;
+    totalCents: number;
+    bundleCents: number | null;
+    bundleSavingsCents: number;
+    ownedCount: number;
+    itemCount: number;
+    fullyOwned: boolean;
+  } | null;
+  onBuySeries?: (e: React.MouseEvent) => void;
 };
 
 function CategoryIcon({ type, className }: { type: string; className?: string }) {
@@ -114,6 +125,8 @@ export function MarketplaceProductCard({
   onAddToCart,
   onRemoveFromCart,
   onBuy,
+  paidSeriesSummary,
+  onBuySeries,
 }: MarketplaceProductCardProps) {
   const router = useRouter();
   const [coverFailed, setCoverFailed] = useState(false);
@@ -128,7 +141,11 @@ export function MarketplaceProductCard({
     ? `${collectionCount} resources`
     : product.author?.trim() || "Yamalé Alliance";
   const description = isCollectionCard
-    ? `Browse all ${collectionLabel} resources in one place.`
+    ? paidSeriesSummary
+      ? paidSeriesSummary.bundleCents != null && paidSeriesSummary.bundleSavingsCents > 0
+        ? `${collectionCount} templates · series bundle $${(paidSeriesSummary.bundleCents / 100).toFixed(2)} (list $${(paidSeriesSummary.totalCents / 100).toFixed(2)})`
+        : `${collectionCount} templates · complete series $${(paidSeriesSummary.totalCents / 100).toFixed(2)}`
+      : `Browse all ${collectionLabel} resources in one place.`
     : plainDescription(product.description);
   const href = collectionHref || (isMarketplaceZip(product)
     ? `/marketplace/${product.id}/package`
@@ -215,10 +232,18 @@ export function MarketplaceProductCard({
             </span>
           </div>
         ) : null}
-        {product.owned ? (
+        {product.owned || paidSeriesSummary?.fullyOwned ? (
           <span className={styles.badgeOwned}>
             <Check className="h-3 w-3" aria-hidden />
             Owned
+          </span>
+        ) : paidSeriesSummary && isCollectionCard ? (
+          <span className={styles.badgePrice}>
+            {paidSeriesSummary.ownedCount > 0
+              ? `$${(paidSeriesSummary.chargeCents / 100).toFixed(2)} series`
+              : paidSeriesSummary.bundleCents != null && paidSeriesSummary.bundleSavingsCents > 0
+                ? `$${(paidSeriesSummary.bundleCents / 100).toFixed(2)} series`
+                : `$${(paidSeriesSummary.chargeCents / 100).toFixed(2)} series`}
           </span>
         ) : showLawFirmDiscount ? (
           <span className={`${styles.badgePrice} ${styles.badgePriceDiscount}`}>
@@ -256,6 +281,31 @@ export function MarketplaceProductCard({
           </p>
           {tagLabel ? <span className={styles.tag}>{tagLabel}</span> : null}
         </div>
+
+        {paidSeriesSummary && isCollectionCard && onBuySeries && !paidSeriesSummary.fullyOwned ? (
+          <div className={styles.actions}>
+            <button
+              type="button"
+              onClick={(e) => {
+                stop(e);
+                onBuySeries(e);
+              }}
+              className={styles.actionBtnPrimary}
+              style={{ flex: "1 1 100%" }}
+            >
+              {paidSeriesSummary.ownedCount > 0 ? (
+                <>Buy full series · ${(paidSeriesSummary.chargeCents / 100).toFixed(2)}</>
+              ) : paidSeriesSummary.bundleCents != null && paidSeriesSummary.bundleSavingsCents > 0 ? (
+                <>
+                  Buy full series · ${(paidSeriesSummary.bundleCents / 100).toFixed(2)}{" "}
+                  <span className="text-white/75 line-through">${(paidSeriesSummary.totalCents / 100).toFixed(0)}</span>
+                </>
+              ) : (
+                <>Buy full series · ${(paidSeriesSummary.chargeCents / 100).toFixed(2)}</>
+              )}
+            </button>
+          </div>
+        ) : null}
 
         {showPackageCta ? (
           <div className={styles.actions}>
