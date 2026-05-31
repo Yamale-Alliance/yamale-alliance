@@ -41,6 +41,10 @@ export type MarketplaceItemPackOffer = {
   remainingCount: number;
   chargeCents: number;
   fullyOwned: boolean;
+  /** False when the user already owns any item in the pack — bundle price not available. */
+  packEligible: boolean;
+  /** All marketplace item ids in the pack (for checkout fulfillment). */
+  allItemIds: string[];
   items: MarketplaceItemPackOfferItem[];
 };
 
@@ -115,13 +119,13 @@ export function itemPackToFormDefaults(raw: unknown): {
 
 function computePackChargeCents(params: {
   packCents: number;
-  ownedCents: number;
-  remainingListCents: number;
+  ownedCount: number;
   remainingCount: number;
 }): number {
   if (params.remainingCount === 0) return 0;
-  if (params.ownedCents === 0) return params.packCents;
-  return Math.max(0, params.packCents - params.ownedCents);
+  // Bundle price only applies when the customer owns none of the pack items.
+  if (params.ownedCount > 0) return 0;
+  return params.packCents;
 }
 
 function packMemberIds(anchorId: string, cfg: ItemPackConfig): string[] {
@@ -156,15 +160,15 @@ export function buildMarketplaceItemPackOffer(params: {
   const remaining = items.filter((i) => !i.owned);
   const totalCents = items.reduce((sum, i) => sum + i.price_cents, 0);
   const ownedCents = owned.reduce((sum, i) => sum + i.price_cents, 0);
-  const remainingListCents = remaining.reduce((sum, i) => sum + i.price_cents, 0);
   const packCents = cfg.pack_price_cents;
   const packSavingsCents = packCents < totalCents ? totalCents - packCents : 0;
+  const packEligible = owned.length === 0 && remaining.length > 0;
   const chargeCents = computePackChargeCents({
     packCents,
-    ownedCents,
-    remainingListCents,
+    ownedCount: owned.length,
     remainingCount: remaining.length,
   });
+  const allItemIds = items.map((i) => i.id);
 
   return {
     anchorItemId,
@@ -181,6 +185,8 @@ export function buildMarketplaceItemPackOffer(params: {
     remainingCount: remaining.length,
     chargeCents,
     fullyOwned: remaining.length === 0,
+    packEligible,
+    allItemIds,
     items,
   };
 }
