@@ -10,6 +10,7 @@ import {
   PolicySubHeading,
   PolicyUpdatedBanner,
 } from "@/components/legal/policy-document-primitives";
+import { PLATFORM_BUSINESS_EMAIL } from "@/lib/platform-emails";
 import { createPageMetadata } from "@/lib/site-seo";
 
 export const metadata = createPageMetadata({
@@ -18,8 +19,6 @@ export const metadata = createPageMetadata({
     "Billing, mobile money and card payments, subscriptions, cancellations, and refunds for Yamalé Legal Platform and The Yamalé Vault.",
   path: "/payment-refund",
 });
-
-const BILLING_EMAIL = "info@yamalealliance.org";
 
 export default function PaymentRefundPolicyPage() {
   return (
@@ -46,7 +45,7 @@ export default function PaymentRefundPolicyPage() {
             .
           </PolicyP>
           <PolicyP>
-            If you have questions about a charge or payment, contact us at <PolicyMailLink email={BILLING_EMAIL} /> before
+            If you have questions about a charge or payment, contact us at <PolicyMailLink email={PLATFORM_BUSINESS_EMAIL} /> before
             initiating a dispute or chargeback with your payment provider.
           </PolicyP>
 
@@ -203,14 +202,14 @@ export default function PaymentRefundPolicyPage() {
           <PolicyP>
             An electronic receipt will be sent to your registered email address upon each successful transaction.
             Receipts serve as your record of payment. If you require a formal invoice for business or tax purposes,
-            contact <PolicyMailLink email={BILLING_EMAIL} /> within 30 days of the transaction.
+            contact <PolicyMailLink email={PLATFORM_BUSINESS_EMAIL} /> within 30 days of the transaction.
           </PolicyP>
 
           <PolicySectionHeading id="cancellation" number="5" title="Cancellation" />
           <PolicySubHeading number="5.1" title="How to Cancel" />
           <PolicyP>
             You may cancel your subscription at any time through your account settings under &ldquo;Billing&rdquo; or
-            by contacting <PolicyMailLink email={BILLING_EMAIL} />. Cancellation takes effect at the end of your current
+            by contacting <PolicyMailLink email={PLATFORM_BUSINESS_EMAIL} />. Cancellation takes effect at the end of your current
             billing period. You will retain access to paid features until the end of the period for which you have
             already paid.
           </PolicyP>
@@ -264,7 +263,7 @@ export default function PaymentRefundPolicyPage() {
           <PolicySubHeading number="6.3" title="Subscriptions — Renewals" />
           <PolicyP>
             Renewal charges are generally non-refundable. If you forget to cancel before a renewal date, contact{" "}
-            <PolicyMailLink email={BILLING_EMAIL} /> within three (3) days of the renewal charge. We will consider refund
+            <PolicyMailLink email={PLATFORM_BUSINESS_EMAIL} /> within three (3) days of the renewal charge. We will consider refund
             requests in this window where: (a) you have not used the Platform in the renewed period; and (b) the
             request is your first such request. We reserve the right to decline refund requests that appear abusive
             or repetitive.
@@ -273,7 +272,7 @@ export default function PaymentRefundPolicyPage() {
           <PolicyP>
             Vault purchases are non-refundable once content has been accessed, downloaded, or viewed, because the
             digital content is delivered immediately upon payment. If you experience a technical failure that
-            prevents access to purchased content, contact <PolicyMailLink email={BILLING_EMAIL} /> within seven (7) days
+            prevents access to purchased content, contact <PolicyMailLink email={PLATFORM_BUSINESS_EMAIL} /> within seven (7) days
             with a description of the issue and we will either resolve the access issue or issue a full refund.
           </PolicyP>
           <PolicySubHeading number="6.5" title="Refunds for Platform Errors or Service Failures" />
@@ -281,13 +280,13 @@ export default function PaymentRefundPolicyPage() {
             If a service failure, technical error, or outage on Yamalé&apos;s part prevents you from accessing a
             paid feature for a cumulative period of more than 48 hours within a billing period, you are entitled to
             a prorated credit for the affected period. This credit will be applied to your next billing cycle. To
-            claim a service failure credit, contact <PolicyMailLink email={BILLING_EMAIL} /> within 14 days of the incident
+            claim a service failure credit, contact <PolicyMailLink email={PLATFORM_BUSINESS_EMAIL} /> within 14 days of the incident
             with details of the issue.
           </PolicyP>
           <PolicySubHeading number="6.6" title="Duplicate or Erroneous Charges" />
           <PolicyP>
             If you are charged more than once for the same transaction, or charged an incorrect amount, contact{" "}
-            <PolicyMailLink email={BILLING_EMAIL} /> immediately. We will investigate and issue a full refund of any
+            <PolicyMailLink email={PLATFORM_BUSINESS_EMAIL} /> immediately. We will investigate and issue a full refund of any
             duplicate or erroneous charge within ten (10) business days of confirming the error.
           </PolicyP>
           <PolicySubHeading number="6.7" title="Refund Method" />
@@ -304,7 +303,7 @@ export default function PaymentRefundPolicyPage() {
           <PolicyP>
             Yamalé cannot issue refunds to a different payment method than the one originally used, except where the
             original method is no longer available, in which case you should contact{" "}
-            <PolicyMailLink email={BILLING_EMAIL} />.
+            <PolicyMailLink email={PLATFORM_BUSINESS_EMAIL} />.
           </PolicyP>
           <PolicyP>
             Refunds are initiated after Yamalé has confirmed receipt of the corresponding funds from its payment
@@ -314,7 +313,7 @@ export default function PaymentRefundPolicyPage() {
           </PolicyP>
           <PolicySubHeading number="6.8" title="How to Request a Refund" />
           <PolicyP>
-            To request a refund, email <PolicyMailLink email={BILLING_EMAIL} /> with the subject line &ldquo;Refund Request
+            To request a refund, email <PolicyMailLink email={PLATFORM_BUSINESS_EMAIL} /> with the subject line &ldquo;Refund Request
             — [Your Name]&rdquo; and include: your account email address, the date of the transaction, the amount
             charged, the payment method used, and the reason for your request. We will acknowledge your request
             within two (2) business days and aim to resolve it within ten (10) business days.
@@ -330,14 +329,14 @@ export default function PaymentRefundPolicyPage() {
           </PolicyP>
           <PolicyP>
             <strong>For mobile money payments:</strong> failed transactions where funds have been debited from your
-            wallet but not received by Yamalé should be reported to <PolicyMailLink email={BILLING_EMAIL} /> with your
+            wallet but not received by Yamalé should be reported to <PolicyMailLink email={PLATFORM_BUSINESS_EMAIL} /> with your
             transaction reference number. We will investigate within five (5) business days. If funds were debited
             and not received, we will either apply the payment to your account or coordinate a reversal with the
             payment processor.
           </PolicyP>
           <PolicySubHeading number="7.2" title="Transaction Disputes and Chargebacks" />
           <PolicyP>
-            If you believe a charge is unauthorized or incorrect, please contact <PolicyMailLink email={BILLING_EMAIL} />{" "}
+            If you believe a charge is unauthorized or incorrect, please contact <PolicyMailLink email={PLATFORM_BUSINESS_EMAIL} />{" "}
             before initiating a dispute or chargeback with your bank or card issuer. We will work to resolve the
             issue directly and promptly.
           </PolicyP>
@@ -357,7 +356,7 @@ export default function PaymentRefundPolicyPage() {
           </PolicyP>
           <PolicySubHeading number="7.3" title="Fraud and Unauthorized Transactions" />
           <PolicyP>
-            If you suspect fraudulent use of your payment method on the Platform, contact <PolicyMailLink email={BILLING_EMAIL} />{" "}
+            If you suspect fraudulent use of your payment method on the Platform, contact <PolicyMailLink email={PLATFORM_BUSINESS_EMAIL} />{" "}
             and your payment provider immediately. Yamalé will suspend the affected account pending investigation
             upon receipt of a credible fraud report.
           </PolicyP>
@@ -413,7 +412,7 @@ export default function PaymentRefundPolicyPage() {
           <PolicyBulletList
             items={[
               <>
-                <strong>Email:</strong> <PolicyMailLink email={BILLING_EMAIL} />
+                <strong>Email:</strong> <PolicyMailLink email={PLATFORM_BUSINESS_EMAIL} />
               </>,
               <>
                 <strong>Subject line:</strong> include &ldquo;Billing&rdquo; or &ldquo;Refund Request&rdquo; for
@@ -438,7 +437,7 @@ export default function PaymentRefundPolicyPage() {
 
           <PolicyUpdatedBanner>
             This Payment &amp; Refund Policy was last updated in <strong>May 2026</strong> (Version 1.0). For
-            questions, contact <PolicyMailLink email={BILLING_EMAIL} />.
+            questions, contact <PolicyMailLink email={PLATFORM_BUSINESS_EMAIL} />.
           </PolicyUpdatedBanner>
         </div>
 
