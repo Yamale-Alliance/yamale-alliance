@@ -14,7 +14,7 @@ import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-coun
 import { fetchMarketplaceItemPackOffer } from "@/lib/marketplace-item-packs";
 
 /**
- * Checkout for a configured item pack — charges pack price (prorated if partially owned).
+ * Checkout for a configured item pack — charges the full pack price and unlocks every item in the pack.
  * Fulfillment uses `marketplace_cart` metadata (same as series checkout).
  */
 export async function POST(request: NextRequest) {
@@ -42,14 +42,23 @@ export async function POST(request: NextRequest) {
     if (!offer) {
       return NextResponse.json({ error: "Pack not found" }, { status: 404 });
     }
-    if (offer.fullyOwned || offer.remainingItemIds.length === 0) {
+    if (offer.fullyOwned) {
       return NextResponse.json({ error: "You already own the full pack" }, { status: 400 });
+    }
+    if (!offer.packEligible) {
+      return NextResponse.json(
+        {
+          error:
+            "You already own part of this bundle. The bundle price is only available when you purchase all items together.",
+        },
+        { status: 400 }
+      );
     }
     if (offer.chargeCents <= 0) {
       return NextResponse.json({ error: "Nothing to purchase in this pack" }, { status: 400 });
     }
 
-    const itemIds = offer.remainingItemIds;
+    const itemIds = offer.allItemIds;
     const itemIdsCsv = itemIds.join(",");
     const itemIdsJson = JSON.stringify(itemIds);
     const amountCents = offer.chargeCents;
@@ -102,7 +111,7 @@ export async function POST(request: NextRequest) {
           pack_anchor_item_id: offer.anchorItemId,
         },
         title: packLabel.slice(0, 80),
-        description: `${packLabel} (${offer.remainingCount} item${offer.remainingCount === 1 ? "" : "s"})`.slice(
+        description: `${packLabel} (${offer.itemCount} item${offer.itemCount === 1 ? "" : "s"})`.slice(
           0,
           200
         ),
@@ -114,7 +123,7 @@ export async function POST(request: NextRequest) {
         url: checkoutUrl,
         provider: "lomi",
         amount_cents: amountCents,
-        item_count: offer.remainingCount,
+        item_count: offer.itemCount,
       });
       if (sessionId) {
         res.cookies.set(LOMI_MARKETPLACE_CART_CHECKOUT_COOKIE, sessionId, {
@@ -169,7 +178,7 @@ export async function POST(request: NextRequest) {
       url: redirectUrl,
       provider: "pawapay",
       amount_cents: amountCents,
-      item_count: offer.remainingCount,
+      item_count: offer.itemCount,
     });
   } catch (err) {
     console.error("marketplace-pack-checkout error:", err);
