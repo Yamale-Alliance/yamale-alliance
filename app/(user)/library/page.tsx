@@ -1,11 +1,6 @@
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
-import {
-  fetchLibraryData,
-  fetchLibraryMeta,
-  LIBRARY_PAGE_SIZE,
-  type LibrarySortOption,
-} from "@/lib/library-data";
+import { fetchLibraryData, LIBRARY_PAGE_SIZE, type LibrarySortOption } from "@/lib/library-data";
 import LibraryLoading from "./loading";
 
 const LibraryView = dynamic(
@@ -77,13 +72,10 @@ async function LibraryPageContent({ resolved }: { resolved: ResolvedLibraryParam
 
   const page = parseLibraryPage(pageParam);
   const sort = parseLibrarySort(sortParam || "title-asc");
-  const meta = await fetchLibraryMeta();
-  const countryId = country ? meta.countries.find((c) => c.name === country)?.id : undefined;
-  const categoryId = category ? meta.categories.find((c) => c.name === category)?.id : undefined;
 
   const data = await fetchLibraryData({
-    countryId,
-    categoryId,
+    countryName: country || undefined,
+    categoryName: category || undefined,
     status: status || undefined,
     q: q.trim() || undefined,
     page,
@@ -97,8 +89,8 @@ async function LibraryPageContent({ resolved }: { resolved: ResolvedLibraryParam
 
   return (
     <LibraryView
-      initialCountries={meta.countries}
-      initialCategories={meta.categories}
+      initialCountries={data.countries}
+      initialCategories={data.categories}
       initialLaws={data.laws}
       initialLawCount={data.lawCount}
       initialCountry={country}
