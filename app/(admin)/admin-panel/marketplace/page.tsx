@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Plus, Pencil, Trash2, BookOpen, GraduationCap, FileText, Upload, X } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { AdminPackageOffersFields } from "@/components/admin/AdminPackageOffersFields";
+import { AdminItemPackFields } from "@/components/admin/AdminItemPackFields";
 import { MarketplaceCoverImageField } from "@/components/admin/MarketplaceCoverImageField";
 import { AdminVaultSubcategorySelect } from "@/components/admin/AdminVaultSubcategorySelect";
 import { labelForVaultSubcategory } from "@/lib/marketplace-vault-categories";
@@ -14,6 +15,10 @@ import {
   buildItemPackageOffersFromForm,
   itemPackageOffersToFormDefaults,
 } from "@/lib/marketplace-package-offers";
+import {
+  buildItemPackFromForm,
+  itemPackToFormDefaults,
+} from "@/lib/marketplace-item-packs";
 
 type MarketplaceItem = {
   id: string;
@@ -33,6 +38,7 @@ type MarketplaceItem = {
   video_url?: string | null;
   landing_page_html?: string | null;
   package_offers?: Record<string, unknown> | null;
+  item_pack?: Record<string, unknown> | null;
   vault_subcategory?: string | null;
 };
 
@@ -91,6 +97,16 @@ export default function AdminMarketplacePage() {
   const [editStandaloneUsd, setEditStandaloneUsd] = useState("199.00");
   const [editBundleAddonUsd, setEditBundleAddonUsd] = useState("129.00");
   const [editBundleWithId, setEditBundleWithId] = useState("");
+
+  const [addItemPackEnabled, setAddItemPackEnabled] = useState(false);
+  const [addItemPackLabel, setAddItemPackLabel] = useState("");
+  const [addItemPackUsd, setAddItemPackUsd] = useState("");
+  const [addItemPackPartners, setAddItemPackPartners] = useState<string[]>([]);
+
+  const [editItemPackEnabled, setEditItemPackEnabled] = useState(false);
+  const [editItemPackLabel, setEditItemPackLabel] = useState("");
+  const [editItemPackUsd, setEditItemPackUsd] = useState("");
+  const [editItemPackPartners, setEditItemPackPartners] = useState<string[]>([]);
 
   type PurchaseRow = {
     id: string;
@@ -268,8 +284,21 @@ export default function AdminMarketplacePage() {
     setEditBundleWithId(d.bundle_with_item_id);
   }, [editing?.id, editing?.package_offers, editing?.price_cents]);
 
+  useEffect(() => {
+    if (!editing) return;
+    const d = itemPackToFormDefaults(editing.item_pack);
+    setEditItemPackEnabled(d.enabled);
+    setEditItemPackLabel(d.label);
+    setEditItemPackUsd(d.pack_price_usd);
+    setEditItemPackPartners(d.partner_item_ids);
+  }, [editing?.id, editing?.item_pack]);
+
   const bundlePartnerOptions = items
     .filter((i) => i.published && i.id !== editing?.id)
+    .map((i) => ({ id: i.id, title: i.title, price_cents: i.price_cents }));
+
+  const packPartnerOptions = items
+    .filter((i) => i.published && i.price_cents > 0)
     .map((i) => ({ id: i.id, title: i.title, price_cents: i.price_cents }));
 
   const showDualPricingAdd = Boolean(landingPageHtmlAdd.trim() || pendingFile?.file_format === "zip");
@@ -304,6 +333,15 @@ export default function AdminMarketplacePage() {
     if (packageOffers) {
       priceCents = packageOffers.bundle_addon_price_cents;
     }
+    const itemPack =
+      addItemPackEnabled && !showDualPricingAdd
+        ? buildItemPackFromForm({
+            enabled: true,
+            label: addItemPackLabel,
+            pack_price_usd: parseFloat(addItemPackUsd) || 0,
+            partner_item_ids: addItemPackPartners,
+          })
+        : null;
 
     try {
       const res = await fetch(`${origin}/api/admin/marketplace`, {
@@ -317,6 +355,7 @@ export default function AdminMarketplacePage() {
           description: (form.elements.namedItem("description") as HTMLTextAreaElement)?.value?.trim() || null,
           price_cents: priceCents,
           package_offers: packageOffers,
+          item_pack: itemPack,
           currency: "usd",
           image_url: coverImageCleared ? null : pendingImageUrl ?? null,
           published: (form.elements.namedItem("published") as HTMLInputElement)?.checked ?? true,
@@ -326,6 +365,8 @@ export default function AdminMarketplacePage() {
           file_format: pendingFile?.file_format ?? null,
           video_url: (form.elements.namedItem("video_url") as HTMLInputElement)?.value?.trim() || null,
           landing_page_html: landingPageHtmlAdd.trim() || null,
+          vault_subcategory:
+            (form.elements.namedItem("vault_subcategory") as HTMLSelectElement)?.value?.trim() || null,
         }),
       });
       const data = await res.json();
@@ -345,6 +386,10 @@ export default function AdminMarketplacePage() {
       setAddStandaloneUsd("199.00");
       setAddBundleAddonUsd("129.00");
       setAddBundleWithId("");
+      setAddItemPackEnabled(false);
+      setAddItemPackLabel("");
+      setAddItemPackUsd("");
+      setAddItemPackPartners([]);
       form.reset();
     } catch {
       setError("Network error");
@@ -372,6 +417,15 @@ export default function AdminMarketplacePage() {
     if (packageOffers) {
       priceCents = packageOffers.bundle_addon_price_cents;
     }
+    const itemPack =
+      editItemPackEnabled && !showDualPricingEdit
+        ? buildItemPackFromForm({
+            enabled: true,
+            label: editItemPackLabel,
+            pack_price_usd: parseFloat(editItemPackUsd) || 0,
+            partner_item_ids: editItemPackPartners,
+          })
+        : null;
 
     try {
       const res = await fetch(`${origin}/api/admin/marketplace/${editing.id}`, {
@@ -385,6 +439,7 @@ export default function AdminMarketplacePage() {
           description: (form.elements.namedItem("description") as HTMLTextAreaElement)?.value?.trim() || null,
           price_cents: priceCents,
           package_offers: editDualPricing && showDualPricingEdit ? packageOffers : null,
+          item_pack: editItemPackEnabled && !showDualPricingEdit ? itemPack : null,
           image_url: resolveCoverImageUrl(),
           published: (form.elements.namedItem("published") as HTMLInputElement)?.checked ?? editing.published,
           sort_order: parseInt((form.elements.namedItem("sort_order") as HTMLInputElement)?.value ?? "0", 10),
@@ -601,6 +656,19 @@ export default function AdminMarketplacePage() {
                 bundleWithItemId={addBundleWithId}
                 onBundleWithItemIdChange={setAddBundleWithId}
                 bundlePartnerOptions={bundlePartnerOptions}
+              />
+            )}
+            {!showDualPricingAdd && (
+              <AdminItemPackFields
+                enabled={addItemPackEnabled}
+                onEnabledChange={setAddItemPackEnabled}
+                label={addItemPackLabel}
+                onLabelChange={setAddItemPackLabel}
+                packPriceUsd={addItemPackUsd}
+                onPackPriceUsdChange={setAddItemPackUsd}
+                partnerItemIds={addItemPackPartners}
+                onPartnerItemIdsChange={setAddItemPackPartners}
+                partnerOptions={packPartnerOptions}
               />
             )}
             <div className="sm:col-span-2">
@@ -964,6 +1032,20 @@ export default function AdminMarketplacePage() {
                   bundleWithItemId={editBundleWithId}
                   onBundleWithItemIdChange={setEditBundleWithId}
                   bundlePartnerOptions={bundlePartnerOptions}
+                />
+              )}
+              {!showDualPricingEdit && (
+                <AdminItemPackFields
+                  enabled={editItemPackEnabled}
+                  onEnabledChange={setEditItemPackEnabled}
+                  label={editItemPackLabel}
+                  onLabelChange={setEditItemPackLabel}
+                  packPriceUsd={editItemPackUsd}
+                  onPackPriceUsdChange={setEditItemPackUsd}
+                  partnerItemIds={editItemPackPartners}
+                  onPartnerItemIdsChange={setEditItemPackPartners}
+                  partnerOptions={packPartnerOptions}
+                  excludeItemId={editing.id}
                 />
               )}
               <div className="sm:col-span-2">
