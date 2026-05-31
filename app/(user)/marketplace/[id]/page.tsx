@@ -31,6 +31,7 @@ import { shouldUseVaultPackagePage } from "@/lib/marketplace-zip-package";
 import { displayVaultProductTitle } from "@/lib/marketplace-display";
 import { isPaidVaultSubcategory, type VaultSubcategoryId } from "@/lib/marketplace-vault-categories";
 import type { MarketplaceSeriesOffer } from "@/lib/marketplace-series-offers";
+import type { MarketplaceItemPackOffer } from "@/lib/marketplace-item-packs";
 import {
   MarketplaceVaultCheckoutDialog,
   type MarketplaceVaultCheckoutChoice,
@@ -129,6 +130,7 @@ export default function MarketplaceItemPage() {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutChoice, setCheckoutChoice] = useState<MarketplaceVaultCheckoutChoice>("item");
   const [seriesOffer, setSeriesOffer] = useState<MarketplaceSeriesOffer | null>(null);
+  const [packOffer, setPackOffer] = useState<MarketplaceItemPackOffer | null>(null);
 
   const lomiAvailable =
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
@@ -265,6 +267,19 @@ export default function MarketplaceItemPage() {
   }, [isSignedIn, id]);
 
   useEffect(() => {
+    if (!item?.id || item.price_cents <= 0 || item.purchased) {
+      setPackOffer(null);
+      return;
+    }
+    fetch(`/api/marketplace/${item.id}/pack-offer`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { offer?: MarketplaceItemPackOffer } | null) => {
+        setPackOffer(data?.offer ?? null);
+      })
+      .catch(() => setPackOffer(null));
+  }, [item?.id, item?.price_cents, item?.purchased]);
+
+  useEffect(() => {
     if (!item?.vault_subcategory || !isPaidVaultSubcategory(item.vault_subcategory)) {
       setSeriesOffer(null);
       return;
@@ -299,9 +314,13 @@ export default function MarketplaceItemPage() {
         item.vault_subcategory &&
         seriesOffer &&
         !seriesOffer.fullyOwned;
-      const res = await fetch(
-        useSeries ? "/api/payments/marketplace-series-checkout" : "/api/payments/marketplace-checkout",
-        {
+      const usePack = checkoutChoice === "pack" && packOffer && !packOffer.fullyOwned;
+      const checkoutUrl = useSeries
+        ? "/api/payments/marketplace-series-checkout"
+        : usePack
+          ? "/api/payments/marketplace-pack-checkout"
+          : "/api/payments/marketplace-checkout";
+      const res = await fetch(checkoutUrl, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -311,7 +330,12 @@ export default function MarketplaceItemPage() {
                   seriesId: item.vault_subcategory,
                   success_path: "/marketplace",
                 }
-              : { itemId: item.id }),
+              : usePack
+                ? {
+                    anchorItemId: packOffer!.anchorItemId,
+                    success_path: `/marketplace/${item.id}`,
+                  }
+                : { itemId: item.id }),
             provider: paymentProvider,
             ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
           }),
@@ -503,6 +527,7 @@ export default function MarketplaceItemPage() {
         onOpenChange={setCheckoutOpen}
         product={item ? { id: item.id, title: item.title, price_cents: item.price_cents } : null}
         seriesOffer={seriesOffer}
+        packOffer={packOffer}
         choice={checkoutChoice}
         onChoiceChange={setCheckoutChoice}
         paymentProvider={paymentProvider}
