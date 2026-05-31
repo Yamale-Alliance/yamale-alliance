@@ -10,7 +10,11 @@ import {
   type FormEvent,
 } from "react";
 import Link from "next/link";
-import { isAiResearchMethodologySourceCard } from "@/lib/ai-research-source-cards";
+import {
+  AI_RESEARCH_ENGINE_SOURCE_LABEL,
+  isAiResearchMethodologySourceCard,
+  normalizeAiResearchSourceLabels,
+} from "@/lib/ai-research-source-cards";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -173,13 +177,24 @@ function getTierFromUser(metadata: Record<string, unknown> | undefined): Tier {
   return "free";
 }
 
+function normalizeSessionMessages(sessions: ChatSession[]): ChatSession[] {
+  return sessions.map((session) => ({
+    ...session,
+    messages: session.messages.map((message) =>
+      message.sources?.length
+        ? { ...message, sources: normalizeAiResearchSourceLabels(message.sources) }
+        : message
+    ),
+  }));
+}
+
 function loadSessions(): ChatSession[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as ChatSession[];
-    return Array.isArray(parsed) ? parsed.slice(0, MAX_SESSIONS) : [];
+    return Array.isArray(parsed) ? normalizeSessionMessages(parsed.slice(0, MAX_SESSIONS)) : [];
   } catch {
     return [];
   }
@@ -531,10 +546,6 @@ export default function AIResearchClient() {
     }
   }, [user]);
 
-  const activeModelName =
-    models.find((m) => m.id === (selectedModelId ?? defaultModelId ?? ""))?.display_name ??
-    "Claude Sonnet (latest)";
-
   // Handle payment confirmation after PawaPay (session_id) or Lomi (cookie + from_lomi=1)
   useEffect(() => {
     const payg = searchParams.get("payg");
@@ -632,7 +643,7 @@ export default function AIResearchClient() {
           } catch {
             savedId = null;
           }
-          setSessions(json.sessions);
+          setSessions(normalizeSessionMessages(json.sessions));
           if (savedId && json.sessions.some((s) => s.id === savedId)) {
             setCurrentId(savedId);
           }
@@ -755,7 +766,7 @@ export default function AIResearchClient() {
         messages: currentSession.messages.map((m) => ({
           role: m.role,
           content: m.content,
-          sources: m.sources,
+          sources: m.sources ? normalizeAiResearchSourceLabels(m.sources) : undefined,
         })),
         generatedAt: new Date(),
       });
@@ -782,7 +793,7 @@ export default function AIResearchClient() {
       id: assistantId,
       role: "assistant",
       content: "",
-      sources: ["Claude AI · African Legal Research"],
+      sources: [AI_RESEARCH_ENGINE_SOURCE_LABEL],
       sourceCards: [],
       processLog: [
         { step: "understand", message: "Reading your question", status: "active", at: processStartedAt },
@@ -928,7 +939,9 @@ export default function AIResearchClient() {
         id: assistantId,
         role: "assistant",
         content: data.content || "I apologize, but I couldn't generate a response.",
-        sources: Array.isArray(data.sources) ? data.sources : ["Claude AI · African Legal Research"],
+        sources: normalizeAiResearchSourceLabels(
+          Array.isArray(data.sources) ? data.sources : [AI_RESEARCH_ENGINE_SOURCE_LABEL]
+        ),
         sourceCards: Array.isArray(data.sourceCards) ? (data.sourceCards as Message["sourceCards"]) : [],
         lawyerNudge: (data.lawyerNudge as Message["lawyerNudge"]) ?? null,
         queryLogId: typeof data.queryLogId === "string" ? data.queryLogId : null,
@@ -1016,7 +1029,9 @@ export default function AIResearchClient() {
                   ? {
                       ...m,
                       content: stoppedContent,
-                      sources: m.sources?.length ? m.sources : ["Claude AI · African Legal Research"],
+                      sources: m.sources?.length
+                        ? normalizeAiResearchSourceLabels(m.sources)
+                        : [AI_RESEARCH_ENGINE_SOURCE_LABEL],
                       processLog: finalizeProcessLog(
                         (m.processLog ?? []).map((step) =>
                           step.status === "active" ? { ...step, status: "done" as const } : step
@@ -1590,7 +1605,7 @@ export default function AIResearchClient() {
                         ) : null}
                         {msg.sources && msg.sources.length > 0 && (
                           <p className="mt-2 border-t border-border/80 pt-2 text-[11px] text-muted-foreground">
-                            Sources: {msg.sources.join(" · ")}
+                            Sources: {normalizeAiResearchSourceLabels(msg.sources).join(" · ")}
                           </p>
                         )}
                         {msg.webSearchNote ? (
@@ -1852,7 +1867,7 @@ export default function AIResearchClient() {
                 <p className="mt-1.5 text-center text-[10px] text-muted-foreground">
                   {isTurnBusy
                     ? "Generating… Click stop to cancel"
-                    : `${activeModelName} · Enter to send, Shift+Enter for new line`}
+                    : "Enter to send, Shift+Enter for new line"}
                 </p>
               </form>
               {negativeModal ? (
@@ -1959,9 +1974,8 @@ export default function AIResearchClient() {
                 Before you use AI Legal Research
               </h2>
               <p className="mt-3 max-w-3xl text-[14px] leading-relaxed text-[#1f2937] sm:mt-4 sm:text-[15px]">
-                This tool uses Claude, an AI developed by Anthropic (United States), to answer questions about African
-                law. It searches and retrieves exclusively from the Yamale Legal Library and does not access the internet
-                or any external source. All responses are drawn from African legal texts within our controlled database.
+                This tool searches and retrieves exclusively from Yamale Legal Library, using Anthropic&apos;s servers,
+                and does not access the internet or any external source.
               </p>
               <div className="mt-4 rounded-xl bg-[#F4F1EA] p-4 sm:mt-5 sm:p-5">
                 <ul className="space-y-2 text-[14px] leading-relaxed text-[#1f2937] sm:text-[15px]">
@@ -2013,7 +2027,7 @@ export default function AIResearchClient() {
             id: m.id,
             role: m.role,
             content: m.content,
-            sources: m.sources,
+            sources: m.sources ? normalizeAiResearchSourceLabels(m.sources) : undefined,
             sourceCards: m.sourceCards,
           }))}
           exportedAt={exportPreviewAt}
