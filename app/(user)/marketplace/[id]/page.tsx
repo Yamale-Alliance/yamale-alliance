@@ -314,7 +314,7 @@ export default function MarketplaceItemPage() {
         item.vault_subcategory &&
         seriesOffer &&
         !seriesOffer.fullyOwned;
-      const usePack = checkoutChoice === "pack" && packOffer && !packOffer.fullyOwned;
+      const usePack = checkoutChoice === "pack" && packOffer?.packEligible;
       const checkoutUrl = useSeries
         ? "/api/payments/marketplace-series-checkout"
         : usePack
