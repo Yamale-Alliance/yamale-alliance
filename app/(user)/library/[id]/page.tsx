@@ -2,10 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
   ChevronLeft,
   FileText,
@@ -33,7 +31,14 @@ import {
 } from "@/components/layout/prototype-page-styles";
 import { LawyerMatchBanner } from "@/components/library/LawyerMatchBanner";
 import { LawContentsNav } from "@/components/library/LawContentsNav";
-import { LawExportPreviewDialog } from "@/components/library/LawExportPreviewDialog";
+const LawSectionMarkdown = dynamic(
+  () => import("@/components/library/LawSectionMarkdown").then((m) => ({ default: m.LawSectionMarkdown })),
+  { loading: () => <div className="my-4 h-32 animate-pulse rounded-lg bg-muted" /> }
+);
+const LawExportPreviewDialog = dynamic(
+  () => import("@/components/library/LawExportPreviewDialog").then((m) => ({ default: m.LawExportPreviewDialog })),
+  { ssr: false }
+);
 import { LawFlagDialog } from "@/components/library/LawFlagDialog";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import {
@@ -45,7 +50,6 @@ import { PlatformLogo } from "@/components/platform/PlatformLogo";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
 import { MarketingDiscountPrice } from "@/components/pricing/MarketingDiscountPrice";
 import { formatUsdPrice } from "@/lib/content-pricing";
-import { downloadLawDocumentPdf } from "@/lib/library/law-document-pdf";
 import { fetchDocumentExportUnlockLawIds } from "@/lib/library-document-export-unlocks-client";
 import {
   applyLawDocumentSearchHighlights,
@@ -987,6 +991,7 @@ export default function LawDetailPage({
     }
     setPdfLoading(true);
     try {
+      const { downloadLawDocumentPdf } = await import("@/lib/library/law-document-pdf");
       await downloadLawDocumentPdf(input);
     } catch (e) {
       console.error(e);
@@ -1563,38 +1568,7 @@ export default function LawDetailPage({
                         {renderLawSubheading(sec.title, "h2")}
                       </h2>
                       {isLikelyMarkdown(sec.body) ? (
-                        <div className="prose prose-lg max-w-none leading-relaxed text-foreground prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-foreground prose-p:leading-[1.75] prose-p:text-justify prose-p:text-foreground/90 prose-li:text-foreground dark:prose-invert print:max-w-none print:prose-neutral">
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              a: ({ href, children, ...props }) => (
-                                <a
-                                  href={href}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="!text-blue-600 font-bold underline decoration-blue-600 hover:decoration-blue-600"
-                                  {...props}
-                                >
-                                  {children}
-                                </a>
-                              ),
-                              h1: ({ children, ...props }) => {
-                                const id = headingAnchorId(children) || undefined;
-                                return <h1 id={id} className="scroll-mt-24" {...props}>{children}</h1>;
-                              },
-                              h2: ({ children, ...props }) => {
-                                const id = headingAnchorId(children) || undefined;
-                                return <h2 id={id} className="scroll-mt-24" {...props}>{children}</h2>;
-                              },
-                              h3: ({ children, ...props }) => {
-                                const id = headingAnchorId(children) || undefined;
-                                return <h3 id={id} className="scroll-mt-24" {...props}>{children}</h3>;
-                              },
-                            }}
-                          >
-                            {preprocessMarkdownBodyForHeadingMerge(sec.body)}
-                          </ReactMarkdown>
-                        </div>
+                        <LawSectionMarkdown body={sec.body} />
                       ) : (
                         <>
                           {getBodyItems(sec).map((item, bi) =>
