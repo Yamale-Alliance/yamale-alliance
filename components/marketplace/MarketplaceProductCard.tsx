@@ -143,8 +143,8 @@ export function MarketplaceProductCard({
   const description = isCollectionCard
     ? paidSeriesSummary
       ? paidSeriesSummary.bundleCents != null && paidSeriesSummary.bundleSavingsCents > 0
-        ? `${collectionCount} templates · series bundle $${(paidSeriesSummary.bundleCents / 100).toFixed(2)} (list $${(paidSeriesSummary.totalCents / 100).toFixed(2)})`
-        : `${collectionCount} templates · complete series $${(paidSeriesSummary.totalCents / 100).toFixed(2)}`
+        ? `${collectionCount} pack · series bundle $${(paidSeriesSummary.bundleCents / 100).toFixed(2)} (list $${(paidSeriesSummary.totalCents / 100).toFixed(2)})`
+        : `${collectionCount} pack · complete series $${(paidSeriesSummary.totalCents / 100).toFixed(2)}`
       : `Browse all ${collectionLabel} resources in one place.`
     : plainDescription(product.description);
   const href = collectionHref || (isMarketplaceZip(product)
