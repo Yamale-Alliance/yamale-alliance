@@ -39,8 +39,10 @@ export function PurchasedLawsClient({ initialLawIds }: Props) {
   }, []);
 
   useEffect(() => {
-    void refreshIds();
-  }, [refreshIds]);
+    if (initialLawIds.length === 0) {
+      void refreshIds();
+    }
+  }, [refreshIds, initialLawIds.length]);
 
   useEffect(() => {
     if (!isSignedIn) return;
@@ -84,27 +86,31 @@ export function PurchasedLawsClient({ initialLawIds }: Props) {
 
     const load = async () => {
       try {
-        const lawPromises = lawIds.map(async (lawId) => {
-          const lawRes = await fetch(`/api/laws/${lawId}`, { credentials: "include" });
-          if (!lawRes.ok) return null;
-          const lawData = (await lawRes.json()) as {
+        const res = await fetch(
+          `/api/laws/summaries?ids=${encodeURIComponent(lawIds.join(","))}`,
+          { credentials: "include" }
+        );
+        if (!res.ok) throw new Error("Failed to load laws");
+        const data = (await res.json()) as {
+          laws?: Array<{
             id: string;
             title: string;
-            countries?: { name: string } | null;
-            categories?: { name: string } | null;
-            status?: string;
-          };
-          return {
-            id: lawData.id,
-            title: lawData.title,
-            country: lawData.countries?.name ?? "",
-            category: lawData.categories?.name ?? "",
-            status: lawData.status ?? "In force",
-          } satisfies Law;
-        });
-        const lawResults = await Promise.all(lawPromises);
+            country: string;
+            category: string;
+            status: string;
+          }>;
+        };
         if (cancelled) return;
-        const valid = lawResults.filter((law): law is Law => law !== null);
+        const valid = (data.laws ?? []).map(
+          (law) =>
+            ({
+              id: law.id,
+              title: law.title,
+              country: law.country,
+              category: law.category,
+              status: law.status ?? "In force",
+            }) satisfies Law
+        );
         setLaws(valid);
       } catch {
         if (!cancelled) setError("Could not load purchased laws.");
