@@ -36,38 +36,28 @@ export default function BookmarksPage() {
 
     const fetchBookmarks = async () => {
       try {
-        const res = await fetch("/api/bookmarks", { credentials: "include" });
+        const res = await fetch("/api/bookmarks?with_laws=1", { credentials: "include" });
         if (!res.ok) throw new Error("Failed to fetch bookmarks");
         const data = await res.json();
         const bookmarkList = data.bookmarks ?? [];
         setBookmarks(bookmarkList);
 
-        if (bookmarkList.length === 0) {
-          setLoading(false);
-          return;
-        }
-
-        // Fetch law details for each bookmark
-        const lawIds = bookmarkList.map((b: Bookmark) => b.law_id);
-        const lawPromises = lawIds.map(async (lawId: string) => {
-          const lawRes = await fetch(`/api/laws/${lawId}`, { credentials: "include" });
-          if (lawRes.ok) {
-            const lawData = await lawRes.json();
-            // API returns law data directly, not wrapped
-            return {
-              id: lawData.id,
-              title: lawData.title,
-              country: lawData.countries?.name || "",
-              category: lawData.categories?.name || "",
-              status: lawData.status || "In force",
-            };
-          }
-          return null;
-        });
-
-        const lawResults = await Promise.all(lawPromises);
-        const validLaws = lawResults.filter((law): law is Law => law !== null);
-        setLaws(validLaws);
+        const summaries = (data.laws ?? []) as Array<{
+          id: string;
+          title: string;
+          country: string;
+          category: string;
+          status: string;
+        }>;
+        setLaws(
+          summaries.map((law) => ({
+            id: law.id,
+            title: law.title,
+            country: law.country,
+            category: law.category,
+            status: law.status || "In force",
+          }))
+        );
       } catch (err) {
         console.error("Error fetching bookmarks:", err);
         setError("Failed to load bookmarked laws");
