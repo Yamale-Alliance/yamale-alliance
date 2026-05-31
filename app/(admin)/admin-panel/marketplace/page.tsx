@@ -724,8 +724,8 @@ export default function AdminMarketplacePage() {
                   <td className="py-3 font-medium">{item.title}</td>
                   <td className="py-3 text-muted-foreground text-xs">
                     {item.price_cents === 0
-                      ? labelForVaultSubcategory(item.vault_subcategory) ?? "—"
-                      : "—"}
+                      ? labelForVaultSubcategory(item.vault_subcategory) ?? "Free"
+                      : labelForVaultSubcategory(item.vault_subcategory) ?? "—"}
                   </td>
                   <td className="py-3 text-muted-foreground">{item.author || "—"}</td>
                   <td className="py-3 text-right">
