@@ -63,6 +63,15 @@ export const SITEMAP_PATHS: Array<{
   { path: "/payment-refund", changeFrequency: "yearly", priority: 0.3 },
 ];
 
+/** Origin for metadata icons in dev — must match the running dev server, not production APP_URL. */
+export function getMetadataBaseUrl(): string {
+  if (process.env.NODE_ENV === "development") {
+    const port = process.env.PORT?.trim() || "3000";
+    return `http://localhost:${port}`;
+  }
+  return getSiteUrl();
+}
+
 export function getSiteUrl(): string {
   const raw = process.env.NEXT_PUBLIC_APP_URL?.trim();
   if (raw) {
@@ -180,7 +189,7 @@ export function createRootMetadata(faviconUrl?: string | null): Metadata {
   const icons = buildFaviconMetadataIcons(faviconUrl ?? null);
 
   return {
-    metadataBase: new URL(siteUrl),
+    metadataBase: new URL(getMetadataBaseUrl()),
     title: {
       default: SITE.titleDefault,
       template: `%s | ${SITE.shortName}`,
