@@ -1,4 +1,4 @@
-import { SITE, absoluteUrl, getSiteUrl } from "@/lib/site-seo";
+import { SITE, SITEMAP_PATHS, absoluteUrl, getSiteUrl } from "@/lib/site-seo";
 
 /** Official Yamalé profiles (schema.org sameAs) */
 const ORGANIZATION_SAME_AS = [
@@ -7,7 +7,17 @@ const ORGANIZATION_SAME_AS = [
   "https://www.linkedin.com/company/yamale",
 ] as const;
 
-/** Organization + WebSite structured data for rich results */
+const FEATURE_LIST = [
+  "African legal library across 54 countries",
+  "Search and filter statutes by jurisdiction and topic",
+  "Law student revision and professional legal research",
+  "AI legal research grounded in library primary sources",
+  "AfCFTA compliance and tariff tools",
+  "The Yamalé Vault — courses, templates, and guides",
+  "Curated commercial lawyer directory",
+] as const;
+
+/** Organization + WebSite + WebApplication structured data for search and AI rich results */
 export function SiteJsonLd() {
   const siteUrl = getSiteUrl();
   const organization = {
@@ -26,6 +36,7 @@ export function SiteJsonLd() {
     name: SITE.name,
     url: siteUrl,
     description: SITE.description,
+    inLanguage: SITE.locale,
     publisher: { "@type": "Organization", name: SITE.legalName },
     potentialAction: {
       "@type": "SearchAction",
@@ -37,16 +48,62 @@ export function SiteJsonLd() {
     },
   };
 
+  const webApplication = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    name: SITE.name,
+    url: siteUrl,
+    applicationCategory: "LegalService",
+    operatingSystem: "Web",
+    browserRequirements: "Requires JavaScript",
+    description: SITE.description,
+    featureList: [...FEATURE_LIST],
+    offers: {
+      "@type": "Offer",
+      url: absoluteUrl("/pricing"),
+      priceCurrency: "USD",
+    },
+    audience: [
+      {
+        "@type": "EducationalAudience",
+        educationalRole: "student",
+        audienceType: "Law students",
+      },
+      {
+        "@type": "Audience",
+        audienceType: "Lawyers and in-house counsel",
+      },
+      {
+        "@type": "Audience",
+        audienceType: "Business and trade compliance teams",
+      },
+    ],
+    isPartOf: { "@type": "WebSite", url: siteUrl, name: SITE.name },
+  };
+
+  const itemList = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Yamalé public legal tools",
+    itemListElement: SITEMAP_PATHS.filter((p) => p.path !== "/").map((entry, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: entry.path,
+      url: absoluteUrl(entry.path),
+    })),
+  };
+
+  const scripts = [organization, website, webApplication, itemList];
+
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(organization) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(website) }}
-      />
+      {scripts.map((data) => (
+        <script
+          key={data["@type"]}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+        />
+      ))}
     </>
   );
 }
