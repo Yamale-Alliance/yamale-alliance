@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { fetchBrandingFaviconResponse } from "@/lib/site-favicon";
 
+export const dynamic = "force-dynamic";
 export const size = { width: 48, height: 48 };
 export const contentType = "image/x-icon";
 
