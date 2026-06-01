@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { FoundersNoteBody } from "@/components/founders-note/FoundersNoteBody";
-import { getPlatformSettings } from "@/lib/platform-settings";
+import { getPlatformBranding } from "@/lib/platform-branding";
 import { createPageMetadata } from "@/lib/site-seo";
 
 export const metadata = createPageMetadata({
@@ -12,8 +12,10 @@ export const metadata = createPageMetadata({
   ogType: "article",
 });
 
+export const revalidate = 60;
+
 export default async function FoundersNotePage() {
-  const { founderPortraitUrl } = await getPlatformSettings();
+  const { founderPortraitUrl } = await getPlatformBranding();
 
   return (
     <div className="bg-background">
