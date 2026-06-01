@@ -18,7 +18,8 @@ export type AuditAction =
   | "marketplace_item.update"
   | "marketplace_item.delete"
   | "refund.approve"
-  | "refund.reject";
+  | "refund.reject"
+  | "launch_metrics.reset";
 
 export async function recordAuditLog(
   supabase: SupabaseClient<Database>,
