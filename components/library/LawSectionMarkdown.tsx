@@ -26,7 +26,7 @@ type Props = {
 /** Markdown body for law sections — loaded on demand to shrink the law detail bundle. */
 export function LawSectionMarkdown({ body }: Props) {
   return (
-    <div className="prose prose-lg max-w-none leading-relaxed text-foreground prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-foreground prose-p:leading-[1.75] prose-p:text-justify prose-p:text-foreground/90 prose-li:text-foreground dark:prose-invert print:max-w-none print:prose-neutral">
+    <div className="prose prose-base max-w-none break-words leading-relaxed text-foreground prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-foreground prose-headings:break-words prose-p:leading-[1.7] prose-p:text-left prose-p:text-foreground/90 sm:prose-lg sm:prose-p:leading-[1.75] sm:prose-p:text-justify prose-li:text-foreground prose-pre:overflow-x-auto dark:prose-invert print:max-w-none print:prose-neutral">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -35,16 +35,23 @@ export function LawSectionMarkdown({ body }: Props) {
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="!text-blue-600 font-bold underline decoration-blue-600 hover:decoration-blue-600"
+              className="!text-blue-600 font-bold underline decoration-blue-600 break-words hover:decoration-blue-600"
               {...props}
             >
               {children}
             </a>
           ),
+          table: ({ children, ...props }) => (
+            <div className="-mx-1 my-6 overflow-x-auto sm:mx-0">
+              <table className="min-w-full" {...props}>
+                {children}
+              </table>
+            </div>
+          ),
           h1: ({ children, ...props }) => {
             const id = headingAnchorId(children) || undefined;
             return (
-              <h1 id={id} className="scroll-mt-24" {...props}>
+              <h1 id={id} className="scroll-mt-24 break-words" {...props}>
                 {children}
               </h1>
             );
@@ -52,7 +59,7 @@ export function LawSectionMarkdown({ body }: Props) {
           h2: ({ children, ...props }) => {
             const id = headingAnchorId(children) || undefined;
             return (
-              <h2 id={id} className="scroll-mt-24" {...props}>
+              <h2 id={id} className="scroll-mt-24 break-words" {...props}>
                 {children}
               </h2>
             );
@@ -60,7 +67,7 @@ export function LawSectionMarkdown({ body }: Props) {
           h3: ({ children, ...props }) => {
             const id = headingAnchorId(children) || undefined;
             return (
-              <h3 id={id} className="scroll-mt-24" {...props}>
+              <h3 id={id} className="scroll-mt-24 break-words" {...props}>
                 {children}
               </h3>
             );
