@@ -5,27 +5,25 @@ import { usePlatformSettings } from "@/components/platform/PlatformSettingsConte
 
 const FAVICON_ID = "yamale-dynamic-favicon";
 
+/**
+ * Updates a single favicon link we own. Do not remove other <link rel="icon"> nodes —
+ * Next metadata injects those and React will throw on removeChild if we delete them.
+ */
 function applyFavicon(href: string, type = "image/x-icon") {
   if (typeof document === "undefined" || !document.head) return;
-
-  document
-    .querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]')
-    .forEach((node) => {
-      if (node.id !== FAVICON_ID) node.remove();
-    });
 
   let link = document.getElementById(FAVICON_ID) as HTMLLinkElement | null;
   if (!link) {
     link = document.createElement("link");
     link.id = FAVICON_ID;
+    link.rel = "icon";
     document.head.appendChild(link);
   }
-  link.rel = "icon";
   link.type = type;
   link.href = href;
 }
 
-/** Tab icon: Cloudinary URL when set, else same-origin /favicon.ico from admin branding. */
+/** Tab icon: Cloudinary URL when settings hydrate, else same-origin /favicon.ico. */
 export function DynamicFavicon() {
   const { faviconUrl } = usePlatformSettings();
 
