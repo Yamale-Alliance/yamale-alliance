@@ -1,15 +1,15 @@
-import { getPlatformFavicon } from "@/lib/platform-settings";
+import { getPlatformBranding } from "@/lib/platform-branding";
 
 const FAVICON_REVALIDATE_SEC = 300;
 
 /** Fetch favicon bytes from admin branding (Cloudinary). */
 export async function fetchBrandingFaviconResponse(): Promise<Response | null> {
-  const url = await getPlatformFavicon();
+  const { faviconUrl: url } = await getPlatformBranding();
   if (!url?.trim()) return null;
 
   try {
     const res = await fetch(url.trim(), {
-      next: { revalidate: FAVICON_REVALIDATE_SEC },
+      cache: "no-store",
     });
     if (!res.ok) return null;
     const body = await res.arrayBuffer();
@@ -26,22 +26,23 @@ export async function fetchBrandingFaviconResponse(): Promise<Response | null> {
   }
 }
 
-/** Metadata.icons for root layout — same-origin routes Google and browsers crawl reliably. */
-export function buildFaviconMetadataIcons(faviconUrl: string | null) {
-  if (!faviconUrl?.trim()) {
+/** Metadata.icons — Cloudinary URL when set (absolute, works on localhost); else /favicon.ico route. */
+export function buildFaviconMetadataIcons(faviconUrl?: string | null) {
+  const trimmed = faviconUrl?.trim();
+  if (trimmed) {
+    const type = trimmed.toLowerCase().includes(".ico") ? "image/x-icon" : "image/png";
     return {
-      icon: [{ url: "/icon", type: "image/x-icon" }],
-      shortcut: ["/icon"],
+      icon: [
+        { url: trimmed, type },
+        { url: "/favicon.ico", type: "image/x-icon", sizes: "any" },
+      ],
+      shortcut: [trimmed, "/favicon.ico"],
+      apple: [{ url: "/apple-icon", type: "image/png", sizes: "180x180" }],
     };
   }
-
   return {
-    icon: [
-      { url: "/icon", type: "image/x-icon" },
-      { url: "/favicon.ico", type: "image/x-icon", sizes: "any" },
-      { url: faviconUrl.trim(), type: "image/x-icon" },
-    ],
-    shortcut: ["/favicon.ico", "/icon"],
-    apple: [{ url: "/apple-icon", type: "image/png" }],
+    icon: [{ url: "/favicon.ico", type: "image/x-icon", sizes: "any" }],
+    shortcut: ["/favicon.ico"],
+    apple: [{ url: "/apple-icon", type: "image/png", sizes: "180x180" }],
   };
 }
