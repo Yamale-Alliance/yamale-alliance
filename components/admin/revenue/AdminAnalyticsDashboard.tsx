@@ -22,6 +22,7 @@ import {
   AdminAnalyticsDetailTables,
   type AnalyticsDetailsPayload,
 } from "@/components/admin/revenue/AdminAnalyticsDetailTables";
+import { AdminLaunchMetricsResetPanel } from "@/components/admin/AdminLaunchMetricsResetPanel";
 
 const RANGE_OPTIONS: { value: AnalyticsRangePreset; label: string }[] = [
   { value: "today", label: "Today" },
@@ -316,6 +317,10 @@ export function AdminAnalyticsDashboard() {
               </p>
             </div>
             <AdminAnalyticsDetailTables details={data.details} segment={segment} />
+          </div>
+
+          <div className="mt-10">
+            <AdminLaunchMetricsResetPanel defaultScope="revenue" />
           </div>
         </>
       ) : null}
