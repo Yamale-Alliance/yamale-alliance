@@ -42,14 +42,20 @@ export function useServiceWorker() {
         .then((reg) => {
           setIsRegistered(true);
           setRegistration(reg);
-          console.log('[SW] Service worker registered:', reg.scope);
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('[SW] Service worker registered:', reg.scope);
+          }
 
           // Check for updates
           reg.addEventListener('updatefound', () => {
             const newWorker = reg.installing;
             if (newWorker) {
               newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                if (
+                  process.env.NODE_ENV !== 'production' &&
+                  newWorker.state === 'installed' &&
+                  navigator.serviceWorker.controller
+                ) {
                   console.log('[SW] New service worker available. Reload to update.');
                 }
               });
@@ -63,7 +69,9 @@ export function useServiceWorker() {
 
       // Handle controller change (new SW activated)
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        console.log('[SW] New service worker activated');
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[SW] New service worker activated');
+        }
         window.location.reload();
       });
 
