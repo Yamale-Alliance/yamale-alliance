@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getClerkCspHosts } from "@/lib/clerk-csp-hosts";
+import { getGoogleAnalyticsCspHosts } from "@/lib/google-analytics-csp";
 import { checkDistributedRateLimit } from "@/lib/distributed-rate-limit";
 import type { RateLimitResult } from "@/lib/runtime-security-types";
 
@@ -34,6 +35,7 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
   }
 
   const clerkHosts = getClerkCspHosts();
+  const gaCsp = getGoogleAnalyticsCspHosts();
   response.headers.set(
     "Content-Security-Policy",
     [
@@ -44,9 +46,13 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
         "https://challenges.cloudflare.com",
         "https://*.js.stripe.com",
         "https://js.stripe.com",
+        ...(gaCsp?.scriptSrc ?? []),
       ].join(" "),
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https: https://img.clerk.com",
+      [
+        "img-src 'self' data: blob: https: https://img.clerk.com",
+        ...(gaCsp?.imgSrc ?? []),
+      ].join(" "),
       "media-src 'self' blob: https://res.cloudinary.com",
       "font-src 'self' data: https:",
       [
@@ -54,6 +60,7 @@ export function applySecurityHeaders(response: NextResponse): NextResponse {
         ...clerkHosts,
         "https://clerk-telemetry.com",
         "https://*.clerk-telemetry.com",
+        ...(gaCsp?.connectSrc ?? []),
       ].join(" "),
       "worker-src 'self' blob:",
       [
