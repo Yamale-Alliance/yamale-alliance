@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin";
-import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
+import {
+  uploadToCloudinary,
+  deleteFromCloudinary,
+  publicIdFromCloudinaryUrl,
+} from "@/lib/cloudinary";
 import { getPlatformSettings, clearPlatformSettingsCache } from "@/lib/platform-settings";
 
 /** GET: Retrieve platform settings (logo, favicon, hero). Uses server cache so logo/favicon don't slow every page. */
@@ -124,6 +128,90 @@ export async function POST(request: NextRequest) {
     console.error("Platform settings POST error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Failed to update settings" },
+      { status: 500 }
+    );
+  }
+}
+
+const DELETE_FIELD_MAP = {
+  logo: "logo_url",
+  favicon: "favicon_url",
+  founder_portrait: "founder_portrait_url",
+  hero: "hero_image_url",
+} as const;
+
+type DeleteBrandingType = keyof typeof DELETE_FIELD_MAP;
+
+/** DELETE: Clear a branding asset (query: ?type=logo|favicon|founder_portrait|hero) */
+export async function DELETE(request: NextRequest) {
+  const admin = await requireAdmin();
+  if (admin instanceof NextResponse) return admin;
+
+  const type = request.nextUrl.searchParams.get("type") as DeleteBrandingType | null;
+  if (!type || !(type in DELETE_FIELD_MAP)) {
+    return NextResponse.json(
+      { error: "Query type must be logo, favicon, founder_portrait, or hero" },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const settings = await getPlatformSettings();
+    const field = DELETE_FIELD_MAP[type];
+    const currentUrl =
+      type === "logo"
+        ? settings.logoUrl
+        : type === "favicon"
+          ? settings.faviconUrl
+          : type === "founder_portrait"
+            ? settings.founderPortraitUrl
+            : settings.heroImageUrl;
+
+    if (currentUrl) {
+      const publicId = publicIdFromCloudinaryUrl(currentUrl);
+      if (publicId) {
+        try {
+          await deleteFromCloudinary(publicId, "image");
+        } catch (err) {
+          console.warn("Cloudinary delete failed (continuing DB clear):", err);
+        }
+      }
+    }
+
+    const supabase = getSupabaseServer();
+    const { error: updateError } = await (supabase.from("platform_settings") as any)
+      .update({
+        [field]: null,
+        updated_at: new Date().toISOString(),
+        updated_by: admin.userId,
+      })
+      .eq("id", "main");
+
+    if (updateError) {
+      const msg =
+        typeof updateError === "object" && updateError && "message" in updateError
+          ? String((updateError as { message?: string }).message ?? "")
+          : "";
+      console.error("Platform settings delete error:", updateError);
+      if (type === "founder_portrait" && /founder_portrait_url|does not exist/i.test(msg)) {
+        return NextResponse.json(
+          {
+            error:
+              "Database column founder_portrait_url is missing. Run supabase/migrations/20260518120000_add_founder_portrait_url.sql",
+          },
+          { status: 503 }
+        );
+      }
+      return NextResponse.json({ error: "Failed to remove image" }, { status: 500 });
+    }
+
+    clearPlatformSettingsCache();
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("Platform settings DELETE error:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to remove image" },
       { status: 500 }
     );
   }
