@@ -23,7 +23,13 @@ export function FoundersNotePortrait({
       className={`relative shrink-0 overflow-hidden rounded-full border-2 border-[#C8922A]/40 bg-muted shadow-md ${sizeClasses[size]} ${className}`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Cloudinary URL from admin */}
-      <img src={url} alt={alt} className="h-full w-full object-cover object-center" />
+      <img
+        src={url}
+        alt={alt}
+        className="h-full w-full object-cover object-center"
+        referrerPolicy="no-referrer"
+        decoding="async"
+      />
     </div>
   );
 }
