@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { buildFaviconMetadataIcons } from "@/lib/site-favicon";
 
 /** Canonical production URL; override with NEXT_PUBLIC_APP_URL on Vercel. */
 export const DEFAULT_SITE_URL = "https://www.yamalelegal.com";
@@ -7,22 +8,30 @@ export const SITE = {
   name: "Yamalé Legal Platform",
   shortName: "Yamalé",
   legalName: "Yamalé",
-  titleDefault: "African Legal Research, AfCFTA & AI — Yamalé Legal Platform",
+  titleDefault:
+    "African Law Library, Exam Revision & AI Legal Research — Yamalé",
   description:
-    "Research African business law across 54 countries: legal library, AfCFTA compliance tools, AI legal research, The Yamalé Vault, and a curated lawyer network. Law without barriers. Business without borders.",
+    "For law students and lawyers: search and revise African statutes across 54 countries, run AI legal research on primary sources, use AfCFTA trade tools, browse The Yamalé Vault, and find commercial counsel. Law without barriers. Business without borders.",
   tagline: "Law Without Barriers. Business Without Borders.",
   locale: "en",
   region: "SN",
   keywords: [
     "African law",
-    "legal research Africa",
-    "AfCFTA compliance",
     "African legal library",
-    "OHADA",
-    "business law Africa",
+    "law student revision",
+    "law exam prep Africa",
+    "study African business law",
+    "legal research Africa",
+    "find African statutes",
+    "OHADA law",
+    "AfCFTA compliance",
     "cross-border trade Africa",
     "AI legal research",
+    "legal AI Africa",
     "African lawyers directory",
+    "find a lawyer Africa",
+    "commercial lawyer Africa",
+    "business law Africa",
     "Yamalé",
     "yamalelegal",
   ],
@@ -40,8 +49,12 @@ export const SITEMAP_PATHS: Array<{
   { path: "/library", changeFrequency: "daily", priority: 0.95 },
   { path: "/ai-research", changeFrequency: "weekly", priority: 0.9 },
   { path: "/afcfta/compliance-check", changeFrequency: "weekly", priority: 0.9 },
+  { path: "/afcfta/compliance-journey", changeFrequency: "weekly", priority: 0.88 },
+  { path: "/afcfta/tariff-schedule", changeFrequency: "weekly", priority: 0.85 },
   { path: "/marketplace", changeFrequency: "weekly", priority: 0.85 },
   { path: "/lawyers", changeFrequency: "weekly", priority: 0.85 },
+  { path: "/lawyers/join", changeFrequency: "monthly", priority: 0.7 },
+  { path: "/sign-up", changeFrequency: "monthly", priority: 0.65 },
   { path: "/pricing", changeFrequency: "weekly", priority: 0.8 },
   { path: "/founders-note", changeFrequency: "monthly", priority: 0.6 },
   { path: "/contact", changeFrequency: "monthly", priority: 0.55 },
@@ -72,11 +85,30 @@ export function absoluteUrl(path: string): string {
   return `${base}${normalized}`;
 }
 
+function mergeKeywords(extra?: string[]): string[] {
+  if (!extra?.length) return [...SITE.keywords];
+  return [...new Set([...extra, ...SITE.keywords])];
+}
+
+const INDEX_ROBOTS: Metadata["robots"] = {
+  index: true,
+  follow: true,
+  googleBot: {
+    index: true,
+    follow: true,
+    "max-video-preview": -1,
+    "max-image-preview": "large",
+    "max-snippet": -1,
+  },
+};
+
 type PageMetadataOptions = {
   title: string;
   description: string;
   /** Path without origin, e.g. `/privacy` */
   path?: string;
+  /** Extra search terms merged with site defaults */
+  keywords?: string[];
   /** Set for account/admin flows that should not be indexed */
   noIndex?: boolean;
   /** Override Open Graph type (default `website`) */
@@ -88,6 +120,7 @@ export function createPageMetadata({
   title,
   description,
   path = "",
+  keywords,
   noIndex = false,
   ogType = "website",
 }: PageMetadataOptions): Metadata {
@@ -98,7 +131,7 @@ export function createPageMetadata({
     title,
     description,
     alternates: { canonical },
-    keywords: [...SITE.keywords],
+    keywords: mergeKeywords(keywords),
     openGraph: {
       type: ogType,
       locale: SITE.locale,
@@ -112,9 +145,7 @@ export function createPageMetadata({
       title: ogTitle,
       description,
     },
-    ...(noIndex
-      ? { robots: { index: false, follow: false } }
-      : { robots: { index: true, follow: true } }),
+    ...(noIndex ? { robots: { index: false, follow: false } } : { robots: INDEX_ROBOTS }),
   };
 }
 
@@ -139,12 +170,14 @@ export function createHomeMetadata(): Metadata {
       title: SITE.titleDefault,
       description: SITE.description,
     },
+    robots: INDEX_ROBOTS,
   };
 }
 
 /** Root layout metadata (metadataBase, title template, defaults) */
-export function createRootMetadata(): Metadata {
+export function createRootMetadata(faviconUrl?: string | null): Metadata {
   const siteUrl = getSiteUrl();
+  const icons = buildFaviconMetadataIcons(faviconUrl ?? null);
 
   return {
     metadataBase: new URL(siteUrl),
@@ -159,6 +192,7 @@ export function createRootMetadata(): Metadata {
     creator: SITE.legalName,
     publisher: SITE.legalName,
     category: "Legal",
+    icons,
     alternates: {
       canonical: "/",
     },
@@ -175,17 +209,7 @@ export function createRootMetadata(): Metadata {
       title: SITE.titleDefault,
       description: SITE.description,
     },
-    robots: {
-      index: true,
-      follow: true,
-      googleBot: {
-        index: true,
-        follow: true,
-        "max-video-preview": -1,
-        "max-image-preview": "large",
-        "max-snippet": -1,
-      },
-    },
+    robots: INDEX_ROBOTS,
     appleWebApp: {
       capable: true,
       title: SITE.shortName,
@@ -198,6 +222,7 @@ export function createRootMetadata(): Metadata {
     },
     other: {
       "geo.region": SITE.region,
+      "llms-txt": "/llms.txt",
     },
   };
 }
