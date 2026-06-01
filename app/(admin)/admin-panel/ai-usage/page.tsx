@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Loader2, Cpu } from "lucide-react";
 import { AI_TOKEN_COST_ESTIMATE_DISCLAIMER } from "@/lib/ai-token-cost-estimate";
+import { AdminLaunchMetricsResetPanel } from "@/components/admin/AdminLaunchMetricsResetPanel";
 
 type UsageRow = {
   user_id: string;
@@ -163,6 +164,10 @@ export default function AdminAiUsagePage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="mt-10">
+        <AdminLaunchMetricsResetPanel defaultScope="ai" />
       </div>
     </div>
   );
