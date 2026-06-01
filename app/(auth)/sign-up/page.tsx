@@ -1,10 +1,10 @@
-import { redirect } from "next/navigation";
+import { permanentRedirect } from "next/navigation";
 
 type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-/** Clerk env may use /sign-up; the sign-up UI lives at /signup. */
+/** Clerk env may use /sign-up; permanent redirect to canonical /signup (not in sitemap). */
 export default async function SignUpAliasPage({ searchParams }: Props) {
   const params = await searchParams;
   const qs = new URLSearchParams();
@@ -13,5 +13,5 @@ export default async function SignUpAliasPage({ searchParams }: Props) {
     else if (Array.isArray(value)) value.forEach((v) => qs.append(key, v));
   }
   const suffix = qs.toString() ? `?${qs.toString()}` : "";
-  redirect(`/signup${suffix}`);
+  permanentRedirect(`/signup${suffix}`);
 }
