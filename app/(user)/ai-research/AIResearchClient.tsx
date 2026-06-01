@@ -91,6 +91,8 @@ const EXAMPLE_QUESTIONS_POOL = [
   "How do rules of origin differ between AfCFTA and ECOWAS?",
 ];
 
+const DEFAULT_EXAMPLE_QUESTIONS = EXAMPLE_QUESTIONS_POOL.slice(0, 4);
+
 function pickRandomExampleQuestions(count: number): string[] {
   const pool = [...EXAMPLE_QUESTIONS_POOL];
   for (let i = pool.length - 1; i > 0; i -= 1) {
@@ -221,20 +223,9 @@ function getLastExchangeScrollMessageId(messages: Message[]): string | undefined
 export default function AIResearchClient() {
   const { user, isLoaded } = useUser();
   const searchParams = useClientSearchParams();
-  const [sessions, setSessions] = useState<ChatSession[]>(() =>
-    typeof window === "undefined" ? [] : loadSessions()
-  );
-  const [currentId, setCurrentId] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    const loaded = loadSessions();
-    try {
-      const saved = localStorage.getItem(CURRENT_CHAT_ID_KEY);
-      if (saved && loaded.some((s) => s.id === saved)) return saved;
-    } catch {
-      /* ignore */
-    }
-    return null;
-  });
+  const chatStorageReadyRef = useRef(false);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [currentId, setCurrentId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [searchChats, setSearchChats] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -244,7 +235,7 @@ export default function AIResearchClient() {
   const [chatCopied, setChatCopied] = useState(false);
   const [emailShareOpening, setEmailShareOpening] = useState(false);
   const [exportPreviewOpen, setExportPreviewOpen] = useState(false);
-  const [exportPreviewAt, setExportPreviewAt] = useState(() => new Date());
+  const [exportPreviewAt, setExportPreviewAt] = useState<Date | null>(null);
   const [chatPdfDownloading, setChatPdfDownloading] = useState(false);
   const [aiUsage, setAiUsage] = useState<{
     used: number;
@@ -309,7 +300,7 @@ export default function AIResearchClient() {
   const [defaultModelId, setDefaultModelId] = useState<string | null>(null);
   const [allowedModelIds, setAllowedModelIds] = useState<string[]>([]);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
-  const [exampleQuestions, setExampleQuestions] = useState<string[]>(() => pickRandomExampleQuestions(4));
+  const [exampleQuestions, setExampleQuestions] = useState<string[]>(DEFAULT_EXAMPLE_QUESTIONS);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [feedbackBusyId, setFeedbackBusyId] = useState<string | null>(null);
   const [feedbackChoiceById, setFeedbackChoiceById] = useState<Record<string, 1 | -1>>({});
@@ -319,7 +310,7 @@ export default function AIResearchClient() {
   const [negativeSubmitting, setNegativeSubmitting] = useState(false);
   const [noticeCheckDone, setNoticeCheckDone] = useState(false);
   const [hasAcknowledgedNotice, setHasAcknowledgedNotice] = useState(false);
-  const [shellTopOffset, setShellTopOffset] = useState(56);
+  const [shellTopOffset, setShellTopOffset] = useState(72);
 
   const tierFromMetadata: Tier =
     user?.publicMetadata ? getTierFromUser(user.publicMetadata as Record<string, unknown>) : "free";
@@ -387,6 +378,27 @@ export default function AIResearchClient() {
   }, []);
 
   useEffect(() => {
+    setExampleQuestions(pickRandomExampleQuestions(4));
+  }, []);
+
+  useEffect(() => {
+    const loaded = loadSessions();
+    if (loaded.length > 0) {
+      setSessions(loaded);
+      try {
+        const saved = localStorage.getItem(CURRENT_CHAT_ID_KEY);
+        if (saved && loaded.some((s) => s.id === saved)) {
+          setCurrentId(saved);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    chatStorageReadyRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!chatStorageReadyRef.current) return;
     saveSessions(sessions);
   }, [sessions]);
 
@@ -511,7 +523,7 @@ export default function AIResearchClient() {
     const updateShellOffset = () => {
       const header = document.querySelector("header");
       if (!header) {
-        setShellTopOffset(56);
+        setShellTopOffset(72);
         return;
       }
       const rect = header.getBoundingClientRect();
@@ -1480,27 +1492,27 @@ export default function AIResearchClient() {
           </div>
 
           <div ref={chatScrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-            <div className="mx-auto max-w-[760px] px-4 py-8 md:px-8 md:py-10">
+            <div className="mx-auto max-w-[760px] px-5 py-5 sm:px-6 md:px-8 md:py-10">
               {messages.length === 0 ? (
                 <div className="text-center">
-                  <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full border border-border bg-card shadow-sm">
-                    <Sparkles className="h-7 w-7 text-[#C8922A]" strokeWidth={1.5} aria-hidden />
+                  <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card shadow-sm sm:mb-6 sm:h-14 sm:w-14">
+                    <Sparkles className="h-6 w-6 text-[#C8922A] sm:h-7 sm:w-7" strokeWidth={1.5} aria-hidden />
                   </div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#C8922A]">Yamalé AI</p>
-                  <h2 className="heading mb-3 text-[26px] font-semibold tracking-tight text-foreground md:text-[30px]">
+                  <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#C8922A] sm:mb-2">Yamalé AI</p>
+                  <h2 className="heading mb-2 text-xl font-semibold tracking-tight text-foreground sm:mb-3 sm:text-2xl md:text-[30px]">
                     What would you like to research?
                   </h2>
-                  <p className="mx-auto mb-10 max-w-md text-[14px] leading-relaxed text-muted-foreground">
+                  <p className="mx-auto mb-6 max-w-md text-[13px] leading-relaxed text-muted-foreground sm:mb-8 sm:text-[14px]">
                     Ask about African law, AfCFTA, or compliance. Responses are indicative only.
                   </p>
-                  <div className="mx-auto grid max-w-lg grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  <div className="mx-auto grid max-w-lg grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-2.5">
                     {exampleQuestions.map((q) => (
                       <button
                         key={q}
                         type="button"
                         onClick={() => sendMessage(q).catch(() => {})}
                         disabled={atLimit || isTurnBusy}
-                        className="rounded-[6px] border border-border bg-card px-4 py-3 text-left text-[13px] leading-snug text-muted-foreground transition hover:border-[#C8922A]/40 hover:bg-muted disabled:opacity-50"
+                        className="rounded-[6px] border border-border bg-card px-3 py-2.5 text-left text-[12px] leading-snug text-muted-foreground transition hover:border-[#C8922A]/40 hover:bg-muted disabled:opacity-50 sm:px-4 sm:py-3 sm:text-[13px]"
                       >
                         {q}
                       </button>
@@ -1513,18 +1525,18 @@ export default function AIResearchClient() {
                     <div
                       key={msg.id}
                       id={`msg-${msg.id}`}
-                      className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
+                      className={`flex items-start gap-2 sm:gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
                     >
                       {msg.role === "assistant" ? (
                         <div
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#0D1B2A] text-[11px] font-bold text-white dark:border-white/15"
+                          className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#0D1B2A] text-[11px] font-bold text-white dark:border-white/15 sm:flex"
                           aria-hidden
                         >
                           Y
                         </div>
                       ) : (
                         <div
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#C8922A]/15 text-[11px] font-bold text-[#0D1B2A] dark:border-white/15 dark:bg-[#C8922A]/20 dark:text-[#F5D793]"
+                          className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E8E4DC] bg-[#C8922A]/15 text-[11px] font-bold text-[#0D1B2A] dark:border-white/15 dark:bg-[#C8922A]/20 dark:text-[#F5D793] sm:flex"
                           aria-hidden
                         >
                           {user?.imageUrl ? (
@@ -1583,7 +1595,7 @@ export default function AIResearchClient() {
                           />
                         ) : null}
                         {msg.role === "assistant" && msg.content.trim() ? (
-                          <div className="prose prose-sm max-w-none text-foreground dark:prose-invert prose-headings:font-semibold prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-strong:font-semibold prose-a:text-[#C8922A] prose-a:underline hover:prose-a:opacity-90">
+                          <div className="prose prose-sm max-w-none break-words text-foreground dark:prose-invert prose-headings:font-semibold prose-headings:text-base sm:prose-headings:text-lg prose-p:my-2 prose-p:text-[13px] sm:prose-p:text-sm prose-ul:my-2 prose-li:my-0.5 prose-strong:font-semibold prose-a:break-words prose-a:text-[#C8922A] prose-a:underline hover:prose-a:opacity-90">
                             <ReactMarkdown
                               remarkPlugins={[remarkGfm]}
                               components={{
@@ -1822,7 +1834,7 @@ export default function AIResearchClient() {
             </div>
           </div>
 
-          <div className="shrink-0 border-t border-border bg-card px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-8">
+          <div className="shrink-0 border-t border-border bg-card px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 md:px-8">
             <div className="mx-auto max-w-[760px]">
               <form onSubmit={handleSubmit}>
                 <div className="flex items-end gap-2 rounded-[8px] border border-border bg-background p-1.5 shadow-inner focus-within:border-[#C8922A]/35 focus-within:ring-2 focus-within:ring-[#C8922A]/15">
@@ -1970,7 +1982,7 @@ export default function AIResearchClient() {
           <div className="flex max-h-[88dvh] w-full max-w-3xl flex-col rounded-[18px] border border-[#E8E4DC] bg-white p-4 shadow-2xl sm:p-6">
             <div className="overflow-y-auto pr-1">
               <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#C8922A] sm:text-[12px]">AI Legal Research</p>
-              <h2 className="heading mt-2 text-[28px] font-semibold tracking-tight text-[#0D1B2A] sm:text-[36px]">
+              <h2 className="heading mt-2 text-xl font-semibold tracking-tight text-[#0D1B2A] sm:text-[28px] md:text-[36px]">
                 Before you use AI Legal Research
               </h2>
               <p className="mt-3 max-w-3xl text-[14px] leading-relaxed text-[#1f2937] sm:mt-4 sm:text-[15px]">
@@ -2030,7 +2042,7 @@ export default function AIResearchClient() {
             sources: m.sources ? normalizeAiResearchSourceLabels(m.sources) : undefined,
             sourceCards: m.sourceCards,
           }))}
-          exportedAt={exportPreviewAt}
+          exportedAt={exportPreviewAt ?? new Date()}
           logoUrl={platformLogoUrl}
           onDownloadPdf={handleDownloadChat}
           pdfLoading={chatPdfDownloading}
