@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Scale, Cpu, Shield, Palette } from "lucide-react";
+import { AdminLaunchMetricsResetPanel } from "@/components/admin/AdminLaunchMetricsResetPanel";
 
 const settingsLinks = [
   {
@@ -62,6 +63,10 @@ export default function AdminSettingsPage() {
             </li>
           ))}
         </ul>
+      </div>
+
+      <div className="mt-10">
+        <AdminLaunchMetricsResetPanel />
       </div>
     </div>
   );
