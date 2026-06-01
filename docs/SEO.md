@@ -16,7 +16,7 @@ This sets `metadataBase`, canonical URLs, `robots.txt` host, and `sitemap.xml` e
 | Robots | `/robots.txt` |
 | LLM site guide | `/llms.txt` |
 | Open Graph image | `/opengraph-image` (auto-generated) |
-| Favicon (browser + Google) | Admin **Branding** → `.ico` upload; served at `/icon` and `/favicon.ico` in HTML (server-rendered) |
+| Favicon (browser + Google) | Static `public/favicon.ico` (48×48+) + optional admin branding; declared in `<head>` |
 | JSON-LD | Organization, WebSite, WebApplication, ItemList in `<head>` (`components/seo/SiteJsonLd.tsx`) |
 
 ## Audience keywords
@@ -50,16 +50,15 @@ curl -s https://www.yamalelegal.com/llms.txt | head -30
 
 ## Favicon (admin + Google)
 
-1. Upload a square **`.ico`** in **Admin → Settings → Branding → Favicon** (stored in Cloudinary / `platform_settings.favicon_url`).
-2. After deploy, confirm in **View Source** on the homepage:
-   - `<link rel="icon" href="/icon" …>`
-   - `<link rel="icon" href="/favicon.ico" …>`
-3. Test URLs:
-   - `https://www.yamalelegal.com/favicon.ico` → should return your icon (rewrites to `/icon`).
-   - `https://www.yamalelegal.com/icon`
-4. **Google Search** can take **days to weeks** to replace the generic globe after the first crawl. Use Search Console → URL inspection → Request indexing on the homepage.
+Static defaults in `public/` meet Google’s **≥48×48** requirement: `/favicon.ico` (48×48 ICO), `/favicon-192.png`, `/apple-touch-icon.png` (180×180). Regenerate: `npm run favicons:generate`.
 
-Previously the favicon was only injected in the browser via JavaScript (`DynamicFavicon`), which Google often ignores.
+1. Optional: upload a square **≥48×48** **`.ico`** or PNG in **Admin → Settings → Branding → Favicon** (Cloudinary / `platform_settings.favicon_url`).
+2. After deploy, confirm in **View Source**:
+   - `<link rel="icon" href="/favicon.ico" sizes="48x48" …>`
+   - `<link rel="icon" … href="/favicon-192.png" sizes="192x192" …>`
+   - `<link rel="apple-touch-icon" … href="/apple-touch-icon.png" sizes="180x180" …>`
+3. Test: `https://www.yamalelegal.com/favicon.ico` and `/favicon-192.png`
+4. **Google Search** can take **days to weeks** to refresh the favicon. Use Search Console → URL inspection → Request indexing on the homepage.
 
 ## Verify JSON-LD
 
