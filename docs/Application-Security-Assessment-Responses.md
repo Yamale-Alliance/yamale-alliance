@@ -123,7 +123,7 @@ Inbound webhooks: Lomi (`/api/lomi/webhook`), pawaPay callbacks, legacy Stripe p
 
 **Answer:**
 
-- **Production:** Vercel deployment with production Clerk keys, live Lomi (`LOMI_ENVIRONMENT=live`), and production Supabase URL (documented example: `https://yamale-alliance.vercel.app` in `.env.example`).
+- **Production:** Vercel deployment with production Clerk keys, live Lomi (`LOMI_ENVIRONMENT=live`), and production Supabase URL (documented example: `https://www.yamalelegal.com` in `.env.example`).
 - **Staging / demo:** No separate named staging application in code; teams typically use **Vercel preview deployments** and/or a dedicated Vercel project with test keys.
 - **Optional gate:** **HTTP Basic Authentication** (`ENABLE_BASIC_AUTH`, `BASIC_AUTH_USERNAME`, `BASIC_AUTH_PASSWORD`) for demo/staging — not a substitute for application security.
 - **Payment sandboxes:** Lomi sandbox API (`lomi_sk_test_…`, `LOMI_ENVIRONMENT=test`); pawaPay default base URL points to sandbox (`https://api.sandbox.pawapay.io`).

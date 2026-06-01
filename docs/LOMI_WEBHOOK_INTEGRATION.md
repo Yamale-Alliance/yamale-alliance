@@ -11,7 +11,7 @@
 
 | Environment | URL |
 |-------------|-----|
-| **Production** | `https://yamale-alliance.vercel.app/api/lomi/webhook` |
+| **Production** | `https://www.yamalelegal.com/api/lomi/webhook` |
 | **Staging / preview** | Same path on the deployed preview host (e.g. `https://<preview-host>/api/lomi/webhook`) |
 
 - **Method:** `POST` only  
@@ -160,7 +160,7 @@ We aim to respond within Lomi’s ~**4s** timeout; heavy work is DB writes only 
 
 ## 8. What we need from Lomi (checklist)
 
-- [ ] Confirm production webhook URL: `https://yamale-alliance.vercel.app/api/lomi/webhook`  
+- [ ] Confirm production webhook URL: `https://www.yamalelegal.com/api/lomi/webhook`  
 - [ ] Subscribe **`PAYMENT_SUCCEEDED`** (and send `test.webhook` for connectivity tests)  
 - [ ] Share **`whsec_…`** signing secret for our `LOMI_WEBHOOK_SECRET`  
 - [ ] Confirm **`metadata`** on checkout sessions is returned on webhooks as we set it on create  
