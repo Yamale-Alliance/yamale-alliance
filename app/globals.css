@@ -276,6 +276,21 @@ html.law-reading-mode-active .yamale-site-footer {
   line-height: inherit;
 }
 
+/* Law reader: mobile typography and toolbar clearance */
+@media (max-width: 639px) {
+  .law-page-root .law-doc-search-root .prose {
+    font-size: 0.9375rem;
+    line-height: 1.7;
+  }
+
+  .law-page-root .law-doc-search-root .prose h1,
+  .law-page-root .law-doc-search-root .prose h2,
+  .law-page-root .law-doc-search-root .prose h3 {
+    font-size: 1.05rem;
+    line-height: 1.35;
+  }
+}
+
 @media print {
   html.law-reading-mode-active .yamale-site-chrome,
   html.law-reading-mode-active .yamale-site-footer {
