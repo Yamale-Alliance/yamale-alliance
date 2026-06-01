@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Upload, Image as ImageIcon, CheckCircle2, Loader2 } from "lucide-react";
+import { Upload, Image as ImageIcon, CheckCircle2, Loader2, Trash2 } from "lucide-react";
 import { LogoCropModal } from "@/components/admin/LogoCropModal";
 
 function showToast(message: string, type: "success" | "error" = "success") {
@@ -39,6 +39,9 @@ export default function BrandingSettingsPage() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
   const [uploadingFounderPortrait, setUploadingFounderPortrait] = useState(false);
+  const [removingLogo, setRemovingLogo] = useState(false);
+  const [removingFavicon, setRemovingFavicon] = useState(false);
+  const [removingFounderPortrait, setRemovingFounderPortrait] = useState(false);
   const [logoCropImage, setLogoCropImage] = useState<{ url: string; fileName: string } | null>(null);
 
   useEffect(() => {
@@ -120,6 +123,51 @@ export default function BrandingSettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleRemove = useCallback(
+    async (type: "logo" | "favicon" | "founder_portrait") => {
+      const label =
+        type === "logo" ? "logo" : type === "favicon" ? "favicon" : "founder portrait";
+      if (!window.confirm(`Remove the current ${label}? This cannot be undone.`)) return;
+
+      const setRemoving =
+        type === "logo"
+          ? setRemovingLogo
+          : type === "favicon"
+            ? setRemovingFavicon
+            : setRemovingFounderPortrait;
+      setRemoving(true);
+
+      try {
+        const res = await fetch(`/api/admin/platform-settings?type=${type}`, {
+          method: "DELETE",
+        });
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.error || "Remove failed");
+        }
+
+        if (type === "logo") {
+          setSettings((prev) => ({ ...prev, logoUrl: null }));
+        } else if (type === "favicon") {
+          setSettings((prev) => ({ ...prev, faviconUrl: null }));
+        } else {
+          setSettings((prev) => ({ ...prev, founderPortraitUrl: null }));
+        }
+
+        showToast(`${label.charAt(0).toUpperCase()}${label.slice(1)} removed`, "success");
+
+        if (type === "favicon") {
+          setTimeout(() => window.location.reload(), 800);
+        }
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : "Remove failed", "error");
+      } finally {
+        setRemoving(false);
+      }
+    },
+    []
+  );
+
   const handleLogoCropComplete = useCallback((blob: Blob, fileName: string, imageSrcToRevoke: string) => {
     URL.revokeObjectURL(imageSrcToRevoke);
     setLogoCropImage(null);
@@ -169,7 +217,7 @@ export default function BrandingSettingsPage() {
                 </div>
               )}
 
-              <div className="mt-4">
+              <div className="mt-4 flex flex-wrap items-center gap-2">
                 <label className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent cursor-pointer">
                   <Upload className="h-4 w-4" />
                   {uploadingLogo ? "Uploading..." : settings.logoUrl ? "Change Logo" : "Upload Logo"}
@@ -185,9 +233,20 @@ export default function BrandingSettingsPage() {
                       }
                       e.target.value = "";
                     }}
-                    disabled={uploadingLogo}
+                    disabled={uploadingLogo || removingLogo}
                   />
                 </label>
+                {settings.logoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => void handleRemove("logo")}
+                    disabled={removingLogo || uploadingLogo}
+                    className="inline-flex items-center gap-2 rounded-lg border border-destructive/40 bg-background px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {removingLogo ? "Removing..." : "Remove logo"}
+                  </button>
+                )}
               </div>
               {logoCropImage && (
                 <LogoCropModal
@@ -228,7 +287,7 @@ export default function BrandingSettingsPage() {
                 </div>
               )}
 
-              <div className="mt-4">
+              <div className="mt-4 flex flex-wrap items-center gap-2">
                 <label className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent cursor-pointer">
                   <Upload className="h-4 w-4" />
                   {uploadingFounderPortrait
@@ -245,9 +304,20 @@ export default function BrandingSettingsPage() {
                       if (file) void handleUpload("founder_portrait", file);
                       e.target.value = "";
                     }}
-                    disabled={uploadingFounderPortrait}
+                    disabled={uploadingFounderPortrait || removingFounderPortrait}
                   />
                 </label>
+                {settings.founderPortraitUrl && (
+                  <button
+                    type="button"
+                    onClick={() => void handleRemove("founder_portrait")}
+                    disabled={removingFounderPortrait || uploadingFounderPortrait}
+                    className="inline-flex items-center gap-2 rounded-lg border border-destructive/40 bg-background px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {removingFounderPortrait ? "Removing..." : "Remove portrait"}
+                  </button>
+                )}
               </div>
             </div>
             {settings.founderPortraitUrl && (
@@ -277,7 +347,7 @@ export default function BrandingSettingsPage() {
                 </div>
               )}
 
-              <div className="mt-4">
+              <div className="mt-4 flex flex-wrap items-center gap-2">
                 <label className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent cursor-pointer">
                   <ImageIcon className="h-4 w-4" />
                   {uploadingFavicon ? "Uploading..." : settings.faviconUrl ? "Change Favicon" : "Upload Favicon"}
@@ -289,9 +359,20 @@ export default function BrandingSettingsPage() {
                       const file = e.target.files?.[0];
                       if (file) handleUpload("favicon", file);
                     }}
-                    disabled={uploadingFavicon}
+                    disabled={uploadingFavicon || removingFavicon}
                   />
                 </label>
+                {settings.faviconUrl && (
+                  <button
+                    type="button"
+                    onClick={() => void handleRemove("favicon")}
+                    disabled={removingFavicon || uploadingFavicon}
+                    className="inline-flex items-center gap-2 rounded-lg border border-destructive/40 bg-background px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {removingFavicon ? "Removing..." : "Remove favicon"}
+                  </button>
+                )}
               </div>
             </div>
             {settings.faviconUrl && (
