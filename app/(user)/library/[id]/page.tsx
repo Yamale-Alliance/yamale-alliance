@@ -271,7 +271,7 @@ function linkify(text: string): ReactNode {
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className="!text-blue-600 font-bold underline decoration-blue-600 hover:decoration-blue-600"
+          className="!text-blue-600 font-bold underline decoration-blue-600 break-words hover:decoration-blue-600"
         >
           {part}
         </a>
@@ -349,8 +349,8 @@ function renderLawSubheading(text: string, variant: "h2" | "h3" = "h3"): ReactNo
     if (variant === "h2") {
       return (
         <>
-          <span className="block text-2xl font-extrabold uppercase tracking-[0.04em] text-foreground sm:text-[1.65rem]">{linkifyRichText(label)}</span>
-          <span className="mt-2 block text-lg font-semibold leading-snug text-foreground/90 sm:mt-2.5 sm:text-xl">{linkifyRichText(subtitleDisplay)}</span>
+          <span className="block text-base font-extrabold uppercase tracking-[0.03em] text-foreground break-words sm:text-2xl sm:tracking-[0.04em] sm:text-[1.65rem]">{linkifyRichText(label)}</span>
+          <span className="mt-1.5 block break-words text-sm font-semibold leading-snug text-foreground/90 sm:mt-2.5 sm:text-xl">{linkifyRichText(subtitleDisplay)}</span>
         </>
       );
     }
@@ -363,7 +363,7 @@ function renderLawSubheading(text: string, variant: "h2" | "h3" = "h3"): ReactNo
   }
   if (variant === "h2") {
     return (
-      <span className="block text-2xl font-extrabold uppercase tracking-[0.04em] text-foreground sm:text-[1.65rem]">{linkifyRichText(plain)}</span>
+      <span className="block text-base font-extrabold uppercase tracking-[0.03em] text-foreground break-words sm:text-2xl sm:tracking-[0.04em] sm:text-[1.65rem]">{linkifyRichText(plain)}</span>
     );
   }
   const articleMatch = plain.match(/^(Article\s+\d+|Chapter\s+\d+|Chapitre\s+[\dIVXLCDMivxlcdm]+|Section\s+[\dIVXLCDMivxlcdm]+|Art\.\s*\d+|Part\s+[A-Z]|Titre\s+[\dIVXLCDMivxlcdm]+|Title\s+[\dIVXLCDMivxlcdm]+|TITLE\s+[\dIVXLCDM]+|Ingingo\s+(?:ya\s+)?\d+)\s*$/i);
@@ -1492,7 +1492,7 @@ export default function LawDetailPage({
       )}
 
       <div className={`law-reading-content-shell min-h-screen print:min-h-0 print:bg-white ${readingMode ? "bg-background" : "bg-gradient-to-b from-muted/10 via-background to-muted/20"}`}>
-        <div className={`law-reading-content-wrap mx-auto px-3 sm:px-5 print:max-w-none print:px-0 print:py-0 ${readingMode ? "max-w-[min(100%,80rem)] py-4" : "max-w-[min(100%,90rem)] py-6 sm:py-8"}`}>
+        <div className={`law-reading-content-wrap mx-auto px-3 pb-28 sm:px-5 sm:pb-8 print:max-w-none print:px-0 print:py-0 print:pb-0 ${readingMode ? "max-w-[min(100%,80rem)] py-4" : "max-w-[min(100%,90rem)] py-4 sm:py-8"}`}>
           {/* Print-only: logo + title + metadata (on-screen hero is print:hidden) */}
           <header className="hidden print:block print:max-w-none border-b border-neutral-800/20 pb-6 text-neutral-900">
             <PlatformLogo
@@ -1542,7 +1542,7 @@ export default function LawDetailPage({
 
             {hasContent && (
               <article
-                className="law-print-document w-full overflow-hidden rounded-3xl border border-border/80 bg-card shadow-2xl shadow-black/[0.08] ring-1 ring-black/[0.05] transition-shadow duration-300 hover:shadow-black/[0.12] dark:ring-white/10 print:rounded-none print:border-0 print:bg-white print:shadow-none print:ring-0 select-none print:select-text"
+                className="law-print-document w-full overflow-x-auto rounded-3xl border border-border/80 bg-card shadow-2xl shadow-black/[0.08] ring-1 ring-black/[0.05] transition-shadow duration-300 hover:shadow-black/[0.12] dark:ring-white/10 print:overflow-visible print:rounded-none print:border-0 print:bg-white print:shadow-none print:ring-0 select-none print:select-text"
                 dir={isRtl ? "rtl" : undefined}
                 lang={isRtl ? "ar" : undefined}
                 onCopy={(e) => e.preventDefault()}
@@ -1553,7 +1553,7 @@ export default function LawDetailPage({
                 <div className="h-2 w-full bg-gradient-to-r from-primary via-primary to-amber-500/80 print:hidden" aria-hidden />
                 <div
                   ref={docSearchRootRef}
-                  className={`law-doc-search-root mx-auto w-full max-w-none px-4 py-8 sm:px-6 sm:py-10 lg:px-10 lg:py-12 print:px-6 print:py-6 print:sm:px-8 ${isRtl ? "text-right" : ""}`}
+                  className={`law-doc-search-root mx-auto w-full max-w-none break-words px-4 py-6 sm:px-6 sm:py-10 lg:px-10 lg:py-12 print:px-6 print:py-6 print:sm:px-8 ${isRtl ? "text-right" : ""}`}
                   dir={isRtl ? "rtl" : undefined}
                   lang={isRtl ? "ar" : undefined}
                 >
@@ -1564,7 +1564,7 @@ export default function LawDetailPage({
                       className="scroll-mt-24 border-b border-border/40 pb-14 last:border-0 last:pb-0 print:border-neutral-300 print:pb-10"
                     >
                       {/* Level 1: Section / Chapter – big, bold, primary accent */}
-                      <h2 className="mb-6 mt-12 border-s-4 border-primary bg-gradient-to-r from-primary/12 to-primary/5 py-4 ps-6 first:mt-0 sm:ps-7 print:mt-8 print:mb-4 print:border-s-2 print:border-neutral-900 print:bg-transparent print:py-2 print:ps-4 print:[background-image:none]">
+                      <h2 className="mb-4 mt-6 break-words border-s-4 border-primary bg-gradient-to-r from-primary/12 to-primary/5 py-3 ps-4 first:mt-0 sm:mb-6 sm:mt-12 sm:py-4 sm:ps-7 print:mt-8 print:mb-4 print:border-s-2 print:border-neutral-900 print:bg-transparent print:py-2 print:ps-4 print:[background-image:none]">
                         {renderLawSubheading(sec.title, "h2")}
                       </h2>
                       {isLikelyMarkdown(sec.body) ? (
@@ -1577,7 +1577,7 @@ export default function LawDetailPage({
                                 key={bi}
                                 className="my-8 overflow-x-auto rounded-xl border border-border/80 shadow-sm print:break-inside-avoid"
                               >
-                                <table className="w-full min-w-[400px] border-collapse text-sm">
+                                <table className="w-full min-w-0 border-collapse text-sm sm:min-w-[400px]">
                                   <thead>
                                     <tr>
                                       {item.rows[0].length === 4
@@ -1615,7 +1615,7 @@ export default function LawDetailPage({
                                 {renderLawSubheading(item.text, "h3")}
                               </h3>
                             ) : (
-                              <p className="mb-5 text-[1.0625rem] leading-[1.75] text-foreground/85 text-justify last:mb-0" key={bi}>
+                              <p className="mb-4 break-words text-[0.9375rem] leading-[1.7] text-foreground/85 text-left last:mb-0 sm:mb-5 sm:text-[1.0625rem] sm:leading-[1.75] sm:text-justify" key={bi}>
                                 {linkifyRichText(item.text)}
                               </p>
                             )
