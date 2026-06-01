@@ -197,6 +197,7 @@ export interface Database {
           package_offers: Record<string, unknown> | null;
           item_pack: Record<string, unknown> | null;
           vault_subcategory: string | null;
+          focus_country: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -219,6 +220,7 @@ export interface Database {
           package_offers?: Record<string, unknown> | null;
           item_pack?: Record<string, unknown> | null;
           vault_subcategory?: string | null;
+          focus_country?: string | null;
           created_at?: string;
           updated_at?: string;
         };

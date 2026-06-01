@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, Check, Eye, GraduationCap, LayoutTemplate, Loader2, Map } from "lucide-react";
+import { BookOpen, Check, Eye, GraduationCap, LayoutTemplate, Loader2 } from "lucide-react";
+import { VaultCountryMapIcon } from "@/components/marketplace/VaultCountryMapIcon";
 import { LawFirmPackageDiscountPrice } from "@/components/marketplace/LawFirmPackageDiscountPrice";
 import { displayVaultProductTitle } from "@/lib/marketplace-display";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
@@ -44,6 +45,7 @@ export type MarketplaceProductCardProduct = {
   file_format?: string | null;
   file_name?: string | null;
   vault_subcategory?: string | null;
+  focus_country?: string | null;
 };
 
 type MarketplaceProductCardProps = {
@@ -88,7 +90,7 @@ function CategoryIcon({ type, className }: { type: string; className?: string })
     case "course":
       return <GraduationCap className={cn} strokeWidth={1.75} />;
     case "guide":
-      return <Map className={cn} strokeWidth={1.75} />;
+      return <BookOpen className={cn} strokeWidth={1.75} />;
     case "template":
       return <LayoutTemplate className={cn} strokeWidth={1.75} />;
     default:
@@ -208,9 +210,7 @@ export function MarketplaceProductCard({
       <div className={styles.media}>
         {iconOnlyMedia || !(product.image_url && !coverFailed) ? (
           <div className={styles.coverPlaceholder} style={{ background: placeholderGradient }}>
-            <span style={{ color: typeTheme.iconColor }}>
-              <CategoryIcon type={product.type} className="h-8 w-8" />
-            </span>
+            <VaultCountryMapIcon focusCountry={product.focus_country} color={typeTheme.iconColor} />
           </div>
         ) : product.image_url && !coverFailed ? (
           // eslint-disable-next-line @next/next/no-img-element

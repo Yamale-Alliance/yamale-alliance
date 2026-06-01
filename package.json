@@ -18,6 +18,7 @@
     "eval:golden:dry-run": "node --env-file=.env scripts/run-ai-golden-batch.mjs --dry-run",
     "eval:parse-report": "node scripts/parse-eval-report-pdf.mjs",
     "marketplace:update-zambia-landing": "node --env-file=.env scripts/update-marketplace-landing.mjs --title \"Zambia Extractive Industry Subcontractor Pack\" --html data/marketplace/zambia-extractive-industry-subcontractor-pack/landing.html --description data/marketplace/zambia-extractive-industry-subcontractor-pack/description.txt --verify-zip",
+    "vault-maps:generate": "node scripts/generate-vault-country-maps.mjs",
     "seed:official-sources": "node --env-file=.env --import tsx scripts/seed-official-sources.ts",
     "loadtest:smoke": "k6 run scripts/loadtest/public-pages.js",
     "loadtest:smoke:medium": "LOADTEST_PROFILE=medium k6 run scripts/loadtest/public-pages.js",

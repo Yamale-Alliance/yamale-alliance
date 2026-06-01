@@ -7,6 +7,7 @@ import { parseLandingPageHtmlInput } from "@/lib/marketplace-landing-page";
 import { parseItemPackageOffersInput } from "@/lib/marketplace-package-offers";
 import { parseItemPackInput } from "@/lib/marketplace-item-packs";
 import { resolveVaultSubcategoryForSave } from "@/lib/marketplace-vault-categories";
+import { resolveFocusCountryForSave } from "@/lib/marketplace-vault-country";
 
 type Insert = Database["public"]["Tables"]["marketplace_items"]["Insert"];
 const VALID_TYPES = ["book", "course", "template", "guide"] as const;
@@ -59,6 +60,7 @@ export async function POST(request: NextRequest) {
       package_offers,
       item_pack,
       vault_subcategory,
+      focus_country,
     } = body as {
       type?: string;
       title?: string;
@@ -77,6 +79,7 @@ export async function POST(request: NextRequest) {
       package_offers?: unknown;
       item_pack?: unknown;
       vault_subcategory?: string | null;
+      focus_country?: string | null;
     };
 
     let landingHtml: string | null = null;
@@ -116,6 +119,7 @@ export async function POST(request: NextRequest) {
       package_offers: parseItemPackageOffersInput(package_offers),
       item_pack: parseItemPackInput(item_pack),
       vault_subcategory: resolveVaultSubcategoryForSave(price, vault_subcategory),
+      focus_country: resolveFocusCountryForSave(focus_country),
     };
 
     const supabase = getSupabaseServer();

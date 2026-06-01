@@ -101,6 +101,7 @@ type Product = {
   file_format?: string | null;
   file_name?: string | null;
   vault_subcategory?: string | null;
+  focus_country?: string | null;
 };
 
 type DisplayProductCard = {

@@ -7,6 +7,7 @@ import { parseLandingPageHtmlInput } from "@/lib/marketplace-landing-page";
 import { parseItemPackageOffersInput } from "@/lib/marketplace-package-offers";
 import { parseItemPackInput } from "@/lib/marketplace-item-packs";
 import { isFreeVaultItem, isPaidVaultSubcategory, resolveVaultSubcategoryForSave } from "@/lib/marketplace-vault-categories";
+import { resolveFocusCountryForSave } from "@/lib/marketplace-vault-country";
 
 type Update = Database["public"]["Tables"]["marketplace_items"]["Update"];
 const VALID_TYPES = ["book", "course", "template", "guide"] as const;
@@ -66,6 +67,7 @@ export async function PUT(
       package_offers,
       item_pack,
       vault_subcategory,
+      focus_country,
     } = body;
 
     const updates: Update = {};
@@ -103,6 +105,9 @@ export async function PUT(
     }
     if (item_pack !== undefined) {
       updates.item_pack = parseItemPackInput(item_pack);
+    }
+    if (focus_country !== undefined) {
+      updates.focus_country = resolveFocusCountryForSave(focus_country);
     }
     updates.updated_at = new Date().toISOString();
 

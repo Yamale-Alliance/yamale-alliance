@@ -9,6 +9,7 @@ import { AdminPackageOffersFields } from "@/components/admin/AdminPackageOffersF
 import { AdminItemPackFields } from "@/components/admin/AdminItemPackFields";
 import { MarketplaceCoverImageField } from "@/components/admin/MarketplaceCoverImageField";
 import { AdminVaultSubcategorySelect } from "@/components/admin/AdminVaultSubcategorySelect";
+import { AdminVaultFocusCountrySelect } from "@/components/admin/AdminVaultFocusCountrySelect";
 import { labelForVaultSubcategory } from "@/lib/marketplace-vault-categories";
 import { isValidMarketplaceCoverUrl } from "@/lib/marketplace-cover-url";
 import {
@@ -40,6 +41,7 @@ type MarketplaceItem = {
   package_offers?: Record<string, unknown> | null;
   item_pack?: Record<string, unknown> | null;
   vault_subcategory?: string | null;
+  focus_country?: string | null;
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -367,6 +369,8 @@ export default function AdminMarketplacePage() {
           landing_page_html: landingPageHtmlAdd.trim() || null,
           vault_subcategory:
             (form.elements.namedItem("vault_subcategory") as HTMLSelectElement)?.value?.trim() || null,
+          focus_country:
+            (form.elements.namedItem("focus_country") as HTMLSelectElement)?.value?.trim() || null,
         }),
       });
       const data = await res.json();
@@ -450,6 +454,8 @@ export default function AdminMarketplacePage() {
           landing_page_html: editLandingHtml.trim() || null,
           vault_subcategory:
             (form.elements.namedItem("vault_subcategory") as HTMLSelectElement)?.value?.trim() || null,
+          focus_country:
+            (form.elements.namedItem("focus_country") as HTMLSelectElement)?.value?.trim() || null,
         }),
       });
       const data = await res.json();
@@ -572,6 +578,7 @@ export default function AdminMarketplacePage() {
               <input name="price_cents" type="number" step="0.01" min="0" defaultValue="0" className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="0 = free" />
             </div>
             <AdminVaultSubcategorySelect className="sm:col-span-2" />
+            <AdminVaultFocusCountrySelect className="sm:col-span-2" />
             <div className="sm:col-span-2">
               <label className="mb-1 block text-sm font-medium">Description</label>
               <textarea
@@ -953,6 +960,10 @@ export default function AdminMarketplacePage() {
               <AdminVaultSubcategorySelect
                 className="sm:col-span-2"
                 defaultValue={editing.vault_subcategory}
+              />
+              <AdminVaultFocusCountrySelect
+                className="sm:col-span-2"
+                defaultValue={editing.focus_country}
               />
               <div className="sm:col-span-2">
                 <label className="mb-1 block text-sm font-medium">Description</label>
