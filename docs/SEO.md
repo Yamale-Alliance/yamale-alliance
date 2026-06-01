@@ -75,6 +75,20 @@ Expect `4`. If counts differ, confirm the latest SEO deploy is live on Vercel.
 
 The Rich Results Test **screenshot** can show a Clerk error modal even when JSON-LD is present in HTML; use the tool’s **raw HTML / detected items** panel, or re-test after a hard refresh.
 
+## Google Search Console — “Page with redirect”
+
+This is **expected** for alias URLs that intentionally redirect (e.g. `/sign-up` → `/signup`). Do **not** put redirect-only URLs in `sitemap.xml`.
+
+| URL | Behavior |
+|-----|----------|
+| `/signup` | Canonical sign-up page (in sitemap) |
+| `/sign-up` | Permanent redirect to `/signup` (Clerk alias; **not** in sitemap) |
+| `yamalelegal.com` vs `www` | Pick one in Vercel + Search Console; the other should 301 to the preferred host |
+
+After deploy, open **Indexing → Pages** in Search Console, filter by “Page with redirect”, and confirm listed URLs are only aliases or www/http variants—not `/library`, `/pricing`, etc.
+
+If a main marketing URL shows as redirect, check Clerk middleware (`proxy.ts`) and that the URL is in `isPublicRoute`.
+
 ## After deploy
 
 1. [Google Search Console](https://search.google.com/search-console) — add property `https://www.yamalelegal.com`
