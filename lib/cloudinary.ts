@@ -208,6 +208,24 @@ export async function uploadVideoToCloudinary(
   }
 }
 
+/** Best-effort public_id from a Cloudinary delivery URL (for admin deletes). */
+export function publicIdFromCloudinaryUrl(url: string): string | null {
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  try {
+    const marker = "/upload/";
+    const idx = trimmed.indexOf(marker);
+    if (idx === -1) return null;
+    let path = trimmed.slice(idx + marker.length);
+    path = path.replace(/^v\d+\//, "");
+    const dot = path.lastIndexOf(".");
+    if (dot > 0) path = path.slice(0, dot);
+    return path || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Delete image or video from Cloudinary
  */
