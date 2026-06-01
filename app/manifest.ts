@@ -1,10 +1,10 @@
 import type { MetadataRoute } from "next";
 import { SITE, getSiteUrl } from "@/lib/site-seo";
-import { getPlatformFavicon } from "@/lib/platform-settings";
+import { getPlatformBranding } from "@/lib/platform-branding";
 
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const base = getSiteUrl();
-  const faviconUrl = await getPlatformFavicon();
+  const { faviconUrl } = await getPlatformBranding();
 
   const icons: MetadataRoute.Manifest["icons"] = faviconUrl
     ? [
