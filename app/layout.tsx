@@ -3,7 +3,6 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Inter, Playfair_Display } from "next/font/google";
 import { ClerkDevOriginWarning } from "@/components/auth/ClerkDevOriginWarning";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
-import { SiteFaviconLinks } from "@/components/seo/SiteFaviconLinks";
 import { SiteJsonLd } from "@/components/seo/SiteJsonLd";
 import { CLERK_PUBLISHABLE_KEY } from "@/lib/clerk-config";
 import { createRootMetadata } from "@/lib/site-seo";
@@ -43,8 +42,6 @@ export default function RootLayout({
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY || undefined}>
       <html lang="en" suppressHydrationWarning>
         <head>
-          <SiteFaviconLinks />
-          <GoogleAnalytics />
           <SiteJsonLd />
           <script
             dangerouslySetInnerHTML={{
@@ -61,6 +58,7 @@ export default function RootLayout({
         <body
           className={`${inter.variable} ${playfair.variable} antialiased`}
         >
+          <GoogleAnalytics />
           <ClerkDevOriginWarning />
           <ThemeProvider>
             <LayoutWithSettings>{children}</LayoutWithSettings>
