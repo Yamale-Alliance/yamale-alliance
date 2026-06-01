@@ -1,5 +1,5 @@
 /**
- * Generates static favicon assets for Google Search Console (≥48×48).
+ * Generates static PNG favicon assets (≥48×48). /favicon.ico is served dynamically via app/favicon.ico/route.ts.
  * Run: node scripts/generate-site-favicons.mjs
  */
 import fs from "fs";
@@ -38,35 +38,19 @@ function appleSvg(size) {
 
 async function main() {
   const sharp = (await import("sharp")).default;
-  let toIco;
-  try {
-    toIco = (await import("to-ico")).default;
-  } catch {
-    console.warn("Optional: npm install to-ico for multi-size .ico output");
-  }
 
   fs.mkdirSync(OUT, { recursive: true });
 
-  const png48 = await sharp(Buffer.from(faviconSvg(48))).png().toBuffer();
   const png192 = await sharp(Buffer.from(faviconSvg(192))).png().toBuffer();
   const png180 = await sharp(Buffer.from(appleSvg(180))).png().toBuffer();
 
   fs.writeFileSync(path.join(OUT, "favicon-192.png"), png192);
   fs.writeFileSync(path.join(OUT, "apple-touch-icon.png"), png180);
 
-  if (toIco) {
-    const ico = await toIco([png48], { resize: true, sizes: [48, 32, 16] });
-    fs.writeFileSync(path.join(OUT, "favicon.ico"), ico);
-  } else {
-    fs.writeFileSync(path.join(OUT, "favicon.ico"), png48);
-    console.warn("Wrote favicon.ico as 48×48 PNG bytes (install to-ico for true ICO)");
-  }
-
-  const meta48 = await sharp(png48).metadata();
   const meta192 = await sharp(png192).metadata();
   const meta180 = await sharp(png180).metadata();
   console.log(
-    `Wrote public/favicon.ico (${meta48.width}×${meta48.height}), favicon-192.png (${meta192.width}×${meta192.height}), apple-touch-icon.png (${meta180.width}×${meta180.height})`
+    `Wrote public/favicon-192.png (${meta192.width}×${meta192.height}), apple-touch-icon.png (${meta180.width}×${meta180.height}). /favicon.ico is dynamic (app/favicon.ico/route.ts → /icon).`
   );
 }
 
