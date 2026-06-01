@@ -5,6 +5,7 @@ import { ClerkDevOriginWarning } from "@/components/auth/ClerkDevOriginWarning";
 import { SiteJsonLd } from "@/components/seo/SiteJsonLd";
 import { CLERK_PUBLISHABLE_KEY } from "@/lib/clerk-config";
 import { createRootMetadata } from "@/lib/site-seo";
+import { getPlatformFavicon } from "@/lib/platform-settings";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { LayoutWithSettings } from "@/components/platform/LayoutWithSettings";
 import "./globals.css";
@@ -26,7 +27,10 @@ const playfair = Playfair_Display({
   adjustFontFallback: true,
 });
 
-export const metadata: Metadata = createRootMetadata();
+export async function generateMetadata(): Promise<Metadata> {
+  const faviconUrl = await getPlatformFavicon();
+  return createRootMetadata(faviconUrl);
+}
 
 export default function RootLayout({
   children,
