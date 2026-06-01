@@ -26,23 +26,26 @@ export async function fetchBrandingFaviconResponse(): Promise<Response | null> {
   }
 }
 
-/** Metadata.icons — Cloudinary URL when set (absolute, works on localhost); else /favicon.ico route. */
+/** Metadata.icons — static ≥48×48 assets plus optional admin Cloudinary override. */
 export function buildFaviconMetadataIcons(faviconUrl?: string | null) {
+  const staticIcons = [
+    { url: "/favicon.ico", type: "image/x-icon", sizes: "48x48" },
+    { url: "/favicon-192.png", type: "image/png", sizes: "192x192" },
+  ];
+  const apple = [{ url: "/apple-touch-icon.png", type: "image/png", sizes: "180x180" }];
+
   const trimmed = faviconUrl?.trim();
   if (trimmed) {
     const type = trimmed.toLowerCase().includes(".ico") ? "image/x-icon" : "image/png";
     return {
-      icon: [
-        { url: trimmed, type },
-        { url: "/favicon.ico", type: "image/x-icon", sizes: "any" },
-      ],
+      icon: [{ url: trimmed, type }, ...staticIcons],
       shortcut: [trimmed, "/favicon.ico"],
-      apple: [{ url: "/apple-icon", type: "image/png", sizes: "180x180" }],
+      apple,
     };
   }
   return {
-    icon: [{ url: "/favicon.ico", type: "image/x-icon", sizes: "any" }],
+    icon: staticIcons,
     shortcut: ["/favicon.ico"],
-    apple: [{ url: "/apple-icon", type: "image/png", sizes: "180x180" }],
+    apple,
   };
 }
