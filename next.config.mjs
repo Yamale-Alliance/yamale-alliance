@@ -8,8 +8,9 @@ const supabaseHostname =
 
 const nextConfig = {
   async rewrites() {
-    // Legacy namespace: most `/api/stripe/*` paths map to `/api/payments/*`. Webhook has its own route file (pawaPay/Lomi, not Stripe).
     return [
+      { source: "/favicon.ico", destination: "/icon" },
+      // Legacy namespace: most `/api/stripe/*` paths map to `/api/payments/*`. Webhook has its own route file (pawaPay/Lomi, not Stripe).
       { source: "/api/stripe/webhook", destination: "/api/lomi/webhook" },
       { source: "/api/stripe/:path*", destination: "/api/payments/:path*" },
     ];
