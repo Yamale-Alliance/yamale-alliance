@@ -5,7 +5,7 @@ import { ClerkDevOriginWarning } from "@/components/auth/ClerkDevOriginWarning";
 import { SiteJsonLd } from "@/components/seo/SiteJsonLd";
 import { CLERK_PUBLISHABLE_KEY } from "@/lib/clerk-config";
 import { createRootMetadata } from "@/lib/site-seo";
-import { getPlatformFavicon } from "@/lib/platform-settings";
+import { getPlatformBranding } from "@/lib/platform-branding";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { LayoutWithSettings } from "@/components/platform/LayoutWithSettings";
 import "./globals.css";
@@ -28,7 +28,7 @@ const playfair = Playfair_Display({
 });
 
 export async function generateMetadata(): Promise<Metadata> {
-  const faviconUrl = await getPlatformFavicon();
+  const { faviconUrl } = await getPlatformBranding();
   return createRootMetadata(faviconUrl);
 }
 
