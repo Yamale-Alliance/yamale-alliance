@@ -50,7 +50,7 @@ curl -s https://www.yamalelegal.com/llms.txt | head -30
 
 ## Favicon (admin + Google)
 
-Static defaults in `public/` meet Google’s **≥48×48** requirement: `/favicon.ico` (48×48 ICO), `/favicon-192.png`, `/apple-touch-icon.png` (180×180). Regenerate: `npm run favicons:generate`.
+Static PNG assets in `public/` plus a dynamic `/favicon.ico` meet Google’s **≥48×48** requirement: `/favicon.ico` (admin branding or 48×48 via `app/icon.tsx`), `/favicon-192.png`, `/apple-touch-icon.png` (180×180). Regenerate PNGs: `npm run favicons:generate`.
 
 1. Optional: upload a square **≥48×48** **`.ico`** or PNG in **Admin → Settings → Branding → Favicon** (Cloudinary / `platform_settings.favicon_url`).
 2. After deploy, confirm in **View Source**:
