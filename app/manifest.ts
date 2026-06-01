@@ -1,8 +1,34 @@
 import type { MetadataRoute } from "next";
 import { SITE, getSiteUrl } from "@/lib/site-seo";
+import { getPlatformFavicon } from "@/lib/platform-settings";
 
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const base = getSiteUrl();
+  const faviconUrl = await getPlatformFavicon();
+
+  const icons: MetadataRoute.Manifest["icons"] = faviconUrl
+    ? [
+        {
+          src: `${base}/icon`,
+          sizes: "48x48",
+          type: "image/x-icon",
+          purpose: "any",
+        },
+        {
+          src: `${base}/apple-icon`,
+          sizes: "180x180",
+          type: "image/png",
+          purpose: "any",
+        },
+      ]
+    : [
+        {
+          src: `${base}/icon`,
+          sizes: "48x48",
+          type: "image/x-icon",
+          purpose: "any",
+        },
+      ];
 
   return {
     id: "/",
@@ -18,13 +44,6 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ["legal", "education", "productivity", "business"],
     lang: SITE.locale,
     dir: "ltr",
-    icons: [
-      {
-        src: `${base}/opengraph-image`,
-        sizes: "1200x630",
-        type: "image/png",
-        purpose: "any",
-      },
-    ],
+    icons,
   };
 }
