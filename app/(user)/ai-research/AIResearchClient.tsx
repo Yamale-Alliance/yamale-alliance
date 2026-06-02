@@ -1727,7 +1727,7 @@ export default function AIResearchClient() {
                               Need a {msg.lawyerNudge.country} {msg.lawyerNudge.category.toLowerCase()} lawyer?
                             </p>
                             <p className="mt-1 text-[12px] text-[#5D5348] dark:text-white/65">
-                              {msg.lawyerNudge.count} verified lawyers in the Yamale Network specialize in this area.
+                              {msg.lawyerNudge.count} verified lawyers in the Yamalé Network specialize in this area.
                             </p>
                             <Link
                               href={msg.lawyerNudge.href}
@@ -1986,7 +1986,7 @@ export default function AIResearchClient() {
                 Before you use AI Legal Research
               </h2>
               <p className="mt-3 max-w-3xl text-[14px] leading-relaxed text-[#1f2937] sm:mt-4 sm:text-[15px]">
-                This tool searches and retrieves exclusively from Yamale Legal Library, using Anthropic&apos;s servers,
+                This tool searches and retrieves exclusively from Yamalé Legal Library, using Anthropic&apos;s servers,
                 and does not access the internet or any external source.
               </p>
               <div className="mt-4 rounded-xl bg-[#F4F1EA] p-4 sm:mt-5 sm:p-5">
@@ -2005,7 +2005,7 @@ export default function AIResearchClient() {
               </div>
               <p className="mt-4 text-[13px] leading-relaxed text-[#0D1B2A]/55 sm:mt-5 sm:text-[14px]">
                 By clicking &quot;I Acknowledge,&quot; you confirm that you have read this notice and consent to the
-                processing of your query data as described in the Yamale Privacy Policy (Version 1.0), including the
+                processing of your query data as described in the Yamalé Privacy Policy (Version 1.0), including the
                 transfer of query data to Anthropic&apos;s servers in the United States.
               </p>
             </div>
