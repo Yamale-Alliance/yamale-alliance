@@ -126,13 +126,13 @@ export function AccountPurchasedItems({
         </div>
         <h2 className="heading text-lg font-semibold text-foreground">No purchased items yet</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          When you buy from The Yamale Vault, your resources will show up here.
+          When you buy from The Yamalé Vault, your resources will show up here.
         </p>
         <Link
           href="/marketplace"
           className="mt-5 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
         >
-          Browse The Yamale Vault
+          Browse The Yamalé Vault
         </Link>
       </div>
     );
@@ -220,7 +220,7 @@ export function AccountPurchasedItems({
       {!hideVaultFooterLink && (
         <p className="text-center text-xs text-muted-foreground">
           <Link href="/marketplace" className="font-medium text-primary underline-offset-4 hover:underline">
-            Back to The Yamale Vault
+            Back to The Yamalé Vault
           </Link>
         </p>
       )}
