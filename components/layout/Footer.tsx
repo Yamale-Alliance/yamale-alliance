@@ -8,7 +8,7 @@ const productLinks = [
   { href: "/library", label: "Legal Library" },
   { href: "/afcfta/compliance-check", label: "AfCFTA Tools" },
   { href: "/ai-research", label: "AI Research" },
-  { href: "/marketplace", label: "The Yamale Vault" },
+  { href: "/marketplace", label: "The Yamalé Vault" },
   { href: "/lawyers", label: "Find a Lawyer" },
 ];
 
