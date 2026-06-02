@@ -57,6 +57,7 @@ import {
   parseVaultSortParam,
   sortVaultProducts,
 } from "@/lib/marketplace-vault-sort";
+import { isLawFirmDevelopmentMarketplaceItem } from "@/lib/law-firm-package-marketing";
 
 const BRAND = {
   dark: "#221913",
@@ -391,8 +392,13 @@ export default function MarketplacePage() {
 
     const membersByKey = new Map<string, Product[]>();
     const regularProducts: Product[] = [];
+    const featuredProducts: Product[] = [];
 
     for (const product of sortedProducts) {
+      if (isLawFirmDevelopmentMarketplaceItem(product)) {
+        featuredProducts.push(product);
+        continue;
+      }
       const subcategory = product.vault_subcategory?.trim() ?? "";
       if (shouldGroupVaultItem(product) && subcategory) {
         const members = membersByKey.get(subcategory) ?? [];
@@ -415,10 +421,11 @@ export default function MarketplacePage() {
         };
       });
 
+    const featuredCards: DisplayProductCard[] = featuredProducts.map((product) => ({ product }));
     const regularCards: DisplayProductCard[] = regularProducts.map((product) => ({ product }));
 
     return {
-      displayCards: [...seriesCards, ...regularCards],
+      displayCards: [...featuredCards, ...seriesCards, ...regularCards],
       seriesMembersByKey: membersByKey,
     };
   }, [browse, sortedProducts]);
