@@ -1,8 +1,8 @@
-# Yamale Alliance
+# Yamalé Alliance
 
 **African law, accessible and verifiable.**
 
-Yamale Alliance is a legal technology platform that brings national and regional African law, AfCFTA (African Continental Free Trade Area) tools, and AI-powered research into one place—grounded in verified sources.
+Yamalé Alliance is a legal technology platform that brings national and regional African law, AfCFTA (African Continental Free Trade Area) tools, and AI-powered research into one place—grounded in verified sources.
 
 ## What It Does
 
