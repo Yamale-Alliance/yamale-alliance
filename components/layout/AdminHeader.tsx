@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
 import { prototypeNavHeaderClass, prototypeNavInnerClass, prototypeNavLinkClass } from "./prototype-nav-styles";
 import { userNavLinks } from "./nav-config";
+import { SiteNavLink } from "./SiteNavLink";
 
 function isActivePath(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
@@ -32,9 +33,9 @@ export function AdminHeader() {
           {userNavLinks.map(({ href, label }) => {
             const active = isActivePath(pathname, href);
             return (
-              <Link key={href} href={href} className={prototypeNavLinkClass(active)}>
+              <SiteNavLink key={href} href={href} className={prototypeNavLinkClass(active)}>
                 {label}
-              </Link>
+              </SiteNavLink>
             );
           })}
         </nav>
@@ -84,7 +85,7 @@ export function AdminHeader() {
               {userNavLinks.map(({ href, label, icon: Icon }) => {
                 const active = isActivePath(pathname, href);
                 return (
-                  <Link
+                  <SiteNavLink
                     key={href}
                     href={href}
                     onClick={() => setMobileOpen(false)}
@@ -102,7 +103,7 @@ export function AdminHeader() {
                       />
                     )}
                     {label}
-                  </Link>
+                  </SiteNavLink>
                 );
               })}
             </nav>
