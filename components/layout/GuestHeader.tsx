@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
@@ -49,16 +48,12 @@ export function GuestHeader() {
         {/* Desktop auth */}
         <div className="hidden items-center gap-3 lg:flex">
           <ThemeToggle />
-          <SignInButton mode="modal">
-            <button type="button" className={prototypeNavGhostClass}>
-              Log in
-            </button>
-          </SignInButton>
-          <SignUpButton mode="modal">
-            <button type="button" className={prototypeNavSignUpClass}>
-              Sign up
-            </button>
-          </SignUpButton>
+          <Link href="/sign-in" className={prototypeNavGhostClass}>
+            Log in
+          </Link>
+          <Link href="/signup" className={prototypeNavSignUpClass}>
+            Sign up
+          </Link>
         </div>
 
         {/* Mobile: theme + hamburger */}
@@ -121,24 +116,20 @@ export function GuestHeader() {
                 );
               })}
               <div className="mt-4 flex flex-col gap-2 border-t border-border/40 pt-4">
-                <SignInButton mode="modal">
-                  <button
-                    type="button"
-                    onClick={() => setMobileOpen(false)}
-                    className={`${prototypeNavGhostClass} w-full`}
-                  >
-                    Log in
-                  </button>
-                </SignInButton>
-                <SignUpButton mode="modal">
-                  <button
-                    type="button"
-                    onClick={() => setMobileOpen(false)}
-                    className={`${prototypeNavSignUpClass} w-full justify-center`}
-                  >
-                    Sign up
-                  </button>
-                </SignUpButton>
+                <Link
+                  href="/sign-in"
+                  onClick={() => setMobileOpen(false)}
+                  className={`${prototypeNavGhostClass} w-full`}
+                >
+                  Log in
+                </Link>
+                <Link
+                  href="/signup"
+                  onClick={() => setMobileOpen(false)}
+                  className={`${prototypeNavSignUpClass} w-full justify-center`}
+                >
+                  Sign up
+                </Link>
               </div>
             </nav>
           </div>
