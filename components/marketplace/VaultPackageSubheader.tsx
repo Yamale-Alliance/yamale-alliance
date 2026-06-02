@@ -32,7 +32,7 @@ export function VaultPackageSubheader({ title, variant = "vault" }: VaultPackage
             }
           >
             <ArrowLeft className="h-4 w-4 shrink-0" />
-            <span className="hidden sm:inline">Back to The Yamale Vault</span>
+            <span className="hidden sm:inline">Back to The Yamalé Vault</span>
             <span className="sm:hidden">Back to Vault</span>
           </Link>
           <span
