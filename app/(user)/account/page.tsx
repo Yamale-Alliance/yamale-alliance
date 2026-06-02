@@ -18,7 +18,7 @@ const cards = [
   {
     href: "/account/purchases",
     label: "Purchased items",
-    desc: "Your Yamale Vault downloads and purchases.",
+    desc: "Your Yamalé Vault downloads and purchases.",
     icon: Package,
   },
   {
