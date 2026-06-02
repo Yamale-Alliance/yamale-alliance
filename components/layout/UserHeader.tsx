@@ -11,6 +11,7 @@ import { CartDrawer } from "@/components/cart/CartDrawer";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
 import { prototypeNavHeaderClass, prototypeNavInnerClass, prototypeNavLinkClass } from "./prototype-nav-styles";
 import { userNavLinks } from "./nav-config";
+import { SiteNavLink } from "./SiteNavLink";
 function isActivePath(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
   if (href === "/") return pathname === "/";
@@ -40,9 +41,9 @@ export function UserHeader() {
           {links.map(({ href, label }) => {
             const active = isActivePath(pathname, href);
             return (
-              <Link key={href} href={href} className={prototypeNavLinkClass(active)}>
+              <SiteNavLink key={href} href={href} className={prototypeNavLinkClass(active)}>
                 {label}
-              </Link>
+              </SiteNavLink>
             );
           })}
           <Link
@@ -101,7 +102,7 @@ export function UserHeader() {
                 links.map(({ href, label, icon: Icon }) => {
                   const active = isActivePath(pathname, href);
                   return (
-                    <Link
+                    <SiteNavLink
                       key={href}
                       href={href}
                       onClick={() => setMobileOpen(false)}
@@ -119,7 +120,7 @@ export function UserHeader() {
                         />
                       )}
                       {label}
-                    </Link>
+                    </SiteNavLink>
                   );
                 })
               ) : (
