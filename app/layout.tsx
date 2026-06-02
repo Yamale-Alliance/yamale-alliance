@@ -5,6 +5,7 @@ import { ClerkDevOriginWarning } from "@/components/auth/ClerkDevOriginWarning";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import { SiteJsonLd } from "@/components/seo/SiteJsonLd";
 import { CLERK_PUBLISHABLE_KEY } from "@/lib/clerk-config";
+import { yamaleClerkAppearance } from "@/lib/clerk-appearance";
 import { createRootMetadata } from "@/lib/site-seo";
 import { getPlatformBranding } from "@/lib/platform-branding";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
@@ -39,7 +40,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY || undefined}>
+    <ClerkProvider
+      publishableKey={CLERK_PUBLISHABLE_KEY || undefined}
+      appearance={yamaleClerkAppearance}
+    >
       <html lang="en" suppressHydrationWarning>
         <head>
           <SiteJsonLd />
