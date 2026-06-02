@@ -17,23 +17,13 @@ import {
   prototypeNavSignUpClass,
 } from "./prototype-nav-styles";
 import { userNavLinks } from "./nav-config";
+import { SiteNavLink } from "./SiteNavLink";
 
 function isActivePath(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(href + "/");
 }
-
-// Dynamically import headers to reduce initial bundle size
-const GuestHeader = dynamic(() => import("./GuestHeader").then((m) => ({ default: m.GuestHeader })), {
-  loading: () => null,
-});
-const UserHeader = dynamic(() => import("./UserHeader").then((m) => ({ default: m.UserHeader })), {
-  loading: () => null,
-});
-const AdminHeader = dynamic(() => import("./AdminHeader").then((m) => ({ default: m.AdminHeader })), {
-  loading: () => null,
-});
 
 type UserRole = "user" | "lawyer" | "admin";
 
@@ -61,9 +51,9 @@ function HeaderNavSkeleton({ showAuthLinks = false }: { showAuthLinks?: boolean 
           {userNavLinks.map(({ href, label }) => {
             const active = isActivePath(pathname, href);
             return (
-              <Link key={href} href={href} className={prototypeNavLinkClass(active)}>
+              <SiteNavLink key={href} href={href} className={prototypeNavLinkClass(active)}>
                 {label}
-              </Link>
+              </SiteNavLink>
             );
           })}
         </nav>
@@ -88,6 +78,16 @@ function HeaderNavSkeleton({ showAuthLinks = false }: { showAuthLinks?: boolean 
     </header>
   );
 }
+
+const GuestHeader = dynamic(() => import("./GuestHeader").then((m) => ({ default: m.GuestHeader })), {
+  loading: () => <HeaderNavSkeleton showAuthLinks />,
+});
+const UserHeader = dynamic(() => import("./UserHeader").then((m) => ({ default: m.UserHeader })), {
+  loading: () => <HeaderNavSkeleton />,
+});
+const AdminHeader = dynamic(() => import("./AdminHeader").then((m) => ({ default: m.AdminHeader })), {
+  loading: () => <HeaderNavSkeleton />,
+});
 
 const CLERK_LOAD_TIMEOUT_MS = 2500;
 
