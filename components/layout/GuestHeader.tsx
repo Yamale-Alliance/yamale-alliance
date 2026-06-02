@@ -14,6 +14,7 @@ import {
   prototypeNavSignUpClass,
 } from "./prototype-nav-styles";
 import { userNavLinks } from "./nav-config";
+import { SiteNavLink } from "./SiteNavLink";
 import type { LucideIcon } from "lucide-react";
 
 function isActivePath(pathname: string | null, href: string): boolean {
@@ -38,9 +39,9 @@ export function GuestHeader() {
           {userNavLinks.map(({ href, label }) => {
             const active = isActivePath(pathname, href);
             return (
-              <Link key={href} href={href} className={prototypeNavLinkClass(active)}>
+              <SiteNavLink key={href} href={href} className={prototypeNavLinkClass(active)}>
                 {label}
-              </Link>
+              </SiteNavLink>
             );
           })}
         </nav>
@@ -94,10 +95,10 @@ export function GuestHeader() {
               {userNavLinks.map(({ href, label, icon: Icon }) => {
                 const active = isActivePath(pathname, href);
                 return (
-                  <Link
-                    key={href}
-                    href={href}
-                    onClick={() => setMobileOpen(false)}
+                    <SiteNavLink
+                      key={href}
+                      href={href}
+                      onClick={() => setMobileOpen(false)}
                     className={`group flex items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-medium transition-all duration-200 hover:bg-primary/10 hover:shadow-sm hover:scale-[1.02] ${
                       active
                         ? "bg-gradient-to-r from-primary/20 to-primary/10 font-semibold text-primary shadow-sm"
@@ -111,8 +112,8 @@ export function GuestHeader() {
                         }`}
                       />
                     )}
-                    {label}
-                  </Link>
+                      {label}
+                    </SiteNavLink>
                 );
               })}
               <div className="mt-4 flex flex-col gap-2 border-t border-border/40 pt-4">
