@@ -376,3 +376,190 @@ body:has(.marketplace-landing-zone) .yamale-site-footer {
   margin-top: 0;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
+
+/* Clerk embedded auth (AuthShell) — single card, no nested Clerk box or dev stripes. */
+.yamale-auth-clerk .cl-rootBox,
+.yamale-auth-clerk .cl-cardBox,
+.yamale-auth-clerk .cl-card,
+.yamale-auth-clerk .cl-main,
+.yamale-auth-clerk .cl-scrollBox,
+.yamale-auth-clerk .cl-page,
+.yamale-auth-clerk .cl-pageScrollBox {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  outline: none !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.yamale-auth-clerk .cl-formField,
+.yamale-auth-clerk .cl-formFieldRow,
+.yamale-auth-clerk .cl-formFieldInputGroup {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.yamale-auth-clerk .cl-formFieldInput,
+.yamale-auth-clerk .cl-input {
+  background: var(--background) !important;
+  box-shadow: none !important;
+}
+
+.yamale-auth-clerk .cl-socialButtonsBlockButton {
+  background: var(--background) !important;
+  box-shadow: none !important;
+}
+
+.yamale-auth-clerk .cl-footer,
+.yamale-auth-clerk .cl-footerAction,
+.yamale-auth-clerk .cl-internal,
+.yamale-auth-clerk [data-localization-key="footerPageLink__help"],
+.yamale-auth-clerk .cl-badge[data-variant="development"] {
+  display: none !important;
+}
+
+.yamale-auth-clerk .cl-formFieldLabelRow {
+  display: flex !important;
+  width: 100% !important;
+  align-items: baseline !important;
+  justify-content: space-between !important;
+  gap: 0.5rem !important;
+}
+
+.yamale-auth-clerk .cl-formFieldRow {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 1rem !important;
+}
+
+@media (min-width: 480px) {
+  .yamale-auth-clerk .cl-formFieldRow:has(.cl-formField:nth-child(2)) {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+/* Clerk UserProfile on /account/profile — inline Profile + Security, not modal. */
+.yamale-user-profile .cl-modalBackdrop,
+.yamale-user-profile .cl-modalCloseButton,
+.yamale-user-profile .cl-navbarMobileMenuRow,
+.yamale-user-profile .cl-footer {
+  display: none !important;
+}
+
+.yamale-user-profile .cl-card {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+.yamale-user-profile .cl-navbar {
+  display: flex !important;
+  min-width: 11rem;
+}
+
+.yamale-user-profile .cl-navbarButton {
+  display: flex !important;
+}
+
+/* Password / security forms — fix stretched checkbox and action buttons */
+.yamale-user-profile .cl-formButtons,
+.yamale-user-profile .cl-formButtonRow {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 0.75rem !important;
+  width: 100% !important;
+}
+
+.yamale-user-profile .cl-formButtonPrimary,
+.yamale-user-profile .cl-formButtonReset {
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  flex: 0 0 auto !important;
+}
+
+.yamale-user-profile .cl-formButtonPrimary {
+  background-color: #0d1b2a !important;
+  background-image: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #fff !important;
+}
+
+.dark .yamale-user-profile .cl-formButtonPrimary {
+  background-color: var(--primary) !important;
+  color: #0d1b2a !important;
+}
+
+.yamale-user-profile .cl-formButtonPrimary:disabled {
+  opacity: 0.5 !important;
+  border: none !important;
+}
+
+.yamale-user-profile .cl-formFieldCheckbox {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 0.75rem !important;
+}
+
+.yamale-user-profile .cl-formFieldCheckboxInput,
+.yamale-user-profile .cl-formFieldCheckbox input[type="checkbox"] {
+  width: 1rem !important;
+  height: 1rem !important;
+  min-width: 1rem !important;
+  min-height: 1rem !important;
+  max-width: 1rem !important;
+  max-height: 1rem !important;
+  flex: 0 0 1rem !important;
+  margin-top: 0.125rem !important;
+  border-radius: 0.25rem !important;
+  border: 1px solid var(--border) !important;
+  background: var(--background) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  accent-color: var(--primary) !important;
+}
+
+.yamale-user-profile [role="checkbox"],
+.yamale-user-profile .cl-checkbox {
+  width: 1rem !important;
+  height: 1rem !important;
+  min-width: 1rem !important;
+  min-height: 1rem !important;
+  max-width: 1rem !important;
+  max-height: 1rem !important;
+  flex: 0 0 1rem !important;
+  border-radius: 0.25rem !important;
+}
+
+.yamale-user-profile label:has(.cl-formFieldCheckboxInput) {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 0.75rem !important;
+  width: 100% !important;
+  cursor: pointer !important;
+}
+
+.yamale-user-profile .cl-formFieldCheckboxLabel {
+  flex: 1 !important;
+  min-width: 0 !important;
+  text-align: left !important;
+}
+
+/* Security > Active devices: remove card-like device box chrome */
+.yamale-user-profile .cl-activeDevice,
+.yamale-user-profile .cl-activeDeviceCard {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
