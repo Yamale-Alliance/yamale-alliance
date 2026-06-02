@@ -627,11 +627,11 @@ export default function MarketplacePage() {
                 The Yamalé Vault
               </p>
               <h1 className="heading mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-[2.6rem]">
-                The Yamale Vault
+                The Yamalé Vault
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/[0.7] sm:text-base">
                 Premium legal education and practical resources built for African legal professionals. Learn, download,
-                and apply with confidence.
+                and apply with confidence in The Yamalé Vault.
               </p>
             </div>
             {isSignedIn && (
@@ -677,9 +677,9 @@ export default function MarketplacePage() {
       <section className="pb-16 pt-9">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="rounded-[8px] border border-border bg-muted p-4 text-sm leading-relaxed text-muted-foreground">
-            Content in The Yamale Vault including courses, webinars, templates, and documents is provided for
+            Content in The Yamalé Vault including courses, webinars, templates, and documents is provided for
             educational and informational purposes. It does not constitute legal advice for any specific situation.
-            <strong> Templates should be reviewed by qualified legal counsel before use.</strong> Yamale Alliance is not
+            <strong> Templates should be reviewed by qualified legal counsel before use.</strong> Yamalé Alliance is not
             responsible for outcomes arising from use without independent legal review.
           </div>
 
