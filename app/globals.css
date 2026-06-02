@@ -378,6 +378,17 @@ body:has(.marketplace-landing-zone) .yamale-site-footer {
 }
 
 /* Clerk embedded auth (AuthShell) — single card, no nested Clerk box or dev stripes. */
+.yamale-auth-clerk,
+.yamale-auth-clerk .cl-rootBox,
+.yamale-auth-clerk .cl-cardBox,
+.yamale-auth-clerk .cl-card,
+.yamale-auth-clerk .cl-main,
+.yamale-auth-clerk .cl-scrollBox,
+.yamale-auth-clerk .cl-page,
+.yamale-auth-clerk .cl-pageScrollBox {
+  overflow: visible !important;
+}
+
 .yamale-auth-clerk .cl-rootBox,
 .yamale-auth-clerk .cl-cardBox,
 .yamale-auth-clerk .cl-card,
@@ -412,9 +423,35 @@ body:has(.marketplace-landing-zone) .yamale-site-footer {
   box-shadow: none !important;
 }
 
+.yamale-auth-clerk .cl-socialButtons,
+.yamale-auth-clerk .cl-socialButtonsBlockButton,
+.yamale-auth-clerk .cl-socialButtonsBlockButtonArrow,
+.yamale-auth-clerk .cl-socialButtonsProviderIcon {
+  overflow: visible !important;
+}
+
 .yamale-auth-clerk .cl-socialButtonsBlockButton {
+  position: relative !important;
   background: var(--background) !important;
   box-shadow: none !important;
+}
+
+/* "Last used" pill on Google / OAuth — keep visible on mobile (not clipped by card). */
+.yamale-auth-clerk .cl-socialButtonsBlockButton .cl-badge,
+.yamale-auth-clerk .cl-socialButtonsBlockButton [class*="lastUsed"],
+.yamale-auth-clerk [data-localization-key="badge__lastUsed"],
+.yamale-auth-clerk [data-localization-key*="lastUsed"] {
+  display: inline-flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: absolute !important;
+  top: -0.45rem !important;
+  right: 0.65rem !important;
+  left: auto !important;
+  z-index: 3 !important;
+  max-width: calc(100% - 1rem) !important;
+  white-space: nowrap !important;
+  pointer-events: none !important;
 }
 
 /* Do not hide .cl-internal — Clerk uses it for sign-in form markup in some builds. */
@@ -450,6 +487,18 @@ body:has(.marketplace-landing-zone) .yamale-site-footer {
 @media (min-width: 480px) {
   .yamale-auth-clerk .cl-formFieldRow:has(.cl-formField:nth-child(2)) {
     grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+/* AI Research composer — 16px inputs prevent iOS Safari zoom; send stays in view. */
+.ai-research-composer textarea {
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+@media (min-width: 768px) {
+  .ai-research-composer textarea {
+    font-size: 13px;
   }
 }
 
