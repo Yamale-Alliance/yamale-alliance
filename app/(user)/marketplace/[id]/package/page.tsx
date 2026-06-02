@@ -343,7 +343,7 @@ export default function MarketplaceZipPackagePage() {
       <div className="mx-auto max-w-lg px-4 py-16 text-center text-white">
         <p className="text-white/70">{error}</p>
         <Link href="/marketplace" className="mt-4 inline-block text-[#E3BA65] hover:underline">
-          ← Back to The Yamale Vault
+          ← Back to The Yamalé Vault
         </Link>
       </div>
     );
