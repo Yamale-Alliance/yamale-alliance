@@ -134,3 +134,28 @@ Wrong sign-up URLs usually break **modals and redirects**, not the header spinne
 ## 7. Disable staging basic auth in production
 
 If `ENABLE_BASIC_AUTH=true` on production, browsers must send basic auth before Clerk can load. Keep it `false` on `www.yamalelegal.com` unless you intend password-gated staging.
+
+## 8. Clerk Dashboard updates (Client Trust & billing)
+
+Clerk may show **Updates** in the Dashboard ([Client Trust](https://clerk.com/docs/guides/secure/client-trust)). Summary for this app:
+
+### Client Trust (`needs_client_trust`)
+
+- **What it does:** On password sign-in from a **new device**, users without MFA get a one-time email or phone code (credential-stuffing protection).
+- **This codebase:** Uses prebuilt `<SignIn />` / `<SignUp />` on `/sign-in` and `/signup` — **not** a custom `useSignIn()` API flow. You do **not** need to handle `needs_client_trust` in app code unless you later build a custom sign-in flow.
+- **Do not use** the deprecated `client_trust_state` attribute; Clerk uses sign-in `status` (`needs_client_trust`, `needs_second_factor`, etc.) instead.
+- **SDK:** Clerk documents Client Trust with `@clerk/nextjs` **v7.0.0+** and `@clerk/clerk-js` **v6.0.0+**. This repo is currently on **v6.37.x** — **upgrade to v7 before enabling** Client Trust in the Dashboard, then redeploy and smoke-test sign-in on a new browser/device.
+- **OAuth / passwordless** sign-in is not affected.
+
+### Annual-only billing plans
+
+- Applies only if you sell subscriptions through **Clerk Billing** (Dashboard plans + Clerk pricing UI).
+- **This codebase:** Subscriptions use **pawaPay / Lomi** and `publicMetadata` tier fields — not Clerk Billing. You can **ignore** this update unless you migrate billing to Clerk.
+- If you enable it later, use `@clerk/nextjs` **v7.0.6+** (or the minimum version Clerk lists for your SDK).
+
+### Recommended order
+
+1. Deploy the sign-in UI fix (path routing, no `.cl-internal` CSS hide) so empty login forms are resolved.
+2. Plan `@clerk/nextjs` v7 upgrade in a short branch (read Clerk v7 migration notes).
+3. Enable **Client Trust** in Dashboard → **Updates** after v7 is live; verify sign-in + email code on a fresh device.
+4. Enable **annual-only billing** only if/when you use Clerk Billing.
