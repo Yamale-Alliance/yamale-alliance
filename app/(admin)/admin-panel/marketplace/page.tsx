@@ -531,7 +531,7 @@ export default function AdminMarketplacePage() {
     <div className="p-4 sm:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">The Yamale Vault</h1>
+          <h1 className="text-2xl font-semibold">The Yamalé Vault</h1>
           <p className="mt-1 text-muted-foreground">
             Books, courses, and templates. Prices are set here and charged at checkout (mobile money or card).
           </p>
@@ -542,7 +542,7 @@ export default function AdminMarketplacePage() {
           rel="noopener noreferrer"
           className="text-sm text-primary hover:underline"
         >
-          View The Yamale Vault →
+          View The Yamalé Vault →
         </Link>
       </div>
 
@@ -719,7 +719,7 @@ export default function AdminMarketplacePage() {
             <div className="flex items-center gap-4 sm:col-span-2">
               <label className="flex items-center gap-2 text-sm">
                 <input name="published" type="checkbox" defaultChecked className="rounded border-input" />
-                Published (visible in The Yamale Vault)
+                Published (visible in The Yamalé Vault)
               </label>
               <label className="flex items-center gap-2 text-sm">
                 Sort order
@@ -837,7 +837,7 @@ export default function AdminMarketplacePage() {
             </tbody>
           </table>
           {items.length === 0 && !adding && (
-            <p className="py-8 text-center text-muted-foreground">No items in The Yamale Vault yet. Add one above.</p>
+            <p className="py-8 text-center text-muted-foreground">No items in The Yamalé Vault yet. Add one above.</p>
           )}
         </div>
       )}
@@ -855,7 +855,7 @@ export default function AdminMarketplacePage() {
           </button>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          View which users currently own items from The Yamale Vault. You can revoke a purchase so that the user can purchase again.
+          View which users currently own items from The Yamalé Vault. You can revoke a purchase so that the user can purchase again.
         </p>
 
         {loadingPurchases ? (
