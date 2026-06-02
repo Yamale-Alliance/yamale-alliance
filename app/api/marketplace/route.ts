@@ -17,7 +17,7 @@ export async function GET() {
 
     if (error) {
       console.error("Marketplace list error:", error);
-      return NextResponse.json({ error: "Failed to load The Yamale Vault" }, { status: 500 });
+      return NextResponse.json({ error: "Failed to load The Yamalé Vault" }, { status: 500 });
     }
 
     type Row = {
@@ -61,6 +61,6 @@ export async function GET() {
     return NextResponse.json({ items: itemsWithOwned });
   } catch (err) {
     console.error("Marketplace API error:", err);
-    return NextResponse.json({ error: "Failed to load The Yamale Vault" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to load The Yamalé Vault" }, { status: 500 });
   }
 }
