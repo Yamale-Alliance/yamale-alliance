@@ -1,4 +1,5 @@
 import { displayVaultProductTitle } from "@/lib/marketplace-display";
+import { isLawFirmDevelopmentMarketplaceItem } from "@/lib/law-firm-package-marketing";
 
 export type VaultSortMode = "az" | "recent" | "all";
 
@@ -19,32 +20,50 @@ export type VaultSortableProduct = {
   title: string;
   sort_order?: number;
   created_at?: string | null;
+  file_format?: string | null;
+  file_name?: string | null;
 };
+
+/** Law Firm Development Package is always first on the vault browse grid. */
+export function pinLawFirmDevelopmentPackageFirst<T extends VaultSortableProduct>(items: T[]): T[] {
+  const pinned: T[] = [];
+  const rest: T[] = [];
+  for (const item of items) {
+    if (isLawFirmDevelopmentMarketplaceItem(item)) pinned.push(item);
+    else rest.push(item);
+  }
+  if (pinned.length === 0) return items;
+  return [...pinned, ...rest];
+}
 
 export function sortVaultProducts<T extends VaultSortableProduct>(
   items: T[],
   mode: VaultSortMode
 ): T[] {
   const list = [...items];
+  let sorted: T[];
   switch (mode) {
     case "recent":
-      return list.sort(
+      sorted = list.sort(
         (a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime()
       );
+      break;
     case "all":
-      return list.sort((a, b) => {
+      sorted = list.sort((a, b) => {
         const byOrder = (a.sort_order ?? 0) - (b.sort_order ?? 0);
         if (byOrder !== 0) return byOrder;
         return new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime();
       });
+      break;
     case "az":
     default:
-      return list.sort((a, b) =>
+      sorted = list.sort((a, b) =>
         displayVaultProductTitle(a.title).localeCompare(displayVaultProductTitle(b.title), undefined, {
           sensitivity: "base",
         })
       );
   }
+  return pinLawFirmDevelopmentPackageFirst(sorted);
 }
 
 /** Build `/marketplace` query string; omits `sort` when default (A–Z). */
