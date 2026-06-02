@@ -259,6 +259,25 @@ export default function AIResearchClient() {
   const paygConfirmInFlightRef = useRef(false);
   /** Do not put `confirmingPayment` in the payg effect deps — it re-runs cleanup, cancels the fetch, and `finally` used to skip clearing the UI (stuck on "Confirming payment…"). */
   const mounted = useRef(false);
+  const [mobileKeyboardInset, setMobileKeyboardInset] = useState(0);
+
+  useEffect(() => {
+    const viewport = typeof window !== "undefined" ? window.visualViewport : null;
+    if (!viewport) return;
+
+    const updateInset = () => {
+      const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+      setMobileKeyboardInset(inset);
+    };
+
+    viewport.addEventListener("resize", updateInset);
+    viewport.addEventListener("scroll", updateInset);
+    updateInset();
+    return () => {
+      viewport.removeEventListener("resize", updateInset);
+      viewport.removeEventListener("scroll", updateInset);
+    };
+  }, []);
 
   const scrollChatToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
     requestAnimationFrame(() => {
@@ -1834,14 +1853,27 @@ export default function AIResearchClient() {
             </div>
           </div>
 
-          <div className="shrink-0 border-t border-border bg-card px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 md:px-8">
+          <div
+            className="ai-research-composer z-20 shrink-0 border-t border-border bg-card px-3 py-2 sm:px-6 sm:py-3 md:px-8"
+            style={{
+              paddingBottom: `max(0.5rem, env(safe-area-inset-bottom), ${mobileKeyboardInset}px)`,
+            }}
+          >
             <div className="mx-auto max-w-[760px]">
               <form onSubmit={handleSubmit}>
-                <div className="flex items-end gap-2 rounded-[8px] border border-border bg-background p-1.5 shadow-inner focus-within:border-[#C8922A]/35 focus-within:ring-2 focus-within:ring-[#C8922A]/15">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2 rounded-[8px] border border-border bg-background p-1.5 shadow-inner focus-within:border-[#C8922A]/35 focus-within:ring-2 focus-within:ring-[#C8922A]/15">
                   <textarea
                     ref={composerTextareaRef}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
+                    onFocus={() => {
+                      requestAnimationFrame(() => {
+                        composerTextareaRef.current?.scrollIntoView({
+                          block: "nearest",
+                          behavior: "smooth",
+                        });
+                      });
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
@@ -1853,33 +1885,36 @@ export default function AIResearchClient() {
                     placeholder="Describe your legal question…"
                     disabled={atLimit}
                     rows={2}
-                    className="min-h-[38px] flex-1 resize-none bg-transparent px-2 py-1.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-50"
+                    className="min-h-[44px] w-full resize-none bg-transparent px-2 py-2 text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-50 md:min-h-[38px] md:py-1.5"
                   />
                   {isTurnBusy ? (
                     <button
                       type="button"
                       onClick={stopGenerating}
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] border border-[#0D1B2A] bg-[#0D1B2A] text-white transition hover:bg-[#162436] dark:border-white/25"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[6px] border border-[#0D1B2A] bg-[#0D1B2A] text-white transition hover:bg-[#162436] md:h-9 md:w-9 dark:border-white/25"
                       aria-label="Stop generating"
                       title="Stop"
                     >
-                      <Square className="h-3.5 w-3.5 fill-current" strokeWidth={0} />
+                      <Square className="h-4 w-4 fill-current md:h-3.5 md:w-3.5" strokeWidth={0} />
                     </button>
                   ) : (
                     <button
                       type="submit"
                       disabled={!input.trim() || atLimit}
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] bg-[#0D1B2A] text-white transition hover:bg-[#162436] disabled:opacity-40"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[6px] bg-[#0D1B2A] text-white transition hover:bg-[#162436] disabled:opacity-40 md:h-9 md:w-9"
                       aria-label="Send"
                     >
-                      <Send className="h-3.5 w-3.5" strokeWidth={2} />
+                      <Send className="h-4 w-4 md:h-3.5 md:w-3.5" strokeWidth={2} />
                     </button>
                   )}
                 </div>
-                <p className="mt-1.5 text-center text-[10px] text-muted-foreground">
+                <p className="mt-1.5 hidden text-center text-[10px] text-muted-foreground sm:block">
                   {isTurnBusy
                     ? "Generating… Click stop to cancel"
                     : "Enter to send, Shift+Enter for new line"}
+                </p>
+                <p className="mt-1 text-center text-[10px] text-muted-foreground sm:hidden">
+                  {isTurnBusy ? "Generating…" : "Tap send when ready"}
                 </p>
               </form>
               {negativeModal ? (
