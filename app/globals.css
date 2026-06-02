@@ -417,12 +417,20 @@ body:has(.marketplace-landing-zone) .yamale-site-footer {
   box-shadow: none !important;
 }
 
+/* Do not hide .cl-internal — Clerk uses it for sign-in form markup in some builds. */
 .yamale-auth-clerk .cl-footer,
 .yamale-auth-clerk .cl-footerAction,
-.yamale-auth-clerk .cl-internal,
 .yamale-auth-clerk [data-localization-key="footerPageLink__help"],
 .yamale-auth-clerk .cl-badge[data-variant="development"] {
   display: none !important;
+}
+
+.yamale-auth-clerk .cl-socialButtons,
+.yamale-auth-clerk .cl-form,
+.yamale-auth-clerk .cl-formFieldInput,
+.yamale-auth-clerk .cl-formButtonPrimary {
+  display: revert !important;
+  visibility: visible !important;
 }
 
 .yamale-auth-clerk .cl-formFieldLabelRow {
