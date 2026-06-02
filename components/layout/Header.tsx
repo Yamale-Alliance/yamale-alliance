@@ -71,7 +71,7 @@ function HeaderNavSkeleton({ showAuthLinks = false }: { showAuthLinks?: boolean 
           <ThemeToggle />
           {showAuthLinks ? (
             <>
-              <Link href="/login" className={prototypeNavGhostClass}>
+              <Link href="/sign-in" className={prototypeNavGhostClass}>
                 Sign in
               </Link>
               <Link href="/signup" className={prototypeNavSignUpClass}>
