@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { UserButton } from "@clerk/nextjs";
-import { CircleUser, Menu, X } from "lucide-react";
+import { AccountAvatarMenu } from "@/components/auth/AccountAvatarMenu";
+import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
@@ -19,21 +19,6 @@ function isActivePath(pathname: string | null, href: string): boolean {
 export function AdminHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-  const accountActive = isActivePath(pathname, "/account");
-
-  const accountNavLink = (
-    <Link
-      href="/account"
-      className={`${prototypeNavLinkClass(accountActive)} inline-flex max-w-[11rem] items-center gap-1.5 sm:max-w-none`}
-    >
-      <CircleUser className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
-      <span className="inline min-w-0 truncate sm:whitespace-normal">
-        <span className="whitespace-nowrap">Account</span>
-        <span className="text-muted-foreground"> / </span>
-        <span className="whitespace-nowrap text-muted-foreground">Admin</span>
-      </span>
-    </Link>
-  );
 
   return (
     <header className={`yamale-site-chrome ${prototypeNavHeaderClass}`}>
@@ -52,19 +37,18 @@ export function AdminHeader() {
               </Link>
             );
           })}
-          {accountNavLink}
         </nav>
 
         {/* Desktop right */}
         <div className="hidden items-center gap-2 lg:flex">
           <ThemeToggle />
-          <UserButton afterSignOutUrl="/" />
+          <AccountAvatarMenu afterSignOutUrl="/" />
         </div>
 
         {/* Mobile: theme + user + hamburger */}
         <div className="flex items-center gap-1 lg:hidden">
           <ThemeToggle />
-          <UserButton afterSignOutUrl="/" />
+          <AccountAvatarMenu afterSignOutUrl="/" />
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
@@ -121,25 +105,6 @@ export function AdminHeader() {
                   </Link>
                 );
               })}
-              <Link
-                href="/account"
-                onClick={() => setMobileOpen(false)}
-                className={`group mt-1 flex items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-medium transition-all duration-200 hover:bg-primary/10 hover:shadow-sm hover:scale-[1.02] ${
-                  accountActive
-                    ? "bg-gradient-to-r from-primary/20 to-primary/10 font-semibold text-primary shadow-sm"
-                    : "text-foreground hover:text-primary"
-                }`}
-              >
-                <CircleUser
-                  className={`h-5 w-5 shrink-0 transition-colors ${
-                    accountActive ? "text-primary" : "text-muted-foreground group-hover:text-primary"
-                  }`}
-                  aria-hidden
-                />
-                <span>
-                  Account <span className="text-muted-foreground">/</span> Admin
-                </span>
-              </Link>
             </nav>
           </div>
         </>
