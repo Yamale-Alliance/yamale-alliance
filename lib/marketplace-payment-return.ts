@@ -40,14 +40,15 @@ export function marketplacePaymentReturnQuerySuffix(
 
 export function clearMarketplacePaymentReturnParams(pathname: string): void {
   if (typeof window === "undefined" || !window.history.replaceState) return;
-  const u = new URL(window.location.href);
-  u.searchParams.delete("session_id");
-  u.searchParams.delete("payment");
-  u.searchParams.delete("from_lomi");
-  u.searchParams.delete("checkout");
-  u.searchParams.delete("canceled");
-  window.history.replaceState({}, "", pathname + (u.search ? u.search : ""));
-  window.dispatchEvent(new PopStateEvent("popstate"));
+  queueMicrotask(() => {
+    const u = new URL(window.location.href);
+    u.searchParams.delete("session_id");
+    u.searchParams.delete("payment");
+    u.searchParams.delete("from_lomi");
+    u.searchParams.delete("checkout");
+    u.searchParams.delete("canceled");
+    window.history.replaceState({}, "", pathname + (u.search ? u.search : ""));
+  });
 }
 
 export type ConfirmMarketplacePaymentOptions = {
