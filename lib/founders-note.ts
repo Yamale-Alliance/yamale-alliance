@@ -43,6 +43,7 @@ export function shouldSkipFoundersNoteAutoPrompt(pathname: string | null): boole
   if (pathname.startsWith("/admin-panel")) return true;
   if (pathname.startsWith("/ai-research")) return true;
   if (pathname.startsWith("/library")) return true;
+  if (pathname.startsWith("/marketplace")) return true;
   if (pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up")) return true;
   return false;
 }
