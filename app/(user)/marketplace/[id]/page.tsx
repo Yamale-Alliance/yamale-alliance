@@ -494,7 +494,7 @@ export default function MarketplaceItemPage() {
       <div className="mx-auto max-w-2xl px-4 py-12 text-center">
         <p className="text-muted-foreground">{error}</p>
         <Link href="/marketplace" className="mt-4 inline-block text-primary hover:underline">
-          ← Back to The Yamale Vault
+          ← Back to The Yamalé Vault
         </Link>
       </div>
     );
@@ -547,7 +547,7 @@ export default function MarketplaceItemPage() {
               className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4 shrink-0" />{" "}
-              <span className="hidden sm:inline">Back to The Yamale Vault</span>
+              <span className="hidden sm:inline">Back to The Yamalé Vault</span>
               <span className="sm:hidden">Vault</span>
             </Link>
             <span className="min-w-0 truncate font-sans text-sm text-muted-foreground" title={item.title}>
@@ -562,7 +562,7 @@ export default function MarketplaceItemPage() {
               href="/marketplace"
               className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
             >
-              <ArrowLeft className="h-4 w-4" /> Back to The Yamale Vault
+              <ArrowLeft className="h-4 w-4" /> Back to The Yamalé Vault
             </Link>
             <div className="flex items-start gap-4">
               <div
