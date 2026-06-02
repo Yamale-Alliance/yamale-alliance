@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { UserButton, useUser } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
+import { AccountAvatarMenu } from "@/components/auth/AccountAvatarMenu";
 import { CircleUser, Menu, X } from "lucide-react";
 import { useState, useMemo } from "react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
@@ -56,14 +57,14 @@ export function UserHeader() {
         {/* Desktop right */}
         <div className="hidden items-center gap-2 lg:flex">
           <ThemeToggle />
-          <UserButton afterSignOutUrl="/" />
+          <AccountAvatarMenu afterSignOutUrl="/" />
         </div>
 
         {/* Mobile: cart + theme + user + hamburger */}
         <div className="flex items-center gap-1 lg:hidden">
           <CartDrawer />
           <ThemeToggle />
-          <UserButton afterSignOutUrl="/" />
+          <AccountAvatarMenu afterSignOutUrl="/" />
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
