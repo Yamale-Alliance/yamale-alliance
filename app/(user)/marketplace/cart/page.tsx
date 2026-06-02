@@ -142,7 +142,7 @@ export default function CartPage() {
             href="/marketplace"
             className="inline-flex items-center gap-2 rounded-xl border border-border/60 bg-background/80 px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:border-primary/60 hover:bg-primary/10 hover:text-foreground backdrop-blur mb-6"
           >
-            <ArrowLeft className="h-3.5 w-3.5" /> Back to The Yamale Vault
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to The Yamalé Vault
           </Link>
           <div className="max-w-2xl">
             <p className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/90 backdrop-blur">
@@ -179,14 +179,14 @@ export default function CartPage() {
               </div>
               <h2 className="text-xl font-semibold text-foreground sm:text-2xl">Your cart is empty</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Add items from The Yamale Vault to get started.
+                Add items from The Yamalé Vault to get started.
               </p>
               <Link
                 href="/marketplace"
                 className="mt-6 inline-flex items-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-6 py-3 text-sm font-semibold text-foreground shadow-sm shadow-primary/20 transition hover:border-primary/60 hover:bg-primary/20 hover:shadow-md"
               >
                 <Sparkles className="h-4 w-4" />
-                Browse The Yamale Vault
+                Browse The Yamalé Vault
               </Link>
             </div>
           ) : (
