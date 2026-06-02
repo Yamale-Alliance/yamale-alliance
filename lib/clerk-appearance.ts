@@ -43,9 +43,9 @@ const yamaleClerkFormElements: NonNullable<Appearance["elements"]> = {
     "w-full rounded-md bg-[#0D1B2A] text-sm font-semibold text-white hover:bg-[#162436] dark:bg-primary dark:text-[#0D1B2A] dark:hover:bg-primary/90",
   formButtonReset: "rounded-md text-sm font-medium text-muted-foreground hover:text-foreground",
   socialButtonsBlockButton:
-    "w-full rounded-md border border-border bg-background text-foreground shadow-none hover:bg-muted",
+    "relative w-full overflow-visible rounded-md border border-border bg-background text-foreground shadow-none hover:bg-muted",
   socialButtonsBlockButtonText: "font-medium text-foreground",
-  socialButtons: "flex flex-col gap-3",
+  socialButtons: "flex flex-col gap-3 overflow-visible pt-2",
   dividerLine: "bg-border",
   dividerText: "text-muted-foreground text-xs",
   dividerRow: "gap-3",
