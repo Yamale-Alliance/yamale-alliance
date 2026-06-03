@@ -8,6 +8,7 @@ import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } fro
 import { LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE } from "@/lib/lomi-marketplace-checkout-cookie";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
 import { fetchPublishedMarketplaceItem } from "@/lib/marketplace-item-db";
+import { marketplaceItemDetailHref } from "@/lib/marketplace-public-url";
 import {
   checkoutPriceCentsForTier,
   parsePackageOffersConfigFromLandingHtml,
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await fetchPublishedMarketplaceItem(
       supabase,
       itemId,
-      "id, title, description, price_cents, currency, file_format, file_name, published, landing_page_html, package_offers"
+      "id, slug, title, description, price_cents, currency, file_format, file_name, published, landing_page_html, package_offers"
     );
 
     const item = data as MarketplaceItemRow | null;
@@ -97,9 +98,11 @@ export async function POST(request: NextRequest) {
     const storedCurrency = (item.currency || process.env.PAWAPAY_CURRENCY || "USD").toUpperCase();
     const requestOrigin = request.headers.get("origin") || request.nextUrl.origin;
     const origin = requestOrigin;
-    const returnPath = isMarketplaceZip(item)
-      ? `/marketplace/${itemId}/package`
-      : `/marketplace/${itemId}`;
+    const returnPath = marketplaceItemDetailHref({
+      id: item.id,
+      slug: item.slug,
+      packagePage: isMarketplaceZip(item),
+    });
 
     if (provider === "lomi") {
       if (!isLomiConfigured()) {
