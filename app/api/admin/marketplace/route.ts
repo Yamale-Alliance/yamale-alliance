@@ -8,6 +8,7 @@ import { parseItemPackageOffersInput } from "@/lib/marketplace-package-offers";
 import { parseItemPackInput } from "@/lib/marketplace-item-packs";
 import { resolveVaultSubcategoryForSave } from "@/lib/marketplace-vault-categories";
 import { resolveFocusCountryForSave } from "@/lib/marketplace-vault-country";
+import { assignMarketplaceItemSlug } from "@/lib/content-slug-assign";
 
 type Insert = Database["public"]["Tables"]["marketplace_items"]["Insert"];
 const VALID_TYPES = ["book", "course", "template", "guide"] as const;
@@ -130,6 +131,14 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (data?.id && data?.title) {
+      try {
+        await assignMarketplaceItemSlug(supabase, { id: data.id, title: String(data.title) });
+      } catch {
+        /* slug column may not be migrated yet */
+      }
     }
 
     await recordAuditLog(supabase, {
