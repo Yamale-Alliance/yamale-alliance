@@ -14,6 +14,7 @@ import {
 import { isLawTreatyType } from "@/lib/law-treaty-type";
 import type { Database } from "@/lib/database.types";
 import { normalizeCategoryIdList, syncLawCategories } from "@/lib/law-categories-sync";
+import { assignLawSlug } from "@/lib/content-slug-assign";
 
 // Allow up to 5 minutes for PDF extraction and OCR (large or scanned PDFs)
 export const maxDuration = 300;
@@ -176,8 +177,30 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      for (const row of (data ?? []) as Array<{ id: string }>) {
+      for (const row of (data ?? []) as Array<{ id: string; title?: string }>) {
         await syncLawCategories(supabase, row.id, categoryIds);
+        try {
+          const { data: slugRow } = await supabase
+            .from("laws")
+            .select("id, title, year, countries(name)")
+            .eq("id", row.id)
+            .single();
+          const slugLaw = slugRow as {
+            title?: string;
+            year?: number | null;
+            countries?: { name: string } | null;
+          } | null;
+          if (slugLaw?.title) {
+            await assignLawSlug(supabase, {
+              id: row.id,
+              title: slugLaw.title,
+              year: slugLaw.year,
+              countries: slugLaw.countries ?? null,
+            });
+          }
+        } catch {
+          /* slug column may not be migrated yet */
+        }
       }
     } catch (syncErr) {
       console.error("Admin laws: law_categories sync failed:", syncErr);
