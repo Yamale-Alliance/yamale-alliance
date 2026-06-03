@@ -11,9 +11,9 @@ import {
 } from "react";
 import Link from "next/link";
 import {
-  AI_RESEARCH_ENGINE_SOURCE_LABEL,
+  filterAiResearchSourceCardsForDisplay,
+  filterAiResearchSourcesForDisplay,
   isAiResearchMethodologySourceCard,
-  normalizeAiResearchSourceLabels,
 } from "@/lib/ai-research-source-cards";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 import ReactMarkdown from "react-markdown";
@@ -59,6 +59,12 @@ import {
   type AiProcessStep,
 } from "@/lib/ai-chat-process";
 import { AiResearchProcessPanel } from "@/components/ai-research/AiResearchProcessPanel";
+import { AiResearchMessageFootnotes } from "@/components/ai-research/AiResearchMessageFootnotes";
+import {
+  resolveAiResearchContentGap,
+  type AiResearchContentGap,
+  type AiResearchLawyerNudge,
+} from "@/lib/ai-research-user-messaging";
 
 type Tier = "free" | "basic" | "pro" | "team";
 
@@ -118,12 +124,9 @@ type Message = {
     docSlot?: number;
     sourceKind?: "law" | "methodology";
   }>;
-  lawyerNudge?: {
-    country: string;
-    category: string;
-    count: number;
-    href: string;
-  } | null;
+  contentGap?: AiResearchContentGap | null;
+  retrievedLawCount?: number;
+  lawyerNudge?: AiResearchLawyerNudge | null;
   queryLogId?: string | null;
   citationVerification?: {
     invalidDocRefs: number[];
@@ -182,11 +185,11 @@ function getTierFromUser(metadata: Record<string, unknown> | undefined): Tier {
 function normalizeSessionMessages(sessions: ChatSession[]): ChatSession[] {
   return sessions.map((session) => ({
     ...session,
-    messages: session.messages.map((message) =>
-      message.sources?.length
-        ? { ...message, sources: normalizeAiResearchSourceLabels(message.sources) }
-        : message
-    ),
+    messages: session.messages.map((message) => ({
+      ...message,
+      sources: filterAiResearchSourcesForDisplay(message.sources),
+      sourceCards: filterAiResearchSourceCardsForDisplay(message.sourceCards),
+    })),
   }));
 }
 
@@ -797,7 +800,7 @@ export default function AIResearchClient() {
         messages: currentSession.messages.map((m) => ({
           role: m.role,
           content: m.content,
-          sources: m.sources ? normalizeAiResearchSourceLabels(m.sources) : undefined,
+          sources: filterAiResearchSourcesForDisplay(m.sources),
         })),
         generatedAt: new Date(),
       });
@@ -824,7 +827,7 @@ export default function AIResearchClient() {
       id: assistantId,
       role: "assistant",
       content: "",
-      sources: [AI_RESEARCH_ENGINE_SOURCE_LABEL],
+      sources: [],
       sourceCards: [],
       processLog: [
         { step: "understand", message: "Reading your question", status: "active", at: processStartedAt },
@@ -970,10 +973,30 @@ export default function AIResearchClient() {
         id: assistantId,
         role: "assistant",
         content: data.content || "I apologize, but I couldn't generate a response.",
-        sources: normalizeAiResearchSourceLabels(
-          Array.isArray(data.sources) ? data.sources : [AI_RESEARCH_ENGINE_SOURCE_LABEL]
+        sources: filterAiResearchSourcesForDisplay(
+          Array.isArray(data.sources) ? (data.sources as string[]) : []
         ),
-        sourceCards: Array.isArray(data.sourceCards) ? (data.sourceCards as Message["sourceCards"]) : [],
+        sourceCards: filterAiResearchSourceCardsForDisplay(
+          Array.isArray(data.sourceCards) ? (data.sourceCards as Message["sourceCards"]) : []
+        ),
+        contentGap:
+          (data.contentGap as Message["contentGap"]) ??
+          resolveAiResearchContentGap({
+            assistantText: data.content || "",
+            userQuery: trimmed,
+            effectiveCountry: null,
+            retrievedLawCount:
+              typeof data.retrievedLawCount === "number"
+                ? data.retrievedLawCount
+                : filterAiResearchSourceCardsForDisplay(
+                    Array.isArray(data.sourceCards) ? (data.sourceCards as Message["sourceCards"]) : []
+                  ).length,
+            displayedSourceCardCount: filterAiResearchSourceCardsForDisplay(
+              Array.isArray(data.sourceCards) ? (data.sourceCards as Message["sourceCards"]) : []
+            ).length,
+          }),
+        retrievedLawCount:
+          typeof data.retrievedLawCount === "number" ? data.retrievedLawCount : undefined,
         lawyerNudge: (data.lawyerNudge as Message["lawyerNudge"]) ?? null,
         queryLogId: typeof data.queryLogId === "string" ? data.queryLogId : null,
         citationVerification:
@@ -1060,9 +1083,7 @@ export default function AIResearchClient() {
                   ? {
                       ...m,
                       content: stoppedContent,
-                      sources: m.sources?.length
-                        ? normalizeAiResearchSourceLabels(m.sources)
-                        : [AI_RESEARCH_ENGINE_SOURCE_LABEL],
+                      sources: filterAiResearchSourcesForDisplay(m.sources),
                       processLog: finalizeProcessLog(
                         (m.processLog ?? []).map((step) =>
                           step.status === "active" ? { ...step, status: "done" as const } : step
@@ -1540,7 +1561,27 @@ export default function AIResearchClient() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {messages.map((msg) => (
+                  {messages.map((msg, msgIdx) => {
+                    const precedingUserQuery =
+                      msg.role === "assistant"
+                        ? [...messages.slice(0, msgIdx)].reverse().find((m) => m.role === "user")?.content ?? ""
+                        : "";
+                    const assistantContentGap =
+                      msg.role === "assistant"
+                        ? (msg.contentGap ??
+                          resolveAiResearchContentGap({
+                            assistantText: msg.content,
+                            userQuery: precedingUserQuery,
+                            effectiveCountry: msg.lawyerNudge?.country ?? null,
+                            retrievedLawCount:
+                              msg.retrievedLawCount ??
+                              filterAiResearchSourceCardsForDisplay(msg.sourceCards).length,
+                            displayedSourceCardCount:
+                              filterAiResearchSourceCardsForDisplay(msg.sourceCards).length,
+                          }))
+                        : null;
+
+                    return (
                     <div
                       key={msg.id}
                       id={`msg-${msg.id}`}
@@ -1634,17 +1675,22 @@ export default function AIResearchClient() {
                             </ReactMarkdown>
                           </div>
                         ) : null}
-                        {msg.sources && msg.sources.length > 0 && (
-                          <p className="mt-2 border-t border-border/80 pt-2 text-[11px] text-muted-foreground">
-                            Sources: {normalizeAiResearchSourceLabels(msg.sources).join(" · ")}
-                          </p>
-                        )}
+                        {(() => {
+                          const displaySources = filterAiResearchSourcesForDisplay(msg.sources);
+                          return displaySources.length > 0 ? (
+                            <p className="mt-2 border-t border-border/80 pt-2 text-[11px] text-muted-foreground">
+                              Sources: {displaySources.join(" · ")}
+                            </p>
+                          ) : null;
+                        })()}
                         {msg.webSearchNote ? (
                           <p className="mt-1 text-[11px] text-muted-foreground/90">{msg.webSearchNote}</p>
                         ) : null}
-                        {msg.sourceCards && msg.sourceCards.length > 0 && (() => {
-                          const referenced = msg.sourceCards.filter((c) => c.usedInAnswer);
-                          const other = msg.sourceCards.filter((c) => !c.usedInAnswer);
+                        {(() => {
+                          const displayCards = filterAiResearchSourceCardsForDisplay(msg.sourceCards);
+                          if (displayCards.length === 0) return null;
+                          const referenced = displayCards.filter((c) => c.usedInAnswer);
+                          const other = displayCards.filter((c) => !c.usedInAnswer);
                           const renderCard = (
                             card: NonNullable<Message["sourceCards"]>[number],
                             idx: number,
@@ -1727,35 +1773,25 @@ export default function AIResearchClient() {
                               ) : (
                                 <>
                                   <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#0D1B2A]/45 dark:text-white/55">
-                                    {msg.sourceCards.length} document{msg.sourceCards.length !== 1 ? "s" : ""} from this search
+                                    {displayCards.length} document{displayCards.length !== 1 ? "s" : ""} from this search
                                   </p>
                                   <p className="text-[10px] text-muted-foreground">
                                     The model did not tie library cards to the answer text, and unrelated retrieved
                                     instruments are hidden from this list. Open a law from /library if you need to
                                     verify wording.
                                   </p>
-                                  <div className="space-y-2">{msg.sourceCards.map((card, idx) => renderCard(card, idx, "all"))}</div>
+                                  <div className="space-y-2">{displayCards.map((card, idx) => renderCard(card, idx, "all"))}</div>
                                 </>
                               )}
                             </div>
                           );
                         })()}
-                        {msg.lawyerNudge && (
-                          <div className="mt-3 rounded-[8px] border border-[#E8E4DC] bg-[#F9F7F2] p-3 dark:border-white/10 dark:bg-white/[0.06]">
-                            <p className="text-[12px] font-semibold text-[#0D1B2A] dark:text-white/90">
-                              Need a {msg.lawyerNudge.country} {msg.lawyerNudge.category.toLowerCase()} lawyer?
-                            </p>
-                            <p className="mt-1 text-[12px] text-[#5D5348] dark:text-white/65">
-                              {msg.lawyerNudge.count} verified lawyers in the Yamalé Network specialize in this area.
-                            </p>
-                            <Link
-                              href={msg.lawyerNudge.href}
-                              className="mt-2 inline-flex text-[12px] font-semibold text-[#C8922A] hover:text-[#b88424] dark:text-[#F0C45C] dark:hover:text-[#FFD67A]"
-                            >
-                              Browse lawyers →
-                            </Link>
-                          </div>
-                        )}
+                        {msg.role === "assistant" ? (
+                          <AiResearchMessageFootnotes
+                            contentGap={assistantContentGap}
+                            lawyerNudge={msg.lawyerNudge ?? null}
+                          />
+                        ) : null}
                         {msg.role === "assistant" && msg.citationVerification && !msg.citationVerification.allDocRefsValid ? (
                           <p className="mt-2 rounded-[6px] border border-amber-200/90 bg-amber-50/80 px-2 py-1.5 text-[11px] text-amber-900/90 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100/90">
                             This reply contains [doc:N] markers that do not match the retrieved document list. Verify sources before relying on in-text citations.
@@ -1846,7 +1882,8 @@ export default function AIResearchClient() {
                       </div>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                   <div ref={messagesEndRef} />
                 </div>
               )}
@@ -2074,8 +2111,8 @@ export default function AIResearchClient() {
             id: m.id,
             role: m.role,
             content: m.content,
-            sources: m.sources ? normalizeAiResearchSourceLabels(m.sources) : undefined,
-            sourceCards: m.sourceCards,
+            sources: filterAiResearchSourcesForDisplay(m.sources),
+            sourceCards: filterAiResearchSourceCardsForDisplay(m.sourceCards),
           }))}
           exportedAt={exportPreviewAt ?? new Date()}
           logoUrl={platformLogoUrl}
