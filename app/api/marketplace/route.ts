@@ -9,7 +9,7 @@ export async function GET() {
     const { data: rows, error } = await supabase
       .from("marketplace_items")
       .select(
-        "id, type, title, author, description, price_cents, currency, image_url, sort_order, created_at, video_url, file_format, file_name, vault_subcategory, focus_country"
+        "id, slug, type, title, author, description, price_cents, currency, image_url, sort_order, created_at, video_url, file_format, file_name, vault_subcategory, focus_country"
       )
       .eq("published", true)
       .order("sort_order", { ascending: true })
