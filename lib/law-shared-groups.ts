@@ -14,6 +14,7 @@ const SHAREABLE_LAW_COLUMNS = [
   "source_name",
   "content",
   "content_plain",
+  "last_verified_at",
 ] as const;
 
 export function toSharedLawUpdates(
@@ -21,12 +22,19 @@ export function toSharedLawUpdates(
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(updates)) {
-    if (key === "updated_at" || SHAREABLE_LAW_COLUMNS.includes(key as (typeof SHAREABLE_LAW_COLUMNS)[number])) {
+    if (
+      key === "updated_at" ||
+      key === "last_verified_at" ||
+      SHAREABLE_LAW_COLUMNS.includes(key as (typeof SHAREABLE_LAW_COLUMNS)[number])
+    ) {
       out[key] = value;
     }
   }
   if (!("updated_at" in out)) {
     out.updated_at = new Date().toISOString();
+  }
+  if ("last_verified_at" in updates && !("last_verified_at" in out)) {
+    out.last_verified_at = updates.last_verified_at;
   }
   return out;
 }
