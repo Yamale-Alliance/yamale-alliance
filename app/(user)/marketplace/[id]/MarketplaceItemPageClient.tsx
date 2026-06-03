@@ -1,0 +1,861 @@
+"use client";
+
+import { useCallback, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useClientSearchParams } from "@/lib/use-client-search-params";
+import Link from "next/link";
+import Image from "next/image";
+import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, Eye, Star, ShoppingCart, Zap, X } from "lucide-react";
+import { useUser } from "@clerk/nextjs";
+import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
+import {
+  PaymentMethodPicker,
+  type CheckoutPaymentProvider,
+} from "@/components/checkout/PaymentMethodPicker";
+import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
+import { FileViewer } from "@/components/marketplace/FileViewer";
+import { MarketplaceFileAccessDialog } from "@/components/marketplace/MarketplaceFileAccessDialog";
+import {
+  defaultMarketplaceDownloadName,
+  fetchMarketplaceFileUrl,
+  saveMarketplaceFile,
+} from "@/lib/marketplace-file-access";
+import { MarketplaceLandingIframe } from "@/components/marketplace/MarketplaceLandingIframe";
+import { useMarketplacePaymentReturn } from "@/components/marketplace/use-marketplace-payment-return";
+import { notifyMarketplaceCartUpdated } from "@/lib/marketplace-cart-events";
+import {
+  marketplacePaymentReturnQuerySuffix,
+  parseMarketplacePaymentReturn,
+} from "@/lib/marketplace-payment-return";
+import { shouldUseVaultPackagePage } from "@/lib/marketplace-zip-package";
+import { marketplaceItemDetailHref } from "@/lib/marketplace-public-url";
+import { displayVaultProductTitle } from "@/lib/marketplace-display";
+import { isPaidVaultSubcategory, type VaultSubcategoryId } from "@/lib/marketplace-vault-categories";
+import type { MarketplaceSeriesOffer } from "@/lib/marketplace-series-offers";
+import type { MarketplaceItemPackOffer } from "@/lib/marketplace-item-packs";
+import {
+  MarketplaceVaultCheckoutDialog,
+  type MarketplaceVaultCheckoutChoice,
+} from "@/components/marketplace/MarketplaceVaultCheckoutDialog";
+
+const BRAND = {
+  dark: "#221913",
+  medium: "#603b1c",
+  gradientStart: "#9a632a",
+  gradientEnd: "#c18c43",
+  accent: "#e3ba65",
+};
+
+type Item = {
+  id: string;
+  slug?: string | null;
+  type: string;
+  title: string;
+  author: string;
+  description: string | null;
+  price_cents: number;
+  currency: string;
+  image_url: string | null;
+  published: boolean;
+  purchased?: boolean;
+  has_file?: boolean;
+  file_name?: string | null;
+  file_format?: string | null;
+  video_url?: string | null;
+  landing_page_html?: string | null;
+  package_offers?: unknown;
+  vault_subcategory?: string | null;
+};
+
+function TypeIcon({ type }: { type: string }) {
+  switch (type) {
+    case "book":
+      return <BookOpen className="h-8 w-8" />;
+    case "course":
+      return <GraduationCap className="h-8 w-8" />;
+    default:
+      return <FileText className="h-8 w-8" />;
+  }
+}
+
+function getYouTubeEmbedUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    // youtu.be/VIDEO_ID
+    if (u.hostname === "youtu.be") {
+      const id = u.pathname.replace("/", "");
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+    // www.youtube.com or m.youtube.com
+    if (u.hostname.includes("youtube.com")) {
+      // Already an embed URL
+      if (u.pathname.startsWith("/embed/")) {
+        return u.toString();
+      }
+      const id = u.searchParams.get("v");
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+  } catch {
+    // fall through
+  }
+  return null;
+}
+
+export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: string }) {
+  const router = useRouter();
+  const searchParams = useClientSearchParams();
+  const { isLoaded, isSignedIn } = useUser();
+  const id = slugOrId;
+  const itemPublicPath = (item?: Item | null, packagePage = false) =>
+    item ? marketplaceItemDetailHref({ id: item.id, slug: item.slug, packagePage }) : `/marketplace/${id}${packagePage ? "/package" : ""}`;
+
+  const [item, setItem] = useState<Item | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [purchasing, setPurchasing] = useState(false);
+  const [viewing, setViewing] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<{ averageRating: number | null; totalReviews: number }>({
+    averageRating: null,
+    totalReviews: 0,
+  });
+  const [addingToCart, setAddingToCart] = useState(false);
+  const [isInCart, setIsInCart] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [fileAccessOpen, setFileAccessOpen] = useState(false);
+  const [myRating, setMyRating] = useState<number | null>(null);
+  const [hoverRating, setHoverRating] = useState<number | null>(null);
+  const [savingRating, setSavingRating] = useState(false);
+  const [ratingError, setRatingError] = useState<string | null>(null);
+  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
+  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutChoice, setCheckoutChoice] = useState<MarketplaceVaultCheckoutChoice>("item");
+  const [seriesOffer, setSeriesOffer] = useState<MarketplaceSeriesOffer | null>(null);
+  const [packOffer, setPackOffer] = useState<MarketplaceItemPackOffer | null>(null);
+
+  const lomiAvailable =
+    process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
+    Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
+  const lomiComingSoon = false;
+
+  useEffect(() => {
+    if (!lomiAvailable) {
+      setPaymentProvider("pawapay");
+      return;
+    }
+    setPaymentProvider((prev) => (prev === "lomi" ? "lomi" : "pawapay"));
+  }, [lomiAvailable]);
+
+  const refetchItem = useCallback(async () => {
+    if (!id) return;
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    try {
+      const r = await fetch(`${origin}/api/marketplace/${id}`, { credentials: "include" });
+      const data = (await r.json()) as { item?: Item };
+      if (data.item) setItem(data.item);
+      else setError("Item not found");
+    } catch {
+      setError("Failed to load");
+    }
+  }, [id]);
+
+  const {
+    params: paymentParams,
+    paymentVerifyInProgress,
+    showVerifiedPaymentSuccess,
+    showPaymentNotCompleted,
+  } = useMarketplacePaymentReturn({
+    mode: "item",
+    scopeId: id,
+    clearParamsPathname: id ? itemPublicPath(item) : undefined,
+    onConfirmed: refetchItem,
+  });
+
+  const checkoutCancelled = paymentParams.checkoutCancelled;
+
+  const handleView = async () => {
+    if (!item?.id || !item.has_file) return;
+    setViewing(true);
+    setError(null);
+    try {
+      const { url } = await fetchMarketplaceFileUrl(item.id);
+      setViewerUrl(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setViewing(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!item?.id || !item.has_file) return;
+    setDownloading(true);
+    setError(null);
+    try {
+      const { url, file_name: apiFileName } = await fetchMarketplaceFileUrl(item.id);
+      const downloadName = defaultMarketplaceDownloadName(
+        apiFileName ?? item.file_name,
+        item.file_format
+      );
+      await saveMarketplaceFile(url, downloadName);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not download");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleCloseViewer = () => {
+    setViewerUrl(null);
+    setViewing(false);
+  };
+
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    void refetchItem().finally(() => setLoading(false));
+  }, [id, refetchItem]);
+
+  useEffect(() => {
+    if (loading || !item?.has_file) return;
+    const wantsFileAccess = searchParams.get("file") === "access";
+    if (!wantsFileAccess) return;
+    const ownedOrFree = item.purchased || Number(item.price_cents) === 0;
+    if (ownedOrFree) setFileAccessOpen(true);
+  }, [loading, item, searchParams]);
+
+  useEffect(() => {
+    if (loading || !item || !id) return;
+    if (!shouldUseVaultPackagePage(item)) return;
+    const returnParams = parseMarketplacePaymentReturn(searchParams);
+    const suffix = marketplacePaymentReturnQuerySuffix(returnParams);
+    router.replace(`${itemPublicPath(item, true)}${suffix}`);
+  }, [loading, item, id, router, searchParams]);
+
+  // Fetch reviews
+  useEffect(() => {
+    if (!id) return;
+    fetch(`/api/marketplace/${id}/reviews`)
+      .then((r) => r.json())
+      .then(
+        (data: {
+          averageRating?: number | null;
+          totalReviews?: number;
+          // we ignore individual reviews here – only summary is needed
+        }) => {
+          setReviews({
+            averageRating: data.averageRating ?? null,
+            totalReviews: data.totalReviews ?? 0,
+          });
+        }
+      )
+      .catch(() => {});
+  }, [id]);
+
+  // Check if item is in cart
+  useEffect(() => {
+    if (!isSignedIn || !id) {
+      setIsInCart(false);
+      return;
+    }
+    fetch("/api/cart", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data: { cart?: Array<{ marketplace_item_id: string }> }) => {
+        const cart = data.cart ?? [];
+        setIsInCart(cart.some((item) => item.marketplace_item_id === id));
+      })
+      .catch(() => setIsInCart(false));
+  }, [isSignedIn, id]);
+
+  useEffect(() => {
+    if (!item?.id || item.price_cents <= 0 || item.purchased) {
+      setPackOffer(null);
+      return;
+    }
+    fetch(`/api/marketplace/${item.id}/pack-offer`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { offer?: MarketplaceItemPackOffer } | null) => {
+        setPackOffer(data?.offer ?? null);
+      })
+      .catch(() => setPackOffer(null));
+  }, [item?.id, item?.price_cents, item?.purchased]);
+
+  useEffect(() => {
+    if (!item?.vault_subcategory || !isPaidVaultSubcategory(item.vault_subcategory)) {
+      setSeriesOffer(null);
+      return;
+    }
+    const seriesId = item.vault_subcategory.trim() as VaultSubcategoryId;
+    fetch(`/api/marketplace/series/${seriesId}/offer`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data: { offer?: MarketplaceSeriesOffer }) => {
+        setSeriesOffer(data.offer ?? null);
+      })
+      .catch(() => setSeriesOffer(null));
+  }, [item?.vault_subcategory, item?.purchased]);
+
+  const handlePurchase = () => {
+    if (!item || item.price_cents <= 0) return;
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      router.push(`/sign-in?redirect_url=${encodeURIComponent(itemPublicPath(item))}`);
+      return;
+    }
+    setCheckoutChoice("item");
+    setCheckoutOpen(true);
+  };
+
+  const submitCheckout = async () => {
+    if (!item) return;
+    setPurchasing(true);
+    setError(null);
+    try {
+      const useSeries =
+        checkoutChoice === "series" &&
+        item.vault_subcategory &&
+        seriesOffer &&
+        !seriesOffer.fullyOwned;
+      const usePack = checkoutChoice === "pack" && packOffer?.packEligible;
+      const checkoutUrl = useSeries
+        ? "/api/payments/marketplace-series-checkout"
+        : usePack
+          ? "/api/payments/marketplace-pack-checkout"
+          : "/api/payments/marketplace-checkout";
+      const res = await fetch(checkoutUrl, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...(useSeries
+              ? {
+                  seriesId: item.vault_subcategory,
+                  success_path: "/marketplace",
+                }
+              : usePack
+                ? {
+                    anchorItemId: packOffer!.anchorItemId,
+                    success_path: itemPublicPath(item),
+                  }
+                : { itemId: item.id }),
+            provider: paymentProvider,
+            ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
+          }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Checkout failed");
+        setPurchasing(false);
+        return;
+      }
+      if (data.url) window.location.href = data.url;
+    } catch {
+      setError("Something went wrong");
+    }
+    setPurchasing(false);
+  };
+
+  const handleAddToCart = async () => {
+    if (!item || item.price_cents <= 0 || item.purchased) return;
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      router.push(`/sign-in?redirect_url=${encodeURIComponent(itemPublicPath(item))}`);
+      return;
+    }
+    setAddingToCart(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/cart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ marketplace_item_id: item.id, quantity: 1 }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error ?? "Failed to add to cart");
+      } else {
+        setIsInCart(true);
+        notifyMarketplaceCartUpdated();
+      }
+    } catch {
+      setError("Something went wrong");
+    } finally {
+      setAddingToCart(false);
+    }
+  };
+
+  const handleRemoveFromCart = async () => {
+    if (!item || !isSignedIn) return;
+    setAddingToCart(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/cart?item_id=${item.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error ?? "Failed to remove from cart");
+      } else {
+        setIsInCart(false);
+        notifyMarketplaceCartUpdated();
+      }
+    } catch {
+      setError("Something went wrong");
+    } finally {
+      setAddingToCart(false);
+    }
+  };
+
+  const handleGetFree = async () => {
+    if (!item || item.price_cents > 0) return;
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      router.push(`/sign-in?redirect_url=${encodeURIComponent(itemPublicPath(item))}`);
+      return;
+    }
+    setPurchasing(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/marketplace/claim", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId: item.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to claim");
+        setPurchasing(false);
+        return;
+      }
+      setItem((prev) => (prev ? { ...prev, purchased: true } : null));
+    } catch {
+      setError("Something went wrong");
+    }
+    setPurchasing(false);
+  };
+
+  const handleSetRating = async (value: number) => {
+    if (!item) return;
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      router.push(`/sign-in?redirect_url=${encodeURIComponent(itemPublicPath(item))}`);
+      return;
+    }
+    if (!owned) {
+      // Only allow users who own the item to rate
+      return;
+    }
+    setSavingRating(true);
+    setRatingError(null);
+    setMyRating(value);
+    try {
+      const res = await fetch(`/api/marketplace/${id}/reviews`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating: value }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setRatingError(data.error || "Failed to save rating");
+        return;
+      }
+      // Refresh summary after saving
+      fetch(`/api/marketplace/${id}/reviews`)
+        .then((r) => r.json())
+        .then(
+          (summary: { averageRating?: number | null; totalReviews?: number }) => {
+            setReviews({
+              averageRating: summary.averageRating ?? null,
+              totalReviews: summary.totalReviews ?? 0,
+            });
+          }
+        )
+        .catch(() => {});
+    } catch {
+      setRatingError("Failed to save rating");
+    } finally {
+      setSavingRating(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error && !item) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-12 text-center">
+        <p className="text-muted-foreground">{error}</p>
+        <Link href="/marketplace" className="mt-4 inline-block text-primary hover:underline">
+          ← Back to The Yamalé Vault
+        </Link>
+      </div>
+    );
+  }
+
+  if (!item) return null;
+
+  const owned = item.purchased;
+  const free = Number(item.price_cents) === 0 || item.price_cents == 0;
+  const priceDisplay = free ? "Free" : `$${(item.price_cents / 100).toFixed(2)}`;
+
+  const fileFmt = item.file_format?.toLowerCase() ?? "";
+  const fileNameLower = item.file_name?.toLowerCase() ?? "";
+  const landingHtml = item.landing_page_html?.trim();
+  const hideInlineVaultCheckout = Boolean(landingHtml);
+
+  if (shouldUseVaultPackagePage(item)) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <span className="sr-only">Opening package…</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <MarketplaceVaultCheckoutDialog
+        open={checkoutOpen}
+        onOpenChange={setCheckoutOpen}
+        product={item ? { id: item.id, title: item.title, price_cents: item.price_cents } : null}
+        seriesOffer={seriesOffer}
+        packOffer={packOffer}
+        choice={checkoutChoice}
+        onChoiceChange={setCheckoutChoice}
+        paymentProvider={paymentProvider}
+        onPaymentProviderChange={setPaymentProvider}
+        pawapayPaymentCountry={pawapayPaymentCountry}
+        onPawapayPaymentCountryChange={setPawapayPaymentCountry}
+        lomiAvailable={lomiAvailable}
+        lomiComingSoon={lomiComingSoon}
+        loading={purchasing}
+        onCheckout={() => void submitCheckout()}
+      />
+      {landingHtml ? (
+        <div className="sticky top-0 z-20 border-b border-border bg-background/90 px-4 py-2.5 shadow-sm backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
+          <div className="mx-auto flex max-w-7xl items-center gap-3 sm:gap-4">
+            <Link
+              href="/marketplace"
+              className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4 shrink-0" />{" "}
+              <span className="hidden sm:inline">Back to The Yamalé Vault</span>
+              <span className="sm:hidden">Vault</span>
+            </Link>
+            <span className="min-w-0 truncate font-sans text-sm text-muted-foreground" title={item.title}>
+              {displayVaultProductTitle(item.title)}
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="border-b border-border bg-card/50 px-4 py-6">
+          <div className="mx-auto max-w-3xl">
+            <Link
+              href="/marketplace"
+              className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back to The Yamalé Vault
+            </Link>
+            <div className="flex items-start gap-4">
+              <div
+                className="relative h-28 w-28 shrink-0 overflow-hidden rounded-xl border border-border"
+                style={{
+                  background: item.image_url
+                    ? undefined
+                    : `linear-gradient(135deg, ${BRAND.gradientStart}, ${BRAND.gradientEnd})`,
+                }}
+              >
+                {item.image_url ? (
+                  <Image src={item.image_url} alt="" fill className="object-cover" sizes="112px" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-white/95">
+                    <TypeIcon type={item.type} />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground capitalize">
+                  {item.type}
+                </span>
+                <h1 className="vault-product-title mt-2 font-sans text-2xl font-semibold leading-snug tracking-normal sm:text-3xl" title={item.title}>
+                  {displayVaultProductTitle(item.title)}
+                </h1>
+                {item.author && (
+                  <p className="mt-1 text-muted-foreground">by {item.author}</p>
+                )}
+                {reviews.totalReviews > 0 && reviews.averageRating !== null && (
+                  <div className="mt-2 flex items-center gap-1">
+                    <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                    <span className="text-sm font-medium">{reviews.averageRating.toFixed(1)}</span>
+                    <span className="text-sm text-muted-foreground">
+                      ({reviews.totalReviews} review{reviews.totalReviews !== 1 ? "s" : ""})
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {landingHtml ? <MarketplaceLandingIframe html={landingHtml} title={item.title} /> : null}
+
+      <div className="mx-auto max-w-3xl px-4 py-8">
+        {paymentVerifyInProgress && (
+          <div className="mb-6 rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+            Confirming payment…
+          </div>
+        )}
+        {showVerifiedPaymentSuccess && (
+          <div className="mb-6 rounded-lg border border-green-500/50 bg-green-500/10 px-4 py-3 text-sm text-green-700 dark:text-green-400">
+            Payment successful. You now have access to this item.
+          </div>
+        )}
+        {showPaymentNotCompleted && !showVerifiedPaymentSuccess && (
+          <div className="mb-6 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+            Payment was not completed. If you already paid, wait a moment and refresh the page, or contact support.
+          </div>
+        )}
+        {checkoutCancelled && !showVerifiedPaymentSuccess && !showPaymentNotCompleted && (
+          <div className="mb-6 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+            Checkout was cancelled.
+          </div>
+        )}
+
+        {/* Video section – only show full video for free or owned items */}
+        {getYouTubeEmbedUrl(item.video_url ?? null) && (free || owned) && (
+          <section className="mb-8">
+            <div className="overflow-hidden rounded-xl border border-border bg-black">
+              <div className="relative w-full pt-[56.25%]">
+                <iframe
+                  src={getYouTubeEmbedUrl(item.video_url ?? null) ?? ""}
+                  title="Product video"
+                  className="absolute inset-0 h-full w-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          </section>
+        )}
+
+        {item.description && (
+          <section className="mb-8">
+            <h2 className="text-lg font-semibold">Description</h2>
+            <div className="mt-2 whitespace-pre-wrap text-muted-foreground">
+              {item.description}
+            </div>
+          </section>
+        )}
+
+        {owned && (
+          <section className="mb-8">
+            <h2 className="text-lg font-semibold">Rate this product</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Share your experience to help other practitioners decide if this resource is useful.
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              {[1, 2, 3, 4, 5].map((value) => {
+                const active = (hoverRating ?? myRating ?? 0) >= value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onMouseEnter={() => setHoverRating(value)}
+                    onMouseLeave={() => setHoverRating(null)}
+                    onClick={() => handleSetRating(value)}
+                    disabled={savingRating}
+                    className="p-0.5 text-yellow-500 disabled:opacity-50"
+                    aria-label={`Rate ${value} star${value > 1 ? "s" : ""}`}
+                  >
+                    <Star
+                      className={`h-6 w-6 ${active ? "fill-current" : "stroke-current"}`}
+                    />
+                  </button>
+                );
+              })}
+              <span className="ml-2 text-xs text-muted-foreground">
+                {myRating ? `You rated this ${myRating}/5` : "Click to rate (1–5 stars)"}
+              </span>
+            </div>
+            {ratingError && (
+              <p className="mt-1 text-xs text-red-600 dark:text-red-400">{ratingError}</p>
+            )}
+          </section>
+        )}
+
+        {(!hideInlineVaultCheckout || owned || free) ? (
+        <section className="rounded-xl border border-border bg-card p-6">
+          {!hideInlineVaultCheckout ? (
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-2xl font-semibold">{priceDisplay}</p>
+              <p className="text-sm text-muted-foreground">
+                {owned
+                  ? "You own this item"
+                  : free
+                    ? "Get instant access"
+                    : lomiAvailable
+                      ? "Choose mobile money or card, then continue to pay."
+                      : "One-time payment via mobile money."}
+              </p>
+            </div>
+            {!owned && (
+              <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
+                {!free && lomiAvailable && (
+                  <div className="w-full max-w-xs sm:max-w-sm">
+                    <PaymentMethodPicker
+                      value={paymentProvider}
+                      onChange={setPaymentProvider}
+                      lomiAvailable={lomiAvailable}
+                      lomiComingSoon={lomiComingSoon}
+                    />
+                  </div>
+                )}
+                {!free && paymentProvider === "pawapay" && (
+                  <div className="w-full max-w-xs sm:max-w-sm">
+                    <PawapayCountrySelect
+                      label="Mobile money country"
+                      value={pawapayPaymentCountry}
+                      onChange={setPawapayPaymentCountry}
+                    />
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2">
+                {free ? (
+                  <button
+                    type="button"
+                    onClick={handleGetFree}
+                    disabled={purchasing}
+                    className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                  >
+                    {purchasing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Get for free"}
+                  </button>
+                ) : (
+                  <>
+                    {isInCart ? (
+                      <button
+                        type="button"
+                        onClick={handleRemoveFromCart}
+                        disabled={addingToCart}
+                        className="rounded-lg border border-destructive/50 text-destructive px-4 py-2.5 text-sm font-medium hover:bg-destructive/10 disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {addingToCart ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <X className="h-4 w-4" />
+                            Remove from Cart
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleAddToCart}
+                        disabled={addingToCart}
+                        className="rounded-lg border border-border px-4 py-2.5 text-sm font-medium hover:bg-accent disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {addingToCart ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <ShoppingCart className="h-4 w-4" />
+                            Add to Cart
+                          </>
+                        )}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handlePurchase}
+                      disabled={purchasing}
+                      className="rounded-lg px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+                      style={{ background: `linear-gradient(to right, ${BRAND.gradientStart}, ${BRAND.gradientEnd})` }}
+                    >
+                      {purchasing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Zap className="h-4 w-4" />
+                          Buy Now
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
+                </div>
+              </div>
+            )}
+          </div>
+          ) : null}
+          {(owned || free) && item.has_file && (
+            <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-border pt-6">
+              <button
+                type="button"
+                onClick={() => setFileAccessOpen(true)}
+                disabled={viewing || downloading}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {viewing || downloading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+                View & download
+              </button>
+              {item.file_format && (
+                <span className="text-xs text-muted-foreground">
+                  {item.file_name ?? `.${item.file_format}`}
+                </span>
+              )}
+            </div>
+          )}
+          {(owned || free) && !item.has_file && (
+            <p className="mt-6 border-t border-border pt-6 text-sm text-muted-foreground">
+              No file is attached to this item. Contact support if you expected a download.
+            </p>
+          )}
+        </section>
+        ) : null}
+
+        {error && (
+          <p className="mt-4 text-sm text-destructive">{error}</p>
+        )}
+      </div>
+
+      {item ? (
+        <MarketplaceFileAccessDialog
+          open={fileAccessOpen}
+          onOpenChange={setFileAccessOpen}
+          fileName={item.file_name}
+          busy={viewing || downloading}
+          onPreview={() => void handleView()}
+          onDownload={() => void handleDownload()}
+        />
+      ) : null}
+
+      {viewerUrl && item && !shouldUseVaultPackagePage(item) ? (
+        <FileViewer
+          fileUrl={viewerUrl}
+          fileName={item.file_name ?? null}
+          fileFormat={item.file_format ?? null}
+          onClose={handleCloseViewer}
+          onDownload={() => void handleDownload()}
+          downloading={downloading}
+        />
+      ) : null}
+    </div>
+  );
+}
