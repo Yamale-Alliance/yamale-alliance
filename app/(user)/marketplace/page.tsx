@@ -88,6 +88,7 @@ function parseBrowseMode(categoryParam: string | null, seriesParam: string | nul
 
 type Product = {
   id: string;
+  slug?: string | null;
   type: string;
   title: string;
   author: string;
