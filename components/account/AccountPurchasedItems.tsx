@@ -6,10 +6,12 @@ import Image from "next/image";
 import { Package, Loader2, Eye, BookOpen, GraduationCap, FileText, Check, ExternalLink } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
+import { marketplaceItemDetailHref } from "@/lib/marketplace-public-url";
 import { displayVaultProductTitle } from "@/lib/marketplace-display";
 
 type Product = {
   id: string;
+  slug?: string | null;
   type: string;
   title: string;
   author: string;
@@ -148,8 +150,8 @@ export function AccountPurchasedItems({
       <ul className="grid gap-3 sm:grid-cols-1 lg:grid-cols-2">
         {items.map((product) => {
           const href = isMarketplaceZip(product)
-            ? `/marketplace/${product.id}/package`
-            : `/marketplace/${product.id}`;
+            ? marketplaceItemDetailHref({ id: product.id, slug: product.slug, packagePage: true })
+            : marketplaceItemDetailHref({ id: product.id, slug: product.slug });
           const fileAccessHref = isMarketplaceZip(product) ? href : `${href}?file=access`;
 
           return (
