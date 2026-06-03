@@ -18,6 +18,8 @@ type LawContentsNavProps = {
   showSubheadings: boolean;
   onShowSubheadingsChange: (show: boolean) => void;
   onClose?: () => void;
+  /** Sticky column beside the document (not a modal). */
+  embedded?: boolean;
 };
 
 export function LawContentsNav({
@@ -29,11 +31,16 @@ export function LawContentsNav({
   showSubheadings,
   onShowSubheadingsChange,
   onClose,
+  embedded = false,
 }: LawContentsNavProps) {
+  const title = (
+    <span className="text-sm font-semibold text-foreground">Contents</span>
+  );
+
   return (
-    <div className="flex h-full flex-col">
+    <div className="law-contents-nav flex min-h-0 max-h-full flex-1 flex-col overflow-hidden">
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-3">
-        <Dialog.Title className="text-sm font-semibold text-foreground">Contents</Dialog.Title>
+        {embedded ? title : <Dialog.Title asChild>{title}</Dialog.Title>}
         <div className="flex items-center gap-2">
           {hasSubheadings ? (
             <button
@@ -57,7 +64,7 @@ export function LawContentsNav({
         </div>
       </div>
       <ul
-        className={`min-h-0 flex-1 space-y-0.5 overflow-y-auto px-3 py-3 ${isRtl ? "text-right" : ""}`}
+        className={`law-contents-nav-list min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-y-contain px-3 py-3 ${isRtl ? "text-right" : ""}`}
         dir={isRtl ? "rtl" : undefined}
       >
         {items.map((item) => (
