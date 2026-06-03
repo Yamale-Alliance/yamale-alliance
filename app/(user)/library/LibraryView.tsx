@@ -42,6 +42,8 @@ import { formatUsdPrice } from "@/lib/content-pricing";
 import { LibraryFiltersBar } from "@/components/library/LibraryFiltersBar";
 import { LibraryOcrDisclaimer } from "@/components/library/LibraryOcrDisclaimer";
 import { platformBusinessMailto } from "@/lib/platform-emails";
+import { lawDetailHref } from "@/lib/law-public-url";
+import { LawLastVerifiedLabel } from "@/components/library/LawLastVerifiedLabel";
 
 const PAGE_SIZE = LIBRARY_PAGE_SIZE;
 const SUPPORT_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
@@ -78,6 +80,8 @@ type Law = {
   document_type: DocumentType;
   created_at?: string;
   updated_at?: string;
+  last_verified_at?: string | null;
+  slug?: string | null;
   /** Cross-country shared link group (admin-only flair). */
   is_linked_shared_law?: boolean;
 };
@@ -180,6 +184,8 @@ function mapRowToLaw(row: LibraryLawRow): Law {
     document_type,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    last_verified_at: row.last_verified_at,
+    slug: row.slug,
     is_linked_shared_law: row.is_linked_shared_law,
   };
 }
@@ -659,7 +665,7 @@ export function LibraryView({
     const y = pendingScrollRestore.current;
     pendingScrollRestore.current = null;
     window.scrollTo({ top: y, left: 0, behavior: "auto" });
-  }, [laws, isRefetchingLaws, country, category, status, search, currentPage]);
+  }, [laws, isRefetchingLaws, country, category, status, search, currentPage, showAdvancedFilters, mobileFiltersOpen]);
 
   useEffect(() => {
     const onPopState = () => {
@@ -844,11 +850,9 @@ export function LibraryView({
     syncUrlFromState({ sort: next, page: 1 });
   };
   const handlePageChange = (page: number) => {
+    preserveScrollPosition();
     setCurrentPage(page);
     syncUrlFromState({ page });
-    requestAnimationFrame(() => {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    });
   };
   const clearFilters = () => {
     preserveScrollPosition();
@@ -878,8 +882,10 @@ export function LibraryView({
 
   const handlePrintPayment = useCallback(
     async (lawId: string) => {
+      const lawRow = laws.find((l) => l.id === lawId);
+      const lawPath = lawRow ? lawDetailHref(lawRow) : `/library/${lawId}`;
       if (paidLawIds.has(lawId)) {
-        router.push(`/library/${lawId}?print=1`);
+        router.push(`${lawPath}?print=1`);
         return;
       }
       if (!isSignedIn) {
@@ -889,12 +895,14 @@ export function LibraryView({
       setLibraryDocCheckoutLawId(lawId);
       setLibraryPrintCheckoutOpen(true);
     },
-    [isSignedIn, router, paidLawIds]
+    [isSignedIn, router, paidLawIds, laws]
   );
 
   const submitLibraryDocumentCheckout = useCallback(async () => {
     const lawId = libraryDocCheckoutLawId;
     if (!lawId) return;
+    const lawRow = laws.find((l) => l.id === lawId);
+    const returnPath = lawRow ? lawDetailHref(lawRow) : `/library/${lawId}`;
     setPrintLoadingId(lawId);
     try {
       const res = await fetch("/api/payments/payg/document", {
@@ -902,7 +910,7 @@ export function LibraryView({
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          return_path: `/library/${lawId}`,
+          return_path: returnPath,
           provider: libraryPrintCheckoutProvider,
           ...(libraryPrintCheckoutProvider === "pawapay" ? { paymentCountry: libraryPawapayCountry } : {}),
         }),
@@ -922,6 +930,7 @@ export function LibraryView({
     libraryDocCheckoutLawId,
     libraryPawapayCountry,
     libraryPrintCheckoutProvider,
+    laws,
     showAlert,
   ]);
 
@@ -1146,9 +1155,15 @@ export function LibraryView({
         filterBadgeCount={filterBadgeCount}
         advancedFilterCount={advancedFilterCount}
         showAdvancedFilters={showAdvancedFilters}
-        onToggleAdvancedFilters={() => setShowAdvancedFilters((v) => !v)}
+        onToggleAdvancedFilters={() => {
+          preserveScrollPosition();
+          setShowAdvancedFilters((v) => !v);
+        }}
         mobileFiltersOpen={mobileFiltersOpen}
-        onMobileFiltersOpenChange={setMobileFiltersOpen}
+        onMobileFiltersOpenChange={(open) => {
+          if (open) preserveScrollPosition();
+          setMobileFiltersOpen(open);
+        }}
         onCountryChange={handleCountryChange}
         onCategoryChange={handleCategoryChange}
         onStatusChange={handleStatusChange}
@@ -1163,7 +1178,7 @@ export function LibraryView({
         isSignedIn={!!isSignedIn}
       />
 
-      <div className="mx-auto max-w-[1280px] px-4 py-8 sm:px-8">
+      <div id="library-results" className="mx-auto max-w-[1280px] px-4 py-8 sm:px-8 scroll-mt-4">
         {error && (
           <p className="py-12 text-center text-muted-foreground">{error}</p>
         )}
@@ -1197,9 +1212,10 @@ export function LibraryView({
             )}
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {laws.map((law) => {
+                const lawBase = lawDetailHref(law);
                 const lawHref =
                   (hasFilters || sortBy !== "title-asc" || safePage > 1)
-                    ? `/library/${law.id}?returnTo=${encodeURIComponent(
+                    ? `${lawBase}?returnTo=${encodeURIComponent(
                         pathname +
                           "?" +
                           new URLSearchParams({
@@ -1215,7 +1231,7 @@ export function LibraryView({
                             ...(sortBy !== "title-asc" && { sort: sortBy }),
                           }).toString()
                       )}`
-                    : `/library/${law.id}`;
+                    : lawBase;
                 return (
                   <div
                     key={law.id}
@@ -1246,8 +1262,13 @@ export function LibraryView({
                         isAdmin={isAdmin}
                       />
                     </Link>
-                    <div className="mt-4 flex items-center gap-2 border-t border-border pt-3">
+                    <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-3">
                       <StatusBadge status={law.status} />
+                      <LawLastVerifiedLabel
+                        at={law.last_verified_at}
+                        variant="compact"
+                        className="text-[11px] text-muted-foreground"
+                      />
                       <div className="ml-auto flex items-center gap-2 opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
                         <button
                           type="button"
