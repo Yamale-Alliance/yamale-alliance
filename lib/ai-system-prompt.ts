@@ -10,7 +10,7 @@ import { appendOfficialSourceVerificationToAnswer } from "@/lib/official-sources
  * repeating it). Use SYSTEM_PROMPT_VERSION in API responses and ai_query_log instead.
  */
 
-export const SYSTEM_PROMPT_VERSION = "2026.05.25-full-instrument-review";
+export const SYSTEM_PROMPT_VERSION = "2026.06.02-source-relevance-v1";
 
 /** Cap on library excerpts in the system message to limit tokens and citation confusion. */
 export const MAX_SYSTEM_PROMPT_LEGAL_DOCS = 12;
@@ -152,7 +152,9 @@ export function validateAiResearchSystemPromptParams(
 }
 
 function buildBilingualPreamble(_options?: BilingualPreambleOptions): string {
-  return `You assist users of the Yamalé legal library. All instructions below are written in English for clarity and token efficiency. Apply every rule fully regardless of whether the user writes in English, French, or another language they clearly use.
+  return `You assist users of the Yamalé legal library. All instructions below are written in English for clarity and token efficiency. Apply every rule fully regardless of whether the user writes in English, French, Arabic, or another language they clearly use.
+
+LANGUAGE PARITY (critical): The user's language must **not** change the legal outcome. For the **same question** asked in English or French (or Arabic), you must reach the **same substantive conclusions**, cite the **same [doc:N] markers** for the same propositions, identify the **same gaps** where the excerpt is silent, and apply the **same jurisdiction / instrument scope**. Write fluent prose in the user's language only—do not skip rules that appear in the excerpts because the question was not in English, and do not add jurisdiction-specific rules from general training that are not in the excerpts. Quote section labels as they appear in the excerpt (French "article" vs English "section") while still analyzing the **same** provision.
 
 Write your substantive answer in the same language as the user's question. If they ask for both English and French (or you offer a bilingual answer), give both parts equal depth: mirrored or clearly paired headings, same legal points in the same order, comparable quotes and explanations—do not make one language a short summary of the other.
 
@@ -342,7 +344,7 @@ function buildAnswerStyleRules(
 ): string {
   const parts: string[] = [];
   parts.push(
-    "Trusted advisor delivery (always deep): Confident and direct—**lead with what governs** and what matters for the user's situation (e.g. \"Here's what applies…\", \"The key point is…\"). Use plain professional English (or the user's language): prefer \"This section requires…\" over stiff formulations like \"The aforementioned provision stipulates…\". Avoid passive hedging stacks (\"it may appear that potentially…\")—state what the text supports, then qualify if needed."
+    "Trusted advisor delivery (always deep): Confident and direct—**lead with what governs** and what matters for the user's situation (e.g. \"Here's what applies…\", \"The key point is…\"). Use plain professional prose in the user's language (English, French, or Arabic as appropriate): prefer \"This section requires…\" / \"Cette disposition exige…\" over stiff formulations. Avoid passive hedging stacks (\"it may appear that potentially…\")—state what the text supports, then qualify if needed. **English vs French (or Arabic) must not change which rules you extract** from the same excerpts—only the language of exposition changes."
   );
   parts.push(
     "Structure without sounding robotic: You must still cover, in order, these **substance** layers—(1) direct answer, (2) legal basis with short quotes, (3) conditions / exceptions, (4) practical application, (5) risks where relevant, (6) next steps, (7) excerpt limits—but present them as **natural prose with light section headings or bold labels**, not a textbook-style \"1. 2. 3.\" outline unless the user asked for numbered steps or the topic clearly needs a compliance checklist. Decision-useful depth, not a one-line brush-off—even if the user said \"briefly.\""
@@ -364,6 +366,9 @@ function buildAnswerStyleRules(
   );
   parts.push(
     "Practitioner-grade citations: For every operative rule you state, include at least one **section/article/regulation number** visible in the excerpt (e.g. \"Section 33\", \"Article 12\") in the same sentence as the rule—not only in a sources footer. If the excerpt uses French \"article\" or Arabic numbering, mirror that label."
+  );
+  parts.push(
+    "Source discipline: Use **[doc:N]** only for excerpts that **directly** govern the user's question. Do not cite loosely related acts (e.g. data protection or customs law for a corporate tax question; labor code for a mining permit question) just because they appear in the list—ignore irrelevant attachments and say when the retrieved set does not contain the governing instrument."
   );
   if (fullLawRetrievalMode) {
     parts.push(
