@@ -26,7 +26,7 @@ type Props = {
 /** Markdown body for law sections — loaded on demand to shrink the law detail bundle. */
 export function LawSectionMarkdown({ body }: Props) {
   return (
-    <div className="prose prose-base max-w-none break-words leading-relaxed text-foreground prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-foreground prose-headings:break-words prose-p:leading-[1.7] prose-p:text-left prose-p:text-foreground/90 sm:prose-lg sm:prose-p:leading-[1.75] sm:prose-p:text-justify prose-li:text-foreground prose-pre:overflow-x-auto dark:prose-invert print:max-w-none print:prose-neutral">
+    <div className="prose prose-base max-w-none break-words text-foreground prose-headings:font-semibold prose-headings:tracking-tight prose-headings:text-foreground prose-headings:break-words prose-p:text-left prose-p:leading-[1.85] prose-p:text-foreground/90 prose-li:leading-[1.8] prose-li:text-foreground/90 prose-pre:overflow-x-auto dark:prose-invert print:max-w-none print:prose-neutral">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
