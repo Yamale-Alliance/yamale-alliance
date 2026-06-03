@@ -6,13 +6,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { ArrowLeft, ArrowRight, FileDown, Loader2, BookOpen } from "lucide-react";
 import { fetchDocumentExportUnlockLawIds } from "@/lib/library-document-export-unlocks-client";
+import { lawDetailHref } from "@/lib/law-public-url";
+import { LawLastVerifiedLabel } from "@/components/library/LawLastVerifiedLabel";
 
 type Law = {
   id: string;
+  slug?: string | null;
   title: string;
   country: string;
   category: string;
   status: string;
+  last_verified_at?: string | null;
 };
 
 const RETURN_PATH = "/library/purchased";
@@ -94,6 +98,8 @@ export function PurchasedLawsClient({ initialLawIds }: Props) {
         const data = (await res.json()) as {
           laws?: Array<{
             id: string;
+            slug?: string | null;
+            last_verified_at?: string | null;
             title: string;
             country: string;
             category: string;
@@ -105,6 +111,8 @@ export function PurchasedLawsClient({ initialLawIds }: Props) {
           (law) =>
             ({
               id: law.id,
+              slug: law.slug ?? null,
+              last_verified_at: law.last_verified_at ?? null,
               title: law.title,
               country: law.country,
               category: law.category,
@@ -216,7 +224,7 @@ export function PurchasedLawsClient({ initialLawIds }: Props) {
               {laws.map((law) => (
                 <Link
                   key={law.id}
-                  href={`/library/${law.id}?returnTo=${encodeURIComponent(RETURN_PATH)}`}
+                  href={`${lawDetailHref(law)}?returnTo=${encodeURIComponent(RETURN_PATH)}`}
                   className="group flex flex-col rounded-2xl border border-primary/40 bg-card p-6 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-lg hover:shadow-primary/20"
                 >
                   <div className="mb-2 inline-flex w-fit items-center gap-1.5 rounded-full border border-primary/30 bg-primary/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary">
@@ -229,10 +237,15 @@ export function PurchasedLawsClient({ initialLawIds }: Props) {
                     {law.country && law.category ? <span>·</span> : null}
                     {law.category ? <span>{law.category}</span> : null}
                   </div>
-                  <div className="mt-4 flex items-center gap-2">
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-green-500/15 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
                       {law.status || "In force"}
                     </span>
+                    <LawLastVerifiedLabel
+                      at={law.last_verified_at}
+                      variant="compact"
+                      className="text-[11px] text-muted-foreground"
+                    />
                     <span className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-primary opacity-0 transition group-hover:opacity-100">
                       Open
                       <ArrowRight className="h-3.5 w-3.5" />
