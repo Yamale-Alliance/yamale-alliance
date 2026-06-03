@@ -18,7 +18,6 @@ import {
   Bookmark,
   Sparkles,
   Calendar,
-  FileEdit,
   Eye,
   ChevronLeft,
   ChevronRight,
@@ -41,6 +40,7 @@ import { usePlatformSettings } from "@/components/platform/PlatformSettingsConte
 import { MarketingDiscountPrice } from "@/components/pricing/MarketingDiscountPrice";
 import { formatUsdPrice } from "@/lib/content-pricing";
 import { LibraryFiltersBar } from "@/components/library/LibraryFiltersBar";
+import { LibraryOcrDisclaimer } from "@/components/library/LibraryOcrDisclaimer";
 import { platformBusinessMailto } from "@/lib/platform-emails";
 
 const PAGE_SIZE = LIBRARY_PAGE_SIZE;
@@ -106,7 +106,6 @@ type LawFlairsProps = {
 
 function LawFlairs({ law, isBookmarked, isRecentlyOpened, isAdmin }: LawFlairsProps) {
   const recentlyAdded = isRecent(law.created_at, RECENTLY_ADDED_DAYS);
-  const amended = law.status === "Amended";
   const recentlyUpdated =
     wasUpdatedAfterCreate(law.created_at, law.updated_at) && isRecent(law.updated_at, RECENTLY_UPDATED_DAYS);
 
@@ -114,7 +113,6 @@ function LawFlairs({ law, isBookmarked, isRecentlyOpened, isAdmin }: LawFlairsPr
   if (isBookmarked) flairs.push({ label: "Bookmarked", icon: <Bookmark className="h-3 w-3" />, className: "bg-primary/15 text-primary border-primary/30" });
   if (isRecentlyOpened) flairs.push({ label: "Recently opened", icon: <Eye className="h-3 w-3" />, className: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30" });
   if (recentlyAdded && isAdmin) flairs.push({ label: "Recently added", icon: <Sparkles className="h-3 w-3" />, className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" });
-  if (amended) flairs.push({ label: "Amended", icon: <FileEdit className="h-3 w-3" />, className: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30" });
   if (recentlyUpdated && isAdmin) flairs.push({ label: "Updated", icon: <Calendar className="h-3 w-3" />, className: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/30" });
   if (law.is_linked_shared_law && isAdmin) {
     flairs.push({
@@ -1125,6 +1123,10 @@ export function LibraryView({
         </div>
       </div>
 
+      <div className="mx-auto max-w-[1280px] px-4 pt-5 sm:px-8">
+        <LibraryOcrDisclaimer />
+      </div>
+
       <LibraryFiltersBar
         countries={countries}
         categories={categories}
@@ -1314,14 +1316,8 @@ export function LibraryView({
                     >
                       Suggest a law
                     </button>{" "}
-                    feature, or open any law and use <strong className="font-medium text-foreground">Flag this law</strong> in the toolbar, or{" "}
-                    <Link
-                      href="/terms"
-                      className="font-medium text-foreground underline decoration-[#C8922A] underline-offset-2 hover:text-[#C8922A] dark:text-[#f3e5c8] dark:hover:text-[#e3ba65]"
-                    >
-                      read the full accuracy notice →
-                    </Link>{" "}
-                    Need help interpreting a specific law?{" "}
+                    feature, or open any law and use <strong className="font-medium text-foreground">Flag this law</strong> in the
+                    toolbar. Need help interpreting a specific law?{" "}
                     <Link
                       href="/lawyers"
                       className="font-semibold text-[#C8922A] underline decoration-[#C8922A] underline-offset-2 hover:text-[#b07e22]"
