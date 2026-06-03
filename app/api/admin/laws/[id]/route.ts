@@ -5,6 +5,8 @@ import { recordAuditLog } from "@/lib/admin-audit";
 import { isLawTreatyType } from "@/lib/law-treaty-type";
 import type { Database } from "@/lib/database.types";
 import { fetchCategoryIdsForLaw, syncLawCategories } from "@/lib/law-categories-sync";
+import { assignLawSlug } from "@/lib/content-slug-assign";
+import { touchLawLastVerifiedAt } from "@/lib/law-last-verified";
 import {
   fetchSharedGroupForLaw,
   propagateLawCategoriesAcrossSharedGroup,
@@ -31,9 +33,9 @@ export async function GET(
   try {
     const supabase = getSupabaseServer();
     const fullSelect =
-      "id, title, country_id, applies_to_all_countries, category_id, year, status, treaty_type, source_url, source_name, content, content_plain";
+      "id, slug, title, country_id, applies_to_all_countries, category_id, year, status, treaty_type, source_url, source_name, content, content_plain, last_verified_at";
     const legacySelect =
-      "id, title, country_id, applies_to_all_countries, category_id, year, status, source_url, source_name, content, content_plain";
+      "id, slug, title, country_id, applies_to_all_countries, category_id, year, status, source_url, source_name, content, content_plain, last_verified_at";
 
     const { data, error } = await supabase
       .from("laws")
@@ -181,12 +183,16 @@ export async function PUT(
       updates.content_plain = trimmed;
     }
 
-    const nonTsKeys = Object.keys(updates).filter((k) => k !== "updated_at");
+    const nonTsKeys = Object.keys(updates).filter((k) => k !== "updated_at" && k !== "last_verified_at");
     const hasLawColumnUpdates = nonTsKeys.length > 0;
     const hasCategorySync = Boolean(categoryIdsPayload && categoryIdsPayload.length > 0);
 
     if (!hasLawColumnUpdates && !hasCategorySync) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+    }
+
+    if (hasLawColumnUpdates || hasCategorySync) {
+      updates.last_verified_at = touchLawLastVerifiedAt();
     }
 
     let propagatedLawIds: string[] = [];
@@ -246,6 +252,36 @@ export async function PUT(
       category_ids = await fetchCategoryIdsForLaw(supabase, id);
     } catch {
       category_ids = lawRow.category_id ? [lawRow.category_id] : [];
+    }
+
+    const slugFieldsChanged =
+      updates.title !== undefined ||
+      updates.year !== undefined ||
+      updates.country_id !== undefined ||
+      updates.applies_to_all_countries !== undefined;
+    if (slugFieldsChanged && lawRow?.title) {
+      try {
+        const { data: slugRow } = await supabase
+          .from("laws")
+          .select("id, title, year, countries(name)")
+          .eq("id", id)
+          .single();
+        const row = slugRow as {
+          title?: string;
+          year?: number | null;
+          countries?: { name: string } | null;
+        } | null;
+        if (row?.title) {
+          await assignLawSlug(supabase, {
+            id,
+            title: row.title,
+            year: row.year,
+            countries: row.countries ?? null,
+          });
+        }
+      } catch {
+        /* slug column may not be migrated yet */
+      }
     }
 
     await recordAuditLog(supabase, {
