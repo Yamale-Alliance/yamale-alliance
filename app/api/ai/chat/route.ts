@@ -124,6 +124,10 @@ import {
 } from "@/lib/ai-abuse-caps";
 import { getClaudeTimeoutMs } from "@/lib/ai-chat-route-limits";
 import { AI_RESEARCH_ENGINE_SOURCE_LABEL } from "@/lib/ai-research-source-cards";
+import {
+  filterLegalContextByRelevance,
+  isLawRelevantForAiSources,
+} from "@/lib/ai-source-relevance";
 import { captureAiChatError, captureClaudeApiError } from "@/lib/monitoring";
 import {
   fetchFullLibraryLawRows,
@@ -768,14 +772,34 @@ function isClearlyOffTopicForPrimaryIntent(
   const title = String(law?.title ?? "").toLowerCase();
   const category = String(law?.categories?.name ?? "").toLowerCase();
   const blob = `${title}\n${String(law?.content_plain ?? law?.content ?? "").toLowerCase()}`;
-  if (primaryIntentId === "tax" && userQuery && isPrincipalVatDigitalTaxQuery(userQuery)) {
-    const customsTitle =
-      /\bcustoms\b|\bcustoms\s+service\b|\bcustoms\s+and\s+excise\b|\bdouane\b/i.test(title) &&
-      !/\bvat\b|\bvalue\s+added\b|\btax\s+administration\b|\bfinance\s+act\b|\bincome\s+tax\b|\bexcise\b/i.test(title);
-    const privacyTitle =
-      /\bdata\s+protection\b|\bndp\s+act\b|\bndpc\b|\bgaid\b|\bpersonal\s+data\b/i.test(title) ||
-      /\bdata\s+protection\b|\bprivacy\b/i.test(category);
-    if (customsTitle || privacyTitle) return true;
+  if (primaryIntentId === "tax") {
+    const taxSignals =
+      /(tax|fiscal|vat|revenue|income|withhold|impot|impots|fiscale|fiscalite|taxe|tva|douane|customs|excise)/i;
+    const hasTax =
+      taxSignals.test(blob) ||
+      taxSignals.test(category) ||
+      rankingTokens.some((t) => taxSignals.test(t));
+    if (userQuery && isPrincipalVatDigitalTaxQuery(userQuery)) {
+      const customsTitle =
+        /\bcustoms\b|\bcustoms\s+service\b|\bcustoms\s+and\s+excise\b|\bdouane\b/i.test(title) &&
+        !/\bvat\b|\bvalue\s+added\b|\btax\s+administration\b|\bfinance\s+act\b|\bincome\s+tax\b|\bexcise\b/i.test(title);
+      const privacyTitle =
+        /\bdata\s+protection\b|\bndp\s+act\b|\bndpc\b|\bgaid\b|\bpersonal\s+data\b/i.test(title) ||
+        /\bdata\s+protection\b|\bprivacy\b/i.test(category);
+      if (customsTitle || privacyTitle) return true;
+    }
+    const laborOnly =
+      /\b(labor|labour|employment|workers?\s+compensation)\b/i.test(category) &&
+      !taxSignals.test(title) &&
+      !taxSignals.test(blob.slice(0, 5000));
+    const envOnly =
+      /\b(environment|climate|pollution|waste)\b/i.test(category) &&
+      !taxSignals.test(title) &&
+      !taxSignals.test(blob.slice(0, 5000));
+    const ipOnly =
+      /\b(intellectual property|patent|trademark|copyright)\b/i.test(category) &&
+      !taxSignals.test(title);
+    if ((laborOnly || envOnly || ipOnly) && !hasTax) return true;
   }
   if (primaryIntentId === "labor") {
     const laborSignals = /(labor|labour|employment|decent work|travail|wage|salary|union|collective|dismissal|worker)/i;
@@ -794,10 +818,15 @@ function isClearlyOffTopicForPrimaryIntent(
   if (primaryIntentId === "mining" || primaryIntentId === "oil_gas") {
     const resourceSignals =
       primaryIntentId === "mining"
-        ? /(mining|mineral|quarry|code minier|mines)/i
-        : /(petroleum|hydrocarbon|oil and gas|petrole|gaz|upstream)/i;
+        ? /(mining|mineral|quarry|code minier|mines|exploitation miniere)/i
+        : /(petroleum|hydrocarbon|oil and gas|petrole|gaz|upstream|code petrolier)/i;
     const tradeOnly = /international trade/i.test(category) && !resourceSignals.test(blob);
-    return tradeOnly;
+    if (tradeOnly) return true;
+    const laborOnly =
+      /\b(labor|labour|employment)\b/i.test(category) && !resourceSignals.test(title) && !resourceSignals.test(blob.slice(0, 4000));
+    const taxOnly =
+      /\b(tax|data protection|privacy)\b/i.test(category) && !resourceSignals.test(title) && !resourceSignals.test(blob.slice(0, 4000));
+    if (laborOnly || taxOnly) return true;
   }
   if (primaryIntentId === "data_protection") {
     const dpSignals = /(data protection|personal data|privacy|donnees personnelles)/i;
@@ -814,6 +843,17 @@ function isClearlyOffTopicForPrimaryIntent(
     return /international trade/i.test(category) && !corrSignals.test(blob);
   }
   if (primaryIntentId === "registration") {
+    const regSignals =
+      /(registr|incorpor|compan|societe|société|commercial|business|enterprise|ohada|immatriculation|enregistrement|partnership|commandit)/i;
+    const hasReg =
+      regSignals.test(blob) ||
+      regSignals.test(category) ||
+      rankingTokens.some((t) => regSignals.test(t));
+    const laborOnly =
+      /\b(labor|labour|employment)\b/i.test(category) && !regSignals.test(title) && !hasReg;
+    const taxOnly = /\b(tax law|taxation)\b/i.test(category) && !regSignals.test(title) && !hasReg;
+    if (laborOnly || taxOnly) return true;
+
     const tokenBlob = rankingTokens.join(" ").toLowerCase();
     const isOhadaCompanyQuery =
       /\bohada\b/.test(tokenBlob) &&
@@ -2992,26 +3032,26 @@ function legalContextItemEligibleForDisplayedSourceCard(
   userQuery: string,
   overlapTokens: string[],
   primaryIntentId: string,
-  usedInAnswer: boolean
+  usedInAnswer: boolean,
+  effectiveCountry: string | null,
+  strictCountryMode: boolean
 ): boolean {
-  if (usedInAnswer) return true;
   const lawRow = legalContextItemAsLawRowForIntent(law);
-  if (isClearlyOffTopicForPrimaryIntent(lawRow, primaryIntentId, overlapTokens, userQuery)) {
-    return false;
-  }
-  const blob = `${law.title}\n${law.category}\n${law.content}`.toLowerCase();
-  for (const t of overlapTokens) {
-    if (!t) continue;
-    if (t.includes(" ")) {
-      if (blob.includes(t)) return true;
-    } else if (t === "ip") {
-      if (/\bip\b/i.test(blob)) return true;
-    } else if (t.length >= 3 && blob.includes(t)) {
-      return true;
-    }
-  }
-  const rs = typeof law.retrievalScore === "number" ? law.retrievalScore : 0;
-  return rs >= 16;
+  return isLawRelevantForAiSources({
+    law: {
+      title: law.title,
+      category: law.category,
+      content: law.content,
+      country: law.country,
+      retrievalScore: law.retrievalScore,
+    },
+    overlapTokens,
+    primaryIntentId,
+    usedInAnswer,
+    isOffTopic: isClearlyOffTopicForPrimaryIntent(lawRow, primaryIntentId, overlapTokens, userQuery),
+    effectiveCountry,
+    enforceCountryScope: strictCountryMode || Boolean(effectiveCountry?.trim()),
+  });
 }
 
 async function finalizeAssistantTurn(opts: {
@@ -3024,6 +3064,7 @@ async function finalizeAssistantTurn(opts: {
   skipAutoQualityFlags?: boolean;
   userQuery: string;
   effectiveCountry: string | null;
+  strictCountryMode: boolean;
   currentCategory: string | null;
   dbDetectedCountry: string | null;
   supranationalFrameworkNames: string[];
@@ -3045,6 +3086,7 @@ async function finalizeAssistantTurn(opts: {
     skipAutoQualityFlags,
     userQuery,
     effectiveCountry,
+    strictCountryMode,
     currentCategory,
     dbDetectedCountry,
     supranationalFrameworkNames,
@@ -3130,7 +3172,9 @@ async function finalizeAssistantTurn(opts: {
         userQuery,
         cardCtx.overlapTokens,
         cardCtx.primaryIntentId,
-        usedInAnswer
+        usedInAnswer,
+        effectiveCountry,
+        strictCountryMode
       );
     });
 
@@ -3693,6 +3737,26 @@ export async function POST(request: NextRequest) {
         strictCountryMode
       );
       perfStep(perf, "country_lock_filter", { docs: legalContext.length });
+
+      const relevanceCtx = buildSourceCardQueryContext(userQuery);
+      const beforeRelevance = legalContext.length;
+      legalContext = filterLegalContextByRelevance(legalContext, {
+        overlapTokens: relevanceCtx.overlapTokens,
+        primaryIntentId: relevanceCtx.primaryIntentId,
+        effectiveCountry: effectiveHints.country ?? null,
+        enforceCountryScope: strictCountryMode || Boolean(effectiveHints.country?.trim()),
+        isOffTopic: (law) =>
+          isClearlyOffTopicForPrimaryIntent(
+            legalContextItemAsLawRowForIntent(law),
+            relevanceCtx.primaryIntentId,
+            relevanceCtx.overlapTokens,
+            userQuery
+          ),
+      });
+      perfStep(perf, "relevance_filter", {
+        before: beforeRelevance,
+        after: legalContext.length,
+      });
     }
 
     let webSearchSupplementBlock: string | null = webResult.block;
@@ -3941,6 +4005,7 @@ export async function POST(request: NextRequest) {
       skipAutoQualityFlags: isEvalBatch,
       userQuery,
       effectiveCountry: effectiveHints.country ?? null,
+      strictCountryMode,
       currentCategory: currentHints.category ?? null,
       dbDetectedCountry: dbDetectedCountry ?? null,
       supranationalFrameworkNames: supranationalFrameworksInQuery.map((m) => m.canonicalName),
