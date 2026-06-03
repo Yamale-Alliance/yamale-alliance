@@ -8,6 +8,7 @@ import { parseItemPackageOffersInput } from "@/lib/marketplace-package-offers";
 import { parseItemPackInput } from "@/lib/marketplace-item-packs";
 import { isFreeVaultItem, isPaidVaultSubcategory, resolveVaultSubcategoryForSave } from "@/lib/marketplace-vault-categories";
 import { resolveFocusCountryForSave } from "@/lib/marketplace-vault-country";
+import { assignMarketplaceItemSlug } from "@/lib/content-slug-assign";
 
 type Update = Database["public"]["Tables"]["marketplace_items"]["Update"];
 const VALID_TYPES = ["book", "course", "template", "guide"] as const;
@@ -146,6 +147,17 @@ export async function PUT(
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    if (typeof updates.title === "string" && data?.id && data?.title) {
+      try {
+        await assignMarketplaceItemSlug(supabase, {
+          id: String(data.id),
+          title: String(data.title),
+        });
+      } catch {
+        /* slug column may not be migrated yet */
+      }
     }
 
     const updated = data as { image_url: string | null; vault_subcategory: string | null; price_cents: number };
