@@ -83,6 +83,8 @@ export interface Database {
       laws: {
         Row: {
           id: string;
+          slug: string | null;
+          last_verified_at: string;
           country_id: string | null;
           applies_to_all_countries: boolean;
           category_id: string;
@@ -101,6 +103,8 @@ export interface Database {
         };
         Insert: {
           id?: string;
+          slug?: string | null;
+          last_verified_at?: string;
           country_id?: string | null;
           applies_to_all_countries?: boolean;
           category_id: string;
@@ -180,6 +184,7 @@ export interface Database {
       marketplace_items: {
         Row: {
           id: string;
+          slug: string | null;
           type: string;
           title: string;
           author: string;
@@ -203,6 +208,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
+          slug?: string | null;
           type: string;
           title: string;
           author?: string;
