@@ -203,10 +203,13 @@ export function LibraryFiltersBar({
                   </option>
                 ))}
               </select>
-              <button
-                type="button"
-                onClick={onToggleAdvancedFilters}
-                className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                onToggleAdvancedFilters();
+              }}
+              className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
                   showAdvancedFilters || advancedFilterCount > 0
                     ? "border-primary/40 bg-primary/10 text-primary"
                     : "border-border text-foreground hover:bg-muted"
@@ -275,7 +278,11 @@ export function LibraryFiltersBar({
       <Dialog.Root open={mobileFiltersOpen} onOpenChange={onMobileFiltersOpenChange}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 md:hidden" />
-          <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 max-h-[min(85vh,32rem)] overflow-y-auto rounded-t-2xl border border-border bg-card p-5 shadow-2xl md:hidden">
+          <Dialog.Content
+            className="fixed inset-x-0 bottom-0 z-50 max-h-[min(85vh,32rem)] overflow-y-auto rounded-t-2xl border border-border bg-card p-5 shadow-2xl md:hidden"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+            onCloseAutoFocus={(e) => e.preventDefault()}
+          >
             <div className="mb-4 flex items-center justify-between gap-2">
               <Dialog.Title className="text-base font-semibold text-foreground">Filter laws</Dialog.Title>
               <Dialog.Close asChild>
