@@ -1,12 +1,15 @@
 /** Parse SSE from POST /api/ai/chat (Anthropic streaming proxy). */
 
 import type { AiProcessSsePayload } from "@/lib/ai-chat-process";
+import type { AiResearchContentGap, AiResearchLawyerNudge } from "@/lib/ai-research-user-messaging";
 
 export type AiChatDonePayload = {
   content: string;
   sources: string[];
   sourceCards: unknown[];
-  lawyerNudge: unknown;
+  contentGap: AiResearchContentGap | null;
+  retrievedLawCount?: number;
+  lawyerNudge: AiResearchLawyerNudge | null;
   systemPromptVersion: string;
   citationVerification?: unknown;
   queryLogId: string | null;
