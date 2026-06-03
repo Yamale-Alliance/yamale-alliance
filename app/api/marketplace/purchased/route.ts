@@ -31,7 +31,7 @@ export async function GET() {
     const purchaseRows = purchases as Array<{ marketplace_item_id: string; created_at: string }>;
     const itemIds = purchaseRows.map((p) => p.marketplace_item_id);
     const { data: items, error: itemsError } = await (supabase.from("marketplace_items") as any)
-      .select("id, type, title, author, description, price_cents, currency, image_url, sort_order, file_path, file_name, file_format")
+      .select("id, slug, type, title, author, description, price_cents, currency, image_url, sort_order, file_path, file_name, file_format")
       .in("id", itemIds)
       .eq("published", true);
 
