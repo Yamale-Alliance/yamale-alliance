@@ -123,7 +123,6 @@ import {
   validateAiChatRequest,
 } from "@/lib/ai-abuse-caps";
 import { getClaudeTimeoutMs } from "@/lib/ai-chat-route-limits";
-import { AI_RESEARCH_ENGINE_SOURCE_LABEL } from "@/lib/ai-research-source-cards";
 import {
   filterLegalContextByRelevance,
   isLawRelevantForAiSources,
@@ -164,6 +163,13 @@ import {
 } from "@/lib/ai-citation-verify";
 import { insertAiQueryLog } from "@/lib/ai-query-log";
 import { recordAutoAiQualityFlags } from "@/lib/ai-auto-quality-flag";
+import {
+  buildLawyersHrefFromAiResearch,
+  resolveAiResearchContentGap,
+  type AiResearchContentGap,
+  type AiResearchLawyerNudge,
+} from "@/lib/ai-research-user-messaging";
+import { isLawyersNetworkLive } from "@/lib/lawyers-network-enabled";
 import {
   createAiPerfTimer,
   perfStep,
@@ -3166,7 +3172,7 @@ async function finalizeAssistantTurn(opts: {
         { title: law.title, category: law.category },
         internalCategoryId
       );
-      if (isMethodology) return true;
+      if (isMethodology) return false;
       return legalContextItemEligibleForDisplayedSourceCard(
         law,
         userQuery,
@@ -3181,25 +3187,10 @@ async function finalizeAssistantTurn(opts: {
   const sources = platformGuideMeta
     ? []
     : displayedSlots.length > 0
-      ? [
-          ...Array.from(
-            new Set(
-              displayedSlots.map(({ law }) => {
-                const isMethodology = isInternalLibraryForUserDisplay(
-                  { title: law.title, category: law.category },
-                  internalCategoryId
-                );
-                return isMethodology
-                  ? `${law.title} (Yamalé methodology)`
-                  : `${law.title} (${law.country})`;
-              })
-            )
-          ),
-          AI_RESEARCH_ENGINE_SOURCE_LABEL,
-        ]
-      : legalContext.length > 0
-        ? [AI_RESEARCH_ENGINE_SOURCE_LABEL]
-        : [AI_RESEARCH_ENGINE_SOURCE_LABEL];
+      ? Array.from(
+          new Set(displayedSlots.map(({ law }) => `${law.title} (${law.country})`))
+        )
+      : [];
 
   const sourceCardsRaw = displayedSlots.map(({ law, idx, usedInAnswer }) => {
     const isMethodology = isInternalLibraryForUserDisplay(
@@ -3271,7 +3262,18 @@ async function finalizeAssistantTurn(opts: {
     });
   }
 
-  let lawyerNudge: { country: string; category: string; count: number; href: string } | null = null;
+  const contentGap: AiResearchContentGap | null = platformGuideMeta
+    ? null
+    : resolveAiResearchContentGap({
+        assistantText: assistantTextRaw,
+        userQuery,
+        effectiveCountry,
+        retrievedLawCount: legalContext.length,
+        displayedSourceCardCount: sourceCards.length,
+      });
+
+  const networkEnabled = isLawyersNetworkLive();
+  let lawyerNudge: AiResearchLawyerNudge | null = null;
   const nudgeCountry = effectiveCountry ?? legalContext[0]?.country;
   const nudgeCategory = currentCategory ?? legalContext[0]?.category;
   if (!platformGuideMeta && nudgeCountry && nudgeCategory) {
@@ -3284,15 +3286,12 @@ async function finalizeAssistantTurn(opts: {
         .eq("country", nudgeCountry)
         .ilike("expertise", `%${safeCategory}%`);
       if ((count ?? 0) > 0) {
-        const q = new URLSearchParams({
-          country: nudgeCountry,
-          expertise: nudgeCategory,
-        });
         lawyerNudge = {
           country: nudgeCountry,
           category: nudgeCategory,
           count: count ?? 0,
-          href: `/lawyers?${q.toString()}`,
+          href: buildLawyersHrefFromAiResearch(nudgeCountry, nudgeCategory),
+          networkEnabled,
         };
       }
     } catch {
@@ -3304,6 +3303,8 @@ async function finalizeAssistantTurn(opts: {
     content,
     sources,
     sourceCards,
+    contentGap,
+    retrievedLawCount: platformGuideMeta ? 0 : legalContext.length,
     lawyerNudge,
     systemPromptVersion: SYSTEM_PROMPT_VERSION,
     citationVerification,
