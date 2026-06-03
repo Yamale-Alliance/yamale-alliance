@@ -30,6 +30,7 @@ import {
   prototypeNavyHeroSectionClass,
 } from "@/components/layout/prototype-page-styles";
 import { LawyerMatchBanner } from "@/components/library/LawyerMatchBanner";
+import { LibraryOcrDisclaimer } from "@/components/library/LibraryOcrDisclaimer";
 import { LawContentsNav } from "@/components/library/LawContentsNav";
 const LawSectionMarkdown = dynamic(
   () => import("@/components/library/LawSectionMarkdown").then((m) => ({ default: m.LawSectionMarkdown })),
@@ -1527,6 +1528,11 @@ export default function LawDetailPage({
           {!law.applies_to_all_countries && law.countries?.name && law.categories?.name && (
             <div className="law-reading-hide-when-reading">
               <LawyerMatchBanner country={law.countries.name} category={law.categories.name} lawTitle={law.title} />
+            </div>
+          )}
+          {hasContent && (
+            <div className="law-reading-hide-when-reading mb-4 sm:mb-5">
+              <LibraryOcrDisclaimer compact />
             </div>
           )}
           <div className="law-reading-stage">
