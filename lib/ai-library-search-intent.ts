@@ -6,6 +6,7 @@
 
 import { canonicalCategoryForLibraryIntent } from "@/lib/ai-canonical-categories";
 import { escapeIlikePattern } from "@/lib/law-country-scope";
+import { crossLanguageRetrievalTokens } from "@/lib/ai-query-language-parity";
 import {
   deaccentForSearch,
   normalizeQueryForLibrarySearch,
@@ -1037,6 +1038,7 @@ export function resolveLibrarySearchIntent(qNormalized: string): ResolvedLibrary
   if (registrationMatch) {
     mergedLexicon.push(...expandCommercialRegistrationTokens(qNormalized).map((t) => t.toLowerCase()));
   }
+  mergedLexicon.push(...crossLanguageRetrievalTokens(qNormalized));
 
   const supplementalTermsRaw = dedupeLower(matches.flatMap((m) => m.supplementalTerms)).slice(0, 18);
 
