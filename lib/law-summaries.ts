@@ -6,22 +6,26 @@ import {
 } from "@/lib/internal-library-categories";
 
 export const LAW_SUMMARY_SELECT =
-  "id, title, year, status, country_id, category_id, countries(name), categories!laws_category_id_fkey(name)";
+  "id, slug, title, year, status, last_verified_at, country_id, category_id, countries(name), categories!laws_category_id_fkey(name)";
 
 export type LawSummary = {
   id: string;
+  slug?: string | null;
   title: string;
   year?: number | null;
   status: string;
   country: string;
   category: string;
+  last_verified_at?: string | null;
 };
 
 type LawSummaryRow = {
   id: string;
+  slug?: string | null;
   title: string;
   year?: number | null;
   status: string;
+  last_verified_at?: string | null;
   countries?: { name: string } | null;
   categories?: { name: string } | null;
   category_id?: string;
@@ -30,11 +34,13 @@ type LawSummaryRow = {
 function toLawSummary(row: LawSummaryRow): LawSummary {
   return {
     id: row.id,
+    slug: row.slug ?? null,
     title: row.title ?? "",
     year: row.year ?? null,
     status: row.status ?? "In force",
     country: row.countries?.name ?? "",
     category: row.categories?.name ?? "",
+    last_verified_at: row.last_verified_at ?? null,
   };
 }
 
