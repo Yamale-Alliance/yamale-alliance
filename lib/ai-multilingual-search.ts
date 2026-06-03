@@ -65,7 +65,9 @@ export function isNationalInvestmentLawExistenceQuery(query: string): boolean {
   return (
     (/\b(have|has)\b/.test(q) && /\binvestment\s+law\b/.test(q)) ||
     (/\bdoes\b/.test(q) && /\binvestment\s+law\b/.test(q)) ||
-    /\b(is\s+there\s+an?\s+investment\s+law|dedicated\s+investment\s+law)\b/.test(q)
+    /\b(is\s+there\s+an?\s+investment\s+law|dedicated\s+investment\s+law)\b/.test(q) ||
+    (/\b(a|ont|existe)\b/.test(q) && /\b(loi\s+.*investissement|code\s+.*investissement)\b/.test(q)) ||
+    /\b(loi\s+sur\s+les\s+investissements|code\s+des\s+investissements|loi\s+investissement)\b/.test(q)
   );
 }
 
