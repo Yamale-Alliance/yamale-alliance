@@ -7,6 +7,7 @@ import { VaultCountryMapIcon } from "@/components/marketplace/VaultCountryMapIco
 import { LawFirmPackageDiscountPrice } from "@/components/marketplace/LawFirmPackageDiscountPrice";
 import { displayVaultProductTitle } from "@/lib/marketplace-display";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
+import { marketplaceItemDetailHref } from "@/lib/marketplace-public-url";
 import { shouldShowLawFirmPackageMarketingDiscount } from "@/lib/law-firm-package-marketing";
 import styles from "./MarketplaceProductCard.module.css";
 
@@ -35,6 +36,7 @@ const TYPE_CARD_CLASS: Record<string, string> = {
 
 export type MarketplaceProductCardProduct = {
   id: string;
+  slug?: string | null;
   type: string;
   title: string;
   author: string;
@@ -149,9 +151,13 @@ export function MarketplaceProductCard({
         : `${collectionCount} pack · complete series $${(paidSeriesSummary.totalCents / 100).toFixed(2)}`
       : `Browse all ${collectionLabel} resources in one place.`
     : plainDescription(product.description);
-  const href = collectionHref || (isMarketplaceZip(product)
-    ? `/marketplace/${product.id}/package`
-    : `/marketplace/${product.id}`);
+  const href =
+    collectionHref ||
+    marketplaceItemDetailHref({
+      id: product.id,
+      slug: product.slug,
+      packagePage: isMarketplaceZip(product),
+    });
   const typeTheme = themeForType(product.type);
   const typeCardClass = styles[TYPE_CARD_CLASS[product.type] ?? "typeDefault"];
   const placeholderGradient = `linear-gradient(155deg, ${typeTheme.from} 0%, ${typeTheme.to} 100%)`;
