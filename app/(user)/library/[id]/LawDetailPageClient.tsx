@@ -1,0 +1,2029 @@
+"use client";
+
+import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from "react";
+import Link from "next/link";
+import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
+import {
+  ChevronLeft,
+  FileText,
+  Loader2,
+  ArrowUp,
+  ArrowDown,
+  List,
+  X,
+  Bookmark,
+  BookmarkCheck,
+  FileEdit,
+  Sparkles,
+  FileDown,
+  Search,
+  BookOpen,
+  ChevronUp,
+  ChevronDown,
+} from "lucide-react";
+import * as Dialog from "@radix-ui/react-dialog";
+import { useUser } from "@clerk/nextjs";
+import { useConfirm, useAlertDialog } from "@/components/ui/use-confirm";
+import {
+  PROTOTYPE_HERO_GRID_PATTERN,
+  prototypeNavyHeroSectionClass,
+} from "@/components/layout/prototype-page-styles";
+import { LawyerMatchBanner } from "@/components/library/LawyerMatchBanner";
+import { LibraryOcrDisclaimer } from "@/components/library/LibraryOcrDisclaimer";
+import { LawContentsNav } from "@/components/library/LawContentsNav";
+const LawSectionMarkdown = dynamic(
+  () => import("@/components/library/LawSectionMarkdown").then((m) => ({ default: m.LawSectionMarkdown })),
+  { loading: () => <div className="my-4 h-32 animate-pulse rounded-lg bg-muted" /> }
+);
+const LawExportPreviewDialog = dynamic(
+  () => import("@/components/library/LawExportPreviewDialog").then((m) => ({ default: m.LawExportPreviewDialog })),
+  { ssr: false }
+);
+import { LawFlagDialog } from "@/components/library/LawFlagDialog";
+import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
+import {
+  PaymentMethodPicker,
+  type CheckoutPaymentProvider,
+} from "@/components/checkout/PaymentMethodPicker";
+import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
+import { PlatformLogo } from "@/components/platform/PlatformLogo";
+import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
+import { MarketingDiscountPrice } from "@/components/pricing/MarketingDiscountPrice";
+import { formatUsdPrice } from "@/lib/content-pricing";
+import { lawDetailHref } from "@/lib/law-public-url";
+import { useMediaQuery } from "@/lib/use-media-query";
+import { LawLastVerifiedLabel } from "@/components/library/LawLastVerifiedLabel";
+import { fetchDocumentExportUnlockLawIds } from "@/lib/library-document-export-unlocks-client";
+import {
+  applyLawDocumentSearchHighlights,
+  clearLawDocumentSearchHighlights,
+  getLawDocumentSearchHitElements,
+} from "@/lib/law-document-search-highlight";
+
+type LawStatus = "In force" | "Amended" | "Repealed";
+
+type LawDetail = {
+  id: string;
+  title: string;
+  source_url: string | null;
+  source_name: string | null;
+  year: number | null;
+  status: string;
+  content: string | null;
+  content_plain: string | null;
+  country_id: string | null;
+  applies_to_all_countries?: boolean;
+  category_id: string;
+  countries: { name: string } | null;
+  categories: { name: string } | null;
+  language_code?: string | null;
+  metadata?: Record<string, unknown> | null;
+  slug?: string | null;
+  last_verified_at?: string | null;
+  translations?: Array<{
+    id: string;
+    title: string;
+    language_code: string | null;
+    slug?: string | null;
+  }>;
+};
+
+type Section = { id: string; title: string; body: string };
+
+// Check if a line looks like a table row (numbers and hyphens, space-separated)
+function isTableRow(line: string): { cells: string[] } | null {
+  const t = line.trim();
+  if (!t) return null;
+  const cells = t.split(/\s+/).filter(Boolean);
+  if (cells.length < 2) return null;
+  const allCellLike = cells.every((c) => /^\d+$/.test(c) || c === "-");
+  return allCellLike ? { cells } : null;
+}
+
+// Markdown pipe table: | Col1 | Col2 | or |---|---|
+function isMarkdownTableLine(line: string): boolean {
+  const t = line.trim();
+  if (!t || !t.includes("|")) return false;
+  const cells = t.split("|").map((c) => c.trim()).filter(Boolean);
+  return cells.length >= 2;
+}
+
+function parseMarkdownTableLine(line: string): string[] {
+  return line
+    .split("|")
+    .map((c) => c.trim())
+    .filter((c) => c !== ""); // keep all cells; for "| A | B |" we get [A, B]
+}
+
+function plainTextFromNode(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(plainTextFromNode).join(" ");
+  if (node && typeof node === "object" && "props" in node) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return plainTextFromNode((node as any).props?.children);
+  }
+  return "";
+}
+
+function headingAnchorId(raw: ReactNode): string {
+  const txt = plainTextFromNode(raw).toLowerCase().trim();
+  return txt
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 90);
+}
+
+function isMarkdownTableSeparatorRow(cells: string[]): boolean {
+  return cells.length >= 1 && cells.every((c) => /^-+$/.test(c.trim()));
+}
+
+// Parse body into blocks: table (numeric/space-separated or Markdown pipe), or paragraph
+type BodyBlock = { type: "table"; rows: string[][] } | { type: "paragraph"; text: string };
+function parseBodyBlocks(body: string): BodyBlock[] {
+  const lines = body.split(/\n/);
+  const blocks: BodyBlock[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    // 1) Existing numeric/space-separated table
+    const rowResult = isTableRow(line);
+    if (rowResult) {
+      const rows: string[][] = [rowResult.cells];
+      const colCount = rowResult.cells.length;
+      i++;
+      while (i < lines.length) {
+        const next = isTableRow(lines[i]);
+        if (!next || next.cells.length !== colCount) break;
+        rows.push(next.cells);
+        i++;
+      }
+      if (rows.length >= 1) blocks.push({ type: "table", rows });
+      continue;
+    }
+    // 2) Markdown pipe table (e.g. | Classes | Commune de Dakar | ...)
+    if (isMarkdownTableLine(line)) {
+      const rows: string[][] = [];
+      let colCount = 0;
+      while (i < lines.length && isMarkdownTableLine(lines[i])) {
+        const cells = parseMarkdownTableLine(lines[i]);
+        if (cells.length >= 2) {
+          if (isMarkdownTableSeparatorRow(cells)) {
+            i++;
+            continue;
+          }
+          if (colCount === 0) colCount = cells.length;
+          if (cells.length === colCount) rows.push(cells);
+        }
+        i++;
+      }
+      if (rows.length >= 1) blocks.push({ type: "table", rows });
+      continue;
+    }
+    // 3) Paragraph
+    const paraLines: string[] = [];
+    while (i < lines.length && !isTableRow(lines[i]) && !isMarkdownTableLine(lines[i])) {
+      paraLines.push(lines[i]);
+      i++;
+    }
+    const text = paraLines.join("\n").trim();
+    if (text) blocks.push({ type: "paragraph", text });
+  }
+  return blocks;
+}
+
+// Body items for a section: table, paragraph, or sub-heading (with id for sidebar/scroll)
+type BodyItem =
+  | { type: "table"; rows: string[][] }
+  | { type: "p"; text: string }
+  | { type: "h3"; text: string; id: string };
+function getBodyItems(sec: Section): BodyItem[] {
+  const items: BodyItem[] = [];
+  let subIdx = 0;
+  for (const block of parseBodyBlocks(sec.body)) {
+    if (block.type === "table") {
+      items.push({ type: "table", rows: block.rows });
+      continue;
+    }
+    const lines = mergeSubheadingContinuationLines(
+      block.text
+        .split(/\n/)
+        .filter((l) => !isPageMarker(l) && !isJunkLine(l))
+        .map((l) => l.trim())
+        .filter(Boolean)
+    );
+    for (const line of lines) {
+      if (isSubHeadingLine(line)) {
+        items.push({ type: "h3", text: line, id: `${sec.id}-h-${subIdx++}` });
+      } else {
+        items.push({ type: "p", text: line });
+      }
+    }
+  }
+  return items;
+}
+
+// Full outline for sidebar: section titles + sub-headings, with level for styling
+type OutlineItem = { id: string; title: string; level: "section" | "sub" };
+function getOutlineItems(sections: Section[]): OutlineItem[] {
+  return sections.flatMap((sec) => {
+    const bodyItems = getBodyItems(sec);
+    const subHeads = bodyItems
+      .filter((i): i is { type: "h3"; text: string; id: string } => i.type === "h3")
+      .map((i) => ({ id: i.id, title: i.text, level: "sub" as const }));
+    return [
+      { id: sec.id, title: sectionTitle(sec.title) || sec.title, level: "section" as const },
+      ...subHeads.map((h) => ({
+        ...h,
+        title: sectionTitle(h.title) || h.title,
+      })),
+    ];
+  });
+}
+
+// Default headers for 4-column Companies Act / Bill cross-reference table
+const COMPANIES_ACT_TABLE_HEADERS = [
+  "COMPANIES ACT, 1963 (ACT 179)",
+  "COMPANIES BILL, 2018",
+  "COMPANIES ACT, 1963 (ACT 179)",
+  "COMPANIES BILL, 2018",
+];
+
+// Heuristic: content looks like Markdown (headings, bold, lists, etc.)
+function isLikelyMarkdown(text: string): boolean {
+  if (!text?.trim()) return false;
+  const sample = text.slice(0, 4000);
+  // # or ## or ### at start of line
+  if (/^#{1,6}\s+\S/m.test(sample)) return true;
+  // ** or __ for bold
+  if (/\*\*[^*]+\*\*|__[^_]+__/.test(sample)) return true;
+  // - or * list at line start
+  if (/^\s*[-*]\s+\S/m.test(sample)) return true;
+  // ``` code fence
+  if (/^```/m.test(sample)) return true;
+  // [text](url) links
+  if (/\[[^\]]+\]\([^)]+\)/.test(sample)) return true;
+  return false;
+}
+
+// Turn URLs in text into clickable links (e.g. http://www.adie.sn/...)
+function linkify(text: string): ReactNode {
+  if (!text?.trim()) return text;
+  const urlRegex = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, i) => {
+    if (/^https?:\/\//.test(part)) {
+      const href = part.replace(/[.,;:?!)\]]+$/, "");
+      return (
+        <a
+          key={i}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="!text-blue-600 font-bold underline decoration-blue-600 break-words hover:decoration-blue-600"
+        >
+          {part}
+        </a>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
+/** Remove OCR/markdown `**bold**` / `__bold__` markers for plain display (used before heading regex). */
+function stripInlineMarkdownBoldMarkers(text: string): string {
+  return text.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/__([^_]+)__/g, "$1");
+}
+
+/** Remove leading markdown heading markers like `## ` for display/matching. */
+function stripLeadingMarkdownHeadingMarkers(text: string): string {
+  return text.replace(/^\s*#{1,6}\s+/, "");
+}
+
+/** Whole line is only `**text**` / `__text__` (common in OCR; must not start a new section when it is an Article/Title subtitle). */
+function isBoldOnlyWrappedLine(line: string): boolean {
+  const s = line.trim();
+  return /^\*\*[^*]+\*\*\s*$/.test(s) || /^__[^_]+__\s*$/.test(s);
+}
+
+/** URLs + inline `**bold**` / `__bold__` (plain-text law path; avoids literal asterisks in the UI). */
+function linkifyRichText(text: string): ReactNode {
+  if (text == null || text === "") return text;
+  const segments: ReactNode[] = [];
+  const re = /(\*\*[^*]+\*\*|__[^_]+__)/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let k = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) {
+      segments.push(
+        <span key={`t-${k++}`}>{linkify(text.slice(last, m.index))}</span>
+      );
+    }
+    const raw = m[1];
+    const inner =
+      raw.startsWith("**") && raw.endsWith("**")
+        ? raw.slice(2, -2)
+        : raw.startsWith("__") && raw.endsWith("__")
+          ? raw.slice(2, -2)
+          : raw;
+    segments.push(
+      <strong key={`b-${k++}`} className="font-semibold text-foreground">
+        {linkify(inner)}
+      </strong>
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) {
+    segments.push(<span key={`t-${k++}`}>{linkify(text.slice(last))}</span>);
+  }
+  return segments.length > 0 ? <>{segments}</> : linkify(text);
+}
+
+/** When heading is "Article 2: …" or "Chapter 1: …", show label on first line and title indented beneath. */
+function toTitleCaseHeading(text: string): string {
+  const lower = text.toLowerCase();
+  return lower.replace(/(^|[\s\u2014\u2013\-(])(\p{L})/gu, (_m, sep: string, ch: string) => sep + ch.toUpperCase());
+}
+
+function renderLawSubheading(text: string, variant: "h2" | "h3" = "h3"): ReactNode {
+  const plain = stripLeadingMarkdownHeadingMarkers(stripInlineMarkdownBoldMarkers(text).trim());
+  const m = plain.match(
+    /^(Article\s+\d+|Chapter\s+\d+|Chapitre\s+[\dIVXLCDMivxlcdm]+|Section\s+[\dIVXLCDMivxlcdm]+|Art\.\s*\d+|Part\s+[A-Z]|Titre\s+[\dIVXLCDMivxlcdm]+|Title\s+[\dIVXLCDMivxlcdm]+|TITLE\s+[\dIVXLCDM]+|Ingingo\s+(?:ya\s+)?\d+)\s*:\s*(.+)$/i
+  );
+  if (m) {
+    const label = m[1];
+    const subtitle = m[2].trim();
+    const subtitleDisplay = subtitle === subtitle.toUpperCase() ? toTitleCaseHeading(subtitle) : subtitle;
+    if (variant === "h2") {
+      return (
+        <>
+          <span className="block text-base font-extrabold uppercase tracking-[0.03em] text-foreground break-words sm:text-2xl sm:tracking-[0.04em] sm:text-[1.65rem]">{linkifyRichText(label)}</span>
+          <span className="mt-1.5 block break-words text-sm font-semibold leading-snug text-foreground/90 sm:mt-2.5 sm:text-xl">{linkifyRichText(subtitleDisplay)}</span>
+        </>
+      );
+    }
+    return (
+      <>
+        <span className="block text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-primary/85">{linkifyRichText(label)}</span>
+        <span className="mt-1.5 block text-[1.35rem] font-semibold leading-snug tracking-tight text-foreground sm:text-[1.5rem]">{linkifyRichText(subtitleDisplay)}</span>
+      </>
+    );
+  }
+  if (variant === "h2") {
+    return (
+      <span className="block text-base font-extrabold uppercase tracking-[0.03em] text-foreground break-words sm:text-2xl sm:tracking-[0.04em] sm:text-[1.65rem]">{linkifyRichText(plain)}</span>
+    );
+  }
+  const articleMatch = plain.match(/^(Article\s+\d+|Chapter\s+\d+|Chapitre\s+[\dIVXLCDMivxlcdm]+|Section\s+[\dIVXLCDMivxlcdm]+|Art\.\s*\d+|Part\s+[A-Z]|Titre\s+[\dIVXLCDMivxlcdm]+|Title\s+[\dIVXLCDMivxlcdm]+|TITLE\s+[\dIVXLCDM]+|Ingingo\s+(?:ya\s+)?\d+)\s*$/i);
+  if (articleMatch) {
+    const labelText = toTitleCaseHeading(articleMatch[1]);
+    return (
+      <span className="block text-[1.5rem] font-semibold leading-snug tracking-tight text-foreground sm:text-[1.7rem]">{linkifyRichText(labelText)}</span>
+    );
+  }
+  return (
+    <span className="block text-[1.35rem] font-semibold leading-snug tracking-tight text-foreground sm:text-[1.5rem]">{linkifyRichText(plain)}</span>
+  );
+}
+
+// Major headings start a new section (new card). Section and Article stay in the flow as sub-headings so the doc doesn’t fragment.
+// Major: Part, Titre, Chapitre, Chapter, markdown ##, Arabic الباب/الفصل. Minor (sub-headings in body): Section, Article, Art., Ingingo, المادة.
+function isMajorSectionStart(line: string): boolean {
+  const t = stripInlineMarkdownBoldMarkers(line.trim());
+  if (!t) return false;
+  // Markdown headings: ## Title or ### Subtitle
+  if (/^#{1,6}\s+\S/.test(line.trim())) return true;
+  // Markdown bold-only line as heading (e.g. **Introduction**) — markers stripped above
+  if (/^\*\*[^*]+\*\*\s*$/.test(line.trim()) || /^__[^_]+__\s*$/.test(line.trim())) return true;
+  // "Part D: Administrative...", "Part E: General Provisions"
+  if (/^Part\s+[A-Z][.:]?\s+/i.test(t)) return true;
+  // "Chapter 1", "Chapter 2." (English)
+  if (/^Chapter\s+\d+[.:]?\s*/i.test(t)) return true;
+  // French: "Chapitre I", "Chapitre III - POUVOIRS..."
+  if (/^Chapitre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*/i.test(t)) return true;
+  // French: "Titre I", "Titre II" (Title/Part)
+  if (/^Titre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*/i.test(t)) return true;
+  // English: "Title II", "TITLE II" (EU / treaty OCR)
+  if (/^Title\s+[\dIVXLCDMivxlcdm]+[.:]?\s*/i.test(t)) return true;
+  if (/^TITLE\s+[\dIVXLCDM]+[.:]?\s*/.test(t)) return true;
+  // Arabic: الفصل (Chapter), الباب (Part) – major divisions
+  if (/^\s*الفصل\s*[\d٠-٩]*/u.test(t)) return true;
+  if (/^\s*الباب\s+/u.test(t) || /^\s*الباب\s*[\d٠-٩]/u.test(t)) return true;
+  // Standalone topic headings (short, single-word style) – but never "Section" or "Article" (they are sub-headings)
+  if (t.length <= 3) return false;
+  if (/^[A-Z]{2,3}$/.test(t)) return false;
+  if (/^(Section|Article)$/i.test(t)) return false;
+  if (/^[A-Z][a-z]+$/.test(t) && t.length < 50) return true;
+  return false;
+}
+
+// Sub-headings: Section, Article, Art. – shown inside the section body as h3-style lines, not as new cards (include Roman numerals: Section I, Section II)
+function isSubHeadingLine(line: string): boolean {
+  const t = stripInlineMarkdownBoldMarkers(line.trim());
+  if (!t) return false;
+  if (/^Section\s+[\dIVXLCDMivxlcdm]+[.:]?\s*/i.test(t)) return true;
+  if (/^Article\s+\d+[.:]?\s*/i.test(t)) return true;
+  if (/^Art\.\s*\d+[.:]?\s*/i.test(t)) return true;
+  if (/^Ingingo\s+(ya\s+)?\d+[.:]?\s*/i.test(t)) return true;
+  if (/^\s*المادة\s*[\d٠-٩]+/u.test(t)) return true;
+  return false;
+}
+
+/** Next line is a short subtitle (not body text) when the previous line is a lone Article/Chapter number. */
+function shouldMergeSubtitleLine(next: string): boolean {
+  const t = stripInlineMarkdownBoldMarkers(next.trim());
+  if (!t) return false;
+  if (isSubHeadingLine(t)) return false;
+  if (isMajorSectionStart(t)) return false;
+  if (t.length > 180) return false;
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length > 16) return false;
+  // Reject obvious sentence-openers that start real paragraphs (not chapter/article subtitles like "The actors of the partnership")
+  if (/^(This|These|Those|There|Here|It|They|If|When|Where|While|Unless|For|In\s+accordance|According|Upon|Notwithstanding|Subject\s+to|Each|Every|All|No\s+|Any\s+)\s+/i.test(t)) return false;
+  if (/^(The|A|An)\s+/i.test(t)) {
+    const looksLikeBodySentence =
+      /\b(shall|must|may|should|will|are|is|was|were|have|has|having|been|undertake|undertakes|agree|agrees|determine|determines|provide|provides)\b/i.test(t) ||
+      words.length > 14 ||
+      /[.!?]\s*$/.test(t);
+    if (looksLikeBodySentence) return false;
+  }
+  if (/^[a-z(—–-]/.test(t)) return false;
+  return true;
+}
+
+/** Lone label line (Article N / Chapter N / Title II / …) that may merge with the following subtitle. */
+function isLoneHeadingLabelLine(trimmed: string): boolean {
+  const t = stripInlineMarkdownBoldMarkers(trimmed.trim());
+  return (
+    /^Article\s+\d+[.:]?\s*$/i.test(t) ||
+    /^Chapter\s+\d+[.:]?\s*$/i.test(t) ||
+    /^Chapitre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*$/i.test(t) ||
+    /^Section\s+[\dIVXLCDMivxlcdm]+[.:]?\s*$/i.test(t) ||
+    /^Art\.\s*\d+[.:]?\s*$/i.test(t) ||
+    /^Ingingo\s+(ya\s+)?\d+[.:]?\s*$/i.test(t) ||
+    /^Part\s+[A-Z][.:]?\s*$/i.test(t) ||
+    /^Titre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*$/i.test(t) ||
+    /^Title\s+[\dIVXLCDMivxlcdm]+[.:]?\s*$/i.test(t) ||
+    /^TITLE\s+[\dIVXLCDM]+[.:]?\s*$/.test(t)
+  );
+}
+
+/** Merge Article/Chapter + subtitle across blank lines (markdown body never ran mergeSubheadingContinuationLines). */
+function preprocessMarkdownBodyForHeadingMerge(body: string): string {
+  if (!body.trim() || body.includes("```")) return body;
+  const rawLines = body.replace(/\r\n/g, "\n").split("\n");
+  const merged: string[] = [];
+  let i = 0;
+  while (i < rawLines.length) {
+    const line = rawLines[i];
+    if (!line.trim()) {
+      merged.push(line);
+      i++;
+      continue;
+    }
+    let j = i + 1;
+    while (j < rawLines.length && !rawLines[j].trim()) j++;
+    const nextLine = j < rawLines.length ? rawLines[j] : undefined;
+    const trimmed = stripInlineMarkdownBoldMarkers(line.trim());
+    if (nextLine !== undefined && isLoneHeadingLabelLine(trimmed) && shouldMergeSubtitleLine(nextLine)) {
+      merged.push(`${trimmed}: ${stripInlineMarkdownBoldMarkers(nextLine.trim())}`);
+      i = j + 1;
+      continue;
+    }
+    merged.push(line);
+    i++;
+  }
+  return merged.join("\n");
+}
+
+/** Merge lone Chapter / Chapitre / Titre / Title / TITLE line + next subtitle into one section h2. */
+function shouldMergeMajorTitleBlockWithNextLine(majorLine: string, nextLine: string): boolean {
+  const t = majorLine.trim();
+  const chapter = /^Chapter\s+\d+[.:]?\s*$/i.test(t) || /^Chapitre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*$/i.test(t);
+  const title =
+    /^Titre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*$/i.test(t) ||
+    /^Title\s+[\dIVXLCDMivxlcdm]+[.:]?\s*$/i.test(t) ||
+    /^TITLE\s+[\dIVXLCDM]+[.:]?\s*$/.test(t);
+  if (!chapter && !title) return false;
+  return shouldMergeSubtitleLine(nextLine);
+}
+
+/** Merge "Article 2" + next line "Fundamental principles" (or Chapter/… ) into one logical heading line. */
+function mergeSubheadingContinuationLines(lines: string[]): string[] {
+  const out: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const next = lines[i + 1];
+    const trimmed = stripInlineMarkdownBoldMarkers(line.trim());
+    if (next !== undefined && shouldMergeSubtitleLine(next)) {
+      const tryMerge = isLoneHeadingLabelLine(trimmed);
+      if (tryMerge) {
+        out.push(`${trimmed}: ${stripInlineMarkdownBoldMarkers(next.trim())}`);
+        i += 2;
+        continue;
+      }
+    }
+    out.push(line);
+    i++;
+  }
+  return out;
+}
+
+// Extract the actual heading from the document for sidebar and section title
+function sectionTitle(firstLine: string): string {
+  const t = firstLine.trim();
+  // Markdown: ## Title or ### Title -> strip # and use rest
+  const mdHeading = t.match(/^#{1,6}\s+(.+)$/);
+  if (mdHeading) return mdHeading[1].trim();
+  // Markdown bold-only: **Introduction** or __Article I__ -> strip markers for sidebar
+  const boldStar = t.match(/^\*\*(.+)\*\*\s*$/);
+  if (boldStar) return boldStar[1].trim();
+  const boldUnder = t.match(/^__(.+)__\s*$/);
+  if (boldUnder) return boldUnder[1].trim();
+  // Use full line for "Part D: ..." and "356. Meetings of the Board"
+  if (/^Part\s+[A-Z]/i.test(t) || /^\d+\.\s+[A-Z]/.test(t)) return t;
+  // "Section 20" or "Section 20. Something" -> show as "Section 20" in nav; full line in body
+  const sectionMatch = t.match(/^(Section\s+\d+)[.:]?\s*(.*)$/i);
+  if (sectionMatch) return sectionMatch[1];
+  const articleMatch = t.match(/^(Article\s+\d+)[.:]?\s*(.*)$/i);
+  if (articleMatch) return articleMatch[1];
+  const artMatch = t.match(/^(Art\.\s*\d+)[.:]?\s*(.*)$/i);
+  if (artMatch) return artMatch[1];
+  const chapterMatch = t.match(/^(Chapter\s+\d+)[.:]?\s*(.*)$/i);
+  if (chapterMatch) return chapterMatch[1];
+  const chapitreMatch = t.match(/^(Chapitre\s+[\dIVXLCDMivxlcdm]+)[.:]?\s*(.*)$/i);
+  if (chapitreMatch) return chapitreMatch[1];
+  const titreMatch = t.match(/^(Titre\s+[\dIVXLCDMivxlcdm]+)[.:]?\s*(.*)$/i);
+  if (titreMatch) return titreMatch[1];
+  const titleEnMatch = t.match(/^(Title\s+[\dIVXLCDMivxlcdm]+)[.:]?\s*(.*)$/i);
+  if (titleEnMatch) return titleEnMatch[1];
+  const titleCapsMatch = t.match(/^(TITLE\s+[\dIVXLCDM]+)[.:]?\s*(.*)$/);
+  if (titleCapsMatch) return titleCapsMatch[1];
+  const ingingoMatch = t.match(/^(Ingingo\s+(?:ya\s+)?\d+)[.:]?\s*(.*)$/i);
+  if (ingingoMatch) return ingingoMatch[1];
+  // Arabic: المادة 1، الفصل ۲، الباب الأول
+  const arArticle = t.match(/^(\s*المادة\s*[\d٠-٩]+)[\s.:،]*/u);
+  if (arArticle) return arArticle[1].trim();
+  const arChapter = t.match(/^(\s*الفصل\s*[\d٠-٩]*)[\s.:،]*/u);
+  if (arChapter) return arChapter[1].trim() || t.slice(0, 50);
+  const arPart = t.match(/^(\s*الباب\s+[^\n]{0,60})/u);
+  if (arPart) return arPart[1].trim();
+  return t;
+}
+
+// PDF page markers (e.g. "-- 1 of 60 --") – strip so they don't fill the document
+function isPageMarker(line: string): boolean {
+  const t = line.trim();
+  return /^\s*--\s*\d+\s+of\s+\d+\s*--\s*$/i.test(t) || /^\s*-\s*\d+\s+of\s+\d+\s*-\s*$/i.test(t) || /^\s*page\s+\d+\s+of\s+\d+\s*$/i.test(t);
+}
+
+// OCR noise: symbol-only lines (|, ;, @) and very short all-caps fragments (SI, An, Vv) – hide from display
+function isJunkLine(line: string): boolean {
+  const t = line.trim();
+  if (!t) return true;
+  if (/^[\s|;@#$%^&*_=+\[\]{}~`\\]+$/.test(t)) return true;
+  if (t.length === 1 && /[^\w\s.]/.test(t)) return true;
+  if (t.length === 2 && /^[A-Z]{2}$/.test(t)) return true; // "SI", "AN" (OCR junk)
+  if (t.length >= 3 && /^[A-Z]+$/.test(t)) return true; // "VV", other all-caps fragments
+  return false;
+}
+
+/** Collapse whitespace and accents for comparing heading text to body lines. */
+function normalizeHeadingText(s: string): string {
+  return s
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
+}
+
+/** Drop leading body lines that repeat the section title (PDF/OCR duplicates, or stray ## lines). */
+function stripLeadingTitleDuplicate(sec: Section): Section {
+  let body = sec.body?.trim() ?? "";
+  if (!body) return sec;
+  const titleKey = normalizeHeadingText(sectionTitle(sec.title) || sec.title);
+  if (!titleKey) return sec;
+
+  for (let guard = 0; guard < 8; guard++) {
+    const lines = body.split("\n");
+    let i = 0;
+    while (i < lines.length && !lines[i].trim()) i++;
+    if (i >= lines.length) break;
+
+    const raw = lines[i].trim();
+    let compare = raw;
+    const md = raw.match(/^#{1,6}\s+(.+)$/);
+    if (md) compare = md[1].trim();
+    const boldStar = raw.match(/^\*\*(.+)\*\*\s*$/);
+    if (boldStar) compare = boldStar[1].trim();
+    const boldUnder = raw.match(/^__(.+)__\s*$/);
+    if (boldUnder) compare = boldUnder[1].trim();
+
+    if (normalizeHeadingText(compare) !== titleKey) break;
+
+    i++;
+    while (i < lines.length && !lines[i].trim()) i++;
+    body = lines.slice(i).join("\n").trim();
+  }
+  return { ...sec, body };
+}
+
+// Split content by major headings only (Part, Chapitre, Titre, Chapter). Section and Article stay in body as sub-headings.
+function splitIntoSections(text: string): Section[] {
+  if (!text?.trim()) return [];
+
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  const sections: Section[] = [];
+  let currentTitle = "";
+  let currentBody: string[] = [];
+
+  let idx = 0;
+  while (idx < lines.length) {
+    const line = lines[idx];
+    // `**Political dialogue**` after lone `Article 8` was treated as a new major section — merge into one body line
+    if (
+      isBoldOnlyWrappedLine(line) &&
+      currentBody.length > 0 &&
+      !isPageMarker(line) &&
+      !isJunkLine(line)
+    ) {
+      const last = stripInlineMarkdownBoldMarkers(currentBody[currentBody.length - 1]!.trim());
+      if (shouldMergeSubtitleLine(line) && isLoneHeadingLabelLine(last)) {
+        currentBody[currentBody.length - 1] = `${last}: ${stripInlineMarkdownBoldMarkers(line.trim())}`;
+        idx++;
+        continue;
+      }
+    }
+    if (isMajorSectionStart(line)) {
+      if (currentTitle || currentBody.length > 0) {
+        sections.push({
+          id: `sec-${sections.length}`,
+          title: currentTitle || "Introduction",
+          body: currentBody.join("\n").trim(),
+        });
+      }
+      let titleSourceLine = line.trim();
+      const nextLine = lines[idx + 1];
+      let mergedChapterTwoLines = false;
+      if (nextLine !== undefined && shouldMergeMajorTitleBlockWithNextLine(line, nextLine)) {
+        titleSourceLine = `${line.trim()}: ${nextLine.trim()}`;
+        mergedChapterTwoLines = true;
+        idx++;
+      }
+      currentTitle = titleSourceLine;
+      currentBody = [];
+      const t = titleSourceLine;
+      // Markdown ## line: title is already in the section h2 — do not repeat the same text in the body
+      const isMdMajorHeading = /^#{1,6}\s+\S/.test(t);
+      if (!isMdMajorHeading) {
+        const majorLike =
+          /^(Part\s+[A-Z][.:]?\s*)(.*)$/i.exec(t) ||
+          /^(Chapter\s+\d+[.:]?\s*)(.*)$/i.exec(t) ||
+          /^(Chapitre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*)(.*)$/i.exec(t) ||
+          /^(Titre\s+[\dIVXLCDMivxlcdm]+[.:]?\s*)(.*)$/i.exec(t) ||
+          /^(Title\s+[\dIVXLCDMivxlcdm]+[.:]?\s*)(.*)$/i.exec(t) ||
+          /^(TITLE\s+[\dIVXLCDM]+[.:]?\s*)(.*)$/.exec(t);
+        if (majorLike && majorLike[2].trim()) {
+          if (mergedChapterTwoLines) {
+            // subtitle is only in the section title (h2)
+          } else if (/^(Chapter|Chapitre|Titre|Title|TITLE)\s+/i.test(majorLike[1]) && majorLike[2].trim().length > 0) {
+            // "Chapter 1: …" on one line — subtitle shown in h2 only
+          } else {
+            currentBody.push(majorLike[2].trim());
+          }
+        } else {
+          const arChapterLine = /^(\s*الفصل\s*[\d٠-٩]*[\s.:،]*)(.+)$/u.exec(t);
+          const arPartLine = /^(\s*الباب\s+[^\n]{0,60}[\s.:،]*)(.+)$/u.exec(t);
+          if (arChapterLine && arChapterLine[2].trim()) currentBody.push(arChapterLine[2].trim());
+          else if (arPartLine && arPartLine[2].trim()) currentBody.push(arPartLine[2].trim());
+        }
+      }
+    } else {
+      // Section, Article, Art. and normal lines all go into body (Section/Article rendered as sub-headings later)
+      if (!isPageMarker(line) && !isJunkLine(line)) currentBody.push(line);
+    }
+    idx++;
+  }
+
+  if (currentTitle || currentBody.length > 0) {
+    sections.push({
+      id: `sec-${sections.length}`,
+      title: currentTitle || "Introduction",
+      body: currentBody.join("\n").trim(),
+    });
+  }
+
+  // If no heading-based sections found, fall back to paragraph blocks with generic labels
+  if (sections.length === 0) {
+    const blocks = text.split(/\n\s*\n/).filter((b) => b.trim());
+    return blocks.map((body, i) => ({
+      id: `sec-${i}`,
+      title: `Section ${i + 1}`,
+      body: body.trim(),
+    }));
+  }
+
+  // If we have sections but all bodies are empty (e.g. Arabic OCR), show full text as one section
+  const totalBodyLen = sections.reduce((acc, s) => acc + (s.body?.length ?? 0), 0);
+  if (totalBodyLen === 0 && text.trim()) {
+    return [{ id: "sec-0", title: "النص الكامل / Full text", body: text.trim() }];
+  }
+
+  return sections.map(stripLeadingTitleDuplicate);
+}
+
+// Detect if content is primarily Arabic (for RTL display)
+function isPrimarilyArabic(text: string): boolean {
+  if (!text?.trim()) return false;
+  const sample = text.slice(0, 3000);
+  const arabic = (sample.match(/[\u0600-\u06FF]/g) || []).length;
+  const letters = (sample.match(/\p{L}/gu) || []).length;
+  return letters > 0 && arabic / letters >= 0.2;
+}
+
+export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) {
+  const [law, setLaw] = useState<LawDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<string>("");
+  const [resolvedId, setResolvedId] = useState<string | null>(null);
+  const [contentsOpen, setContentsOpen] = useState(false);
+  /** Modal contents (locks scroll) — only below md; desktop uses inline TOC. */
+  const isMobileContents = useMediaQuery("(max-width: 767px)");
+  const contentsModalOpen = contentsOpen && isMobileContents;
+  const contentsSidebarOpen = contentsOpen && !isMobileContents;
+  const [showSubheadingsInContents, setShowSubheadingsInContents] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [bookmarkLoading, setBookmarkLoading] = useState(false);
+  const [printLoading, setPrintLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [exportPreviewOpen, setExportPreviewOpen] = useState(false);
+  const [printCheckoutOpen, setPrintCheckoutOpen] = useState(false);
+  const [printCheckoutProvider, setPrintCheckoutProvider] = useState<CheckoutPaymentProvider>("pawapay");
+  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
+  const { isSignedIn, user } = useUser();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
+  const documentPaygSessionId =
+    searchParams.get("payg") === "document" ? searchParams.get("session_id") : null;
+  const paygDocument = Boolean(documentPaygSessionId);
+  const printRequested = searchParams.get("print") === "1";
+  const [hasPaidForThisLaw, setHasPaidForThisLaw] = useState(false);
+  const [documentPaymentSuccessVisible, setDocumentPaymentSuccessVisible] = useState(false);
+  const [fixOcrLoading, setFixOcrLoading] = useState(false);
+  const [fixOcrBanner, setFixOcrBanner] = useState<string | null>(null);
+  const [readingMode, setReadingMode] = useState(false);
+  const [docSearchDraft, setDocSearchDraft] = useState("");
+  const [docSearchSubmitted, setDocSearchSubmitted] = useState("");
+  const [docSearchMatchCount, setDocSearchMatchCount] = useState(0);
+  const [docSearchActiveIndex, setDocSearchActiveIndex] = useState(0);
+  const docSearchRootRef = useRef<HTMLDivElement>(null);
+  const docSearchHitIndexRef = useRef(0);
+  const hasTriggeredPaygPostPurchaseUi = useRef(false);
+  const hasTriggeredPrintPostPurchaseUi = useRef(false);
+  const confirmDocumentPaymentOnce = useRef(false);
+  const resolvedIdRef = useRef<string | null>(null);
+  resolvedIdRef.current = resolvedId;
+
+  useEffect(() => {
+    hasTriggeredPaygPostPurchaseUi.current = false;
+    hasTriggeredPrintPostPurchaseUi.current = false;
+  }, [resolvedId]);
+  const { confirm, confirmDialog } = useConfirm();
+  const { alert: showAlert, alertDialog } = useAlertDialog();
+  const lomiAvailable =
+    process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
+    Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
+  const lomiComingSoon = false;
+
+  const { logoUrl: platformLogoUrl, lawPrintPriceUsdCents } = usePlatformSettings();
+  const lawPrintPricePlain = formatUsdPrice(lawPrintPriceUsdCents);
+  const lawPrintPrice = (
+    <MarketingDiscountPrice currentCents={lawPrintPriceUsdCents} size="inline" />
+  );
+
+  const sections = useMemo((): Section[] => {
+    if (!law) return [];
+    return splitIntoSections(law.content_plain || law.content || "");
+  }, [law]);
+
+  const outlineAll = useMemo(() => getOutlineItems(sections), [sections]);
+  const hasSubheadingsInOutline = outlineAll.some((item) => item.level === "sub");
+  const contentsNavItems = useMemo(
+    () => (showSubheadingsInContents ? outlineAll : outlineAll.filter((item) => item.level === "section")),
+    [outlineAll, showSubheadingsInContents]
+  );
+
+  const jumpToSection = useCallback((id: string) => {
+    setActiveSection(id);
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
+  useEffect(() => {
+    if (sections.length === 0) return;
+    setActiveSection((prev) => (sections.some((s) => s.id === prev) ? prev : sections[0]!.id));
+  }, [law?.id, sections]);
+
+  const scrollToTop = useCallback(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+  const scrollToBottom = useCallback(() => {
+    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
+  }, []);
+
+  // Paid PDF: Supabase-backed list only (no localStorage).
+  useEffect(() => {
+    if (!resolvedId || typeof window === "undefined") return;
+    let cancelled = false;
+    setHasPaidForThisLaw(false);
+    if (!isSignedIn) return;
+    void fetchDocumentExportUnlockLawIds().then((res) => {
+      if (cancelled || !res.ok) return;
+      setHasPaidForThisLaw(res.law_ids.includes(resolvedId));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isSignedIn, resolvedId]);
+
+  useEffect(() => {
+    if (!documentPaygSessionId || !isSignedIn || confirmDocumentPaymentOnce.current) return;
+    confirmDocumentPaymentOnce.current = true;
+    void fetch("/api/library/confirm-document-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ session_id: documentPaygSessionId }),
+    })
+      .then((r) => r.json().catch(() => ({})))
+      .then((data: { ok?: boolean }) => {
+        if (!data?.ok) return;
+        setDocumentPaymentSuccessVisible(true);
+        return fetchDocumentExportUnlockLawIds().then((res) => {
+          const id = resolvedIdRef.current;
+          if (res.ok && id) setHasPaidForThisLaw(res.law_ids.includes(id));
+          if (typeof window !== "undefined") {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("session_id");
+            url.searchParams.delete("payg");
+            window.history.replaceState({}, "", url.pathname + url.search);
+          }
+          if (res.ok && id && res.law_ids.includes(id)) {
+            hasTriggeredPaygPostPurchaseUi.current = true;
+            window.setTimeout(() => {
+              setExportPreviewOpen(true);
+            }, 400);
+          }
+        });
+      })
+      .catch(() => {});
+  }, [documentPaygSessionId, isSignedIn]);
+
+  useEffect(() => {
+    if (!documentPaymentSuccessVisible) return;
+    const t = window.setTimeout(() => setDocumentPaymentSuccessVisible(false), 14000);
+    return () => window.clearTimeout(t);
+  }, [documentPaymentSuccessVisible]);
+
+  // Check if user has team plan
+  const isAdmin = (user?.publicMetadata?.role as string | undefined) === "admin";
+
+  const handleFixOcr = async () => {
+    if (!law || fixOcrLoading) return;
+    const ok = await confirm({
+      title: "Run AI cleanup",
+      description:
+        "OCR noise will be reduced and stored text will be replaced. Very large laws can take several minutes.",
+      confirmLabel: "Run cleanup",
+      cancelLabel: "Cancel",
+      variant: "default",
+    });
+    if (!ok) return;
+    setFixOcrLoading(true);
+    setFixOcrBanner(null);
+    try {
+      const res = await fetch("/api/admin/laws/fix-ocr", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lawId: law.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setFixOcrBanner(typeof data.error === "string" ? data.error : "Fix OCR failed.");
+        return;
+      }
+      const r2 = await fetch(`/api/laws/${law.id}`);
+      if (!r2.ok) {
+        setFixOcrBanner("Saved, but could not reload the page text. Refresh the page.");
+        return;
+      }
+      const fresh = (await r2.json()) as LawDetail;
+      setLaw(fresh);
+      setFixOcrBanner(
+        `Text updated (${typeof data.cleanedChars === "number" ? data.cleanedChars.toLocaleString() : "?"} characters).`
+      );
+    } catch {
+      setFixOcrBanner("Network error. Try again.");
+    } finally {
+      setFixOcrLoading(false);
+    }
+  };
+
+  // Check bookmark status (fetch with credentials so auth cookie is sent)
+  useEffect(() => {
+    if (!resolvedId) {
+      setIsBookmarked(false);
+      return;
+    }
+    if (!isSignedIn) {
+      setIsBookmarked(false);
+      return;
+    }
+    fetch("/api/bookmarks", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data: { bookmarks?: Array<{ law_id: string }> }) => {
+        const bookmarks = data.bookmarks ?? [];
+        setIsBookmarked(bookmarks.some((b) => b.law_id === resolvedId));
+      })
+      .catch(() => setIsBookmarked(false));
+  }, [isSignedIn, resolvedId]);
+
+  const toggleBookmark = async () => {
+    if (!isSignedIn || !resolvedId) return;
+    setBookmarkLoading(true);
+    try {
+      if (isBookmarked) {
+        await fetch(`/api/bookmarks?law_id=${resolvedId}`, { method: "DELETE" });
+        setIsBookmarked(false);
+      } else {
+        await fetch("/api/bookmarks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ law_id: resolvedId }),
+        });
+        setIsBookmarked(true);
+      }
+    } catch {
+      // Error handling
+    } finally {
+      setBookmarkLoading(false);
+    }
+  };
+
+  const buildLawPdfInput = useCallback(() => {
+    if (!law) return null;
+    return {
+      title: law.title,
+      appliesToAllCountries: law.applies_to_all_countries,
+      countryName: law.countries?.name ?? null,
+      categoryName: law.categories?.name ?? null,
+      year: law.year,
+      status: law.status,
+      languageCode: law.language_code ?? null,
+      sourceName: law.source_name ?? null,
+      sourceUrl: law.source_url ?? null,
+      sections: sections.map((s) => ({ title: s.title, body: s.body })),
+      logoUrl: platformLogoUrl,
+    };
+  }, [law, sections, platformLogoUrl]);
+
+  const handlePreviewDownloadPdf = async () => {
+    const input = buildLawPdfInput();
+    if (!input || input.sections.length === 0) {
+      await showAlert("No document text is available to export.", "Export");
+      return;
+    }
+    setPdfLoading(true);
+    try {
+      const { downloadLawDocumentPdf } = await import("@/lib/library/law-document-pdf");
+      await downloadLawDocumentPdf(input);
+    } catch (e) {
+      console.error(e);
+      await showAlert(
+        "Could not build the PDF. Check your connection and try again. If the problem continues, contact support.",
+        "Export"
+      );
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  const handleDocumentExportClick = () => {
+    if (!resolvedId) return;
+    if (!hasPaidForThisLaw) {
+      if (!isSignedIn) {
+        window.location.assign("/sign-in?redirect_url=" + encodeURIComponent(window.location.pathname));
+        return;
+      }
+      setPrintCheckoutOpen(true);
+      return;
+    }
+    const input = buildLawPdfInput();
+    if (!input || input.sections.length === 0) {
+      void showAlert("No document text is available to export.", "Export");
+      return;
+    }
+    setExportPreviewOpen(true);
+  };
+
+  const submitPrintCheckout = async () => {
+    if (!resolvedId) return;
+    setPrintLoading(true);
+    try {
+      const res = await fetch("/api/payments/payg/document", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          return_path: `/library/${resolvedId}`,
+          provider: printCheckoutProvider,
+          ...(printCheckoutProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        await showAlert(data.error || "Checkout failed", "Checkout");
+        return;
+      }
+      if (data.url) window.location.href = data.url;
+    } catch {
+      await showAlert("Checkout failed", "Checkout");
+    } finally {
+      setPrintLoading(false);
+    }
+  };
+
+  const goDocSearchHit = useCallback((delta: number) => {
+    const root = docSearchRootRef.current;
+    if (!root) return;
+    const hits = getLawDocumentSearchHitElements(root);
+    if (!hits.length) return;
+    docSearchHitIndexRef.current = (docSearchHitIndexRef.current + delta + hits.length) % hits.length;
+    const i = docSearchHitIndexRef.current;
+    setDocSearchActiveIndex(i);
+    hits.forEach((h, j) => h.classList.toggle("law-doc-search-hit-active", j === i));
+    hits[i]?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
+
+  const runDocSearch = useCallback(() => {
+    const root = docSearchRootRef.current;
+    if (!root || !law || sections.length === 0) return;
+    const q = docSearchDraft.trim();
+    if (q.length < 2) {
+      setDocSearchSubmitted("");
+      clearLawDocumentSearchHighlights(root);
+      setDocSearchMatchCount(0);
+      setDocSearchActiveIndex(0);
+      docSearchHitIndexRef.current = 0;
+      return;
+    }
+    setDocSearchSubmitted(q);
+    const n = applyLawDocumentSearchHighlights(root, q);
+    setDocSearchMatchCount(n);
+    const hits = getLawDocumentSearchHitElements(root);
+    docSearchHitIndexRef.current = 0;
+    setDocSearchActiveIndex(0);
+    hits.forEach((h, j) => h.classList.toggle("law-doc-search-hit-active", j === 0 && n > 0));
+    if (n > 0) hits[0]?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [docSearchDraft, law, sections]);
+
+  const clearDocSearch = useCallback(() => {
+    const root = docSearchRootRef.current;
+    if (root) clearLawDocumentSearchHighlights(root);
+    setDocSearchDraft("");
+    setDocSearchSubmitted("");
+    setDocSearchMatchCount(0);
+    setDocSearchActiveIndex(0);
+    docSearchHitIndexRef.current = 0;
+  }, []);
+
+  const toggleReadingMode = useCallback(() => {
+    setReadingMode((on) => {
+      const next = !on;
+      if (next && typeof window !== "undefined") {
+        requestAnimationFrame(() => {
+          document.querySelector(".law-print-document")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (readingMode) root.classList.add("law-reading-mode-active");
+    else root.classList.remove("law-reading-mode-active");
+    return () => root.classList.remove("law-reading-mode-active");
+  }, [readingMode]);
+
+  useEffect(() => {
+    setResolvedId(slugOrId.trim() || null);
+  }, [slugOrId]);
+
+  useEffect(() => {
+    if (!resolvedId) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/laws/${resolvedId}`, { credentials: "include" });
+        if (res.ok) {
+          const data = (await res.json()) as LawDetail;
+          if (!cancelled) {
+            setLaw(data);
+            try {
+              const key = "yamale-library-recently-opened";
+              localStorage.setItem(key, JSON.stringify(resolvedId));
+            } catch {
+              // ignore
+            }
+          }
+          return;
+        }
+        if (!cancelled) setError("Could not load this law.");
+      } catch {
+        if (!cancelled) setError("Could not load this law.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !law?.id) return;
+    const hash = decodeURIComponent(window.location.hash || "").replace(/^#/, "");
+    if (!hash) return;
+    const el = document.getElementById(hash);
+    if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+  }, [law?.id]);
+
+  useEffect(() => {
+    const root = docSearchRootRef.current;
+    if (!root || !law || sections.length === 0 || docSearchSubmitted.length < 2) return;
+    const n = applyLawDocumentSearchHighlights(root, docSearchSubmitted);
+    setDocSearchMatchCount(n);
+    const hits = getLawDocumentSearchHitElements(root);
+    const i = Math.min(docSearchHitIndexRef.current, Math.max(0, hits.length - 1));
+    docSearchHitIndexRef.current = i;
+    setDocSearchActiveIndex(i);
+    hits.forEach((h, j) => h.classList.toggle("law-doc-search-hit-active", j === i && n > 0));
+    return () => clearLawDocumentSearchHighlights(root);
+  }, [docSearchSubmitted, law?.id, sections]);
+
+  useEffect(() => {
+    if (docSearchMatchCount === 0 || docSearchSubmitted.length < 2) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Enter" || e.altKey || e.ctrlKey || e.metaKey) return;
+      const el = e.target;
+      if (!(el instanceof HTMLElement)) return;
+      const tag = el.tagName;
+      if (tag === "TEXTAREA" || tag === "INPUT" || tag === "SELECT") return;
+      if (el.isContentEditable) return;
+      e.preventDefault();
+      goDocSearchHit(e.shiftKey ? -1 : 1);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [docSearchMatchCount, docSearchSubmitted, goDocSearchHit]);
+
+  // After print=1 unlock: open preview and clean URL. Pay-as-you-go return is handled in confirm effect above.
+  useEffect(() => {
+    if (!law || hasTriggeredPrintPostPurchaseUi.current || typeof window === "undefined") return;
+    const shouldAuto = Boolean(printRequested && hasPaidForThisLaw);
+    if (!shouldAuto) return;
+    hasTriggeredPrintPostPurchaseUi.current = true;
+    const t = setTimeout(() => {
+      void (async () => {
+        try {
+          if (sections.length > 0) {
+            setExportPreviewOpen(true);
+          }
+        } catch (e) {
+          console.error("Post-purchase PDF:", e);
+        }
+        const url = new URL(window.location.href);
+        url.searchParams.delete("session_id");
+        url.searchParams.delete("payg");
+        url.searchParams.delete("print");
+        window.history.replaceState({}, "", url.pathname + url.search);
+      })();
+    }, 800);
+    return () => clearTimeout(t);
+  }, [law, printRequested, hasPaidForThisLaw, resolvedId, sections]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  if (error || !law) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-12 text-center">
+        <p className="text-muted-foreground">{error ?? "Law not found."}</p>
+        <Link
+          href={returnTo && returnTo.startsWith("/library") ? returnTo : "/library"}
+          className="mt-4 inline-flex items-center gap-2 text-primary hover:underline"
+        >
+          <ChevronLeft className="h-4 w-4" /> Back to Library
+        </Link>
+      </div>
+    );
+  }
+
+  const rawContent = law.content_plain || law.content || "";
+  const hasContent = sections.length > 0;
+  const isRtl = isPrimarilyArabic(rawContent);
+
+  return (
+    <div
+      className={`law-page-root min-h-screen bg-background print:bg-white ${readingMode ? "law-reading-mode-active" : ""}`}
+    >
+      {readingMode ? (
+        <div
+          className="sticky top-0 z-30 flex flex-wrap items-center gap-2 border-b border-border bg-background/95 px-4 py-2.5 shadow-sm backdrop-blur-md print:hidden sm:gap-3"
+          role="banner"
+        >
+          <Link
+            href={returnTo && returnTo.startsWith("/library") ? returnTo : "/library"}
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+            Library
+          </Link>
+          <p className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground" title={law.title}>
+            {law.title}
+          </p>
+          {hasContent && sections.length >= 1 && (
+            <button
+              type="button"
+              onClick={() => setContentsOpen(true)}
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground lg:hidden"
+            >
+              <List className="h-3.5 w-3.5" />
+              Contents
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => toggleReadingMode()}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            Exit reading mode
+          </button>
+        </div>
+      ) : (
+      <header className={`law-page-hero print:hidden ${prototypeNavyHeroSectionClass} px-4 py-10 backdrop-blur-md sm:px-8`}>
+        <div
+          className="pointer-events-none absolute inset-0 z-0 opacity-[0.92]"
+          style={{ backgroundImage: PROTOTYPE_HERO_GRID_PATTERN }}
+          aria-hidden
+        />
+        <div className="relative z-[1] mx-auto max-w-6xl">
+          {documentPaymentSuccessVisible && (
+            <div
+              className="mb-5 flex flex-wrap items-center gap-3 rounded-lg border border-emerald-400/50 bg-emerald-950/70 px-4 py-3 text-sm text-emerald-50 shadow-md print:hidden"
+              role="status"
+            >
+              <span className="font-semibold text-emerald-200">Payment successful</span>
+              <span className="min-w-0 flex-1 text-emerald-50/95">
+                {hasContent
+                  ? "Your PDF download for this law is unlocked. Use Download in the toolbar to preview or export."
+                  : "Your PDF download for this law is unlocked. When the document text is available, use Download in the toolbar to export."}
+              </span>
+              <button
+                type="button"
+                onClick={() => setDocumentPaymentSuccessVisible(false)}
+                className="shrink-0 rounded-md border border-emerald-400/50 px-2.5 py-1 text-xs font-medium text-emerald-100 hover:bg-emerald-900/50"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <Link
+                href={returnTo && returnTo.startsWith("/library") ? returnTo : "/library"}
+                className="group inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-sm font-medium text-white/70 transition-all duration-200 hover:border-white/35 hover:bg-white/10 hover:text-white"
+                title="Back to the African Legal Library"
+              >
+                <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" /> Back to Library
+              </Link>
+              <div className="law-reading-hide-when-reading">
+                <h1 className="heading mt-6 text-2xl font-bold leading-[1.15] tracking-tight text-white sm:text-3xl md:text-4xl md:tracking-[-0.02em]">
+                  {law.title}
+                </h1>
+                <div className="mt-4 flex items-center gap-3" aria-hidden>
+                  <div className="h-1 w-12 rounded-full bg-[#E8B84B]" />
+                  <div className="h-px max-w-24 flex-1 bg-gradient-to-r from-[#E8B84B]/70 to-transparent" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="law-reading-hide-when-reading">
+            <div className="mt-5 flex flex-wrap items-center gap-2">
+              {(law.applies_to_all_countries || law.countries?.name) && (
+                <span className="rounded-full border border-[rgba(200,146,42,0.35)] bg-[rgba(200,146,42,0.12)] px-3.5 py-1.5 text-xs font-semibold tracking-wide text-[#E8B84B]">
+                  {law.applies_to_all_countries ? "All countries" : (law.countries?.name ?? "")}
+                </span>
+              )}
+              {law.categories?.name && (
+                <span className="rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-medium text-white/75">
+                  {law.categories.name}
+                </span>
+              )}
+              {law.language_code && (
+                <span className="rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-medium text-white/75">
+                  Language: {law.language_code.toUpperCase()}
+                </span>
+              )}
+              {law.last_verified_at && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/35 bg-emerald-950/40 px-3.5 py-1.5 text-xs font-medium text-emerald-100/95">
+                  <LawLastVerifiedLabel at={law.last_verified_at} className="gap-1.5" />
+                </span>
+              )}
+            </div>
+          </div>
+          {hasContent && (
+            <div
+              className="law-reading-hide-when-reading mt-4 flex flex-col gap-3 rounded-xl border border-white/15 bg-white/[0.06] p-3 print:hidden sm:flex-row sm:flex-wrap sm:items-end"
+              data-law-search-skip
+            >
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <label htmlFor="law-doc-search" className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/55">
+                  Find in this document
+                </label>
+                <p className="text-[11px] leading-snug text-white/50">
+                  Type a word or phrase (at least 2 letters), then click Search. A bar at the bottom of the screen lets you jump between matches without scrolling back up.
+                </p>
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <input
+                    id="law-doc-search"
+                    type="search"
+                    enterKeyHint="search"
+                    autoComplete="off"
+                    value={docSearchDraft}
+                    onChange={(e) => setDocSearchDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        runDocSearch();
+                      }
+                    }}
+                    placeholder="e.g. registration, tax, article 12…"
+                    className="min-w-[10rem] flex-1 rounded-lg border border-white/20 bg-[#0d1b2a]/80 px-3 py-2 text-sm text-white placeholder:text-white/40 focus:border-[#E8B84B]/60 focus:outline-none focus:ring-1 focus:ring-[#E8B84B]/40"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => runDocSearch()}
+                    disabled={docSearchDraft.trim().length < 2}
+                    className="shrink-0 rounded-lg bg-[#E8B84B] px-3.5 py-2 text-sm font-semibold text-[#0d1b2a] hover:bg-[#f0c55c] disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    Search
+                  </button>
+                  {docSearchSubmitted.length >= 2 ? (
+                    <span
+                      className="shrink-0 rounded-lg border border-white/15 bg-[#0d1b2a]/60 px-2.5 py-2 text-xs font-medium tabular-nums text-white/85"
+                      aria-live="polite"
+                    >
+                      {docSearchMatchCount === 0
+                        ? "No matches"
+                        : `${docSearchActiveIndex + 1} of ${docSearchMatchCount}`}
+                    </span>
+                  ) : null}
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => goDocSearchHit(-1)}
+                      disabled={docSearchMatchCount === 0}
+                      className="rounded-lg border border-white/20 p-2 text-white/80 hover:bg-white/10 disabled:opacity-40"
+                      aria-label="Previous match"
+                      title="Previous match"
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => goDocSearchHit(1)}
+                      disabled={docSearchMatchCount === 0}
+                      className="rounded-lg border border-white/20 p-2 text-white/80 hover:bg-white/10 disabled:opacity-40"
+                      aria-label="Next match"
+                      title="Next match"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 border-t border-white/10 pt-3 sm:border-t-0 sm:pt-0">
+                <button
+                  type="button"
+                  onClick={() => toggleReadingMode()}
+                  className="inline-flex items-center gap-2 rounded-lg border border-white/25 px-3 py-2 text-xs font-semibold text-white/90 transition hover:bg-white/10"
+                >
+                  <BookOpen className="h-4 w-4" />
+                  Reading mode
+                </button>
+              </div>
+            </div>
+          )}
+          {law.translations && law.translations.length > 0 && (
+            <div className="law-reading-hide-when-reading mt-3 flex flex-wrap items-center gap-2 text-xs text-white/80">
+              <span className="font-semibold">Translations:</span>
+              {law.translations.map((t) => (
+                <Link
+                  key={t.id}
+                  href={lawDetailHref({ id: t.id, slug: t.slug })}
+                  className="rounded-full border border-white/20 px-2.5 py-1 hover:bg-white/10"
+                >
+                  {t.title} ({(t.language_code ?? "n/a").toUpperCase()})
+                </Link>
+              ))}
+            </div>
+          )}
+          {isAdmin && (
+            <div className="law-reading-hide-when-reading mt-4 flex flex-col gap-2 rounded-xl border border-[rgba(200,146,42,0.35)] bg-[rgba(255,255,255,0.06)] px-4 py-3 print:hidden sm:flex-row sm:flex-wrap sm:items-center">
+              <button
+                type="button"
+                onClick={() => void handleFixOcr()}
+                disabled={fixOcrLoading || !rawContent.trim()}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#C8922A] px-4 py-2 text-sm font-medium text-white hover:bg-[#b07e22] disabled:opacity-50"
+              >
+                {fixOcrLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                Fix OCR and clean noise
+              </button>
+              <p className="text-xs text-white/55 sm:max-w-xl">
+                Admin only. Sends this law through Claude to tidy OCR errors and remove junk lines, then saves. Reloads the text below when done.
+              </p>
+              {fixOcrBanner && (
+                <p className="w-full text-sm text-white/90 sm:order-last">{fixOcrBanner}</p>
+              )}
+            </div>
+          )}
+        </div>
+      </header>
+      )}
+
+      {hasContent && sections.length >= 1 && isMobileContents && (
+        <Dialog.Root open={contentsModalOpen} onOpenChange={setContentsOpen}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px] print:hidden" />
+            <Dialog.Content
+              className="fixed z-50 flex h-[min(85vh,32rem)] max-h-[min(85vh,32rem)] min-h-0 w-full flex-col overflow-hidden border border-border bg-card shadow-2xl print:hidden inset-x-0 bottom-0 rounded-t-2xl sm:h-[min(90vh,36rem)] sm:max-h-[min(90vh,36rem)]"
+              aria-describedby={undefined}
+            >
+              <LawContentsNav
+                items={contentsNavItems}
+                activeSectionId={activeSection}
+                onSelect={jumpToSection}
+                isRtl={isRtl}
+                hasSubheadings={hasSubheadingsInOutline}
+                showSubheadings={showSubheadingsInContents}
+                onShowSubheadingsChange={setShowSubheadingsInContents}
+                onClose={() => setContentsOpen(false)}
+              />
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+      )}
+
+      <div className={`law-reading-content-shell min-h-screen print:min-h-0 print:bg-white ${readingMode ? "bg-background" : "bg-gradient-to-b from-muted/10 via-background to-muted/20"}`}>
+        <div className="law-reading-content-wrap px-4 pb-28 pt-4 sm:px-6 sm:pb-10 sm:pt-6 print:max-w-none print:px-0 print:py-0 print:pb-0 print:pr-0">
+          {/* Print-only: logo + title + metadata (on-screen hero is print:hidden) */}
+          <header className="hidden print:block print:max-w-none border-b border-neutral-800/20 pb-6 text-neutral-900">
+            <PlatformLogo
+              height={48}
+              width={220}
+              className="h-12 w-auto max-w-[240px] text-2xl font-semibold tracking-tight text-neutral-900 print:[&_img]:!mix-blend-normal"
+            />
+            <h1 className="heading mt-5 text-2xl font-bold leading-snug tracking-tight sm:text-3xl">{law.title}</h1>
+            <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-600">
+              {law.applies_to_all_countries ? (
+                <span>Scope: All countries</span>
+              ) : law.countries?.name ? (
+                <span>Country: {law.countries.name}</span>
+              ) : null}
+              {law.categories?.name && <span>Category: {law.categories.name}</span>}
+              {law.language_code && <span>Language: {law.language_code.toUpperCase()}</span>}
+              {law.year != null && <span>Year: {law.year}</span>}
+              {law.status ? <span>Status: {law.status}</span> : null}
+              {law.last_verified_at ? (
+                <span>
+                  <LawLastVerifiedLabel at={law.last_verified_at} />
+                </span>
+              ) : null}
+            </div>
+            {(law.source_name || law.source_url) && (
+              <p className="mt-2 text-[11px] text-neutral-500">
+                {law.source_name && <span>Source: {law.source_name}</span>}
+                {law.source_name && law.source_url ? " · " : null}
+                {law.source_url && <span className="break-all">{law.source_url}</span>}
+              </p>
+            )}
+            <p className="mt-4 border-t border-neutral-200 pt-3 text-[10px] leading-relaxed text-neutral-500">
+              Yamalé Legal Platform — reference copy. Not legal advice; verify with official sources.
+            </p>
+          </header>
+
+          {!law.applies_to_all_countries && law.countries?.name && law.categories?.name && (
+            <div className="law-reading-hide-when-reading">
+              <LawyerMatchBanner country={law.countries.name} category={law.categories.name} lawTitle={law.title} />
+            </div>
+          )}
+          {hasContent && (
+            <div className="law-reading-hide-when-reading mb-4 sm:mb-5">
+              <LibraryOcrDisclaimer compact />
+            </div>
+          )}
+          <div
+            className={`law-reading-stage${contentsSidebarOpen && sections.length >= 1 ? " law-reading-stage--with-toc" : ""}`}
+          >
+          <main className="law-reading-main">
+            {!hasContent && (
+              <div className="rounded-2xl border border-border bg-muted/20 p-12 text-center shadow-sm">
+                <FileText className="mx-auto h-14 w-14 text-muted-foreground/70" />
+                <p className="mt-5 text-base text-muted-foreground">
+                  Full text for this law is not yet available.
+                </p>
+              </div>
+            )}
+
+            {hasContent && (
+              <article
+                className="law-print-document w-full overflow-x-auto rounded-2xl border border-border/70 bg-card shadow-[0_8px_30px_rgba(13,27,42,0.07)] ring-1 ring-black/[0.04] transition-shadow duration-300 dark:bg-card/95 dark:shadow-[0_8px_32px_rgba(0,0,0,0.35)] dark:ring-white/[0.06] print:overflow-visible print:rounded-none print:border-0 print:bg-white print:shadow-none print:ring-0 select-none print:select-text"
+                dir={isRtl ? "rtl" : undefined}
+                lang={isRtl ? "ar" : undefined}
+                onCopy={(e) => e.preventDefault()}
+                onCut={(e) => e.preventDefault()}
+                onContextMenu={(e) => e.preventDefault()}
+              >
+                {/* Accent strip (screen only — keeps print output document-like) */}
+                <div className="h-1 w-full bg-gradient-to-r from-primary/90 via-primary to-amber-500/70 print:hidden" aria-hidden />
+                <div
+                  ref={docSearchRootRef}
+                  className={`law-doc-search-root w-full break-words px-5 py-7 sm:px-8 sm:py-9 print:px-6 print:py-6 ${isRtl ? "text-right" : ""}`}
+                  dir={isRtl ? "rtl" : undefined}
+                  lang={isRtl ? "ar" : undefined}
+                >
+                  {sections.map((sec) => (
+                    <section
+                      key={sec.id}
+                      id={sec.id}
+                      className="scroll-mt-24 border-b border-border/40 pb-14 last:border-0 last:pb-0 print:border-neutral-300 print:pb-10"
+                    >
+                      {/* Level 1: Section / Chapter – big, bold, primary accent */}
+                      <h2 className="heading mb-5 mt-8 break-words border-s-[3px] border-primary/80 bg-primary/[0.06] py-2.5 ps-4 text-lg font-semibold tracking-tight text-foreground first:mt-0 sm:mb-6 sm:mt-10 sm:text-xl sm:py-3 sm:ps-5 print:mt-8 print:mb-4 print:border-s-2 print:border-neutral-900 print:bg-transparent print:py-2 print:ps-4">
+                        {renderLawSubheading(sec.title, "h2")}
+                      </h2>
+                      {isLikelyMarkdown(sec.body) ? (
+                        <LawSectionMarkdown body={sec.body} />
+                      ) : (
+                        <>
+                          {getBodyItems(sec).map((item, bi) =>
+                            item.type === "table" ? (
+                              <div
+                                key={bi}
+                                className="my-8 overflow-x-auto rounded-xl border border-border/80 shadow-sm print:break-inside-avoid"
+                              >
+                                <table className="w-full min-w-0 border-collapse text-sm sm:min-w-[400px]">
+                                  <thead>
+                                    <tr>
+                                      {item.rows[0].length === 4
+                                        ? COMPANIES_ACT_TABLE_HEADERS.map((h, j) => (
+                                            <th key={j} className="border-b border-border bg-muted/40 px-4 py-3 text-left font-semibold text-foreground">
+                                              {h}
+                                            </th>
+                                          ))
+                                        : item.rows[0].map((_, j) => (
+                                            <th key={j} className="border-b border-border bg-muted/40 px-4 py-3 text-left font-semibold text-foreground">
+                                              Col {j + 1}
+                                            </th>
+                                          ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {item.rows.map((row, ri) => (
+                                      <tr key={ri} className="transition-colors hover:bg-muted/20">
+                                        {row.map((cell, ci) => (
+                                          <td key={ci} className="border-b border-border/60 px-4 py-3 text-center last:border-b-0">
+                                            {linkifyRichText(cell)}
+                                          </td>
+                                        ))}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : item.type === "h3" ? (
+                              <h3
+                                key={bi}
+                                id={item.id}
+                                className="mt-12 mb-5 scroll-mt-24 border-t border-border/60 pt-7 first:mt-0 first:border-t-0 first:pt-0 print:mt-8 print:mb-4 print:border-neutral-300 print:pt-5"
+                              >
+                                {renderLawSubheading(item.text, "h3")}
+                              </h3>
+                            ) : (
+                              <p className="mb-5 break-words text-left text-[1.125rem] leading-[1.85] text-foreground/90 last:mb-0" key={bi}>
+                                {linkifyRichText(item.text)}
+                              </p>
+                            )
+                          )}
+                        </>
+                      )}
+                    </section>
+                  ))}
+                </div>
+              </article>
+            )}
+          </main>
+          {hasContent && sections.length >= 1 && contentsSidebarOpen ? (
+            <aside className="law-reading-toc flex min-h-0 flex-col print:hidden" aria-label="Document contents">
+              <LawContentsNav
+                items={contentsNavItems}
+                activeSectionId={activeSection}
+                onSelect={jumpToSection}
+                isRtl={isRtl}
+                hasSubheadings={hasSubheadingsInOutline}
+                showSubheadings={showSubheadingsInContents}
+                onShowSubheadingsChange={setShowSubheadingsInContents}
+                onClose={() => setContentsOpen(false)}
+                embedded
+              />
+            </aside>
+          ) : null}
+          </div>
+        </div>
+      </div>
+
+      {hasContent && docSearchSubmitted.length >= 2 && (
+        <div
+          className="fixed z-50 flex w-[min(calc(100vw-1.25rem),22rem)] items-center gap-2 rounded-2xl border border-border/80 bg-card/95 px-3 py-2 shadow-lg shadow-black/25 backdrop-blur-xl print:hidden max-sm:left-1/2 max-sm:-translate-x-1/2 max-sm:bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+4.5rem)] sm:bottom-5 sm:right-[4.85rem] sm:left-auto sm:w-auto sm:max-w-[min(calc(100vw-8rem),24rem)] sm:translate-x-0"
+          role="search"
+          aria-label="Find in document — jump between matches"
+        >
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+          <span className="min-w-0 truncate text-sm font-medium text-foreground" title={docSearchSubmitted}>
+            {docSearchSubmitted}
+          </span>
+          <span className="shrink-0 rounded-md bg-muted px-2 py-1 text-xs font-semibold tabular-nums text-foreground" aria-live="polite">
+            {docSearchMatchCount === 0 ? "No matches" : `${docSearchActiveIndex + 1} / ${docSearchMatchCount}`}
+          </span>
+          <div className="ml-auto flex shrink-0 items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => goDocSearchHit(-1)}
+              disabled={docSearchMatchCount === 0}
+              className="rounded-lg p-2 text-foreground hover:bg-accent disabled:opacity-40"
+              aria-label="Previous match"
+              title="Previous match (Shift+Enter)"
+            >
+              <ChevronUp className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => goDocSearchHit(1)}
+              disabled={docSearchMatchCount === 0}
+              className="rounded-lg p-2 text-foreground hover:bg-accent disabled:opacity-40"
+              aria-label="Next match"
+              title="Next match (Enter)"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => clearDocSearch()}
+            className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label="Clear search"
+            title="Clear search"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {(hasContent || isAdmin) && (
+        <div
+          className="fixed z-40 flex flex-col gap-1 rounded-2xl border border-border/80 bg-card/95 p-1.5 shadow-lg shadow-black/20 backdrop-blur-xl print:hidden max-sm:left-1/2 max-sm:max-w-[min(22rem,calc(100vw-1.25rem))] max-sm:-translate-x-1/2 max-sm:bottom-[max(0.75rem,env(safe-area-inset-bottom))] max-sm:flex-row max-sm:flex-wrap max-sm:justify-center max-sm:px-1.5 max-sm:py-1.5 sm:bottom-6 sm:right-4 sm:left-auto sm:translate-x-0 sm:min-w-[3.25rem] sm:flex-col sm:overflow-visible [&_svg]:h-4 [&_svg]:w-4 sm:[&_svg]:h-5 sm:[&_svg]:w-5"
+          role="toolbar"
+          aria-label="Law page shortcuts"
+        >
+          {/* Back to Library */}
+          <div className="relative group">
+            <Link
+              href={returnTo && returnTo.startsWith("/library") ? returnTo : "/library"}
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label="Back to Library"
+              title="Back to library"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Link>
+            <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+              Back to Library
+            </span>
+          </div>
+
+          {hasContent && sections.length >= 1 && (
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={() => setContentsOpen(true)}
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-muted-foreground hover:bg-accent hover:text-foreground"
+                aria-label="Contents"
+                title="Contents"
+              >
+                <List className="h-5 w-5" />
+              </button>
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+                Contents
+              </span>
+            </div>
+          )}
+
+          {hasContent && (
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={() => {
+                  document.getElementById("law-doc-search")?.focus({ preventScroll: false });
+                  document.getElementById("law-doc-search")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }}
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-muted-foreground hover:bg-accent hover:text-foreground"
+                aria-label="Find in this document"
+                title="Find in this document"
+              >
+                <Search className="h-5 w-5" />
+              </button>
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+                Find in document
+              </span>
+            </div>
+          )}
+
+          {hasContent && (
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={() => toggleReadingMode()}
+                className={`inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 ${readingMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
+                aria-label={readingMode ? "Exit reading mode" : "Reading mode"}
+                title={readingMode ? "Exit reading mode" : "Reading mode"}
+              >
+                <BookOpen className="h-5 w-5" />
+              </button>
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+                {readingMode ? "Exit reading mode" : "Reading mode"}
+              </span>
+            </div>
+          )}
+
+          {/* Download (paid) or unlock via checkout */}
+          {hasContent && (
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={() => void handleDocumentExportClick()}
+                disabled={printLoading}
+                title={
+                  hasPaidForThisLaw
+                    ? "Download PDF"
+                    : isSignedIn
+                      ? `Unlock download (${lawPrintPricePlain})`
+                      : "Sign in to unlock download"
+                }
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-[#C8922A] hover:bg-accent/80 hover:text-[#E8B84B] disabled:opacity-50"
+                aria-label={
+                  hasPaidForThisLaw
+                    ? "Download"
+                    : isSignedIn
+                      ? `Unlock download — ${lawPrintPricePlain} (opens checkout)`
+                      : `Sign in to unlock download (${lawPrintPricePlain})`
+                }
+              >
+                {printLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : hasPaidForThisLaw ? (
+                  <FileDown className="h-5 w-5" />
+                ) : (
+                  <FileDown className="h-5 w-5 opacity-90" />
+                )}
+              </button>
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 max-w-[14rem] whitespace-normal rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+                {hasPaidForThisLaw
+                  ? "Download"
+                  : isSignedIn
+                    ? `Unlock — ${lawPrintPricePlain}`
+                    : "Sign in"}
+              </span>
+            </div>
+          )}
+
+          {/* Edit (admins only) */}
+          {isAdmin && (
+            <div className="relative group">
+              <Link
+                href={`/admin-panel/laws/${law.id}`}
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-primary hover:bg-primary/10"
+                aria-label="Edit law"
+                title="Edit law (admin)"
+              >
+                <FileEdit className="h-5 w-5" />
+              </Link>
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+                Edit law (admin)
+              </span>
+            </div>
+          )}
+
+          {/* Fix OCR (admins only) — also in header; show here so it appears on every law page including those with no parsed sections */}
+          {isAdmin && (
+            <div className="relative group">
+              <button
+                type="button"
+                onClick={() => void handleFixOcr()}
+                disabled={fixOcrLoading || !rawContent.trim()}
+                title="Fix OCR (admin)"
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-primary hover:bg-primary/10 disabled:opacity-50"
+                aria-label="Fix OCR and clean noise"
+              >
+                {fixOcrLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
+              </button>
+              <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+                Fix OCR (admin)
+              </span>
+            </div>
+          )}
+
+          {law ? (
+            <LawFlagDialog
+              lawId={law.id}
+              lawTitle={law.title}
+              isSignedIn={Boolean(isSignedIn)}
+              variant="toolbar"
+            />
+          ) : null}
+
+          {/* Bookmark toggle */}
+          <div className="relative group">
+            <button
+              type="button"
+              onClick={isSignedIn ? toggleBookmark : () => window.location.assign("/sign-in?redirect_url=" + encodeURIComponent(window.location.pathname))}
+              disabled={bookmarkLoading}
+              title={isSignedIn ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Sign in to bookmark"}
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+              aria-label={isSignedIn ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Sign in to bookmark"}
+            >
+              {isSignedIn && isBookmarked ? (
+                <BookmarkCheck className="h-5 w-5 fill-current text-primary" />
+              ) : (
+                <Bookmark className="h-5 w-5" />
+              )}
+            </button>
+            <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+              {isSignedIn ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Sign in to bookmark"}
+            </span>
+          </div>
+
+          <div className="mx-auto my-0.5 hidden h-px w-7 bg-border sm:block" />
+
+          {/* Scroll controls — desktop only (mobile uses native scroll; saves vertical clutter) */}
+          <div className="relative group max-sm:hidden">
+            <button
+              type="button"
+              onClick={scrollToTop}
+              title="Scroll to top"
+              aria-label="Scroll to top"
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <ArrowUp className="h-5 w-5" />
+            </button>
+            <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+              Scroll to top
+            </span>
+          </div>
+          <div className="relative group max-sm:hidden">
+            <button
+              type="button"
+              onClick={scrollToBottom}
+              title="Scroll to bottom"
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label="Scroll to bottom"
+            >
+              <ArrowDown className="h-5 w-5" />
+            </button>
+            <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+              Scroll to bottom
+            </span>
+          </div>
+        </div>
+      )}
+
+      {law && hasContent && hasPaidForThisLaw && (
+        <LawExportPreviewDialog
+          open={exportPreviewOpen}
+          onOpenChange={setExportPreviewOpen}
+          law={law}
+          sections={sections}
+          isRtl={isRtl}
+          logoUrl={platformLogoUrl}
+          onDownloadPdf={handlePreviewDownloadPdf}
+          pdfLoading={pdfLoading}
+        />
+      )}
+
+      <Dialog.Root open={printCheckoutOpen} onOpenChange={setPrintCheckoutOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm print:hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-[101] flex max-h-[min(90vh,calc(100%-2rem))] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-2xl print:hidden focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+            <Dialog.Title className="text-lg font-semibold tracking-tight text-foreground">
+              Unlock download
+            </Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              A one-time <span className="font-medium text-foreground">{lawPrintPrice}</span> unlock lets you preview the document in the app and download it as a PDF. Choose a payment method to continue to checkout.
+            </Dialog.Description>
+            <div className="mt-5 min-w-0 space-y-4">
+              <PaymentMethodPicker
+                value={printCheckoutProvider}
+                onChange={setPrintCheckoutProvider}
+                lomiAvailable={lomiAvailable}
+                lomiComingSoon={lomiComingSoon}
+                onLomiComingSoonClick={() => {
+                  void showAlert(
+                    "Credit card payments are coming soon. For now, please use Mobile Money.",
+                    "Coming soon"
+                  );
+                }}
+              />
+              {printCheckoutProvider === "pawapay" && (
+                <PawapayCountrySelect
+                  label="Mobile money country"
+                  value={pawapayPaymentCountry}
+                  onChange={setPawapayPaymentCountry}
+                />
+              )}
+            </div>
+            <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  Cancel
+                </button>
+              </Dialog.Close>
+              <button
+                type="button"
+                onClick={() => void submitPrintCheckout()}
+                disabled={
+                  printLoading ||
+                  (printCheckoutProvider === "lomi" && !lomiAvailable && !lomiComingSoon)
+                }
+                className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {printLoading ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Preparing checkout…
+                  </span>
+                ) : (
+                  "Proceed to checkout"
+                )}
+              </button>
+            </div>
+            <Dialog.Close asChild>
+              <button
+                type="button"
+                className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </Dialog.Close>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      {confirmDialog}
+      {alertDialog}
+    </div>
+  );
+}
