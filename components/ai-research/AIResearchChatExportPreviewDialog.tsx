@@ -5,7 +5,10 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Loader2, FileDown, X } from "lucide-react";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
-import { isAiResearchMethodologySourceCard, normalizeAiResearchSourceLabels } from "@/lib/ai-research-source-cards";
+import {
+  filterAiResearchSourceCardsForDisplay,
+  filterAiResearchSourcesForDisplay,
+} from "@/lib/ai-research-source-cards";
 import { containsArabicScript } from "@/lib/jspdf-unicode-text";
 
 export type AIResearchExportPreviewMessage = {
@@ -201,50 +204,48 @@ function PreviewMessages({
           ) : (
             <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-neutral-800">{msg.content}</p>
           )}
-          {msg.sources && msg.sources.length > 0 ? (
-            <div className="mt-3 border-t border-neutral-200 pt-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Sources consulted</p>
-              <ol className="mt-1 list-decimal space-y-0.5 ps-4 text-[11px] text-neutral-600">
-                {normalizeAiResearchSourceLabels(msg.sources).slice(0, 12).map((src, i) => (
-                  <li key={`${msg.id}-src-${i}`}>{src}</li>
-                ))}
-              </ol>
-              {msg.sources.length > 12 ? (
-                <p className="mt-1 text-[11px] text-neutral-500">… and {msg.sources.length - 12} more</p>
-              ) : null}
-            </div>
-          ) : null}
-          {msg.sourceCards && msg.sourceCards.length > 0 ? (
-            <div className="mt-3 space-y-2 border-t border-neutral-200 pt-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
-                Library excerpts ({msg.sourceCards.length})
-              </p>
-              {msg.sourceCards.map((card, idx) => {
-                const isMethodology = isAiResearchMethodologySourceCard(card);
-                return (
-                <div
-                  key={`${msg.id}-card-${card.lawId}-${idx}`}
-                  className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-[12px]"
-                >
-                  <p className="font-semibold text-[#0D1B2A]">
-                    {card.docSlot ?? idx + 1}. {card.title}
-                    {isMethodology ? (
-                      <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
-                        Methodology
-                      </span>
+          {(() => {
+            const displaySources = filterAiResearchSourcesForDisplay(msg.sources);
+            return displaySources.length > 0 ? (
+              <div className="mt-3 border-t border-neutral-200 pt-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Sources consulted</p>
+                <ol className="mt-1 list-decimal space-y-0.5 ps-4 text-[11px] text-neutral-600">
+                  {displaySources.slice(0, 12).map((src, i) => (
+                    <li key={`${msg.id}-src-${i}`}>{src}</li>
+                  ))}
+                </ol>
+                {displaySources.length > 12 ? (
+                  <p className="mt-1 text-[11px] text-neutral-500">… and {displaySources.length - 12} more</p>
+                ) : null}
+              </div>
+            ) : null;
+          })()}
+          {(() => {
+            const displayCards = filterAiResearchSourceCardsForDisplay(msg.sourceCards);
+            return displayCards.length > 0 ? (
+              <div className="mt-3 space-y-2 border-t border-neutral-200 pt-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                  Library excerpts ({displayCards.length})
+                </p>
+                {displayCards.map((card, idx) => (
+                  <div
+                    key={`${msg.id}-card-${card.lawId}-${idx}`}
+                    className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-[12px]"
+                  >
+                    <p className="font-semibold text-[#0D1B2A]">
+                      {card.docSlot ?? idx + 1}. {card.title}
+                    </p>
+                    <p className="text-[11px] text-neutral-500">
+                      {card.country} · {card.category} · {card.status}
+                    </p>
+                    {card.snippet ? (
+                      <p className="mt-1 text-[11px] leading-snug text-neutral-600">&ldquo;{card.snippet}&rdquo;</p>
                     ) : null}
-                  </p>
-                  <p className="text-[11px] text-neutral-500">
-                    {isMethodology ? "Yamalé Advisory" : card.country} · {card.category} · {card.status}
-                  </p>
-                  {card.snippet ? (
-                    <p className="mt-1 text-[11px] leading-snug text-neutral-600">&ldquo;{card.snippet}&rdquo;</p>
-                  ) : null}
-                </div>
-                );
-              })}
-            </div>
-          ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : null;
+          })()}
         </section>
       ))}
     </div>
