@@ -7,12 +7,16 @@ import { ArrowLeft, Link2, Loader2, Search, Sparkles, Trash2 } from "lucide-reac
 import { useConfirm } from "@/components/ui/use-confirm";
 import { LAW_YEAR_MIN, LAW_YEAR_MAX } from "@/lib/admin-law-utils";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
+import { lawDetailHref } from "@/lib/law-public-url";
+import { LawLastVerifiedLabel } from "@/components/library/LawLastVerifiedLabel";
 
 type Country = { id: string; name: string };
 type Category = { id: string; name: string };
 
 type LawForEdit = {
   id: string;
+  slug?: string | null;
+  last_verified_at?: string | null;
   title: string;
   country_id: string | null;
   applies_to_all_countries?: boolean;
@@ -369,7 +373,7 @@ export default function AdminLawEditPage() {
               Fix OCR
             </button>
             <Link
-              href={`/library/${law.id}`}
+              href={lawDetailHref({ id: law.id, slug: (law as { slug?: string | null }).slug })}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-primary hover:underline"
@@ -425,8 +429,14 @@ export default function AdminLawEditPage() {
             )}
           </div>
 
-          <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2">
             <p className="text-xs font-medium text-muted-foreground">Law ID: {law.id}</p>
+            {law.last_verified_at ? (
+              <LawLastVerifiedLabel
+                at={law.last_verified_at}
+                className="text-xs text-muted-foreground"
+              />
+            ) : null}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
