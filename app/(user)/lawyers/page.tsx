@@ -246,13 +246,24 @@ export default function LawyersPage() {
     const returnCity = searchParams.get("city");
     const returnExpertise = searchParams.get("expertise");
     const returnLanguage = searchParams.get("language");
+    const fromAiResearch = searchParams.get("from") === "ai-research";
     const hasStaleFilterParams =
       !sessionId &&
+      !fromAiResearch &&
       (returnCountry != null || returnExpertise != null || returnCity != null || returnLanguage != null);
 
     // Default landing: fresh search. Drop bookmarked ?country=&expertise= from a past purchase.
     if (hasStaleFilterParams) {
       window.history.replaceState({}, "", "/lawyers");
+      return;
+    }
+
+    if (fromAiResearch && (returnCountry != null || returnExpertise != null)) {
+      applyReturnFilters(returnCountry, returnCity, returnExpertise, returnLanguage);
+      if (searchEnabled && returnExpertise != null && returnExpertise !== "all") {
+        setHasSearched(true);
+        setShowPaymentChoice(true);
+      }
       return;
     }
 
