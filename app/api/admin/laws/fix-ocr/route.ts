@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { touchLawLastVerifiedAt } from "@/lib/law-last-verified";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin";
 import { recordAuditLog } from "@/lib/admin-audit";
@@ -224,6 +225,7 @@ export async function POST(request: NextRequest) {
         },
       },
       updated_at: new Date().toISOString(),
+      last_verified_at: touchLawLastVerifiedAt(),
     })
     .eq("id", law.id);
 
