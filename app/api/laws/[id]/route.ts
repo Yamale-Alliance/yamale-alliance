@@ -1,24 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isUuid } from "@/lib/content-slug";
+import { assignLawSlug } from "@/lib/content-slug-assign";
 import { isInternalLibraryForUserDisplay } from "@/lib/internal-library-categories";
 import { getSupabaseServer } from "@/lib/supabase/server";
+
+const LAW_SELECT =
+  "id, slug, title, source_url, source_name, year, status, last_verified_at, content, content_plain, country_id, applies_to_all_countries, category_id, language_code, metadata, countries(name), categories!laws_category_id_fkey(name)";
+
+async function fetchLawBySlugOrId(supabase: ReturnType<typeof getSupabaseServer>, param: string) {
+  const column = isUuid(param) ? "id" : "slug";
+  let { data, error } = await supabase.from("laws").select(LAW_SELECT).eq(column, param).single();
+  if ((error || !data) && column === "slug") {
+    ({ data, error } = await supabase.from("laws").select(LAW_SELECT).eq("id", param).single());
+  }
+  if ((error || !data) && column === "id") {
+    ({ data, error } = await supabase.from("laws").select(LAW_SELECT).eq("slug", param).single());
+  }
+  return { data, error };
+}
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
-    if (!id) {
+    const { id: slugOrId } = await params;
+    if (!slugOrId) {
       return NextResponse.json({ error: "Missing law id" }, { status: 400 });
     }
     const supabase = getSupabaseServer();
-    const { data, error } = await supabase
-      .from("laws")
-      .select(
-        "id, title, source_url, source_name, year, status, content, content_plain, country_id, applies_to_all_countries, category_id, language_code, metadata, countries(name), categories!laws_category_id_fkey(name)"
-      )
-      .eq("id", id)
-      .single();
+    const { data, error } = await fetchLawBySlugOrId(supabase, slugOrId.trim());
 
     if (error || !data) {
       return NextResponse.json({ error: "Law not found" }, { status: 404 });
@@ -30,12 +41,29 @@ export async function GET(
     ) {
       return NextResponse.json({ error: "Law not found" }, { status: 404 });
     }
+
+    const lawId = String((data as { id: string }).id);
+    let slug = typeof (data as { slug?: string }).slug === "string" ? (data as { slug: string }).slug.trim() : "";
+    if (!slug) {
+      try {
+        slug = await assignLawSlug(supabase, {
+          id: lawId,
+          title: String((data as { title: string }).title ?? ""),
+          year: (data as { year?: number | null }).year,
+          countries: (data as { countries?: { name: string } | null }).countries ?? null,
+        });
+      } catch {
+        /* slug column may not be migrated yet */
+      }
+    }
+
     const { data: translationRows } = await (supabase.from("law_translations") as any)
       .select("translated_law_id, language_code")
-      .eq("law_id", id)
+      .eq("law_id", lawId)
       .limit(50);
 
-    let translations: Array<{ id: string; title: string; language_code: string | null }> = [];
+    let translations: Array<{ id: string; title: string; language_code: string | null; slug?: string | null }> =
+      [];
     const translatedIds: string[] = Array.from(
       new Set(
         (translationRows ?? [])
@@ -46,26 +74,41 @@ export async function GET(
     if (translatedIds.length > 0) {
       const { data: translatedLaws } = await supabase
         .from("laws")
-        .select("id,title,language_code")
+        .select("id,slug,title,language_code")
         .in("id", translatedIds);
-      type TranslatedLawRow = { id: string; title: string; language_code: string | null };
+      type TranslatedLawRow = {
+        id: string;
+        slug?: string | null;
+        title: string;
+        language_code: string | null;
+      };
       const lawRows: TranslatedLawRow[] = (translatedLaws ?? []) as TranslatedLawRow[];
       const byId = new Map<string, TranslatedLawRow>(lawRows.map((r) => [r.id, r]));
       translations = translatedIds
-        .map((id) => {
-          const row = byId.get(id);
+        .map((tid) => {
+          const row = byId.get(tid);
           if (!row) return null;
-          const mapped = (translationRows ?? []).find((t: any) => t.translated_law_id === id);
+          const mapped = (translationRows ?? []).find((t: any) => t.translated_law_id === tid);
           return {
-            id,
+            id: tid,
             title: row.title ?? "",
             language_code: mapped?.language_code ?? row.language_code ?? null,
+            slug: row.slug ?? null,
           };
         })
-        .filter(Boolean) as Array<{ id: string; title: string; language_code: string | null }>;
+        .filter(Boolean) as Array<{
+          id: string;
+          title: string;
+          language_code: string | null;
+          slug?: string | null;
+        }>;
     }
 
-    return NextResponse.json({ ...(data as Record<string, unknown>), translations });
+    return NextResponse.json({
+      ...(data as Record<string, unknown>),
+      slug: slug || (data as { slug?: string }).slug,
+      translations,
+    });
   } catch (err) {
     console.error("Law by id API error:", err);
     return NextResponse.json(
