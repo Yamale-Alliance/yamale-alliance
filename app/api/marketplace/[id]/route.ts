@@ -6,28 +6,30 @@ import type { Database } from "@/lib/database.types";
 
 type MarketplaceItemRow = Database["public"]["Tables"]["marketplace_items"]["Row"];
 
-/** GET: single marketplace item (public). Optionally include purchased=true if user owns it. */
+/** GET: single marketplace item (public). Resolves slug or UUID. */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
-    if (!id) {
+    const { id: slugOrId } = await params;
+    if (!slugOrId) {
       return NextResponse.json({ error: "Invalid id" }, { status: 400 });
     }
 
     const supabase = getSupabaseServer();
     const { data, error } = await fetchPublishedMarketplaceItem(
       supabase,
-      id,
-      "id, type, title, author, description, price_cents, currency, image_url, published, sort_order, file_path, file_name, file_format, video_url, landing_page_html, package_offers, vault_subcategory, created_at"
+      slugOrId,
+      "id, slug, type, title, author, description, price_cents, currency, image_url, published, sort_order, file_path, file_name, file_format, video_url, landing_page_html, package_offers, vault_subcategory, created_at"
     );
 
     const row = data as (MarketplaceItemRow & { file_path?: string | null; video_url?: string | null }) | null;
     if (error || !row || !row.published) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
+
+    const itemId = String(row.id);
 
     let purchased = false;
     const { userId } = await auth();
@@ -36,7 +38,7 @@ export async function GET(
         .from("marketplace_purchases")
         .select("id")
         .eq("user_id", userId)
-        .eq("marketplace_item_id", id)
+        .eq("marketplace_item_id", itemId)
         .maybeSingle();
       purchased = !!purchase;
     }
