@@ -155,6 +155,7 @@ async function main(): Promise<void> {
           content: merged,
           content_plain: merged,
           updated_at: new Date().toISOString(),
+          last_verified_at: new Date().toISOString(),
         })
         .eq("id", law.id);
 
