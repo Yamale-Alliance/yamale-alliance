@@ -57,7 +57,16 @@ function checkBasicAuth(request: Request): boolean {
   return username === expectedUsername && password === expectedPassword;
 }
 
+const CANONICAL_SITE_ORIGIN = "https://yamalelegal.com";
+
 export default clerkMiddleware(async (auth, request) => {
+  const url = request.nextUrl ?? new URL(request.url);
+  const host = request.headers.get("host") ?? url.host;
+  if (host.includes("vercel.app")) {
+    const dest = new URL(`${url.pathname}${url.search}`, CANONICAL_SITE_ORIGIN);
+    return NextResponse.redirect(dest, 308);
+  }
+
   const { userId } = await auth();
 
   if (isBlockedAiScraperRequest(request)) {
@@ -82,7 +91,6 @@ export default clerkMiddleware(async (auth, request) => {
 
   // Basic HTTP Auth check (only if enabled via env var)
   // Skip basic auth for public laws API so Library works without sign-in (incl. on mobile)
-  const url = request.nextUrl ?? new URL(request.url);
   const isPublicApi = 
     request.method === "GET" &&
     (url.pathname === "/api/laws" ||
