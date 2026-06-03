@@ -30,6 +30,7 @@ export type LibraryCountry = { id: string; name: string };
 export type LibraryCategory = { id: string; name: string };
 export type LibraryLawRow = {
   id: string;
+  slug?: string | null;
   title: string;
   year?: number | null;
   source_name?: string | null;
@@ -44,6 +45,7 @@ export type LibraryLawRow = {
   categories: { name: string } | null;
   created_at?: string;
   updated_at?: string;
+  last_verified_at?: string | null;
   /** True when this law is in a cross-country shared link group (admin-only flair in UI). */
   is_linked_shared_law?: boolean;
 };
@@ -172,7 +174,7 @@ const FETCH_TIMEOUT_MS = 55 * 1000; // large catalogs + enrichment; parallelized
 const CATEGORY_ID_IN_CHUNK = 80;
 
 const LAWS_SELECT_FIELDS =
-  "id, title, source_name, year, status, treaty_type, country_id, applies_to_all_countries, category_id, created_at, updated_at, countries(name), categories!laws_category_id_fkey(name)";
+  "id, slug, title, source_name, year, status, treaty_type, country_id, applies_to_all_countries, category_id, created_at, updated_at, last_verified_at, countries(name), categories!laws_category_id_fkey(name)";
 
 let cachedData: LibraryData | null = null;
 let cacheTimestamp = 0;
