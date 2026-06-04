@@ -9,17 +9,15 @@ export const SITE = {
   shortName: "Yamalé",
   legalName: "Yamalé",
   titleDefault:
-    "African Law Library, Exam Revision & AI Legal Research — Yamalé",
+    "African Law Library & AI Legal Research — Yamalé",
   description:
-    "For law students and lawyers: search and revise African statutes across 54 countries, run AI legal research on primary sources, use AfCFTA trade tools, browse The Yamalé Vault, and find commercial counsel. Law without barriers. Business without borders.",
+    "For lawyers, in-house teams, and law students: search African statutes and regulations across 54 countries, run AI legal research on primary sources, use AfCFTA trade tools, browse The Yamalé Vault, and find commercial counsel. Law without barriers. Business without borders.",
   tagline: "Law Without Barriers. Business Without Borders.",
   locale: "en",
   region: "SN",
   keywords: [
     "African law",
     "African legal library",
-    "law student revision",
-    "law exam prep Africa",
     "study African business law",
     "legal research Africa",
     "find African statutes",
@@ -148,11 +146,13 @@ export function createPageMetadata({
       siteName: SITE.name,
       title: ogTitle,
       description,
+      images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: SITE.name }],
     },
     twitter: {
       card: "summary_large_image",
       title: ogTitle,
       description,
+      images: ["/opengraph-image"],
     },
     ...(noIndex ? { robots: { index: false, follow: false } } : { robots: INDEX_ROBOTS }),
   };
@@ -173,11 +173,13 @@ export function createHomeMetadata(): Metadata {
       siteName: SITE.name,
       title: SITE.titleDefault,
       description: SITE.description,
+      images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: SITE.name }],
     },
     twitter: {
       card: "summary_large_image",
       title: SITE.titleDefault,
       description: SITE.description,
+      images: ["/opengraph-image"],
     },
     robots: INDEX_ROBOTS,
   };
@@ -212,11 +214,13 @@ export function createRootMetadata(faviconUrl?: string | null): Metadata {
       siteName: SITE.name,
       title: SITE.titleDefault,
       description: SITE.description,
+      images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: SITE.name }],
     },
     twitter: {
       card: "summary_large_image",
       title: SITE.titleDefault,
       description: SITE.description,
+      images: ["/opengraph-image"],
     },
     robots: INDEX_ROBOTS,
     appleWebApp: {
