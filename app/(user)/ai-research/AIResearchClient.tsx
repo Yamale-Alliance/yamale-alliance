@@ -1566,8 +1566,12 @@ export default function AIResearchClient() {
                       msg.role === "assistant"
                         ? [...messages.slice(0, msgIdx)].reverse().find((m) => m.role === "user")?.content ?? ""
                         : "";
+                    const isAssistantTurnInProgress =
+                      msg.role === "assistant" &&
+                      msg.id === streamingAssistantId &&
+                      msg.processCompletedAt == null;
                     const assistantContentGap =
-                      msg.role === "assistant"
+                      msg.role === "assistant" && !isAssistantTurnInProgress
                         ? (msg.contentGap ??
                           resolveAiResearchContentGap({
                             assistantText: msg.content,
@@ -1786,7 +1790,7 @@ export default function AIResearchClient() {
                             </div>
                           );
                         })()}
-                        {msg.role === "assistant" ? (
+                        {msg.role === "assistant" && !isAssistantTurnInProgress ? (
                           <AiResearchMessageFootnotes
                             contentGap={assistantContentGap}
                             lawyerNudge={msg.lawyerNudge ?? null}
