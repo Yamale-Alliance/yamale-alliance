@@ -10,7 +10,7 @@ const ORGANIZATION_SAME_AS = [
 const FEATURE_LIST = [
   "African legal library across 54 countries",
   "Search and filter statutes by jurisdiction and topic",
-  "Law student revision and professional legal research",
+  "Professional and academic legal research",
   "AI legal research grounded in library primary sources",
   "AfCFTA compliance and tariff tools",
   "The Yamalé Vault — courses, templates, and guides",
@@ -26,7 +26,7 @@ export function SiteJsonLd() {
     name: SITE.legalName,
     url: siteUrl,
     description: SITE.description,
-    logo: absoluteUrl("/opengraph-image"),
+    logo: absoluteUrl("/favicon-192.png"),
     sameAs: [...ORGANIZATION_SAME_AS],
   };
 
