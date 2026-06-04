@@ -3270,6 +3270,7 @@ async function finalizeAssistantTurn(opts: {
         effectiveCountry,
         retrievedLawCount: legalContext.length,
         displayedSourceCardCount: sourceCards.length,
+        lawsUsedInAnswerCount: sourceCards.filter((c) => c.usedInAnswer).length,
       });
 
   const networkEnabled = isLawyersNetworkLive();
