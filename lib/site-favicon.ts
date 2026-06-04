@@ -38,8 +38,9 @@ export function buildFaviconMetadataIcons(faviconUrl?: string | null) {
   if (trimmed) {
     const type = trimmed.toLowerCase().includes(".ico") ? "image/x-icon" : "image/png";
     return {
-      icon: [{ url: trimmed, type }, ...staticIcons],
-      shortcut: [trimmed, "/favicon.ico"],
+      // Static /favicon.ico first so Google and other crawlers get a stable same-origin icon.
+      icon: [...staticIcons, { url: trimmed, type }],
+      shortcut: ["/favicon.ico", trimmed],
       apple,
     };
   }
