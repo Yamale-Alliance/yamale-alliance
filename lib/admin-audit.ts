@@ -17,6 +17,9 @@ export type AuditAction =
   | "marketplace_item.add"
   | "marketplace_item.update"
   | "marketplace_item.delete"
+  | "vault_series.create"
+  | "vault_series.update"
+  | "vault_series.delete"
   | "refund.approve"
   | "refund.reject"
   | "launch_metrics.reset";
