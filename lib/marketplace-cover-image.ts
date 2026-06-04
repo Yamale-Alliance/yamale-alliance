@@ -1,9 +1,9 @@
 import "server-only";
 
 import { uploadToCloudinary } from "@/lib/cloudinary";
+import { MARKETPLACE_COVER_MAX_MB } from "@/lib/marketplace-cover-limits";
 
-/** Max cover image size for Vault product uploads (Cloudinary). */
-export const MARKETPLACE_COVER_MAX_MB = 10;
+export { MARKETPLACE_COVER_MAX_MB };
 
 const ALLOWED_MIMES = new Set([
   "image/jpeg",
