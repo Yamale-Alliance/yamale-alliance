@@ -2,13 +2,12 @@ import type { ReactNode } from "react";
 import { createPageMetadata } from "@/lib/site-seo";
 
 export const metadata = createPageMetadata({
-  title: "African Legal Library — Search & Revise Laws",
+  title: "African Legal Library — Search Statutes & Regulations",
   description:
-    "Law students and lawyers: search African statutes and regulations across 54 countries. Filter by jurisdiction, topic, and status — ideal for coursework, exam revision, and professional research.",
+    "Search African statutes and regulations across 54 countries. Filter by jurisdiction, topic, and status for professional research, compliance, and coursework.",
   path: "/library",
   keywords: [
     "African statutes online",
-    "law revision Africa",
     "browse African regulations",
     "OHADA statutes",
     "legal library for students",
