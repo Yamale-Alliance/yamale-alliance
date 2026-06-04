@@ -72,23 +72,48 @@ export function buildAiResearchContentGap(params: {
   }
 }
 
+/** Peripheral "not in excerpt" notes should not override a grounded library answer. */
+function shouldSuppressExcerptInsufficientBanner(params: {
+  kind: AiResponseGapKind;
+  retrievedLawCount: number;
+  displayedSourceCardCount: number;
+  lawsUsedInAnswerCount: number;
+  assistantText: string;
+}): boolean {
+  if (params.kind !== "excerpt_insufficient") return false;
+  if (params.lawsUsedInAnswerCount > 0 && params.displayedSourceCardCount > 0) return true;
+  const len = params.assistantText.trim().length;
+  return params.retrievedLawCount > 0 && len >= 500;
+}
+
 export function resolveAiResearchContentGap(params: {
   assistantText: string;
   userQuery: string;
   effectiveCountry?: string | null;
   retrievedLawCount: number;
   displayedSourceCardCount: number;
+  lawsUsedInAnswerCount?: number;
 }): AiResearchContentGap | null {
+  const lawsUsedInAnswerCount = params.lawsUsedInAnswerCount ?? 0;
   const detection = detectAiResponseQualityGap(params.assistantText, {
     userQuery: params.userQuery,
   });
 
   if (detection.hasGap && detection.kind) {
-    return buildAiResearchContentGap({
+    const suppressExcerptBanner = shouldSuppressExcerptInsufficientBanner({
       kind: detection.kind,
-      effectiveCountry: params.effectiveCountry,
-      hadRetrievedLaws: params.retrievedLawCount > 0,
+      retrievedLawCount: params.retrievedLawCount,
+      displayedSourceCardCount: params.displayedSourceCardCount,
+      lawsUsedInAnswerCount,
+      assistantText: params.assistantText,
     });
+    if (!suppressExcerptBanner) {
+      return buildAiResearchContentGap({
+        kind: detection.kind,
+        effectiveCountry: params.effectiveCountry,
+        hadRetrievedLaws: params.retrievedLawCount > 0,
+      });
+    }
   }
 
   if (params.retrievedLawCount === 0) {
