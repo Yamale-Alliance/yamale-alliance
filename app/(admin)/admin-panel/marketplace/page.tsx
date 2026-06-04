@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Plus, Pencil, Trash2, BookOpen, GraduationCap, FileText, Upload, X } from "lucide-react";
@@ -10,7 +10,17 @@ import { AdminItemPackFields } from "@/components/admin/AdminItemPackFields";
 import { MarketplaceCoverImageField } from "@/components/admin/MarketplaceCoverImageField";
 import { AdminVaultSubcategorySelect } from "@/components/admin/AdminVaultSubcategorySelect";
 import { AdminVaultFocusCountrySelect } from "@/components/admin/AdminVaultFocusCountrySelect";
-import { labelForVaultSubcategory } from "@/lib/marketplace-vault-categories";
+import { AdminVaultSeriesEditor } from "@/components/admin/AdminVaultSeriesEditor";
+import {
+  labelForVaultSubcategory,
+  listVaultSeries,
+  setVaultSeriesRegistry,
+  shouldGroupVaultItem,
+} from "@/lib/marketplace-vault-categories";
+import {
+  isBuiltinCatalogOnlySeries,
+  isBuiltinVaultSeriesId,
+} from "@/lib/marketplace-vault-categories-fallback";
 import { isValidMarketplaceCoverUrl } from "@/lib/marketplace-cover-url";
 import {
   buildItemPackageOffersFromForm,
@@ -64,8 +74,7 @@ function TypeIcon({ type }: { type: string }) {
   }
 }
 
-const MARKETPLACE_FILE_ACCEPT =
-  ".pdf,.epub,.doc,.docx,.txt,.md,.rtf,.odt,.xls,.xlsx,.csv,.zip,application/zip";
+import { MARKETPLACE_FILE_ACCEPT } from "@/lib/marketplace-file-accept";
 
 export default function AdminMarketplacePage() {
   const router = useRouter();
@@ -74,8 +83,11 @@ export default function AdminMarketplacePage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<MarketplaceItem | null>(null);
   const [adding, setAdding] = useState(false);
+  const [seriesEditorId, setSeriesEditorId] = useState<string | "new" | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [dbSeriesIds, setDbSeriesIds] = useState<Set<string>>(() => new Set());
   const [fileUploading, setFileUploading] = useState(false);
   const [pendingFile, setPendingFile] = useState<{ path: string; file_name: string; file_format: string } | null>(null);
   const [removeFile, setRemoveFile] = useState(false);
@@ -125,15 +137,85 @@ export default function AdminMarketplacePage() {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const { confirm, confirmDialog } = useConfirm();
 
-  const updateViewInUrl = (addingView: boolean) => {
+  const updateViewInUrl = (opts: { add?: boolean; series?: string | "new" | null }) => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
-    if (addingView) {
+    if (opts.add) {
       url.searchParams.set("view", "add");
+      url.searchParams.delete("seriesId");
+    } else if (opts.series === "new") {
+      url.searchParams.set("view", "series");
+      url.searchParams.set("seriesId", "new");
+    } else if (opts.series) {
+      url.searchParams.set("view", "series");
+      url.searchParams.set("seriesId", opts.series);
     } else {
       url.searchParams.delete("view");
+      url.searchParams.delete("seriesId");
     }
     router.replace(url.toString());
+  };
+
+  const openSeriesEditor = (id: string | "new") => {
+    setSeriesEditorId(id);
+    setAdding(false);
+    setEditing(null);
+    updateViewInUrl({ series: id });
+  };
+
+  const closeSeriesEditor = () => {
+    setSeriesEditorId(null);
+    updateViewInUrl({ series: null });
+  };
+
+  const refreshVaultSeriesRegistry = () => {
+    fetch(`${origin}/api/admin/marketplace/vault-series`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data.series)) setVaultSeriesRegistry(data.series);
+        if (Array.isArray(data.dbSeriesIds)) setDbSeriesIds(new Set(data.dbSeriesIds as string[]));
+      })
+      .catch(() => {});
+  };
+
+  const handleDeleteSeriesFromList = async (series: { id: string; label: string; itemCount: number }) => {
+    const ok = await confirm({
+      title: "Delete series",
+      description: `Delete “${series.label}”?${
+        series.itemCount > 0
+          ? ` ${series.itemCount} item${series.itemCount === 1 ? "" : "s"} will be unlinked (not deleted) unless you delete them from the series editor.`
+          : " Series metadata will be removed."
+      }`,
+      confirmLabel: "Delete series",
+      cancelLabel: "Cancel",
+      variant: "destructive",
+    });
+    if (!ok) return;
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await fetch(
+        `${origin}/api/admin/marketplace/vault-series/${encodeURIComponent(series.id)}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ delete_items: false }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to delete series");
+        return;
+      }
+      if (data.noop && typeof data.message === "string") {
+        setNotice(data.message);
+      }
+      fetchItems();
+      refreshVaultSeriesRegistry();
+    } catch {
+      setError("Failed to delete series");
+    }
   };
 
   async function parseJsonSafe(res: Response): Promise<{
@@ -271,6 +353,7 @@ export default function AdminMarketplacePage() {
   useEffect(() => {
     fetchItems();
     fetchPurchases();
+    refreshVaultSeriesRegistry();
   }, [origin]);
 
   useEffect(() => {
@@ -308,13 +391,56 @@ export default function AdminMarketplacePage() {
     editing && (editLandingHtml.trim() || editing.file_format === "zip")
   );
 
-  // Open Add item view on refresh when ?view=add is in the URL
+  // Restore add / series editor from URL on refresh
   useEffect(() => {
     const view = searchParams?.get("view");
+    const sid = searchParams?.get("seriesId");
     if (view === "add") {
       setAdding(true);
+      setSeriesEditorId(null);
+    } else if (view === "series") {
+      setAdding(false);
+      setSeriesEditorId(sid === "new" || !sid ? "new" : sid);
     }
   }, [searchParams]);
+
+  const seriesSummaries = useMemo(() => {
+    const bySeries = new Map<string, MarketplaceItem[]>();
+    for (const item of items) {
+      const sub = item.vault_subcategory?.trim();
+      if (!sub || !shouldGroupVaultItem(item)) continue;
+      const list = bySeries.get(sub) ?? [];
+      list.push(item);
+      bySeries.set(sub, list);
+    }
+    return listVaultSeries().map((s) => {
+      const itemCount = bySeries.get(s.id)?.length ?? 0;
+      const hasDbRow = dbSeriesIds.has(s.id);
+      const builtin = isBuiltinVaultSeriesId(s.id);
+      return {
+        id: s.id,
+        label: s.label,
+        paid: s.paid,
+        itemCount,
+        hasDbRow,
+        builtin,
+        canDelete: itemCount > 0 || hasDbRow,
+      };
+    });
+  }, [items, dbSeriesIds]);
+
+  const managedVaultSeries = useMemo(
+    () => seriesSummaries.filter((s) => s.canDelete),
+    [seriesSummaries]
+  );
+
+  const catalogOnlyVaultSeries = useMemo(
+    () =>
+      seriesSummaries.filter((s) =>
+        isBuiltinCatalogOnlySeries(s.id, { hasDbRow: s.hasDbRow, itemCount: s.itemCount })
+      ),
+    [seriesSummaries]
+  );
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -381,7 +507,7 @@ export default function AdminMarketplacePage() {
       }
       setItems((prev) => [...prev, data.item]);
       setAdding(false);
-      updateViewInUrl(false);
+      updateViewInUrl({});
       setPendingFile(null);
       setPendingImageUrl(null);
       setCoverImageCleared(false);
@@ -549,6 +675,12 @@ export default function AdminMarketplacePage() {
       {error && (
         <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive">
           {error}
+        </div>
+      )}
+
+      {notice && (
+        <div className="mt-4 rounded-lg border border-border bg-muted/50 px-4 py-2 text-sm text-muted-foreground">
+          {notice}
         </div>
       )}
 
@@ -734,7 +866,7 @@ export default function AdminMarketplacePage() {
                 type="button"
                 onClick={() => {
                   setAdding(false);
-                  updateViewInUrl(false);
+                  updateViewInUrl({});
                 }}
                 className="rounded-lg border border-input px-4 py-2 text-sm font-medium hover:bg-accent"
               >
@@ -745,17 +877,100 @@ export default function AdminMarketplacePage() {
         </div>
       )}
 
-      {!adding && (
-        <button
-          type="button"
-          onClick={() => {
-            setAdding(true);
-            updateViewInUrl(true);
-          }}
-          className="mt-6 flex items-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-4 py-2 text-sm font-medium text-muted-foreground hover:border-primary hover:text-primary"
-        >
-          <Plus className="h-4 w-4" /> Add item
-        </button>
+      {!adding && !seriesEditorId && (
+        <div className="mt-6 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setAdding(true);
+              updateViewInUrl({ add: true });
+            }}
+            className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-4 py-2 text-sm font-medium text-muted-foreground hover:border-primary hover:text-primary"
+          >
+            <Plus className="h-4 w-4" /> Add item
+          </button>
+          <button
+            type="button"
+            onClick={() => openSeriesEditor("new")}
+            className="flex items-center gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10"
+          >
+            <Plus className="h-4 w-4" /> Add series
+          </button>
+        </div>
+      )}
+
+      {(managedVaultSeries.length > 0 || catalogOnlyVaultSeries.length > 0) &&
+        !adding &&
+        !seriesEditorId && (
+        <div className="mt-6 space-y-4">
+          {managedVaultSeries.length > 0 ? (
+            <div className="rounded-lg border border-border bg-card p-4">
+              <h2 className="text-sm font-semibold">Vault series</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Series with saved metadata and/or linked items. Delete unlinks items (or removes them if you choose in
+                the editor).
+              </p>
+              <ul className="mt-3 divide-y divide-border">
+                {managedVaultSeries.map((s) => (
+                  <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                    <span>
+                      <span className="font-medium">{s.label}</span>
+                      <span className="ml-2 text-muted-foreground">
+                        {s.itemCount} item{s.itemCount === 1 ? "" : "s"}
+                        {s.paid ? " · paid" : " · free"}
+                        {s.builtin ? " · built-in" : ""}
+                      </span>
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openSeriesEditor(s.id)}
+                        className="rounded-lg border border-input px-3 py-1 text-xs font-medium hover:bg-accent"
+                      >
+                        Edit series
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteSeriesFromList(s)}
+                        className="rounded-lg border border-destructive/40 px-3 py-1 text-xs font-medium text-destructive hover:bg-destructive/10"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {catalogOnlyVaultSeries.length > 0 ? (
+            <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4">
+              <h2 className="text-sm font-semibold">Built-in catalog series</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                These names are defined in app code for the public Vault. They are not stored in the database yet and
+                have no linked items — Delete does nothing useful. Use <strong>Edit series</strong> to save cover and
+                pricing, or <strong>Add series</strong> to create a new collection (e.g. Quick Investment Guide).
+              </p>
+              <ul className="mt-3 divide-y divide-border/70">
+                {catalogOnlyVaultSeries.map((s) => (
+                  <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                    <span>
+                      <span className="font-medium">{s.label}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">code: {s.id}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => openSeriesEditor(s.id)}
+                      className="rounded-lg border border-input px-3 py-1 text-xs font-medium hover:bg-accent"
+                    >
+                      Configure
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
       )}
 
       {loading ? (
@@ -812,6 +1027,11 @@ export default function AdminMarketplacePage() {
                     <button
                       type="button"
                       onClick={() => {
+                        const sub = item.vault_subcategory?.trim();
+                        if (sub && shouldGroupVaultItem(item)) {
+                          openSeriesEditor(sub);
+                          return;
+                        }
                         setEditing(item);
                         setRemoveFile(false);
                         setPendingFile(null);
@@ -1131,6 +1351,23 @@ export default function AdminMarketplacePage() {
           </div>
         </div>
       )}
+      {seriesEditorId ? (
+        <AdminVaultSeriesEditor
+          key={seriesEditorId}
+          seriesId={seriesEditorId === "new" ? null : seriesEditorId}
+          deletable={
+            seriesEditorId === "new"
+              ? false
+              : (seriesSummaries.find((s) => s.id === seriesEditorId)?.canDelete ?? true)
+          }
+          origin={origin}
+          onClose={closeSeriesEditor}
+          onSaved={() => {
+            fetchItems();
+            refreshVaultSeriesRegistry();
+          }}
+        />
+      ) : null}
       {confirmDialog}
     </div>
   );
