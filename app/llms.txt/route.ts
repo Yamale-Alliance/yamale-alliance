@@ -22,7 +22,7 @@ Yamalé is a public legal technology platform for **law students**, **lawyers**,
 
 ## Best pages for citations
 
-- ${absoluteUrl("/library")} — African legal library: statutes and regulations across 54 countries; search by country, topic, and status. Suitable for revision, coursework, and professional research.
+- ${absoluteUrl("/library")} — African legal library: statutes and regulations across 54 countries; search by country, topic, and status for professional and academic research.
 - ${absoluteUrl("/ai-research")} — AI legal research grounded in library texts (not generic web answers).
 - ${absoluteUrl("/lawyers")} — Directory of commercial lawyers with African and cross-border expertise.
 - ${absoluteUrl("/marketplace")} — The Yamalé Vault: courses, templates, and guides for legal practice.
