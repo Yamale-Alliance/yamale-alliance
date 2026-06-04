@@ -181,6 +181,37 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["admin_audit_log"]["Insert"]>;
       };
+      marketplace_vault_series: {
+        Row: {
+          id: string;
+          label: string;
+          description: string | null;
+          cover_image_url: string | null;
+          paid: boolean;
+          series_bundle_price_cents: number | null;
+          per_country_item_covers: boolean;
+          suggested_item_price_cents: number | null;
+          default_item_type: string;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          label: string;
+          description?: string | null;
+          cover_image_url?: string | null;
+          paid?: boolean;
+          series_bundle_price_cents?: number | null;
+          per_country_item_covers?: boolean;
+          suggested_item_price_cents?: number | null;
+          default_item_type?: string;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["marketplace_vault_series"]["Insert"]>;
+      };
       marketplace_items: {
         Row: {
           id: string;
