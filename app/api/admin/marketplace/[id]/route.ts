@@ -6,7 +6,12 @@ import type { Database } from "@/lib/database.types";
 import { parseLandingPageHtmlInput } from "@/lib/marketplace-landing-page";
 import { parseItemPackageOffersInput } from "@/lib/marketplace-package-offers";
 import { parseItemPackInput } from "@/lib/marketplace-item-packs";
-import { isFreeVaultItem, isPaidVaultSubcategory, resolveVaultSubcategoryForSave } from "@/lib/marketplace-vault-categories";
+import {
+  isFreeVaultItem,
+  isPaidVaultSubcategory,
+  resolveVaultSubcategoryForSave,
+  vaultSeriesUsesPerCountryCovers,
+} from "@/lib/marketplace-vault-categories";
 import { resolveFocusCountryForSave } from "@/lib/marketplace-vault-country";
 import { assignMarketplaceItemSlug } from "@/lib/content-slug-assign";
 
@@ -171,6 +176,7 @@ export async function PUT(
       nextImage &&
       nextImage !== previousImage &&
       nextSubcategory &&
+      !vaultSeriesUsesPerCountryCovers(nextSubcategory) &&
       (isFreeVaultItem(effectivePrice) || isPaidVaultSubcategory(nextSubcategory))
     ) {
       let imageQuery = (supabase.from("marketplace_items") as any)
