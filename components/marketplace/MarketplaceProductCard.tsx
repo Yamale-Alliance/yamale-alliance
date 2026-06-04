@@ -161,6 +161,10 @@ export function MarketplaceProductCard({
   const typeTheme = themeForType(product.type);
   const typeCardClass = styles[TYPE_CARD_CLASS[product.type] ?? "typeDefault"];
   const placeholderGradient = `linear-gradient(155deg, ${typeTheme.from} 0%, ${typeTheme.to} 100%)`;
+  const hasCustomCover = Boolean(product.image_url?.trim()) && !coverFailed;
+  const showCountryMap =
+    !hasCustomCover && (iconOnlyMedia || Boolean(product.focus_country?.trim()));
+  const showTypePlaceholder = !hasCustomCover && !showCountryMap;
   const tagLabel = isCollectionCard ? "Collection" : seriesLabel || typeBadgeLabel;
   const fileLabel = product.file_format ? `.${product.file_format.replace(/^\./, "")}` : null;
 
@@ -214,21 +218,25 @@ export function MarketplaceProductCard({
       aria-expanded={useInlineCollection ? collectionExpanded : undefined}
     >
       <div className={styles.media}>
-        {iconOnlyMedia || !(product.image_url && !coverFailed) ? (
-          <div className={styles.coverPlaceholder} style={{ background: placeholderGradient }}>
-            <VaultCountryMapIcon focusCountry={product.focus_country} color={typeTheme.iconColor} />
-          </div>
-        ) : product.image_url && !coverFailed ? (
+        {hasCustomCover ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            key={product.image_url}
-            src={product.image_url}
+            key={product.image_url!}
+            src={product.image_url!}
             alt=""
             className={styles.cover}
             loading="lazy"
             decoding="async"
             onError={() => setCoverFailed(true)}
           />
+        ) : showCountryMap ? (
+          <div className={styles.coverPlaceholder} style={{ background: placeholderGradient }}>
+            <VaultCountryMapIcon focusCountry={product.focus_country} color={typeTheme.iconColor} />
+          </div>
+        ) : showTypePlaceholder ? (
+          <div className={styles.coverPlaceholder} style={{ background: placeholderGradient }}>
+            <CategoryIcon type={product.type} className="h-10 w-10 opacity-90" />
+          </div>
         ) : null}
         {useInlineCollection ? (
           <div className={styles.collectionHover} aria-hidden>
