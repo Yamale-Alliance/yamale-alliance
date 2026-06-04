@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { Loader2, Upload, X } from "lucide-react";
+import { MARKETPLACE_COVER_MAX_MB } from "@/lib/marketplace-cover-limits";
 
 type Props = {
   previewUrl: string | null;
@@ -23,7 +24,8 @@ export function MarketplaceCoverImageField({
   return (
     <div className="space-y-2">
       <p className="text-xs text-muted-foreground">
-        Shown on Vault cards and the product page. Stored in Cloudinary. JPEG, PNG, WebP, or HEIC — max 10&nbsp;MB.
+        Shown on Vault cards and the product page. Stored in Cloudinary. JPEG, PNG, WebP, or HEIC — max{" "}
+        {MARKETPLACE_COVER_MAX_MB}&nbsp;MB.
       </p>
       <input
         ref={inputRef}
