@@ -994,6 +994,9 @@ export default function AIResearchClient() {
             displayedSourceCardCount: filterAiResearchSourceCardsForDisplay(
               Array.isArray(data.sourceCards) ? (data.sourceCards as Message["sourceCards"]) : []
             ).length,
+            lawsUsedInAnswerCount: filterAiResearchSourceCardsForDisplay(
+              Array.isArray(data.sourceCards) ? (data.sourceCards as Message["sourceCards"]) : []
+            ).filter((c) => c.usedInAnswer).length,
           }),
         retrievedLawCount:
           typeof data.retrievedLawCount === "number" ? data.retrievedLawCount : undefined,
@@ -1582,6 +1585,9 @@ export default function AIResearchClient() {
                               filterAiResearchSourceCardsForDisplay(msg.sourceCards).length,
                             displayedSourceCardCount:
                               filterAiResearchSourceCardsForDisplay(msg.sourceCards).length,
+                            lawsUsedInAnswerCount: filterAiResearchSourceCardsForDisplay(
+                              msg.sourceCards
+                            ).filter((c) => c.usedInAnswer).length,
                           }))
                         : null;
 
