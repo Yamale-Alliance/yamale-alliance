@@ -1,5 +1,7 @@
+import { readFile } from "fs/promises";
 import { ImageResponse } from "next/og";
 import { fetchBrandingFaviconResponse } from "@/lib/site-favicon";
+import { STATIC_FAVICON_DISK } from "@/lib/site-favicon-static";
 
 export const dynamic = "force-dynamic";
 export const size = { width: 48, height: 48 };
@@ -8,6 +10,15 @@ export const contentType = "image/x-icon";
 export default async function Icon() {
   const branded = await fetchBrandingFaviconResponse();
   if (branded) return branded;
+
+  try {
+    const body = await readFile(STATIC_FAVICON_DISK);
+    return new Response(body, {
+      headers: { "Content-Type": "image/x-icon" },
+    });
+  } catch {
+    /* fall through to generated mark */
+  }
 
   return new ImageResponse(
     (
