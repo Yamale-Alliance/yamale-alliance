@@ -1,5 +1,5 @@
 /**
- * Generates static PNG favicon assets (≥48×48). /favicon.ico is served dynamically via app/favicon.ico/route.ts.
+ * Generates static PNG favicon assets (≥48×48). /favicon.ico is served via app/favicon.ico/route.ts (fallback: public/favicon-default.ico).
  * Run: node scripts/generate-site-favicons.mjs
  */
 import fs from "fs";
@@ -41,16 +41,19 @@ async function main() {
 
   fs.mkdirSync(OUT, { recursive: true });
 
+  const png48 = await sharp(Buffer.from(faviconSvg(48))).png().toBuffer();
   const png192 = await sharp(Buffer.from(faviconSvg(192))).png().toBuffer();
   const png180 = await sharp(Buffer.from(appleSvg(180))).png().toBuffer();
 
+  fs.writeFileSync(path.join(OUT, "favicon.ico"), png48);
   fs.writeFileSync(path.join(OUT, "favicon-192.png"), png192);
   fs.writeFileSync(path.join(OUT, "apple-touch-icon.png"), png180);
 
+  const meta48 = await sharp(png48).metadata();
   const meta192 = await sharp(png192).metadata();
   const meta180 = await sharp(png180).metadata();
   console.log(
-    `Wrote public/favicon-192.png (${meta192.width}×${meta192.height}), apple-touch-icon.png (${meta180.width}×${meta180.height}). /favicon.ico is dynamic (app/favicon.ico/route.ts → /icon).`
+    `Wrote public/favicon-default.ico (${meta48.width}×${meta48.height}), favicon-192.png (${meta192.width}×${meta192.height}), apple-touch-icon.png (${meta180.width}×${meta180.height}).`
   );
 }
 
