@@ -35,14 +35,18 @@ import {
 import type { CheckoutPaymentProvider } from "@/components/checkout/PaymentMethodPicker";
 import {
   VAULT_BROWSE_FREE,
-  VAULT_SUBCATEGORIES,
   compareVaultSeriesOrder,
+  listVaultSeries,
+  setVaultSeriesRegistry,
   isFreeVaultItem,
   isPaidVaultSubcategory,
   labelForVaultSubcategory,
   parseVaultSeriesParam,
+  vaultSubcategoryMeta,
   shouldCollapseVaultSeries,
   shouldGroupVaultItem,
+  vaultSeriesCoverImagePath,
+  vaultSeriesUsesPerCountryCovers,
   type VaultSubcategoryId,
 } from "@/lib/marketplace-vault-categories";
 import {
@@ -72,7 +76,7 @@ type ProductCategory = "book" | "course" | "template" | "guide";
 type BrowseMode =
   | { kind: "all" }
   | { kind: "type"; type: ProductCategory }
-  | { kind: "free"; subcategory: VaultSubcategoryId | null };
+  | { kind: "free"; subcategory: string | null };
 
 function parseBrowseMode(categoryParam: string | null, seriesParam: string | null): BrowseMode {
   if (!categoryParam || categoryParam === "all" || categoryParam === "series") return { kind: "all" };
@@ -123,7 +127,7 @@ function normalizeSeriesImages(items: Product[]): Product[] {
   for (const item of items) {
     if (!shouldGroupVaultItem(item)) continue;
     const sub = item.vault_subcategory?.trim();
-    if (!sub) continue;
+    if (!sub || vaultSeriesUsesPerCountryCovers(sub)) continue;
     if (sharedImageBySubcategory.has(sub)) continue;
     if (!item.image_url) continue;
     sharedImageBySubcategory.set(sub, item.image_url);
@@ -134,7 +138,7 @@ function normalizeSeriesImages(items: Product[]): Product[] {
   return items.map((item) => {
     if (!shouldGroupVaultItem(item)) return item;
     const sub = item.vault_subcategory?.trim();
-    if (!sub) return item;
+    if (!sub || vaultSeriesUsesPerCountryCovers(sub)) return item;
     const shared = sharedImageBySubcategory.get(sub);
     if (!shared) return item;
     if (item.image_url === shared) return item;
@@ -296,6 +300,16 @@ export default function MarketplacePage() {
   }, []);
 
   useEffect(() => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    fetch(`${origin}/api/marketplace/vault-series`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data.series)) setVaultSeriesRegistry(data.series);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     setLoading(true);
     void refreshItems().finally(() => setLoading(false));
   }, [refreshItems]);
@@ -413,7 +427,17 @@ export default function MarketplacePage() {
     const seriesCards: DisplayProductCard[] = Array.from(membersByKey.entries())
       .sort(([a], [b]) => compareVaultSeriesOrder(a, b))
       .map(([subcategory, members]) => {
-        const coverProduct = members.find((m) => m.image_url) ?? members[0];
+        const seriesCover = vaultSeriesCoverImagePath(subcategory);
+        const base = members.find((m) => m.image_url) ?? members[0];
+        const coverProduct = seriesCover
+          ? {
+              ...base,
+              image_url: seriesCover,
+              title: labelForVaultSubcategory(subcategory) ?? base.title,
+              description:
+                vaultSubcategoryMeta(subcategory)?.blurb ?? base.description ?? null,
+            }
+          : base;
         return {
           product: coverProduct,
           collectionLabel: labelForVaultSubcategory(subcategory) ?? "Series",
@@ -738,7 +762,7 @@ export default function MarketplacePage() {
                   All free
                   {freeItemCount > 0 ? ` (${freeItemCount})` : ""}
                 </Link>
-                {VAULT_SUBCATEGORIES.filter((s) => !s.paid).map((series) => {
+                {listVaultSeries().filter((s) => !s.paid).map((series) => {
                   const count = freeSeriesCounts.get(series.id) ?? 0;
                   const active = browse.subcategory === series.id;
                   return (
@@ -909,7 +933,12 @@ export default function MarketplacePage() {
                     >
                       {renderProductCard(card.product)}
                       {members.map((member) =>
-                        renderProductCard(member, { iconOnlyMedia: true, keySuffix: "-member" })
+                        renderProductCard(member, {
+                          iconOnlyMedia:
+                            vaultSeriesUsesPerCountryCovers(seriesKey) &&
+                            !member.image_url?.trim(),
+                          keySuffix: "-member",
+                        })
                       )}
                     </div>
                   );
