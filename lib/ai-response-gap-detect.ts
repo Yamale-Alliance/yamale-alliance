@@ -70,12 +70,25 @@ const GAP_PATTERNS: Array<{ kind: AiResponseGapKind; re: RegExp }> = [
   },
 ];
 
+/**
+ * Remove trailing "limitations / gaps in excerpt" sections the model adds after a grounded answer.
+ * Those sections use gap phrasing on purpose and must not trigger user-facing banners.
+ */
+export function stripAssistantLimitationsSection(assistantText: string): string {
+  const text = assistantText || "";
+  const sectionStart =
+    /\n\s*(?:#{1,6}\s*|\*\*\s*)?(?:Gaps in the (?:Attached )?Excerpt|Gaps and [Ll]imitations|Limitations of the (?:Attached )?Excerpt|What is not (?:covered|in) the (?:attached )?excerpt)/i;
+  const m = sectionStart.exec(text);
+  if (!m || m.index < 80) return text.trim();
+  return text.slice(0, m.index).trim();
+}
+
 /** Detect when the model deflected because library text was missing, thin, or absent. */
 export function detectAiResponseQualityGap(
   assistantText: string,
   options?: AiResponseGapDetectOptions
 ): AiResponseGapDetection {
-  const text = (assistantText || "").trim();
+  const text = stripAssistantLimitationsSection((assistantText || "").trim());
   if (text.length < 40) {
     return { hasGap: false, kind: null, matchedPhrases: [] };
   }
