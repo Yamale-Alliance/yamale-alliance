@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireLibraryApiSession } from "@/lib/library-api-auth";
 import { fetchLawSummariesByIds } from "@/lib/law-summaries";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 /** GET /api/laws/summaries?ids=uuid1,uuid2 — card metadata only (no document body). */
 export async function GET(request: NextRequest) {
   try {
+    const session = await requireLibraryApiSession();
+    if (session instanceof NextResponse) return session;
+
     const { searchParams } = new URL(request.url);
     const raw = searchParams.get("ids") ?? "";
     const ids = raw
