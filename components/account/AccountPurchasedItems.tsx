@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Package, Loader2, Eye, BookOpen, GraduationCap, FileText, Check, ExternalLink } from "lucide-react";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
 import { LAW_FIRM_VIEW_COURSE_LABEL } from "@/lib/law-firm-package-marketing";
 import { advisoryCourseHref, isMarketplaceCourseItem } from "@/lib/marketplace-course";
@@ -61,7 +61,7 @@ export function AccountPurchasedItems({
   afterSignInReturnPath = "/account/purchases",
   hideVaultFooterLink = false,
 }: AccountPurchasedItemsProps) {
-  const { isSignedIn, isLoaded } = useUser();
+  const { isSignedIn, isLoaded } = useAppUser();
   const [items, setItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
