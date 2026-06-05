@@ -74,6 +74,7 @@ export async function PUT(
       item_pack,
       vault_subcategory,
       focus_country,
+      is_course,
     } = body;
 
     const updates: Update = {};
@@ -115,6 +116,7 @@ export async function PUT(
     if (focus_country !== undefined) {
       updates.focus_country = resolveFocusCountryForSave(focus_country);
     }
+    if (typeof is_course === "boolean") updates.is_course = is_course;
     updates.updated_at = new Date().toISOString();
 
     const supabase = getSupabaseServer();
