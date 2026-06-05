@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { AccountAvatarMenu } from "@/components/auth/AccountAvatarMenu";
 import { CircleUser, Menu, X } from "lucide-react";
 import { useState, useMemo } from "react";
@@ -21,7 +21,7 @@ function isActivePath(pathname: string | null, href: string): boolean {
 export function UserHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-  const { user } = useUser();
+  const { user } = useAppUser();
   const tier = (user?.publicMetadata?.tier ?? user?.publicMetadata?.subscriptionTier ?? "free") as string;
   const isTeam = tier === "team";
   const links = useMemo(
