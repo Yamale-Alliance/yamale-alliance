@@ -2,11 +2,11 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { getSubscriptionRenewalReminder } from "@/lib/subscription-renewal-reminder";
 
 export function SubscriptionRenewalReminder() {
-  const { isLoaded, isSignedIn, user } = useUser();
+  const { isLoaded, isSignedIn, user } = useAppUser();
 
   const info = useMemo(() => {
     if (!isLoaded || !isSignedIn || !user?.publicMetadata) return null;
