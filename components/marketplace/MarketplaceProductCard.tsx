@@ -67,6 +67,8 @@ type MarketplaceProductCardProps = {
   collectionLabel?: string | null;
   /** Inline series expand (collection card stays visible). */
   isCollection?: boolean;
+  /** Show/Hide series overlay — series cover card only. */
+  showSeriesToggle?: boolean;
   collectionExpanded?: boolean;
   onCollectionToggle?: () => void;
   /** Series member tiles: icon only, no cover image. */
@@ -128,6 +130,7 @@ export function MarketplaceProductCard({
   collectionCount,
   collectionLabel,
   isCollection = false,
+  showSeriesToggle = false,
   collectionExpanded = false,
   onCollectionToggle,
   iconOnlyMedia = false,
@@ -148,7 +151,7 @@ export function MarketplaceProductCard({
   const showLawFirmDiscount = shouldShowLawFirmPackageMarketingDiscount(product);
   const isCollectionCard =
     isCollection || Boolean(collectionHref && collectionCount && collectionLabel);
-  const useInlineCollection = isCollectionCard && Boolean(onCollectionToggle);
+  const useInlineCollection = showSeriesToggle && isCollectionCard && Boolean(onCollectionToggle);
   const displayTitle = isCollectionCard ? (collectionLabel as string) : displayVaultProductTitle(product.title);
   const publisher = isCollectionCard
     ? `${collectionCount} resources`
@@ -225,7 +228,7 @@ export function MarketplaceProductCard({
 
   return (
     <article
-      className={`vault-product-card ${styles.card} ${typeCardClass} ${useInlineCollection ? styles.cardCollection : ""} ${collectionExpanded ? styles.cardCollectionExpanded : ""}`}
+      className={`vault-product-card ${styles.card} ${typeCardClass} ${useInlineCollection ? styles.cardCollection : ""} ${useInlineCollection && collectionExpanded ? styles.cardCollectionExpanded : ""}`}
       onClick={handleCardClick}
       onKeyDown={handleCardKeyDown}
       role={useInlineCollection ? "button" : "link"}
