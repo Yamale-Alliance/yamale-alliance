@@ -8,7 +8,13 @@ import {
 } from "@/lib/law-firm-enrollment-contact";
 import { LawFirmPackageDiscountPrice } from "@/components/marketplace/LawFirmPackageDiscountPrice";
 import { LawFirmDevelopmentSubnav } from "@/components/marketplace/law-firm-development-package/LawFirmDevelopmentSubnav";
-import { LAW_FIRM_PACKAGE_SALE_PRICE_CENTS } from "@/lib/law-firm-package-marketing";
+import {
+  LAW_FIRM_ADVISORY_WORKSPACE_HREF,
+  LAW_FIRM_PACKAGE_SALE_PRICE_CENTS,
+  LAW_FIRM_VIEW_COURSE_LABEL,
+  LAW_FIRM_WORKSPACE_CTA_LABEL,
+  LAW_FIRM_WORKSPACE_CTA_SHORT,
+} from "@/lib/law-firm-package-marketing";
 
 /**
  * Built-in sales landing for the African Law Firm Development ZIP package (converted from static HTML).
@@ -28,6 +34,8 @@ type Props = {
   onOwnedDownload: () => void | Promise<void>;
   /** Owned: open ZIP listing preview (attachment-style). */
   onBrowseZipContents?: () => void;
+  /** Implementation workspace URL (includes ?course= when item is a course). */
+  courseWorkspaceHref?: string;
 };
 
 export function LawFirmDevelopmentZipLanding({
@@ -37,6 +45,7 @@ export function LawFirmDevelopmentZipLanding({
   onBeginPaidDownload,
   onOwnedDownload,
   onBrowseZipContents,
+  courseWorkspaceHref = LAW_FIRM_ADVISORY_WORKSPACE_HREF,
 }: Props) {
   const showTier1Discount = !owned && priceDisplay !== "Free";
   const navCtaLabel = owned ? "Download" : `Download — ${priceDisplay}`;
@@ -72,6 +81,14 @@ export function LawFirmDevelopmentZipLanding({
           <a href="#about" className="hidden text-[0.85rem] font-medium uppercase tracking-[0.05em] text-white/70 transition hover:text-[#C18C43] md:inline">
             About
           </a>
+          {owned && (
+            <Link
+              href={courseWorkspaceHref}
+              className="hidden rounded-[2px] border border-[#C18C43]/60 bg-[rgba(193,140,67,0.12)] px-3 py-2 text-[0.75rem] font-semibold uppercase tracking-[0.05em] text-[#E3BA65] transition hover:border-[#C18C43] hover:bg-[rgba(193,140,67,0.2)] sm:inline"
+            >
+              {LAW_FIRM_VIEW_COURSE_LABEL}
+            </Link>
+          )}
           {owned && onBrowseZipContents && (
             <button
               type="button"
@@ -90,6 +107,23 @@ export function LawFirmDevelopmentZipLanding({
           </button>
         </div>
       </LawFirmDevelopmentSubnav>
+
+      {owned && (
+        <div className="relative z-[1] border-b border-[rgba(193,140,67,0.2)] bg-[rgba(193,140,67,0.08)]">
+          <div className="mx-auto flex max-w-[1120px] flex-col gap-3 px-8 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-white/70">
+              Your Tier 1 package includes the online implementation workspace — track progress, browse
+              documents, and use interactive tools.
+            </p>
+            <Link
+              href={courseWorkspaceHref}
+              className="inline-flex shrink-0 items-center justify-center rounded-[2px] bg-[#C18C43] px-5 py-2.5 text-[0.8rem] font-semibold uppercase tracking-[0.05em] text-[#221913] transition hover:bg-[#E3BA65]"
+            >
+              {LAW_FIRM_VIEW_COURSE_LABEL}
+            </Link>
+          </div>
+        </div>
+      )}
 
       <section className="relative flex min-h-screen items-center overflow-x-hidden pb-24 pt-10 sm:pt-12">
         <div
@@ -127,6 +161,14 @@ export function LawFirmDevelopmentZipLanding({
               >
                 See all tiers
               </a>
+              {owned && (
+                <Link
+                  href={courseWorkspaceHref}
+                  className="inline-flex items-center gap-2 rounded-[2px] border border-[#C18C43]/50 px-7 py-3.5 text-[0.95rem] font-medium text-[#E3BA65] transition hover:border-[#C18C43] hover:bg-[rgba(193,140,67,0.08)]"
+                >
+                  {LAW_FIRM_VIEW_COURSE_LABEL}
+                </Link>
+              )}
               {owned && onBrowseZipContents && (
                 <button
                   type="button"
