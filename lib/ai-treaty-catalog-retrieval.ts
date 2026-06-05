@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchLawIdsForCategory } from "@/lib/law-categories-sync";
+import { applyLawRagApprovalFilter } from "@/lib/law-rag-approval";
 
 /** Max excerpts for broad "what treaties are in the library" style questions (non–Latin-America-specific). */
 export const GLOBAL_TREATY_CATALOG_MAX_DOCS = 28;
@@ -101,13 +102,14 @@ export async function fetchGlobalTreatyCatalogCandidates(
   }
 
   if (lawIds.length === 0) {
-    const { data: primaryRows } = await db
-      .from("laws")
-      .select(lawsAiSelect)
-      .eq("category_id", catRow.id)
-      .not("content", "is", null)
-      .neq("status", "Repealed")
-      .limit(400);
+    const { data: primaryRows } = await applyLawRagApprovalFilter(
+      db
+        .from("laws")
+        .select(lawsAiSelect)
+        .eq("category_id", catRow.id)
+        .not("content", "is", null)
+        .neq("status", "Repealed")
+    ).limit(400);
     const rows = (primaryRows ?? []) as unknown[];
     return rows.filter((r) => titleLooksLikeCrossBorderTreatyTitle(String((r as any).title ?? "")));
   }
@@ -116,12 +118,9 @@ export async function fetchGlobalTreatyCatalogCandidates(
   const capped = lawIds.length > maxIds ? lawIds.slice(0, maxIds) : lawIds;
   const merged: unknown[] = [];
   for (const idChunk of chunkIds(capped, 120)) {
-    const { data, error } = await db
-      .from("laws")
-      .select(lawsAiSelect)
-      .in("id", idChunk)
-      .not("content", "is", null)
-      .neq("status", "Repealed");
+    const { data, error } = await applyLawRagApprovalFilter(
+      db.from("laws").select(lawsAiSelect).in("id", idChunk).not("content", "is", null).neq("status", "Repealed")
+    );
     if (error) {
       console.error("[AI RAG] Global treaty catalog chunk fetch:", error.message ?? error);
       continue;
