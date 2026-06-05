@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { ChevronRight } from "lucide-react";
 
 /** Optional dashboard CTA on the home hero — avoids blocking the page on server auth(). */
 export function HomeDashboardLink() {
-  const { isLoaded, isSignedIn } = useUser();
+  const { isLoaded, isSignedIn } = useAppUser();
   if (!isLoaded) {
     return <span className="inline-flex h-[46px] min-w-[8.5rem] shrink-0" aria-hidden />;
   }
