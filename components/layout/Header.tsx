@@ -4,7 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { Loader2 } from "lucide-react";
 import { isClerkConfigured } from "@/lib/clerk-config";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
@@ -93,7 +93,7 @@ const CLERK_LOAD_TIMEOUT_MS = 2500;
 
 export function Header() {
   const pathname = usePathname();
-  const { isLoaded, isSignedIn, user } = useUser();
+  const { isLoaded, isSignedIn, user } = useAppUser();
   const [loadTimedOut, setLoadTimedOut] = useState(false);
   const fastPublic = isFastPublicNav(pathname);
 
