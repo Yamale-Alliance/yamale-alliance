@@ -9,11 +9,16 @@ import { EmbeddedSignIn } from "@/components/auth/EmbeddedSignIn";
 function SignInPageContent() {
   const searchParams = useSearchParams();
   const redirectUrl = searchParams.get("redirect_url") || "/dashboard";
+  const libraryReturn = redirectUrl.startsWith("/library");
 
   return (
     <AuthShell
       title="Welcome back"
-      subtitle="Sign in to Yamalé Legal to access your library, vault, and AI research."
+      subtitle={
+        libraryReturn
+          ? "Sign in to browse the African legal library — statutes, regulations, and treaties across 54 countries."
+          : "Sign in to Yamalé Legal to access your library, vault, and AI research."
+      }
       footer={
         <>
           New here?{" "}
