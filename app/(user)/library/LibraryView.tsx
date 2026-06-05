@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import type { LibraryCountry, LibraryCategory, LibraryLawRow, LibrarySortOption } from "@/lib/library-data";
 import { LIBRARY_PAGE_SIZE } from "@/lib/library-data";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { useAlertDialog } from "@/components/ui/use-confirm";
 import {
   PaymentMethodPicker,
@@ -368,7 +368,7 @@ export function LibraryView({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const documentReturnConfirmedSessionsRef = useRef<Set<string>>(new Set());
-  const { user, isSignedIn } = useUser();
+  const { user, isSignedIn } = useAppUser();
   const [printLoadingId, setPrintLoadingId] = useState<string | null>(null);
   const [libraryDocCheckoutLawId, setLibraryDocCheckoutLawId] = useState<string | null>(null);
   const [libraryPrintCheckoutOpen, setLibraryPrintCheckoutOpen] = useState(false);
