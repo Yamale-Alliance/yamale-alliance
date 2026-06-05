@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Header } from "@/components/layout/Header";
 import { ConditionalFooter } from "@/components/layout/ConditionalFooter";
 import { DynamicFavicon } from "@/components/platform/DynamicFavicon";
@@ -13,7 +14,9 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
         <Header />
         <SubscriptionRenewalReminder />
         <FoundersNoteGate />
-        <div className="flex-1">{children}</div>
+        <div className="flex-1">
+          <Suspense fallback={null}>{children}</Suspense>
+        </div>
         <ConditionalFooter />
       </div>
       <OfflineProvider />
