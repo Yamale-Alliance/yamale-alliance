@@ -5,6 +5,7 @@ import {
   MARKETPLACE_COVER_MAX_MB,
   uploadMarketplaceCoverImage,
 } from "@/lib/marketplace-cover-image";
+import { scanFile } from "@/lib/uploads/scanner";
 
 /** POST: upload a cover image for a marketplace item. Admin only. Stored in Cloudinary. Returns { url }. */
 export async function POST(request: NextRequest) {
@@ -39,7 +40,20 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { url } = await uploadMarketplaceCoverImage(file);
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const scan = await scanFile(buffer, file.name);
+    if (!scan.clean) {
+      console.error("Marketplace image upload rejected by VirusTotal:", {
+        filename: file.name,
+        detections: scan.detections,
+      });
+      return NextResponse.json(
+        { error: "File failed malware scan and was rejected." },
+        { status: 422 }
+      );
+    }
+    const scannedFile = new File([buffer], file.name, { type: mime });
+    const { url } = await uploadMarketplaceCoverImage(scannedFile);
     return NextResponse.json({ url });
   } catch (err) {
     console.error("Marketplace image upload error:", err);
