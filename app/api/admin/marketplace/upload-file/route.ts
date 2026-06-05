@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin";
 import { extractLandingPageHtmlFromZip } from "@/lib/marketplace-zip-landing";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { scanFile } from "@/lib/uploads/scanner";
 
 const BUCKET = "marketplace-files";
 const PREFIX = "items/";
@@ -73,6 +74,17 @@ export async function POST(request: NextRequest) {
     : `${PREFIX}${crypto.randomUUID()}-${safeName}`;
 
   const buffer = Buffer.from(await file.arrayBuffer());
+  const scan = await scanFile(buffer, file.name);
+  if (!scan.clean) {
+    console.error("Marketplace upload rejected by VirusTotal:", {
+      filename: file.name,
+      detections: scan.detections,
+    });
+    return NextResponse.json(
+      { error: "File failed malware scan and was rejected." },
+      { status: 422 }
+    );
+  }
   const contentType = file.type || "application/octet-stream";
 
   let uploadError: { message?: string } | null = null;
