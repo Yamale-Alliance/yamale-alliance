@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 import { confirmDayPassPayment } from "@/lib/day-pass-checkout-confirm";
 
@@ -16,7 +16,7 @@ const SUCCESS_VISIBLE_MS = 1200;
 export function useDayPassCheckoutConfirm(options?: { onSynced?: () => void | Promise<void> }) {
   const searchParams = useClientSearchParams();
   const router = useRouter();
-  const { user } = useUser();
+  const { user } = useAppUser();
   const [state, setState] = useState<DayPassConfirmState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
