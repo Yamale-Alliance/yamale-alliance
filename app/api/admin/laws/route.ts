@@ -15,6 +15,11 @@ import { isLawTreatyType } from "@/lib/law-treaty-type";
 import type { Database } from "@/lib/database.types";
 import { normalizeCategoryIdList, syncLawCategories } from "@/lib/law-categories-sync";
 import { assignLawSlug } from "@/lib/content-slug-assign";
+import {
+  computeLawContentHash,
+  LAW_RAG_PENDING_STATUS,
+} from "@/lib/laws-rag-integrity";
+import { scanFile } from "@/lib/uploads/scanner";
 
 // Allow up to 5 minutes for PDF extraction and OCR (large or scanned PDFs)
 export const maxDuration = 300;
@@ -114,6 +119,17 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "File must be a PDF" }, { status: 400 });
       }
       const buffer = Buffer.from(await file.arrayBuffer());
+      const scan = await scanFile(buffer, file.name);
+      if (!scan.clean) {
+        console.error("Admin laws upload rejected by VirusTotal:", {
+          filename: file.name,
+          detections: scan.detections,
+        });
+        return NextResponse.json(
+          { error: "File failed malware scan and was rejected." },
+          { status: 422 }
+        );
+      }
       try {
         text = await extractTextFromPdf(buffer, { forceOcr });
       } catch (e) {
@@ -131,6 +147,14 @@ export async function POST(request: NextRequest) {
     }
 
     const contentTrimmed = sanitizeLawContent(text) || null;
+    const contentHash = contentTrimmed ? computeLawContentHash(contentTrimmed) : null;
+    const ingestedAt = new Date().toISOString();
+    const integrityFields = {
+      content_hash: contentHash,
+      ingested_by: admin.userId,
+      ingested_at: ingestedAt,
+      rag_approval_status: LAW_RAG_PENDING_STATUS,
+    };
 
     const supabase = getSupabaseServer();
     const effectiveCountryIds = countryIds.length > 0 ? [...new Set(countryIds)] : fallbackCountryId ? [fallbackCountryId] : [];
@@ -148,6 +172,7 @@ export async function POST(request: NextRequest) {
             status: (status ?? "In force").trim(),
             content: contentTrimmed,
             content_plain: contentTrimmed,
+            ...integrityFields,
           },
         ]
       : effectiveCountryIds.map((countryId) => ({
@@ -162,6 +187,7 @@ export async function POST(request: NextRequest) {
           status: (status ?? "In force").trim(),
           content: contentTrimmed,
           content_plain: contentTrimmed,
+          ...integrityFields,
         }));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
