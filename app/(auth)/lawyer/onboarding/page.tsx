@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useAppAuth } from "@/components/auth/AppAuthProvider";
 import { useRouter } from "next/navigation";
 import { FileUp, Loader2, FileCheck } from "lucide-react";
 
@@ -17,7 +17,7 @@ const ACCEPT = ".pdf,.jpg,.jpeg,.png";
 const MAX_MB = 10;
 
 export default function LawyerOnboardingPage() {
-  const { isLoaded, userId } = useAuth();
+  const { isLoaded, userId } = useAppAuth();
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
