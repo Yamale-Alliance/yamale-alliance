@@ -16,6 +16,10 @@ export type AiQueryLogInsert = {
     citedDocIndices?: number[];
     allDocRefsValid?: boolean;
   } | null;
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+  estimated_cost_usd?: number | null;
+  model_used?: string | null;
 };
 
 /** Returns new row id, or null on failure (never throws). */
@@ -36,6 +40,10 @@ export async function insertAiQueryLog(
         response_preview: row.response_preview?.slice(0, 24000) ?? null,
         latency_ms: row.latency_ms,
         citation_issues: row.citation_issues ?? null,
+        input_tokens: row.input_tokens ?? null,
+        output_tokens: row.output_tokens ?? null,
+        estimated_cost_usd: row.estimated_cost_usd ?? null,
+        model_used: row.model_used ?? row.model ?? null,
       })
       .select("id")
       .maybeSingle();
