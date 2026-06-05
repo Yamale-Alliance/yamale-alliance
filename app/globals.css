@@ -450,13 +450,15 @@ header.yamale-site-chrome {
 }
 
 /* Law Firm Development Package — portaled sub-nav locked under site header height. */
-body:has(.law-firm-package-landing) {
+body:has(.law-firm-package-landing),
+body:has(.advisory-workspace-root) {
   --site-nav-h: 4.5rem;
   --vault-chrome-h: 5.25rem;
 }
 
 @media (min-width: 640px) {
-  body:has(.law-firm-package-landing) {
+  body:has(.law-firm-package-landing),
+  body:has(.advisory-workspace-root) {
     --site-nav-h: 5.5rem;
     --vault-chrome-h: 4.75rem;
   }
