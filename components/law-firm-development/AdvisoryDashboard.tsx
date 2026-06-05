@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getTimeOfDayGreeting } from "@/lib/time-of-day-greeting";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import {
   advisoryDocumentHref,
   advisoryPhaseHref,
@@ -20,7 +20,7 @@ import { useAdvisoryProgress } from "@/hooks/useAdvisoryProgress";
 import { AdvisoryFirmSettingsDialog } from "@/components/law-firm-development/AdvisoryFirmSettingsDialog";
 
 export function AdvisoryDashboard() {
-  const { user } = useUser();
+  const { user } = useAppUser();
   const {
     phases,
     courseQuery,
