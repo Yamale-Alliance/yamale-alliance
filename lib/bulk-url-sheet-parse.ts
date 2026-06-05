@@ -2,7 +2,7 @@
  * Parse flat/matrix spreadsheets for bulk URL law import (CSV rows or XLSX first sheet).
  */
 
-import * as XLSX from "xlsx";
+import * as XLSX from "@e965/xlsx";
 
 export type BulkUrlSheetItem = {
   url: string;

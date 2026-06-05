@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin";
 import type { Database } from "@/lib/database.types";
-import * as XLSX from "xlsx";
+import * as XLSX from "@e965/xlsx";
 
 type TariffInsert = Database["public"]["Tables"]["afcfta_tariff_schedule"]["Insert"];
 

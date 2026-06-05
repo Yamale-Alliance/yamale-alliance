@@ -7,7 +7,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "fs";
-import * as XLSX from "xlsx";
+import * as XLSX from "@e965/xlsx";
 import {
   isOfficialSourceCategory,
   normalizeOfficialSourceCountryName,

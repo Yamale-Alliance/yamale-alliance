@@ -3,7 +3,7 @@
  * "Full text (en)" but store the real URL in Excel metadata — `sheet_to_json` alone misses those).
  */
 
-import * as XLSX from "xlsx";
+import * as XLSX from "@e965/xlsx";
 import { isValidLawYear } from "@/lib/admin-law-utils";
 
 export type TreatyBulkParsedRow = {

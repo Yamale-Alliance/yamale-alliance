@@ -438,7 +438,7 @@ export function ZipPackageContentsDialog({ itemId, open, onOpenChange }: Props) 
         }
         if (ext === "xlsx" || ext === "xls") {
           try {
-            const XLSX = await import("xlsx");
+            const XLSX = await import("@e965/xlsx");
             const wb = XLSX.read(blobBytes, { type: "array", dense: true });
             const sheetCount = wb.SheetNames.length;
             const first = wb.SheetNames[0];
