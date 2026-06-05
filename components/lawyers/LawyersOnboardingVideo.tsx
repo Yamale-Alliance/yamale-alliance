@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { usePathname } from "next/navigation";
 import { Play } from "lucide-react";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
@@ -24,7 +24,7 @@ type Props = {
 
 export function LawyersOnboardingVideo({ showReplayButton = true, className }: Props) {
   const { lawyersOnboardingVideoUrl } = usePlatformSettings();
-  const { user, isLoaded } = useUser();
+  const { user, isLoaded } = useAppUser();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [checked, setChecked] = useState(false);
