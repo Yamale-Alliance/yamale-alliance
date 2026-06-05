@@ -23,7 +23,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { useConfirm, useAlertDialog } from "@/components/ui/use-confirm";
 import {
   PROTOTYPE_HERO_GRID_PATTERN,
@@ -766,7 +766,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
   const [printCheckoutOpen, setPrintCheckoutOpen] = useState(false);
   const [printCheckoutProvider, setPrintCheckoutProvider] = useState<CheckoutPaymentProvider>("pawapay");
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
-  const { isSignedIn, user } = useUser();
+  const { isSignedIn, user } = useAppUser();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
   const documentPaygSessionId =
