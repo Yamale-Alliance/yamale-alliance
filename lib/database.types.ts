@@ -234,6 +234,7 @@ export interface Database {
           item_pack: Record<string, unknown> | null;
           vault_subcategory: string | null;
           focus_country: string | null;
+          is_course: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -258,10 +259,42 @@ export interface Database {
           item_pack?: Record<string, unknown> | null;
           vault_subcategory?: string | null;
           focus_country?: string | null;
+          is_course?: boolean;
           created_at?: string;
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["marketplace_items"]["Insert"]>;
+      };
+      marketplace_course_modules: {
+        Row: {
+          id: string;
+          marketplace_item_id: string;
+          module_key: string;
+          parent_key: string | null;
+          sort_order: number;
+          title: string;
+          description: string | null;
+          kind: string;
+          source_path: string | null;
+          estimated_minutes: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          marketplace_item_id: string;
+          module_key: string;
+          parent_key?: string | null;
+          sort_order?: number;
+          title: string;
+          description?: string | null;
+          kind?: string;
+          source_path?: string | null;
+          estimated_minutes?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["marketplace_course_modules"]["Insert"]>;
       };
       marketplace_purchases: {
         Row: {
@@ -1124,6 +1157,69 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["support_ticket_messages"]["Insert"]>;
+      };
+      advisory_workspace_profiles: {
+        Row: {
+          user_id: string;
+          firm_name: string | null;
+          firm_location: string | null;
+          subscription_label: string | null;
+          programme_started_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          firm_name?: string | null;
+          firm_location?: string | null;
+          subscription_label?: string | null;
+          programme_started_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["advisory_workspace_profiles"]["Insert"]>;
+      };
+      advisory_document_progress: {
+        Row: {
+          user_id: string;
+          document_id: string;
+          status: string;
+          section_progress: Record<string, unknown> | null;
+          notes: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          document_id: string;
+          status?: string;
+          section_progress?: Record<string, unknown> | null;
+          notes?: string | null;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["advisory_document_progress"]["Insert"]>;
+      };
+      advisory_milestones: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          due_at: string | null;
+          completed_at: string | null;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          due_at?: string | null;
+          completed_at?: string | null;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["advisory_milestones"]["Insert"]>;
       };
       official_sources: {
         Row: {
