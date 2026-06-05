@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import {
   FileText,
   CheckSquare,
@@ -228,7 +228,7 @@ function getFilteredCountries(continent: string): string[] {
 
 
 export default function ComplianceCheckPage() {
-  const { user } = useUser();
+  const { user } = useAppUser();
   const tier = ((user?.publicMetadata?.tier ?? user?.publicMetadata?.subscriptionTier) as string) || "free";
   const isFreeTier = tier === "free";
   const inputsLocked = isFreeTier || AFCFTA_COMING_SOON_READ_ONLY;
