@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { ArrowLeft, ArrowRight, FileDown, Loader2, BookOpen } from "lucide-react";
 import { fetchDocumentExportUnlockLawIds } from "@/lib/library-document-export-unlocks-client";
 import { lawDetailHref } from "@/lib/law-public-url";
@@ -28,7 +28,7 @@ type Props = {
 export function PurchasedLawsClient({ initialLawIds }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isSignedIn } = useUser();
+  const { isSignedIn } = useAppUser();
   const documentReturnConfirmedSessionsRef = useRef<Set<string>>(new Set());
   const [lawIds, setLawIds] = useState<string[]>(initialLawIds);
   const [laws, setLaws] = useState<Law[]>([]);
