@@ -6,7 +6,7 @@ import { useClientSearchParams } from "@/lib/use-client-search-params";
 import Link from "next/link";
 import Image from "next/image";
 import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, Eye, Star, ShoppingCart, Zap, X } from "lucide-react";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import {
   PaymentMethodPicker,
@@ -105,7 +105,7 @@ function getYouTubeEmbedUrl(url: string | null | undefined): string | null {
 export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: string }) {
   const router = useRouter();
   const searchParams = useClientSearchParams();
-  const { isLoaded, isSignedIn } = useUser();
+  const { isLoaded, isSignedIn } = useAppUser();
   const id = slugOrId;
   const itemPublicPath = (item?: Item | null, packagePage = false) =>
     item ? marketplaceItemDetailHref({ id: item.id, slug: item.slug, packagePage }) : `/marketplace/${id}${packagePage ? "/package" : ""}`;
