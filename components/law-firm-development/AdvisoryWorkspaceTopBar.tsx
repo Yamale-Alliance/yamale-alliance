@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { Menu, MessageCircle, Search } from "lucide-react";
 import { AdvisoryCourseNotifications } from "@/components/law-firm-development/AdvisoryCourseNotifications";
-import { platformBusinessMailto } from "@/lib/platform-emails";
+import { PLATFORM_MAIL_LINK_REL, platformBusinessMailto } from "@/lib/platform-emails";
 import { advisoryLibraryHref } from "@/lib/law-firm-development/routes";
 import { useAdvisoryCatalogContext } from "@/components/law-firm-development/AdvisoryCatalogContext";
 
@@ -67,7 +67,12 @@ export function AdvisoryWorkspaceTopBar({
       </form>
       <div className="advisory-topbar__spacer" aria-hidden />
       <AdvisoryCourseNotifications />
-      <a href={ADVISORY_CONTACT_MAILTO} className="advisory-topbar__btn advisory-topbar__btn--primary">
+      <a
+        href={ADVISORY_CONTACT_MAILTO}
+        target="_blank"
+        rel={PLATFORM_MAIL_LINK_REL}
+        className="advisory-topbar__btn advisory-topbar__btn--primary"
+      >
         <MessageCircle className="h-3.5 w-3.5" aria-hidden />
         <span className="hidden sm:inline">Contact Yamalé</span>
         <span className="sm:hidden">Contact</span>
