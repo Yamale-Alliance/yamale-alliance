@@ -735,14 +735,7 @@ export default function MarketplacePage() {
       )}
       <section className="pb-16 pt-9">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="rounded-[8px] border border-border bg-muted p-4 text-sm leading-relaxed text-muted-foreground">
-            Content in The Yamalé Vault including courses, webinars, templates, and documents is provided for
-            educational and informational purposes. It does not constitute legal advice for any specific situation.
-            <strong> Templates should be reviewed by qualified legal counsel before use.</strong> Yamalé Alliance is not
-            responsible for outcomes arising from use without independent legal review.
-          </div>
-
-          <div className="mt-6 flex flex-col gap-3">
+          <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Format</span>
               {FORMAT_TILES.map((tile) => {
