@@ -1,5 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { userHasAdminAccess } from "@/lib/admin-session";
 import { isBlockedAiScraperRequest } from "@/lib/ai-scraper-guard";
 import {
   applySecurityHeaders,
@@ -25,12 +26,11 @@ const isPublicRoute = createRouteMatcher([
   "/sitemap.xml",
   "/robots.txt",
   "/llms.txt",
-  "/library(.*)",
+  "/library(.*)", // page shows sign-in prompt; laws API requires Clerk session
   "/afcfta(.*)",
   "/ai-research(.*)",
   "/marketplace(.*)",
   "/lawyers(.*)",
-  "/api/laws(.*)", // public laws API for Library
   "/api/pricing", // public pricing data for pricing page
   "/api/marketplace(.*)", // public marketplace list and detail
   "/api/lomi/webhook", // Lomi (X-Lomi-Signature) + pawaPay callbacks — public; do not require Clerk or X-API-Key here
@@ -38,6 +38,9 @@ const isPublicRoute = createRouteMatcher([
   "/api/stripe/webhook", // legacy Stripe-era URL; pawaPay may still POST here (not Stripe)
   "/api/cron/(.*)", // secured with CRON_SECRET inside each handler
 ]);
+
+const isAdminPanelPage = createRouteMatcher(["/admin-panel(.*)"]);
+const isAdminApiRoute = createRouteMatcher(["/api/admin(.*)"]);
 
 // Basic HTTP Authentication
 function checkBasicAuth(request: Request): boolean {
@@ -67,7 +70,8 @@ export default clerkMiddleware(async (auth, request) => {
     return NextResponse.redirect(dest, 308);
   }
 
-  const { userId } = await auth();
+  const authState = await auth();
+  const { userId } = authState;
 
   if (isBlockedAiScraperRequest(request)) {
     const forbidden = new NextResponse(
@@ -90,12 +94,8 @@ export default clerkMiddleware(async (auth, request) => {
   }
 
   // Basic HTTP Auth check (only if enabled via env var)
-  // Skip basic auth for public laws API so Library works without sign-in (incl. on mobile)
-  const isPublicApi = 
-    request.method === "GET" &&
-    (url.pathname === "/api/laws" ||
-      url.pathname.startsWith("/api/laws/") ||
-      url.pathname === "/api/pricing");
+  const isPublicApi =
+    request.method === "GET" && url.pathname === "/api/pricing";
   const isWebhookCallback =
     url.pathname === "/api/lomi/webhook" ||
     url.pathname === "/api/payments/webhook" ||
@@ -130,6 +130,20 @@ export default clerkMiddleware(async (auth, request) => {
   // Clerk authentication (batch eval uses AI_EVAL_SECRET + AI_EVAL_CLERK_USER_ID on POST /api/ai/chat)
   if (!isPublicRoute(request) && !isAiEvalChat) {
     await auth.protect();
+  }
+
+  const needsAdminAccess = isAdminPanelPage(request) || isAdminApiRoute(request);
+  if (needsAdminAccess) {
+    const isAdmin = await userHasAdminAccess(authState);
+    if (isAdminPanelPage(request) && !isAdmin) {
+      return applySecurityHeaders(
+        attachRateLimitHeaders(NextResponse.redirect(new URL("/dashboard", request.url)), rateLimit)
+      );
+    }
+    if (isAdminApiRoute(request) && !isAdmin) {
+      const forbidden = NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return applySecurityHeaders(attachRateLimitHeaders(forbidden, rateLimit));
+    }
   }
 
   const response = NextResponse.next();
