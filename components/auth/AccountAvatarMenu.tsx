@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useClerk, useUser } from "@clerk/nextjs";
+import { useClerk } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { LogOut, Settings, Shield, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -11,7 +12,7 @@ type AccountAvatarMenuProps = {
 
 /** Site-themed account control — links to /account instead of Clerk's modal. */
 export function AccountAvatarMenu({ afterSignOutUrl = "/" }: AccountAvatarMenuProps) {
-  const { user } = useUser();
+  const { user } = useAppUser();
   const { signOut } = useClerk();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
