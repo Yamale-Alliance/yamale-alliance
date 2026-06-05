@@ -13,6 +13,11 @@ import {
 } from "@/lib/admin-law-utils";
 import type { Database } from "@/lib/database.types";
 import { syncLawCategories } from "@/lib/law-categories-sync";
+import {
+  computeLawContentHash,
+  LAW_RAG_PENDING_STATUS,
+} from "@/lib/laws-rag-integrity";
+import { scanFile } from "@/lib/uploads/scanner";
 
 /** Large PDF batches can take several minutes. */
 export const maxDuration = 300;
@@ -141,6 +146,15 @@ export async function POST(request: NextRequest) {
       let text: string;
       try {
         const buffer = Buffer.from(await file.arrayBuffer());
+        const scan = await scanFile(buffer, file.name);
+        if (!scan.clean) {
+          console.error("Admin laws bulk upload rejected by VirusTotal:", {
+            filename: file.name,
+            detections: scan.detections,
+          });
+          failed.push({ index: i, title, error: "File failed malware scan and was rejected." });
+          continue;
+        }
         text = await extractTextFromPdf(buffer, { forceOcr });
       } catch (e) {
         failed.push({
@@ -153,7 +167,7 @@ export async function POST(request: NextRequest) {
 
       const contentTrimmed = sanitizeLawContent(text) || null;
 
-      const row: LawInsert = {
+      const row = {
         country_id: countryId,
         category_id: categoryId,
         title,
@@ -163,7 +177,11 @@ export async function POST(request: NextRequest) {
         status,
         content: contentTrimmed,
         content_plain: contentTrimmed,
-      };
+        content_hash: contentTrimmed ? computeLawContentHash(contentTrimmed) : null,
+        ingested_by: admin.userId,
+        ingested_at: new Date().toISOString(),
+        rag_approval_status: LAW_RAG_PENDING_STATUS,
+      } as LawInsert;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error: insertError, data } = await (supabase.from("laws") as any)
