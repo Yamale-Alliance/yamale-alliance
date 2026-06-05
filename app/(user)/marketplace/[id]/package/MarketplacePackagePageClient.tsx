@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { Download, Loader2 } from "lucide-react";
 import { useMarketplacePaymentReturn } from "@/components/marketplace/use-marketplace-payment-return";
 import type { CheckoutPaymentProvider } from "@/components/checkout/PaymentMethodPicker";
@@ -62,7 +62,7 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
     item
       ? marketplaceItemDetailHref({ id: item.id, slug: item.slug, packagePage })
       : `/marketplace/${id}${packagePage ? "/package" : ""}`;
-  const { isLoaded, isSignedIn } = useUser();
+  const { isLoaded, isSignedIn } = useAppUser();
 
   const lomiAvailable =
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
