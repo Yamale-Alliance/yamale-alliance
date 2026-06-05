@@ -162,6 +162,24 @@ import {
   mergeUsedFlagsFromTitleMentions,
 } from "@/lib/ai-citation-verify";
 import { insertAiQueryLog } from "@/lib/ai-query-log";
+import { estimateClaudeCostUsd } from "@/lib/ai-query-cost";
+import {
+  APPROVED_ANTHROPIC_MODELS,
+  isApprovedAnthropicModel,
+} from "@/lib/ai-model-allowlist";
+import {
+  aiChatTierHourlyLimitMessage,
+  checkAiChatTierHourlyLimit,
+  validateAiChatQueryLength,
+} from "@/lib/ai-tier-hourly-limit";
+import { runAiChatSafetyCheck } from "@/lib/ai/safety";
+import {
+  OUTPUT_VALIDATION_USER_MESSAGE,
+  validateResponse,
+  type OutputValidationConfidence,
+} from "@/lib/ai/output-validator";
+import type { AiSubscriptionTier } from "@/lib/ai-system-prompt-compact";
+import { applyLawRagApprovalFilter } from "@/lib/law-rag-approval";
 import { recordAutoAiQualityFlags } from "@/lib/ai-auto-quality-flag";
 import {
   buildLawyersHrefFromAiResearch,
@@ -212,42 +230,30 @@ const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
 const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
 const CLAUDE_TIMEOUT_MS = getClaudeTimeoutMs();
 const CLAUDE_MODEL_ENV = process.env.CLAUDE_MODEL;
-const MODELS_URL = "https://api.anthropic.com/v1/models";
-
 if (!CLAUDE_API_KEY) {
   console.warn("CLAUDE_API_KEY not set - AI chat will not work");
 }
 
-/** Cached models list; refreshed on 404. */
-let cachedModels: Array<{ id: string }> | null = null;
 let cachedCountryNames: string[] | null = null;
 
-async function fetchModels(): Promise<Array<{ id: string }>> {
-  if (cachedModels?.length) return cachedModels;
-  const res = await fetch(MODELS_URL, {
-    headers: {
-      "x-api-key": CLAUDE_API_KEY!,
-      "anthropic-version": "2023-06-01",
-    },
-  });
-  if (!res.ok) throw new Error(`Models list failed: ${res.status}`);
-  const json = (await res.json()) as { data?: Array<{ id: string }> };
-  const list = json.data ?? [];
-  cachedModels = list;
-  return list;
+function approvedModelsCatalog(): Array<{ id: string }> {
+  return APPROVED_ANTHROPIC_MODELS.map((id) => ({ id }));
 }
 
-/** Basic: Haiku and below. Pro: Sonnet and below. Team: all. */
+/** Basic: Haiku. Pro: Haiku + Sonnet. Team: approved allowlist only. */
 function getAllowedModelIdsForTier(models: Array<{ id: string }>, tier: string): string[] {
   const id = (m: { id: string }) => m.id.toLowerCase();
   if (tier === "team") return models.map((m) => m.id);
-  if (tier === "pro") return models.filter((m) => id(m).includes("sonnet") || id(m).includes("haiku")).map((m) => m.id);
+  if (tier === "pro") {
+    return models
+      .filter((m) => id(m).includes("sonnet") || id(m).includes("haiku"))
+      .map((m) => m.id);
+  }
   return models.filter((m) => id(m).includes("haiku")).map((m) => m.id);
 }
 
 /**
- * Resolve model id for the chat request.
- * Basic: Haiku 4.5 and below. Pro: Sonnet 4.5 and below. Team: all models.
+ * Resolve model id for the chat request from the hardcoded approved allowlist.
  */
 async function resolveModelIdForRequest(
   tier: string,
@@ -255,7 +261,7 @@ async function resolveModelIdForRequest(
 ): Promise<string> {
   if (CLAUDE_MODEL_ENV) return CLAUDE_MODEL_ENV;
 
-  const models = await fetchModels();
+  const models = approvedModelsCatalog();
   const allowedIds = getAllowedModelIdsForTier(models, tier);
   const sonnet = models.find((m) => m.id.toLowerCase().includes("sonnet"));
   const haiku = models.find((m) => m.id.toLowerCase().includes("haiku"));
@@ -263,19 +269,23 @@ async function resolveModelIdForRequest(
     tier === "team"
       ? sonnet?.id ?? haiku?.id ?? models[0]?.id
       : tier === "pro"
-        ? (allowedIds.includes(sonnet?.id ?? "") ? sonnet?.id : allowedIds[0])
+        ? allowedIds.includes(sonnet?.id ?? "")
+          ? sonnet?.id
+          : allowedIds[0]
         : allowedIds[0];
-  const fallback = defaultId ?? sonnet?.id ?? haiku?.id ?? models[0]?.id ?? "claude-3-5-sonnet-20241022";
+  const fallback = defaultId ?? sonnet?.id ?? haiku?.id ?? models[0]?.id ?? "claude-sonnet-4-6";
 
-  if (requestedModel?.trim() && allowedIds.includes(requestedModel.trim())) {
-    return requestedModel.trim();
+  const requested = requestedModel?.trim();
+  if (requested && allowedIds.includes(requested) && isApprovedAnthropicModel(requested)) {
+    return requested;
   }
-  return fallback ?? "claude-3-5-sonnet-20241022";
+  return fallback;
 }
 
-function clearModelCache() {
-  cachedModels = null;
+function isAiChatDisabled(): boolean {
+  return process.env.AI_CHAT_DISABLED === "true";
 }
+
 
 async function getAllCountryNames(): Promise<string[]> {
   if (cachedCountryNames?.length) return cachedCountryNames;
@@ -1192,12 +1202,14 @@ async function listTrademarkLawTitlesByCountry(
   const countryId = countryRow?.id as string | undefined;
   if (!countryId) return [];
 
-  const { data } = await supabase
-    .from("laws")
-    .select("title, year")
-    .eq("country_id", countryId)
-    .neq("status", "Repealed")
-    .or("title.ilike.%trademark%,title.ilike.%trademarks%,title.ilike.%madrid%")
+  const { data } = await applyLawRagApprovalFilter(
+    supabase
+      .from("laws")
+      .select("title, year")
+      .eq("country_id", countryId)
+      .neq("status", "Repealed")
+      .or("title.ilike.%trademark%,title.ilike.%trademarks%,title.ilike.%madrid%")
+  )
     .order("title")
     .limit(20);
   const rows = (data ?? []) as Array<{ title: string; year?: number | null }>;
@@ -1399,22 +1411,16 @@ async function getCountryLawCounts(countryName: string): Promise<{
   if (!countryId) return null;
 
   const [totalRes, inForceRes, amendedRes, repealedRes] = await Promise.all([
-    supabase.from("laws").select("id", { count: "exact", head: true }).eq("country_id", countryId),
-    supabase
-      .from("laws")
-      .select("id", { count: "exact", head: true })
-      .eq("country_id", countryId)
-      .ilike("status", "%in force%"),
-    supabase
-      .from("laws")
-      .select("id", { count: "exact", head: true })
-      .eq("country_id", countryId)
-      .ilike("status", "%amend%"),
-    supabase
-      .from("laws")
-      .select("id", { count: "exact", head: true })
-      .eq("country_id", countryId)
-      .ilike("status", "%repeal%"),
+    applyLawRagApprovalFilter(supabase.from("laws")).select("id", { count: "exact", head: true }).eq("country_id", countryId),
+    applyLawRagApprovalFilter(
+      supabase.from("laws").select("id", { count: "exact", head: true }).eq("country_id", countryId)
+    ).ilike("status", "%in force%"),
+    applyLawRagApprovalFilter(
+      supabase.from("laws").select("id", { count: "exact", head: true }).eq("country_id", countryId)
+    ).ilike("status", "%amend%"),
+    applyLawRagApprovalFilter(
+      supabase.from("laws").select("id", { count: "exact", head: true }).eq("country_id", countryId)
+    ).ilike("status", "%repeal%"),
   ]);
 
   return {
@@ -1434,10 +1440,10 @@ async function getGlobalLawCounts(): Promise<{
 }> {
   const supabase = getSupabaseServer() as any;
   const [totalRes, inForceRes, amendedRes, repealedRes] = await Promise.all([
-    supabase.from("laws").select("id", { count: "exact", head: true }),
-    supabase.from("laws").select("id", { count: "exact", head: true }).ilike("status", "%in force%"),
-    supabase.from("laws").select("id", { count: "exact", head: true }).ilike("status", "%amend%"),
-    supabase.from("laws").select("id", { count: "exact", head: true }).ilike("status", "%repeal%"),
+    applyLawRagApprovalFilter(supabase.from("laws")).select("id", { count: "exact", head: true }),
+    applyLawRagApprovalFilter(supabase.from("laws")).select("id", { count: "exact", head: true }).ilike("status", "%in force%"),
+    applyLawRagApprovalFilter(supabase.from("laws")).select("id", { count: "exact", head: true }).ilike("status", "%amend%"),
+    applyLawRagApprovalFilter(supabase.from("laws")).select("id", { count: "exact", head: true }).ilike("status", "%repeal%"),
   ]);
   return {
     total: totalRes.count ?? 0,
@@ -1457,22 +1463,16 @@ async function getAllCountriesLawCounts(): Promise<
   const counts = await Promise.all(
     (countries as Array<{ id: string; name: string }>).map(async (country) => {
       const [totalRes, inForceRes, amendedRes, repealedRes] = await Promise.all([
-        supabase.from("laws").select("id", { count: "exact", head: true }).eq("country_id", country.id),
-        supabase
-          .from("laws")
-          .select("id", { count: "exact", head: true })
-          .eq("country_id", country.id)
-          .ilike("status", "%in force%"),
-        supabase
-          .from("laws")
-          .select("id", { count: "exact", head: true })
-          .eq("country_id", country.id)
-          .ilike("status", "%amend%"),
-        supabase
-          .from("laws")
-          .select("id", { count: "exact", head: true })
-          .eq("country_id", country.id)
-          .ilike("status", "%repeal%"),
+        applyLawRagApprovalFilter(supabase.from("laws")).select("id", { count: "exact", head: true }).eq("country_id", country.id),
+        applyLawRagApprovalFilter(
+          supabase.from("laws").select("id", { count: "exact", head: true }).eq("country_id", country.id)
+        ).ilike("status", "%in force%"),
+        applyLawRagApprovalFilter(
+          supabase.from("laws").select("id", { count: "exact", head: true }).eq("country_id", country.id)
+        ).ilike("status", "%amend%"),
+        applyLawRagApprovalFilter(
+          supabase.from("laws").select("id", { count: "exact", head: true }).eq("country_id", country.id)
+        ).ilike("status", "%repeal%"),
       ]);
       return {
         country: country.name,
@@ -1581,25 +1581,23 @@ async function fetchSuccessorForAmendedLaw(supabase: any, law: any): Promise<any
 
   const succId = getSuccessorIdFromMetadata(law.metadata);
   if (succId) {
-    const { data } = await supabase
-      .from("laws")
-      .select(LAWS_AI_SELECT)
-      .eq("id", succId)
-      .neq("status", "Repealed")
-      .maybeSingle();
+    const { data } = await applyLawRagApprovalFilter(
+      supabase.from("laws").select(LAWS_AI_SELECT).eq("id", succId).neq("status", "Repealed")
+    ).maybeSingle();
     if (data && normalizeLawStatus(data.status) !== "repealed") return data;
   }
 
   if (!law.country_id || !law.category_id) return null;
-  const { data: candidates } = await supabase
-    .from("laws")
-    .select(LAWS_AI_SELECT)
-    .eq("country_id", law.country_id)
-    .eq("category_id", law.category_id)
-    .eq("status", "In force")
-    .neq("id", law.id)
-    .or(LAW_HAS_BODY_OR_FILTER)
-    .limit(40);
+  const { data: candidates } = await applyLawRagApprovalFilter(
+    supabase
+      .from("laws")
+      .select(LAWS_AI_SELECT)
+      .eq("country_id", law.country_id)
+      .eq("category_id", law.category_id)
+      .eq("status", "In force")
+      .neq("id", law.id)
+      .or(LAW_HAS_BODY_OR_FILTER)
+  ).limit(40);
 
   let best: any = null;
   let bestScore = 0;
@@ -1877,13 +1875,14 @@ async function searchLegalLibrary(
             .map((t) => `title.ilike.%${escapeIlikePattern(t.toLowerCase())}%`)
             .filter((p) => p.length > 0);
           if (orParts.length === 0) return [] as any[];
-          const { data } = await supabase
-            .from("laws")
-            .select(LAWS_AI_SELECT)
-            .or(LAW_HAS_BODY_OR_FILTER)
-            .neq("status", "Repealed")
-            .or(orParts.join(","))
-            .limit(80);
+          const { data } = await applyLawRagApprovalFilter(
+            supabase
+              .from("laws")
+              .select(LAWS_AI_SELECT)
+              .or(LAW_HAS_BODY_OR_FILTER)
+              .neq("status", "Repealed")
+              .or(orParts.join(","))
+          ).limit(80);
           return (data ?? []) as any[];
         })
       );
@@ -1894,11 +1893,9 @@ async function searchLegalLibrary(
 
     if (isBilateralOrMultiCountryQuery) {
       // First try: title contains ALL named entities (true bilateral instrument).
-      let bilateralQuery = supabase
-        .from("laws")
-        .select(LAWS_AI_SELECT)
-        .or(LAW_HAS_BODY_OR_FILTER)
-        .neq("status", "Repealed");
+      let bilateralQuery = applyLawRagApprovalFilter(
+        supabase.from("laws").select(LAWS_AI_SELECT).or(LAW_HAS_BODY_OR_FILTER).neq("status", "Repealed")
+      );
       for (const t of bilateralTitleTokens.slice(0, 3)) {
         bilateralQuery = bilateralQuery.ilike("title", `%${escapeIlikePattern(t)}%`);
       }
@@ -1911,13 +1908,14 @@ async function searchLegalLibrary(
           .slice(0, 4)
           .map((t) => `title.ilike.%${escapeIlikePattern(t)}%`);
         if (orParts.length > 0) {
-          const { data: anyRows } = await supabase
-            .from("laws")
-            .select(LAWS_AI_SELECT)
-            .or(LAW_HAS_BODY_OR_FILTER)
-            .neq("status", "Repealed")
-            .or(orParts.join(","))
-            .limit(60);
+          const { data: anyRows } = await applyLawRagApprovalFilter(
+            supabase
+              .from("laws")
+              .select(LAWS_AI_SELECT)
+              .or(LAW_HAS_BODY_OR_FILTER)
+              .neq("status", "Repealed")
+              .or(orParts.join(","))
+          ).limit(60);
           if (anyRows?.length) titleMatchedLaws.push(...(anyRows as any[]));
         }
       }
@@ -2220,13 +2218,9 @@ async function searchLegalLibrary(
       tokenEscList.length > 0
     ) {
       const g = lawsGlobalTextIlikeOrTerms(tokenEscList.slice(0, 4));
-      const { data: fb2, error: fb2Err } = await supabase
-        .from("laws")
-        .select(LAWS_AI_SELECT)
-        .or(LAW_HAS_BODY_OR_FILTER)
-        .neq("status", "Repealed")
-        .or(g)
-        .limit(200);
+      const { data: fb2, error: fb2Err } = await applyLawRagApprovalFilter(
+        supabase.from("laws").select(LAWS_AI_SELECT).or(LAW_HAS_BODY_OR_FILTER).neq("status", "Repealed").or(g)
+      ).limit(200);
       if (!fb2Err && fb2?.length) {
         lawsRows = fb2 as any[];
       }
@@ -2282,24 +2276,21 @@ async function searchLegalLibrary(
         needSupplemental
           ? (async () => {
               if (countryId) {
-                const r = await supabase
-                  .from("laws")
-                  .select(LAWS_AI_SELECT)
-                  .or(LAW_HAS_BODY_OR_FILTER)
-                  .neq("status", "Repealed")
-                  .or(lawsCountryOrGlobalWithAnyEscapedTerms(countryId, supEsc))
-                  .limit(36);
+                const r = await applyLawRagApprovalFilter(
+                  supabase
+                    .from("laws")
+                    .select(LAWS_AI_SELECT)
+                    .or(LAW_HAS_BODY_OR_FILTER)
+                    .neq("status", "Repealed")
+                    .or(lawsCountryOrGlobalWithAnyEscapedTerms(countryId, supEsc))
+                ).limit(36);
                 return r.error ? [] : ((r.data ?? []) as any[]);
               }
               const gOr = lawsGlobalTextIlikeOrTerms(supEsc);
               if (!gOr) return [] as any[];
-              const r = await supabase
-                .from("laws")
-                .select(LAWS_AI_SELECT)
-                .or(LAW_HAS_BODY_OR_FILTER)
-                .neq("status", "Repealed")
-                .or(gOr)
-                .limit(36);
+              const r = await applyLawRagApprovalFilter(
+                supabase.from("laws").select(LAWS_AI_SELECT).or(LAW_HAS_BODY_OR_FILTER).neq("status", "Repealed").or(gOr)
+              ).limit(36);
               return r.error ? [] : ((r.data ?? []) as any[]);
             })()
           : Promise.resolve([] as any[]),
@@ -2942,12 +2933,9 @@ async function searchLegalLibraryQuickFallback(
       .map((t) => t.trim())
       .find((t) => t.length >= 5 && !AI_SEARCH_NOISE_TOKENS.has(t));
     const escaped = tok ? escapeIlikePattern(tok) : "";
-    let q = supabase
-      .from("laws")
-      .select(LAWS_AI_SELECT)
-      .or(LAW_HAS_BODY_OR_FILTER)
-      .neq("status", "Repealed")
-      .limit(40);
+    let q = applyLawRagApprovalFilter(
+      supabase.from("laws").select(LAWS_AI_SELECT).or(LAW_HAS_BODY_OR_FILTER).neq("status", "Repealed")
+    ).limit(40);
     let resolvedCountryId: string | undefined;
     if (country?.trim()) {
       const dbName = resolveUserCountryNameToDbName(country.trim());
@@ -3143,10 +3131,19 @@ async function finalizeAssistantTurn(opts: {
   }
 
   const citationParse = extractCitedDocIndices(assistantTextRaw, legalContext.length);
+  const retrievedLawIds = platformGuideMeta ? [] : legalContext.map((l) => l.id);
+  const outputValidation = validateResponse(assistantTextRaw, retrievedLawIds);
+  let outputConfidence: OutputValidationConfidence = outputValidation.confidence;
+
   let content = assistantTextRaw
     .replace(/\s*\[(?=[^\]]*\bdoc:\s*\d+)[^\]]+\]/gi, "")
     .replace(/[ \t]{2,}/g, " ")
     .trim();
+
+  if (!outputValidation.valid) {
+    content = OUTPUT_VALIDATION_USER_MESSAGE;
+    outputConfidence = "low";
+  }
 
   if (!platformGuideMeta) {
     content = await enrichAiResearchAnswerWithOfficialSource({
@@ -3230,17 +3227,22 @@ async function finalizeAssistantTurn(opts: {
   };
 
   const latencyMs = Date.now() - aiTurnStartedAt;
+  const estimatedCostUsd = estimateClaudeCostUsd(modelId, inputTokens, outputTokens);
   const queryLogId = await insertAiQueryLog(getSupabaseServer(), {
     user_id: userId,
     query: userQuery,
     country_detected: effectiveCountry ?? dbDetectedCountry ?? null,
     frameworks_detected: supranationalFrameworkNames.length > 0 ? supranationalFrameworkNames : null,
-    retrieved_law_ids: platformGuideMeta ? [] : legalContext.map((l) => l.id),
+    retrieved_law_ids: retrievedLawIds,
     system_prompt_version: SYSTEM_PROMPT_VERSION,
     model: modelId,
-    response_preview: assistantTextRaw,
+    response_preview: outputValidation.valid ? assistantTextRaw : content,
     latency_ms: latencyMs,
     citation_issues: citationVerification,
+    input_tokens: inputTokens,
+    output_tokens: outputTokens,
+    estimated_cost_usd: estimatedCostUsd,
+    model_used: modelId,
   });
 
   if (!platformGuideMeta) {
@@ -3311,6 +3313,7 @@ async function finalizeAssistantTurn(opts: {
     citationVerification,
     queryLogId,
     webSearchNote,
+    outputConfidence,
   };
 }
 
@@ -3330,6 +3333,13 @@ function resolveChatUserId(request: NextRequest, clerkUserId: string | null | un
 
 export async function POST(request: NextRequest) {
   try {
+    if (isAiChatDisabled()) {
+      return NextResponse.json(
+        { error: "AI research is temporarily unavailable. Please try again later." },
+        { status: 503 }
+      );
+    }
+
     const { userId: clerkUserId } = await auth();
     const userId = resolveChatUserId(request, clerkUserId);
     if (!userId) {
@@ -3399,6 +3409,25 @@ export async function POST(request: NextRequest) {
 
     const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
     const userQuery = lastUserMessage?.content || "";
+
+    const queryLengthCheck = validateAiChatQueryLength(userQuery);
+    if (!queryLengthCheck.ok) {
+      return NextResponse.json({ error: queryLengthCheck.error }, { status: 400 });
+    }
+
+    if (!isEvalBatch) {
+      const hourly = await checkAiChatTierHourlyLimit(userId, tier);
+      if (!hourly.allowed) {
+        return NextResponse.json(
+          { error: aiChatTierHourlyLimitMessage(tier) },
+          {
+            status: 429,
+            headers: { "Retry-After": String(hourly.retryAfterSeconds) },
+          }
+        );
+      }
+    }
+
     const assistantWorkflowMeta = isAssistantWorkflowMetaQuery(userQuery);
     const platformGuideMeta = isPlatformGuideMetaQuery(userQuery);
 
@@ -3886,7 +3915,10 @@ export async function POST(request: NextRequest) {
       Boolean(specificLawHint) ||
       userRequestsFullLawText(userQuery);
 
+    const subscriptionTier = (tier || "free") as AiSubscriptionTier;
+
     const systemPromptParamsRaw = {
+      subscriptionTier,
       supranationalFrameworksInQuery: supranationalFrameworksInQuery.map((m) => ({
         canonicalName: m.canonicalName,
         description: m.description,
@@ -3981,6 +4013,16 @@ export async function POST(request: NextRequest) {
 
     const modelId = await modelIdPromise;
     perfStep(perf, "pre_stream", { preStreamMs: Date.now() - aiTurnStartedAt, modelId });
+
+    if (!platformGuideMeta && !assistantWorkflowMeta && !isEvalBatch) {
+      const safety = await runAiChatSafetyCheck(userQuery);
+      if (!safety.safe) {
+        return NextResponse.json(
+          { error: safety.reason ?? "This query cannot be processed." },
+          { status: 400 }
+        );
+      }
+    }
 
     const outputCapEnv = Number.parseInt(process.env.AI_CHAT_MAX_OUTPUT_TOKENS ?? "", 10);
     const detailedOutputCap =
@@ -4121,7 +4163,6 @@ export async function POST(request: NextRequest) {
             if (claudeRes.status === 401) {
               errorMessage = "Invalid API key. Please check CLAUDE_API_KEY configuration.";
             } else if (claudeRes.status === 404) {
-              clearModelCache();
               errorMessage = `Model not found (${modelId}). Set CLAUDE_MODEL in .env to a valid model ID from your account.`;
             } else if (claudeRes.status === 429) {
               errorMessage = "Rate limit exceeded. Please try again later.";
