@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ShoppingCart, X, Loader2, Trash2 } from "lucide-react";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import {
   MARKETPLACE_CART_UPDATED_EVENT,
   notifyMarketplaceCartUpdated,
@@ -42,7 +42,7 @@ export function CartDrawer() {
   const lomiAvailable =
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
     Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
-  const { isSignedIn } = useUser();
+  const { isSignedIn } = useAppUser();
   const pathname = usePathname();
   const { alert: showAlert, alertDialog } = useAlertDialog();
 
