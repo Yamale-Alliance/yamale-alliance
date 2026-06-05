@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useAppAuth } from "@/components/auth/AppAuthProvider";
 import { useRouter } from "next/navigation";
 import { Loader2, Clock } from "lucide-react";
 
 export default function LawyerPendingPage() {
-  const { isLoaded, userId } = useAuth();
+  const { isLoaded, userId } = useAppAuth();
   const router = useRouter();
 
   useEffect(() => {
