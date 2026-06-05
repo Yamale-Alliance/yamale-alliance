@@ -1,4 +1,5 @@
 import { lawsCountryOrGlobalWithTitleTerms } from "@/lib/law-country-scope";
+import { applyLawRagApprovalFilter } from "@/lib/law-rag-approval";
 import { LAW_HAS_BODY_OR_FILTER } from "@/lib/law-readable-body";
 import { INTENT_TITLE_LAWS_SELECT } from "@/lib/ai-intent-title-retrieval";
 
@@ -25,11 +26,9 @@ export async function fastCountryScopedLawFallback(
     .map((w) => w.trim().toLowerCase())
     .filter((w) => w.length >= 3 && w.length <= 22);
 
-  let q = supabase
-    .from("laws")
-    .select(LAWS_LIST_SELECT)
-    .or(LAW_HAS_BODY_OR_FILTER)
-    .neq("status", "Repealed");
+  let q = applyLawRagApprovalFilter(
+    supabase.from("laws").select(LAWS_LIST_SELECT).or(LAW_HAS_BODY_OR_FILTER).neq("status", "Repealed")
+  );
 
   if (words.length > 0) {
     q = q.or(lawsCountryOrGlobalWithTitleTerms(opts.countryId, words));
