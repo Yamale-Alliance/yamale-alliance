@@ -18,7 +18,7 @@ import {
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import {
   Send,
   Square,
@@ -139,6 +139,7 @@ type Message = {
   processLog?: import("@/lib/ai-chat-process").AiProcessStep[];
   processStartedAt?: number;
   processCompletedAt?: number;
+  outputConfidence?: "high" | "medium" | "low";
 };
 
 type NegativeFeedbackModalState = {
@@ -158,6 +159,8 @@ const CURRENT_CHAT_ID_KEY = "yamale-ai-current-chat-id";
 const MAX_SESSIONS = 50;
 const AI_RESEARCH_NOTICE_VERSION = "v1";
 const AI_RESEARCH_NOTICE_KEY = `yamale-ai-research-notice:${AI_RESEARCH_NOTICE_VERSION}`;
+const PII_WARNING_VERSION = "v1";
+const PII_WARNING_KEY = `yamale-ai-pii-warning:${PII_WARNING_VERSION}`;
 const AI_CHAT_TIMEOUT_MS = 110000;
 /** mailto URLs above ~2k chars often fail in Gmail (413 / blank page). */
 const MAILTO_BODY_INTRO =
@@ -224,7 +227,7 @@ function getLastExchangeScrollMessageId(messages: Message[]): string | undefined
 }
 
 export default function AIResearchClient() {
-  const { user, isLoaded } = useUser();
+  const { user, isLoaded } = useAppUser();
   const searchParams = useClientSearchParams();
   const chatStorageReadyRef = useRef(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -332,6 +335,7 @@ export default function AIResearchClient() {
   const [negativeSubmitting, setNegativeSubmitting] = useState(false);
   const [noticeCheckDone, setNoticeCheckDone] = useState(false);
   const [hasAcknowledgedNotice, setHasAcknowledgedNotice] = useState(false);
+  const [piiWarningDismissed, setPiiWarningDismissed] = useState(false);
   const [shellTopOffset, setShellTopOffset] = useState(72);
 
   const tierFromMetadata: Tier =
@@ -579,6 +583,23 @@ export default function AIResearchClient() {
       setNoticeCheckDone(true);
     }
   }, [user]);
+
+  useEffect(() => {
+    try {
+      setPiiWarningDismissed(localStorage.getItem(PII_WARNING_KEY) === "1");
+    } catch {
+      setPiiWarningDismissed(false);
+    }
+  }, []);
+
+  const dismissPiiWarning = () => {
+    setPiiWarningDismissed(true);
+    try {
+      localStorage.setItem(PII_WARNING_KEY, "1");
+    } catch {
+      // ignore
+    }
+  };
 
   // Handle payment confirmation after PawaPay (session_id) or Lomi (cookie + from_lomi=1)
   useEffect(() => {
@@ -1007,6 +1028,12 @@ export default function AIResearchClient() {
             ? (data.citationVerification as Message["citationVerification"])
             : undefined,
         webSearchNote: typeof data.webSearchNote === "string" ? data.webSearchNote : null,
+        outputConfidence:
+          data.outputConfidence === "high" ||
+          data.outputConfidence === "medium" ||
+          data.outputConfidence === "low"
+            ? data.outputConfidence
+            : undefined,
         processStartedAt,
       };
 
@@ -1536,6 +1563,25 @@ export default function AIResearchClient() {
 
           <div ref={chatScrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             <div className="mx-auto max-w-[760px] px-5 py-5 sm:px-6 md:px-8 md:py-10">
+              {!piiWarningDismissed ? (
+                <div
+                  role="status"
+                  className="mb-4 flex items-start gap-3 rounded-[8px] border border-amber-300/80 bg-amber-50 px-3 py-2.5 text-[13px] leading-snug text-amber-950 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100"
+                >
+                  <p className="flex-1">
+                    Do not enter personal names, case details, or confidential client information. Queries are
+                    processed by Anthropic&apos;s AI systems.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={dismissPiiWarning}
+                    className="shrink-0 rounded px-2 py-0.5 text-[12px] font-semibold text-amber-900/80 hover:bg-amber-100/80 dark:text-amber-200 dark:hover:bg-amber-900/40"
+                    aria-label="Dismiss privacy notice"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              ) : null}
               {messages.length === 0 ? (
                 <div className="text-center">
                   <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card shadow-sm sm:mb-6 sm:h-14 sm:w-14">
@@ -1663,6 +1709,25 @@ export default function AIResearchClient() {
                             startedAt={msg.processStartedAt ?? Date.now()}
                             completedAt={msg.processCompletedAt}
                           />
+                        ) : null}
+                        {msg.role === "assistant" &&
+                        msg.outputConfidence &&
+                        !isAssistantTurnInProgress ? (
+                          <span
+                            className={`mb-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                              msg.outputConfidence === "high"
+                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
+                                : msg.outputConfidence === "medium"
+                                  ? "bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-100"
+                                  : "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-200"
+                            }`}
+                          >
+                            {msg.outputConfidence === "high"
+                              ? "Grounded"
+                              : msg.outputConfidence === "medium"
+                                ? "Partially Grounded"
+                                : "Low Confidence — verify with source"}
+                          </span>
                         ) : null}
                         {msg.role === "assistant" && msg.content.trim() ? (
                           <div className="prose prose-sm max-w-none break-words text-foreground dark:prose-invert prose-headings:font-semibold prose-headings:text-base sm:prose-headings:text-lg prose-p:my-2 prose-p:text-[13px] sm:prose-p:text-sm prose-ul:my-2 prose-li:my-0.5 prose-strong:font-semibold prose-a:break-words prose-a:text-[#C8922A] prose-a:underline hover:prose-a:opacity-90">
