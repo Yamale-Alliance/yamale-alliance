@@ -1,5 +1,9 @@
 import { buildYamaleCategoriesPromptBlock } from "@/lib/ai-canonical-categories";
 import { buildAiContextualBrainPromptBlock } from "@/lib/ai-contextual-brain";
+import {
+  buildCompactAiResearchSystemPrompt,
+  type AiSubscriptionTier,
+} from "@/lib/ai-system-prompt-compact";
 import { appendOfficialSourceVerificationToAnswer } from "@/lib/official-sources";
 
 /**
@@ -74,6 +78,8 @@ export type BuildAiResearchSystemPromptParams = {
    * Should match the number of documents passed in `legalContext` so [doc:N] lines up with UI.
    */
   legalContextMaxDocs?: number;
+  /** Subscription tier — selects compact security-hardened prompt template. */
+  subscriptionTier?: AiSubscriptionTier;
 };
 
 export type SystemPromptValidationResult = {
@@ -396,8 +402,16 @@ function buildAnswerStyleRules(
   return parts.join("\n\n");
 }
 
+function useLegacyVerboseSystemPrompt(): boolean {
+  return process.env.AI_LEGACY_SYSTEM_PROMPT === "1";
+}
+
 export function buildAiResearchSystemPrompt(p: BuildAiResearchSystemPromptParams): string {
   const params = normalizeSystemPromptParams(p);
+  if (!useLegacyVerboseSystemPrompt()) {
+    const tier: AiSubscriptionTier = params.subscriptionTier ?? "basic";
+    return buildCompactAiResearchSystemPrompt(params, tier);
+  }
   const originalDocCount = p.legalContext.length;
   const maxDocsForLog = params.legalContextMaxDocs ?? MAX_SYSTEM_PROMPT_LEGAL_DOCS;
   if (originalDocCount > maxDocsForLog) {
