@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import { isAdvisoryWorkspacePreviewEnabled } from "@/lib/law-firm-advisory-preview";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 /** GET: list published marketplace items. If user is signed in, includes owned: true for purchased items. */
@@ -9,7 +10,7 @@ export async function GET() {
     const { data: rows, error } = await supabase
       .from("marketplace_items")
       .select(
-        "id, slug, type, title, author, description, price_cents, currency, image_url, sort_order, created_at, video_url, file_format, file_name, vault_subcategory, focus_country"
+        "id, slug, type, title, author, description, price_cents, currency, image_url, sort_order, created_at, video_url, file_format, file_name, vault_subcategory, focus_country, is_course"
       )
       .eq("published", true)
       .order("sort_order", { ascending: true })
@@ -36,6 +37,7 @@ export async function GET() {
       file_name: string | null;
       vault_subcategory: string | null;
       focus_country: string | null;
+      is_course: boolean;
     };
     const items: Row[] = (rows ?? []) as Row[];
     const { userId } = await auth();
@@ -58,7 +60,10 @@ export async function GET() {
       owned: ownedIds.has(item.id),
     }));
 
-    return NextResponse.json({ items: itemsWithOwned });
+    return NextResponse.json({
+      items: itemsWithOwned,
+      advisoryWorkspacePreview: isAdvisoryWorkspacePreviewEnabled(),
+    });
   } catch (err) {
     console.error("Marketplace API error:", err);
     return NextResponse.json({ error: "Failed to load The Yamalé Vault" }, { status: 500 });
