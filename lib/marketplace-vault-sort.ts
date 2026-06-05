@@ -1,5 +1,5 @@
 import { displayVaultProductTitle } from "@/lib/marketplace-display";
-import { isLawFirmDevelopmentMarketplaceItem } from "@/lib/law-firm-package-marketing";
+import { isMarketplaceCourseItem } from "@/lib/marketplace-course";
 
 export type VaultSortMode = "az" | "recent" | "all";
 
@@ -29,7 +29,7 @@ export function pinLawFirmDevelopmentPackageFirst<T extends VaultSortableProduct
   const pinned: T[] = [];
   const rest: T[] = [];
   for (const item of items) {
-    if (isLawFirmDevelopmentMarketplaceItem(item)) pinned.push(item);
+    if (isMarketplaceCourseItem(item)) pinned.push(item);
     else rest.push(item);
   }
   if (pinned.length === 0) return items;
