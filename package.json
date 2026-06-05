@@ -50,6 +50,7 @@
     "arabic-persian-reshaper": "^1.0.1",
     "axios": "^1.13.4",
     "cloudinary": "^2.9.0",
+    "docshift": "^0.0.73",
     "docx-preview": "^0.3.7",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
