@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { auth } from "@clerk/nextjs/server";
+import { isAdvisoryWorkspacePreviewEnabled } from "@/lib/law-firm-advisory-preview";
 import { fetchPublishedMarketplaceItem } from "@/lib/marketplace-item-db";
 import type { Database } from "@/lib/database.types";
 
@@ -21,7 +22,7 @@ export async function GET(
     const { data, error } = await fetchPublishedMarketplaceItem(
       supabase,
       slugOrId,
-      "id, slug, type, title, author, description, price_cents, currency, image_url, published, sort_order, file_path, file_name, file_format, video_url, landing_page_html, package_offers, vault_subcategory, created_at"
+      "id, slug, type, title, author, description, price_cents, currency, image_url, published, sort_order, file_path, file_name, file_format, video_url, landing_page_html, package_offers, vault_subcategory, created_at, is_course"
     );
 
     const row = data as (MarketplaceItemRow & { file_path?: string | null; video_url?: string | null }) | null;
@@ -46,7 +47,10 @@ export async function GET(
     const has_file = !!row.file_path;
     const { file_path: _fp, ...rest } = row;
     const item = { ...rest, purchased, has_file };
-    return NextResponse.json({ item });
+    return NextResponse.json({
+      item,
+      advisoryWorkspacePreview: isAdvisoryWorkspacePreviewEnabled(),
+    });
   } catch (err) {
     console.error("Marketplace item API error:", err);
     return NextResponse.json({ error: "Failed to load item" }, { status: 500 });
