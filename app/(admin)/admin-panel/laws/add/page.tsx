@@ -5,6 +5,9 @@ import Link from "next/link";
 import { ArrowLeft, Loader2, FileUp, FileText, CheckCircle2, Link2 } from "lucide-react";
 import { LAW_YEAR_MIN, LAW_YEAR_MAX } from "@/lib/admin-law-utils";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
+import {
+  AdminVirusScanUploadBanner,
+} from "@/components/admin/AdminVirusScanUploadBanner";
 
 type Country = { id: string; name: string };
 type Category = { id: string; name: string };
@@ -32,6 +35,7 @@ export default function AdminLawsAddPage() {
   const [previewingUrl, setPreviewingUrl] = useState(false);
   const [urlImportReady, setUrlImportReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const lawUploadActive = submitting && mode === "upload";
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -654,6 +658,11 @@ export default function AdminLawsAddPage() {
               <p className="mt-1 text-xs text-amber-600 dark:text-amber-500">
                 Large PDFs or OCR can take 1–2 minutes. Please wait and do not refresh.
               </p>
+              <AdminVirusScanUploadBanner
+                active={lawUploadActive}
+                fileName={file?.name ?? null}
+                className="mt-2"
+              />
             </div>
             <div className="flex items-start gap-3 rounded-lg border border-input bg-muted/30 px-4 py-3">
               <input
@@ -700,7 +709,7 @@ export default function AdminLawsAddPage() {
             {submitting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                {mode === "upload" ? "Extracting & adding… (may take 1–2 min)" : "Adding…"}
+                {mode === "upload" ? "Please wait…" : "Adding…"}
               </>
             ) : (
               "Add law"
