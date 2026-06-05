@@ -21,6 +21,7 @@ const VALID_ITEM_TYPES = ["book", "course", "template", "guide"] as const;
 
 export type VaultSeriesItemInput = {
   id?: string;
+  type?: string;
   title: string;
   description?: string | null;
   price_cents: number;
@@ -48,7 +49,10 @@ export type VaultSeriesBundleInput = {
   default_item_type?: string;
   sort_order?: number;
   items: VaultSeriesItemInput[];
+  /** Permanently delete series-born items removed from the editor. */
   deleted_item_ids?: string[];
+  /** Return linked vault items to standalone (clear vault_subcategory). */
+  unlinked_item_ids?: string[];
 };
 
 export async function resolveVaultSeriesId(
@@ -182,8 +186,17 @@ export async function saveVaultSeriesBundle(
   if (upsertErr) throw new Error(upsertErr.message);
 
   const deleted = new Set((input.deleted_item_ids ?? []).filter(Boolean));
+  const unlinked = new Set((input.unlinked_item_ids ?? []).filter(Boolean));
   for (const delId of deleted) {
     await supabase.from("marketplace_items").delete().eq("id", delId);
+  }
+  for (const unlinkId of unlinked) {
+    if (deleted.has(unlinkId)) continue;
+    const { error: unlinkErr } = await supabase
+      .from("marketplace_items")
+      .update({ vault_subcategory: null, updated_at: new Date().toISOString() } as never)
+      .eq("id", unlinkId);
+    if (unlinkErr) throw new Error(unlinkErr.message);
   }
 
   const savedItems: Record<string, unknown>[] = [];
@@ -202,8 +215,13 @@ export async function saveVaultSeriesBundle(
           file_name: item.file_name?.trim() || null,
           file_format: item.file_format?.trim() || null,
         };
+    const itemType = VALID_ITEM_TYPES.includes(
+      item.type as (typeof VALID_ITEM_TYPES)[number]
+    )
+      ? item.type
+      : defaultType;
     const row = {
-      type: defaultType,
+      type: itemType,
       title,
       author: item.author?.trim() || "Yamalé Alliance",
       description: item.description?.trim() || null,
@@ -256,6 +274,24 @@ export async function saveVaultSeriesBundle(
         }
       }
     }
+  }
+
+  const payloadIds = new Set(
+    input.items.map((item) => item.id?.trim()).filter((id): id is string => Boolean(id))
+  );
+  const { data: existingMembers, error: membersErr } = await supabase
+    .from("marketplace_items")
+    .select("id")
+    .eq("vault_subcategory", seriesId);
+  if (membersErr) throw new Error(membersErr.message);
+
+  for (const row of (existingMembers ?? []) as { id: string }[]) {
+    if (payloadIds.has(row.id) || deleted.has(row.id) || unlinked.has(row.id)) continue;
+    const { error: orphanErr } = await supabase
+      .from("marketplace_items")
+      .update({ vault_subcategory: null, updated_at: new Date().toISOString() } as never)
+      .eq("id", row.id);
+    if (orphanErr) throw new Error(orphanErr.message);
   }
 
   return { seriesId, items: savedItems };
