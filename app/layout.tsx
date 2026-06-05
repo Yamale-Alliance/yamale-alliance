@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
-import { ClerkProvider } from "@clerk/nextjs";
 import { Inter, Playfair_Display } from "next/font/google";
+import { AppAuthProvider } from "@/components/auth/AppAuthProvider";
 import { ClerkDevOriginWarning } from "@/components/auth/ClerkDevOriginWarning";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import { SiteJsonLd } from "@/components/seo/SiteJsonLd";
-import { CLERK_PUBLISHABLE_KEY } from "@/lib/clerk-config";
-import { yamaleClerkAppearance } from "@/lib/clerk-appearance";
 import { createRootMetadata } from "@/lib/site-seo";
 import { getPlatformBranding } from "@/lib/platform-branding";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
@@ -40,10 +38,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider
-      publishableKey={CLERK_PUBLISHABLE_KEY || undefined}
-      appearance={yamaleClerkAppearance}
-    >
+    <AppAuthProvider>
       <html lang="en" suppressHydrationWarning>
         <head>
           <SiteJsonLd />
@@ -69,6 +64,6 @@ export default function RootLayout({
           </ThemeProvider>
         </body>
       </html>
-    </ClerkProvider>
+    </AppAuthProvider>
   );
 }
