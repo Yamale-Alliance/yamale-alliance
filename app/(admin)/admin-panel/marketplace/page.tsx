@@ -12,6 +12,10 @@ import { AdminVaultSubcategorySelect } from "@/components/admin/AdminVaultSubcat
 import { AdminVaultFocusCountrySelect } from "@/components/admin/AdminVaultFocusCountrySelect";
 import { AdminVaultSeriesEditor } from "@/components/admin/AdminVaultSeriesEditor";
 import {
+  AdminVirusScanUploadBanner,
+} from "@/components/admin/AdminVirusScanUploadBanner";
+import {
+  isVaultSeriesMemberItem,
   labelForVaultSubcategory,
   listVaultSeries,
   setVaultSeriesRegistry,
@@ -90,6 +94,7 @@ export default function AdminMarketplacePage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [dbSeriesIds, setDbSeriesIds] = useState<Set<string>>(() => new Set());
   const [fileUploading, setFileUploading] = useState(false);
+  const [uploadingFileName, setUploadingFileName] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<{ path: string; file_name: string; file_format: string } | null>(null);
   const [removeFile, setRemoveFile] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
@@ -291,6 +296,7 @@ export default function AdminMarketplacePage() {
 
   const handleUploadFile = async (file: File, itemId?: string) => {
     setFileUploading(true);
+    setUploadingFileName(file.name);
     setError(null);
     try {
       const form = new FormData();
@@ -304,7 +310,6 @@ export default function AdminMarketplacePage() {
       const data = await parseJsonSafe(res);
       if (!res.ok) {
         setError(data.error ?? "Upload failed");
-        setFileUploading(false);
         return;
       }
       if (data.path && data.file_name != null && data.file_format != null) {
@@ -326,8 +331,10 @@ export default function AdminMarketplacePage() {
       }
     } catch {
       setError("Upload failed (network or blocked response). Check the browser Network tab.");
+    } finally {
+      setFileUploading(false);
+      setUploadingFileName(null);
     }
-    setFileUploading(false);
   };
 
   const fetchItems = () => {
@@ -405,6 +412,11 @@ export default function AdminMarketplacePage() {
       setSeriesEditorId(sid === "new" || !sid ? "new" : sid);
     }
   }, [searchParams]);
+
+  const standaloneItems = useMemo(
+    () => items.filter((item) => !isVaultSeriesMemberItem(item)),
+    [items]
+  );
 
   const seriesSummaries = useMemo(() => {
     const bySeries = new Map<string, MarketplaceItem[]>();
@@ -872,9 +884,14 @@ export default function AdminMarketplacePage() {
                   className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-3 py-2 text-sm text-muted-foreground hover:border-primary hover:text-foreground disabled:opacity-50"
                 >
                   {fileUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                  {fileUploading ? "Uploading…" : "Upload file"}
+                  {fileUploading ? "Please wait…" : "Upload file"}
                 </button>
               )}
+              <AdminVirusScanUploadBanner
+                active={fileUploading}
+                fileName={uploadingFileName}
+                className="mt-2"
+              />
             </div>
             <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
               <label className="flex items-center gap-2 text-sm">
@@ -1014,6 +1031,10 @@ export default function AdminMarketplacePage() {
         </div>
       ) : (
         <div className="mt-6 overflow-x-auto">
+          <p className="mb-3 text-xs text-muted-foreground">
+            Standalone vault items only. Items in a series are managed in{" "}
+            <strong>Edit series</strong> above and appear on the public vault inside that series.
+          </p>
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-border">
@@ -1029,7 +1050,7 @@ export default function AdminMarketplacePage() {
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
+              {standaloneItems.map((item) => (
                 <tr key={item.id} className="border-b border-border/70">
                   <td className="py-3">
                     {item.image_url ? (
@@ -1091,8 +1112,12 @@ export default function AdminMarketplacePage() {
               ))}
             </tbody>
           </table>
-          {items.length === 0 && !adding && (
-            <p className="py-8 text-center text-muted-foreground">No items in The Yamalé Vault yet. Add one above.</p>
+          {standaloneItems.length === 0 && !adding && (
+            <p className="py-8 text-center text-muted-foreground">
+              {items.length > 0
+                ? "No standalone items — all vault products are in a series. Add a new item or open a series to manage them."
+                : "No items in The Yamalé Vault yet. Add one above."}
+            </p>
           )}
         </div>
       )}
@@ -1349,10 +1374,15 @@ export default function AdminMarketplacePage() {
                       className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-3 py-2 text-sm text-muted-foreground hover:border-primary hover:text-foreground disabled:opacity-50"
                     >
                       {fileUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                      {fileUploading ? "Uploading…" : removeFile ? "Upload new file" : "Replace file"}
+                      {fileUploading ? "Please wait…" : removeFile ? "Upload new file" : "Replace file"}
                     </button>
                   </>
                 )}
+                <AdminVirusScanUploadBanner
+                  active={fileUploading}
+                  fileName={uploadingFileName}
+                  className="mt-2"
+                />
               </div>
               <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
                 <label className="flex items-center gap-2 text-sm">
