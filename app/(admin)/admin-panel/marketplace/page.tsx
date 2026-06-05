@@ -52,6 +52,7 @@ type MarketplaceItem = {
   item_pack?: Record<string, unknown> | null;
   vault_subcategory?: string | null;
   focus_country?: string | null;
+  is_course?: boolean;
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -133,6 +134,7 @@ export default function AdminMarketplacePage() {
   const [purchases, setPurchases] = useState<PurchaseRow[]>([]);
   const [loadingPurchases, setLoadingPurchases] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [syncingCourseId, setSyncingCourseId] = useState<string | null>(null);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const { confirm, confirmDialog } = useConfirm();
@@ -497,6 +499,7 @@ export default function AdminMarketplacePage() {
             (form.elements.namedItem("vault_subcategory") as HTMLSelectElement)?.value?.trim() || null,
           focus_country:
             (form.elements.namedItem("focus_country") as HTMLSelectElement)?.value?.trim() || null,
+          is_course: (form.elements.namedItem("is_course") as HTMLInputElement)?.checked ?? false,
         }),
       });
       const data = await res.json();
@@ -582,6 +585,7 @@ export default function AdminMarketplacePage() {
             (form.elements.namedItem("vault_subcategory") as HTMLSelectElement)?.value?.trim() || null,
           focus_country:
             (form.elements.namedItem("focus_country") as HTMLSelectElement)?.value?.trim() || null,
+          is_course: (form.elements.namedItem("is_course") as HTMLInputElement)?.checked ?? false,
         }),
       });
       const data = await res.json();
@@ -600,6 +604,30 @@ export default function AdminMarketplacePage() {
       setError("Network error");
     }
     setSaving(false);
+  };
+
+  const handleSyncCourseModules = async (itemId: string) => {
+    setSyncingCourseId(itemId);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await fetch(`${origin}/api/admin/marketplace/${itemId}/sync-course`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Sync failed");
+        return;
+      }
+      setNotice(
+        `Synced ${data.moduleCount ?? 0} files across ${data.phaseCount ?? 0} phase folder(s) from the ZIP.`
+      );
+    } catch {
+      setError("Network error during course sync");
+    } finally {
+      setSyncingCourseId(null);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -848,16 +876,23 @@ export default function AdminMarketplacePage() {
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-4 sm:col-span-2">
+            <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
               <label className="flex items-center gap-2 text-sm">
                 <input name="published" type="checkbox" defaultChecked className="rounded border-input" />
                 Published (visible in The Yamalé Vault)
+              </label>
+              <label className="flex items-center gap-2 text-sm" title="Purchasers get View course and the online implementation workspace">
+                <input name="is_course" type="checkbox" className="rounded border-input" />
+                Online course (implementation workspace)
               </label>
               <label className="flex items-center gap-2 text-sm">
                 Sort order
                 <input name="sort_order" type="number" defaultValue="0" className="w-20 rounded border border-input bg-background px-2 py-1 text-sm" />
               </label>
             </div>
+            <p className="text-xs text-muted-foreground sm:col-span-2">
+              For course items, upload a ZIP then save and use <strong>Sync modules from ZIP</strong> when editing.
+            </p>
             <div className="flex gap-2 sm:col-span-2">
               <button type="submit" disabled={saving} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create"}
@@ -1324,6 +1359,15 @@ export default function AdminMarketplacePage() {
                   <input name="published" type="checkbox" defaultChecked={editing.published} className="rounded border-input" />
                   Published
                 </label>
+                <label className="flex items-center gap-2 text-sm" title="Purchasers get View course and the online implementation workspace">
+                  <input
+                    name="is_course"
+                    type="checkbox"
+                    defaultChecked={Boolean(editing.is_course)}
+                    className="rounded border-input"
+                  />
+                  Online course (implementation workspace)
+                </label>
                 <label className="flex items-center gap-2 text-sm">
                   Sort order
                   <input name="sort_order" type="number" defaultValue={editing.sort_order} className="w-20 rounded border border-input bg-background px-2 py-1 text-sm" />
@@ -1332,6 +1376,20 @@ export default function AdminMarketplacePage() {
               </div>
             </form>
             <div className="flex shrink-0 flex-wrap gap-2 border-t border-border bg-card px-4 py-4 sm:px-6">
+              {editing.is_course && editing.file_path ? (
+                <button
+                  type="button"
+                  disabled={syncingCourseId === editing.id || saving}
+                  onClick={() => void handleSyncCourseModules(editing.id)}
+                  className="rounded-lg border border-primary/40 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
+                >
+                  {syncingCourseId === editing.id ? (
+                    <Loader2 className="inline h-4 w-4 animate-spin" />
+                  ) : (
+                    "Sync modules from ZIP"
+                  )}
+                </button>
+              ) : null}
               <button
                 type="submit"
                 form="edit-vault-item-form"
