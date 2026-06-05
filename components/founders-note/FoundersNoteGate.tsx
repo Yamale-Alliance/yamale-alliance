@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { FoundersNoteDialog } from "@/components/founders-note/FoundersNoteDialog";
 import {
   readFoundersNoteSeenFromStorage,
@@ -16,7 +16,7 @@ function storageKeyForUser(userId: string | null | undefined): string {
 
 export function FoundersNoteGate() {
   const pathname = usePathname();
-  const { user, isLoaded } = useUser();
+  const { user, isLoaded } = useAppUser();
   const [open, setOpen] = useState(false);
   const [checked, setChecked] = useState(false);
   const markedSeenRef = useRef(false);
