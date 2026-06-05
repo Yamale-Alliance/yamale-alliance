@@ -16,7 +16,7 @@ import {
   LayoutGrid,
   Gift,
 } from "lucide-react";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 import { useAlertDialog } from "@/components/ui/use-confirm";
 import {
@@ -216,7 +216,7 @@ export default function MarketplacePage() {
   const [cartCount, setCartCount] = useState(0);
   const [cartItemIds, setCartItemIds] = useState<Set<string>>(new Set());
   const [selectedTopic, setSelectedTopic] = useState("all");
-  const { isSignedIn } = useUser();
+  const { isSignedIn } = useAppUser();
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
   const [buyModalProduct, setBuyModalProduct] = useState<Product | null>(null);
@@ -226,6 +226,7 @@ export default function MarketplacePage() {
   const [checkoutChoice, setCheckoutChoice] = useState<MarketplaceVaultCheckoutChoice>("item");
   const [buyCheckoutLoading, setBuyCheckoutLoading] = useState(false);
   const [expandedSeriesKey, setExpandedSeriesKey] = useState<string | null>(null);
+  const [vaultSeriesRevision, setVaultSeriesRevision] = useState(0);
 
   const lomiAvailable =
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
@@ -318,7 +319,10 @@ export default function MarketplacePage() {
     fetch(`${origin}/api/marketplace/vault-series`)
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data.series)) setVaultSeriesRegistry(data.series);
+        if (Array.isArray(data.series)) {
+          setVaultSeriesRegistry(data.series);
+          setVaultSeriesRevision((n) => n + 1);
+        }
       })
       .catch(() => {});
   }, []);
@@ -467,7 +471,7 @@ export default function MarketplacePage() {
       displayCards: [...featuredCards, ...seriesCards, ...regularCards],
       seriesMembersByKey: membersByKey,
     };
-  }, [browse, sortedProducts]);
+  }, [browse, sortedProducts, vaultSeriesRevision]);
 
   const toggleSeries = useCallback((seriesKey: string) => {
     setExpandedSeriesKey((prev) => (prev === seriesKey ? null : seriesKey));
@@ -892,59 +896,67 @@ export default function MarketplacePage() {
 
                 const renderProductCard = (
                   product: Product,
-                  opts?: { iconOnlyMedia?: boolean; keySuffix?: string }
-                ) => (
-                  <MarketplaceProductCard
-                    key={`${product.id}${opts?.keySuffix ?? ""}`}
-                    product={product}
-                    topicLabel={inferTopic(product)}
-                    typeBadgeLabel={
-                      product.type === "course"
-                        ? "Course"
-                        : product.type === "guide"
-                          ? "Guide"
+                  opts?: { iconOnlyMedia?: boolean; keySuffix?: string; seriesMember?: boolean }
+                ) => {
+                  const isSeriesMember = Boolean(opts?.seriesMember);
+                  const useCollectionChrome =
+                    isInlineCollection && !opts?.iconOnlyMedia && !isSeriesMember;
+                  return (
+                    <MarketplaceProductCard
+                      key={`${product.id}${opts?.keySuffix ?? ""}`}
+                      product={product}
+                      topicLabel={inferTopic(product)}
+                      typeBadgeLabel={
+                        product.type === "course"
+                          ? "Course"
+                          : product.type === "guide"
+                            ? "Guide"
+                            : product.type === "template"
+                              ? "Template"
+                              : "Book"
+                      }
+                      formatHint={
+                        product.type === "course"
+                          ? "Structured modules"
                           : product.type === "template"
-                            ? "Template"
-                            : "Book"
-                    }
-                    formatHint={
-                      product.type === "course"
-                        ? "Structured modules"
-                        : product.type === "template"
-                          ? "Instant download"
-                          : "Reference material"
-                    }
-                    seriesLabel={
-                      isFreeVaultItem(product.price_cents) && !opts?.iconOnlyMedia
-                        ? labelForVaultSubcategory(product.vault_subcategory)
-                        : null
-                    }
-                    collectionHref={opts?.iconOnlyMedia ? undefined : card.collectionHref}
-                    collectionCount={opts?.iconOnlyMedia ? undefined : card.collectionCount}
-                    collectionLabel={opts?.iconOnlyMedia ? undefined : card.collectionLabel}
-                    isCollection={opts?.iconOnlyMedia ? false : isInlineCollection}
-                    collectionExpanded={expanded}
-                    onCollectionToggle={
-                      isInlineCollection && !opts?.iconOnlyMedia
-                        ? () => toggleSeries(seriesKey!)
-                        : undefined
-                    }
-                    iconOnlyMedia={opts?.iconOnlyMedia}
-                    isSignedIn={!!isSignedIn}
-                    cartItemIds={cartItemIds}
-                    addingToCart={addingToCart}
-                    onAddToCart={handleAddToCart}
-                    onRemoveFromCart={handleRemoveFromCart}
-                    onBuy={(_, e) => openBuyModal(product, e)}
-                    advisoryWorkspacePreview={advisoryWorkspacePreview}
-                    paidSeriesSummary={opts?.iconOnlyMedia ? undefined : paidSeriesSummary}
-                    onBuySeries={
-                      paidSeriesSummary && seriesKey && !opts?.iconOnlyMedia
-                        ? (e) => openSeriesBuyModal(seriesKey as VaultSubcategoryId, e)
-                        : undefined
-                    }
-                  />
-                );
+                            ? "Instant download"
+                            : "Reference material"
+                      }
+                      seriesLabel={
+                        opts?.iconOnlyMedia
+                          ? null
+                          : isSeriesMember
+                            ? labelForVaultSubcategory(product.vault_subcategory)
+                            : isFreeVaultItem(product.price_cents)
+                              ? labelForVaultSubcategory(product.vault_subcategory)
+                              : null
+                      }
+                      collectionHref={useCollectionChrome ? card.collectionHref : undefined}
+                      collectionCount={useCollectionChrome ? card.collectionCount : undefined}
+                      collectionLabel={useCollectionChrome ? card.collectionLabel : undefined}
+                      isCollection={useCollectionChrome}
+                      showSeriesToggle={useCollectionChrome}
+                      collectionExpanded={useCollectionChrome ? expanded : false}
+                      onCollectionToggle={
+                        useCollectionChrome ? () => toggleSeries(seriesKey!) : undefined
+                      }
+                      iconOnlyMedia={opts?.iconOnlyMedia}
+                      isSignedIn={!!isSignedIn}
+                      cartItemIds={cartItemIds}
+                      addingToCart={addingToCart}
+                      onAddToCart={handleAddToCart}
+                      onRemoveFromCart={handleRemoveFromCart}
+                      onBuy={(_, e) => openBuyModal(product, e)}
+                      advisoryWorkspacePreview={advisoryWorkspacePreview}
+                      paidSeriesSummary={useCollectionChrome ? paidSeriesSummary : undefined}
+                      onBuySeries={
+                        useCollectionChrome && paidSeriesSummary && seriesKey
+                          ? (e) => openSeriesBuyModal(seriesKey as VaultSubcategoryId, e)
+                          : undefined
+                      }
+                    />
+                  );
+                };
 
                 if (isInlineCollection && expanded && members.length > 0) {
                   return (
@@ -959,6 +971,7 @@ export default function MarketplacePage() {
                             vaultSeriesUsesPerCountryCovers(seriesKey) &&
                             !member.image_url?.trim(),
                           keySuffix: "-member",
+                          seriesMember: true,
                         })
                       )}
                     </div>
