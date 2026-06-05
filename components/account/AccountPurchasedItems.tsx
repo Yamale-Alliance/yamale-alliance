@@ -6,6 +6,8 @@ import Image from "next/image";
 import { Package, Loader2, Eye, BookOpen, GraduationCap, FileText, Check, ExternalLink } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
+import { LAW_FIRM_VIEW_COURSE_LABEL } from "@/lib/law-firm-package-marketing";
+import { advisoryCourseHref, isMarketplaceCourseItem } from "@/lib/marketplace-course";
 import { marketplaceItemDetailHref } from "@/lib/marketplace-public-url";
 import { displayVaultProductTitle } from "@/lib/marketplace-display";
 
@@ -24,6 +26,7 @@ type Product = {
   has_file?: boolean;
   file_name?: string | null;
   file_format?: string | null;
+  is_course?: boolean;
 };
 
 function CategoryIcon({ type, className }: { type: string; className?: string }) {
@@ -195,7 +198,16 @@ export function AccountPurchasedItems({
                   <p className="mt-2 text-xs text-muted-foreground">Purchased {formatPurchaseDate(product.purchased_at)}</p>
                 </div>
               </Link>
-              <div className="border-t border-border/80 px-4 pb-3 pt-2">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/80 px-4 pb-3 pt-2">
+                {isMarketplaceCourseItem(product) ? (
+                  <Link
+                    href={advisoryCourseHref(product)}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:opacity-90"
+                  >
+                    <GraduationCap className="h-3.5 w-3.5" aria-hidden />
+                    {LAW_FIRM_VIEW_COURSE_LABEL}
+                  </Link>
+                ) : null}
                 {product.has_file ? (
                   <Link
                     href={fileAccessHref}
