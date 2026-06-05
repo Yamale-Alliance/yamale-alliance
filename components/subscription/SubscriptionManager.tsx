@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { MarketingDiscountSubscriptionPrice } from "@/components/pricing/MarketingDiscountPrice";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { Check, Loader2 } from "lucide-react";
 import { useAlertDialog, useConfirm } from "@/components/ui/use-confirm";
 import { PaymentMethodPicker, type CheckoutPaymentProvider } from "@/components/checkout/PaymentMethodPicker";
@@ -49,7 +49,7 @@ export type SubscriptionManagerProps = {
 };
 
 export function SubscriptionManager({ basePath, compact = false }: SubscriptionManagerProps) {
-  const { isLoaded, isSignedIn } = useUser();
+  const { isLoaded, isSignedIn } = useAppUser();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { alert: showAlert, alertDialog } = useAlertDialog();
