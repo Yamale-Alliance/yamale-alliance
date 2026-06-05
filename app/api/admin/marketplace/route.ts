@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
       item_pack,
       vault_subcategory,
       focus_country,
+      is_course,
     } = body as {
       type?: string;
       title?: string;
@@ -81,6 +82,7 @@ export async function POST(request: NextRequest) {
       item_pack?: unknown;
       vault_subcategory?: string | null;
       focus_country?: string | null;
+      is_course?: boolean;
     };
 
     let landingHtml: string | null = null;
@@ -121,6 +123,7 @@ export async function POST(request: NextRequest) {
       item_pack: parseItemPackInput(item_pack),
       vault_subcategory: resolveVaultSubcategoryForSave(price, vault_subcategory),
       focus_country: resolveFocusCountryForSave(focus_country),
+      is_course: is_course === true,
     };
 
     const supabase = getSupabaseServer();
