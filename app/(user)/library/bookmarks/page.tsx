@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { BookmarkCheck, ArrowLeft, BookOpen, Loader2, ArrowRight } from "lucide-react";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { lawDetailHref } from "@/lib/law-public-url";
 import { LawLastVerifiedLabel } from "@/components/library/LawLastVerifiedLabel";
 
@@ -23,7 +23,7 @@ type Law = {
 };
 
 export default function BookmarksPage() {
-  const { isSignedIn, isLoaded } = useUser();
+  const { isSignedIn, isLoaded } = useAppUser();
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [laws, setLaws] = useState<Law[]>([]);
   const [loading, setLoading] = useState(true);
