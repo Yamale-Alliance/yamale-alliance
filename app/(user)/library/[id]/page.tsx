@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import { notFound, redirect } from "next/navigation";
 import { isUuid } from "@/lib/content-slug";
 import { lawPublicPath } from "@/lib/law-public-url";
@@ -8,6 +9,16 @@ import LawDetailPageClient from "./LawDetailPageClient";
 type PageProps = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: PageProps) {
+  const { userId } = await auth();
+  if (!userId) {
+    return createPageMetadata({
+      title: "Sign in to view",
+      description: "Sign in or create an account to access the Yamalé African legal library.",
+      path: "/library",
+      noIndex: true,
+    });
+  }
+
   const { id } = await params;
   const meta = await resolveLawForPublicPage(id);
   if (!meta) {
@@ -36,6 +47,9 @@ export async function generateMetadata({ params }: PageProps) {
 }
 
 export default async function LawDetailPage({ params }: PageProps) {
+  const { userId } = await auth();
+  if (!userId) return null;
+
   const { id: slugOrId } = await params;
   const meta = await resolveLawForPublicPage(slugOrId);
   if (!meta) notFound();
