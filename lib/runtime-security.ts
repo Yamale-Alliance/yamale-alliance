@@ -4,6 +4,13 @@ import { getGoogleAnalyticsCspHosts } from "@/lib/google-analytics-csp";
 import { checkDistributedRateLimit } from "@/lib/distributed-rate-limit";
 import type { RateLimitResult } from "@/lib/runtime-security-types";
 
+export {
+  AI_CHAT_MAX_QUERY_CHARS,
+  aiChatTierHourlyLimitMessage,
+  checkAiChatTierHourlyLimit,
+  validateAiChatQueryLength,
+} from "@/lib/ai-tier-hourly-limit";
+
 export type { RateLimitResult } from "@/lib/runtime-security-types";
 
 export type RateLimitContext = {
