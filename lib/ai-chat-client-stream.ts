@@ -14,6 +14,7 @@ export type AiChatDonePayload = {
   citationVerification?: unknown;
   queryLogId: string | null;
   webSearchNote: string | null;
+  outputConfidence?: "high" | "medium" | "low";
 };
 
 export type AiChatSseHandlers = {
