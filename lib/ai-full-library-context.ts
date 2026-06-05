@@ -3,6 +3,7 @@
  * with minimal truncation. Opt in with AI_RESEARCH_FULL_LIBRARY=1 (slow).
  */
 
+import { applyLawRagApprovalFilter } from "@/lib/law-rag-approval";
 import { LAW_HAS_BODY_OR_FILTER, filterLawsWithReadableBody } from "@/lib/law-readable-body";
 import {
   excludeInternalCategoryFromLawsQuery,
@@ -71,11 +72,13 @@ export async function fetchFullLibraryLawRows(
     if (collected.length >= cap) break;
 
     let q = excludeInternalCategoryFromLawsQuery(
-      supabase
-        .from("laws")
-        .select(FULL_LIBRARY_LAWS_SELECT)
-        .or(LAW_HAS_BODY_OR_FILTER)
-        .neq("status", "Repealed")
+      applyLawRagApprovalFilter(
+        supabase
+          .from("laws")
+          .select(FULL_LIBRARY_LAWS_SELECT)
+          .or(LAW_HAS_BODY_OR_FILTER)
+          .neq("status", "Repealed")
+      )
         .order("title", { ascending: true })
         .range(offset, offset + PAGE_SIZE - 1),
       internalCategoryId
