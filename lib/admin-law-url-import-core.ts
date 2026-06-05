@@ -23,6 +23,10 @@ import type { Database } from "@/lib/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeCategoryIdList, syncLawCategories } from "@/lib/law-categories-sync";
 import { normalizeCitationMetadata } from "@/lib/law-citation-metadata";
+import {
+  computeLawContentHash,
+  LAW_RAG_PENDING_STATUS,
+} from "@/lib/laws-rag-integrity";
 
 export type LawUrlImportAuditSource = "url-import" | "bulk-url-import";
 
@@ -178,6 +182,14 @@ export async function saveLawFromPdfUrlImport(params: {
   }
 
   const normalizedCitationMetadata = normalizeCitationMetadata(citationMetadata ?? null);
+  const contentHash = computeLawContentHash(contentTrimmed);
+  const ingestedAt = new Date().toISOString();
+  const integrityFields = {
+    content_hash: contentHash,
+    ingested_by: admin.userId,
+    ingested_at: ingestedAt,
+    rag_approval_status: LAW_RAG_PENDING_STATUS,
+  };
   const rows: LawInsert[] = global
     ? [
         {
@@ -194,6 +206,7 @@ export async function saveLawFromPdfUrlImport(params: {
           status,
           content: contentTrimmed,
           content_plain: contentTrimmed,
+          ...integrityFields,
         },
       ]
     : effectiveCountryIds.map((countryIdValue) => ({
@@ -210,6 +223,7 @@ export async function saveLawFromPdfUrlImport(params: {
         status,
         content: contentTrimmed,
         content_plain: contentTrimmed,
+        ...integrityFields,
       }));
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
