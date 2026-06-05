@@ -1,23 +1,38 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { EmbeddedSignUp } from "@/components/auth/EmbeddedSignUp";
 import { SignupIntentCookie } from "@/components/auth/SignupIntentCookie";
 
-export default function SignUpPage() {
-  const afterSignUpUrl = "/api/auth/complete-signup?role=user";
+function SignUpPageContent() {
+  const searchParams = useSearchParams();
+  const redirectUrl = searchParams.get("redirect_url");
+  const safeRedirect =
+    redirectUrl && redirectUrl.startsWith("/") && !redirectUrl.startsWith("//") ? redirectUrl : null;
+  const afterSignUpUrl = safeRedirect
+    ? `/api/auth/complete-signup?role=user&redirect_url=${encodeURIComponent(safeRedirect)}`
+    : "/api/auth/complete-signup?role=user";
+  const signInHref = safeRedirect
+    ? `/sign-in?redirect_url=${encodeURIComponent(safeRedirect)}`
+    : "/sign-in";
 
   return (
     <>
       <SignupIntentCookie role="user" />
       <AuthShell
         title="Join Yamalé Legal"
-        subtitle="Create a client account to access the library, AfCFTA tools, The Yamalé Vault, and AI research."
+        subtitle={
+          safeRedirect?.startsWith("/library")
+            ? "Create a free account to search African statutes, regulations, and treaties in the legal library."
+            : "Create a client account to access the library, AfCFTA tools, The Yamalé Vault, and AI research."
+        }
         footer={
           <>
             Already have an account?{" "}
-            <Link href="/sign-in" className="font-medium text-primary hover:underline">
+            <Link href={signInHref} className="font-medium text-primary hover:underline">
               Sign in
             </Link>
             <p className="mt-4 text-xs leading-relaxed">
@@ -27,8 +42,22 @@ export default function SignUpPage() {
           </>
         }
       >
-        <EmbeddedSignUp afterSignUpUrl={afterSignUpUrl} />
-      </AuthShell>
+      <EmbeddedSignUp afterSignUpUrl={afterSignUpUrl} />
+    </AuthShell>
     </>
+  );
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
+          Loading sign up…
+        </div>
+      }
+    >
+      <SignUpPageContent />
+    </Suspense>
   );
 }
