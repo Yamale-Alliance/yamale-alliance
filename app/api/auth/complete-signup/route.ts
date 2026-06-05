@@ -5,6 +5,13 @@ import { cookies } from "next/headers";
 
 const ROLE_COOKIE = "signup_intent";
 
+function safeRedirectPath(raw: string | null): string | null {
+  if (!raw?.trim()) return null;
+  const path = raw.trim();
+  if (!path.startsWith("/") || path.startsWith("//")) return null;
+  return path;
+}
+
 export async function GET(request: NextRequest) {
   const { userId } = await auth();
   if (!userId) {
@@ -42,11 +49,14 @@ export async function GET(request: NextRequest) {
 
     cookieStore.delete(ROLE_COOKIE);
 
+    const redirectPath = safeRedirectPath(searchParams.get("redirect_url"));
+    const destination = redirectPath ?? "/";
+
     if (role === "lawyer") {
       return NextResponse.redirect(new URL("/", request.url));
     }
 
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL(destination, request.url));
   } catch (error) {
     console.error("Complete signup error:", error);
     return NextResponse.redirect(new URL("/", request.url));
