@@ -18,6 +18,12 @@ import {
   hasLawFirmDevelopmentBuiltInLanding,
   shouldUseVaultPackagePage,
 } from "@/lib/marketplace-zip-package";
+import { canUseLawFirmAdvisoryWorkspace } from "@/lib/law-firm-advisory-preview";
+import {
+  LAW_FIRM_ADVISORY_WORKSPACE_HREF,
+  LAW_FIRM_VIEW_COURSE_LABEL,
+} from "@/lib/law-firm-package-marketing";
+import { advisoryCourseHref, isMarketplaceCourseItem } from "@/lib/marketplace-course";
 import {
   packageOffersFromItemConfig,
   packageOffersFromLandingHtml,
@@ -42,6 +48,7 @@ type Item = {
   file_format?: string | null;
   landing_page_html?: string | null;
   package_offers?: Record<string, unknown> | null;
+  is_course?: boolean;
 };
 
 const DEFAULT_PURCHASE_SECTION_ID = "lfp-purchase";
@@ -65,6 +72,7 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
 
   const [item, setItem] = useState<Item | null>(null);
+  const [advisoryWorkspacePreview, setAdvisoryWorkspacePreview] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [purchasing, setPurchasing] = useState(false);
@@ -90,8 +98,9 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     try {
       const r = await fetch(`${origin}/api/marketplace/${id}`, { credentials: "include" });
-      const data = (await r.json()) as { item?: Item };
+      const data = (await r.json()) as { item?: Item; advisoryWorkspacePreview?: boolean };
       if (data.item) {
+        setAdvisoryWorkspacePreview(Boolean(data.advisoryWorkspacePreview));
         setItem(data.item);
         if (data.item.purchased && data.item.has_file) {
           setZipViewerOpen(true);
@@ -128,7 +137,8 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
     setLoading(true);
     fetch(`${origin}/api/marketplace/${id}`, { credentials: "include" })
       .then((r) => r.json())
-      .then((data: { item?: Item }) => {
+      .then((data: { item?: Item; advisoryWorkspacePreview?: boolean }) => {
+        setAdvisoryWorkspacePreview(Boolean(data.advisoryWorkspacePreview));
         if (data.item) setItem(data.item);
         else setError("Item not found");
       })
@@ -362,7 +372,9 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
     );
   }
 
-  const owned = item.purchased;
+  const owned = canUseLawFirmAdvisoryWorkspace(item.purchased, advisoryWorkspacePreview);
+  const showCourseWorkspace = Boolean(item.is_course) && owned;
+  const courseWorkspaceHref = advisoryCourseHref(item);
   const free = Number(item.price_cents) === 0;
   const priceDisplay = free
     ? "Free"
@@ -456,6 +468,7 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
           onBeginPaidDownload={beginPaidDownload}
           onOwnedDownload={handleOwnedDownload}
           onBrowseZipContents={owned && item.has_file ? () => setZipViewerOpen(true) : undefined}
+          courseWorkspaceHref={showCourseWorkspace ? courseWorkspaceHref : LAW_FIRM_ADVISORY_WORKSPACE_HREF}
         />
       ) : customLandingHtml ? (
         <MarketplaceLandingEmbed
@@ -499,6 +512,14 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
       {owned && item.has_file && (lawFirmLanding || customLandingHtml) && (
         <section className="mx-auto mt-8 max-w-3xl px-4 pb-8">
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-white/15 bg-white/[0.06] p-4">
+            {showCourseWorkspace && (
+              <Link
+                href={courseWorkspaceHref}
+                className="inline-flex items-center gap-2 rounded-lg bg-[#C18C43] px-5 py-2.5 text-sm font-semibold text-[#221913] hover:bg-[#E3BA65]"
+              >
+                {LAW_FIRM_VIEW_COURSE_LABEL}
+              </Link>
+            )}
             <button
               type="button"
               onClick={() => setZipViewerOpen(true)}
@@ -549,6 +570,14 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
             ) : null}
             {owned && item.has_file ? (
               <div className="flex flex-wrap items-center gap-3">
+                {showCourseWorkspace && (
+                  <Link
+                    href={courseWorkspaceHref}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#C18C43] px-5 py-2.5 text-sm font-semibold text-[#221913] hover:bg-[#E3BA65]"
+                  >
+                    {LAW_FIRM_VIEW_COURSE_LABEL}
+                  </Link>
+                )}
                 <button
                   type="button"
                   onClick={() => setZipViewerOpen(true)}
