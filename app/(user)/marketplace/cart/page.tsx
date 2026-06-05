@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ShoppingCart, Trash2, Loader2, Check, Sparkles, Package } from "lucide-react";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import Image from "next/image";
 import {
   PaymentMethodPicker,
@@ -40,7 +40,7 @@ type CartItem = {
 
 export default function CartPage() {
   const router = useRouter();
-  const { isLoaded, isSignedIn } = useUser();
+  const { isLoaded, isSignedIn } = useAppUser();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
