@@ -8,7 +8,12 @@ import { LawFirmPackageDiscountPrice } from "@/components/marketplace/LawFirmPac
 import { displayVaultProductTitle } from "@/lib/marketplace-display";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
 import { marketplaceItemDetailHref } from "@/lib/marketplace-public-url";
-import { shouldShowLawFirmPackageMarketingDiscount } from "@/lib/law-firm-package-marketing";
+import { canUseLawFirmAdvisoryWorkspace } from "@/lib/law-firm-advisory-preview";
+import { advisoryCourseHref, isMarketplaceCourseItem } from "@/lib/marketplace-course";
+import {
+  LAW_FIRM_VIEW_COURSE_LABEL,
+  shouldShowLawFirmPackageMarketingDiscount,
+} from "@/lib/law-firm-package-marketing";
 import styles from "./MarketplaceProductCard.module.css";
 
 const BRAND = {
@@ -48,6 +53,7 @@ export type MarketplaceProductCardProduct = {
   file_name?: string | null;
   vault_subcategory?: string | null;
   focus_country?: string | null;
+  is_course?: boolean;
 };
 
 type MarketplaceProductCardProps = {
@@ -82,6 +88,8 @@ type MarketplaceProductCardProps = {
     fullyOwned: boolean;
   } | null;
   onBuySeries?: (e: React.MouseEvent) => void;
+  /** From GET /api/marketplace — server reads ADVISORY_WORKSPACE_PREVIEW env. */
+  advisoryWorkspacePreview?: boolean;
 };
 
 function CategoryIcon({ type, className }: { type: string; className?: string }) {
@@ -131,6 +139,7 @@ export function MarketplaceProductCard({
   onBuy,
   paidSeriesSummary,
   onBuySeries,
+  advisoryWorkspacePreview = false,
 }: MarketplaceProductCardProps) {
   const router = useRouter();
   const [coverFailed, setCoverFailed] = useState(false);
@@ -177,8 +186,15 @@ export function MarketplaceProductCard({
   const showCartActions =
     !isCollectionCard && !product.owned && product.price_cents > 0 && !isMarketplaceZip(product);
 
+  const courseWorkspaceHref = advisoryCourseHref(product);
+  const lawFirmHasWorkspaceAccess =
+    isMarketplaceCourseItem(product) &&
+    canUseLawFirmAdvisoryWorkspace(product.owned, advisoryWorkspacePreview);
+
   const showPackageCta =
-    !isCollectionCard && !product.owned && isMarketplaceZip(product);
+    !isCollectionCard && !lawFirmHasWorkspaceAccess && isMarketplaceZip(product);
+
+  const showLawFirmWorkspaceCta = !isCollectionCard && lawFirmHasWorkspaceAccess;
 
   const navigate = () => router.push(href);
 
@@ -317,6 +333,31 @@ export function MarketplaceProductCard({
               ) : (
                 <>Buy full series · ${(paidSeriesSummary.chargeCents / 100).toFixed(2)}</>
               )}
+            </button>
+          </div>
+        ) : null}
+
+        {showLawFirmWorkspaceCta ? (
+          <div className={styles.actions}>
+            <button
+              type="button"
+              onClick={(e) => {
+                stop(e);
+                navigate();
+              }}
+              className={styles.actionBtn}
+            >
+              View
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                stop(e);
+                router.push(courseWorkspaceHref);
+              }}
+              className={styles.actionBtnPrimary}
+            >
+              {LAW_FIRM_VIEW_COURSE_LABEL}
             </button>
           </div>
         ) : null}
