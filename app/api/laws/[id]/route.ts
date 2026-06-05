@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireLibraryApiSession } from "@/lib/library-api-auth";
 import { isUuid } from "@/lib/content-slug";
 import { assignLawSlug } from "@/lib/content-slug-assign";
 import { isInternalLibraryForUserDisplay } from "@/lib/internal-library-categories";
@@ -24,6 +25,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await requireLibraryApiSession();
+    if (session instanceof NextResponse) return session;
+
     const { id: slugOrId } = await params;
     if (!slugOrId) {
       return NextResponse.json({ error: "Missing law id" }, { status: 400 });
