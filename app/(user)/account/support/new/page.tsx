@@ -3,14 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { SupportComingSoon } from "@/components/support/SupportComingSoon";
 
 const SUPPORT_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
 
 export default function NewSupportTicketPage() {
   const router = useRouter();
-  const { user } = useUser();
+  const { user } = useAppUser();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [contactName, setContactName] = useState(user?.fullName ?? "");
