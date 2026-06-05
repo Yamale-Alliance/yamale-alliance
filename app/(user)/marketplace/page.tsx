@@ -61,7 +61,9 @@ import {
   parseVaultSortParam,
   sortVaultProducts,
 } from "@/lib/marketplace-vault-sort";
-import { isLawFirmDevelopmentMarketplaceItem } from "@/lib/law-firm-package-marketing";
+import { canUseLawFirmAdvisoryWorkspace } from "@/lib/law-firm-advisory-preview";
+import { advisoryCourseHref, isMarketplaceCourseItem } from "@/lib/marketplace-course";
+import { LAW_FIRM_VIEW_COURSE_LABEL } from "@/lib/law-firm-package-marketing";
 
 const BRAND = {
   dark: "#221913",
@@ -108,6 +110,7 @@ type Product = {
   file_name?: string | null;
   vault_subcategory?: string | null;
   focus_country?: string | null;
+  is_course?: boolean;
 };
 
 type DisplayProductCard = {
@@ -207,6 +210,7 @@ export default function MarketplacePage() {
   const searchParams = useClientSearchParams();
   const [search, setSearch] = useState("");
   const [items, setItems] = useState<Product[]>([]);
+  const [advisoryWorkspacePreview, setAdvisoryWorkspacePreview] = useState(false);
   const [loading, setLoading] = useState(true);
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
   const [cartCount, setCartCount] = useState(0);
@@ -269,6 +273,16 @@ export default function MarketplacePage() {
   }, [items]);
 
   const freeItemCount = useMemo(() => items.filter((p) => isFreeVaultItem(p.price_cents)).length, [items]);
+  const ownedCourseItem = useMemo(
+    () =>
+      items.find(
+        (p) =>
+          isMarketplaceCourseItem(p) &&
+          canUseLawFirmAdvisoryWorkspace(p.owned, advisoryWorkspacePreview)
+      ) ?? null,
+    [items, advisoryWorkspacePreview]
+  );
+  const ownsLawFirmWorkspace = Boolean(ownedCourseItem) || advisoryWorkspacePreview;
 
   const formatTileCount = (param: (typeof FORMAT_TILES)[number]["param"]) => {
     if (param === "all") return items.length;
@@ -410,7 +424,7 @@ export default function MarketplacePage() {
     const featuredProducts: Product[] = [];
 
     for (const product of sortedProducts) {
-      if (isLawFirmDevelopmentMarketplaceItem(product)) {
+      if (isMarketplaceCourseItem(product)) {
         featuredProducts.push(product);
         continue;
       }
@@ -667,7 +681,20 @@ export default function MarketplacePage() {
               </p>
             </div>
             {isSignedIn && (
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                {ownsLawFirmWorkspace && (
+                  <Link
+                    href={
+                      ownedCourseItem
+                        ? advisoryCourseHref(ownedCourseItem)
+                        : "/advisory"
+                    }
+                    className="inline-flex items-center gap-2 rounded-[6px] border border-[#C18C43]/50 bg-[#C18C43]/20 px-4 py-2.5 text-sm font-semibold text-[#E8B84B] backdrop-blur transition hover:bg-[#C18C43]/30"
+                  >
+                    <GraduationCap className="h-5 w-5" aria-hidden />
+                    <span>{LAW_FIRM_VIEW_COURSE_LABEL}</span>
+                  </Link>
+                )}
                 <Link
                   href="/marketplace/purchased"
                   className="inline-flex items-center gap-2 rounded-[6px] border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15"
@@ -916,6 +943,7 @@ export default function MarketplacePage() {
                     onAddToCart={handleAddToCart}
                     onRemoveFromCart={handleRemoveFromCart}
                     onBuy={(_, e) => openBuyModal(product, e)}
+                    advisoryWorkspacePreview={advisoryWorkspacePreview}
                     paidSeriesSummary={opts?.iconOnlyMedia ? undefined : paidSeriesSummary}
                     onBuySeries={
                       paidSeriesSummary && seriesKey && !opts?.iconOnlyMedia
