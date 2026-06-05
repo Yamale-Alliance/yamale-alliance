@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 
 export type SubscriptionConfirmState = "idle" | "confirming" | "synced" | "error";
@@ -18,7 +18,7 @@ const SUCCESS_VISIBLE_MS = 900;
 export function useSubscriptionCheckoutConfirm(options?: { onSynced?: () => void | Promise<void> }) {
   const searchParams = useClientSearchParams();
   const router = useRouter();
-  const { user } = useUser();
+  const { user } = useAppUser();
   const [state, setState] = useState<SubscriptionConfirmState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activatedTier, setActivatedTier] = useState<string | null>(null);
