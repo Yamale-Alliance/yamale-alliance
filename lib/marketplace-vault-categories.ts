@@ -103,12 +103,20 @@ export function parseVaultFreeSeriesParam(seriesParam: string | null): string | 
   return parsed && isFreeVaultSubcategory(parsed) ? parsed : null;
 }
 
+/** True when an item is assigned to a series (standalone vault browse should hide it). */
+export function isVaultSeriesMemberItem(item: {
+  vault_subcategory?: string | null;
+}): boolean {
+  return Boolean(item.vault_subcategory?.trim());
+}
+
 export function shouldGroupVaultItem(item: {
   price_cents: number;
   vault_subcategory?: string | null;
 }): boolean {
   const sub = item.vault_subcategory?.trim();
-  if (!sub || !isKnownVaultSeriesId(sub)) return false;
+  if (!sub) return false;
+  if (!isKnownVaultSeriesId(sub)) return true;
   if (isPaidVaultSubcategory(sub)) return true;
   return isFreeVaultItem(item.price_cents);
 }
