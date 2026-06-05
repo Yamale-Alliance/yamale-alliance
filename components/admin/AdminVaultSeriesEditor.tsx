@@ -5,6 +5,9 @@ import { ChevronLeft, ChevronRight, FileText, Loader2, Plus, Trash2, Upload, X }
 import { useConfirm } from "@/components/ui/use-confirm";
 import { isBuiltinVaultSeriesId } from "@/lib/marketplace-vault-categories-fallback";
 import { MarketplaceCoverImageField } from "@/components/admin/MarketplaceCoverImageField";
+import {
+  AdminVirusScanUploadBanner,
+} from "@/components/admin/AdminVirusScanUploadBanner";
 import { AdminVaultFocusCountrySelect } from "@/components/admin/AdminVaultFocusCountrySelect";
 import { VaultCountryMapIcon } from "@/components/marketplace/VaultCountryMapIcon";
 import { isValidMarketplaceCoverUrl } from "@/lib/marketplace-cover-url";
@@ -21,9 +24,28 @@ type ItemFileRef = {
 /** Card cover on the public Vault: type color, country map, or uploaded image. */
 type ItemCoverMode = "type" | "map" | "custom";
 
+type VaultCatalogItem = {
+  id: string;
+  type?: string;
+  title: string;
+  description: string | null;
+  price_cents: number;
+  image_url: string | null;
+  focus_country?: string | null;
+  sort_order: number;
+  published: boolean;
+  file_path: string | null;
+  file_name: string | null;
+  file_format: string | null;
+  vault_subcategory?: string | null;
+};
+
 type ItemDraft = {
   clientKey: string;
   id?: string;
+  type?: string;
+  /** Linked from an existing standalone vault item (unlink on remove, never delete). */
+  linkedExisting?: boolean;
   title: string;
   description: string;
   priceUsd: string;
@@ -131,7 +153,11 @@ export function AdminVaultSeriesEditor({
   const [activeIndex, setActiveIndex] = useState(0);
   const [itemImageUploading, setItemImageUploading] = useState(false);
   const [fileUploading, setFileUploading] = useState(false);
+  const [uploadingFileName, setUploadingFileName] = useState<string | null>(null);
   const [deletedIds, setDeletedIds] = useState<string[]>([]);
+  const [unlinkedIds, setUnlinkedIds] = useState<string[]>([]);
+  const [vaultCatalog, setVaultCatalog] = useState<VaultCatalogItem[]>([]);
+  const [linkPickerId, setLinkPickerId] = useState("");
 
   const resolvedId = useMemo(() => {
     if (seriesId) return seriesId;
@@ -151,8 +177,19 @@ export function AdminVaultSeriesEditor({
     setItems([newItemDraft(0, false)]);
     setActiveIndex(0);
     setDeletedIds([]);
+    setUnlinkedIds([]);
+    setLinkPickerId("");
     setError(null);
   }, []);
+
+  useEffect(() => {
+    fetch(`${origin}/api/admin/marketplace`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data: { items?: VaultCatalogItem[] }) => {
+        setVaultCatalog(Array.isArray(data.items) ? data.items : []);
+      })
+      .catch(() => setVaultCatalog([]));
+  }, [origin]);
 
   useEffect(() => {
     if (!seriesId) {
@@ -206,6 +243,7 @@ export function AdminVaultSeriesEditor({
             rows.map((row: Record<string, unknown>, i: number) => ({
               clientKey: String(row.id ?? `row-${i}`),
               id: row.id ? String(row.id) : undefined,
+              type: row.type ? String(row.type) : undefined,
               title: String(row.title ?? ""),
               description: String(row.description ?? ""),
               priceUsd: ((Number(row.price_cents) || 0) / 100).toFixed(2),
@@ -224,6 +262,7 @@ export function AdminVaultSeriesEditor({
         }
         setActiveIndex(0);
         setDeletedIds([]);
+        setUnlinkedIds([]);
       } catch {
         if (!cancelled) setError("Failed to load series");
       } finally {
@@ -269,6 +308,7 @@ export function AdminVaultSeriesEditor({
   const uploadProductFile = async (file: File) => {
     const itemId = items[activeIndex]?.id;
     setFileUploading(true);
+    setUploadingFileName(file.name);
     setError(null);
     try {
       const form = new FormData();
@@ -303,13 +343,49 @@ export function AdminVaultSeriesEditor({
       }
     } catch {
       setError("File upload failed");
+    } finally {
+      setFileUploading(false);
+      setUploadingFileName(null);
     }
-    setFileUploading(false);
   };
 
   const addItem = () => {
     setItems((prev) => [...prev, newItemDraft(prev.length, perCountryCovers)]);
     setActiveIndex(items.length);
+  };
+
+  const linkableVaultItems = useMemo(() => {
+    const inDraft = new Set(items.map((it) => it.id).filter(Boolean));
+    return vaultCatalog.filter(
+      (it) => !inDraft.has(it.id) && !it.vault_subcategory?.trim()
+    );
+  }, [vaultCatalog, items]);
+
+  const linkExistingVaultItem = (itemId: string) => {
+    const row = vaultCatalog.find((it) => it.id === itemId);
+    if (!row) return;
+    const draft: ItemDraft = {
+      clientKey: `linked-${row.id}`,
+      id: row.id,
+      type: row.type,
+      linkedExisting: true,
+      title: row.title,
+      description: row.description ?? "",
+      priceUsd: ((Number(row.price_cents) || 0) / 100).toFixed(2),
+      coverMode: coverModeFromLoadedItem(row as Record<string, unknown>, perCountryCovers),
+      imageUrl: row.image_url,
+      focus_country: row.focus_country ? String(row.focus_country) : "",
+      sort_order: items.length,
+      published: row.published !== false,
+      file_path: row.file_path,
+      file_name: row.file_name,
+      file_format: row.file_format,
+      pendingFile: null,
+      removeFile: false,
+    };
+    setItems((prev) => [...prev, draft]);
+    setActiveIndex(items.length);
+    setLinkPickerId("");
   };
 
   const handlePerCountryCoversChange = (enabled: boolean) => {
@@ -329,7 +405,11 @@ export function AdminVaultSeriesEditor({
   const removeActiveItem = () => {
     const current = items[activeIndex];
     if (current?.id) {
-      setDeletedIds((prev) => [...prev, current.id!]);
+      if (current.linkedExisting) {
+        setUnlinkedIds((prev) => [...prev, current.id!]);
+      } else {
+        setDeletedIds((prev) => [...prev, current.id!]);
+      }
     }
     const next = items.filter((_, i) => i !== activeIndex);
     if (next.length === 0) {
@@ -350,6 +430,7 @@ export function AdminVaultSeriesEditor({
       .filter((it) => it.title.trim())
       .map((it) => ({
         id: it.id,
+        type: it.type,
         title: it.title.trim(),
         description: it.description.trim() || null,
         price_cents: Math.round((parseFloat(it.priceUsd) || 0) * 100),
@@ -392,6 +473,7 @@ export function AdminVaultSeriesEditor({
         default_item_type: defaultType,
         items: payloadItems,
         deleted_item_ids: deletedIds,
+        unlinked_item_ids: unlinkedIds,
       };
 
       const url = isNew
@@ -661,6 +743,38 @@ export function AdminVaultSeriesEditor({
                   </button>
                 </div>
               </div>
+              <div className="mt-3 flex flex-wrap items-end gap-2 rounded-lg border border-dashed border-border bg-muted/20 p-3">
+                <div className="min-w-[200px] flex-1">
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Link existing vault item
+                  </label>
+                  <select
+                    value={linkPickerId}
+                    onChange={(e) => setLinkPickerId(e.target.value)}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">Choose a standalone item…</option>
+                    {linkableVaultItems.map((it) => (
+                      <option key={it.id} value={it.id}>
+                        {it.title}
+                        {it.price_cents > 0 ? ` · $${(it.price_cents / 100).toFixed(2)}` : " · Free"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  disabled={!linkPickerId}
+                  onClick={() => linkExistingVaultItem(linkPickerId)}
+                  className="rounded-lg border border-input px-3 py-2 text-xs font-medium hover:bg-accent disabled:opacity-40"
+                >
+                  Add to series
+                </button>
+                <p className="w-full text-xs text-muted-foreground">
+                  Linked items leave the standalone vault list and appear only inside this series on the public
+                  marketplace.
+                </p>
+              </div>
 
               {activeItem ? (
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -677,6 +791,7 @@ export function AdminVaultSeriesEditor({
                         }`}
                       >
                         {it.title.trim() || `Item ${i + 1}`}
+                        {it.linkedExisting ? " · linked" : ""}
                         {itemFileLabel(it) ? " · file" : ""}
                       </button>
                     ))}
@@ -779,9 +894,14 @@ export function AdminVaultSeriesEditor({
                         ) : (
                           <Upload className="h-4 w-4" />
                         )}
-                        {fileUploading ? "Uploading…" : "Upload product file"}
+                        {fileUploading ? "Please wait…" : "Upload product file"}
                       </button>
                     )}
+                    <AdminVirusScanUploadBanner
+                      active={fileUploading}
+                      fileName={uploadingFileName}
+                      className="mt-2"
+                    />
                     {itemFileLabel(activeItem) ? (
                       <button
                         type="button"
@@ -903,7 +1023,10 @@ export function AdminVaultSeriesEditor({
                         onClick={removeActiveItem}
                         className="inline-flex items-center gap-1 text-xs text-destructive hover:underline"
                       >
-                        <Trash2 className="h-3.5 w-3.5" /> Remove this item from series
+                        <Trash2 className="h-3.5 w-3.5" />{" "}
+                        {activeItem.linkedExisting
+                          ? "Unlink from series (returns to vault)"
+                          : "Remove this item from series"}
                       </button>
                     </div>
                   ) : null}
