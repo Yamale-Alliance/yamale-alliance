@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import {
+  BUCKET,
+  canAccessMarketplaceZip,
+  isZipMarketplaceItem,
+  loadMarketplaceZipItem,
+} from "@/lib/marketplace-zip-access";
 
-const BUCKET = "marketplace-files";
-/** Same limit as zip-contents — full archive is buffered for client-side browsing. */
 const MAX_ZIP_BYTES = 150 * 1024 * 1024;
 
 /**
@@ -21,54 +24,18 @@ export async function GET(
     }
 
     const supabase = getSupabaseServer();
-    const { data, error: itemErr } = await supabase
-      .from("marketplace_items")
-      .select("id, file_path, file_name, file_format, published, price_cents")
-      .eq("id", id)
-      .single();
-
-    if (itemErr || !data) {
+    const item = await loadMarketplaceZipItem(supabase, id);
+    if (!item) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
 
-    const item = data as {
-      id: string;
-      file_path: string | null;
-      file_name: string | null;
-      file_format: string | null;
-      published: boolean;
-      price_cents: number | null;
-    };
-
-    if (!item.published) {
-      return NextResponse.json({ error: "Item not found" }, { status: 404 });
-    }
-    if (!item.file_path?.trim()) {
-      return NextResponse.json({ error: "No file available" }, { status: 404 });
-    }
-
-    const fmt = item.file_format?.toLowerCase() ?? "";
-    const nameLower = item.file_name?.toLowerCase() ?? "";
-    const isZip = fmt === "zip" || nameLower.endsWith(".zip");
-    if (!isZip) {
+    if (!isZipMarketplaceItem(item)) {
       return NextResponse.json({ error: "Package browsing is only available for ZIP archives" }, { status: 400 });
     }
 
-    const isFree = !item.price_cents || item.price_cents <= 0;
-    if (!isFree) {
-      const { userId } = await auth();
-      if (!userId) {
-        return NextResponse.json({ error: "Sign in to access" }, { status: 401 });
-      }
-      const { data: purchase } = await supabase
-        .from("marketplace_purchases")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("marketplace_item_id", id)
-        .maybeSingle();
-      if (!purchase) {
-        return NextResponse.json({ error: "Purchase this item to browse the package" }, { status: 403 });
-      }
+    const allowed = await canAccessMarketplaceZip(supabase, item);
+    if (!allowed) {
+      return NextResponse.json({ error: "Purchase this item to browse the package" }, { status: 403 });
     }
 
     const { data: blob, error: dlErr } = await supabase.storage.from(BUCKET).download(item.file_path);
