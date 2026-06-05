@@ -4,6 +4,10 @@
  */
 
 import { isValidLawYear } from "@/lib/admin-law-utils";
+import {
+  isAllowedLegalSource,
+  LEGAL_SOURCE_DOMAIN_REJECT_MESSAGE,
+} from "@/lib/uploads/url-validator";
 
 const MAX_PDF_BYTES = 95 * 1024 * 1024;
 
@@ -17,6 +21,9 @@ export async function fetchPdfFromUrl(urlStr: string): Promise<{ buffer: Buffer;
   }
   if (u.protocol !== "http:" && u.protocol !== "https:") {
     throw new Error("Only http and https URLs are allowed");
+  }
+  if (!isAllowedLegalSource(urlStr)) {
+    throw new Error(LEGAL_SOURCE_DOMAIN_REJECT_MESSAGE);
   }
 
   const res = await fetch(urlStr, {
