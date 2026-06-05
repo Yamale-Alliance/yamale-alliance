@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Search, Filter, Download, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import Link from "next/link";
 import { InfoIcon } from "@/components/ui/InfoIcon";
 
@@ -30,7 +30,7 @@ type Filters = {
 };
 
 export default function TariffSchedulePage() {
-  const { isSignedIn } = useUser();
+  const { isSignedIn } = useAppUser();
   const [data, setData] = useState<TariffRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
