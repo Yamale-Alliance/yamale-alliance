@@ -5,6 +5,7 @@
 
 import { isFullLibraryContextEnabled } from "@/lib/ai-full-library-context";
 import { lawsOrGlobalForCountry } from "@/lib/law-country-scope";
+import { applyLawRagApprovalFilter } from "@/lib/law-rag-approval";
 import { resolveCountryIdCached } from "@/lib/country-resolution-cache";
 import {
   excludeInternalCategoryFromLawsQuery,
@@ -93,11 +94,9 @@ export async function fetchLawTitleCatalogForPrompt(
 
   for (;;) {
     let q = excludeInternalCategoryFromLawsQuery(
-      supabase
-        .from("laws")
-        .select(
-          "title, status, source_name, applies_to_all_countries, country_id, countries(name), categories!laws_category_id_fkey(name)"
-        )
+      applyLawRagApprovalFilter(supabase.from("laws").select(
+        "title, status, source_name, applies_to_all_countries, country_id, countries(name), categories!laws_category_id_fkey(name)"
+      ))
         .order("title", { ascending: true })
         .range(offset, offset + PAGE_SIZE - 1),
       internalCategoryId
