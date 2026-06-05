@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 import {
   buildMarketplacePaymentVerifyKey,
@@ -26,7 +26,7 @@ type UseMarketplacePaymentReturnOptions = {
 
 export function useMarketplacePaymentReturn(options: UseMarketplacePaymentReturnOptions) {
   const searchParams = useClientSearchParams();
-  const { isLoaded, isSignedIn } = useUser();
+  const { isLoaded, isSignedIn } = useAppUser();
   const params: MarketplacePaymentReturnParams = parseMarketplacePaymentReturn(searchParams);
   const confirmedRef = useRef<string | null>(null);
   const onConfirmedRef = useRef(options.onConfirmed);
