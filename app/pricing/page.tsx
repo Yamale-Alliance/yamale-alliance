@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check } from "lucide-react";
@@ -142,7 +142,7 @@ const FAQ_ITEMS = [
 ];
 
 export default function PricingPage() {
-  const { isLoaded, isSignedIn } = useUser();
+  const { isLoaded, isSignedIn } = useAppUser();
   const router = useRouter();
   const [billing, setBilling] = useState<BillingInterval>("monthly");
   const [tiers, setTiers] = useState<Tier[]>(FALLBACK_TIERS);
