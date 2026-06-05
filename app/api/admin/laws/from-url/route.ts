@@ -9,6 +9,7 @@ import {
   saveLawFromPdfUrlImport,
 } from "@/lib/admin-law-url-import-core";
 import type { CountryOpt, CategoryOpt } from "@/lib/law-url-import";
+import { LEGAL_SOURCE_DOMAIN_REJECT_MESSAGE } from "@/lib/uploads/url-validator";
 
 export const maxDuration = 300;
 
