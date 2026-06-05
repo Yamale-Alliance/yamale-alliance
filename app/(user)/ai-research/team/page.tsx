@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useAppUser } from "@/components/auth/AppAuthProvider";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -23,7 +23,7 @@ import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries
 type Member = { userId: string; email: string; addedAt: string };
 
 export default function ManageTeamPage() {
-  const { user } = useUser();
+  const { user } = useAppUser();
   const searchParams = useSearchParams();
   const [members, setMembers] = useState<Member[]>([]);
   const [seatsUsed, setSeatsUsed] = useState(0);
