@@ -19,7 +19,7 @@ export function LawFirmDevelopmentSubnav({ children }: { children: ReactNode }) 
 
   const bar = (
     <nav
-      className="law-firm-package-subnav fixed left-0 right-0 flex w-full items-center justify-between border-b border-[rgba(193,140,67,0.2)] bg-[rgba(34,25,19,0.97)] px-4 py-4 shadow-[0_4px_24px_rgba(0,0,0,0.35)] sm:px-8 sm:py-5"
+      className="law-firm-package-subnav fixed left-0 right-0 flex w-full items-center justify-between border-b border-border bg-card px-4 py-4 shadow-sm backdrop-blur-sm sm:px-8 sm:py-5"
       aria-label="Law Firm Development Package"
     >
       {children}
