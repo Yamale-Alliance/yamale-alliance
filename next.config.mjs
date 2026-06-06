@@ -1,4 +1,7 @@
 import { withSentryConfig } from "@sentry/nextjs";
+import createNextIntlPlugin from "next-intl/plugin";
+
+const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
 /** @type {import('next').NextConfig} */
 const supabaseHostname =
@@ -7,6 +10,11 @@ const supabaseHostname =
     : "fitqojixvjbthsxignka.supabase.co";
 
 const nextConfig = {
+  turbopack: {
+    resolveAlias: {
+      "next-intl/config": "./i18n/request.ts",
+    },
+  },
   async rewrites() {
     return [
       // Legacy namespace: most `/api/stripe/*` paths map to `/api/payments/*`. Webhook has its own route file (pawaPay/Lomi, not Stripe).
@@ -67,4 +75,9 @@ const sentryBuildOptions = {
   },
 };
 
-export default hasSentry ? withSentryConfig(nextConfig, sentryBuildOptions) : nextConfig;
+const configWithSentry = hasSentry
+  ? withSentryConfig(nextConfig, sentryBuildOptions)
+  : nextConfig;
+
+/** next-intl must wrap last so Turbopack/Webpack resolveAlias for `next-intl/config` is preserved. */
+export default withNextIntl(configWithSentry);
