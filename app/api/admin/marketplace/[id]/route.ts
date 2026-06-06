@@ -10,8 +10,8 @@ import {
   isFreeVaultItem,
   isPaidVaultSubcategory,
   resolveVaultSubcategoryForSave,
-  vaultSeriesUsesPerCountryCovers,
 } from "@/lib/marketplace-vault-categories";
+import { vaultSeriesUsesPerCountryCoversFromDb } from "@/lib/marketplace-vault-series";
 import { resolveFocusCountryForSave } from "@/lib/marketplace-vault-country";
 import { assignMarketplaceItemSlug } from "@/lib/content-slug-assign";
 
@@ -174,11 +174,15 @@ export async function PUT(
     const nextImage = updates.image_url !== undefined ? updates.image_url : previousImage;
     const nextSubcategory = updates.vault_subcategory ?? previousSubcategory;
 
+    const perCountryCovers = nextSubcategory
+      ? await vaultSeriesUsesPerCountryCoversFromDb(supabase, nextSubcategory)
+      : false;
+
     if (
       nextImage &&
       nextImage !== previousImage &&
       nextSubcategory &&
-      !vaultSeriesUsesPerCountryCovers(nextSubcategory) &&
+      !perCountryCovers &&
       (isFreeVaultItem(effectivePrice) || isPaidVaultSubcategory(nextSubcategory))
     ) {
       let imageQuery = (supabase.from("marketplace_items") as any)
