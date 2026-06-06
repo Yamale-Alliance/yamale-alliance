@@ -1,22 +1,24 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
+import { AccountBackLink } from "@/components/account/AccountBackLink";
 import { AccountUnlockedLawyers } from "@/components/account/AccountUnlockedLawyers";
 
-export default function AccountLawyersPage() {
+export const dynamic = "force-dynamic";
+
+export default async function AccountLawyersPage() {
+  const t = await getTranslations("account");
+
   return (
     <div>
-      <Link href="/account" className="text-sm font-medium text-primary hover:underline">
-        ← Account
-      </Link>
-      <h1 className="heading mt-4 text-2xl font-bold text-foreground">Unlocked lawyers</h1>
-      <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-        Contact details for lawyers you have already unlocked. Browse the directory to unlock more.
-      </p>
+      <AccountBackLink />
+      <h1 className="heading mt-4 text-2xl font-bold text-foreground">{t("lawyersTitle")}</h1>
+      <p className="mt-2 max-w-xl text-sm text-muted-foreground">{t("lawyersDesc")}</p>
       <div className="mt-8">
         <AccountUnlockedLawyers />
       </div>
       <p className="mt-6 text-center text-xs text-muted-foreground">
         <Link href="/lawyers" className="font-medium text-primary underline-offset-4 hover:underline">
-          Go to lawyers directory
+          {t("unlockedLawyers")}
         </Link>
       </p>
     </div>
