@@ -27,6 +27,12 @@ const settingsLinks = [
     description: "Manage admin users and permissions.",
     icon: Shield,
   },
+  {
+    href: "/admin-panel/mfa",
+    label: "Admin second factor (TOTP)",
+    description: "Enroll or verify your authenticator app for admin step-up.",
+    icon: Shield,
+  },
 ];
 
 export default function AdminSettingsPage() {
