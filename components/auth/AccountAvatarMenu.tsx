@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useClerk } from "@clerk/nextjs";
+import { useTranslations } from "next-intl";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { LogOut, Settings, Shield, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -14,6 +15,8 @@ type AccountAvatarMenuProps = {
 export function AccountAvatarMenu({ afterSignOutUrl = "/" }: AccountAvatarMenuProps) {
   const { user } = useAppUser();
   const { signOut } = useClerk();
+  const t = useTranslations("accountMenu");
+  const tCommon = useTranslations("common");
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -45,7 +48,7 @@ export function AccountAvatarMenu({ afterSignOutUrl = "/" }: AccountAvatarMenuPr
         className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-border bg-muted/50 ring-offset-background transition hover:ring-2 hover:ring-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label="Account menu"
+        aria-label={t("menu")}
       >
         {user.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -70,7 +73,7 @@ export function AccountAvatarMenu({ afterSignOutUrl = "/" }: AccountAvatarMenuPr
             onClick={() => setOpen(false)}
           >
             <User className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-            Account
+            {tCommon("account")}
           </Link>
           <Link
             href="/account/profile"
@@ -79,7 +82,7 @@ export function AccountAvatarMenu({ afterSignOutUrl = "/" }: AccountAvatarMenuPr
             onClick={() => setOpen(false)}
           >
             <Settings className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-            Profile & security
+            {t("profileSecurity")}
           </Link>
           {isAdmin && (
             <Link
@@ -89,7 +92,7 @@ export function AccountAvatarMenu({ afterSignOutUrl = "/" }: AccountAvatarMenuPr
               onClick={() => setOpen(false)}
             >
               <Shield className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-              Admin panel
+              {t("adminPanel")}
             </Link>
           )}
           <button
@@ -102,7 +105,7 @@ export function AccountAvatarMenu({ afterSignOutUrl = "/" }: AccountAvatarMenuPr
             }}
           >
             <LogOut className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-            Sign out
+            {t("signOut")}
           </button>
         </div>
       )}
