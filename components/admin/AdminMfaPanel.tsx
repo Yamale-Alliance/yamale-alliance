@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, ShieldCheck, Smartphone } from "lucide-react";
 
@@ -27,6 +27,7 @@ export function AdminMfaPanel() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const autoEnrollStarted = useRef(false);
 
   const loadStatus = useCallback(async () => {
     setLoading(true);
@@ -54,7 +55,7 @@ export function AdminMfaPanel() {
     void loadStatus();
   }, [loadStatus]);
 
-  const startEnroll = async () => {
+  const startEnroll = useCallback(async () => {
     setSubmitting(true);
     setError(null);
     try {
@@ -75,7 +76,17 @@ export function AdminMfaPanel() {
     } finally {
       setSubmitting(false);
     }
-  };
+  }, []);
+
+  const redirectedFromAdmin = searchParams.has("returnTo");
+
+  useEffect(() => {
+    if (!status || status.enrolled || enroll || autoEnrollStarted.current) return;
+    if (status.enforced || redirectedFromAdmin) {
+      autoEnrollStarted.current = true;
+      void startEnroll();
+    }
+  }, [status, enroll, redirectedFromAdmin, startEnroll]);
 
   const submitCode = async (action: "confirm-enroll" | "verify") => {
     setSubmitting(true);
@@ -135,7 +146,9 @@ export function AdminMfaPanel() {
             <h1 className="text-xl font-semibold tracking-tight">Admin second factor</h1>
             <p className="text-sm text-muted-foreground">
               {needsEnrollment
-                ? "Set up an authenticator app before using the admin panel."
+                ? redirectedFromAdmin
+                  ? "Before you can use the admin panel, set up an authenticator app."
+                  : "Set up an authenticator app before using the admin panel."
                 : "Enter the 6-digit code from your authenticator app."}
             </p>
           </div>
@@ -152,18 +165,24 @@ export function AdminMfaPanel() {
             <div className="flex items-start gap-3 text-sm text-muted-foreground">
               <Smartphone className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
               <p>
-                Use Google Authenticator, 1Password, Authy, or any TOTP app. You will scan a QR code
-                and confirm with a one-time code.
+                Use Google Authenticator, 1Password, Authy, or any TOTP app. Scan the QR code and
+                confirm with a one-time code.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => void startEnroll()}
-              disabled={submitting}
-              className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-            >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Set up authenticator"}
-            </button>
+            {submitting ? (
+              <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+                Preparing your authenticator setup…
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void startEnroll()}
+                className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                Set up authenticator
+              </button>
+            )}
           </div>
         )}
 
