@@ -39,9 +39,9 @@ export default async function AdvisoryLayout({ children }: { children: ReactNode
 
   return (
     <div
-      className={`${lfpSerif.variable} ${lfpSans.variable} advisory-workspace-root [--site-nav-h:4.5rem] sm:[--site-nav-h:5.5rem]`}
+      className={`${lfpSerif.variable} ${lfpSans.variable} advisory-workspace-root min-w-0 max-w-full overflow-x-clip [--site-nav-h:4.5rem] sm:[--site-nav-h:5.5rem]`}
     >
-      <Suspense fallback={<div className="px-6 py-20 text-center text-[#8a7a6a]">Loading workspace…</div>}>
+      <Suspense fallback={<div className="px-6 py-20 text-center text-muted-foreground">Loading workspace…</div>}>
         <AdvisoryAccessGateClient>
           <AdvisoryCatalogProvider>
             <AdvisoryWorkspaceShell>{children}</AdvisoryWorkspaceShell>
