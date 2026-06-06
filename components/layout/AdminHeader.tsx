@@ -10,6 +10,11 @@ import { PlatformLogo } from "@/components/platform/PlatformLogo";
 import { prototypeNavHeaderClass, prototypeNavInnerClass, prototypeNavLinkClass } from "./prototype-nav-styles";
 import { userNavLinks } from "./nav-config";
 import { SiteNavLink } from "./SiteNavLink";
+import {
+  SiteMobileNavPortal,
+  siteMobileNavBackdropClass,
+  siteMobileNavDrawerClass,
+} from "./SiteMobileNavPortal";
 
 function isActivePath(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
@@ -25,7 +30,7 @@ export function AdminHeader() {
     <header className={`yamale-site-chrome ${prototypeNavHeaderClass}`}>
       <div className={prototypeNavInnerClass}>
         <Link href="/" className="flex items-center transition-opacity hover:opacity-90">
-          <PlatformLogo height={56} width={200} className="h-14 w-[200px] sm:h-16" />
+          <PlatformLogo priority height={56} width={200} className="h-14 w-[200px] sm:h-16" />
         </Link>
 
         {/* Desktop nav */}
@@ -61,15 +66,14 @@ export function AdminHeader() {
         </div>
       </div>
 
-      {/* Mobile menu overlay */}
-      {mobileOpen && (
+      <SiteMobileNavPortal open={mobileOpen}>
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+            className={siteMobileNavBackdropClass}
             aria-hidden
             onClick={() => setMobileOpen(false)}
           />
-          <div className="fixed right-0 top-0 z-50 flex h-screen w-72 max-w-[85vw] flex-col border-l border-border bg-background shadow-2xl transition-transform duration-300 ease-out lg:hidden">
+          <div className={siteMobileNavDrawerClass}>
             <div className="flex h-16 shrink-0 items-center justify-between border-b border-border/40 bg-gradient-to-r from-primary/5 to-transparent px-5">
               <span className="text-sm font-bold uppercase tracking-wider text-foreground">Menu</span>
               <button
@@ -109,7 +113,7 @@ export function AdminHeader() {
             </nav>
           </div>
         </>
-      )}
+      </SiteMobileNavPortal>
     </header>
   );
 }
