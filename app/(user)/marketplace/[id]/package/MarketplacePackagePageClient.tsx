@@ -347,17 +347,17 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
 
   if (loading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center bg-[#221913]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#C18C43]" />
+      <div className="marketplace-package-page flex min-h-[50vh] items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   if (error && !item) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-16 text-center text-white">
-        <p className="text-white/70">{error}</p>
-        <Link href="/marketplace" className="mt-4 inline-block text-[#E3BA65] hover:underline">
+      <div className="marketplace-package-page mx-auto max-w-lg px-4 py-16 text-center text-foreground">
+        <p className="text-muted-foreground">{error}</p>
+        <Link href="/marketplace" className="mt-4 inline-block text-primary hover:underline">
           ← Back to The Yamalé Vault
         </Link>
       </div>
@@ -366,8 +366,8 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
 
   if (!item || !shouldUseVaultPackagePage(item)) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center bg-[#221913]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#C18C43]" />
+      <div className="marketplace-package-page flex min-h-[50vh] items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -387,17 +387,16 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
       : `$${(item.price_cents / 100).toFixed(2)}`;
 
   const lawFirmLanding = useLawFirmBuiltInLanding;
-  const usePlatformChrome = Boolean(customLandingHtml);
 
   return (
-    <div className={usePlatformChrome ? "min-h-screen bg-background pb-24" : "min-h-screen bg-[#221913] pb-24"}>
+    <div className="marketplace-package-page min-h-screen overflow-x-clip bg-background pb-24">
       {id && (
         <ZipPackageContentsDialog itemId={id} open={zipViewerOpen} onOpenChange={setZipViewerOpen} />
       )}
       {!lawFirmLanding && (
         <VaultPackageSubheader
           title={item.title}
-          variant={usePlatformChrome ? "platform" : "vault"}
+          variant="platform"
         />
       )}
 
@@ -409,7 +408,7 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
               : "mx-auto max-w-3xl px-4 pt-6"
           }
         >
-          <div className="rounded-lg border border-white/20 bg-white/5 px-4 py-3 text-sm text-white/80">
+          <div className="rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
             Confirming payment…
           </div>
         </div>
@@ -422,7 +421,7 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
               : "mx-auto max-w-3xl px-4 pt-6"
           }
         >
-          <div className="rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm text-green-200">
+          <div className="rounded-lg border border-green-500/40 bg-green-500/10 px-4 py-3 text-sm text-green-700 dark:text-green-300">
             Payment successful. You now have access to this package.
           </div>
         </div>
@@ -435,7 +434,7 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
               : "mx-auto max-w-3xl px-4 pt-6"
           }
         >
-          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
             Payment was not completed. If you already paid, wait a moment and refresh the page, or contact support.
           </div>
         </div>
@@ -448,7 +447,7 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
               : "mx-auto max-w-3xl px-4 pt-6"
           }
         >
-          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
             Checkout was cancelled.
           </div>
         </div>
