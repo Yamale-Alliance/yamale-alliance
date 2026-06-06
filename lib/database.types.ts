@@ -181,6 +181,27 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["admin_audit_log"]["Insert"]>;
       };
+      admin_totp_secrets: {
+        Row: {
+          clerk_user_id: string;
+          encrypted_secret: string;
+          confirmed_at: string | null;
+          failed_attempts: number;
+          locked_until: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          clerk_user_id: string;
+          encrypted_secret: string;
+          confirmed_at?: string | null;
+          failed_attempts?: number;
+          locked_until?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["admin_totp_secrets"]["Insert"]>;
+      };
       marketplace_vault_series: {
         Row: {
           id: string;
