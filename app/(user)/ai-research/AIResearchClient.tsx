@@ -6,6 +6,7 @@ import {
   useEffect,
   useLayoutEffect,
   useCallback,
+  useMemo,
   startTransition,
   type FormEvent,
 } from "react";
@@ -18,6 +19,7 @@ import {
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useTranslations } from "next-intl";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import {
   Send,
@@ -73,13 +75,6 @@ const TIER_LIMITS: Record<Tier, number | null> = {
   basic: 10,
   pro: 50,
   team: null,
-};
-
-const TIER_LABELS: Record<Tier, string> = {
-  free: "Free",
-  basic: "Basic",
-  pro: "Pro",
-  team: "Team",
 };
 
 const EXAMPLE_QUESTIONS_POOL = [
@@ -227,6 +222,18 @@ function getLastExchangeScrollMessageId(messages: Message[]): string | undefined
 }
 
 export default function AIResearchClient() {
+  const t = useTranslations("aiResearch");
+  const tLoading = useTranslations("loading");
+  const tCommon = useTranslations("common");
+  const tierLabels = useMemo(
+    (): Record<Tier, string> => ({
+      free: t("tiers.free"),
+      basic: t("tiers.basic"),
+      pro: t("tiers.pro"),
+      team: t("tiers.team"),
+    }),
+    [t]
+  );
   const { user, isLoaded } = useAppUser();
   const searchParams = useClientSearchParams();
   const chatStorageReadyRef = useRef(false);
@@ -1265,7 +1272,7 @@ export default function AIResearchClient() {
     return (
       <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center bg-[#fafaf7] px-4 dark:bg-[#0D1B2A]">
         <Loader2 className="h-8 w-8 animate-spin text-[#C8922A]" aria-hidden />
-        <p className="mt-3 text-sm font-medium text-[#0D1B2A]/80 dark:text-white/80">Loading AI Research…</p>
+        <p className="mt-3 text-sm font-medium text-[#0D1B2A]/80 dark:text-white/80">{tLoading("aiResearch")}</p>
       </div>
     );
   }
@@ -1273,7 +1280,7 @@ export default function AIResearchClient() {
   if (!user) {
     return (
       <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-background px-4">
-        <p className="text-sm text-muted-foreground">Sign in to use AI Legal Research.</p>
+        <p className="text-sm text-muted-foreground">{t("signInRequired")}</p>
       </div>
     );
   }
@@ -1290,10 +1297,10 @@ export default function AIResearchClient() {
         <div className="text-center">
           <Loader2 className="mx-auto mb-2 h-8 w-8 animate-spin text-[#C8922A]" />
           {confirmingPayment && (
-            <p className="mt-2 text-sm text-[#0D1B2A]/70 dark:text-white/70">Confirming payment…</p>
+            <p className="mt-2 text-sm text-[#0D1B2A]/70 dark:text-white/70">{tCommon("confirmingPayment")}</p>
           )}
           {!confirmingPayment && !usageFetched && (
-            <p className="mt-2 text-sm text-[#0D1B2A]/70 dark:text-white/70">Loading your plan…</p>
+            <p className="mt-2 text-sm text-[#0D1B2A]/70 dark:text-white/70">{tLoading("yourPlan")}</p>
           )}
         </div>
       </div>
@@ -1308,15 +1315,15 @@ export default function AIResearchClient() {
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-primary/25 bg-primary/10">
             <Lock className="h-7 w-7 text-primary" />
           </div>
-          <h1 className="heading mt-6 text-xl font-semibold tracking-tight text-card-foreground">AI Legal Research</h1>
+          <h1 className="heading mt-6 text-xl font-semibold tracking-tight text-card-foreground">{t("title")}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Available on Basic, Pro, and Team plans.
+            {t("availableOnPlans")}
           </p>
           <Link
             href="/pricing"
             className="mt-6 inline-flex items-center gap-2 rounded-[6px] bg-[#0D1B2A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#162436]"
           >
-            View plans
+            {t("viewPlans")}
           </Link>
         </div>
       </div>
@@ -1324,7 +1331,7 @@ export default function AIResearchClient() {
   }
 
   const planUsageLabel =
-    limit === null ? `Unlimited · ${TIER_LABELS[tier]}` : `${used} / ${limit} · ${TIER_LABELS[tier]}`;
+    limit === null ? `${t("unlimited")} · ${tierLabels[tier]}` : `${used} / ${limit} · ${tierLabels[tier]}`;
 
   return (
     <>
@@ -1339,12 +1346,12 @@ export default function AIResearchClient() {
           }`}
         >
           <div className="flex items-center justify-between border-b border-[#E8E4DC] px-5 py-4 pt-[max(1rem,env(safe-area-inset-top))] dark:border-white/[0.08] md:hidden">
-            <span className="text-[13px] font-semibold text-[#0D1B2A]/90 dark:text-white/90">Research history</span>
+            <span className="text-[13px] font-semibold text-[#0D1B2A]/90 dark:text-white/90">{t("researchHistory")}</span>
             <button
               type="button"
               onClick={() => setSidebarOpen(false)}
               className="rounded-lg p-1.5 text-[#0D1B2A]/60 hover:bg-[#0D1B2A]/5 hover:text-[#0D1B2A] dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white"
-              aria-label="Close chat list"
+              aria-label={t("closeChatList")}
             >
               <X className="h-4 w-4" />
             </button>
@@ -1359,7 +1366,7 @@ export default function AIResearchClient() {
               className="flex w-full items-center justify-center gap-2 rounded-[6px] bg-[#C8922A] px-4 py-2.5 text-[13.5px] font-semibold text-white transition hover:bg-[#b07e22]"
             >
               <Plus className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden />
-              New research query
+              {t("newQuery")}
             </button>
             {tier === "team" && (
               <Link
@@ -1367,7 +1374,7 @@ export default function AIResearchClient() {
                 className="mt-3 flex items-center justify-center gap-2 rounded-[6px] border border-[#E8E4DC] px-3 py-2 text-[13px] font-medium text-[#0D1B2A]/80 transition hover:bg-[#0D1B2A]/5 dark:border-white/15 dark:text-white/80 dark:hover:bg-white/10"
               >
                 <Users className="h-4 w-4" />
-                Manage team
+                {t("manageTeam")}
               </Link>
             )}
           </div>
@@ -1378,14 +1385,14 @@ export default function AIResearchClient() {
                 type="text"
                 value={searchChats}
                 onChange={(e) => setSearchChats(e.target.value)}
-                placeholder="Search previous queries…"
+                placeholder={t("searchPrevious")}
                 className="w-full rounded-[6px] border border-[#E8E4DC] bg-white py-2.5 pl-10 pr-3 text-[13px] text-[#0D1B2A]/80 outline-none ring-0 placeholder:text-[#0D1B2A]/35 focus:border-[#C8922A]/50 dark:border-white/10 dark:bg-white/[0.07] dark:text-white/80 dark:placeholder:text-white/35 dark:focus:border-white/20"
               />
             </div>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <p className="px-5 pb-2.5 pt-4 text-[10px] font-bold uppercase tracking-[0.12em] text-[#0D1B2A]/55 dark:text-white/40">
-              Recent
+              {t("recent")}
             </p>
             <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4">
               {filteredSessions.map((s) => (
@@ -1402,13 +1409,13 @@ export default function AIResearchClient() {
                         : "font-medium text-[#0D1B2A]/80 hover:bg-[#0D1B2A]/[0.06] hover:text-[#0D1B2A] dark:font-medium dark:text-white/80 dark:hover:bg-white/[0.07] dark:hover:text-white"
                     }`}
                   >
-                    {s.title || "New chat"}
+                    {s.title || t("newChat")}
                   </button>
                   <button
                     type="button"
                     onClick={(e) => deleteChat(s.id, e)}
                     className="shrink-0 rounded p-1.5 text-[#0D1B2A]/40 opacity-0 transition hover:bg-red-500/10 hover:text-red-600 group-hover:opacity-100 dark:text-white/40 dark:hover:bg-red-500/20 dark:hover:text-red-200"
-                    aria-label="Delete chat"
+                    aria-label={t("deleteChat")}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -1416,14 +1423,14 @@ export default function AIResearchClient() {
               ))}
               {filteredSessions.length === 0 && (
                 <p className="px-2 py-4 text-[13px] font-medium text-[#0D1B2A]/60 dark:text-white/55">
-                  {searchChats.trim() ? "No matching queries." : "No queries yet."}
+                  {searchChats.trim() ? t("noMatchingQueries") : t("noQueriesYet")}
                 </p>
               )}
             </nav>
           </div>
           <div className="border-t border-[#E8E4DC] px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] dark:border-white/[0.08]">
             <div className="flex items-center justify-between gap-2 rounded-[6px] bg-[#0D1B2A]/[0.04] px-3 py-2.5 dark:bg-white/[0.06]">
-              <span className="text-[12px] text-[#0D1B2A]/55 dark:text-white/50">AI queries</span>
+              <span className="text-[12px] text-[#0D1B2A]/55 dark:text-white/50">{t("aiQueries")}</span>
               <span className="text-right text-[12px] font-bold text-[#9a7020] dark:text-[#E8B84B]">{planUsageLabel}</span>
             </div>
             {limit !== null && (
@@ -1452,7 +1459,7 @@ export default function AIResearchClient() {
                 type="button"
                 onClick={() => setSidebarOpen((o) => !o)}
                 className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground md:hidden"
-                aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+                aria-label={sidebarOpen ? t("closeSidebar") : t("openSidebar")}
               >
                 <Menu className="h-5 w-5" />
               </button>
@@ -1556,7 +1563,7 @@ export default function AIResearchClient() {
                 </>
               )}
               <span className="rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {tier === "free" && payAsYouGoCount > 0 ? "Limited" : TIER_LABELS[tier]}
+                {tier === "free" && payAsYouGoCount > 0 ? "Limited" : tierLabels[tier]}
               </span>
             </div>
           </div>
@@ -1994,7 +2001,7 @@ export default function AIResearchClient() {
                         }
                       }
                     }}
-                    placeholder="Describe your legal question…"
+                    placeholder={t("describeQuestion")}
                     disabled={atLimit}
                     rows={2}
                     className="min-h-[44px] w-full resize-none bg-transparent px-2 py-2 text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-50 md:min-h-[38px] md:py-1.5"
@@ -2021,12 +2028,10 @@ export default function AIResearchClient() {
                   )}
                 </div>
                 <p className="mt-1.5 hidden text-center text-[10px] text-muted-foreground sm:block">
-                  {isTurnBusy
-                    ? "Generating… Click stop to cancel"
-                    : "Enter to send, Shift+Enter for new line"}
+                  {isTurnBusy ? t("generatingHint") : t("sendHint")}
                 </p>
                 <p className="mt-1 text-center text-[10px] text-muted-foreground sm:hidden">
-                  {isTurnBusy ? "Generating…" : "Tap send when ready"}
+                  {isTurnBusy ? t("generating") : t("tapSend")}
                 </p>
               </form>
               {negativeModal ? (
