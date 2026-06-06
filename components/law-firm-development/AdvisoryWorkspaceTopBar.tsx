@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { Menu, MessageCircle, Search } from "lucide-react";
+import { Menu, MessageCircle, Search, X } from "lucide-react";
 import { AdvisoryCourseNotifications } from "@/components/law-firm-development/AdvisoryCourseNotifications";
 import { PLATFORM_MAIL_LINK_REL, platformBusinessMailto } from "@/lib/platform-emails";
 import { advisoryLibraryHref } from "@/lib/law-firm-development/routes";
@@ -15,7 +15,8 @@ type TopBarProps = {
   firmName: string;
   firmLocation: string;
   subscription: string;
-  onOpenMenu?: () => void;
+  menuOpen?: boolean;
+  onToggleMenu?: () => void;
 };
 
 function firmInitials(firmName: string): string {
@@ -30,7 +31,8 @@ export function AdvisoryWorkspaceTopBar({
   firmName,
   firmLocation,
   subscription,
-  onOpenMenu,
+  menuOpen = false,
+  onToggleMenu,
 }: TopBarProps) {
   const router = useRouter();
   const { courseQuery } = useAdvisoryCatalogContext();
@@ -45,16 +47,21 @@ export function AdvisoryWorkspaceTopBar({
 
   return (
     <header className="advisory-topbar">
-      {onOpenMenu && (
+      {onToggleMenu ? (
         <button
           type="button"
           className="advisory-topbar__menu md:hidden"
-          onClick={onOpenMenu}
-          aria-label="Open menu"
+          onClick={onToggleMenu}
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          aria-expanded={menuOpen}
         >
-          <Menu className="h-5 w-5" aria-hidden />
+          {menuOpen ? (
+            <X className="h-5 w-5" aria-hidden />
+          ) : (
+            <Menu className="h-5 w-5" aria-hidden />
+          )}
         </button>
-      )}
+      ) : null}
       <form className="advisory-topbar__search" role="search" onSubmit={onSearchSubmit}>
         <Search className="advisory-topbar__search-icon h-4 w-4" aria-hidden />
         <input
@@ -65,8 +72,9 @@ export function AdvisoryWorkspaceTopBar({
           aria-label="Search documents, templates, or tools"
         />
       </form>
-      <div className="advisory-topbar__spacer" aria-hidden />
-      <AdvisoryCourseNotifications />
+      <div className="advisory-topbar__actions">
+        <AdvisoryCourseNotifications />
+      </div>
       <a
         href={ADVISORY_CONTACT_MAILTO}
         target="_blank"
