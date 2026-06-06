@@ -15,17 +15,19 @@ const LANDING_BASE_CSS =
 /** Fallback tokens + CTA styles when :root/body rules do not apply inside shadow DOM. */
 const LANDING_SHADOW_ROOT_DEFAULTS = `
 .yamale-landing-root{
-  --gold:#C18C43;
-  --ebony:#1a1410;
-  --pale-gold:#E3BA65;
-  --white:#faf8f5;
-  color:var(--white);
-  background:var(--ebony);
+  --gold:var(--primary,#c8922a);
+  --pale-gold:var(--primary,#c8922a);
+  --ebony:var(--foreground,#0d1b2a);
+  --ebony-deep:var(--accent,#162436);
+  --white:var(--card,#ffffff);
+  --off-white:var(--foreground,#0d1b2a);
+  color:var(--foreground,#0d1b2a);
+  background:var(--background,#fafaf7);
   font-family:'DM Sans',sans-serif;
 }
 .yamale-landing-root .btn-primary{
-  background:var(--gold,#C18C43)!important;
-  color:var(--ebony,#1a1410)!important;
+  background:var(--primary,#c8922a)!important;
+  color:var(--primary-foreground,#fff)!important;
   font-family:'DM Sans',sans-serif!important;
   font-size:0.875rem!important;
   font-weight:600!important;
@@ -42,20 +44,750 @@ const LANDING_SHADOW_ROOT_DEFAULTS = `
 }
 .yamale-landing-root .btn-primary:hover{
   transform:translateY(-2px)!important;
-  box-shadow:0 8px 32px rgba(193,140,67,0.3)!important;
+  opacity:0.92!important;
+  box-shadow:0 8px 32px color-mix(in srgb,var(--primary,#c8922a) 30%,transparent)!important;
 }
 .yamale-landing-root .btn-secondary{
-  color:var(--pale-gold,#E3BA65)!important;
+  color:var(--primary,#c8922a)!important;
   font-family:'DM Sans',sans-serif!important;
   font-size:0.875rem!important;
   font-weight:400!important;
   text-decoration:none!important;
-  border-bottom:1px solid rgba(193,140,67,0.4)!important;
+  border-bottom:1px solid color-mix(in srgb,var(--primary,#c8922a) 40%,transparent)!important;
   padding-bottom:2px!important;
 }
 .yamale-landing-root .btn-secondary:hover{
-  color:var(--gold,#C18C43)!important;
-  border-color:var(--gold,#C18C43)!important;
+  opacity:0.85!important;
+}
+`;
+
+/** Light/dark remaps for vault HTML authored with white-on-brown colors (injected last in shadow root). */
+const LANDING_THEME_MODE_OVERRIDES = `
+:host(.yamale-landing-light) .yamale-landing-root{
+  --gold:var(--primary,#c8922a)!important;
+  --pale-gold:var(--primary,#c8922a)!important;
+  --ebony:var(--foreground,#0d1b2a)!important;
+  --ebony-deep:var(--muted,#f4f1eb)!important;
+  --warm-gray:var(--muted,#f4f1eb)!important;
+  --warm-gray-2:color-mix(in srgb,var(--foreground,#0d1b2a) 10%,var(--border,#e2ddd5))!important;
+  --off-white:var(--foreground,#0d1b2a)!important;
+  --white:var(--card,#ffffff)!important;
+  --text-dark:var(--foreground,#0d1b2a)!important;
+  --saddlewood:var(--accent,#162436)!important;
+  --copper:var(--primary,#c8922a)!important;
+  color:var(--foreground,#0d1b2a)!important;
+  background:var(--background,#fafaf7)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root{
+  --gold:var(--primary,#e8b84b)!important;
+  --pale-gold:var(--primary,#e8b84b)!important;
+  --ebony:var(--foreground,#f4f1eb)!important;
+  --ebony-deep:var(--muted,#162436)!important;
+  --warm-gray:var(--muted,#162436)!important;
+  --warm-gray-2:var(--border,#2a3f56)!important;
+  --off-white:var(--foreground,#f4f1eb)!important;
+  --white:var(--card,#162436)!important;
+  --text-dark:var(--foreground,#f4f1eb)!important;
+  --saddlewood:var(--primary,#e8b84b)!important;
+  --copper:var(--primary,#e8b84b)!important;
+  color:var(--foreground,#f4f1eb)!important;
+  background:var(--background,#0d1b2a)!important;
+}
+/* Hero */
+:host(.yamale-landing-light) .yamale-landing-root .hero::after{
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  bottom:auto!important;
+  right:auto!important;
+  background:radial-gradient(ellipse 75% 60% at 72% 28%,color-mix(in srgb,var(--primary,#c8922a) 8%,transparent) 0%,transparent 62%)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .hero::after{
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  bottom:auto!important;
+  right:auto!important;
+  background:radial-gradient(ellipse 75% 60% at 72% 28%,color-mix(in srgb,var(--primary,#e8b84b) 10%,transparent) 0%,transparent 62%)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .hero-eyebrow,
+:host(.yamale-landing-light) .yamale-landing-root .section-label,
+:host(.yamale-landing-light) .yamale-landing-root .hero-headline em{
+  color:var(--primary,#c8922a)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .hero-headline,
+:host(.yamale-landing-dark) .yamale-landing-root .hero-headline,
+:host(.yamale-landing-light) .yamale-landing-root .problem-heading,
+:host(.yamale-landing-light) .yamale-landing-root .kit-heading,
+:host(.yamale-landing-light) .yamale-landing-root .pricing-heading,
+:host(.yamale-landing-light) .yamale-landing-root .about-heading,
+:host(.yamale-landing-light) .yamale-landing-root .who-heading,
+:host(.yamale-landing-light) .yamale-landing-root .section-heading,
+:host(.yamale-landing-light) .yamale-landing-root .kit-card-title,
+:host(.yamale-landing-light) .yamale-landing-root .who-card-role,
+:host(.yamale-landing-light) .yamale-landing-root .pricing-tier-name{
+  color:var(--foreground)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .hero-headline em,
+:host(.yamale-landing-dark) .yamale-landing-root .hero-eyebrow,
+:host(.yamale-landing-dark) .yamale-landing-root .section-label{
+  color:var(--primary)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .hero-sub,
+:host(.yamale-landing-light) .yamale-landing-root .hero-content p,
+:host(.yamale-landing-light) .yamale-landing-root .hero p,
+:host(.yamale-landing-dark) .yamale-landing-root .hero-sub,
+:host(.yamale-landing-dark) .yamale-landing-root .hero-content p,
+:host(.yamale-landing-dark) .yamale-landing-root .hero p,
+:host(.yamale-landing-light) .yamale-landing-root .problem-text,
+:host(.yamale-landing-light) .yamale-landing-root .kit-desc,
+:host(.yamale-landing-light) .yamale-landing-root .kit-card-desc,
+:host(.yamale-landing-light) .yamale-landing-root .law-callout-text,
+:host(.yamale-landing-light) .yamale-landing-root .who-card-desc,
+:host(.yamale-landing-light) .yamale-landing-root .pricing-sub,
+:host(.yamale-landing-light) .yamale-landing-root .pricing-list li,
+:host(.yamale-landing-light) .yamale-landing-root .pricing-period,
+:host(.yamale-landing-light) .yamale-landing-root .pricing-includes,
+:host(.yamale-landing-light) .yamale-landing-root .pricing-note,
+:host(.yamale-landing-light) .yamale-landing-root .about-text,
+:host(.yamale-landing-light) .yamale-landing-root .footer-text,
+:host(.yamale-landing-light) .yamale-landing-root .stat-label,
+:host(.yamale-landing-light) .yamale-landing-root .price-label,
+:host(.yamale-landing-light) .yamale-landing-root .pain-text,
+:host(.yamale-landing-light) .yamale-landing-root .pain-desc,
+:host(.yamale-landing-light) .yamale-landing-root .challenge-text,
+:host(.yamale-landing-light) .yamale-landing-root .grid-card-desc,
+:host(.yamale-landing-light) .yamale-landing-root .card-body,
+:host(.yamale-landing-light) .yamale-landing-root .card-desc,
+:host(.yamale-landing-light) .yamale-landing-root section p,
+:host(.yamale-landing-light) .yamale-landing-root .lead,
+:host(.yamale-landing-light) .yamale-landing-root .intro,
+:host(.yamale-landing-light) .yamale-landing-root .subtitle,
+:host(.yamale-landing-dark) .yamale-landing-root .problem-text,
+:host(.yamale-landing-dark) .yamale-landing-root .kit-card-desc,
+:host(.yamale-landing-dark) .yamale-landing-root .pricing-list li,
+:host(.yamale-landing-dark) .yamale-landing-root .pricing-sub,
+:host(.yamale-landing-dark) .yamale-landing-root section p{
+  color:var(--muted-foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .hero-sub strong,
+:host(.yamale-landing-light) .yamale-landing-root .hero p strong,
+:host(.yamale-landing-light) .yamale-landing-root .problem-text strong,
+:host(.yamale-landing-light) .yamale-landing-root .law-callout-text strong,
+:host(.yamale-landing-dark) .yamale-landing-root .hero-sub strong,
+:host(.yamale-landing-dark) .yamale-landing-root .hero p strong{
+  color:var(--foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .price-amount,
+:host(.yamale-landing-light) .yamale-landing-root .price-currency,
+:host(.yamale-landing-dark) .yamale-landing-root .price-amount,
+:host(.yamale-landing-dark) .yamale-landing-root .price-currency,
+:host(.yamale-landing-light) .yamale-landing-root .pricing-price .currency{
+  color:var(--primary)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .pricing-price,
+:host(.yamale-landing-dark) .yamale-landing-root .pricing-price{
+  color:var(--foreground)!important;
+}
+/* Cities strip — high-contrast band (DRC uses .cities; Zambia uses .cities-strip) */
+:host(.yamale-landing-light) .yamale-landing-root .cities-strip,
+:host(.yamale-landing-light) .yamale-landing-root .cities{
+  background:var(--accent,#162436)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .cities-strip,
+:host(.yamale-landing-dark) .yamale-landing-root .cities{
+  background:color-mix(in srgb,var(--primary) 88%,var(--background))!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .cities-label,
+:host(.yamale-landing-light) .yamale-landing-root .city-item,
+:host(.yamale-landing-light) .yamale-landing-root .cities span,
+:host(.yamale-landing-dark) .yamale-landing-root .cities-label,
+:host(.yamale-landing-dark) .yamale-landing-root .city-item{
+  color:color-mix(in srgb,#fff 88%,var(--primary))!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .cities span{
+  color:color-mix(in srgb,var(--background) 88%,var(--foreground))!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .cities .dot,
+:host(.yamale-landing-dark) .yamale-landing-root .cities .dot{
+  background:color-mix(in srgb,currentColor 50%,transparent)!important;
+}
+/* Language toggle */
+:host(.yamale-landing-light) .yamale-landing-root .lang-btn,
+:host(.yamale-landing-dark) .yamale-landing-root .lang-btn{
+  color:var(--muted-foreground)!important;
+  border:1px solid var(--border)!important;
+  background:var(--card)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .lang-btn.active,
+:host(.yamale-landing-dark) .yamale-landing-root .lang-btn.active{
+  color:var(--primary-foreground)!important;
+  background:var(--primary)!important;
+  border-color:var(--primary)!important;
+}
+/* Secondary / bundle CTAs */
+:host(.yamale-landing-light) .yamale-landing-root .btn-secondary{
+  color:var(--primary)!important;
+  border-bottom-color:color-mix(in srgb,var(--primary) 45%,transparent)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .btn-primary[style*="rgba(193,140,67"],
+:host(.yamale-landing-light) .yamale-landing-root a.btn-primary[style*="--pale-gold"],
+:host(.yamale-landing-light) .yamale-landing-root .btn-bundle,
+:host(.yamale-landing-light) .yamale-landing-root a[href="#pricing-bundle"]:not(.pricing-card a){
+  background:color-mix(in srgb,var(--primary) 12%,var(--card))!important;
+  color:var(--primary)!important;
+  border:1px solid color-mix(in srgb,var(--primary) 45%,var(--border))!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .btn-primary[style*="rgba(193,140,67"],
+:host(.yamale-landing-dark) .yamale-landing-root a.btn-primary[style*="--pale-gold"]{
+  background:color-mix(in srgb,var(--primary) 18%,transparent)!important;
+  color:var(--primary)!important;
+  border:1px solid color-mix(in srgb,var(--primary) 50%,transparent)!important;
+}
+/* Sections */
+:host(.yamale-landing-light) .yamale-landing-root .problem-section,
+:host(.yamale-landing-light) .yamale-landing-root .kit-section,
+:host(.yamale-landing-light) .yamale-landing-root .pricing-section,
+:host(.yamale-landing-light) .yamale-landing-root .about-section,
+:host(.yamale-landing-light) .yamale-landing-root .footer-section,
+:host(.yamale-landing-light) .yamale-landing-root .context-section{
+  background:var(--background,#fafaf7)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .kit-section{
+  background:linear-gradient(180deg,var(--muted,#f4f1eb) 0%,var(--background,#fafaf7) 100%)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .who-section{
+  background:var(--muted,#f4f1eb)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .stats-strip{
+  background:var(--accent,#162436)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .stats-strip .stat-label,
+:host(.yamale-landing-dark) .yamale-landing-root .stats-strip .stat-label{
+  color:color-mix(in srgb,#fff 78%,var(--primary))!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .problem-section,
+:host(.yamale-landing-dark) .yamale-landing-root .kit-section,
+:host(.yamale-landing-dark) .yamale-landing-root .pricing-section,
+:host(.yamale-landing-dark) .yamale-landing-root .about-section,
+:host(.yamale-landing-dark) .yamale-landing-root .context-section{
+  background:var(--card,#162436)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .kit-card,
+:host(.yamale-landing-light) .yamale-landing-root .pricing-card.standard{
+  background:var(--card,#fff)!important;
+  border-color:color-mix(in srgb,var(--foreground,#0d1b2a) 14%,var(--border,#e2ddd5))!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .kit-card:hover{
+  background:color-mix(in srgb,var(--primary,#c8922a) 6%,var(--card,#fff))!important;
+  border-color:color-mix(in srgb,var(--primary,#c8922a) 35%,var(--border,#e2ddd5))!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .kit-card{
+  background:color-mix(in srgb,var(--foreground,#f4f1eb) 4%,var(--card,#162436))!important;
+  border-color:var(--border,#334155)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .pricing-card.bundle{
+  background:color-mix(in srgb,var(--primary,#c8922a) 10%,var(--card,#fff))!important;
+  border-color:var(--primary,#c8922a)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .pricing-card.bundle{
+  background:color-mix(in srgb,var(--primary) 12%,var(--card))!important;
+  border-color:var(--primary)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .btn-primary{
+  color:var(--primary-foreground,#fff)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .context-quote{
+  color:var(--foreground)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .context-quote{
+  color:color-mix(in srgb,var(--foreground) 88%,transparent)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .gold-bar,
+:host(.yamale-landing-light) .yamale-landing-root hr,
+:host(.yamale-landing-light) .yamale-landing-root .section-divider{
+  opacity:0.85!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .problem-item,
+:host(.yamale-landing-light) .yamale-landing-root .kit-grid,
+:host(.yamale-landing-light) .yamale-landing-root section{
+  border-color:color-mix(in srgb,var(--foreground,#0d1b2a) 12%,var(--border,#e2ddd5))!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .hero-eyebrow::before,
+:host(.yamale-landing-light) .yamale-landing-root .section-label::before{
+  background:var(--primary)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .hero-desc,
+:host(.yamale-landing-light) .yamale-landing-root .hero-body,
+:host(.yamale-landing-light) .yamale-landing-root .hero-text,
+:host(.yamale-landing-light) .yamale-landing-root .hero-lead{
+  color:var(--muted-foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .hero-desc strong,
+:host(.yamale-landing-light) .yamale-landing-root .hero-body strong{
+  color:var(--foreground)!important;
+}
+/* DRC / CMS mining kit (.prob-item, .sec.dark, .hero-h1) */
+:host(.yamale-landing-light) .yamale-landing-root .sec.dark,
+:host(.yamale-landing-light) .yamale-landing-root .bi-note{
+  background:var(--muted)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .hero{
+  background:var(--background)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .sec.dark,
+:host(.yamale-landing-dark) .yamale-landing-root .hero,
+:host(.yamale-landing-dark) .yamale-landing-root .bi-note{
+  background:var(--card)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .hero-h1,
+:host(.yamale-landing-dark) .yamale-landing-root .hero-h1,
+:host(.yamale-landing-light) .yamale-landing-root .hdg,
+:host(.yamale-landing-dark) .yamale-landing-root .hdg.white{
+  color:var(--foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .hero-h1 em,
+:host(.yamale-landing-dark) .yamale-landing-root .hero-h1 em,
+:host(.yamale-landing-light) .yamale-landing-root .hdg em,
+:host(.yamale-landing-dark) .yamale-landing-root .hdg em{
+  color:var(--primary)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .hero-sub,
+:host(.yamale-landing-dark) .yamale-landing-root .hero-sub,
+:host(.yamale-landing-light) .yamale-landing-root .sec.dark .prob-item p,
+:host(.yamale-landing-light) .yamale-landing-root .sec.dark .prob-item strong,
+:host(.yamale-landing-light) .yamale-landing-root .prob-item p,
+:host(.yamale-landing-dark) .yamale-landing-root .prob-item p,
+:host(.yamale-landing-light) .yamale-landing-root .lead.white,
+:host(.yamale-landing-dark) .yamale-landing-root .lead.white,
+:host(.yamale-landing-light) .yamale-landing-root .bi-note p,
+:host(.yamale-landing-dark) .yamale-landing-root .bi-note p,
+:host(.yamale-landing-light) .yamale-landing-root .p-desc,
+:host(.yamale-landing-dark) .yamale-landing-root .p-desc,
+:host(.yamale-landing-light) .yamale-landing-root .p-list li,
+:host(.yamale-landing-dark) .yamale-landing-root .p-list li,
+:host(.yamale-landing-light) .yamale-landing-root .p-note,
+:host(.yamale-landing-dark) .yamale-landing-root .p-note,
+:host(.yamale-landing-light) .yamale-landing-root .foot-l,
+:host(.yamale-landing-dark) .yamale-landing-root .foot-l,
+:host(.yamale-landing-light) .yamale-landing-root .stat-l,
+:host(.yamale-landing-dark) .yamale-landing-root .stat-l{
+  color:var(--muted-foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .hero-sub strong,
+:host(.yamale-landing-dark) .yamale-landing-root .hero-sub strong,
+:host(.yamale-landing-light) .yamale-landing-root .sec.dark .prob-item strong,
+:host(.yamale-landing-light) .yamale-landing-root .prob-item strong,
+:host(.yamale-landing-dark) .yamale-landing-root .prob-item strong,
+:host(.yamale-landing-light) .yamale-landing-root .bi-note strong,
+:host(.yamale-landing-dark) .yamale-landing-root .bi-note strong{
+  color:var(--foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .prob-item h3,
+:host(.yamale-landing-dark) .yamale-landing-root .prob-item h3{
+  color:var(--primary)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .prob-n,
+:host(.yamale-landing-dark) .yamale-landing-root .prob-n{
+  color:color-mix(in srgb,var(--primary) 22%,transparent)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .p-price,
+:host(.yamale-landing-dark) .yamale-landing-root .p-price{
+  color:var(--foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .hero-doc-count .big,
+:host(.yamale-landing-dark) .yamale-landing-root .hero-doc-count .big{
+  color:color-mix(in srgb,var(--primary) 16%,transparent)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .hero-doc-count .small,
+:host(.yamale-landing-dark) .yamale-landing-root .hero-doc-count .small{
+  color:var(--muted-foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .sec.gray{
+  background:var(--muted)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .stats-bar,
+:host(.yamale-landing-dark) .yamale-landing-root .stats-bar{
+  background:var(--accent)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .stats-bar{
+  background:color-mix(in srgb,var(--primary) 88%,var(--background))!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .stat-n,
+:host(.yamale-landing-dark) .yamale-landing-root .stat-n{
+  color:var(--primary)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .stats-bar .stat-n{
+  color:var(--background)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .stats-bar .stat-l{
+  color:color-mix(in srgb,#fff 88%,var(--primary))!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .stats-bar .stat-l{
+  color:color-mix(in srgb,var(--background) 82%,var(--foreground))!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root footer,
+:host(.yamale-landing-dark) .yamale-landing-root footer{
+  background:var(--muted)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .foot-r,
+:host(.yamale-landing-dark) .yamale-landing-root .foot-r{
+  color:var(--primary)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .btn-secondary{
+  background:color-mix(in srgb,var(--primary) 10%,var(--card))!important;
+  color:var(--primary)!important;
+  border-color:color-mix(in srgb,var(--primary) 40%,var(--border))!important;
+}
+/* DRC sec variants + legal framework document */
+:host(.yamale-landing-light) .yamale-landing-root .sec.white,
+:host(.yamale-landing-light) .yamale-landing-root .sec.gray,
+:host(.yamale-landing-light) .yamale-landing-root .sec.dark{
+  background:var(--background)!important;
+  color:var(--foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .sec.gray{
+  background:var(--muted)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .sec.dark{
+  background:color-mix(in srgb,var(--foreground) 4%,var(--muted))!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root nav,
+:host(.yamale-landing-light) .yamale-landing-root footer{
+  background:var(--card)!important;
+  border-color:var(--border)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .nav-brand,
+:host(.yamale-landing-light) .yamale-landing-root .nav-price{
+  color:var(--primary)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .nav-series{
+  color:var(--muted-foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .hdg.dark,
+:host(.yamale-landing-dark) .yamale-landing-root .hdg.dark,
+:host(.yamale-landing-light) .yamale-landing-root .hdg.xl,
+:host(.yamale-landing-dark) .yamale-landing-root .hdg.xl{
+  color:var(--foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .lead.dark,
+:host(.yamale-landing-dark) .yamale-landing-root .lead.dark{
+  color:var(--muted-foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .eyebrow,
+:host(.yamale-landing-dark) .yamale-landing-root .eyebrow{
+  color:var(--primary)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .auth-box{
+  background:var(--muted)!important;
+  border-left-color:var(--primary)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .auth-label,
+:host(.yamale-landing-dark) .yamale-landing-root .auth-label{
+  color:var(--primary)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .auth-list li,
+:host(.yamale-landing-dark) .yamale-landing-root .auth-list li{
+  color:var(--foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .auth-list li::before,
+:host(.yamale-landing-dark) .yamale-landing-root .auth-list li::before{
+  color:var(--primary)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .dcard,
+:host(.yamale-landing-light) .yamale-landing-root .acard{
+  background:var(--card)!important;
+  border-color:var(--border)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .dcard,
+:host(.yamale-landing-dark) .yamale-landing-root .acard{
+  background:var(--card)!important;
+  border-color:var(--border)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .dcard-foot{
+  background:color-mix(in srgb,var(--foreground) 5%,var(--card))!important;
+  border-top:1px solid var(--border)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .duse,
+:host(.yamale-landing-light) .yamale-landing-root .duse{
+  color:var(--muted-foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .dcard h3,
+:host(.yamale-landing-light) .yamale-landing-root .acard h3,
+:host(.yamale-landing-dark) .yamale-landing-root .dcard h3,
+:host(.yamale-landing-dark) .yamale-landing-root .acard h3{
+  color:var(--foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .dcard p,
+:host(.yamale-landing-light) .yamale-landing-root .acard p,
+:host(.yamale-landing-dark) .yamale-landing-root .dcard p,
+:host(.yamale-landing-dark) .yamale-landing-root .acard p{
+  color:var(--muted-foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .pcard.std,
+:host(.yamale-landing-light) .yamale-landing-root .pcard.bndl{
+  background:var(--card)!important;
+  border-color:color-mix(in srgb,var(--primary) 35%,var(--border))!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .pcard.std,
+:host(.yamale-landing-dark) .yamale-landing-root .pcard.bndl{
+  background:color-mix(in srgb,var(--foreground) 4%,var(--card))!important;
+  border-color:color-mix(in srgb,var(--primary) 40%,var(--border))!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .auth-box{
+  background:color-mix(in srgb,var(--foreground) 4%,var(--muted))!important;
+  border-left-color:var(--primary)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .foot-l{
+  color:var(--muted-foreground)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .nav-brand,
+:host(.yamale-landing-dark) .yamale-landing-root .nav-price{
+  color:var(--primary)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .nav-series{
+  color:var(--muted-foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .ctx-stat,
+:host(.yamale-landing-light) .yamale-landing-root .ctx-quote,
+:host(.yamale-landing-dark) .yamale-landing-root .ctx-stat,
+:host(.yamale-landing-dark) .yamale-landing-root .ctx-quote{
+  color:var(--foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .ctx-lbl,
+:host(.yamale-landing-dark) .yamale-landing-root .ctx-lbl,
+:host(.yamale-landing-light) .yamale-landing-root .ctx-body h2,
+:host(.yamale-landing-dark) .yamale-landing-root .ctx-body h2{
+  color:var(--foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .ctx-body p,
+:host(.yamale-landing-dark) .yamale-landing-root .ctx-body p{
+  color:var(--muted-foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .ctx-big,
+:host(.yamale-landing-dark) .yamale-landing-root .ctx-big{
+  color:var(--primary)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .ctx-src,
+:host(.yamale-landing-dark) .yamale-landing-root .ctx-src{
+  color:var(--muted-foreground)!important;
+}
+:host(.yamale-landing-light) .yamale-landing-root .cta-h,
+:host(.yamale-landing-dark) .yamale-landing-root .cta-h{
+  color:var(--foreground)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .sec.white{
+  background:var(--card)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .sec.gray{
+  background:var(--muted)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .sec.dark{
+  background:var(--background)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root nav{
+  background:var(--card)!important;
+  border-color:var(--border)!important;
+}
+:host(.yamale-landing-dark) .yamale-landing-root .btn-secondary{
+  color:var(--primary)!important;
+  border-bottom-color:color-mix(in srgb,var(--primary) 45%,transparent)!important;
+}
+`;
+
+/** Mobile layout — vault landing HTML assumes desktop padding and large type. */
+const LANDING_MOBILE_RESPONSIVE_CSS = `
+.yamale-landing-root{
+  max-width:100%!important;
+  overflow-x:hidden!important;
+  box-sizing:border-box!important;
+}
+.yamale-landing-root *,.yamale-landing-root *::before,.yamale-landing-root *::after{
+  box-sizing:border-box!important;
+}
+.yamale-landing-root .hero{
+  min-height:auto!important;
+  padding:1.5rem 1rem 2.5rem!important;
+  overflow-x:hidden!important;
+}
+.yamale-landing-root .hero-content{
+  max-width:100%!important;
+  min-width:0!important;
+}
+.yamale-landing-root .hero-headline{
+  font-size:clamp(1.65rem,7.5vw,5.5rem)!important;
+  overflow-wrap:break-word!important;
+  word-break:break-word!important;
+  hyphens:auto!important;
+}
+.yamale-landing-root .hero-h1{
+  font-size:clamp(1.75rem,7vw,4.2rem)!important;
+  overflow-wrap:break-word!important;
+  word-break:break-word!important;
+  hyphens:auto!important;
+}
+.yamale-landing-root .prob-grid{
+  grid-template-columns:1fr!important;
+}
+.yamale-landing-root .hero-btns{
+  flex-direction:column!important;
+  align-items:stretch!important;
+  gap:0.75rem!important;
+}
+.yamale-landing-root .hero-btns .btn-primary,
+.yamale-landing-root .hero-btns .btn-secondary,
+.yamale-landing-root .hero-btns a{
+  width:100%!important;
+  text-align:center!important;
+}
+.yamale-landing-root .sec{
+  padding:3.5rem 1rem!important;
+}
+.yamale-landing-root .inner,
+.yamale-landing-root .ctx-inner,
+.yamale-landing-root .cta-inner{
+  max-width:100%!important;
+  min-width:0!important;
+  width:100%!important;
+}
+.yamale-landing-root .auth-box{
+  max-width:100%!important;
+  padding:1.25rem 1rem!important;
+  box-sizing:border-box!important;
+}
+.yamale-landing-root .ctx-inner{
+  grid-template-columns:1fr!important;
+  gap:2rem!important;
+}
+.yamale-landing-root .cities{
+  max-width:100%!important;
+  padding:0.875rem 1rem!important;
+  box-sizing:border-box!important;
+}
+.yamale-landing-root .hero-inner{
+  max-width:100%!important;
+  min-width:0!important;
+}
+.yamale-landing-root .hero-doc-count{
+  display:none!important;
+}
+.yamale-landing-root img,
+.yamale-landing-root video,
+.yamale-landing-root table{
+  max-width:100%!important;
+  height:auto!important;
+}
+.yamale-landing-root .hero-sub{
+  max-width:100%!important;
+  font-size:clamp(0.9rem,3.8vw,1.05rem)!important;
+}
+.yamale-landing-root .hero-actions{
+  flex-direction:column!important;
+  align-items:stretch!important;
+  gap:0.75rem!important;
+}
+.yamale-landing-root .hero-actions .btn-primary,
+.yamale-landing-root .hero-actions .btn-secondary,
+.yamale-landing-root .hero-actions a{
+  width:100%!important;
+  text-align:center!important;
+}
+.yamale-landing-root .hero-price-tag{
+  position:relative!important;
+  top:auto!important;
+  right:auto!important;
+  text-align:left!important;
+  margin-bottom:1.25rem!important;
+}
+.yamale-landing-root .cities-strip{
+  flex-wrap:wrap!important;
+  gap:0.75rem 1rem!important;
+  padding:0.875rem 1rem!important;
+}
+.yamale-landing-root .cities-list{
+  flex-wrap:wrap!important;
+  gap:0.5rem 0.75rem!important;
+}
+.yamale-landing-root .problem-section,
+.yamale-landing-root .kit-section,
+.yamale-landing-root .who-section,
+.yamale-landing-root .pricing-section,
+.yamale-landing-root .about-section,
+.yamale-landing-root .context-section,
+.yamale-landing-root .cta-section{
+  padding:3.5rem 1rem!important;
+}
+.yamale-landing-root .problem-inner,
+.yamale-landing-root .kit-header,
+.yamale-landing-root .about-inner,
+.yamale-landing-root .kit-grid,
+.yamale-landing-root .who-grid,
+.yamale-landing-root .pricing-cards,
+.yamale-landing-root .stats-inner{
+  grid-template-columns:1fr!important;
+}
+.yamale-landing-root .pricing-cards{
+  gap:1rem!important;
+}
+.yamale-landing-root .auth-list{
+  grid-template-columns:1fr!important;
+}
+.yamale-landing-root .docs-grid,
+.yamale-landing-root .aud-grid{
+  grid-template-columns:1fr!important;
+}
+@media (min-width:640px){
+  .yamale-landing-root .hero-doc-count{
+    display:block!important;
+  }
+  .yamale-landing-root .hero{
+    padding:2rem 2rem 3rem!important;
+  }
+  .yamale-landing-root .hero-actions{
+    flex-direction:row!important;
+    align-items:center!important;
+  }
+  .yamale-landing-root .hero-actions .btn-primary,
+  .yamale-landing-root .hero-actions .btn-secondary,
+  .yamale-landing-root .hero-actions a{
+    width:auto!important;
+  }
+  .yamale-landing-root .kit-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  .yamale-landing-root .problem-section,
+  .yamale-landing-root .kit-section,
+  .yamale-landing-root .who-section,
+  .yamale-landing-root .pricing-section,
+  .yamale-landing-root .about-section,
+  .yamale-landing-root .context-section,
+  .yamale-landing-root .cta-section{
+    padding:4rem 2rem!important;
+  }
+}
+@media (min-width:1024px){
+  .yamale-landing-root .hero{
+    min-height:min(70vh,720px)!important;
+    padding:2rem 3rem 5rem!important;
+  }
+  .yamale-landing-root .hero-price-tag{
+    position:absolute!important;
+    top:1rem!important;
+    right:1.5rem!important;
+    margin-bottom:0!important;
+    text-align:right!important;
+  }
+  .yamale-landing-root .problem-inner,
+  .yamale-landing-root .kit-header,
+  .yamale-landing-root .about-inner{
+    grid-template-columns:1fr 1fr!important;
+  }
+  .yamale-landing-root .kit-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+  .yamale-landing-root .pricing-cards{
+    grid-template-columns:1fr 1fr!important;
+  }
 }
 `;
 
@@ -70,9 +802,12 @@ nav:has(.lang-selector){
   position:relative!important;
   top:auto!important;
   padding:.75rem 5%!important;
-  background:var(--ebony-deep,#161009)!important;
-  border-bottom:1px solid rgba(193,140,67,.2)!important;
+  background:var(--muted,#f4f1eb)!important;
+  border-bottom:1px solid color-mix(in srgb,var(--foreground,#0d1b2a) 12%,var(--border,#e2ddd5))!important;
   z-index:10!important;
+}
+:host(.yamale-landing-dark) nav:has(.lang-selector){
+  border-bottom-color:var(--border,#334155)!important;
 }
 nav:has(.lang-selector) .nav-brand,
 nav:has(.lang-selector) .nav-price,
@@ -82,15 +817,79 @@ nav:has(.lang-selector) .nav-right{display:flex!important;align-items:center!imp
 .hero::before,.hero::after{position:absolute!important}
 .hero-price-tag{position:absolute!important;top:1rem!important;right:1.5rem!important}
 #contents,.kit-section[id="contents"]{scroll-margin-top:1.5rem}
-.yamale-landing-root .dtype.guide{color:#603b1c!important}
-.yamale-landing-root .dtype.checklist{color:#9a632a!important}
+.lang-hidden,[data-lang].lang-hidden{display:none!important}
+.yamale-landing-root .dtype.guide{color:var(--accent,#162436)!important}
+.yamale-landing-root .dtype.checklist{color:var(--primary,#c8922a)!important}
+${LANDING_THEME_MODE_OVERRIDES}
+${LANDING_MOBILE_RESPONSIVE_CSS}
 `;
 
 const LANDING_SHADOW_ROOT_CLASS = "yamale-landing-root";
 
+export const LANDING_EMBED_HOST_LIGHT_CLASS = "yamale-landing-light";
+export const LANDING_EMBED_HOST_DARK_CLASS = "yamale-landing-dark";
+
+/** Copied onto the shadow host so embedded CSS can resolve platform tokens inside the shadow tree. */
+export const LANDING_EMBED_THEME_VARS = [
+  "--background",
+  "--foreground",
+  "--muted",
+  "--muted-foreground",
+  "--card",
+  "--card-foreground",
+  "--border",
+  "--primary",
+  "--primary-foreground",
+  "--accent",
+] as const;
+
+/** Strip inline light-on-dark text colors so theme overrides can apply. */
+function stripVaultLandingInlineTextColors(html: string): string {
+  return html.replace(/\bstyle=(["'])([\s\S]*?)\1/gi, (_m, quote: string, styles: string) => {
+    const cleaned = styles
+      .replace(/color\s*:\s*var\(--(?:white|off-white|pale-gold)\)/gi, "")
+      .replace(/color\s*:\s*rgba\(\s*250\s*,\s*248\s*,\s*245[^)]*\)/gi, "")
+      .replace(/color\s*:\s*rgba\(\s*255\s*,\s*255\s*,\s*255[^)]*\)/gi, "")
+      .replace(/color\s*:\s*rgba\(\s*227\s*,\s*186\s*,\s*101[^)]*\)/gi, "")
+      .replace(/color\s*:\s*#(?:faf8f5|ffffff|fff)\b/gi, "")
+      .replace(/;\s*;/g, ";")
+      .replace(/^\s*;\s*|\s*;\s*$/g, "")
+      .trim();
+    if (!cleaned) return "";
+    return `style=${quote}${cleaned}${quote}`;
+  });
+}
+
+/** Rewrite hardcoded off-white rgba text in admin CSS so it follows --foreground in light/dark mode. */
+function remapVaultLandingTextColors(css: string): string {
+  let out = css;
+  out = out.replace(
+    /rgba\(\s*250\s*,\s*248\s*,\s*245\s*,\s*([\d.]+)\s*\)/gi,
+    (_match, alpha: string) => {
+      const pct = Math.min(100, Math.max(0, Math.round(parseFloat(alpha) * 100)));
+      return `color-mix(in srgb, var(--foreground, #0d1b2a) ${pct}%, transparent)`;
+    }
+  );
+  out = out.replace(
+    /rgba\(\s*227\s*,\s*186\s*,\s*101\s*,\s*([\d.]+)\s*\)/gi,
+    (_match, alpha: string) => {
+      const pct = Math.min(100, Math.max(0, Math.round(parseFloat(alpha) * 100)));
+      return `color-mix(in srgb, var(--primary, #c8922a) ${pct}%, transparent)`;
+    }
+  );
+  out = out.replace(
+    /color\s*:\s*rgba\(\s*255\s*,\s*255\s*,\s*255\s*,\s*([\d.]+)\s*\)/gi,
+    (_match, alpha: string) => {
+      const pct = Math.min(100, Math.max(0, Math.round(parseFloat(alpha) * 100)));
+      return `color: color-mix(in srgb, var(--foreground, #0d1b2a) ${pct}%, transparent)`;
+    }
+  );
+  return out;
+}
+
 /** Map :root/body/html rules onto the shadow wrapper so variables and base styles apply. */
 export function adaptLandingCssForShadow(css: string): string {
-  let out = css;
+  let out = remapVaultLandingTextColors(css);
   out = out.replace(/\b:root\s*\{/gi, `.${LANDING_SHADOW_ROOT_CLASS}{`);
   out = out.replace(/\bhtml\s*\{/gi, `.${LANDING_SHADOW_ROOT_CLASS}{`);
   out = out.replace(/\bbody\s*\{/gi, `.${LANDING_SHADOW_ROOT_CLASS}{`);
@@ -584,11 +1383,13 @@ export function prepareMarketplaceLandingEmbedHtml(raw: string): string {
   const trimmed = prepareLandingHtmlPipeline(raw);
   if (!trimmed) return trimmed;
 
-  let doc = stripViewportFixedInlineStyles(
-    trimmed
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-      .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, "")
-      .replace(/<iframe\b[^>]*\/>/gi, "")
+  let doc = stripVaultLandingInlineTextColors(
+    stripViewportFixedInlineStyles(
+      trimmed
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+        .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, "")
+        .replace(/<iframe\b[^>]*\/>/gi, "")
+    )
   );
   const styleTag = `<style ${LANDING_BASE_STYLE_MARK}>${LANDING_SHADOW_OVERRIDES_CSS}</style>`;
 
@@ -597,10 +1398,10 @@ export function prepareMarketplaceLandingEmbedHtml(raw: string): string {
   if (/^<!doctype/i.test(doc)) {
     const headBits = adaptStyleBlocksInHtml(extractHeadSnippets(doc));
     const body = wrapLandingBodyMarkup(extractBodyMarkup(doc));
-    return `${headBits}\n${styleTag}\n${body}`;
+    return `${headBits}\n${body}\n${styleTag}`;
   }
 
-  return `${styleTag}\n${wrapLandingBodyMarkup(doc)}`;
+  return `${wrapLandingBodyMarkup(doc)}\n${styleTag}`;
 }
 
 export type LandingPageLanguage = "fr" | "en";
