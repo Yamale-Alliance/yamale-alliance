@@ -10,6 +10,8 @@ type Props = {
   onUpload: (file: File) => void;
   onClear: () => void;
   onPasteUrl?: (url: string) => void;
+  /** Override the post-upload reminder (default: save the marketplace item). */
+  saveReadyHint?: string;
 };
 
 export function MarketplaceCoverImageField({
@@ -18,6 +20,7 @@ export function MarketplaceCoverImageField({
   onUpload,
   onClear,
   onPasteUrl,
+  saveReadyHint = "Cover ready — save the item to publish on the Vault.",
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -42,7 +45,7 @@ export function MarketplaceCoverImageField({
         <div className="flex flex-wrap items-start gap-3 rounded-lg border border-border bg-muted/30 p-3">
           <img src={previewUrl} alt="Cover preview" className="h-28 w-28 rounded-lg object-cover shadow-sm" />
           <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <span className="text-sm text-muted-foreground">Cover ready — save the item to publish on the Vault.</span>
+            <span className="text-sm text-muted-foreground">{saveReadyHint}</span>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
