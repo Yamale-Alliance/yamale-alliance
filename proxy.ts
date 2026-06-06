@@ -1,6 +1,10 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { userHasAdminAccess } from "@/lib/admin-session";
+import {
+  adminHasValidStepUpFromRequest,
+  isAdminMfaExemptPath,
+} from "@/lib/admin-mfa-gate";
+import { isAdminMfaEnforced, userHasAdminAccess } from "@/lib/admin-session";
 import { isBlockedAiScraperRequest } from "@/lib/ai-scraper-guard";
 import {
   applySecurityHeaders,
@@ -143,6 +147,24 @@ export default clerkMiddleware(async (auth, request) => {
     if (isAdminApiRoute(request) && !isAdmin) {
       const forbidden = NextResponse.json({ error: "Forbidden" }, { status: 403 });
       return applySecurityHeaders(attachRateLimitHeaders(forbidden, rateLimit));
+    }
+
+    if (isAdmin && isAdminMfaEnforced() && !isAdminMfaExemptPath(url.pathname)) {
+      const stepUpOk = userId ? adminHasValidStepUpFromRequest(request, userId) : false;
+      if (!stepUpOk) {
+        if (isAdminPanelPage(request)) {
+          const mfaUrl = new URL("/admin-panel/mfa", request.url);
+          mfaUrl.searchParams.set("returnTo", `${url.pathname}${url.search}`);
+          return applySecurityHeaders(
+            attachRateLimitHeaders(NextResponse.redirect(mfaUrl), rateLimit)
+          );
+        }
+        const mfaRequired = NextResponse.json(
+          { error: "MFA required", code: "MFA_REQUIRED" },
+          { status: 403 }
+        );
+        return applySecurityHeaders(attachRateLimitHeaders(mfaRequired, rateLimit));
+      }
     }
   }
 
