@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useTheme } from "@/components/theme/ThemeProvider";
 import {
   applyLandingLanguage,
   detectCheckoutTierFromAnchor,
@@ -8,6 +9,9 @@ import {
   isLandingInPageSectionAnchor,
   landingHashFromAnchor,
   landingLanguageFromButton,
+  LANDING_EMBED_HOST_DARK_CLASS,
+  LANDING_EMBED_HOST_LIGHT_CLASS,
+  LANDING_EMBED_THEME_VARS,
   prepareMarketplaceLandingEmbedHtml,
   readSavedLandingLanguage,
   saveLandingLanguage,
@@ -46,15 +50,26 @@ function scrollShadowHash(host: HTMLElement, hash: string) {
   }
 }
 
+function syncLandingEmbedHostTheme(host: HTMLElement, theme: "light" | "dark") {
+  host.classList.remove(LANDING_EMBED_HOST_LIGHT_CLASS, LANDING_EMBED_HOST_DARK_CLASS);
+  host.classList.add(theme === "dark" ? LANDING_EMBED_HOST_DARK_CLASS : LANDING_EMBED_HOST_LIGHT_CLASS);
+
+  const source = getComputedStyle(document.documentElement);
+  for (const name of LANDING_EMBED_THEME_VARS) {
+    host.style.setProperty(name, source.getPropertyValue(name).trim());
+  }
+}
+
 /**
  * Renders admin landing HTML in a shadow root so its CSS cannot affect Yamalé site chrome.
  */
 export function MarketplaceLandingEmbed({
   html,
-  className = "w-full bg-[#221913]",
+  className = "w-full bg-background",
   onCheckoutClick,
 }: MarketplaceLandingEmbedProps) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const { theme } = useTheme();
 
   const embedHtml = useMemo(() => prepareMarketplaceLandingEmbedHtml(html), [html]);
 
@@ -127,6 +142,8 @@ export function MarketplaceLandingEmbed({
     }
     shadow.innerHTML = embedHtml;
 
+    syncLandingEmbedHostTheme(host, theme);
+
     const initialLang: LandingPageLanguage = readSavedLandingLanguage();
     applyLandingLanguage(shadow, initialLang);
 
@@ -134,12 +151,18 @@ export function MarketplaceLandingEmbed({
     return () => shadow.removeEventListener("click", handleShadowClick, true);
   }, [embedHtml, handleShadowClick]);
 
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    syncLandingEmbedHostTheme(host, theme);
+  }, [theme]);
+
   return (
     <section
-      className={`marketplace-landing-zone relative z-0 w-full border-t-4 border-[#C18C43]/45 ${className}`}
+      className={`marketplace-landing-zone relative z-0 w-full max-w-full overflow-x-clip border-t-4 border-primary/45 ${className}`}
       aria-label="Product landing"
     >
-      <div ref={hostRef} className="marketplace-landing-embed-host block w-full min-h-[1px]" />
+      <div ref={hostRef} className="marketplace-landing-embed-host block w-full min-h-[1px] max-w-full" />
     </section>
   );
 }
