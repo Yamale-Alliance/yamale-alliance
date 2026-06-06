@@ -1,18 +1,20 @@
 import Link from "next/link";
 import { BookOpen, Search } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { HomeDashboardLink } from "@/components/home/HomeDashboardLink";
 import { PROTOTYPE_HERO_GRID_PATTERN } from "@/components/layout/prototype-page-styles";
 import { createHomeMetadata } from "@/lib/site-seo";
 
-/** Static marketing page — no server auth; improves TTFB and LCP vs dynamic render. */
-export const dynamic = "force-static";
+/** Home page reads locale cookie for translated marketing copy. */
+export const dynamic = "force-dynamic";
 
 export const metadata = createHomeMetadata();
 
-export default function Home() {
+export default async function Home() {
+  const t = await getTranslations("home");
+
   return (
     <div className="min-h-screen bg-background">
-      {/* ─── Hero (prototype: PAGE 1 — HOME) ─── */}
       <section className="relative overflow-hidden border-b border-border bg-[#0D1B2A]">
         <div
           className="pointer-events-none absolute inset-0 z-0"
@@ -27,19 +29,17 @@ export default function Home() {
 
         <div className="relative z-[1] mx-auto w-full max-w-[1280px] px-4 pb-6 pt-16 sm:px-8 sm:pb-8 sm:pt-20">
           <h1 className="hero-lcp-title max-w-[680px] text-[2.75rem] font-bold leading-[1.1] tracking-[-0.02em] text-white sm:text-5xl md:text-[56px] lg:text-[62px]">
-            Law Without Barriers.
+            {t("heroTitle1")}
             <br />
-            <em className="not-italic text-[#E8B84B]">Business Without Borders.</em>
+            <em className="not-italic text-[#E8B84B]">{t("heroTitle2")}</em>
           </h1>
 
           <div className="mt-7 inline-flex items-center gap-2.5 rounded-full border border-[rgba(200,146,42,0.22)] bg-[rgba(200,146,42,0.08)] px-3.5 py-2 text-[13px] font-semibold tracking-[0.02em] text-[#E8B84B]">
             <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#E8B84B] shadow-[0_0_0_4px_rgba(200,146,42,0.2)]" />
-            African-built. African-governed. Reinvesting in Africa&apos;s legal future.
+            {t("heroBadge")}
           </div>
 
-          <p className="mt-7 max-w-[520px] text-lg leading-relaxed text-white/[0.65]">
-            The first unified platform for African legal research — covering all 54 countries, AfCFTA compliance, AI-powered queries, and a curated network of African legal professionals.
-          </p>
+          <p className="mt-7 max-w-[520px] text-lg leading-relaxed text-white/[0.65]">{t("heroSubtitle")}</p>
 
           <div className="mt-10 flex flex-wrap gap-3">
             <Link
@@ -47,7 +47,7 @@ export default function Home() {
               className="inline-flex items-center gap-2 rounded-[6px] bg-[#C8922A] px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-[#b07e22]"
             >
               <BookOpen className="h-4 w-4" strokeWidth={2} />
-              Browse Legal Library
+              {t("browseLibrary")}
             </Link>
             <Link
               href="/ai-research"
@@ -55,7 +55,7 @@ export default function Home() {
               className="inline-flex items-center gap-2 rounded-[6px] border-[1.5px] border-white/40 bg-transparent px-6 py-3 text-base font-semibold text-white transition hover:border-white hover:bg-white hover:text-[#0D1B2A]"
             >
               <Search className="h-4 w-4" strokeWidth={2} />
-              Try AI Research
+              {t("tryAiResearch")}
             </Link>
             <HomeDashboardLink />
           </div>
@@ -63,26 +63,26 @@ export default function Home() {
           <div className="mt-10 flex flex-wrap gap-x-10 gap-y-6 border-t border-white/10 pt-6 md:gap-x-14">
             <div>
               <div className="heading text-[28px] font-bold leading-none text-[#E8B84B] md:text-[32px]">54</div>
-              <div className="mt-1 text-[13px] text-white/50">African countries covered</div>
+              <div className="mt-1 text-[13px] text-white/50">{t("statCountries")}</div>
             </div>
             <div>
               <div className="heading text-[28px] font-bold leading-none text-[#E8B84B] md:text-[32px]">3000+</div>
-              <div className="mt-1 text-[13px] text-white/50">Laws &amp; regulations</div>
+              <div className="mt-1 text-[13px] text-white/50">{t("statLaws")}</div>
             </div>
             <div>
               <div className="heading text-[28px] font-bold leading-none text-[#E8B84B] md:text-[32px]">AfCFTA</div>
-              <div className="mt-1 text-[13px] text-white/50">Passport tool — first of its kind</div>
+              <div className="mt-1 text-[13px] text-white/50">{t("statAfcfta")}</div>
             </div>
           </div>
 
           <div className="mt-5 flex flex-wrap items-center gap-x-10 gap-y-3 border-t border-white/10 pt-5 sm:gap-x-12">
-            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-white/40">Trusted by</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-white/40">{t("trustedBy")}</span>
             <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm font-semibold text-white/60">
-              <span>Law firms</span>
-              <span>Governments</span>
-              <span>Mining companies</span>
-              <span>AfCFTA operators</span>
-              <span>Development institutions</span>
+              <span>{t("trustedLawFirms")}</span>
+              <span>{t("trustedGovernments")}</span>
+              <span>{t("trustedMining")}</span>
+              <span>{t("trustedAfcfta")}</span>
+              <span>{t("trustedDev")}</span>
             </div>
           </div>
         </div>
@@ -91,75 +91,46 @@ export default function Home() {
       <section className="border-b border-white/10 bg-[#0D1B2A] px-4 py-10 sm:px-8">
         <div className="mx-auto flex max-w-[1280px] flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#E8B84B]">Founder&apos;s note</p>
-            <h2 className="heading mt-1 text-xl font-semibold text-white sm:text-2xl">Why we built Yamalé</h2>
-            <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/65">
-              A message from Meghan Waters, CEO — on the gap in African legal infrastructure, what we are launching
-              with today, and how we are building this together.
-            </p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#E8B84B]">{t("foundersEyebrow")}</p>
+            <h2 className="heading mt-1 text-xl font-semibold text-white sm:text-2xl">{t("foundersTitle")}</h2>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/65">{t("foundersBody")}</p>
           </div>
           <Link
             href="/founders-note"
             className="inline-flex shrink-0 items-center justify-center rounded-[6px] border border-[#C8922A]/50 bg-[#C8922A] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#b07e22]"
           >
-            Read the founder&apos;s note
+            {t("foundersCta")}
           </Link>
         </div>
       </section>
 
-      {/* Features */}
       <section className="border-b border-border bg-background px-4 py-20 sm:px-8">
         <div className="mx-auto max-w-[1280px]">
           <div className="mx-auto mb-12 max-w-[560px] text-center">
             <p className="mb-4 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.5px] text-[#C8922A]">
               <span className="h-1.5 w-1.5 rounded-full bg-[#C8922A]" />
-              Platform
+              {t("platformEyebrow")}
             </p>
-            <h2 className="heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              Everything you need to navigate African law
-            </h2>
-            <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-              Five integrated tools — from raw legislation to expert connections — built for legal professionals, investors, and governments operating across the continent.
-            </p>
+            <h2 className="heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{t("platformTitle")}</h2>
+            <p className="mt-4 text-base leading-relaxed text-muted-foreground">{t("platformSubtitle")}</p>
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            <FeatureCard
-              href="/library"
-              title="Legal Library"
-              description="Every African country's business laws, free to read, in one place. Search all 54 jurisdictions by domain and status."
-              cta="Browse the library"
-            />
-            <FeatureCard
-              href="/afcfta/compliance-check"
-              title="AfCFTA Passport"
-              description="The AfCFTA compliance infrastructure your business — or your ministry — needs. The first step-by-step tool for cross-border trade."
-              cta="Start your passport"
-            />
-            <FeatureCard
-              href="/ai-research"
-              title="AI Legal Research"
-              description="Ask complex legal questions in natural language. Responses are drawn from African legal texts within the Yamalé Legal Library — not generic AI output."
-              cta="Ask a question"
-            />
-            <FeatureCard
-              href="/marketplace"
-              title="The Yamalé Vault"
-              description="Courses, webinars, documents, and templates in mining law, M&A, corporate law, and tax — specialized expertise, on demand."
-              cta="Explore the Vault"
-            />
+            <FeatureCard href="/library" title={t("featureLibraryTitle")} description={t("featureLibraryDesc")} cta={t("featureLibraryCta")} />
+            <FeatureCard href="/afcfta/compliance-check" title={t("featureAfcftaTitle")} description={t("featureAfcftaDesc")} cta={t("featureAfcftaCta")} />
+            <FeatureCard href="/ai-research" title={t("featureAiTitle")} description={t("featureAiDesc")} cta={t("featureAiCta")} />
+            <FeatureCard href="/marketplace" title={t("featureVaultTitle")} description={t("featureVaultDesc")} cta={t("featureVaultCta")} />
             <FeatureCard
               href="/lawyers"
-              title="Find a Lawyer"
-              description="Find the right commercial lawyer in any African jurisdiction — fast. Curated, invitation-only directory."
-              cta="Search directory"
+              title={t("featureLawyersTitle")}
+              description={t("featureLawyersDesc")}
+              cta={t("featureLawyersCta")}
               className="sm:col-span-2 lg:col-span-1"
             />
           </div>
         </div>
       </section>
 
-      {/* Social enterprise strip */}
       <section className="relative overflow-hidden border-t-[3px] border-[#C8922A] bg-gradient-to-br from-[#0D1B2A] to-[#1E3148] px-4 py-[72px] sm:px-8">
         <div
           className="pointer-events-none absolute inset-0 opacity-100"
@@ -172,24 +143,17 @@ export default function Home() {
         <div className="relative z-[1] mx-auto max-w-[1080px] text-center">
           <p className="mb-6 inline-flex items-center gap-3 text-[11.5px] font-bold uppercase tracking-[2px] text-[#E8B84B]">
             <span className="h-px w-8 bg-[#C8922A]/50" />
-            Our identity
+            {t("identityEyebrow")}
             <span className="h-px w-8 bg-[#C8922A]/50" />
           </p>
           <h2 className="heading mx-auto max-w-[900px] text-3xl font-bold leading-snug tracking-tight text-white sm:text-[40px]">
-            African-built. African-governed.
+            {t("identityTitle1")}
             <br />
-            <em className="not-italic text-[#E8B84B]">Reinvesting in Africa&apos;s legal future.</em>
+            <em className="not-italic text-[#E8B84B]">{t("identityTitle2")}</em>
           </h2>
-          <p className="mx-auto mt-7 max-w-[820px] text-base leading-[1.75] text-white/[0.75]">
-            Yamalé is two entities, one mission. A committed share of platform revenue flows annually from the for-profit platform to the{" "}
-            <strong className="font-semibold text-[#E8B84B]">Yamalé Alliance</strong> nonprofit — funding{" "}
-            <strong className="font-semibold text-[#E8B84B]">Government Representation in Complex Negotiations</strong>,{" "}
-            <strong className="font-semibold text-[#E8B84B]">Community Rights Advocacy in Extractive Industries</strong>, and{" "}
-            <strong className="font-semibold text-[#E8B84B]">Government Systems Strengthening</strong>. Every subscriber is, in a small way, building Africa&apos;s legal infrastructure.
-          </p>
+          <p className="mx-auto mt-7 max-w-[820px] text-base leading-[1.75] text-white/[0.75]">{t("identityBody")}</p>
         </div>
       </section>
-
     </div>
   );
 }
