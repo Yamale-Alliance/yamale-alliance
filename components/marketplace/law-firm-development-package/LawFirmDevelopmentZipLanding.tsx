@@ -57,34 +57,34 @@ export function LawFirmDevelopmentZipLanding({
     "scroll-mt-[calc(var(--site-nav-h)+var(--vault-chrome-h))]";
 
   return (
-    <div className="law-firm-package-landing [font-family:var(--font-lfp-sans),system-ui,sans-serif] text-[16px] leading-relaxed text-white">
+    <div className="law-firm-package-landing bg-background [font-family:var(--font-lfp-sans),system-ui,sans-serif] text-[16px] leading-relaxed text-foreground">
       <LawFirmDevelopmentSubnav>
         <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-5">
           <Link
             href="/marketplace"
-            className="inline-flex shrink-0 items-center gap-1.5 text-[0.8rem] font-medium text-white/60 transition hover:text-[#E3BA65]"
+            className="inline-flex shrink-0 items-center gap-1.5 text-[0.8rem] font-medium text-muted-foreground transition hover:text-primary"
           >
             <ArrowLeft className="h-4 w-4 shrink-0" />
             <span className="hidden sm:inline">Vault</span>
           </Link>
-          <span className="truncate [font-family:var(--font-lfp-serif),Georgia,serif] text-[1.05rem] font-semibold tracking-[0.04em] text-[#C18C43] sm:text-[1.2rem]">
+          <span className="truncate [font-family:var(--font-lfp-serif),Georgia,serif] text-[1.05rem] font-semibold tracking-[0.04em] text-accent sm:text-[1.2rem]">
             Yamalé Advisory
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-4 sm:gap-8">
-          <a href="#phases" className="hidden text-[0.85rem] font-medium uppercase tracking-[0.05em] text-white/70 transition hover:text-[#C18C43] md:inline">
+          <a href="#phases" className="hidden text-[0.85rem] font-medium uppercase tracking-[0.05em] text-muted-foreground transition hover:text-primary md:inline">
             What&apos;s inside
           </a>
-          <a href="#tiers" className="hidden text-[0.85rem] font-medium uppercase tracking-[0.05em] text-white/70 transition hover:text-[#C18C43] md:inline">
+          <a href="#tiers" className="hidden text-[0.85rem] font-medium uppercase tracking-[0.05em] text-muted-foreground transition hover:text-primary md:inline">
             Pricing
           </a>
-          <a href="#about" className="hidden text-[0.85rem] font-medium uppercase tracking-[0.05em] text-white/70 transition hover:text-[#C18C43] md:inline">
+          <a href="#about" className="hidden text-[0.85rem] font-medium uppercase tracking-[0.05em] text-muted-foreground transition hover:text-primary md:inline">
             About
           </a>
           {owned && (
             <Link
               href={courseWorkspaceHref}
-              className="hidden rounded-[2px] border border-[#C18C43]/60 bg-[rgba(193,140,67,0.12)] px-3 py-2 text-[0.75rem] font-semibold uppercase tracking-[0.05em] text-[#E3BA65] transition hover:border-[#C18C43] hover:bg-[rgba(193,140,67,0.2)] sm:inline"
+              className="hidden rounded-[2px] border border-primary/40 bg-primary/10 px-3 py-2 text-[0.75rem] font-semibold uppercase tracking-[0.05em] text-primary transition hover:border-primary hover:bg-primary/15 sm:inline"
             >
               {LAW_FIRM_VIEW_COURSE_LABEL}
             </Link>
@@ -93,7 +93,7 @@ export function LawFirmDevelopmentZipLanding({
             <button
               type="button"
               onClick={() => onBrowseZipContents()}
-              className="hidden text-[0.8rem] font-medium uppercase tracking-[0.05em] text-white/70 underline-offset-4 transition hover:text-[#E3BA65] hover:underline lg:inline"
+              className="hidden text-[0.8rem] font-medium uppercase tracking-[0.05em] text-muted-foreground underline-offset-4 transition hover:text-primary hover:underline lg:inline"
             >
               View contents
             </button>
@@ -101,7 +101,7 @@ export function LawFirmDevelopmentZipLanding({
           <button
             type="button"
             onClick={() => (owned ? void onOwnedDownload() : void onBeginPaidDownload())}
-            className="rounded-[2px] bg-[#C18C43] px-3 py-2 text-[0.75rem] font-semibold uppercase tracking-[0.05em] text-[#221913] transition hover:bg-[#E3BA65] sm:px-5 sm:text-[0.85rem]"
+            className="rounded-[2px] bg-primary px-3 py-2 text-[0.75rem] font-semibold uppercase tracking-[0.05em] text-primary-foreground transition hover:bg-primary/90 sm:px-5 sm:text-[0.85rem]"
           >
             {navCtaLabel}
           </button>
@@ -109,15 +109,15 @@ export function LawFirmDevelopmentZipLanding({
       </LawFirmDevelopmentSubnav>
 
       {owned && (
-        <div className="relative z-[1] border-b border-[rgba(193,140,67,0.2)] bg-[rgba(193,140,67,0.08)]">
+        <div className="relative z-[1] border-b border-border bg-primary/10">
           <div className="mx-auto flex max-w-[1120px] flex-col gap-3 px-8 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-white/70">
+            <p className="text-sm text-muted-foreground">
               Your Tier 1 package includes the online implementation workspace — track progress, browse
               documents, and use interactive tools.
             </p>
             <Link
               href={courseWorkspaceHref}
-              className="inline-flex shrink-0 items-center justify-center rounded-[2px] bg-[#C18C43] px-5 py-2.5 text-[0.8rem] font-semibold uppercase tracking-[0.05em] text-[#221913] transition hover:bg-[#E3BA65]"
+              className="inline-flex shrink-0 items-center justify-center rounded-[2px] bg-primary px-5 py-2.5 text-[0.8rem] font-semibold uppercase tracking-[0.05em] text-primary-foreground transition hover:bg-primary/90"
             >
               {LAW_FIRM_VIEW_COURSE_LABEL}
             </Link>
@@ -126,24 +126,18 @@ export function LawFirmDevelopmentZipLanding({
       )}
 
       <section className="relative flex min-h-screen items-center overflow-x-hidden pb-24 pt-10 sm:pt-12">
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(ellipse 60% 80% at 75% 50%, rgba(96, 59, 28, 0.35) 0%, transparent 70%), radial-gradient(ellipse 40% 60% at 20% 30%, rgba(193, 140, 67, 0.08) 0%, transparent 60%)",
-          }}
-        />
+        <div className="pointer-events-none absolute inset-0 lfp-hero-glow" />
         <div className="relative z-[1] mx-auto grid max-w-[1120px] grid-cols-1 items-center gap-16 px-8 lg:grid-cols-2 lg:gap-20">
           <div>
-            <div className="mb-6 flex animate-[fadeUp_0.7s_ease_both] items-center gap-3 text-[0.75rem] font-medium uppercase tracking-[0.15em] text-[#C18C43]">
-              <span className="inline-block h-px w-8 bg-[#C18C43]" />
+            <div className="mb-6 flex animate-[fadeUp_0.7s_ease_both] items-center gap-3 text-[0.75rem] font-medium uppercase tracking-[0.15em] text-primary">
+              <span className="inline-block h-px w-8 bg-primary" />
               Yamalé Advisory · The Yamalé Vault
             </div>
-            <h1 className="animate-[fadeUp_0.7s_0.15s_ease_both] [font-family:var(--font-lfp-serif),Georgia,serif] text-[clamp(3rem,5vw,4.5rem)] font-semibold leading-[1.05] text-white">
+            <h1 className="animate-[fadeUp_0.7s_0.15s_ease_both] [font-family:var(--font-lfp-serif),Georgia,serif] text-[clamp(3rem,5vw,4.5rem)] font-semibold leading-[1.05] text-foreground">
               The African Law Firm
-              <em className="mt-1 block text-[#E3BA65] not-italic">Development Package</em>
+              <em className="mt-1 block text-primary not-italic">Development Package</em>
             </h1>
-            <p className="animate-[fadeUp_0.7s_0.25s_ease_both] mt-6 max-w-[480px] text-[1.05rem] leading-relaxed text-white/65">
+            <p className="animate-[fadeUp_0.7s_0.25s_ease_both] mt-6 max-w-[480px] text-[1.05rem] leading-relaxed text-muted-foreground">
               150+ templates, frameworks, and guides — and four online courses — built from the ground up for OHADA and common
               law Africa. Not adapted. Not translated. Built here.
             </p>
@@ -151,20 +145,20 @@ export function LawFirmDevelopmentZipLanding({
               <button
                 type="button"
                 onClick={() => (owned ? void onOwnedDownload() : void onBeginPaidDownload())}
-                className="inline-flex items-center gap-2 rounded-[2px] bg-[#C18C43] px-8 py-3.5 text-[0.95rem] font-semibold tracking-[0.02em] text-[#221913] transition hover:bg-[#E3BA65]"
+                className="inline-flex items-center gap-2 rounded-[2px] bg-primary px-8 py-3.5 text-[0.95rem] font-semibold tracking-[0.02em] text-primary-foreground transition hover:bg-primary/90"
               >
                 {heroPrimaryLabel}
               </button>
               <a
                 href="#tiers"
-                className="inline-flex items-center gap-2 rounded-[2px] border border-[rgba(193,140,67,0.4)] px-7 py-3.5 text-[0.95rem] font-medium text-[#C18C43] transition hover:border-[#C18C43] hover:text-[#E3BA65]"
+                className="inline-flex items-center gap-2 rounded-[2px] border border-border px-7 py-3.5 text-[0.95rem] font-medium text-foreground transition hover:border-primary hover:text-primary"
               >
                 See all tiers
               </a>
               {owned && (
                 <Link
                   href={courseWorkspaceHref}
-                  className="inline-flex items-center gap-2 rounded-[2px] border border-[#C18C43]/50 px-7 py-3.5 text-[0.95rem] font-medium text-[#E3BA65] transition hover:border-[#C18C43] hover:bg-[rgba(193,140,67,0.08)]"
+                  className="inline-flex items-center gap-2 rounded-[2px] border border-primary/40 px-7 py-3.5 text-[0.95rem] font-medium text-primary transition hover:border-primary hover:bg-primary/8"
                 >
                   {LAW_FIRM_VIEW_COURSE_LABEL}
                 </Link>
@@ -173,7 +167,7 @@ export function LawFirmDevelopmentZipLanding({
                 <button
                   type="button"
                   onClick={() => onBrowseZipContents()}
-                  className="inline-flex items-center gap-2 rounded-[2px] border border-white/25 px-7 py-3.5 text-[0.95rem] font-medium text-white/85 transition hover:border-white/40 hover:bg-white/5"
+                  className="inline-flex items-center gap-2 rounded-[2px] border border-border px-7 py-3.5 text-[0.95rem] font-medium text-foreground transition hover:border-primary hover:bg-muted/50"
                 >
                   View package contents
                 </button>
@@ -181,7 +175,7 @@ export function LawFirmDevelopmentZipLanding({
             </div>
           </div>
 
-          <div className="animate-[fadeUp_0.7s_0.2s_ease_both] relative rounded-[4px] border border-[rgba(193,140,67,0.2)] bg-white/[0.04] p-10 before:absolute before:left-0 before:right-0 before:top-0 before:h-[3px] before:rounded-t-[4px] before:bg-gradient-to-r before:from-[#C18C43] before:to-[#E3BA65]">
+          <div className="animate-[fadeUp_0.7s_0.2s_ease_both] relative rounded-[4px] border border-border bg-card p-10 shadow-sm before:absolute before:left-0 before:right-0 before:top-0 before:h-[3px] before:rounded-t-[4px] before:bg-gradient-to-r before:from-primary before:to-primary/70">
             <div className="mb-8 grid grid-cols-2 gap-8">
               {[
                 ["150+", "Documents"],
@@ -190,28 +184,28 @@ export function LawFirmDevelopmentZipLanding({
                 ["4", "Courses"],
               ].map(([n, l]) => (
                 <div key={l} className="text-center">
-                  <span className="[font-family:var(--font-lfp-serif),Georgia,serif] block text-[3rem] font-bold leading-none text-[#C18C43]">
+                  <span className="[font-family:var(--font-lfp-serif),Georgia,serif] block text-[3rem] font-bold leading-none text-primary">
                     {n}
                   </span>
-                  <span className="mt-2 block text-[0.78rem] uppercase tracking-[0.08em] text-white/55">{l}</span>
+                  <span className="mt-2 block text-[0.78rem] uppercase tracking-[0.08em] text-muted-foreground">{l}</span>
                 </div>
               ))}
             </div>
-            <div className="border-t border-[rgba(193,140,67,0.2)] pt-6 text-center">
-              <div className="mb-2 text-[0.75rem] uppercase tracking-[0.1em] text-white/50">Tier 1 — Self-Service Library</div>
+            <div className="border-t border-border pt-6 text-center">
+              <div className="mb-2 text-[0.75rem] uppercase tracking-[0.1em] text-muted-foreground">Tier 1 — Self-Service Library</div>
               <div className="[font-family:var(--font-lfp-serif),Georgia,serif] text-[3.5rem] font-bold leading-none">
                 {showTier1Discount ? (
                   <LawFirmPackageDiscountPrice
                     saleCents={saleCents}
-                    tone="dark"
+                    tone="light"
                     size="hero"
                     className="justify-center [&>div>span:nth-child(2)]:text-[3.5rem] [&>div>span:nth-child(2)]:leading-none [&>div>span:first-child]:text-[1.75rem]"
                   />
                 ) : (
-                  <span className="text-[#E3BA65]">{priceDisplay}</span>
+                  <span className="text-primary">{priceDisplay}</span>
                 )}
               </div>
-              <div className="mt-2 text-[0.8rem] text-white/45">One-time download · Immediate full access</div>
+              <div className="mt-2 text-[0.8rem] text-muted-foreground">One-time download · Immediate full access</div>
             </div>
           </div>
         </div>
@@ -574,10 +568,7 @@ export function LawFirmDevelopmentZipLanding({
 
       <section className="relative overflow-hidden bg-gradient-to-br from-[#603B1C] via-[#221913] to-[#221913] py-32 text-center">
         <div
-          className="pointer-events-none absolute inset-0 opacity-80"
-          style={{
-            background: "radial-gradient(ellipse 80% 80% at 50% 50%, rgba(193,140,67,0.08) 0%, transparent 70%)",
-          }}
+          className="pointer-events-none absolute inset-0 opacity-80 lfp-hero-glow"
         />
         <div className="relative z-[1] mx-auto max-w-[1120px] px-8">
           <h2 className="mb-4 [font-family:var(--font-lfp-serif),Georgia,serif] text-[clamp(2.5rem,5vw,4rem)] font-semibold text-white">
