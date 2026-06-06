@@ -16,6 +16,7 @@ import {
   LayoutGrid,
   Gift,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 import { useAlertDialog } from "@/components/ui/use-confirm";
@@ -63,7 +64,6 @@ import {
 } from "@/lib/marketplace-vault-sort";
 import { canUseLawFirmAdvisoryWorkspace } from "@/lib/law-firm-advisory-preview";
 import { advisoryCourseHref, isMarketplaceCourseItem } from "@/lib/marketplace-course";
-import { LAW_FIRM_VIEW_COURSE_LABEL } from "@/lib/law-firm-package-marketing";
 
 const BRAND = {
   dark: "#221913",
@@ -122,18 +122,21 @@ type DisplayProductCard = {
   seriesKey?: string;
 };
 
-const FORMAT_TILES: {
-  param: "all" | ProductCategory | typeof VAULT_BROWSE_FREE;
-  label: string;
-  blurb: string;
+type FormatTileParam = "all" | ProductCategory | typeof VAULT_BROWSE_FREE;
+
+type TopicId = "general" | "afcftaTrade" | "tax" | "labour" | "mining" | "compliance" | "corporate";
+
+const FORMAT_TILE_DEFS: {
+  param: FormatTileParam;
+  labelKey: "all" | "free" | "book" | "course" | "template" | "guide";
   icon: "all" | ProductCategory | "free";
 }[] = [
-  { param: "all", label: "All resources", blurb: "Everything in the vault", icon: "all" },
-  { param: VAULT_BROWSE_FREE, label: "Free", blurb: "Complimentary resources", icon: "free" },
-  { param: "book", label: "Books", blurb: "Treatises & references", icon: "book" },
-  { param: "course", label: "Courses", blurb: "Structured learning", icon: "course" },
-  { param: "template", label: "Templates", blurb: "Ready-to-use documents", icon: "template" },
-  { param: "guide", label: "Guides", blurb: "Practical walkthroughs", icon: "guide" },
+  { param: "all", labelKey: "all", icon: "all" },
+  { param: VAULT_BROWSE_FREE, labelKey: "free", icon: "free" },
+  { param: "book", labelKey: "book", icon: "book" },
+  { param: "course", labelKey: "course", icon: "course" },
+  { param: "template", labelKey: "template", icon: "template" },
+  { param: "guide", labelKey: "guide", icon: "guide" },
 ];
 
 function CategoryIcon({ type, className }: { type: string; className?: string }) {
@@ -167,18 +170,21 @@ function TileCategoryIcon({
   return <CategoryIcon type={icon} className={className ?? "h-8 w-8"} />;
 }
 
-function inferTopic(product: Product): string {
+function inferTopicId(product: Product): TopicId {
   const text = `${product.title} ${product.description ?? ""} ${product.author}`.toLowerCase();
-  if (text.includes("afcfta") || text.includes("origin") || text.includes("customs")) return "AfCFTA Trade";
-  if (text.includes("tax") || text.includes("vat")) return "Tax";
-  if (text.includes("labour") || text.includes("employment")) return "Labour";
-  if (text.includes("mining") || text.includes("extractive")) return "Mining";
-  if (text.includes("compliance") || text.includes("due diligence")) return "Compliance";
-  if (text.includes("company") || text.includes("corporate") || text.includes("m&a")) return "Corporate";
-  return "General";
+  if (text.includes("afcfta") || text.includes("origin") || text.includes("customs")) return "afcftaTrade";
+  if (text.includes("tax") || text.includes("vat")) return "tax";
+  if (text.includes("labour") || text.includes("employment")) return "labour";
+  if (text.includes("mining") || text.includes("extractive")) return "mining";
+  if (text.includes("compliance") || text.includes("due diligence")) return "compliance";
+  if (text.includes("company") || text.includes("corporate") || text.includes("m&a")) return "corporate";
+  return "general";
 }
 
 export default function MarketplacePage() {
+  const t = useTranslations("marketplace");
+  const tAdvisory = useTranslations("advisory");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const searchParams = useClientSearchParams();
   const [search, setSearch] = useState("");
@@ -188,7 +194,7 @@ export default function MarketplacePage() {
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
   const [cartCount, setCartCount] = useState(0);
   const [cartItemIds, setCartItemIds] = useState<Set<string>>(new Set());
-  const [selectedTopic, setSelectedTopic] = useState("all");
+  const [selectedTopic, setSelectedTopic] = useState<"all" | TopicId>("all");
   const { isSignedIn } = useAppUser();
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
@@ -238,6 +244,29 @@ export default function MarketplacePage() {
     setSearch("");
   }, [categoryQs, seriesQs]);
 
+  const formatTiles = useMemo(
+    () =>
+      FORMAT_TILE_DEFS.map((tile) => ({
+        ...tile,
+        label: t(`formats.${tile.labelKey}`),
+      })),
+    [t]
+  );
+
+  const vaultSortOptions = useMemo(
+    () =>
+      VAULT_SORT_OPTIONS.map((opt) => ({
+        value: opt.value,
+        label: t(`sortOptions.${opt.value}`),
+      })),
+    [t]
+  );
+
+  const topicLabel = useCallback(
+    (topic: "all" | TopicId) => (topic === "all" ? t("allTopics") : t(`topics.${topic}`)),
+    [t]
+  );
+
   const countsByType = useMemo(() => {
     const m = new Map<string, number>();
     for (const p of items) {
@@ -258,7 +287,7 @@ export default function MarketplacePage() {
   );
   const ownsLawFirmWorkspace = Boolean(ownedCourseItem) || advisoryWorkspacePreview;
 
-  const formatTileCount = (param: (typeof FORMAT_TILES)[number]["param"]) => {
+  const formatTileCount = (param: FormatTileParam) => {
     if (param === "all") return items.length;
     if (param === VAULT_BROWSE_FREE) return freeItemCount;
     return countsByType.get(param) ?? 0;
@@ -367,14 +396,14 @@ export default function MarketplacePage() {
   }, [items, browse, search]);
 
   const topicOptions = useMemo(() => {
-    const topics = new Set<string>(["all"]);
-    for (const product of items) topics.add(inferTopic(product));
-    return Array.from(topics);
+    const topics = new Set<TopicId>();
+    for (const product of items) topics.add(inferTopicId(product));
+    return ["all" as const, ...Array.from(topics).sort()];
   }, [items]);
 
   const filteredByTopic = useMemo(() => {
     if (selectedTopic === "all") return filtered;
-    return filtered.filter((product) => inferTopic(product) === selectedTopic);
+    return filtered.filter((product) => inferTopicId(product) === selectedTopic);
   }, [filtered, selectedTopic]);
 
   const sortedProducts = useMemo(
@@ -431,7 +460,7 @@ export default function MarketplacePage() {
           : base;
         return {
           product: coverProduct,
-          collectionLabel: labelForVaultSubcategory(subcategory) ?? "Series",
+          collectionLabel: labelForVaultSubcategory(subcategory) ?? t("seriesLabel"),
           collectionCount: members.length,
           seriesKey: subcategory,
         };
@@ -444,7 +473,7 @@ export default function MarketplacePage() {
       displayCards: [...featuredCards, ...seriesCards, ...regularCards],
       seriesMembersByKey: membersByKey,
     };
-  }, [browse, sortedProducts, vaultSeriesRevision]);
+  }, [browse, sortedProducts, vaultSeriesRevision, t]);
 
   const toggleSeries = useCallback((seriesKey: string) => {
     setExpandedSeriesKey((prev) => (prev === seriesKey ? null : seriesKey));
@@ -456,12 +485,12 @@ export default function MarketplacePage() {
 
   const browseTitle =
     browse.kind === "all"
-      ? "All resources"
+      ? t("formats.all")
       : browse.kind === "free"
         ? browse.subcategory
-          ? (labelForVaultSubcategory(browse.subcategory) ?? "Free")
-          : "Free"
-        : FORMAT_TILES.find((t) => t.param === browse.type)?.label ?? browse.type;
+          ? (labelForVaultSubcategory(browse.subcategory) ?? t("formats.free"))
+          : t("formats.free")
+        : formatTiles.find((tile) => tile.param === browse.type)?.label ?? browse.type;
 
   const closeBuyModal = () => {
     setBuyModalProduct(null);
@@ -491,10 +520,10 @@ export default function MarketplacePage() {
         refreshCart();
       } else {
         const data = await res.json();
-        await showAlert(data.error ?? "Failed to add to cart", "Cart");
+        await showAlert(data.error ?? t("failedAddToCart"), tCommon("cart"));
       }
     } catch {
-      await showAlert("Something went wrong", "Cart");
+      await showAlert(tCommon("somethingWentWrong"), tCommon("cart"));
     } finally {
       setAddingToCart(null);
     }
@@ -514,10 +543,10 @@ export default function MarketplacePage() {
         refreshCart();
       } else {
         const data = await res.json();
-        await showAlert(data.error ?? "Failed to remove from cart", "Cart");
+        await showAlert(data.error ?? t("failedRemoveFromCart"), tCommon("cart"));
       }
     } catch {
-      await showAlert("Something went wrong", "Cart");
+      await showAlert(tCommon("somethingWentWrong"), tCommon("cart"));
     } finally {
       setAddingToCart(null);
     }
@@ -607,9 +636,9 @@ export default function MarketplacePage() {
         window.location.href = data.url as string;
         return;
       }
-      await showAlert(data.error ?? "Checkout failed", "Checkout");
+      await showAlert(data.error ?? t("checkoutFailed"), tCommon("checkout"));
     } catch {
-      await showAlert("Something went wrong", "Checkout");
+      await showAlert(tCommon("somethingWentWrong"), tCommon("checkout"));
     } finally {
       setBuyCheckoutLoading(false);
     }
@@ -647,14 +676,13 @@ export default function MarketplacePage() {
           <div className="flex flex-col items-start justify-between gap-8 md:flex-row md:items-end">
             <div className="max-w-2xl">
               <p className={prototypeHeroEyebrowClass}>
-                The Yamalé Vault
+                {t("eyebrow")}
               </p>
               <h1 className="heading mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-[2.6rem]">
-                The Yamalé Vault
+                {t("title")}
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/[0.7] sm:text-base">
-                Premium legal education and practical resources built for African legal professionals. Learn, download,
-                and apply with confidence in The Yamalé Vault.
+                {t("subtitle")}
               </p>
             </div>
             {isSignedIn && (
@@ -669,7 +697,7 @@ export default function MarketplacePage() {
                     className="inline-flex items-center gap-2 rounded-[6px] border border-[#C18C43]/50 bg-[#C18C43]/20 px-4 py-2.5 text-sm font-semibold text-[#E8B84B] backdrop-blur transition hover:bg-[#C18C43]/30"
                   >
                     <GraduationCap className="h-5 w-5" aria-hidden />
-                    <span>{LAW_FIRM_VIEW_COURSE_LABEL}</span>
+                    <span>{tAdvisory("viewCourse")}</span>
                   </Link>
                 )}
                 <Link
@@ -677,14 +705,14 @@ export default function MarketplacePage() {
                   className="inline-flex items-center gap-2 rounded-[6px] border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15"
                 >
                   <Package className="h-5 w-5 text-[#E8B84B]" />
-                  <span>Purchased</span>
+                  <span>{t("purchased")}</span>
                 </Link>
                 <Link
                   href="/marketplace/cart"
                   className="relative inline-flex items-center gap-2 rounded-[6px] border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15"
                 >
                   <ShoppingCart className="h-5 w-5 text-[#E8B84B]" />
-                  <span>Cart</span>
+                  <span>{t("cart")}</span>
                   {cartCount > 0 && (
                     <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#C8922A] text-[10px] font-bold text-white">
                       {cartCount > 9 ? "9+" : cartCount}
@@ -700,11 +728,11 @@ export default function MarketplacePage() {
         <div className="border-b border-border bg-card px-4 py-3">
           <div className="mx-auto max-w-7xl text-sm">
             {paymentVerifyInProgress && (
-              <p className="text-muted-foreground">Confirming your payment…</p>
+              <p className="text-muted-foreground">{t("confirmingPayment")}</p>
             )}
             {showVerifiedPaymentSuccess && !paymentVerifyInProgress && (
               <p className="font-medium text-green-700 dark:text-green-400">
-                Payment successful. Your purchased items are now available — open them below or under Purchased.
+                {t("paymentSuccess")}
               </p>
             )}
           </div>
@@ -714,8 +742,8 @@ export default function MarketplacePage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Format</span>
-              {FORMAT_TILES.map((tile) => {
+              <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{t("format")}</span>
+              {formatTiles.map((tile) => {
                 const active =
                   (browse.kind === "all" && tile.param === "all") ||
                   (browse.kind === "type" && tile.param === browse.type) ||
@@ -745,7 +773,7 @@ export default function MarketplacePage() {
             {browse.kind === "free" && (
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  Series
+                  {t("series")}
                 </span>
                 <Link
                   href={`/marketplace?${marketplaceQuery({ category: "free", series: null })}`}
@@ -756,7 +784,7 @@ export default function MarketplacePage() {
                       : "border-border bg-card text-muted-foreground hover:border-[#d8c5a1]"
                   }`}
                 >
-                  All free
+                  {t("allFree")}
                   {freeItemCount > 0 ? ` (${freeItemCount})` : ""}
                 </Link>
                 {listVaultSeries().filter((s) => !s.paid).map((series) => {
@@ -782,8 +810,8 @@ export default function MarketplacePage() {
             )}
 
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Sort</span>
-              {VAULT_SORT_OPTIONS.map((opt) => (
+              <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{t("sort")}</span>
+              {vaultSortOptions.map((opt) => (
                 <button
                   type="button"
                   key={opt.value}
@@ -800,7 +828,7 @@ export default function MarketplacePage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Topic</span>
+              <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{t("topic")}</span>
               {topicOptions.map((topic) => (
                 <button
                   type="button"
@@ -812,7 +840,7 @@ export default function MarketplacePage() {
                       : "border-border bg-card text-muted-foreground hover:border-[#d8c5a1]"
                   }`}
                 >
-                  {topic === "all" ? "All topics" : topic}
+                  {topicLabel(topic)}
                 </button>
               ))}
             </div>
@@ -821,7 +849,7 @@ export default function MarketplacePage() {
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="search"
-                placeholder="Search resources..."
+                placeholder={t("searchPlaceholder")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full rounded-[8px] border border-border bg-card py-2.5 pl-10 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-[#C8922A]"
@@ -835,8 +863,8 @@ export default function MarketplacePage() {
             </div>
           ) : displayCards.length === 0 ? (
             <div className="mt-8 rounded-[10px] border border-dashed border-border bg-card px-8 py-12 text-center">
-              <h3 className="text-xl font-semibold text-foreground">No resources match your filters</h3>
-              <p className="mt-2 text-sm text-muted-foreground">Try another format, topic, or broader search keyword.</p>
+              <h3 className="text-xl font-semibold text-foreground">{t("emptyTitle")}</h3>
+              <p className="mt-2 text-sm text-muted-foreground">{t("emptyHint")}</p>
             </div>
           ) : (
             <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -878,22 +906,22 @@ export default function MarketplacePage() {
                     <MarketplaceProductCard
                       key={`${product.id}${opts?.keySuffix ?? ""}`}
                       product={product}
-                      topicLabel={inferTopic(product)}
+                      topicLabel={topicLabel(inferTopicId(product))}
                       typeBadgeLabel={
                         product.type === "course"
-                          ? "Course"
+                          ? t("typeBadges.course")
                           : product.type === "guide"
-                            ? "Guide"
+                            ? t("typeBadges.guide")
                             : product.type === "template"
-                              ? "Template"
-                              : "Book"
+                              ? t("typeBadges.template")
+                              : t("typeBadges.book")
                       }
                       formatHint={
                         product.type === "course"
-                          ? "Structured modules"
+                          ? t("formatHints.course")
                           : product.type === "template"
-                            ? "Instant download"
-                            : "Reference material"
+                            ? t("formatHints.template")
+                            : t("formatHints.default")
                       }
                       seriesLabel={
                         opts?.iconOnlyMedia
