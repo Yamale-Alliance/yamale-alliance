@@ -59,14 +59,17 @@ export async function userHasAdminAccess(authState: SessionAuthObject): Promise<
 }
 
 /**
- * True when the session completed a second-factor verification (MFA).
+ * Legacy Clerk `fva` second-factor claim. App-level admin MFA uses `admin_mfa_step_up` cookie instead.
  * Clerk `fva` claim: [firstFactorAgeMinutes, secondFactorAgeMinutes?].
  */
-export function sessionHasCompletedMfa(sessionClaims: SessionClaims): boolean {
+export function sessionHasCompletedClerkMfa(sessionClaims: SessionClaims): boolean {
   const fva = sessionClaims?.fva;
   if (!Array.isArray(fva) || fva.length < 2) return false;
   return typeof fva[1] === "number" && Number.isFinite(fva[1]);
 }
+
+/** @deprecated Use app-level TOTP step-up via `adminStepUpComplete()` / `readAdminMfaGateState()`. */
+export const sessionHasCompletedMfa = sessionHasCompletedClerkMfa;
 
 export function isAdminMfaEnforced(): boolean {
   return process.env.ADMIN_MFA_ENFORCED === "true" || process.env.ADMIN_MFA_ENFORCED === "1";
@@ -75,12 +78,13 @@ export function isAdminMfaEnforced(): boolean {
 export function adminAuthFromClerk(authState: SessionAuthObject): {
   userId: string | null;
   role: string | undefined;
-  mfaCompleted: boolean;
+  /** Clerk `fva` only — prefer app-level step-up for admin panel enforcement. */
+  clerkMfaCompleted: boolean;
 } {
   const sessionClaims = authState.sessionClaims as SessionClaims;
   return {
     userId: authState.userId ?? null,
     role: getRoleFromSessionClaims(sessionClaims),
-    mfaCompleted: sessionHasCompletedMfa(sessionClaims),
+    clerkMfaCompleted: sessionHasCompletedClerkMfa(sessionClaims),
   };
 }
