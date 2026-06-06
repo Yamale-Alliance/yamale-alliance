@@ -45,7 +45,7 @@ function HeaderNavSkeleton({ showAuthLinks = false }: { showAuthLinks?: boolean 
     <header className={`yamale-site-chrome ${prototypeNavHeaderClass}`}>
       <div className={prototypeNavInnerClass}>
         <Link href="/" className="flex shrink-0 items-center">
-          <PlatformLogo height={56} width={200} className="h-14 w-[200px] sm:h-16" />
+          <PlatformLogo priority height={56} width={200} className="h-14 w-[200px] sm:h-16" />
         </Link>
         <nav className="hidden items-center gap-1 lg:flex">
           {userNavLinks.map(({ href, label }) => {
