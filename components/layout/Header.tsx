@@ -16,8 +16,10 @@ import {
   prototypeNavLinkClass,
   prototypeNavSignUpClass,
 } from "./prototype-nav-styles";
-import { userNavLinks } from "./nav-config";
 import { SiteNavLink } from "./SiteNavLink";
+import { LanguageToggle } from "./LanguageToggle";
+import { useTranslatedGuestNavLinks } from "./use-translated-nav";
+import { useTranslations } from "next-intl";
 
 function isActivePath(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
@@ -41,6 +43,9 @@ function isFastPublicNav(pathname: string | null): boolean {
 
 function HeaderNavSkeleton({ showAuthLinks = false }: { showAuthLinks?: boolean }) {
   const pathname = usePathname();
+  const t = useTranslations("common");
+  const links = useTranslatedGuestNavLinks();
+
   return (
     <header className={`yamale-site-chrome ${prototypeNavHeaderClass}`}>
       <div className={prototypeNavInnerClass}>
@@ -48,7 +53,7 @@ function HeaderNavSkeleton({ showAuthLinks = false }: { showAuthLinks?: boolean 
           <PlatformLogo priority height={56} width={200} className="h-14 w-[200px] sm:h-16" />
         </Link>
         <nav className="hidden items-center gap-1 lg:flex">
-          {userNavLinks.map(({ href, label }) => {
+          {links.map(({ href, label }) => {
             const active = isActivePath(pathname, href);
             return (
               <SiteNavLink key={href} href={href} className={prototypeNavLinkClass(active)}>
@@ -58,14 +63,15 @@ function HeaderNavSkeleton({ showAuthLinks = false }: { showAuthLinks?: boolean 
           })}
         </nav>
         <div className="flex items-center gap-2">
+          <LanguageToggle compact />
           <ThemeToggle />
           {showAuthLinks ? (
             <>
               <Link href="/sign-in" className={prototypeNavGhostClass}>
-                Sign in
+                {t("signIn")}
               </Link>
               <Link href="/signup" className={prototypeNavSignUpClass}>
-                Sign up
+                {t("signUp")}
               </Link>
             </>
           ) : (
