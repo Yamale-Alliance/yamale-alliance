@@ -11,7 +11,7 @@ ikPin Audit Response | June 2026
 | **2.2 Distributed rate limiting** | Tier hourly AI quotas via Upstash/Vercel KV (Basic 20, Pro 60, Team 150, Free 10 req/hour). 4000-char query cap. HTTP 429 with clear message. | `lib/ai-tier-hourly-limit.ts`, `lib/runtime-security.ts`, `app/api/ai/chat/route.ts` | LLM-04 |
 | **2.3 Safety classifier** | Pre-flight `runAiChatSafetyCheck()` (heuristics + `claude-haiku-4-5-20251001`) before main model; HTTP 400 when blocked. | `lib/ai/safety.ts`, `app/api/ai/chat/route.ts` | LLM-01 |
 | **2.4 Output validator** | `validateResponse()` blocks leakage phrases and invalid `[doc:N]` citations; safe fallback message when invalid. | `lib/ai/output-validator.ts`, `app/api/ai/chat/route.ts` | LLM-02 |
-| **2.5 Admin MFA** | `requireAdmin()` checks Clerk `fva` second factor when `ADMIN_MFA_ENFORCED=true`. HTTP 403 "MFA required". | `lib/admin.ts`, `lib/admin-session.ts` | IAM-02 |
+| **2.5 Admin MFA** | App-level TOTP step-up (otplib + encrypted Supabase secrets). Short-lived `admin_mfa_step_up` httpOnly cookie after 6-digit verify. Enforced in `proxy.ts` + `requireAdmin()` when `ADMIN_MFA_ENFORCED=true`. | `lib/admin-mfa*.ts`, `app/api/admin/mfa/route.ts`, `app/(admin)/admin-panel/mfa/page.tsx`, `proxy.ts`, `scripts/supabase/add-admin-totp.sql` | IAM-02 |
 | **2.6 pg_cron purge SQL** | Daily 02:00 UTC job script for `ai_query_log` (90d) and `ai_chat_states` (180d). | `scripts/supabase/setup-purge-cron.sql` | DATA-03 |
 | **2.7 PII warning banner** | Dismissible amber banner in AI chat; dismissal stored in `localStorage`. | `app/(user)/ai-research/AIResearchClient.tsx` | LLM-06 |
 | **2.8 Malware scanning** | `scanFile()` via VirusTotal v3 on admin law PDF and marketplace file uploads; HTTP 422 when detections > 0. | `lib/uploads/scanner.ts`, `app/api/admin/laws/route.ts`, `app/api/admin/marketplace/upload-file/route.ts` | FILE-01 |
@@ -56,13 +56,14 @@ ikPin Audit Response | June 2026
 3. Enable MFA on each platform where supported.
 **Done when:** Password manager shows unique entries and MFA enabled for each service.
 
-### Clerk MFA for all 4 admins (before enforcing in code)
-**Why:** Admin accounts can ingest laws, view query logs, and change platform settings.
+### App-level admin TOTP (before enforcing in code)
+**Why:** Admin accounts can ingest laws, view query logs, and change platform settings. This uses Yamalé-owned TOTP (no Clerk Pro MFA).
 **Steps:**
-1. Open https://dashboard.clerk.com → your production instance → Users.
-2. For Meghan, Andrea, Hawa, and Patrick: confirm each has enrolled a second factor (Authenticator app).
-3. After all four are enrolled, set `ADMIN_MFA_ENFORCED=true` in Vercel production env and redeploy.
-**Done when:** Each admin can sign in with MFA; production has `ADMIN_MFA_ENFORCED=true`.
+1. Run `scripts/supabase/add-admin-totp.sql` in Supabase SQL Editor.
+2. Set `ADMIN_MFA_SECRET` and `ADMIN_MFA_ENCRYPTION_KEY` in Vercel (see `.env.example`; generate with `openssl rand -base64 48` and `openssl rand -hex 32`).
+3. Deploy with `ADMIN_MFA_ENFORCED=false`. Each admin visits `/admin-panel/mfa` and enrolls an authenticator app.
+4. After all four admins are enrolled, set `ADMIN_MFA_ENFORCED=true` in Vercel production and redeploy.
+**Done when:** Each admin completes TOTP enrollment; production has `ADMIN_MFA_ENFORCED=true` and step-up works on `/admin-panel`.
 
 ### Anthropic Console monthly spending cap
 **Why:** Limits runaway API cost if keys leak or abuse spikes.
@@ -144,7 +145,10 @@ ikPin Audit Response | June 2026
 | Name | Purpose | Where to get it |
 |------|---------|-----------------|
 | `AI_CHAT_DISABLED` | Emergency kill switch for AI chat (`true` = 503) | Set manually in Vercel; default `false` |
-| `ADMIN_MFA_ENFORCED` | Require completed Clerk MFA for `requireAdmin()` | Set `true` in Vercel after admin MFA enrollment |
+| `ADMIN_MFA_ENFORCED` | Require app-level TOTP step-up for admin panel + APIs | Set `true` in Vercel after all admins enroll at `/admin-panel/mfa` |
+| `ADMIN_MFA_SECRET` | HMAC signing key for `admin_mfa_step_up` cookie (32+ chars) | `openssl rand -base64 48` |
+| `ADMIN_MFA_ENCRYPTION_KEY` | AES-256-GCM key for TOTP secrets in Supabase (32+ chars or 64 hex) | `openssl rand -hex 32` |
+| `ADMIN_MFA_SESSION_TTL_SEC` | Step-up cookie lifetime (default 43200 = 12h) | Optional |
 | `VIRUSTOTAL_API_KEY` | Malware scan on admin file uploads | https://www.virustotal.com/gui/join-us |
 | `UPSTASH_REDIS_REST_URL` | Distributed rate limit counters | Upstash or Vercel KV dashboard |
 | `UPSTASH_REDIS_REST_TOKEN` | Auth for Upstash REST API | Upstash or Vercel KV dashboard |
