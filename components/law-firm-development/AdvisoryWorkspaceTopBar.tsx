@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Menu, MessageCircle, Search, X } from "lucide-react";
 import { AdvisoryCourseNotifications } from "@/components/law-firm-development/AdvisoryCourseNotifications";
 import { PLATFORM_MAIL_LINK_REL, platformBusinessMailto } from "@/lib/platform-emails";
@@ -34,6 +35,7 @@ export function AdvisoryWorkspaceTopBar({
   menuOpen = false,
   onToggleMenu,
 }: TopBarProps) {
+  const t = useTranslations("advisory");
   const router = useRouter();
   const { courseQuery } = useAdvisoryCatalogContext();
   const [search, setSearch] = useState("");
@@ -52,7 +54,7 @@ export function AdvisoryWorkspaceTopBar({
           type="button"
           className="advisory-topbar__menu md:hidden"
           onClick={onToggleMenu}
-          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          aria-label={menuOpen ? t("closeMenu") : t("openMenu")}
           aria-expanded={menuOpen}
         >
           {menuOpen ? (
@@ -68,8 +70,8 @@ export function AdvisoryWorkspaceTopBar({
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search documents, templates, or tools…"
-          aria-label="Search documents, templates, or tools"
+          placeholder={t("searchPlaceholder")}
+          aria-label={t("searchPlaceholder")}
         />
       </form>
       <div className="advisory-topbar__actions">
