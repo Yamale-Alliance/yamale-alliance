@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -78,6 +79,8 @@ function pseudoCountries(name: string): number {
 }
 
 export default function LawyersPage() {
+  const t = useTranslations("lawyers");
+  const tCommon = useTranslations("common");
   const searchEnabled = isLawyersNetworkLive();
   const [lawyers, setLawyers] = useState<Lawyer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -153,11 +156,11 @@ export default function LawyersPage() {
   const handlePayForSearch = async (provider: CheckoutPaymentProvider) => {
     if (!searchEnabled) return;
     if (selectedExpertise === "all" || selectedCountry === "") {
-      setSearchPayError("Please select one country and one practice area.");
+      setSearchPayError(t("selectCountryAndArea"));
       return;
     }
     if (!userLoaded || !isSignedIn) {
-      setSearchPayError("Sign in to unlock contact details.");
+      setSearchPayError(t("signInToUnlock"));
       return;
     }
     setSearchPayLoading(true);
@@ -178,7 +181,7 @@ export default function LawyersPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setSearchPayError((data.error as string) || "Failed to start checkout");
+        setSearchPayError((data.error as string) || t("checkoutFailed"));
         return;
       }
       if (data.url) {
@@ -186,9 +189,9 @@ export default function LawyersPage() {
         window.location.href = data.url;
         return;
       }
-      setSearchPayError("Checkout could not be started.");
+      setSearchPayError(t("checkoutNotStarted"));
     } catch {
-      setSearchPayError("Something went wrong. Try again.");
+      setSearchPayError(tCommon("somethingWentWrong"));
     } finally {
       setSearchPayLoading(false);
     }
@@ -416,7 +419,7 @@ export default function LawyersPage() {
       {confirmingPayment && (
         <div className="border-b border-border bg-primary/10 px-4 py-3">
           <div className="mx-auto flex max-w-7xl items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Confirming payment…
+            <Loader2 className="h-4 w-4 animate-spin" /> {tCommon("confirmingPayment")}
           </div>
         </div>
       )}
@@ -446,14 +449,13 @@ export default function LawyersPage() {
         <div className="relative z-[1] mx-auto max-w-7xl px-4 pb-10 pt-12 sm:px-6 sm:pt-14 lg:px-8">
           <div className="max-w-3xl">
             <p className={prototypeHeroEyebrowClass}>
-              Curated Lawyer Network
+              {t("eyebrow")}
             </p>
             <h1 className="heading mt-6 text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-[2rem]">
-              Find the right commercial lawyer in any African jurisdiction — fast.
+              {t("title")}
             </h1>
             <p className="mt-4 max-w-lg text-sm leading-relaxed text-white/[0.62] sm:text-base">
-              An invitation-only directory of legal professionals with deep expertise in African business law, mining,
-              M&A, and compliance.
+              {t("subtitle")}
             </p>
             <div className="mt-5 flex flex-wrap items-center gap-3">
               <LawyersOnboardingVideo className="inline-flex items-center gap-2 rounded-[6px] border border-white/25 bg-white/10 px-3 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15" />
@@ -461,7 +463,7 @@ export default function LawyersPage() {
                 href="/lawyers/unlocked"
                 className="inline-flex items-center rounded-[6px] border border-white/25 bg-white/10 px-3 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15"
               >
-                View unlocked lawyers
+                {t("viewUnlocked")}
               </Link>
             </div>
           </div>
@@ -469,14 +471,14 @@ export default function LawyersPage() {
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1fr_1fr_1fr_auto]">
               <div>
                 <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
-                  Country
+                  {t("country")}
                 </label>
                 <select
                   className="w-full rounded-[6px] border border-white/20 bg-[#13263a] px-3 py-2 text-sm text-white outline-none"
                   value={selectedCountry}
                   onChange={(e) => setSelectedCountry(e.target.value)}
                 >
-                  <option value="">Select a country</option>
+                  <option value="">{t("selectCountry")}</option>
                   {AFRICAN_COUNTRIES.map((c) => (
                     <option key={c} value={c}>
                       {c}
