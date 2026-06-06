@@ -19,6 +19,18 @@ import {
 
 const VALID_ITEM_TYPES = ["book", "course", "template", "guide"] as const;
 
+function bundleHasDistinctItemCovers(items: VaultSeriesItemInput[]): boolean {
+  const urls = new Set<string>();
+  for (const item of items) {
+    if (item.use_default_cover) continue;
+    const url = item.image_url?.trim();
+    if (!url) continue;
+    urls.add(url);
+    if (urls.size > 1) return true;
+  }
+  return false;
+}
+
 export type VaultSeriesItemInput = {
   id?: string;
   type?: string;
@@ -168,7 +180,8 @@ export async function saveVaultSeriesBundle(
       paid && typeof input.series_bundle_price_cents === "number"
         ? Math.max(0, Math.round(input.series_bundle_price_cents))
         : null,
-    per_country_item_covers: Boolean(input.per_country_item_covers),
+    per_country_item_covers:
+      Boolean(input.per_country_item_covers) || bundleHasDistinctItemCovers(input.items),
     suggested_item_price_cents:
       typeof input.suggested_item_price_cents === "number"
         ? Math.max(0, Math.round(input.suggested_item_price_cents))
