@@ -6,7 +6,7 @@ import Image from "next/image";
 import { Package, Loader2, Eye, BookOpen, GraduationCap, FileText, Check, ExternalLink } from "lucide-react";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
-import { LAW_FIRM_VIEW_COURSE_LABEL } from "@/lib/law-firm-package-marketing";
+import { useTranslations } from "next-intl";
 import { advisoryCourseHref, isMarketplaceCourseItem } from "@/lib/marketplace-course";
 import { marketplaceItemDetailHref } from "@/lib/marketplace-public-url";
 import { displayVaultProductTitle } from "@/lib/marketplace-display";
@@ -61,6 +61,7 @@ export function AccountPurchasedItems({
   afterSignInReturnPath = "/account/purchases",
   hideVaultFooterLink = false,
 }: AccountPurchasedItemsProps) {
+  const t = useTranslations("advisory");
   const { isSignedIn, isLoaded } = useAppUser();
   const [items, setItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -205,7 +206,7 @@ export function AccountPurchasedItems({
                     className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:opacity-90"
                   >
                     <GraduationCap className="h-3.5 w-3.5" aria-hidden />
-                    {LAW_FIRM_VIEW_COURSE_LABEL}
+                    {t("viewCourse")}
                   </Link>
                 ) : null}
                 {product.has_file ? (
