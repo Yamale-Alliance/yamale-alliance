@@ -1,3 +1,5 @@
+@import "../styles/marketplace-landing-theme.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -436,6 +438,11 @@ body:has(.marketplace-landing-zone)::after {
   pointer-events: none !important;
 }
 
+body:has(.marketplace-landing-zone),
+body:has(.marketplace-package-page) {
+  overflow-x: clip;
+}
+
 /* Platform chrome stacking (do not set position:relative on header — it breaks sticky top-0). */
 footer.yamale-site-footer,
 div.yamale-site-chrome {
@@ -469,7 +476,7 @@ body:has(.advisory-workspace-root) {
   z-index: 105;
 }
 
-/* Landing ZIP pages: nav layout only — must not target footer (also used yamale-site-chrome). */
+/* Landing ZIP pages: desktop nav polish only at lg+ (never force desktop links on mobile). */
 body:has(.marketplace-landing-zone) header.yamale-site-chrome > div {
   display: flex !important;
   height: 72px !important;
@@ -479,6 +486,7 @@ body:has(.marketplace-landing-zone) header.yamale-site-chrome > div {
   gap: 0.5rem !important;
   padding-left: 1rem !important;
   padding-right: 1rem !important;
+  min-width: 0 !important;
 }
 @media (min-width: 640px) {
   body:has(.marketplace-landing-zone) header.yamale-site-chrome > div {
@@ -487,23 +495,31 @@ body:has(.marketplace-landing-zone) header.yamale-site-chrome > div {
     padding-right: 2rem !important;
   }
 }
-body:has(.marketplace-landing-zone) header.yamale-site-chrome nav.hidden.items-center {
-  display: flex !important;
-  align-items: center !important;
-  gap: 0.25rem !important;
-}
-body:has(.marketplace-landing-zone) header.yamale-site-chrome a.rounded-\[6px\] {
-  padding-left: 14px !important;
-  padding-right: 14px !important;
-  padding-top: 0.5rem !important;
-  padding-bottom: 0.5rem !important;
-  font-size: 13.5px !important;
+@media (min-width: 1024px) {
+  body:has(.marketplace-landing-zone) header.yamale-site-chrome nav.hidden.items-center {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.25rem !important;
+  }
+  body:has(.marketplace-landing-zone) header.yamale-site-chrome a.rounded-\[6px\] {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+    font-size: 13.5px !important;
+  }
 }
 
 /* Clear separation between vault landing embed and site footer. */
 body:has(.marketplace-landing-zone) .yamale-site-footer {
   margin-top: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid color-mix(in srgb, var(--foreground) 14%, var(--border));
+}
+
+:root:not(.dark) body:has(.law-firm-package-landing) .yamale-site-footer,
+:root:not(.dark) body:has(.marketplace-landing-zone) .yamale-site-footer,
+:root:not(.dark) body:has(.marketplace-package-page) .yamale-site-footer {
+  border-top-color: color-mix(in srgb, var(--foreground) 16%, var(--border)) !important;
 }
 
 /* Clerk embedded auth (AuthShell) — single card, no nested Clerk box or dev stripes. */
