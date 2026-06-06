@@ -17,8 +17,6 @@ import { useAdvisoryCatalogContext } from "@/components/law-firm-development/Adv
 import { marketplaceItemDetailHref } from "@/lib/marketplace-public-url";
 import { AdvisoryWorkspaceTopBar } from "@/components/law-firm-development/AdvisoryWorkspaceTopBar";
 import { PLATFORM_BUSINESS_EMAIL } from "@/lib/platform-emails";
-import { PlatformLogo } from "@/components/platform/PlatformLogo";
-import { X } from "lucide-react";
 
 function navActive(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
@@ -83,22 +81,6 @@ export function AdvisoryWorkspaceShell({ children }: Props) {
       )}
 
       <aside className={`advisory-sidebar${sidebarOpen ? " is-open" : ""}`}>
-        <div className="advisory-sidebar__brand">
-          <PlatformLogo height={36} width={120} className="advisory-sidebar__brand-logo h-9 w-auto" />
-          <div className="advisory-sidebar__brand-text">
-            Yamalé
-            <small>Advisory</small>
-          </div>
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(false)}
-            className="ml-auto rounded p-1 text-[#d4c7b3] hover:bg-white/5 md:hidden"
-            aria-label="Close sidebar"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
         <nav className="advisory-sidebar__nav" aria-label="Workspace">
           <div className="advisory-sidebar__section-label">Workspace</div>
           <ul>
@@ -199,14 +181,15 @@ export function AdvisoryWorkspaceShell({ children }: Props) {
           firmName={firmName}
           firmLocation={firmLocation}
           subscription={subscription}
-          onOpenMenu={() => setSidebarOpen(true)}
+          menuOpen={sidebarOpen}
+          onToggleMenu={() => setSidebarOpen((open) => !open)}
         />
       </div>
 
       <main className="advisory-main">
         {packageHref && (
-          <div className="flex justify-end px-4 pt-3 sm:px-8">
-            <Link href={packageHref} className="advisory-nav-pill advisory-nav-pill--sm">
+          <div className="flex min-w-0 max-w-full justify-end px-4 pt-3 sm:px-8">
+            <Link href={packageHref} className="advisory-nav-pill advisory-nav-pill--sm max-w-full text-center">
               Package download →
             </Link>
           </div>
