@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { VAULT_SUBCATEGORIES_FALLBACK, type VaultSubcategoryEntry } from "@/lib/marketplace-vault-categories-fallback";
 import { isMarketplaceVaultSeriesTableMissing } from "@/lib/marketplace-vault-series-db";
+import { perCountryCoversMapFromSeries } from "@/lib/marketplace-series-image-normalize";
 
 export type VaultSeriesRecord = VaultSubcategoryEntry & {
   description?: string | null;
@@ -117,4 +118,16 @@ export function vaultSeriesCoverUrl(series: VaultSeriesRecord | null | undefined
   if (url) return url;
   const path = series.coverImagePath;
   return typeof path === "string" && path.startsWith("/") ? path : null;
+}
+
+/** Server-side: read per-country cover flag from DB (not client registry). */
+export async function vaultSeriesUsesPerCountryCoversFromDb(
+  supabase: SupabaseClient,
+  seriesId: string | null | undefined
+): Promise<boolean> {
+  const id = seriesId?.trim();
+  if (!id) return false;
+  const rows = await fetchVaultSeriesDbRows(supabase);
+  const map = perCountryCoversMapFromSeries(rows.map(rowToVaultSeriesRecord));
+  return Boolean(map.get(id));
 }
