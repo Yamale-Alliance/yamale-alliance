@@ -122,33 +122,6 @@ type DisplayProductCard = {
   seriesKey?: string;
 };
 
-function normalizeSeriesImages(items: Product[]): Product[] {
-  if (!items.length) return items;
-
-  const sharedImageBySubcategory = new Map<string, string>();
-
-  for (const item of items) {
-    if (!shouldGroupVaultItem(item)) continue;
-    const sub = item.vault_subcategory?.trim();
-    if (!sub || vaultSeriesUsesPerCountryCovers(sub)) continue;
-    if (sharedImageBySubcategory.has(sub)) continue;
-    if (!item.image_url) continue;
-    sharedImageBySubcategory.set(sub, item.image_url);
-  }
-
-  if (!sharedImageBySubcategory.size) return items;
-
-  return items.map((item) => {
-    if (!shouldGroupVaultItem(item)) return item;
-    const sub = item.vault_subcategory?.trim();
-    if (!sub || vaultSeriesUsesPerCountryCovers(sub)) return item;
-    const shared = sharedImageBySubcategory.get(sub);
-    if (!shared) return item;
-    if (item.image_url === shared) return item;
-    return { ...item, image_url: shared };
-  });
-}
-
 const FORMAT_TILES: {
   param: "all" | ProductCategory | typeof VAULT_BROWSE_FREE;
   label: string;
@@ -307,8 +280,8 @@ export default function MarketplacePage() {
     try {
       const r = await fetch(`${origin}/api/marketplace`, { credentials: "include" });
       const data = await r.json();
-      const rawItems: Product[] = Array.isArray(data.items) ? data.items : [];
-      setItems(normalizeSeriesImages(rawItems));
+      const nextItems: Product[] = Array.isArray(data.items) ? data.items : [];
+      setItems(nextItems);
     } catch {
       setItems([]);
     }
