@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import {
   Users,
   Briefcase,
@@ -12,45 +13,44 @@ import {
   LineChart,
   Store,
 } from "lucide-react";
+import { SUPPORT_CENTER_LIVE_FLAG } from "@/components/admin/admin-nav-config";
 
-const SUPPORT_CENTER_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
+export const dynamic = "force-dynamic";
 
-const quickLinks = [
-  { href: "/admin-panel/admins", label: "Admin management & version control", icon: Shield },
-  { href: "/admin-panel/users", label: "Manage users & gift access", icon: Users },
-  { href: "/admin-panel/ai-usage", label: "AI usage (credits & tokens)", icon: Cpu },
+const quickLinkDefs = [
+  { href: "/admin-panel/admins", labelKey: "adminManagement", icon: Shield },
+  { href: "/admin-panel/users", labelKey: "users", icon: Users },
+  { href: "/admin-panel/ai-usage", labelKey: "aiUsage", icon: Cpu },
   {
     href: "/admin-panel/support",
-    label: SUPPORT_CENTER_LIVE ? "Support requests from users" : "Support requests (coming soon)",
+    labelKey: SUPPORT_CENTER_LIVE_FLAG ? "support" : "supportComingSoon",
     icon: MessageSquare,
   },
-  { href: "/admin-panel/ai-quality", label: "AI quality (bugs & flagged feedback)", icon: Bug },
-  { href: "/admin-panel/revenue", label: "Revenue, analytics & one-time sales", icon: LineChart },
-  { href: "/admin-panel/marketplace", label: "Yamalé Vault products & purchases", icon: Store },
-  { href: "/admin-panel/lawyers", label: "Lawyers directory", icon: Briefcase },
-  { href: "/admin-panel/laws", label: "View and add laws", icon: BookOpen },
-  { href: "/admin-panel/pricing", label: "Edit pricing plans", icon: Scale },
-];
+  { href: "/admin-panel/ai-quality", labelKey: "aiQuality", icon: Bug },
+  { href: "/admin-panel/revenue", labelKey: "revenue", icon: LineChart },
+  { href: "/admin-panel/marketplace", labelKey: "vault", icon: Store },
+  { href: "/admin-panel/lawyers", labelKey: "lawyers", icon: Briefcase },
+  { href: "/admin-panel/laws", labelKey: "laws", icon: BookOpen },
+  { href: "/admin-panel/pricing", labelKey: "pricing", icon: Scale },
+] as const;
 
-export default function AdminPanelPage() {
+export default async function AdminPanelPage() {
+  const t = await getTranslations("admin.overview");
+
   return (
     <div className="p-4 sm:p-6 md:p-8">
       <div className="rounded-2xl border border-border bg-card px-4 py-6 shadow-sm sm:px-6 sm:py-8 md:px-8 md:py-10">
         <h1 className="heading text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          Admin Overview
+          {t("title")}
         </h1>
-        <p className="mt-2 max-w-xl text-muted-foreground">
-          Manage users, laws, pricing, and platform content from the sidebar. Use the links below to jump to a section.
-        </p>
+        <p className="mt-2 max-w-xl text-muted-foreground">{t("subtitle")}</p>
       </div>
 
       <div className="mt-8">
-        <h2 className="text-lg font-semibold text-foreground">Quick actions</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Jump to a section or use the sidebar to navigate.
-        </p>
+        <h2 className="text-lg font-semibold text-foreground">{t("quickActions")}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t("quickActionsHint")}</p>
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-          {quickLinks.map(({ href, label, icon: Icon }) => (
+          {quickLinkDefs.map(({ href, labelKey, icon: Icon }) => (
             <li key={href}>
               <Link
                 href={href}
@@ -60,7 +60,7 @@ export default function AdminPanelPage() {
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                     <Icon className="h-5 w-5 text-primary" />
                   </div>
-                  <span className="font-medium">{label}</span>
+                  <span className="font-medium">{t(`links.${labelKey}`)}</span>
                 </div>
                 <ArrowRight className="h-5 w-5 text-muted-foreground" />
               </Link>
