@@ -31,9 +31,17 @@ interface PlatformLogoProps {
   height?: number;
   width?: number;
   fallback?: string;
+  /** Above-the-fold header logo — sets loading="eager" for LCP. */
+  priority?: boolean;
 }
 
-export function PlatformLogo({ className = "", height = 44, width = 160, fallback = "Yamalé" }: PlatformLogoProps) {
+export function PlatformLogo({
+  className = "",
+  height = 44,
+  width = 160,
+  fallback = "Yamalé",
+  priority = false,
+}: PlatformLogoProps) {
   const { logoUrl: settingsLogoUrl } = usePlatformSettings();
   const { theme } = useTheme();
   const [hydrated, setHydrated] = useState(false);
@@ -115,6 +123,7 @@ export function PlatformLogo({ className = "", height = 44, width = 160, fallbac
           alt="Platform logo"
           height={height}
           width={width}
+          priority={priority}
           className="max-h-full w-auto max-w-full"
           style={{ objectFit: "contain", height: `${height}px`, width: "auto", ...darkSvgStyle }}
           unoptimized
