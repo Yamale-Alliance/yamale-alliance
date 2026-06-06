@@ -26,6 +26,7 @@ import {
   FileDown,
   Link2,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { LibraryCountry, LibraryCategory, LibraryLawRow, LibrarySortOption } from "@/lib/library-data";
 import { LIBRARY_PAGE_SIZE } from "@/lib/library-data";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
@@ -364,6 +365,7 @@ export function LibraryView({
   initialPage = "",
   initialSort = "title-asc",
 }: Props) {
+  const t = useTranslations("library");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -1096,26 +1098,26 @@ export function LibraryView({
         <div className="mx-auto max-w-[1280px]">
           <p className="mb-4 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[1.5px] text-[#E8B84B]">
             <span className="h-1.5 w-1.5 rounded-full bg-[#E8B84B]" />
-            Legal Library
+            {t("eyebrow")}
           </p>
           <h1 className="heading max-w-[820px] text-3xl font-bold text-white sm:text-4xl">
-            Every African country&apos;s business laws — free to read, in one place.
+            {t("title")}
           </h1>
           <p className="mt-2 max-w-[760px] text-[15px] text-white/60">
-            Browse and search legislation from all 54 African countries. Reading is free — sign in with any email to begin.
+            {t("subtitle")}
           </p>
           <div className="relative z-30 mt-7 isolate">
             <Search className="pointer-events-none absolute left-4 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="search"
-              placeholder="Search by keyword — e.g. patent, Zambia, labour, investment…"
+              placeholder={t("searchPlaceholder")}
               value={searchInput}
               onChange={(e) => handleSearchChange(e.target.value)}
               className="w-full rounded-[12px] border border-border bg-card py-3.5 pl-12 pr-4 text-sm text-foreground shadow-[0_12px_40px_rgba(13,27,42,0.12)] outline-none dark:shadow-[0_12px_40px_rgba(0,0,0,0.35)]"
               autoComplete="off"
             />
           </div>
-          <p className="mt-3 text-xs text-white/50">All 54 African countries</p>
+          <p className="mt-3 text-xs text-white/50">{t("countriesHint")}</p>
         </div>
       </section>
 
@@ -1126,7 +1128,7 @@ export function LibraryView({
               &ldquo;
             </span>
             <span>
-              From Cairo to Cape Town — every business law you need, in one search. No paywall to read.
+              {t("quote")}
             </span>
           </p>
         </div>
