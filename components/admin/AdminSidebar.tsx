@@ -2,48 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Users,
-  FileText,
-  Settings,
-  Scale,
-  BookOpen,
-  LayoutDashboard,
-  Shield,
-  X,
-  Cpu,
-  FileCheck,
-  MessageSquare,
-  MessageSquareWarning,
-  LineChart,
-  Store,
-  Flag,
-  RotateCcw,
-} from "lucide-react";
-
-const SUPPORT_CENTER_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
-
-const navItems = [
-  { href: "/admin-panel", label: "Overview", icon: LayoutDashboard },
-  { href: "/admin-panel/admins", label: "Admin Management", icon: Shield },
-  { href: "/admin-panel/users", label: "Users", icon: Users },
-  { href: "/admin-panel/ai-usage", label: "AI Usage", icon: Cpu },
-  { href: "/admin-panel/revenue", label: "Revenue & analytics", icon: LineChart },
-  { href: "/admin-panel/refunds", label: "Refunds", icon: RotateCcw },
-  { href: "/admin-panel/marketplace", label: "Yamalé Vault", icon: Store },
-  {
-    href: "/admin-panel/support",
-    label: SUPPORT_CENTER_LIVE ? "Support requests" : "Support requests (coming soon)",
-    icon: MessageSquare,
-  },
-  { href: "/admin-panel/ai-quality", label: "AI quality", icon: MessageSquareWarning },
-  { href: "/admin-panel/laws", label: "Laws", icon: BookOpen },
-  { href: "/admin-panel/law-flags", label: "Law flags", icon: Flag },
-  { href: "/admin-panel/afcfta", label: "AfCFTA", icon: FileCheck },
-  { href: "/admin-panel/pricing", label: "Pricing", icon: Scale },
-  { href: "/admin-panel/content", label: "Content", icon: FileText },
-  { href: "/admin-panel/settings", label: "Settings", icon: Settings },
-];
+import { useTranslations } from "next-intl";
+import { Shield, X } from "lucide-react";
+import { useTranslatedAdminNavItems } from "./use-translated-admin-nav";
 
 type AdminSidebarProps = {
   open?: boolean;
@@ -52,6 +13,8 @@ type AdminSidebarProps = {
 
 export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
   const pathname = usePathname();
+  const t = useTranslations("common");
+  const navItems = useTranslatedAdminNavItems();
 
   const navContent = (
     <>
@@ -60,14 +23,14 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
             <Shield className="h-5 w-5 text-primary" />
           </div>
-          <span className="font-semibold tracking-tight text-foreground">Admin</span>
+          <span className="font-semibold tracking-tight text-foreground">{t("admin")}</span>
         </div>
         {onClose && (
           <button
             type="button"
             onClick={onClose}
             className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground md:hidden"
-            aria-label="Close admin menu"
+            aria-label={t("closeAdminMenu")}
           >
             <X className="h-5 w-5" />
           </button>
@@ -110,7 +73,6 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
 
   return (
     <>
-      {/* Mobile: overlay backdrop */}
       {onClose && (
         <div
           className={`fixed inset-0 z-40 bg-black/50 transition-opacity md:hidden ${
@@ -120,17 +82,15 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
           onClick={onClose}
         />
       )}
-      {/* Desktop: always-visible sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col self-stretch border-r border-border bg-card md:sticky md:top-0 md:flex">
         {navContent}
       </aside>
-      {/* Mobile: drawer */}
       {onClose && (
         <aside
           className={`fixed left-0 top-0 z-50 flex h-full w-64 max-w-[85vw] flex-col border-r border-border bg-card shadow-xl transition-transform duration-200 ease-out md:hidden ${
             open ? "translate-x-0" : "-translate-x-full"
           }`}
-          aria-label="Admin navigation"
+          aria-label={t("adminNav")}
         >
           {navContent}
         </aside>
