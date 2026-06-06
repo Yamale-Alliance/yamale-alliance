@@ -2,21 +2,43 @@
 
 import Link from "next/link";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Filter, X, BookmarkCheck, FileDown } from "lucide-react";
+import { Filter, X } from "lucide-react";
+import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import type { LibraryCategory, LibraryCountry } from "@/lib/library-data";
 
-const STATUSES = ["In force", "Amended", "Repealed"] as const;
-const DOCUMENT_TYPES = ["Law", "Decree", "Regulation", "Code", "Directive", "Treaty", "Agreement", "Other"] as const;
-const TREATY_FILTERS = ["", "Bilateral", "Multilateral", "Not a treaty"] as const;
+const STATUSES = [
+  { value: "In force", key: "inForce" },
+  { value: "Amended", key: "amended" },
+  { value: "Repealed", key: "repealed" },
+] as const;
+
+const DOCUMENT_TYPES = [
+  { value: "Law", key: "law" },
+  { value: "Decree", key: "decree" },
+  { value: "Regulation", key: "regulation" },
+  { value: "Code", key: "code" },
+  { value: "Directive", key: "directive" },
+  { value: "Treaty", key: "treaty" },
+  { value: "Agreement", key: "agreement" },
+  { value: "Other", key: "other" },
+] as const;
+
+const TREATY_FILTERS = [
+  { value: "", key: null },
+  { value: "Bilateral", key: "bilateral" },
+  { value: "Multilateral", key: "multilateral" },
+  { value: "Not a treaty", key: "notTreaty" },
+] as const;
 
 type SortOption = "title-asc" | "title-desc" | "country" | "category" | "newest";
 
-const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: "title-asc", label: "Title (A–Z)" },
-  { value: "title-desc", label: "Title (Z–A)" },
-  { value: "country", label: "Country" },
-  { value: "category", label: "Category" },
-  { value: "newest", label: "Newest first" },
+const SORT_OPTION_KEYS: { value: SortOption; key: string }[] = [
+  { value: "title-asc", key: "titleAsc" },
+  { value: "title-desc", key: "titleDesc" },
+  { value: "country", key: "country" },
+  { value: "category", key: "category" },
+  { value: "newest", key: "newest" },
 ];
 
 export type LibraryFiltersBarProps = {
@@ -90,6 +112,17 @@ export function LibraryFiltersBar({
   purchasedCount,
   isSignedIn,
 }: LibraryFiltersBarProps) {
+  const t = useTranslations("library");
+
+  const sortOptions = useMemo(
+    () =>
+      SORT_OPTION_KEYS.map((opt) => ({
+        value: opt.value,
+        label: t(`sort.${opt.key}`),
+      })),
+    [t]
+  );
+
   const categoryOptions =
     categories.length > 0
       ? categories.map((c) => ({ key: c.id, name: c.name }))
@@ -100,34 +133,34 @@ export function LibraryFiltersBar({
       <select
         value={documentType}
         onChange={(e) => onDocumentTypeChange(e.target.value)}
-        aria-label="Document type"
+        aria-label={t("documentType")}
         className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
       >
-        <option value="">All document types</option>
-        {DOCUMENT_TYPES.map((t) => (
-          <option key={t} value={t}>
-            {t}
+        <option value="">{t("allDocumentTypes")}</option>
+        {DOCUMENT_TYPES.map((item) => (
+          <option key={item.value} value={item.value}>
+            {t(`documentTypes.${item.key}`)}
           </option>
         ))}
       </select>
       <select
         value={treatyType}
         onChange={(e) => onTreatyTypeChange(e.target.value)}
-        aria-label="Classification"
+        aria-label={t("classification")}
         className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
       >
-        <option value="">All classifications</option>
-        {TREATY_FILTERS.filter(Boolean).map((t) => (
-          <option key={t} value={t}>
-            {t}
+        <option value="">{t("allClassifications")}</option>
+        {TREATY_FILTERS.filter((item) => item.value).map((item) => (
+          <option key={item.value} value={item.value}>
+            {t(`treatyTypes.${item.key}`)}
           </option>
         ))}
       </select>
       <input
         type="number"
         inputMode="numeric"
-        placeholder="Year from"
-        aria-label="Year from"
+        placeholder={t("yearFrom")}
+        aria-label={t("yearFrom")}
         value={yearFrom}
         onChange={(e) => onYearFromChange(e.target.value)}
         className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
@@ -135,8 +168,8 @@ export function LibraryFiltersBar({
       <input
         type="number"
         inputMode="numeric"
-        placeholder="Year to"
-        aria-label="Year to"
+        placeholder={t("yearTo")}
+        aria-label={t("yearTo")}
         value={yearTo}
         onChange={(e) => onYearToChange(e.target.value)}
         className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
@@ -155,7 +188,7 @@ export function LibraryFiltersBar({
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground md:hidden"
             >
               <Filter className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-              Filters
+              {t("filters")}
               {filterBadgeCount > 0 ? (
                 <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold leading-none text-primary-foreground">
                   {filterBadgeCount}
@@ -167,10 +200,10 @@ export function LibraryFiltersBar({
               <select
                 value={country}
                 onChange={(e) => onCountryChange(e.target.value)}
-                aria-label="Country"
+                aria-label={t("country")}
                 className="min-w-[10rem] max-w-[14rem] flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
               >
-                <option value="">All countries</option>
+                <option value="">{t("allCountries")}</option>
                 {countries.map((c) => (
                   <option key={c.id} value={c.name}>
                     {c.name}
@@ -180,10 +213,10 @@ export function LibraryFiltersBar({
               <select
                 value={category}
                 onChange={(e) => onCategoryChange(e.target.value)}
-                aria-label="Category"
+                aria-label={t("category")}
                 className="min-w-[10rem] max-w-[14rem] flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
               >
-                <option value="">All categories</option>
+                <option value="">{t("allCategories")}</option>
                 {categoryOptions.map((c) => (
                   <option key={c.key} value={c.name}>
                     {c.name}
@@ -193,13 +226,13 @@ export function LibraryFiltersBar({
               <select
                 value={status}
                 onChange={(e) => onStatusChange(e.target.value)}
-                aria-label="Status"
+                aria-label={t("status")}
                 className="min-w-[8.5rem] rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
               >
-                <option value="">All statuses</option>
-                {STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
+                <option value="">{t("allStatuses")}</option>
+                {STATUSES.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {t(`statuses.${item.key}`)}
                   </option>
                 ))}
               </select>
@@ -215,22 +248,23 @@ export function LibraryFiltersBar({
                     : "border-border text-foreground hover:bg-muted"
                 }`}
               >
-                More{advancedFilterCount > 0 ? ` (${advancedFilterCount})` : ""}
+                {t("more")}{advancedFilterCount > 0 ? ` (${advancedFilterCount})` : ""}
               </button>
             </div>
 
             <p className="hidden text-xs text-muted-foreground sm:block">
-              {resultsTotal.toLocaleString()} results
-              {totalPages > 0 ? ` · p. ${safePage}/${totalPages}` : ""}
+              {totalPages > 0
+                ? t("resultsPage", { count: resultsTotal.toLocaleString(), page: safePage, total: totalPages })
+                : t("results", { count: resultsTotal.toLocaleString() })}
             </p>
 
             <select
               value={sortBy}
               onChange={(e) => onSortChange(e.target.value)}
-              aria-label="Sort results"
+              aria-label={t("sortResults")}
               className="ml-auto min-w-[9.5rem] rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground sm:ml-0"
             >
-              {SORT_OPTIONS.map((opt) => (
+              {sortOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
@@ -242,27 +276,28 @@ export function LibraryFiltersBar({
                 type="button"
                 onClick={onClearFilters}
                 className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-                title="Clear all filters"
+                title={t("clearAllFilters")}
               >
                 <X className="h-4 w-4" aria-hidden />
-                <span className="sr-only sm:not-sr-only sm:inline">Clear</span>
+                <span className="sr-only sm:not-sr-only sm:inline">{t("clear")}</span>
               </button>
             ) : null}
           </div>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <p className="sm:hidden">
-              {resultsTotal.toLocaleString()} results
-              {totalPages > 0 ? ` · page ${safePage}/${totalPages}` : ""}
+              {totalPages > 0
+                ? t("resultsPageMobile", { count: resultsTotal.toLocaleString(), page: safePage, total: totalPages })
+                : t("results", { count: resultsTotal.toLocaleString() })}
             </p>
             {bookmarkedCount > 0 ? (
               <Link href="/library/bookmarks" className="font-medium text-primary hover:underline">
-                Bookmarks ({bookmarkedCount})
+                {t("bookmarks", { count: bookmarkedCount })}
               </Link>
             ) : null}
             {isSignedIn ? (
               <Link href="/library/purchased" className="font-medium text-primary hover:underline">
-                Purchased{purchasedCount > 0 ? ` (${purchasedCount})` : ""}
+                {purchasedCount > 0 ? t("purchasedCount", { count: purchasedCount }) : t("purchased")}
               </Link>
             ) : null}
           </div>
@@ -284,12 +319,12 @@ export function LibraryFiltersBar({
             onCloseAutoFocus={(e) => e.preventDefault()}
           >
             <div className="mb-4 flex items-center justify-between gap-2">
-              <Dialog.Title className="text-base font-semibold text-foreground">Filter laws</Dialog.Title>
+              <Dialog.Title className="text-base font-semibold text-foreground">{t("filterLaws")}</Dialog.Title>
               <Dialog.Close asChild>
                 <button
                   type="button"
                   className="rounded-lg p-2 text-muted-foreground hover:bg-muted"
-                  aria-label="Close filters"
+                  aria-label={t("closeFilters")}
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -297,13 +332,13 @@ export function LibraryFiltersBar({
             </div>
             <div className="space-y-3">
               <label className="block space-y-1">
-                <span className="text-xs font-medium text-muted-foreground">Country</span>
+                <span className="text-xs font-medium text-muted-foreground">{t("country")}</span>
                 <select
                   value={country}
                   onChange={(e) => onCountryChange(e.target.value)}
                   className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm"
                 >
-                  <option value="">All countries</option>
+                  <option value="">{t("allCountries")}</option>
                   {countries.map((c) => (
                     <option key={c.id} value={c.name}>
                       {c.name}
@@ -312,13 +347,13 @@ export function LibraryFiltersBar({
                 </select>
               </label>
               <label className="block space-y-1">
-                <span className="text-xs font-medium text-muted-foreground">Category</span>
+                <span className="text-xs font-medium text-muted-foreground">{t("category")}</span>
                 <select
                   value={category}
                   onChange={(e) => onCategoryChange(e.target.value)}
                   className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm"
                 >
-                  <option value="">All categories</option>
+                  <option value="">{t("allCategories")}</option>
                   {categoryOptions.map((c) => (
                     <option key={c.key} value={c.name}>
                       {c.name}
@@ -327,21 +362,21 @@ export function LibraryFiltersBar({
                 </select>
               </label>
               <label className="block space-y-1">
-                <span className="text-xs font-medium text-muted-foreground">Status</span>
+                <span className="text-xs font-medium text-muted-foreground">{t("status")}</span>
                 <select
                   value={status}
                   onChange={(e) => onStatusChange(e.target.value)}
                   className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm"
                 >
-                  <option value="">All statuses</option>
-                  {STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
+                  <option value="">{t("allStatuses")}</option>
+                  {STATUSES.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {t(`statuses.${item.key}`)}
                     </option>
                   ))}
                 </select>
               </label>
-              <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">More filters</p>
+              <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("moreFilters")}</p>
               <div className="grid grid-cols-2 gap-2">{advancedFields}</div>
             </div>
             <div className="mt-5 flex gap-2 border-t border-border pt-4">
@@ -354,7 +389,7 @@ export function LibraryFiltersBar({
                   }}
                   className="flex-1 rounded-lg border border-border py-2.5 text-sm font-medium"
                 >
-                  Clear all
+                  {t("clearAll")}
                 </button>
               ) : null}
               <Dialog.Close asChild>
@@ -362,7 +397,7 @@ export function LibraryFiltersBar({
                   type="button"
                   className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground"
                 >
-                  Show results
+                  {t("showResults")}
                 </button>
               </Dialog.Close>
             </div>
