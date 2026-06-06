@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { isAdvisoryWorkspacePreviewEnabled } from "@/lib/law-firm-advisory-preview";
+import {
+  normalizeVaultSeriesMemberImages,
+  perCountryCoversMapFromSeries,
+} from "@/lib/marketplace-series-image-normalize";
+import { fetchVaultSeriesDbRows, rowToVaultSeriesRecord } from "@/lib/marketplace-vault-series";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 /** GET: list published marketplace items. If user is signed in, includes owned: true for purchased items. */
@@ -60,8 +65,14 @@ export async function GET() {
       owned: ownedIds.has(item.id),
     }));
 
+    const seriesRows = await fetchVaultSeriesDbRows(supabase);
+    const perCountryCovers = perCountryCoversMapFromSeries(
+      seriesRows.map(rowToVaultSeriesRecord)
+    );
+    const normalizedItems = normalizeVaultSeriesMemberImages(itemsWithOwned, perCountryCovers);
+
     return NextResponse.json({
-      items: itemsWithOwned,
+      items: normalizedItems,
       advisoryWorkspacePreview: isAdvisoryWorkspacePreviewEnabled(),
     });
   } catch (err) {
