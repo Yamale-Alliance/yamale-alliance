@@ -10,10 +10,12 @@ import { isClerkConfigured } from "@/lib/clerk-config";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
 import {
-  prototypeNavGhostClass,
+  prototypeNavActionsClass,
   prototypeNavHeaderClass,
   prototypeNavInnerClass,
   prototypeNavLinkClass,
+  prototypeNavLinksRowClass,
+  prototypeNavSignInLinkClass,
   prototypeNavSignUpClass,
 } from "./prototype-nav-styles";
 import { SiteNavLink } from "./SiteNavLink";
@@ -49,10 +51,10 @@ function HeaderNavSkeleton({ showAuthLinks = false }: { showAuthLinks?: boolean 
   return (
     <header className={`yamale-site-chrome ${prototypeNavHeaderClass}`}>
       <div className={prototypeNavInnerClass}>
-        <Link href="/" className="flex shrink-0 items-center">
+        <Link href="/" className="flex shrink-0 items-center justify-self-start">
           <PlatformLogo priority height={56} width={200} className="h-14 w-[200px] sm:h-16" />
         </Link>
-        <nav className="hidden items-center gap-1 lg:flex">
+        <nav className={prototypeNavLinksRowClass}>
           {links.map(({ href, label }) => {
             const active = isActivePath(pathname, href);
             return (
@@ -62,18 +64,18 @@ function HeaderNavSkeleton({ showAuthLinks = false }: { showAuthLinks?: boolean 
             );
           })}
         </nav>
-        <div className="flex items-center gap-2">
+        <div className={prototypeNavActionsClass}>
           <LanguageToggle compact />
           <ThemeToggle />
           {showAuthLinks ? (
-            <>
-              <Link href="/sign-in" className={prototypeNavGhostClass}>
+            <div className="hidden items-center gap-1.5 lg:flex xl:gap-2">
+              <Link href="/sign-in" className={prototypeNavSignInLinkClass}>
                 {t("signIn")}
               </Link>
               <Link href="/signup" className={prototypeNavSignUpClass}>
                 {t("signUp")}
               </Link>
-            </>
+            </div>
           ) : (
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted/80">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
