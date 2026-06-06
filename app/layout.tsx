@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
+import Script from "next/script";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import { AppAuthProvider } from "@/components/auth/AppAuthProvider";
 import { ClerkDevOriginWarning } from "@/components/auth/ClerkDevOriginWarning";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
@@ -27,43 +30,40 @@ const playfair = Playfair_Display({
   adjustFontFallback: true,
 });
 
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('yamale-theme');if(t==='dark')document.documentElement.classList.add('dark');else document.documentElement.classList.remove('dark');}catch(e){}})();`;
+
 export async function generateMetadata(): Promise<Metadata> {
   const { faviconUrl } = await getPlatformBranding();
   return createRootMetadata(faviconUrl);
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <AppAuthProvider>
-      <html lang="en" suppressHydrationWarning>
-        <head>
-          <SiteJsonLd />
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-                (function() {
-                  var t = localStorage.getItem('yamale-theme');
-                  if (t === 'dark') document.documentElement.classList.add('dark');
-                  else document.documentElement.classList.remove('dark');
-                })();
-              `,
-            }}
-          />
-        </head>
-        <body
-          className={`${inter.variable} ${playfair.variable} antialiased`}
-        >
-          <GoogleAnalytics />
-          <ClerkDevOriginWarning />
+    <html lang={locale} suppressHydrationWarning>
+      <head>
+        <SiteJsonLd />
+      </head>
+      <body className={`${inter.variable} ${playfair.variable} antialiased`}>
+        <Script id="yamale-theme-init" strategy="beforeInteractive">
+          {THEME_INIT_SCRIPT}
+        </Script>
+        <GoogleAnalytics />
+        <ClerkDevOriginWarning />
+        <AppAuthProvider>
           <ThemeProvider>
-            <LayoutWithSettings>{children}</LayoutWithSettings>
+            <NextIntlClientProvider locale={locale} messages={messages}>
+              <LayoutWithSettings>{children}</LayoutWithSettings>
+            </NextIntlClientProvider>
           </ThemeProvider>
-        </body>
-      </html>
-    </AppAuthProvider>
+        </AppAuthProvider>
+      </body>
+    </html>
   );
 }
