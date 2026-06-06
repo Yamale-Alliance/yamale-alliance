@@ -1,16 +1,17 @@
-import Link from "next/link";
+import { getTranslations } from "next-intl/server";
+import { AccountBackLink } from "@/components/account/AccountBackLink";
 import { SubscriptionManager } from "@/components/subscription/SubscriptionManager";
 
-export default function AccountSubscriptionPage() {
+export const dynamic = "force-dynamic";
+
+export default async function AccountSubscriptionPage() {
+  const t = await getTranslations("account");
+
   return (
     <div>
-      <Link href="/account" className="text-sm font-medium text-primary hover:underline">
-        ← Account
-      </Link>
-      <h1 className="heading mt-4 text-2xl font-bold text-foreground">Subscription</h1>
-      <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-        Your plan, billing period, upgrades, and payment — without leaving the account area.
-      </p>
+      <AccountBackLink />
+      <h1 className="heading mt-4 text-2xl font-bold text-foreground">{t("subscriptionTitle")}</h1>
+      <p className="mt-2 max-w-xl text-sm text-muted-foreground">{t("subscriptionDesc")}</p>
       <div className="mt-8">
         <SubscriptionManager basePath="/account/subscription" compact />
       </div>
