@@ -6,6 +6,7 @@ import { createPageMetadata } from "@/lib/site-seo";
 import { AdvisoryAccessGateClient } from "@/components/law-firm-development/AdvisoryAccessGateClient";
 import { AdvisoryCatalogProvider } from "@/components/law-firm-development/AdvisoryCatalogContext";
 import { AdvisoryWorkspaceShell } from "@/components/law-firm-development/AdvisoryWorkspaceShell";
+import { AdvisoryLoadingFallback } from "@/components/advisory/AdvisoryLoadingFallback";
 import "@/styles/advisory-workspace.css";
 
 const lfpSerif = Cormorant_Garamond({
@@ -41,7 +42,7 @@ export default async function AdvisoryLayout({ children }: { children: ReactNode
     <div
       className={`${lfpSerif.variable} ${lfpSans.variable} advisory-workspace-root min-w-0 max-w-full overflow-x-clip [--site-nav-h:4.5rem] sm:[--site-nav-h:5.5rem]`}
     >
-      <Suspense fallback={<div className="px-6 py-20 text-center text-muted-foreground">Loading workspace…</div>}>
+      <Suspense fallback={<AdvisoryLoadingFallback />}>
         <AdvisoryAccessGateClient>
           <AdvisoryCatalogProvider>
             <AdvisoryWorkspaceShell>{children}</AdvisoryWorkspaceShell>
