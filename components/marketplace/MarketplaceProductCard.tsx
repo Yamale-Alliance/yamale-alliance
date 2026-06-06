@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, Check, Eye, GraduationCap, LayoutTemplate, Loader2 } from "lucide-react";
@@ -11,7 +12,6 @@ import { marketplaceItemDetailHref } from "@/lib/marketplace-public-url";
 import { canUseLawFirmAdvisoryWorkspace } from "@/lib/law-firm-advisory-preview";
 import { advisoryCourseHref, isMarketplaceCourseItem } from "@/lib/marketplace-course";
 import {
-  LAW_FIRM_VIEW_COURSE_LABEL,
   shouldShowLawFirmPackageMarketingDiscount,
 } from "@/lib/law-firm-package-marketing";
 import styles from "./MarketplaceProductCard.module.css";
@@ -148,6 +148,7 @@ export function MarketplaceProductCard({
   onBuySeries,
   advisoryWorkspacePreview = false,
 }: MarketplaceProductCardProps) {
+  const t = useTranslations("advisory");
   const router = useRouter();
   const [coverFailed, setCoverFailed] = useState(false);
 
@@ -379,7 +380,7 @@ export function MarketplaceProductCard({
               }}
               className={styles.actionBtnPrimary}
             >
-              {LAW_FIRM_VIEW_COURSE_LABEL}
+              {t("viewCourse")}
             </button>
           </div>
         ) : null}
