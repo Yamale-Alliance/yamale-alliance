@@ -1,29 +1,11 @@
+"use client";
+
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
 import { ArrowUpRight, Mail } from "lucide-react";
 import { PLATFORM_BUSINESS_EMAIL } from "@/lib/platform-emails";
-
-const productLinks = [
-  { href: "/library", label: "Legal Library" },
-  { href: "/afcfta/compliance-check", label: "AfCFTA Tools" },
-  { href: "/ai-research", label: "AI Research" },
-  { href: "/marketplace", label: "The Yamalé Vault" },
-  { href: "/lawyers", label: "Find a Lawyer" },
-];
-
-const companyLinks = [
-  { href: "/founders-note", label: "Founder's note" },
-  { href: "/pricing", label: "Pricing" },
-  { href: "/signup", label: "Sign up" },
-  { href: "/login", label: "Sign in" },
-];
-
-const legalLinks = [
-  { href: "/privacy", label: "Privacy" },
-  { href: "/terms", label: "Terms" },
-  { href: "/payment-refund", label: "Payment & refunds" },
-];
 
 function FooterLink({ href, children }: { href: string; children: ReactNode }) {
   return (
@@ -57,41 +39,61 @@ function LinkGroup({
   );
 }
 
-/** Yamalé prototype footer — navy block + muted links (yamale_prototype.html). */
 export function Footer() {
+  const t = useTranslations("footer");
+  const year = new Date().getFullYear();
+
+  const productLinks = [
+    { href: "/library", label: t("legalLibrary") },
+    { href: "/afcfta/compliance-check", label: t("afcftaTools") },
+    { href: "/ai-research", label: t("aiResearch") },
+    { href: "/marketplace", label: t("vault") },
+    { href: "/lawyers", label: t("findLawyer") },
+  ];
+
+  const companyLinks = [
+    { href: "/founders-note", label: t("foundersNote") },
+    { href: "/pricing", label: t("pricing") },
+    { href: "/signup", label: t("signUp") },
+    { href: "/login", label: t("signIn") },
+  ];
+
+  const legalLinks = [
+    { href: "/privacy", label: t("privacy") },
+    { href: "/terms", label: t("terms") },
+    { href: "/payment-refund", label: t("paymentRefunds") },
+  ];
+
   return (
     <footer className="yamale-site-footer mt-auto print:hidden" role="contentinfo">
       <div className="bg-[#0D1B2A] px-4 pb-12 pt-14 text-white sm:px-8">
         <div className="mx-auto grid max-w-[1280px] gap-12 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] lg:gap-10">
           <div className="max-w-md">
-            <Link href="/" className="inline-block opacity-95 transition hover:opacity-100" aria-label="Yamalé home">
+            <Link href="/" className="inline-block opacity-95 transition hover:opacity-100" aria-label={t("homeAria")}>
               <PlatformLogo height={64} width={220} className="h-14 w-[220px]" />
             </Link>
             <p className="heading mt-6 text-2xl font-semibold tracking-tight text-white sm:text-[1.75rem] sm:leading-snug">
-              African law, accessible to those who shape the continent&apos;s future.
+              {t("tagline")}
             </p>
-            <p className="mt-3 text-[14px] leading-relaxed text-white/45">
-              National and regional law, AfCFTA compliance, and AI-powered legal research—in one place.
-            </p>
+            <p className="mt-3 text-[14px] leading-relaxed text-white/45">{t("description")}</p>
           </div>
-          <LinkGroup title="Product" links={productLinks} />
-          <LinkGroup title="Company" links={companyLinks} />
-          <LinkGroup title="Legal" links={legalLinks} />
+          <LinkGroup title={t("product")} links={productLinks} />
+          <LinkGroup title={t("company")} links={companyLinks} />
+          <LinkGroup title={t("legal")} links={legalLinks} />
         </div>
 
         <div className="mx-auto mt-10 max-w-[920px] border-t border-white/[0.08] pt-8 text-[12px] leading-[1.7] text-white/40">
           <p>
-            <strong className="font-semibold text-white/[0.65]">Important:</strong> Yamalé Legal Platform provides legal information for reference purposes only. Content is not legal advice and does not create an attorney-client relationship. Laws change frequently — always verify current status with official sources or{" "}
+            <strong className="font-semibold text-white/[0.65]">{t("disclaimerImportant")}</strong> {t("disclaimerBody")}{" "}
             <Link href="/lawyers" className="text-[#E8B84B] underline underline-offset-2 hover:text-[#E8B84B]/90">
-              qualified legal counsel
+              {t("qualifiedCounsel")}
             </Link>{" "}
-            before making decisions.
+            {t("disclaimerBeforeDecisions")}
           </p>
           <p className="mt-3">
-            By using this platform, you agree to our <FooterLink href="/terms">Terms</FooterLink>,{" "}
-            <FooterLink href="/privacy">Privacy Policy</FooterLink>, and{" "}
-            <FooterLink href="/payment-refund">Payment &amp; Refund Policy</FooterLink>. We collect usage data to
-            improve the platform. We do not sell personal data to third parties.
+            {t("termsAgree")} <FooterLink href="/terms">{t("terms")}</FooterLink>,{" "}
+            <FooterLink href="/privacy">{t("privacyPolicy")}</FooterLink>, {t("and")}{" "}
+            <FooterLink href="/payment-refund">{t("paymentRefundPolicy")}</FooterLink>. {t("dataNotice")}
           </p>
         </div>
       </div>
@@ -106,9 +108,7 @@ export function Footer() {
             <span>{PLATFORM_BUSINESS_EMAIL}</span>
             <ArrowUpRight className="h-4 w-4 text-primary opacity-80 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
           </a>
-          <p className="text-center text-xs text-white/45 sm:text-left">
-            © {new Date().getFullYear()} Yamalé Alliance · Dakar, Senegal
-          </p>
+          <p className="text-center text-xs text-white/45 sm:text-left">{t("copyright", { year })}</p>
         </div>
       </div>
     </footer>
