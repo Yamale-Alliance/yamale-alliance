@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import {
   FileText,
@@ -228,6 +229,8 @@ function getFilteredCountries(continent: string): string[] {
 
 
 export default function ComplianceCheckPage() {
+  const t = useTranslations("afcfta");
+  const tCommon = useTranslations("common");
   const { user } = useAppUser();
   const tier = ((user?.publicMetadata?.tier ?? user?.publicMetadata?.subscriptionTier) as string) || "free";
   const isFreeTier = tier === "free";
@@ -712,21 +715,20 @@ export default function ComplianceCheckPage() {
         <div className="relative z-[1] mx-auto max-w-7xl px-4 pb-14 pt-12 sm:px-6 sm:pt-16 lg:px-8">
           <p className={prototypeHeroEyebrowClass}>
             <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#E8B84B] shadow-[0_0_0_4px_rgba(200,146,42,0.2)]" />
-            AfCFTA Compliance
+            {t("eyebrow")}
           </p>
           <h1 className="heading mt-6 max-w-4xl text-4xl font-bold leading-[1.12] tracking-[-0.01em] text-white sm:text-5xl lg:text-6xl">
-            The AfCFTA compliance infrastructure your business - or your ministry - needs.
+            {t("heroTitle")}
           </h1>
           <p className="mt-5 max-w-3xl text-lg leading-relaxed text-white/[0.65]">
-            The first tool that walks you through every step and document required to legally ship goods across African
-            borders under the Continental Free Trade Area.
+            {t("heroSubtitle")}
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <span className="rounded-full border border-[rgba(200,146,42,0.35)] bg-[rgba(200,146,42,0.16)] px-4 py-1 text-xs font-semibold text-[#E8B84B]">
-              54 countries
+              {t("countriesBadge")}
             </span>
             <span className="rounded-full border border-white/20 bg-white/10 px-4 py-1 text-xs font-medium text-white/80">
-              First-of-its-kind tool
+              {t("firstOfKind")}
             </span>
           </div>
         </div>
@@ -737,13 +739,13 @@ export default function ComplianceCheckPage() {
           <div className="rounded-2xl border border-border/70 bg-card px-6 py-5 shadow-sm">
             <p className="heading text-2xl leading-snug text-foreground">
               <span className="mr-2 align-middle text-[#C8922A]">&quot;</span>
-              Understand the rules of every African market - at a price that makes sense.
+              {t("quoteBusiness")}
             </p>
           </div>
           <div className="rounded-2xl border border-border/70 bg-card px-6 py-5 shadow-sm">
             <p className="heading text-2xl leading-snug text-foreground">
               <span className="mr-2 align-middle text-[#C8922A]">&quot;</span>
-              The AfCFTA compliance infrastructure your ministry - or your business - needs.
+              {t("quoteMinistry")}
             </p>
           </div>
         </div>
@@ -757,10 +759,9 @@ export default function ComplianceCheckPage() {
           >
             <AlertCircle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
             <div>
-              <p className="font-semibold text-foreground dark:text-amber-50">Coming soon</p>
+              <p className="font-semibold text-foreground dark:text-amber-50">{t("comingSoonTitle")}</p>
               <p className="mt-1 text-muted-foreground dark:text-amber-100/90">
-                Browse every step of the AfCFTA compliance journey below. Fields, checklists, downloads, and reset are
-                read-only until we launch the live tool.
+                {t("comingSoonBody")}
               </p>
             </div>
           </div>
@@ -770,11 +771,9 @@ export default function ComplianceCheckPage() {
             <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full border border-border text-xs">
               i
             </span>
-            The AfCFTA Passport provides general guidance on cross-border trade compliance under the African Continental
-            Free Trade Area. Requirements shown are based on available official sources and are updated regularly.
-            However, implementation of AfCFTA rules varies by country and border crossing.{" "}
+            {t("disclaimerIntro")}{" "}
             <strong className="text-foreground">
-              Always confirm current requirements with the relevant customs authority before shipping.
+              {t("disclaimerConfirm")}
             </strong>
           </p>
         </div>
