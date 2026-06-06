@@ -1,0 +1,403 @@
+/**
+ * ZIP package landing pages — bridge legacy vault HTML tokens to Yamalé platform theme.
+ * Scoped to .law-firm-package-landing, .marketplace-landing-zone, and .marketplace-package-page.
+ */
+
+.law-firm-package-landing,
+.marketplace-landing-zone,
+.marketplace-package-page {
+  --lp-gold: var(--primary);
+  --lp-gold-light: var(--primary);
+  --lp-ebony: var(--foreground);
+  --lp-surface: var(--background);
+  --lp-muted-surface: var(--muted);
+  --lp-card: var(--card);
+  --lp-border: var(--border);
+  --lp-divider: var(--border);
+  --lp-grid-line: var(--border);
+  --lp-muted-text: var(--muted-foreground);
+  --lp-accent-brown: var(--accent);
+  --lp-hero-start: var(--muted);
+  --lp-hero-end: var(--background);
+  --lp-hero-text: var(--foreground);
+  --lp-hero-subtext: var(--muted-foreground);
+  --lp-gold-border: color-mix(in srgb, var(--primary) 35%, transparent);
+  --lp-gold-hover: color-mix(in srgb, var(--primary) 12%, transparent);
+  --lp-gold-hover-soft: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+/* Light mode — stronger structural dividers on cream/white backgrounds */
+:root:not(.dark) .law-firm-package-landing,
+:root:not(.dark) .law-firm-package-subnav,
+:root:not(.dark) .marketplace-package-page,
+:root:not(.dark) .marketplace-landing-zone {
+  --lp-border: color-mix(in srgb, var(--foreground) 18%, var(--border));
+  --lp-divider: color-mix(in srgb, var(--accent) 28%, var(--border));
+  --lp-grid-line: color-mix(in srgb, var(--foreground) 14%, var(--border));
+}
+
+:root:not(.dark) body:has(.law-firm-package-landing) header.yamale-site-chrome,
+:root:not(.dark) body:has(.marketplace-landing-zone) header.yamale-site-chrome,
+:root:not(.dark) body:has(.marketplace-package-page) header.yamale-site-chrome {
+  border-bottom-color: color-mix(in srgb, var(--foreground) 14%, var(--border)) !important;
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--foreground) 6%, transparent),
+    0 1px 3px rgba(13, 27, 42, 0.06),
+    0 1px 2px rgba(13, 27, 42, 0.04) !important;
+}
+
+.dark .law-firm-package-landing,
+.dark .marketplace-landing-zone,
+.dark .marketplace-package-page {
+  --lp-hero-start: var(--muted);
+  --lp-hero-end: var(--background);
+  --lp-hero-text: var(--foreground);
+  --lp-hero-subtext: var(--muted-foreground);
+}
+
+.law-firm-package-landing,
+.marketplace-landing-zone,
+.marketplace-package-page {
+  --gold: var(--primary);
+  --pale-gold: var(--primary);
+  --ebony: var(--foreground);
+  --ebony-deep: var(--accent);
+  --white: var(--card);
+  --off-white: var(--foreground);
+  color: var(--foreground);
+  background: var(--background);
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+}
+
+.law-firm-package-subnav {
+  top: var(--site-nav-h, 4.5rem);
+  z-index: 105;
+  border-bottom-width: 1px !important;
+  border-bottom-style: solid !important;
+  border-bottom-color: var(--lp-divider) !important;
+  background: color-mix(in srgb, var(--card) 97%, transparent) !important;
+  backdrop-filter: blur(8px);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--foreground) 5%, transparent),
+    0 4px 24px color-mix(in srgb, var(--foreground) 8%, transparent) !important;
+}
+
+:root:not(.dark) .law-firm-package-subnav {
+  border-bottom-color: var(--lp-divider) !important;
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--foreground) 8%, transparent),
+    0 4px 20px color-mix(in srgb, var(--foreground) 6%, transparent) !important;
+}
+
+/* Semantic border utilities inside landing pages */
+:root:not(.dark) .law-firm-package-landing .border-border,
+:root:not(.dark) .law-firm-package-subnav .border-border,
+:root:not(.dark) .marketplace-package-page .border-border {
+  border-color: var(--lp-divider) !important;
+}
+
+:root:not(.dark) .law-firm-package-landing .border-y,
+:root:not(.dark) .law-firm-package-landing .border-t,
+:root:not(.dark) .law-firm-package-landing .border-b,
+:root:not(.dark) .law-firm-package-landing .border-l {
+  border-color: var(--lp-divider) !important;
+}
+
+:root:not(.dark) .law-firm-package-landing .gap-px.bg-\[rgba\(193\,140\,67\,0\.15\)\],
+:root:not(.dark) .law-firm-package-landing .gap-px.bg-\[rgba\(193\,140\,67\,0\.12\)\],
+:root:not(.dark) .law-firm-package-landing .bg-\[rgba\(193\,140\,67\,0\.15\)\].border {
+  background-color: var(--lp-grid-line) !important;
+  border-color: var(--lp-grid-line) !important;
+}
+
+:root:not(.dark) .law-firm-package-landing .border-\[rgba\(193\,140\,67\,0\.15\)\] {
+  border-color: var(--lp-grid-line) !important;
+}
+
+/* Gold accent text */
+.law-firm-package-landing .text-\[\#C18C43\],
+.law-firm-package-landing .text-\[\#E3BA65\],
+.law-firm-package-landing .hover\:text-\[\#C18C43\]:hover,
+.law-firm-package-landing .hover\:text-\[\#E3BA65\]:hover,
+.marketplace-package-page .text-\[\#C18C43\],
+.marketplace-package-page .text-\[\#E3BA65\],
+.marketplace-package-page .hover\:text-\[\#E3BA65\]:hover {
+  color: var(--lp-gold) !important;
+}
+
+.law-firm-package-landing .text-\[\#9A632A\] {
+  color: var(--muted-foreground) !important;
+}
+
+/* Primary buttons */
+.law-firm-package-landing .bg-\[\#C18C43\],
+.marketplace-package-page .bg-\[\#C18C43\] {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.law-firm-package-landing .bg-\[\#C18C43\]:hover,
+.law-firm-package-landing .hover\:bg-\[\#E3BA65\]:hover,
+.marketplace-package-page .hover\:bg-\[\#E3BA65\]:hover {
+  background-color: color-mix(in srgb, var(--primary) 88%, var(--foreground)) !important;
+}
+
+.law-firm-package-landing .text-\[\#221913\],
+.marketplace-package-page .text-\[\#221913\] {
+  color: var(--primary-foreground) !important;
+}
+
+/* Light mode: remap legacy dark UI utilities */
+:root:not(.dark) .law-firm-package-landing .text-white,
+:root:not(.dark) .law-firm-package-landing .font-medium.text-white,
+:root:not(.dark) .law-firm-package-landing .font-semibold.text-white {
+  color: var(--lp-ebony) !important;
+}
+
+:root:not(.dark) .law-firm-package-landing .text-white\/85,
+:root:not(.dark) .law-firm-package-landing .text-white\/80,
+:root:not(.dark) .law-firm-package-landing .text-white\/65 {
+  color: var(--lp-ebony) !important;
+}
+
+:root:not(.dark) .law-firm-package-landing .text-white\/70,
+:root:not(.dark) .law-firm-package-landing .text-white\/60,
+:root:not(.dark) .law-firm-package-landing .text-white\/55,
+:root:not(.dark) .law-firm-package-landing .text-white\/50 {
+  color: var(--lp-muted-text) !important;
+}
+
+:root:not(.dark) .law-firm-package-landing .text-white\/45,
+:root:not(.dark) .law-firm-package-landing .text-white\/40,
+:root:not(.dark) .law-firm-package-landing .text-white\/35 {
+  color: var(--muted-foreground) !important;
+}
+
+:root:not(.dark) .law-firm-package-landing .bg-\[\#221913\] {
+  background-color: var(--lp-surface) !important;
+}
+
+:root:not(.dark) .law-firm-package-landing .bg-\[\#1a1410\],
+:root:not(.dark) .law-firm-package-landing .bg-\[\#161009\] {
+  background-color: var(--lp-muted-surface) !important;
+}
+
+:root:not(.dark) .law-firm-package-landing .bg-white\/\[0\.04\],
+:root:not(.dark) .law-firm-package-landing .bg-white\/\[0\.02\] {
+  background-color: var(--lp-card) !important;
+}
+
+:root:not(.dark) .law-firm-package-landing .border-\[rgba\(193\,140\,67\,0\.1\)\],
+:root:not(.dark) .law-firm-package-landing .border-\[rgba\(193\,140\,67\,0\.08\)\],
+:root:not(.dark) .law-firm-package-landing .border-\[rgba\(193\,140\,67\,0\.12\)\],
+:root:not(.dark) .law-firm-package-landing .border-\[rgba\(193\,140\,67\,0\.2\)\],
+:root:not(.dark) .law-firm-package-landing .border-\[rgba\(193\,140\,67\,0\.25\)\],
+:root:not(.dark) .law-firm-package-landing .border-\[rgba\(193\,140\,67\,0\.3\)\],
+:root:not(.dark) .law-firm-package-landing .border-\[rgba\(193\,140\,67\,0\.4\)\],
+:root:not(.dark) .law-firm-package-landing .border-\[\#C18C43\],
+:root:not(.dark) .law-firm-package-landing .border-\[\#C18C43\]\/50,
+:root:not(.dark) .law-firm-package-landing .border-\[\#C18C43\]\/60 {
+  border-color: var(--lp-divider) !important;
+}
+
+:root:not(.dark) .law-firm-package-landing .border-white\/25,
+:root:not(.dark) .law-firm-package-landing .border-white\/15 {
+  border-color: var(--lp-border) !important;
+}
+
+:root:not(.dark) .law-firm-package-landing .bg-\[rgba\(193\,140\,67\,0\.12\)\],
+:root:not(.dark) .law-firm-package-landing .bg-\[rgba\(193\,140\,67\,0\.15\)\],
+:root:not(.dark) .law-firm-package-landing .bg-\[rgba\(193\,140\,67\,0\.2\)\] {
+  background-color: var(--lp-gold-hover-soft) !important;
+}
+
+:root:not(.dark) .law-firm-package-landing .bg-\[rgba\(96\,59\,28\,0\.3\)\],
+:root:not(.dark) .law-firm-package-landing .bg-\[rgba\(96\,59\,28\,0\.25\)\],
+:root:not(.dark) .law-firm-package-landing .bg-\[rgba\(96\,59\,28\,0\.5\)\] {
+  background-color: color-mix(in srgb, var(--accent) 12%, var(--lp-muted-surface)) !important;
+}
+
+:root:not(.dark) .law-firm-package-landing .from-\[\#603B1C\],
+:root:not(.dark) .law-firm-package-landing .via-\[\#221913\],
+:root:not(.dark) .law-firm-package-landing .to-\[\#221913\] {
+  --tw-gradient-from: var(--lp-hero-start) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(255 255 255 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+:root:not(.dark) .law-firm-package-landing .bg-gradient-to-br.from-\[\#603B1C\] {
+  background-image: linear-gradient(
+    to bottom right,
+    var(--lp-hero-start),
+    var(--lp-hero-end)
+  ) !important;
+}
+
+:root:not(.dark) .law-firm-package-landing footer.bg-black\/40 {
+  background-color: var(--lp-muted-surface) !important;
+}
+
+/* Dark mode */
+.dark .law-firm-package-landing .text-white,
+.dark .law-firm-package-landing .font-medium.text-white,
+.dark .law-firm-package-landing .font-semibold.text-white,
+.dark .law-firm-package-landing .text-white\/85,
+.dark .law-firm-package-landing .text-white\/80,
+.dark .law-firm-package-landing .text-white\/65 {
+  color: var(--foreground) !important;
+}
+
+.dark .law-firm-package-landing .text-white\/70,
+.dark .law-firm-package-landing .text-white\/60,
+.dark .law-firm-package-landing .text-white\/55,
+.dark .law-firm-package-landing .text-white\/50,
+.dark .law-firm-package-landing .text-white\/45,
+.dark .law-firm-package-landing .text-white\/40,
+.dark .law-firm-package-landing .text-white\/35 {
+  color: var(--muted-foreground) !important;
+}
+
+.dark .law-firm-package-landing .bg-\[\#221913\] {
+  background-color: var(--card) !important;
+}
+
+.dark .law-firm-package-landing .bg-\[\#1a1410\],
+.dark .law-firm-package-landing .bg-\[\#161009\] {
+  background-color: var(--muted) !important;
+}
+
+.dark .law-firm-package-landing .bg-white\/\[0\.04\],
+.dark .law-firm-package-landing .bg-white\/\[0\.02\] {
+  background-color: color-mix(in srgb, var(--foreground) 4%, var(--card)) !important;
+}
+
+.dark .law-firm-package-landing .border-\[rgba\(193\,140\,67\,0\.1\)\],
+.dark .law-firm-package-landing .border-\[rgba\(193\,140\,67\,0\.08\)\],
+.dark .law-firm-package-landing .border-\[rgba\(193\,140\,67\,0\.12\)\],
+.dark .law-firm-package-landing .border-\[rgba\(193\,140\,67\,0\.2\)\],
+.dark .law-firm-package-landing .border-\[rgba\(193\,140\,67\,0\.25\)\],
+.dark .law-firm-package-landing .border-\[rgba\(193\,140\,67\,0\.3\)\],
+.dark .law-firm-package-landing .border-\[rgba\(193\,140\,67\,0\.4\)\],
+.dark .law-firm-package-landing .border-\[\#C18C43\],
+.dark .law-firm-package-landing .border-\[\#C18C43\]\/50,
+.dark .law-firm-package-landing .border-\[\#C18C43\]\/60,
+.dark .law-firm-package-landing .border-white\/25,
+.dark .law-firm-package-landing .border-white\/15 {
+  border-color: var(--border) !important;
+}
+
+.dark .law-firm-package-landing .bg-gradient-to-br.from-\[\#603B1C\] {
+  background-image: linear-gradient(
+    to bottom right,
+    var(--muted),
+    var(--background)
+  ) !important;
+}
+
+.dark .law-firm-package-landing footer.bg-black\/40 {
+  background-color: var(--muted) !important;
+}
+
+/* Package page chrome (loading, alerts, owned bar) */
+.marketplace-package-page .bg-\[\#221913\] {
+  background-color: var(--background) !important;
+}
+
+.marketplace-package-page .border-white\/15,
+.marketplace-package-page .border-white\/20,
+.marketplace-package-page .border-white\/25 {
+  border-color: var(--border) !important;
+}
+
+.marketplace-package-page .bg-white\/5,
+.marketplace-package-page .bg-white\/\[0\.06\] {
+  background-color: color-mix(in srgb, var(--foreground) 5%, var(--card)) !important;
+}
+
+.marketplace-package-page .text-white,
+.marketplace-package-page .text-white\/80 {
+  color: var(--foreground) !important;
+}
+
+.marketplace-package-page .text-white\/70,
+.marketplace-package-page .text-white\/60 {
+  color: var(--muted-foreground) !important;
+}
+
+.marketplace-package-page .hover\:bg-white\/10:hover {
+  background-color: color-mix(in srgb, var(--foreground) 8%, var(--card)) !important;
+}
+
+.marketplace-package-page .border-\[rgba\(193\,140\,67\,0\.25\)\] {
+  border-color: var(--border) !important;
+}
+
+.marketplace-package-page .text-red-300 {
+  color: hsl(var(--destructive, 0 84% 60%)) !important;
+}
+
+.marketplace-package-page .text-green-200 {
+  color: color-mix(in srgb, #22c55e 85%, var(--foreground)) !important;
+}
+
+.marketplace-package-page .text-amber-100 {
+  color: color-mix(in srgb, #f59e0b 85%, var(--foreground)) !important;
+}
+
+.law-firm-package-landing .bg-\[rgba\(193\,140\,67\,0\.08\)\] {
+  background-color: var(--lp-gold-hover-soft) !important;
+}
+
+.law-firm-package-landing .lfp-hero-glow {
+  background:
+    radial-gradient(
+      ellipse 60% 80% at 75% 50%,
+      color-mix(in srgb, var(--accent) 18%, transparent) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 40% 60% at 20% 30%,
+      color-mix(in srgb, var(--primary) 10%, transparent) 0%,
+      transparent 60%
+    ) !important;
+}
+
+.law-firm-package-landing .before\:from-\[\#C18C43\]::before {
+  --tw-gradient-from: var(--primary) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(255 255 255 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+.law-firm-package-landing .before\:to-\[\#E3BA65\]::before {
+  --tw-gradient-to: color-mix(in srgb, var(--primary) 75%, var(--foreground)) var(--tw-gradient-to-position) !important;
+}
+
+.law-firm-package-landing .before\:via-\[rgba\(193\,140\,67\,0\.3\)\]::before {
+  --tw-gradient-to: rgb(255 255 255 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), color-mix(in srgb, var(--primary) 30%, transparent), var(--tw-gradient-to) !important;
+}
+
+.law-firm-package-landing .hover\:border-\[\#C18C43\]:hover {
+  border-color: var(--primary) !important;
+}
+
+.law-firm-package-landing .hover\:bg-\[rgba\(193\,140\,67\,0\.08\)\]:hover {
+  background-color: var(--lp-gold-hover-soft) !important;
+}
+
+.law-firm-package-landing .hover\:bg-\[rgba\(96\,59\,28\,0\.25\)\]:hover,
+.law-firm-package-landing .hover\:bg-\[rgba\(96\,59\,28\,0\.3\)\]:hover {
+  background-color: color-mix(in srgb, var(--accent) 10%, var(--lp-muted-surface)) !important;
+}
+
+.law-firm-package-landing .hover\:border-\[\#C18C43\].hover\:bg-\[rgba\(96\,59\,28\,0\.25\)\]:hover {
+  border-left-color: var(--primary) !important;
+}
+
+/* Custom HTML embed host — platform theme tokens inherit into shadow DOM via this host */
+.marketplace-landing-zone .marketplace-landing-embed-host {
+  color: var(--foreground);
+  background: var(--background);
+}
