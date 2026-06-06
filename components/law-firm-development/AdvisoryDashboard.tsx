@@ -80,7 +80,7 @@ export function AdvisoryDashboard() {
   );
 
   return (
-    <div className="px-4 py-8 sm:px-8 lg:px-10">
+    <div className="min-w-0 px-4 py-8 sm:px-8 lg:px-10">
       <div className="advisory-dash-hero">
         <div className="advisory-dash-hero__head">
           <div>
