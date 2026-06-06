@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import {
   advisoryDashboardHref,
   advisoryLibraryHref,
@@ -29,6 +30,7 @@ type Props = {
 };
 
 export function AdvisoryWorkspaceShell({ children }: Props) {
+  const t = useTranslations("advisory");
   const pathname = usePathname();
   const { phases, courseQuery, phaseDocumentTotal, courseId } = useAdvisoryCatalogContext();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -38,12 +40,16 @@ export function AdvisoryWorkspaceShell({ children }: Props) {
   const [packageHref, setPackageHref] = useState<string | null>(null);
   const { snapshot, ready, statuses } = useAdvisoryProgress();
 
-  const workspaceLinks = [
-    { href: advisoryDashboardHref(courseQuery), label: "Dashboard", icon: "⌂" },
-    { href: advisoryProgressHref(courseQuery), label: "Progress Tracker", icon: "◐" },
-    { href: advisoryToolsHref(courseQuery), label: "Tools & Templates", icon: "◇" },
-    { href: advisoryLibraryHref(courseQuery), label: "Document Library", icon: "≡" },
-  ] as const;
+  const workspaceLinks = useMemo(
+    () =>
+      [
+        { href: advisoryDashboardHref(courseQuery), labelKey: "dashboard", icon: "⌂" },
+        { href: advisoryProgressHref(courseQuery), labelKey: "progressTracker", icon: "◐" },
+        { href: advisoryToolsHref(courseQuery), labelKey: "toolsTemplates", icon: "◇" },
+        { href: advisoryLibraryHref(courseQuery), labelKey: "documentLibrary", icon: "≡" },
+      ] as const,
+    [courseQuery]
+  );
 
   useEffect(() => {
     const qs = courseQuery ? `?course=${encodeURIComponent(courseQuery)}` : "";
@@ -64,7 +70,7 @@ export function AdvisoryWorkspaceShell({ children }: Props) {
       .catch(() => setPackageHref(null));
   }, [courseQuery, courseId]);
 
-  const firmName = snapshot?.firmName?.trim() || "Your firm";
+  const firmName = snapshot?.firmName?.trim() || t("yourFirm");
   const firmLocation = snapshot?.firmLocation?.trim() ?? "";
   const subscription =
     snapshot?.subscriptionLabel?.trim() || "Tier 1 — Implementation programme";
@@ -75,7 +81,7 @@ export function AdvisoryWorkspaceShell({ children }: Props) {
         <button
           type="button"
           className="advisory-overlay"
-          aria-label="Close menu"
+          aria-label={t("closeMenu")}
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -96,7 +102,7 @@ export function AdvisoryWorkspaceShell({ children }: Props) {
                     <span className="advisory-sidebar__nav-icon" aria-hidden>
                       {link.icon}
                     </span>
-                    {link.label}
+                    {t(link.labelKey)}
                   </Link>
                 </li>
               );
@@ -151,7 +157,7 @@ export function AdvisoryWorkspaceShell({ children }: Props) {
                       className="advisory-sidebar__subitem"
                       onClick={() => setSidebarOpen(false)}
                     >
-                      <span>{ready ? `${complete}/${total} docs` : "Coming soon"}</span>
+                      <span>{ready ? t("docsCount", { complete, total }) : t("comingSoon")}</span>
                     </Link>
                   )}
                 </li>
