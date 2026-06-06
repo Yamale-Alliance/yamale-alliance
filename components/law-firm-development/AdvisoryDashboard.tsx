@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { getTimeOfDayGreeting } from "@/lib/time-of-day-greeting";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import {
@@ -20,6 +21,7 @@ import { useAdvisoryProgress } from "@/hooks/useAdvisoryProgress";
 import { AdvisoryFirmSettingsDialog } from "@/components/law-firm-development/AdvisoryFirmSettingsDialog";
 
 export function AdvisoryDashboard() {
+  const t = useTranslations("advisory");
   const { user } = useAppUser();
   const {
     phases,
@@ -72,7 +74,7 @@ export function AdvisoryDashboard() {
         return `Phase ${phase.number}`;
       }
     }
-    return phases.length > 0 ? "Complete" : "—";
+    return phases.length > 0 ? t("complete") : "—";
   })();
   const trackableCount = phases.reduce(
     (n, p) => n + p.categories.reduce((c, cat) => c + cat.documents.length, 0),
@@ -88,11 +90,11 @@ export function AdvisoryDashboard() {
               {timeGreeting ? `${timeGreeting}, ${firstName}` : `Hello, ${firstName}`}
             </p>
             <h1 className="advisory-dash-hero__title font-semibold">
-              {loading ? "Loading your programme…" : `Your firm is ${overallPercent}% through implementation.`}
+              {loading ? t("loadingProgramme") : t("progressComplete", { percent: overallPercent })}
             </h1>
             <p className="advisory-dash-hero__sub text-[0.95rem] leading-relaxed">
               {documentsComplete === 0
-                ? "Start with Phase 1 in the implementation programme. Progress is saved to your account as you complete each document."
+                ? t("startPhase1")
                 : `You have completed ${documentsComplete} of ${totalDocuments} documents (${trackableCount} available in the workspace so far).`}
             </p>
           </div>
@@ -107,13 +109,13 @@ export function AdvisoryDashboard() {
 
         <div className="advisory-dash-stats">
           {[
-            { label: "Overall progress", value: loading ? "—" : `${overallPercent}%` },
+            { label: t("overallProgress"), value: loading ? "—" : `${overallPercent}%` },
             {
-              label: "Documents complete",
+              label: t("documentsComplete"),
               value: loading ? "—" : `${documentsComplete}/${totalDocuments}`,
             },
-            { label: "Active phase", value: loading ? "—" : activePhase },
-            { label: "Next milestone", value: loading ? "—" : nextMilestoneDueLabel(milestones) },
+            { label: t("activePhase"), value: loading ? "—" : activePhase },
+            { label: t("nextMilestone"), value: loading ? "—" : nextMilestoneDueLabel(milestones) },
           ].map((stat) => (
             <div key={stat.label} className="advisory-dash-stat">
               <p className="advisory-dash-stat__label">{stat.label}</p>
