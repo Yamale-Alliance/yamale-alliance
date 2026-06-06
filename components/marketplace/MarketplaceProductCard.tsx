@@ -120,6 +120,10 @@ function plainDescription(raw: string | null): string {
   return text || fallback;
 }
 
+function formatUsd(cents: number, decimals = 2): string {
+  return `$${(cents / 100).toFixed(decimals)}`;
+}
+
 export function MarketplaceProductCard({
   product,
   topicLabel,
@@ -147,10 +151,21 @@ export function MarketplaceProductCard({
   const router = useRouter();
   const [coverFailed, setCoverFailed] = useState(false);
 
-  const priceLabel = product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(2)}`;
+  const priceLabel = product.price_cents === 0 ? "Free" : formatUsd(product.price_cents);
   const showLawFirmDiscount = shouldShowLawFirmPackageMarketingDiscount(product);
   const isCollectionCard =
     isCollection || Boolean(collectionHref && collectionCount && collectionLabel);
+  const hasSeriesBundleDiscount = Boolean(
+    paidSeriesSummary &&
+      paidSeriesSummary.bundleCents != null &&
+      paidSeriesSummary.bundleSavingsCents > 0
+  );
+  const seriesListCents = paidSeriesSummary?.totalCents ?? 0;
+  const seriesChargeCents = paidSeriesSummary
+    ? paidSeriesSummary.ownedCount > 0
+      ? paidSeriesSummary.chargeCents
+      : (paidSeriesSummary.bundleCents ?? paidSeriesSummary.chargeCents)
+    : 0;
   const useInlineCollection = showSeriesToggle && isCollectionCard && Boolean(onCollectionToggle);
   const displayTitle = isCollectionCard ? (collectionLabel as string) : displayVaultProductTitle(product.title);
   const publisher = isCollectionCard
@@ -158,9 +173,9 @@ export function MarketplaceProductCard({
     : product.author?.trim() || "Yamalé Alliance";
   const description = isCollectionCard
     ? paidSeriesSummary
-      ? paidSeriesSummary.bundleCents != null && paidSeriesSummary.bundleSavingsCents > 0
-        ? `${collectionCount} pack · series bundle $${(paidSeriesSummary.bundleCents / 100).toFixed(2)} (list $${(paidSeriesSummary.totalCents / 100).toFixed(2)})`
-        : `${collectionCount} pack · complete series $${(paidSeriesSummary.totalCents / 100).toFixed(2)}`
+      ? hasSeriesBundleDiscount
+        ? `${collectionCount} resources · save ${formatUsd(paidSeriesSummary!.bundleSavingsCents, 0)} vs buying separately`
+        : `${collectionCount} resources in this series`
       : `Browse all ${collectionLabel} resources in one place.`
     : plainDescription(product.description);
   const href =
@@ -181,7 +196,7 @@ export function MarketplaceProductCard({
   const fileLabel = product.file_format ? `.${product.file_format.replace(/^\./, "")}` : null;
 
   const metaParts = (
-    showLawFirmDiscount
+    showLawFirmDiscount || isCollectionCard
       ? [topicLabel, typeBadgeLabel, fileLabel]
       : [topicLabel, typeBadgeLabel, priceLabel, fileLabel]
   ).filter(Boolean);
@@ -271,12 +286,16 @@ export function MarketplaceProductCard({
             Owned
           </span>
         ) : paidSeriesSummary && isCollectionCard ? (
-          <span className={styles.badgePrice}>
-            {paidSeriesSummary.ownedCount > 0
-              ? `$${(paidSeriesSummary.chargeCents / 100).toFixed(2)} series`
-              : paidSeriesSummary.bundleCents != null && paidSeriesSummary.bundleSavingsCents > 0
-                ? `$${(paidSeriesSummary.bundleCents / 100).toFixed(2)} series`
-                : `$${(paidSeriesSummary.chargeCents / 100).toFixed(2)} series`}
+          <span className={`${styles.badgePrice}${hasSeriesBundleDiscount ? ` ${styles.badgePriceDiscount}` : ""}`}>
+            {hasSeriesBundleDiscount && paidSeriesSummary.ownedCount === 0 ? (
+              <>
+                <span className="text-muted-foreground line-through">{formatUsd(seriesListCents, 0)}</span>
+                <span>{formatUsd(seriesChargeCents)}</span>
+                <span className="font-semibold"> series</span>
+              </>
+            ) : (
+              <>{formatUsd(seriesChargeCents)} series</>
+            )}
           </span>
         ) : showLawFirmDiscount ? (
           <span className={`${styles.badgePrice} ${styles.badgePriceDiscount}`}>
@@ -327,14 +346,14 @@ export function MarketplaceProductCard({
               style={{ flex: "1 1 100%" }}
             >
               {paidSeriesSummary.ownedCount > 0 ? (
-                <>Buy full series · ${(paidSeriesSummary.chargeCents / 100).toFixed(2)}</>
-              ) : paidSeriesSummary.bundleCents != null && paidSeriesSummary.bundleSavingsCents > 0 ? (
+                <>Buy remaining · {formatUsd(paidSeriesSummary.chargeCents)}</>
+              ) : hasSeriesBundleDiscount ? (
                 <>
-                  Buy full series · ${(paidSeriesSummary.bundleCents / 100).toFixed(2)}{" "}
-                  <span className="text-white/75 line-through">${(paidSeriesSummary.totalCents / 100).toFixed(0)}</span>
+                  Buy full series · {formatUsd(seriesChargeCents)}{" "}
+                  <span className="text-white/75 line-through">{formatUsd(seriesListCents, 0)}</span>
                 </>
               ) : (
-                <>Buy full series · ${(paidSeriesSummary.chargeCents / 100).toFixed(2)}</>
+                <>Buy full series · {formatUsd(seriesChargeCents)}</>
               )}
             </button>
           </div>
