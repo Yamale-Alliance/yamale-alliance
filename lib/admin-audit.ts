@@ -13,6 +13,8 @@ export type AuditAction =
   | "user.tier"
   | "admin.add"
   | "admin.role"
+  | "admin.mfa.enroll"
+  | "admin.mfa.disable"
   | "lawyer.removed"
   | "marketplace_item.add"
   | "marketplace_item.update"
