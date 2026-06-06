@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import type { AdvisoryAccessResult } from "@/lib/law-firm-development/access-server";
 import { marketplaceItemDetailHref } from "@/lib/marketplace-public-url";
 
@@ -11,6 +12,8 @@ type Props = {
 };
 
 export function AdvisoryAccessGateClient({ children }: Props) {
+  const t = useTranslations("advisory");
+  const tCommon = useTranslations("common");
   const searchParams = useSearchParams();
   const courseKey = searchParams.get("course");
   const [access, setAccess] = useState<AdvisoryAccessResult | null>(null);
@@ -36,7 +39,7 @@ export function AdvisoryAccessGateClient({ children }: Props) {
   if (!access) {
     return (
       <div className="mx-auto max-w-lg px-6 py-20 text-center text-white">
-        <p className="text-white/55">Loading workspace…</p>
+        <p className="text-white/55">{t("loadingWorkspace")}</p>
       </div>
     );
   }
@@ -55,7 +58,7 @@ export function AdvisoryAccessGateClient({ children }: Props) {
           href={`/sign-in?redirect_url=${encodeURIComponent(redirect)}`}
           className="mt-8 inline-block rounded-[2px] bg-[#C18C43] px-6 py-3 text-sm font-semibold text-[#221913]"
         >
-          Sign in
+          {tCommon("signIn")}
         </Link>
       </div>
     );
