@@ -9,10 +9,13 @@ import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { LanguageToggle } from "@/components/layout/LanguageToggle";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
 import {
+  prototypeNavActionsClass,
   prototypeNavGhostClass,
   prototypeNavHeaderClass,
   prototypeNavInnerClass,
   prototypeNavLinkClass,
+  prototypeNavLinksRowClass,
+  prototypeNavSignInLinkClass,
   prototypeNavSignUpClass,
 } from "./prototype-nav-styles";
 import { SiteNavLink } from "./SiteNavLink";
@@ -38,11 +41,11 @@ export function GuestHeader() {
   return (
     <header className={`yamale-site-chrome ${prototypeNavHeaderClass}`}>
       <div className={prototypeNavInnerClass}>
-        <Link href="/" className="flex shrink-0 items-center transition-opacity hover:opacity-90">
+        <Link href="/" className="flex shrink-0 items-center justify-self-start transition-opacity hover:opacity-90">
           <PlatformLogo priority height={56} width={200} className="h-14 w-[200px] sm:h-16" />
         </Link>
 
-        <nav className="hidden items-center gap-1 lg:flex">
+        <nav className={prototypeNavLinksRowClass}>
           {links.map(({ href, label }) => {
             const active = isActivePath(pathname, href);
             return (
@@ -53,24 +56,21 @@ export function GuestHeader() {
           })}
         </nav>
 
-        <div className="hidden items-center gap-3 lg:flex">
+        <div className={prototypeNavActionsClass}>
           <LanguageToggle compact />
           <ThemeToggle />
-          <Link href="/sign-in" className={prototypeNavGhostClass}>
-            {t("logIn")}
-          </Link>
-          <Link href="/signup" className={prototypeNavSignUpClass}>
-            {t("signUp")}
-          </Link>
-        </div>
-
-        <div className="flex items-center gap-1 lg:hidden">
-          <LanguageToggle compact />
-          <ThemeToggle />
+          <div className="hidden items-center gap-1.5 lg:flex xl:gap-2">
+            <Link href="/sign-in" className={prototypeNavSignInLinkClass}>
+              {t("logIn")}
+            </Link>
+            <Link href="/signup" className={prototypeNavSignUpClass}>
+              {t("signUp")}
+            </Link>
+          </div>
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
-            className="rounded-xl p-2.5 text-muted-foreground transition hover:bg-primary/10 hover:text-foreground"
+            className="rounded-xl p-2.5 text-muted-foreground transition hover:bg-primary/10 hover:text-foreground lg:hidden"
             aria-label={t("openMenu")}
           >
             <Menu className="h-5 w-5" />
