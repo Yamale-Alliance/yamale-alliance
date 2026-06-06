@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -142,6 +143,8 @@ const FAQ_ITEMS = [
 ];
 
 export default function PricingPage() {
+  const t = useTranslations("pricing");
+  const tCommon = useTranslations("common");
   const { isLoaded, isSignedIn } = useAppUser();
   const router = useRouter();
   const [billing, setBilling] = useState<BillingInterval>("monthly");
@@ -331,12 +334,12 @@ export default function PricingPage() {
           aria-hidden
         />
         <div className="relative z-[1] mx-auto max-w-[760px] px-6 py-16 text-center sm:py-20">
-          <p className={`mx-auto mb-6 ${prototypeHeroEyebrowClass}`}>Pricing</p>
+          <p className={`mx-auto mb-6 ${prototypeHeroEyebrowClass}`}>{t("eyebrow")}</p>
           <h1 className="heading mb-4 text-4xl font-bold text-white sm:text-5xl">
-            Free to read. Affordable to use.
+            {t("title")}
           </h1>
           <p className="mx-auto mb-8 max-w-2xl text-[17px] text-white/[0.65]">
-            Pay with mobile money or credit card. Invoice-ready for institutions. Pay only for what you need.
+            {t("subtitle")}
           </p>
 
           <div className="mx-auto inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/10 p-1">
@@ -347,7 +350,7 @@ export default function PricingPage() {
                 !isAnnual ? "bg-[#C8922A] text-white" : "text-white/70 hover:text-white"
               }`}
             >
-              Monthly
+              {t("monthly")}
             </button>
             <button
               type="button"
@@ -356,11 +359,11 @@ export default function PricingPage() {
                 isAnnual ? "bg-[#C8922A] text-white" : "text-white/70 hover:text-white"
               }`}
             >
-              Annual <span className="ml-1 text-[11px] opacity-90">Save 17%</span>
+              {t("annual")} <span className="ml-1 text-[11px] opacity-90">{t("savePercent")}</span>
             </button>
           </div>
           <p className="mx-auto mt-6 max-w-xl text-[15px] text-white/[0.75]">
-            Choose a plan below, then complete billing and payment on the subscription checkout page.
+            {t("choosePlanHint")}
           </p>
         </div>
       </section>
