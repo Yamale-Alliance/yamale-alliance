@@ -46,8 +46,8 @@ export function VaultPackageSubheader({ title, variant = "vault" }: VaultPackage
           <p
             className={
               isPlatform
-                ? "min-w-0 text-sm font-medium leading-snug text-muted-foreground sm:text-[0.9375rem]"
-                : "min-w-0 text-sm font-medium leading-snug text-white/75 sm:text-[0.9375rem]"
+                ? "min-w-0 break-words text-sm font-medium leading-snug text-muted-foreground sm:text-[0.9375rem]"
+                : "min-w-0 break-words text-sm font-medium leading-snug text-white/75 sm:text-[0.9375rem]"
             }
             title={title}
           >
