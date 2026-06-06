@@ -68,7 +68,7 @@ type Props = {
   deletable?: boolean;
   origin: string;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (result?: { seriesId: string }) => void;
 };
 
 const TYPE_GRADIENTS: Record<string, string> = {
@@ -113,6 +113,57 @@ function itemFileLabel(it: ItemDraft): string | null {
   return null;
 }
 
+function mapLoadedItem(
+  row: Record<string, unknown>,
+  i: number,
+  seriesUsesPerCountryCovers: boolean
+): ItemDraft {
+  return {
+    clientKey: String(row.id ?? `row-${i}`),
+    id: row.id ? String(row.id) : undefined,
+    type: row.type ? String(row.type) : undefined,
+    title: String(row.title ?? ""),
+    description: String(row.description ?? ""),
+    priceUsd: ((Number(row.price_cents) || 0) / 100).toFixed(2),
+    coverMode: coverModeFromLoadedItem(row, seriesUsesPerCountryCovers),
+    imageUrl: row.image_url ? String(row.image_url) : null,
+    focus_country: row.focus_country ? String(row.focus_country) : "",
+    sort_order: typeof row.sort_order === "number" ? row.sort_order : i,
+    published: row.published !== false,
+    file_path: row.file_path ? String(row.file_path) : null,
+    file_name: row.file_name ? String(row.file_name) : null,
+    file_format: row.file_format ? String(row.file_format) : null,
+    pendingFile: null,
+    removeFile: false,
+  };
+}
+
+function itemsFromBundleRows(
+  rows: Record<string, unknown>[],
+  seriesPerCountry: boolean
+): ItemDraft[] {
+  if (rows.length === 0) return [newItemDraft(0, seriesPerCountry)];
+  let loaded = rows.map((row, i) => mapLoadedItem(row, i, seriesPerCountry));
+  if (seriesPerCountry) {
+    const urlCounts = new Map<string, number>();
+    for (const it of loaded) {
+      if (!it.imageUrl) continue;
+      urlCounts.set(it.imageUrl, (urlCounts.get(it.imageUrl) ?? 0) + 1);
+    }
+    const duplicatedUrls = new Set(
+      [...urlCounts.entries()].filter(([, count]) => count > 1).map(([url]) => url)
+    );
+    if (duplicatedUrls.size > 0) {
+      loaded = loaded.map((it) =>
+        duplicatedUrls.has(it.imageUrl ?? "")
+          ? { ...it, coverMode: "map" as const, imageUrl: null }
+          : it
+      );
+    }
+  }
+  return loaded;
+}
+
 function parseJsonSafe(res: Response): Promise<{ error?: string; url?: string }> {
   return res.text().then((text) => {
     if (!text.trim()) return {};
@@ -131,12 +182,15 @@ export function AdminVaultSeriesEditor({
   onClose,
   onSaved,
 }: Props) {
-  const isNew = !seriesId;
+  const [createdSeriesId, setCreatedSeriesId] = useState<string | null>(null);
+  const activeSeriesId = seriesId ?? createdSeriesId;
+  const isNew = !activeSeriesId;
   const { confirm, confirmDialog } = useConfirm();
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [series, setSeries] = useState<VaultSeriesRecord | null>(null);
 
   const [label, setLabel] = useState("");
@@ -160,11 +214,60 @@ export function AdminVaultSeriesEditor({
   const [linkPickerId, setLinkPickerId] = useState("");
 
   const resolvedId = useMemo(() => {
-    if (seriesId) return seriesId;
+    if (activeSeriesId) return activeSeriesId;
     return slugifyVaultSeriesId(label || "vault_series");
-  }, [seriesId, label]);
+  }, [activeSeriesId, label]);
+
+  const applyBundleToForm = useCallback(
+    (s: VaultSeriesRecord, rows: Record<string, unknown>[], opts?: { preserveActiveIndex?: boolean }) => {
+      setSeries(s);
+      setLabel(s.label ?? "");
+      setDescription(s.description ?? s.blurb ?? "");
+      setCoverUrl(s.cover_image_url ?? null);
+      setPaid(Boolean(s.paid));
+      setBundleUsd(
+        s.series_bundle_price_cents ? (s.series_bundle_price_cents / 100).toFixed(2) : ""
+      );
+      setPerCountryCovers(Boolean(s.perCountryItemCovers));
+      setSuggestedUsd(
+        s.suggestedItemPriceCents ? (s.suggestedItemPriceCents / 100).toFixed(2) : ""
+      );
+      const dt = s.default_item_type;
+      setDefaultType(
+        dt === "book" || dt === "course" || dt === "template" || dt === "guide" ? dt : "guide"
+      );
+      const seriesPerCountry = Boolean(s.perCountryItemCovers);
+      setItems(itemsFromBundleRows(rows, seriesPerCountry));
+      if (!opts?.preserveActiveIndex) setActiveIndex(0);
+      setDeletedIds([]);
+      setUnlinkedIds([]);
+    },
+    []
+  );
+
+  const reloadSeries = useCallback(
+    async (id: string, opts?: { preserveActiveIndex?: boolean }) => {
+      const res = await fetch(
+        `${origin}/api/admin/marketplace/vault-series/${encodeURIComponent(id)}`,
+        { credentials: "include" }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error ?? "Failed to reload series");
+      }
+      const s = data.series as VaultSeriesRecord;
+      if (s?.id && s.id !== id) {
+        throw new Error("Loaded the wrong series. Close and try again.");
+      }
+      const rows = Array.isArray(data.items) ? data.items : [];
+      applyBundleToForm(s, rows, opts);
+    },
+    [applyBundleToForm, origin]
+  );
 
   const resetFormForLoad = useCallback(() => {
+    setCreatedSeriesId(null);
+    setSaveSuccess(false);
     setSeries(null);
     setLabel("");
     setDescription("");
@@ -218,51 +321,8 @@ export function AdminVaultSeriesEditor({
           setError("Loaded the wrong series. Close and try again.");
           return;
         }
-        setSeries(s);
-        setLabel(s.label ?? "");
-        setDescription(s.description ?? s.blurb ?? "");
-        setCoverUrl(s.cover_image_url ?? null);
-        setPaid(Boolean(s.paid));
-        setBundleUsd(
-          s.series_bundle_price_cents ? (s.series_bundle_price_cents / 100).toFixed(2) : ""
-        );
-        setPerCountryCovers(Boolean(s.perCountryItemCovers));
-        setSuggestedUsd(
-          s.suggestedItemPriceCents ? (s.suggestedItemPriceCents / 100).toFixed(2) : ""
-        );
-        const dt = s.default_item_type;
-        setDefaultType(
-          dt === "book" || dt === "course" || dt === "template" || dt === "guide" ? dt : "guide"
-        );
         const rows = Array.isArray(data.items) ? data.items : [];
-        const seriesPerCountry = Boolean(s.perCountryItemCovers);
-        if (rows.length === 0) {
-          setItems([newItemDraft(0, seriesPerCountry)]);
-        } else {
-          setItems(
-            rows.map((row: Record<string, unknown>, i: number) => ({
-              clientKey: String(row.id ?? `row-${i}`),
-              id: row.id ? String(row.id) : undefined,
-              type: row.type ? String(row.type) : undefined,
-              title: String(row.title ?? ""),
-              description: String(row.description ?? ""),
-              priceUsd: ((Number(row.price_cents) || 0) / 100).toFixed(2),
-              coverMode: coverModeFromLoadedItem(row, seriesPerCountry),
-              imageUrl: row.image_url ? String(row.image_url) : null,
-              focus_country: row.focus_country ? String(row.focus_country) : "",
-              sort_order: typeof row.sort_order === "number" ? row.sort_order : i,
-              published: row.published !== false,
-              file_path: row.file_path ? String(row.file_path) : null,
-              file_name: row.file_name ? String(row.file_name) : null,
-              file_format: row.file_format ? String(row.file_format) : null,
-              pendingFile: null,
-              removeFile: false,
-            }))
-          );
-        }
-        setActiveIndex(0);
-        setDeletedIds([]);
-        setUnlinkedIds([]);
+        applyBundleToForm(s, rows);
       } catch {
         if (!cancelled) setError("Failed to load series");
       } finally {
@@ -272,7 +332,7 @@ export function AdminVaultSeriesEditor({
     return () => {
       cancelled = true;
     };
-  }, [seriesId, origin, resetFormForLoad]);
+  }, [seriesId, origin, resetFormForLoad, applyBundleToForm]);
 
   const uploadCover = async (file: File, onUrl: (url: string) => void) => {
     setCoverUploading(true);
@@ -391,15 +451,28 @@ export function AdminVaultSeriesEditor({
   const handlePerCountryCoversChange = (enabled: boolean) => {
     setPerCountryCovers(enabled);
     if (!enabled) return;
-    setItems((prev) =>
-      prev.map((it) =>
-        it.coverMode === "type" && !it.imageUrl
-          ? { ...it, coverMode: "map" as const }
-          : it.coverMode === "custom" && !it.imageUrl
-            ? { ...it, coverMode: "map" as const }
-            : it
-      )
-    );
+    setItems((prev) => {
+      const urlCounts = new Map<string, number>();
+      for (const it of prev) {
+        if (!it.imageUrl) continue;
+        urlCounts.set(it.imageUrl, (urlCounts.get(it.imageUrl) ?? 0) + 1);
+      }
+      const duplicatedUrls = new Set(
+        [...urlCounts.entries()].filter(([, count]) => count > 1).map(([url]) => url)
+      );
+      return prev.map((it) => {
+        if (duplicatedUrls.has(it.imageUrl ?? "")) {
+          return { ...it, coverMode: "map" as const, imageUrl: null };
+        }
+        if (it.coverMode === "type" && !it.imageUrl) {
+          return { ...it, coverMode: "map" as const };
+        }
+        if (it.coverMode === "custom" && !it.imageUrl) {
+          return { ...it, coverMode: "map" as const };
+        }
+        return it;
+      });
+    });
   };
 
   const removeActiveItem = () => {
@@ -460,7 +533,7 @@ export function AdminVaultSeriesEditor({
     setError(null);
     try {
       const body = {
-        id: isNew ? undefined : seriesId,
+        id: isNew ? undefined : activeSeriesId,
         label: label.trim(),
         description: description.trim() || null,
         cover_image_url: coverUrl,
@@ -478,7 +551,7 @@ export function AdminVaultSeriesEditor({
 
       const url = isNew
         ? `${origin}/api/admin/marketplace/vault-series`
-        : `${origin}/api/admin/marketplace/vault-series/${encodeURIComponent(seriesId!)}`;
+        : `${origin}/api/admin/marketplace/vault-series/${encodeURIComponent(activeSeriesId!)}`;
       const res = await fetch(url, {
         method: isNew ? "POST" : "PUT",
         credentials: "include",
@@ -491,10 +564,16 @@ export function AdminVaultSeriesEditor({
         setSaving(false);
         return;
       }
-      onSaved();
-      onClose();
-    } catch {
-      setError("Failed to save series");
+      const savedId = typeof data.seriesId === "string" ? data.seriesId : activeSeriesId;
+      if (!activeSeriesId && savedId) setCreatedSeriesId(savedId);
+      if (savedId) {
+        await reloadSeries(savedId, { preserveActiveIndex: true });
+      }
+      onSaved(savedId ? { seriesId: savedId } : undefined);
+      setSaveSuccess(true);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save series");
     }
     setSaving(false);
   };
@@ -504,9 +583,9 @@ export function AdminVaultSeriesEditor({
   const persistedItemCount = items.filter((it) => it.id).length;
 
   const handleDeleteSeries = async () => {
-    if (!seriesId) return;
-    const name = label.trim() || seriesId;
-    const builtin = isBuiltinVaultSeriesId(seriesId);
+    if (!activeSeriesId) return;
+    const name = label.trim() || activeSeriesId;
+    const builtin = isBuiltinVaultSeriesId(activeSeriesId);
     const builtinNote = builtin
       ? " This is a built-in series: the catalog definition remains in code, but saved metadata and item grouping will be removed."
       : "";
@@ -540,7 +619,7 @@ export function AdminVaultSeriesEditor({
     setError(null);
     try {
       const res = await fetch(
-        `${origin}/api/admin/marketplace/vault-series/${encodeURIComponent(seriesId)}`,
+        `${origin}/api/admin/marketplace/vault-series/${encodeURIComponent(activeSeriesId)}`,
         {
           method: "DELETE",
           credentials: "include",
@@ -604,6 +683,11 @@ export function AdminVaultSeriesEditor({
             {error ? (
               <div className="mb-4 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {error}
+              </div>
+            ) : null}
+            {saveSuccess ? (
+              <div className="mb-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+                Series saved. You can keep editing or close when finished.
               </div>
             ) : null}
 
@@ -996,6 +1080,7 @@ export function AdminVaultSeriesEditor({
                         <MarketplaceCoverImageField
                           previewUrl={activeItem.imageUrl}
                           uploading={itemImageUploading}
+                          saveReadyHint="Cover ready — click Save at the bottom to publish this item cover."
                           onUpload={(f) => {
                             setItemImageUploading(true);
                             uploadCover(f, (url) => {
@@ -1043,7 +1128,7 @@ export function AdminVaultSeriesEditor({
             onClick={handleSave}
             className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save series & items"}
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saveSuccess ? "Saved" : "Save series & items"}
           </button>
           <button
             type="button"
