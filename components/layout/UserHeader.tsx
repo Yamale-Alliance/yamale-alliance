@@ -11,7 +11,7 @@ import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { LanguageToggle } from "@/components/layout/LanguageToggle";
 import { CartDrawer } from "@/components/cart/CartDrawer";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
-import { prototypeNavHeaderClass, prototypeNavInnerClass, prototypeNavLinkClass } from "./prototype-nav-styles";
+import { prototypeNavActionsClass, prototypeNavHeaderClass, prototypeNavInnerClass, prototypeNavLinkClass, prototypeNavLinksRowClass } from "./prototype-nav-styles";
 import { SiteNavLink } from "./SiteNavLink";
 import { useTranslatedUserNavLinks } from "./use-translated-nav";
 import {
@@ -35,11 +35,11 @@ export function UserHeader() {
   return (
     <header className={`yamale-site-chrome ${prototypeNavHeaderClass}`}>
       <div className={prototypeNavInnerClass}>
-        <Link href="/" className="flex shrink-0 items-center transition-opacity hover:opacity-90">
+        <Link href="/" className="flex shrink-0 items-center justify-self-start transition-opacity hover:opacity-90">
           <PlatformLogo priority height={56} width={200} className="h-14 w-[200px] sm:h-16" />
         </Link>
 
-        <nav className="hidden items-center gap-1 lg:flex">
+        <nav className={prototypeNavLinksRowClass}>
           {links.map(({ href, label }) => {
             const active = isActivePath(pathname, href);
             return (
@@ -57,21 +57,17 @@ export function UserHeader() {
           </Link>
         </nav>
 
-        <div className="hidden items-center gap-2 lg:flex">
+        <div className={prototypeNavActionsClass}>
           <LanguageToggle compact />
-          <ThemeToggle />
-          <AccountAvatarMenu afterSignOutUrl="/" />
-        </div>
-
-        <div className="flex items-center gap-1 lg:hidden">
-          <LanguageToggle compact />
-          <CartDrawer />
+          <span className="lg:hidden">
+            <CartDrawer />
+          </span>
           <ThemeToggle />
           <AccountAvatarMenu afterSignOutUrl="/" />
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
-            className="rounded-xl p-2.5 text-muted-foreground transition hover:bg-primary/10 hover:text-foreground"
+            className="rounded-xl p-2.5 text-muted-foreground transition hover:bg-primary/10 hover:text-foreground lg:hidden"
             aria-label={t("openMenu")}
           >
             <Menu className="h-5 w-5" />
