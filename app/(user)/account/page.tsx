@@ -1,50 +1,29 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { User, CreditCard, Package, Users, MessageSquare, ChevronRight } from "lucide-react";
 import { isSupportCenterLive } from "@/lib/support-center-enabled";
 
-const cards = [
-  {
-    href: "/account/profile",
-    label: "Profile & security",
-    desc: "Name, email, password, and connected accounts.",
-    icon: User,
-  },
-  {
-    href: "/account/subscription",
-    label: "Manage subscription",
-    desc: "Plans, billing period, upgrades, downgrades, cancellation.",
-    icon: CreditCard,
-  },
-  {
-    href: "/account/purchases",
-    label: "Purchased items",
-    desc: "Your Yamalé Vault downloads and purchases.",
-    icon: Package,
-  },
-  {
-    href: "/account/lawyers",
-    label: "Unlocked lawyers",
-    desc: "Lawyers you’ve unlocked for contact details.",
-    icon: Users,
-  },
-  {
-    href: "/account/support",
-    label: "Support centre",
-    desc: "Open a ticket or continue an existing conversation.",
-    icon: MessageSquare,
-  },
-];
+export const dynamic = "force-dynamic";
 
-export default function AccountOverviewPage() {
+const cardDefs = [
+  { href: "/account/profile", labelKey: "profileSecurity", descKey: "profileSecurityDesc", icon: User },
+  { href: "/account/subscription", labelKey: "manageSubscription", descKey: "manageSubscriptionDesc", icon: CreditCard },
+  { href: "/account/purchases", labelKey: "purchasedItems", descKey: "purchasedItemsDesc", icon: Package },
+  { href: "/account/lawyers", labelKey: "unlockedLawyers", descKey: "unlockedLawyersDesc", icon: Users },
+  { href: "/account/support", labelKey: "supportCentre", descKey: "supportCentreDesc", icon: MessageSquare },
+] as const;
+
+export default async function AccountOverviewPage() {
+  const t = await getTranslations("account");
+  const tCommon = await getTranslations("common");
   const supportLive = isSupportCenterLive();
+
   return (
     <div>
-      <h1 className="heading text-2xl font-bold text-foreground">Account</h1>
-      <p className="mt-2 max-w-xl text-muted-foreground">
-        Manage your profile, billing, purchases, and support — without cluttering the main navigation.
-      </p>
+      <h1 className="heading text-2xl font-bold text-foreground">{t("title")}</h1>
+      <p className="mt-2 max-w-xl text-muted-foreground">{t("subtitle")}</p>
       <ul className="mt-8 grid gap-3 sm:grid-cols-1">
-        {cards.map(({ href, label, desc, icon: Icon }) => {
+        {cardDefs.map(({ href, labelKey, descKey, icon: Icon }) => {
           const supportSoon = href === "/account/support" && !supportLive;
           return (
             <li key={href}>
@@ -58,17 +37,15 @@ export default function AccountOverviewPage() {
                   </div>
                   <div>
                     <div className="flex flex-wrap items-center gap-2 font-semibold text-foreground">
-                      {label}
+                      {t(labelKey)}
                       {supportSoon && (
                         <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                          Coming soon
+                          {tCommon("comingSoon")}
                         </span>
                       )}
                     </div>
                     <p className="mt-0.5 text-sm text-muted-foreground">
-                      {supportSoon
-                        ? "Opens after transactional email is configured (verified domain)."
-                        : desc}
+                      {supportSoon ? t("supportSoonDesc") : t(descKey)}
                     </p>
                   </div>
                 </div>
