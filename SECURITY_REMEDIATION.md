@@ -56,14 +56,14 @@ ikPin Audit Response | June 2026
 3. Enable MFA on each platform where supported.
 **Done when:** Password manager shows unique entries and MFA enabled for each service.
 
-### App-level admin TOTP (before enforcing in code)
+### App-level admin TOTP
 **Why:** Admin accounts can ingest laws, view query logs, and change platform settings. This uses Yamalé-owned TOTP (no Clerk Pro MFA).
 **Steps:**
 1. Run `scripts/supabase/add-admin-totp.sql` in Supabase SQL Editor.
-2. Set `ADMIN_MFA_SECRET` and `ADMIN_MFA_ENCRYPTION_KEY` in Vercel (see `.env.example`; generate with `openssl rand -base64 48` and `openssl rand -hex 32`).
-3. Deploy with `ADMIN_MFA_ENFORCED=false`. Each admin visits `/admin-panel/mfa` and enrolls an authenticator app.
-4. After all four admins are enrolled, set `ADMIN_MFA_ENFORCED=true` in Vercel production and redeploy.
-**Done when:** Each admin completes TOTP enrollment; production has `ADMIN_MFA_ENFORCED=true` and step-up works on `/admin-panel`.
+2. Set `ADMIN_MFA_SECRET`, `ADMIN_MFA_ENCRYPTION_KEY`, and `ADMIN_MFA_ENFORCED=true` in Vercel (see `.env.example`; generate secrets with `openssl rand -base64 48` and `openssl rand -hex 32`).
+3. Deploy. No pre-enrollment needed — each admin is prompted on their **first visit to the admin panel** (redirect to `/admin-panel/mfa`, QR setup starts automatically).
+4. On later visits (or after the step-up cookie expires), admins enter a 6-digit code only.
+**Done when:** Production has the env vars set; each admin can open `/admin-panel` after completing first-time authenticator setup.
 
 ### Anthropic Console monthly spending cap
 **Why:** Limits runaway API cost if keys leak or abuse spikes.
@@ -145,7 +145,7 @@ ikPin Audit Response | June 2026
 | Name | Purpose | Where to get it |
 |------|---------|-----------------|
 | `AI_CHAT_DISABLED` | Emergency kill switch for AI chat (`true` = 503) | Set manually in Vercel; default `false` |
-| `ADMIN_MFA_ENFORCED` | Require app-level TOTP step-up for admin panel + APIs | Set `true` in Vercel after all admins enroll at `/admin-panel/mfa` |
+| `ADMIN_MFA_ENFORCED` | Require app-level TOTP for admin panel + APIs; unenrolled admins are prompted on first `/admin-panel` visit | Set `true` in Vercel when deploying MFA |
 | `ADMIN_MFA_SECRET` | HMAC signing key for `admin_mfa_step_up` cookie (32+ chars) | `openssl rand -base64 48` |
 | `ADMIN_MFA_ENCRYPTION_KEY` | AES-256-GCM key for TOTP secrets in Supabase (32+ chars or 64 hex) | `openssl rand -hex 32` |
 | `ADMIN_MFA_SESSION_TTL_SEC` | Step-up cookie lifetime (default 43200 = 12h) | Optional |
