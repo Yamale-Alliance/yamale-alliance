@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react";
 
 type UpdatedLawEntry = {
@@ -14,19 +15,21 @@ type UpdatedLawEntry = {
   created_at: string;
 };
 
-const FIELD_LABELS: Record<string, string> = {
-  title: "Title",
-  category_id: "Category",
-  country_id: "Country",
-  applies_to_all_countries: "Global scope",
-  status: "Status",
-  year: "Year",
-  content: "Content",
-};
+const FIELD_KEYS = [
+  "title",
+  "category_id",
+  "country_id",
+  "applies_to_all_countries",
+  "status",
+  "year",
+  "content",
+] as const;
 
 const PAGE_SIZE = 25;
 
 export default function AdminRecentlyUpdatedLawsPage() {
+  const t = useTranslations("admin.laws.updated");
+  const tc = useTranslations("admin.common");
   const [rows, setRows] = useState<UpdatedLawEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +49,7 @@ export default function AdminRecentlyUpdatedLawsPage() {
       .catch(() => {
         setRows([]);
         setTotal(0);
-        setError("Failed to load recently updated laws.");
+        setError(t("errors.loadFailed"));
       })
       .finally(() => setLoading(false));
   };
@@ -65,7 +68,7 @@ export default function AdminRecentlyUpdatedLawsPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to laws
+          {t("back")}
         </Link>
         <button
           type="button"
@@ -73,14 +76,14 @@ export default function AdminRecentlyUpdatedLawsPage() {
           className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent"
         >
           <RefreshCw className="h-3.5 w-3.5" />
-          Refresh
+          {tc("refresh")}
         </button>
       </div>
 
       <div className="mb-4">
-        <h1 className="text-xl font-semibold">Recently updated laws</h1>
+        <h1 className="text-xl font-semibold">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">
-          Review recent law edits including title changes, category changes, and other field updates.
+          {t("subtitle")}
         </p>
       </div>
 
@@ -96,7 +99,7 @@ export default function AdminRecentlyUpdatedLawsPage() {
         </div>
       ) : rows.length === 0 ? (
         <div className="mt-8 rounded-lg border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-          No recent law updates.
+          {t("empty")}
         </div>
       ) : (
         <>
@@ -104,10 +107,10 @@ export default function AdminRecentlyUpdatedLawsPage() {
             <table className="w-full text-sm">
               <thead className="border-b border-border bg-muted/40">
                 <tr>
-                  <th className="p-2 text-left font-medium">When</th>
-                  <th className="p-2 text-left font-medium">Law</th>
-                  <th className="p-2 text-left font-medium">Changed</th>
-                  <th className="p-2 text-left font-medium">Updated by</th>
+                  <th className="p-2 text-left font-medium">{tc("when")}</th>
+                  <th className="p-2 text-left font-medium">{t("table.law")}</th>
+                  <th className="p-2 text-left font-medium">{t("table.changed")}</th>
+                  <th className="p-2 text-left font-medium">{t("table.updatedBy")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -120,13 +123,13 @@ export default function AdminRecentlyUpdatedLawsPage() {
                       <div className="font-medium">{row.law_title}</div>
                       {row.restored && (
                         <div className="mt-1 text-[10px] uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
-                          Restored
+                          {t("restored")}
                         </div>
                       )}
                     </td>
                     <td className="p-2 align-top">
                       {row.changed_fields.length === 0 ? (
-                        <span className="text-xs text-muted-foreground">No field metadata</span>
+                        <span className="text-xs text-muted-foreground">{t("noFieldMetadata")}</span>
                       ) : (
                         <div className="flex flex-wrap gap-1">
                           {row.changed_fields.map((field) => (
@@ -134,14 +137,16 @@ export default function AdminRecentlyUpdatedLawsPage() {
                               key={`${row.id}-${field}`}
                               className="rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] font-medium"
                             >
-                              {FIELD_LABELS[field] ?? field}
+                              {FIELD_KEYS.includes(field as (typeof FIELD_KEYS)[number])
+                                ? t(`fieldLabels.${field as (typeof FIELD_KEYS)[number]}`)
+                                : field}
                             </span>
                           ))}
                         </div>
                       )}
                     </td>
                     <td className="p-2 align-top text-muted-foreground">
-                      {row.admin_email ?? "Unknown admin"}
+                      {row.admin_email ?? t("unknownAdmin")}
                     </td>
                   </tr>
                 ))}
@@ -160,7 +165,7 @@ export default function AdminRecentlyUpdatedLawsPage() {
                 className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-50"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
-                Previous
+                {tc("previous")}
               </button>
               <span className="text-xs text-muted-foreground">
                 Page {page} of {totalPages}
@@ -171,7 +176,7 @@ export default function AdminRecentlyUpdatedLawsPage() {
                 disabled={page >= totalPages}
                 className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-50"
               >
-                Next
+                {tc("next")}
                 <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
