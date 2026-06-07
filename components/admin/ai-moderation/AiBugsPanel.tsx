@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 
 type BugRow = {
@@ -16,6 +17,7 @@ type BugRow = {
 };
 
 export function AiBugsPanel() {
+  const t = useTranslations("admin.aiModeration.bugs");
   const [status, setStatus] = useState<"all" | "open" | "in_progress" | "resolved">("open");
   const [rows, setRows] = useState<BugRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,9 +34,9 @@ export function AiBugsPanel() {
 
   return (
     <div className="rounded-2xl border border-border/80 bg-card/80 p-4 shadow-sm sm:p-6">
-      <h3 className="text-lg font-semibold text-foreground">AI bug reports</h3>
+      <h3 className="text-lg font-semibold text-foreground">{t("title")}</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        Negative AI feedback with conversation snapshots. Open a row for full triage.
+        {t("subtitle")}
       </p>
 
       <div className="mt-6 flex flex-wrap gap-2">
@@ -47,7 +49,7 @@ export function AiBugsPanel() {
               status === s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
-            {s === "all" ? "All" : s.replace("_", " ")}
+            {s === "all" ? t("status.all") : t(`status.${s}`)}
           </button>
         ))}
       </div>
@@ -59,7 +61,7 @@ export function AiBugsPanel() {
           </div>
         ) : rows.length === 0 ? (
           <p className="rounded-xl border border-border bg-muted/20 p-8 text-center text-sm text-muted-foreground">
-            No AI bug reports found.
+            {t("empty")}
           </p>
         ) : (
           rows.map((r) => (
@@ -71,7 +73,7 @@ export function AiBugsPanel() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-foreground">
-                    {r.user_name || "User"}{" "}
+                    {r.user_name || t("userFallback")}{" "}
                     <span className="font-normal text-muted-foreground">({r.user_email || r.user_id})</span>
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString()}</p>
@@ -85,15 +87,15 @@ export function AiBugsPanel() {
                         : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/35 dark:text-emerald-200"
                   }`}
                 >
-                  {r.status.replace("_", " ")}
+                  {t(`status.${r.status}`)}
                 </span>
               </div>
               <p className="mt-3 text-sm text-foreground">
                 {r.issue_category?.startsWith("auto_ai_")
-                  ? `Auto gap: ${r.issue_category.replace(/^auto_ai_/, "").replace(/_/g, " ")}`
+                  ? t("issueAutoGap", { value: r.issue_category.replace(/^auto_ai_/, "").replace(/_/g, " ") })
                   : r.issue_category
-                    ? `Issue: ${r.issue_category}`
-                    : "Issue: not categorized"}
+                    ? t("issueLabel", { value: r.issue_category })
+                    : t("issueUncategorized")}
               </p>
               {r.issue_details ? (
                 <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{r.issue_details}</p>
