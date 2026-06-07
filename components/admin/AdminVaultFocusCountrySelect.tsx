@@ -1,4 +1,5 @@
 import { VAULT_FOCUS_COUNTRY_OPTIONS } from "@/lib/marketplace-vault-country";
+import { useTranslations } from "next-intl";
 
 type AdminVaultFocusCountrySelectProps = {
   name?: string;
@@ -15,6 +16,7 @@ export function AdminVaultFocusCountrySelect({
   onChange,
   className,
 }: AdminVaultFocusCountrySelectProps) {
+  const t = useTranslations("admin.vault.focusCountrySelect");
   const selectProps =
     value !== undefined
       ? { value: value ?? "", onChange: (e: React.ChangeEvent<HTMLSelectElement>) => onChange?.(e.target.value) }
@@ -22,13 +24,13 @@ export function AdminVaultFocusCountrySelect({
 
   return (
     <div className={className}>
-      <label className="mb-1 block text-sm font-medium">Focus country (map on card)</label>
+      <label className="mb-1 block text-sm font-medium">{t("label")}</label>
       <select
         name={name}
         {...selectProps}
         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
       >
-        <option value="">All Africa (default)</option>
+        <option value="">{t("allAfrica")}</option>
         {VAULT_FOCUS_COUNTRY_OPTIONS.map((name) => (
           <option key={name} value={name}>
             {name}
@@ -36,8 +38,7 @@ export function AdminVaultFocusCountrySelect({
         ))}
       </select>
       <p className="mt-1 text-xs text-muted-foreground">
-        Shown on the vault card when no cover image is set. Pick a country for a country map, or leave blank for the
-        Africa continent.
+        {t("hint")}
       </p>
     </div>
   );
