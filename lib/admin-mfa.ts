@@ -29,7 +29,7 @@ export async function buildTotpQrDataUrl(otpauthUrl: string): Promise<string> {
 
 export function verifyTotpToken(secret: string, token: string): boolean {
   try {
-    const result = verifySync({ secret, token, epochTolerance: 30 });
+    const result = verifySync({ secret, token, epochTolerance: 60 });
     return result.valid;
   } catch {
     return false;
