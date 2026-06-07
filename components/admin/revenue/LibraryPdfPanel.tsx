@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { FileDown, Loader2, RefreshCw } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 type PurchaseRow = {
   id: string;
@@ -15,6 +16,8 @@ type PurchaseRow = {
 };
 
 export function LibraryPdfPanel() {
+  const t = useTranslations("admin.revenue.libraryPdfPanel");
+  const tc = useTranslations("admin.common");
   const [purchases, setPurchases] = useState<PurchaseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +31,7 @@ export function LibraryPdfPanel() {
         if (!ok) {
           const msg =
             data?.error ??
-            (status === 401 ? "Sign in required" : status === 403 ? "Admin access required" : "Failed to load");
+            (status === 401 ? t("errors.signInRequired") : status === 403 ? t("errors.adminAccessRequired") : t("errors.failedToLoad"));
           setError(data?.details ? `${msg}: ${data.details}` : msg);
           setPurchases([]);
           return;
@@ -36,11 +39,11 @@ export function LibraryPdfPanel() {
         setPurchases(Array.isArray(data?.purchases) ? data.purchases : []);
       })
       .catch(() => {
-        setError("Failed to load purchases");
+        setError(t("errors.failedToLoadPurchases"));
         setPurchases([]);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchPurchases();
@@ -50,7 +53,7 @@ export function LibraryPdfPanel() {
     if (dateString == null || dateString === "") return "—";
     const date = new Date(dateString);
     if (Number.isNaN(date.getTime()) || date.getTime() <= 0) return "—";
-    return date.toLocaleString("en-US", {
+    return date.toLocaleString(undefined, {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -64,7 +67,7 @@ export function LibraryPdfPanel() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <FileDown className="h-5 w-5 text-primary" />
-          <h3 className="text-lg font-semibold text-foreground">Library PDF purchases</h3>
+          <h3 className="text-lg font-semibold text-foreground">{t("title")}</h3>
         </div>
         <button
           type="button"
@@ -73,12 +76,14 @@ export function LibraryPdfPanel() {
           className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Refresh
+          {tc("refresh")}
         </button>
       </div>
       <p className="mt-2 text-sm text-muted-foreground">
-        One-time law PDF unlocks (<code className="rounded bg-muted px-1 text-xs">pay_as_you_go_purchases</code>). Also
-        see totals on the <span className="font-medium text-foreground">Analytics</span> tab.
+        {t.rich("subtitle", {
+          code: (chunks) => <code className="rounded bg-muted px-1 text-xs">{chunks}</code>,
+          strong: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+        })}
       </p>
       {error ? (
         <div className="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -89,10 +94,10 @@ export function LibraryPdfPanel() {
         <table className="w-full min-w-[640px] text-left text-sm">
           <thead className="border-b border-border bg-muted/50">
             <tr>
-              <th className="p-3 font-medium">Date</th>
-              <th className="p-3 font-medium">Buyer</th>
-              <th className="p-3 font-medium">Law</th>
-              <th className="p-3 font-medium">Payment ref</th>
+              <th className="p-3 font-medium">{t("table.date")}</th>
+              <th className="p-3 font-medium">{t("table.buyer")}</th>
+              <th className="p-3 font-medium">{t("table.law")}</th>
+              <th className="p-3 font-medium">{t("table.paymentRef")}</th>
             </tr>
           </thead>
           <tbody>
@@ -105,7 +110,7 @@ export function LibraryPdfPanel() {
             ) : purchases.length === 0 ? (
               <tr>
                 <td colSpan={4} className="p-10 text-center text-muted-foreground">
-                  No library PDF purchases yet.
+                  {t("table.noPurchases")}
                 </td>
               </tr>
             ) : (
@@ -125,7 +130,7 @@ export function LibraryPdfPanel() {
                         <div className="font-mono text-[11px] text-muted-foreground">{p.law_id}</div>
                       </>
                     ) : (
-                      <span className="text-amber-700 dark:text-amber-400">Law not linked</span>
+                      <span className="text-amber-700 dark:text-amber-400">{t("table.lawNotLinked")}</span>
                     )}
                   </td>
                   <td className="max-w-[200px] truncate p-3 font-mono text-xs text-muted-foreground" title={p.stripe_session_id ?? ""}>
