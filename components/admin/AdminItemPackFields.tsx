@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 type PartnerOption = {
   id: string;
   title: string;
@@ -31,6 +33,7 @@ export function AdminItemPackFields({
   partnerOptions,
   excludeItemId,
 }: AdminItemPackFieldsProps) {
+  const t = useTranslations("admin.vault.itemPackFields");
   const options = partnerOptions.filter((o) => o.id !== excludeItemId && o.price_cents > 0);
 
   const togglePartner = (id: string) => {
@@ -51,10 +54,9 @@ export function AdminItemPackFields({
           className="mt-1 rounded border-input"
         />
         <span>
-          <span className="block text-sm font-medium">Multi-item pack</span>
+          <span className="block text-sm font-medium">{t("title")}</span>
           <span className="mt-1 block text-xs text-muted-foreground">
-            Pair this item with one or more other vault items. Customers can buy this item alone or the
-            whole pack at the price you set below.
+            {t("subtitle")}
           </span>
         </span>
       </label>
@@ -62,17 +64,17 @@ export function AdminItemPackFields({
       {enabled && (
         <div className="mt-4 space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium">Pack name</label>
+            <label className="mb-1 block text-sm font-medium">{t("packNameLabel")}</label>
             <input
               type="text"
               value={label}
               onChange={(e) => onLabelChange(e.target.value)}
               className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              placeholder="e.g. Labour pack"
+              placeholder={t("packNamePlaceholder")}
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Whole pack price (USD)</label>
+            <label className="mb-1 block text-sm font-medium">{t("wholePackPriceLabel")}</label>
             <input
               type="number"
               step="0.01"
@@ -80,16 +82,16 @@ export function AdminItemPackFields({
               value={packPriceUsd}
               onChange={(e) => onPackPriceUsdChange(e.target.value)}
               className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              placeholder="79.00"
+              placeholder={t("wholePackPricePlaceholder")}
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Charged when a customer buys the full pack. Individual items keep their own list prices.
+              {t("wholePackPriceHint")}
             </p>
           </div>
           <div>
-            <p className="mb-2 text-sm font-medium">Pack includes (select one or more)</p>
+            <p className="mb-2 text-sm font-medium">{t("packIncludesLabel")}</p>
             {options.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Publish other paid items first to pair them.</p>
+              <p className="text-xs text-muted-foreground">{t("noOptionsHint")}</p>
             ) : (
               <ul className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-border bg-background p-3">
                 {options.map((item) => (
@@ -113,7 +115,7 @@ export function AdminItemPackFields({
               </ul>
             )}
             <p className="mt-1 text-xs text-muted-foreground">
-              This item is always included in the pack. Selected partners are unlocked together at checkout.
+              {t("packIncludesHint")}
             </p>
           </div>
         </div>
