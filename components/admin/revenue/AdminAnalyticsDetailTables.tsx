@@ -1,6 +1,7 @@
 "use client";
 
 import type { AnalyticsSegment } from "@/lib/admin-analytics-segment";
+import { useTranslations } from "next-intl";
 
 export type AnalyticsDetailVaultRow = {
   id: string;
@@ -71,6 +72,8 @@ export function AdminAnalyticsDetailTables(props: {
   details: AnalyticsDetailsPayload;
   segment: AnalyticsSegment;
 }) {
+  const t = useTranslations("admin.revenue.analyticsDetailTables");
+  const tc = useTranslations("admin.common");
   const { details, segment } = props;
   const showVault = segment === "all" || segment === "vault";
   const showPayg = segment === "all" || segment === "lawyer_searches" || segment === "library_pdf";
@@ -86,8 +89,7 @@ export function AdminAnalyticsDetailTables(props: {
   const truncNote = (label: string, hit: boolean) =>
     hit ? (
       <p className="mt-2 text-xs text-amber-800/90 dark:text-amber-200/90">
-        Showing up to {label} in this window; more rows exist — narrow the date range or use the dedicated tabs for full
-        lists.
+        {t("truncation", { label })}
       </p>
     ) : null;
 
@@ -96,9 +98,9 @@ export function AdminAnalyticsDetailTables(props: {
       {showSubs && details.newSubscribers.length > 0 ? (
         <section className={segment === "subscriptions" ? "" : "opacity-95"}>
           <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-            <h3 className="text-lg font-semibold tracking-tight text-foreground">New paid subscribers (in this window)</h3>
+            <h3 className="text-lg font-semibold tracking-tight text-foreground">{t("newSubscribers.title")}</h3>
             <p className="text-xs text-muted-foreground">
-              First billing cycle estimate · includes complimentary grants at $0
+              {t("newSubscribers.subtitle")}
             </p>
           </div>
           <div className="mt-3 overflow-hidden rounded-2xl border border-border/80 shadow-sm">
@@ -106,13 +108,13 @@ export function AdminAnalyticsDetailTables(props: {
               <table className="w-full min-w-[720px] border-collapse text-sm">
                 <thead>
                   <tr>
-                    <th className={th}>Who</th>
-                    <th className={th}>Email</th>
-                    <th className={th}>Plan</th>
-                    <th className={th}>Billing</th>
-                    <th className={th}>Subscriber since</th>
-                    <th className={`${th} text-right`}>Est. first payment</th>
-                    <th className={th}>Note</th>
+                    <th className={th}>{t("newSubscribers.columns.who")}</th>
+                    <th className={th}>{tc("email")}</th>
+                    <th className={th}>{t("newSubscribers.columns.plan")}</th>
+                    <th className={th}>{t("newSubscribers.columns.billing")}</th>
+                    <th className={th}>{t("newSubscribers.columns.subscriberSince")}</th>
+                    <th className={`${th} text-right`}>{t("newSubscribers.columns.estimatedFirstPayment")}</th>
+                    <th className={th}>{t("newSubscribers.columns.note")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -132,7 +134,7 @@ export function AdminAnalyticsDetailTables(props: {
                         {r.isComplimentaryGrant ? "—" : usd(r.estimatedFirstPaymentUsdCents)}
                       </td>
                       <td className={`${td} text-xs text-muted-foreground`}>
-                        {r.isComplimentaryGrant ? "Complimentary grant" : "—"}
+                        {r.isComplimentaryGrant ? t("newSubscribers.complimentaryGrant") : "—"}
                       </td>
                     </tr>
                   ))}
@@ -143,24 +145,24 @@ export function AdminAnalyticsDetailTables(props: {
           {truncNote(`${details.limits.newSubscribers} newest`, details.truncated.newSubscribers)}
         </section>
       ) : showSubs && details.newSubscribers.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No new paid subscribers in this date window.</p>
+        <p className="text-sm text-muted-foreground">{t("newSubscribers.empty")}</p>
       ) : null}
 
       {showVault && details.vaultPurchases.length > 0 ? (
         <section className={segment === "vault" ? "" : "opacity-95"}>
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">Yamalé Vault — who bought what</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Item title and list price at time of purchase (from catalog)</p>
+          <h3 className="text-lg font-semibold tracking-tight text-foreground">{t("vaultPurchases.title")}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">{t("vaultPurchases.subtitle")}</p>
           <div className="mt-3 overflow-hidden rounded-2xl border border-border/80 shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[800px] border-collapse text-sm">
                 <thead>
                   <tr>
-                    <th className={th}>Buyer</th>
-                    <th className={th}>Email</th>
-                    <th className={th}>Item</th>
-                    <th className={`${th} text-right`}>Amount</th>
-                    <th className={th}>When</th>
-                    <th className={th}>Payment ref.</th>
+                    <th className={th}>{t("vaultPurchases.columns.buyer")}</th>
+                    <th className={th}>{tc("email")}</th>
+                    <th className={th}>{tc("item")}</th>
+                    <th className={`${th} text-right`}>{t("vaultPurchases.columns.amount")}</th>
+                    <th className={th}>{tc("when")}</th>
+                    <th className={th}>{t("vaultPurchases.columns.paymentRef")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -175,7 +177,7 @@ export function AdminAnalyticsDetailTables(props: {
                       </td>
                       <td className={td}>
                         <span className="font-medium">{r.itemTitle}</span>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">Item ID · {r.itemId}</p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">{t("vaultPurchases.itemId", { id: r.itemId })}</p>
                       </td>
                       <td className={`${td} text-right font-medium tabular-nums`}>{usd(r.priceUsdCents)}</td>
                       <td className={`${td} whitespace-nowrap tabular-nums`}>{fmtWhen(r.createdAt)}</td>
@@ -191,30 +193,29 @@ export function AdminAnalyticsDetailTables(props: {
           {truncNote(`${details.limits.vaultPurchases} most recent`, details.truncated.vaultPurchases)}
         </section>
       ) : showVault && details.vaultPurchases.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No Vault purchases in this date window.</p>
+        <p className="text-sm text-muted-foreground">{t("vaultPurchases.empty")}</p>
       ) : null}
 
       {showPayg && paygFiltered.length > 0 ? (
         <section className={segment === "lawyer_searches" || segment === "library_pdf" ? "" : "opacity-95"}>
-          <h3 className="text-lg font-semibold tracking-tight text-foreground">One-time unlocks &amp; pay-as-you-go</h3>
+          <h3 className="text-lg font-semibold tracking-tight text-foreground">{t("payg.title")}</h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            Library PDFs, lawyer search, AI query packs, AfCFTA — line amounts use the same list prices as the summary
-            cards
-            {segment === "lawyer_searches" ? " (filtered to lawyer search)" : null}
-            {segment === "library_pdf" ? " (filtered to library PDF)" : null}
+            {t("payg.subtitle")}
+            {segment === "lawyer_searches" ? ` ${t("payg.filteredLawyerSearch")}` : null}
+            {segment === "library_pdf" ? ` ${t("payg.filteredLibraryPdf")}` : null}
           </p>
           <div className="mt-3 overflow-hidden rounded-2xl border border-border/80 shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[880px] border-collapse text-sm">
                 <thead>
                   <tr>
-                    <th className={th}>Buyer</th>
-                    <th className={th}>Email</th>
-                    <th className={th}>Product</th>
-                    <th className={`${th} text-right`}>Qty</th>
-                    <th className={`${th} text-right`}>Line total</th>
-                    <th className={th}>When</th>
-                    <th className={th}>Payment ref.</th>
+                    <th className={th}>{t("payg.columns.buyer")}</th>
+                    <th className={th}>{tc("email")}</th>
+                    <th className={th}>{t("payg.columns.product")}</th>
+                    <th className={`${th} text-right`}>{t("payg.columns.qty")}</th>
+                    <th className={`${th} text-right`}>{t("payg.columns.lineTotal")}</th>
+                    <th className={th}>{tc("when")}</th>
+                    <th className={th}>{t("payg.columns.paymentRef")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -248,10 +249,10 @@ export function AdminAnalyticsDetailTables(props: {
       ) : showPayg && paygFiltered.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {segment === "lawyer_searches"
-            ? "No lawyer search unlocks in this date window."
+            ? t("payg.emptyLawyerSearch")
             : segment === "library_pdf"
-              ? "No library PDF unlocks in this date window."
-              : "No pay-as-you-go rows in this date window."}
+              ? t("payg.emptyLibraryPdf")
+              : t("payg.empty")}
         </p>
       ) : null}
     </div>
