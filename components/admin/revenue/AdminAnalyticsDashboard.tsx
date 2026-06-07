@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import type { AnalyticsRangePreset } from "@/lib/admin-analytics-ranges";
 import {
   ANALYTICS_SEGMENT_OPTIONS,
@@ -24,15 +25,7 @@ import {
 } from "@/components/admin/revenue/AdminAnalyticsDetailTables";
 import { AdminLaunchMetricsResetPanel } from "@/components/admin/AdminLaunchMetricsResetPanel";
 
-const RANGE_OPTIONS: { value: AnalyticsRangePreset; label: string }[] = [
-  { value: "today", label: "Today" },
-  { value: "this_week", label: "This week" },
-  { value: "last_week", label: "Last week" },
-  { value: "last_month", label: "Last month" },
-  { value: "last_60_days", label: "Last 60 days" },
-  { value: "last_90_days", label: "Last 90 days" },
-  { value: "all_time", label: "All time" },
-];
+const RANGE_OPTIONS: AnalyticsRangePreset[] = ["today", "this_week", "last_week", "last_month", "last_60_days", "last_90_days", "all_time"];
 
 function usd(cents: number): string {
   return (cents / 100).toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 2 });
@@ -61,6 +54,7 @@ type AnalyticsPayload = {
 };
 
 export function AdminAnalyticsDashboard() {
+  const t = useTranslations("admin.revenue.analyticsDashboard");
   const router = useRouter();
   const searchParams = useSearchParams();
   const segment = parseAnalyticsSegment(searchParams.get("segment"));
@@ -91,18 +85,18 @@ export function AdminAnalyticsDashboard() {
       .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
       .then(({ ok, j }) => {
         if (!ok || j.error) {
-          setError(typeof j.error === "string" ? j.error : "Failed to load analytics");
+          setError(typeof j.error === "string" ? j.error : t("errors.failedToLoad"));
           setData(null);
           return;
         }
         setData(j as AnalyticsPayload);
       })
       .catch(() => {
-        setError("Failed to load analytics");
+        setError(t("errors.failedToLoad"));
         setData(null);
       })
       .finally(() => setLoading(false));
-  }, [range]);
+  }, [range, t]);
 
   useEffect(() => {
     void load();
@@ -116,8 +110,15 @@ export function AdminAnalyticsDashboard() {
   };
 
   const segmentLabel = useMemo(
-    () => ANALYTICS_SEGMENT_OPTIONS.find((o) => o.value === segment)?.label ?? "All sources",
-    [segment]
+    () =>
+      ({
+        all: t("segments.all.label"),
+        subscriptions: t("segments.subscriptions.label"),
+        lawyer_searches: t("segments.lawyerSearches.label"),
+        library_pdf: t("segments.libraryPdf.label"),
+        vault: t("segments.vault.label"),
+      })[segment],
+    [segment, t]
   );
 
   const totalCents = data ? getSegmentRevenueUsdCents(segment, data) : 0;
@@ -142,19 +143,16 @@ export function AdminAnalyticsDashboard() {
             <div className="min-w-0 flex-1">
               <div className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
                 <Sparkles className="h-3.5 w-3.5" />
-                Revenue intelligence
+                {t("eyebrow")}
               </div>
-              <h2 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">Analytics</h2>
-              <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">
-                Paid AI plans (period + run-rate), one-time unlocks, and Vault sales. Pick a date window and a source
-                to see totals for that slice.
-              </p>
+              <h2 className="mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{t("title")}</h2>
+              <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">{t("subtitle")}</p>
               {data ? (
                 <p className="mt-3 text-xs text-muted-foreground/90 sm:text-sm">{fmtRange(data.from, data.to)}</p>
               ) : null}
             </div>
             <div className="flex shrink-0 flex-col gap-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Date range</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t("dateRange")}</p>
               <div className="flex flex-wrap gap-2">
                 {RANGE_OPTIONS.map((opt) => (
                   <button
@@ -167,7 +165,7 @@ export function AdminAnalyticsDashboard() {
                         : "border border-border/80 bg-background/80 text-muted-foreground hover:border-primary/40 hover:text-foreground"
                     }`}
                   >
-                    {opt.label}
+                    {t(`ranges.${opt}`)}
                   </button>
                 ))}
               </div>
@@ -178,35 +176,28 @@ export function AdminAnalyticsDashboard() {
             <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Total made (this window)
+                  {t("totalMade")}
                 </p>
                 <p className="mt-1 text-4xl font-bold tabular-nums tracking-tight text-foreground sm:text-5xl">
                   {data ? usd(totalCents) : loading ? "—" : "$0.00"}
                 </p>
                 <p className="mt-2 max-w-lg text-sm text-muted-foreground">
                   {segment === "all" ? (
-                    <>
-                      Sum of <span className="font-medium text-foreground">estimated first payments</span> for new paid
-                      subscribers in range, plus document unlocks, lawyer search unlocks, and Vault purchases (list /
-                      item prices).
-                    </>
+                    <>{t.rich("segmentDescriptions.all", { strong: (chunks) => <span className="font-medium text-foreground">{chunks}</span> })}</>
                   ) : segment === "subscriptions" ? (
-                    <>
-                      Estimated revenue from users who became paid subscribers in this window (first cycle from Admin
-                      pricing; not MRR).
-                    </>
+                    <>{t("segmentDescriptions.subscriptions")}</>
                   ) : segment === "lawyer_searches" ? (
-                    <>Lawyer search unlock rows in range at the configured list price.</>
+                    <>{t("segmentDescriptions.lawyerSearches")}</>
                   ) : segment === "library_pdf" ? (
-                    <>Library PDF unlock rows in range at the configured list price.</>
+                    <>{t("segmentDescriptions.libraryPdf")}</>
                   ) : (
-                    <>Marketplace purchase rows in range, priced from each Vault item.</>
+                    <>{t("segmentDescriptions.vault")}</>
                   )}
                 </p>
                 <p className="mt-2 text-xs font-medium text-primary/90">{segmentLabel}</p>
               </div>
               <div className="w-full min-w-0 lg:max-w-md">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Source filter</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t("sourceFilter")}</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {ANALYTICS_SEGMENT_OPTIONS.map((opt) => (
                     <button
@@ -219,7 +210,7 @@ export function AdminAnalyticsDashboard() {
                           : "border border-border/80 bg-card/80 text-muted-foreground hover:border-primary/40 hover:text-foreground"
                       }`}
                     >
-                      {opt.short}
+                      {t(`segments.${opt.value}.short`)}
                     </button>
                   ))}
                 </div>
@@ -229,18 +220,18 @@ export function AdminAnalyticsDashboard() {
             {data && segment === "all" && mixSum > 0 ? (
               <div className="mt-6 border-t border-border/50 pt-6">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Mix in this window
+                  {t("mixInWindow")}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Tap a band to filter the total above to that source.
+                  {t("mixHint")}
                 </p>
-                <RevenueMixBar data={data} onPick={(s) => setSegment(s)} className="mt-3" />
-                <MixLegend data={data} mixSum={mixSum} />
+                <RevenueMixBar data={data} onPick={(s) => setSegment(s)} className="mt-3" t={t} />
+                <MixLegend data={data} mixSum={mixSum} t={t} />
               </div>
             ) : null}
             {data && segment === "all" && mixSum <= 0 ? (
               <p className="mt-6 border-t border-border/50 pt-6 text-xs text-muted-foreground">
-                No period revenue in this window yet. Try a longer range or another day.
+                {t("noRevenueInWindow")}
               </p>
             ) : null}
           </div>
@@ -260,23 +251,25 @@ export function AdminAnalyticsDashboard() {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <MetricCard
               icon={CreditCard}
-              label="Active paid subscribers"
+              label={t("cards.activePaidSubscribers")}
               value={String(data.subscriptions.activePaidSubscribers)}
-              sub={`Est. MRR ${usd(data.subscriptions.estimatedMrrUsdCents)}`}
+              sub={t("cards.estimatedMrr", { amount: usd(data.subscriptions.estimatedMrrUsdCents) })}
               accent="from-violet-500/20 to-fuchsia-500/10"
               dimmed={segment !== "all" && segment !== "subscriptions"}
             />
             <MetricCard
               icon={TrendingUp}
-              label="New subscribers (period)"
+              label={t("cards.newSubscribers")}
               value={String(data.subscriptions.newSubscribersInRange)}
-              sub={`Est. first-cycle ${usd(data.subscriptions.estimatedNewSubscriberRevenueUsdCents)}`}
+              sub={t("cards.estimatedFirstCycle", {
+                amount: usd(data.subscriptions.estimatedNewSubscriberRevenueUsdCents),
+              })}
               accent="from-emerald-500/20 to-teal-500/10"
               dimmed={segment !== "all" && segment !== "subscriptions"}
             />
             <MetricCard
               icon={Search}
-              label="Lawyer search unlocks"
+              label={t("cards.lawyerSearchUnlocks")}
               value={String(data.lawyerSearches.count)}
               sub={usd(data.lawyerSearches.revenueUsdCents)}
               accent="from-sky-500/20 to-blue-500/10"
@@ -284,7 +277,7 @@ export function AdminAnalyticsDashboard() {
             />
             <MetricCard
               icon={FileDown}
-              label="Library PDF unlocks"
+              label={t("cards.libraryPdfUnlocks")}
               value={String(data.documentUnlocks.count)}
               sub={usd(data.documentUnlocks.revenueUsdCents)}
               accent="from-amber-500/20 to-orange-500/10"
@@ -292,7 +285,7 @@ export function AdminAnalyticsDashboard() {
             />
             <MetricCard
               icon={Landmark}
-              label="Yamalé Vault"
+              label={t("cards.vault")}
               value={String(data.vaultPurchases.count)}
               sub={usd(data.vaultPurchases.revenueUsdCents)}
               accent="from-primary/25 to-primary/5"
@@ -301,7 +294,7 @@ export function AdminAnalyticsDashboard() {
           </div>
 
           <p className="text-center text-[11px] text-muted-foreground/90">
-            Scanned {data.totals.clerkUsersScanned} Clerk users for subscription metrics.
+            {t("scannedUsers", { count: data.totals.clerkUsersScanned })}
           </p>
 
           <p className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-xs leading-relaxed text-muted-foreground">
@@ -310,11 +303,8 @@ export function AdminAnalyticsDashboard() {
 
           <div className="space-y-4">
             <div>
-              <h3 className="text-xl font-semibold tracking-tight text-foreground">Who paid for what</h3>
-              <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                Row-level activity in the same date range as the cards above. Payment references are deposit or checkout
-                IDs from pawaPay / Lomi where stored.
-              </p>
+              <h3 className="text-xl font-semibold tracking-tight text-foreground">{t("detailTitle")}</h3>
+              <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t("detailSubtitle")}</p>
             </div>
             <AdminAnalyticsDetailTables details={data.details} segment={segment} />
           </div>
@@ -332,10 +322,12 @@ function RevenueMixBar({
   data,
   onPick,
   className,
+  t,
 }: {
   data: AnalyticsPayload;
   onPick: (s: Exclude<AnalyticsSegment, "all">) => void;
   className?: string;
+  t: ReturnType<typeof useTranslations>;
 }) {
   const parts: { seg: Exclude<AnalyticsSegment, "all">; cents: number; className: string }[] = [
     { seg: "subscriptions", cents: data.subscriptions.estimatedNewSubscriberRevenueUsdCents, className: "bg-violet-500" },
@@ -350,7 +342,7 @@ function RevenueMixBar({
     <div
       className={`flex h-4 w-full overflow-hidden rounded-full bg-muted/50 ring-1 ring-border/40 ${className ?? ""}`}
       role="group"
-      aria-label="Revenue mix by source"
+      aria-label={t("mixAria")}
     >
       {parts.map((p) =>
         p.cents <= 0 ? null : (
@@ -359,7 +351,7 @@ function RevenueMixBar({
             type="button"
             className={`min-w-[8px] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background ${p.className}`}
             style={{ flex: p.cents }}
-            title={`${ANALYTICS_SEGMENT_OPTIONS.find((o) => o.value === p.seg)?.label ?? p.seg} · ${usd(p.cents)}`}
+            title={`${t(`segments.${p.seg}.label`)} · ${usd(p.cents)}`}
             onClick={() => onPick(p.seg)}
           />
         )
@@ -368,7 +360,15 @@ function RevenueMixBar({
   );
 }
 
-function MixLegend({ data, mixSum }: { data: AnalyticsPayload; mixSum: number }) {
+function MixLegend({
+  data,
+  mixSum,
+  t,
+}: {
+  data: AnalyticsPayload;
+  mixSum: number;
+  t: ReturnType<typeof useTranslations>;
+}) {
   if (mixSum <= 0) return null;
   const rows: { seg: Exclude<AnalyticsSegment, "all">; cents: number; dot: string }[] = [
     { seg: "subscriptions", cents: data.subscriptions.estimatedNewSubscriberRevenueUsdCents, dot: "bg-violet-500" },
@@ -380,7 +380,7 @@ function MixLegend({ data, mixSum }: { data: AnalyticsPayload; mixSum: number })
     <ul className="mt-4 grid gap-2 text-xs sm:grid-cols-2">
       {rows.map((r) => {
         const pct = mixSum > 0 ? Math.round((r.cents / mixSum) * 100) : 0;
-        const label = ANALYTICS_SEGMENT_OPTIONS.find((o) => o.value === r.seg)?.short ?? r.seg;
+        const label = t(`segments.${r.seg}.short`);
         return (
           <li key={r.seg} className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2">
             <span className="flex items-center gap-2 text-muted-foreground">
