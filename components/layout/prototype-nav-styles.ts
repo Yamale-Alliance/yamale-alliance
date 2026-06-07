@@ -12,7 +12,7 @@ export const prototypeNavLinksRowClass =
 
 /** Right-side utilities (language, theme, auth / avatar). */
 export const prototypeNavActionsClass =
-  "flex shrink-0 flex-nowrap items-center justify-self-end gap-1.5 xl:gap-2";
+  "flex shrink-0 flex-nowrap items-center justify-self-end gap-1 md:gap-1.5 xl:gap-2";
 
 export function prototypeNavLinkClass(active: boolean): string {
   return [
