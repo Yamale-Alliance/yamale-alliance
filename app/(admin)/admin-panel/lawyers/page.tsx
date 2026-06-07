@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { Loader2, Briefcase, Plus, Trash2, Download, Upload, Video, X } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { normalizeExpertiseField } from "@/lib/lawyer-expertise";
@@ -25,6 +26,8 @@ type LawyerRow = {
 };
 
 export default function AdminLawyersPage() {
+  const t = useTranslations("admin.lawyers");
+  const tc = useTranslations("admin.common");
   const [lawyers, setLawyers] = useState<LawyerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -88,12 +91,12 @@ export default function AdminLawyersPage() {
 
   const handleOnboardingVideoUpload = async (file: File) => {
     if (!file.name.toLowerCase().endsWith(".mp4") && file.type !== "video/mp4") {
-      setError("Onboarding video must be an MP4 file");
+      setError(t("errors.videoMustBeMp4"));
       return;
     }
     const maxBytes = 100 * 1024 * 1024;
     if (file.size > maxBytes) {
-      setError("Video must be under 100 MB");
+      setError(t("errors.videoTooLarge"));
       return;
     }
 
@@ -163,7 +166,7 @@ export default function AdminLawyersPage() {
         typeof saveData.url === "string" ? saveData.url : cloudData.secure_url
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Video upload failed");
+      setError(e instanceof Error ? e.message : t("errors.videoUploadFailed"));
     } finally {
       setOnboardingVideoUploading(false);
     }
@@ -171,10 +174,10 @@ export default function AdminLawyersPage() {
 
   const handleOnboardingVideoRemove = async () => {
     const ok = await confirm({
-      title: "Remove onboarding video?",
-      description: "Visitors will no longer see the lawyers tab intro video until you upload a new one.",
-      confirmLabel: "Remove",
-      cancelLabel: "Cancel",
+      title: t("video.removeTitle"),
+      description: t("video.removeDescription"),
+      confirmLabel: t("video.removeButton"),
+      cancelLabel: tc("cancel"),
       variant: "destructive",
     });
     if (!ok) return;
@@ -189,7 +192,7 @@ export default function AdminLawyersPage() {
       if (!res.ok) throw new Error(apiErrorMessage(data, "Remove failed"));
       setOnboardingVideoUrl(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Remove failed");
+      setError(e instanceof Error ? e.message : t("errors.removeFailed"));
     } finally {
       setOnboardingVideoRemoving(false);
     }
@@ -205,18 +208,18 @@ export default function AdminLawyersPage() {
     try {
       return JSON.parse(text) as Record<string, unknown>;
     } catch {
-      return { error: text.slice(0, 200) || "Server returned non-JSON (check deployment logs)." };
+      return { error: text.slice(0, 200) || t("errors.serverNonJson") };
     }
   }
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formExpertise.trim()) {
-      setError("Name and expertise are required.");
+      setError(t("errors.nameExpertiseRequired"));
       return;
     }
     if (!formEmail.trim() && !formPhone.trim()) {
-      setError("Email or phone is required.");
+      setError(t("errors.emailOrPhoneRequired"));
       return;
     }
     setSubmitting(true);
@@ -240,7 +243,7 @@ export default function AdminLawyersPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(apiErrorMessage(data, "Failed to add lawyer"));
+        setError(apiErrorMessage(data, t("errors.addFailed")));
         return;
       }
       setFormName("");
@@ -255,7 +258,7 @@ export default function AdminLawyersPage() {
       setShowForm(false);
       fetchLawyers();
     } catch {
-      setError("Network error");
+      setError(tc("networkError"));
     } finally {
       setSubmitting(false);
     }
@@ -279,11 +282,11 @@ export default function AdminLawyersPage() {
     e.preventDefault();
     if (!editing) return;
     if (!editName.trim() || !editExpertise.trim()) {
-      setError("Name and expertise are required.");
+      setError(t("errors.nameExpertiseRequired"));
       return;
     }
     if (!editEmail.trim() && !editPhone.trim()) {
-      setError("Email or phone is required.");
+      setError(t("errors.emailOrPhoneRequired"));
       return;
     }
     setEditSubmitting(true);
@@ -307,13 +310,13 @@ export default function AdminLawyersPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(apiErrorMessage(data, "Failed to update lawyer"));
+        setError(apiErrorMessage(data, t("errors.updateFailed")));
         return;
       }
       setLawyers((prev) => prev.map((l) => (l.id === editing.id ? (data as LawyerRow) : l)));
       setEditing(null);
     } catch {
-      setError("Network error");
+      setError(tc("networkError"));
     } finally {
       setEditSubmitting(false);
     }
@@ -322,11 +325,10 @@ export default function AdminLawyersPage() {
   const handleRemove = async (id: string) => {
     if (removingId) return;
     const ok = await confirm({
-      title: "Remove lawyer",
-      description:
-        "Remove this lawyer from the directory? They will no longer appear on the Find a Lawyer page.",
-      confirmLabel: "Remove",
-      cancelLabel: "Cancel",
+      title: t("removeLawyerTitle"),
+      description: t("removeLawyerDescription"),
+      confirmLabel: t("removeLawyerButton"),
+      cancelLabel: tc("cancel"),
       variant: "destructive",
     });
     if (!ok) return;
@@ -339,12 +341,12 @@ export default function AdminLawyersPage() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(apiErrorMessage(data, "Failed to remove"));
+        setError(apiErrorMessage(data, t("errors.removeFailed")));
         return;
       }
       setLawyers((prev) => prev.filter((l) => l.id !== id));
     } catch {
-      setError("Network error");
+      setError(tc("networkError"));
     } finally {
       setRemovingId(null);
     }
@@ -365,14 +367,14 @@ export default function AdminLawyersPage() {
   const exportPdf = () => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
-      setError("Popup blocked. Allow popups to export PDF.");
+      setError(tc("popupBlocked"));
       return;
     }
     const esc = (s: string) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     const generated = new Date().toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
     printWindow.document.write(`
       <!DOCTYPE html>
-      <html><head><title>Lawyers directory – Yamalé Alliance</title>
+      <html><head><title>${esc(t("export.documentTitle"))}</title>
       <meta charset="utf-8">
       <style>
         * { box-sizing: border-box; }
@@ -394,15 +396,15 @@ export default function AdminLawyersPage() {
         <div class="company">Yamalé Alliance</div>
         <div class="tagline">AI legal search & research platform</div>
       </div>
-      <h1 class="report-title">Lawyers directory export</h1>
-      <p class="report-meta">Generated ${esc(generated)}</p>
+      <h1 class="report-title">${esc(t("export.reportTitle"))}</h1>
+      <p class="report-meta">${esc(t("export.generated", { date: generated }))}</p>
       <table>
-        <thead><tr><th>Name</th><th>Country</th><th>Expertise</th><th>Email</th><th>Phone</th><th>Added</th></tr></thead>
+        <thead><tr><th>${esc(t("export.tableHeaders.name"))}</th><th>${esc(t("export.tableHeaders.country"))}</th><th>${esc(t("export.tableHeaders.expertise"))}</th><th>${esc(t("export.tableHeaders.email"))}</th><th>${esc(t("export.tableHeaders.phone"))}</th><th>${esc(t("export.tableHeaders.added"))}</th></tr></thead>
         <tbody>
           ${lawyers.map((l) => `<tr><td>${esc(l.name)}</td><td>${esc(l.country ?? "—")}</td><td>${esc(l.expertise)}</td><td>${esc(l.email ?? "—")}</td><td>${esc(l.phone ?? "—")}</td><td>${esc(formatDate(l.created_at))}</td></tr>`).join("")}
         </tbody>
       </table>
-      <div class="footer">Yamalé Alliance – Confidential. This report was generated from the admin panel.</div>
+      <div class="footer">${esc(t("export.footer"))}</div>
       </body></html>
     `);
     printWindow.document.close();
@@ -419,10 +421,10 @@ export default function AdminLawyersPage() {
         <div>
           <h1 className="text-2xl font-semibold flex items-center gap-2">
             <Briefcase className="h-6 w-6" />
-            Lawyers directory
+            {t("title")}
           </h1>
           <p className="mt-1 text-muted-foreground">
-            Lawyers are added manually or via the public form. They appear on the Find a Lawyer page.
+            {t("subtitle")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -433,7 +435,7 @@ export default function AdminLawyersPage() {
               className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent"
             >
               <Download className="h-4 w-4" />
-              Export PDF
+              {tc("exportPdf")}
             </button>
           )}
           <button
@@ -442,7 +444,7 @@ export default function AdminLawyersPage() {
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
             <Plus className="h-4 w-4" />
-            Add lawyer
+            {t("addLawyer")}
           </button>
         </div>
       </div>
@@ -452,12 +454,12 @@ export default function AdminLawyersPage() {
           <div>
             <h2 className="flex items-center gap-2 text-lg font-medium text-foreground">
               <Video className="h-5 w-5 text-primary" />
-              Lawyers onboarding video
+              {t("video.title")}
             </h2>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              MP4 shown once when someone opens the <strong>Find a Lawyer</strong> tab (<strong>/lawyers</strong>).
-              They can replay it via the onboarding video button in the hero. Uploads go directly to Cloudinary (max
-              100 MB).
+              {t.rich("video.description", {
+                strong: (chunks) => <strong>{chunks}</strong>,
+              })}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -467,7 +469,7 @@ export default function AdminLawyersPage() {
               ) : (
                 <Upload className="h-4 w-4" />
               )}
-              {onboardingVideoUrl ? "Replace video" : "Upload MP4"}
+              {onboardingVideoUrl ? t("video.replace") : t("video.upload")}
               <input
                 type="file"
                 accept="video/mp4,.mp4"
@@ -492,7 +494,7 @@ export default function AdminLawyersPage() {
                 ) : (
                   <X className="h-4 w-4" />
                 )}
-                Remove
+                {t("video.removeButton")}
               </button>
             )}
           </div>
@@ -508,17 +510,17 @@ export default function AdminLawyersPage() {
             />
           </div>
         ) : (
-          <p className="mt-4 text-sm text-muted-foreground">No video uploaded yet.</p>
+          <p className="mt-4 text-sm text-muted-foreground">{t("video.empty")}</p>
         )}
       </section>
 
       {showForm && (
         <form onSubmit={handleAddSubmit} className="mt-6 rounded-xl border border-border bg-card p-6 shadow-sm">
-          <h2 className="text-lg font-medium mb-4">Add lawyer to directory</h2>
+          <h2 className="text-lg font-medium mb-4">{t("form.addTitle")}</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="admin-lawyer-name" className="block text-sm font-medium text-foreground mb-1">
-                Name <span className="text-destructive">*</span>
+                {tc("name")} <span className="text-destructive">*</span>
               </label>
               <input
                 id="admin-lawyer-name"
@@ -528,12 +530,12 @@ export default function AdminLawyersPage() {
                 required
                 maxLength={200}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                placeholder="Full name"
+                placeholder={t("form.placeholders.fullName")}
               />
             </div>
             <div>
               <label htmlFor="admin-lawyer-country" className="block text-sm font-medium text-foreground mb-1">
-                Country
+                {t("table.country")}
               </label>
               <input
                 id="admin-lawyer-country"
@@ -542,12 +544,12 @@ export default function AdminLawyersPage() {
                 onChange={(e) => setFormCountry(e.target.value)}
                 maxLength={100}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                placeholder="e.g. Ghana, Kenya"
+                placeholder={t("form.placeholders.country")}
               />
             </div>
             <div className="sm:col-span-2">
               <label htmlFor="admin-lawyer-expertise" className="block text-sm font-medium text-foreground mb-1">
-                Expertise <span className="text-destructive">*</span>
+                {t("table.expertise")} <span className="text-destructive">*</span>
               </label>
               <input
                 id="admin-lawyer-expertise"
@@ -557,12 +559,12 @@ export default function AdminLawyersPage() {
                 required
                 maxLength={500}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                placeholder="e.g. Corporate law, Tax, Employment"
+                placeholder={t("form.placeholders.expertise")}
               />
             </div>
             <div>
               <label htmlFor="admin-lawyer-email" className="block text-sm font-medium text-foreground mb-1">
-                Email <span className="text-destructive">*</span>
+                {tc("email")} <span className="text-destructive">*</span>
               </label>
               <input
                 id="admin-lawyer-email"
@@ -571,12 +573,12 @@ export default function AdminLawyersPage() {
                 onChange={(e) => setFormEmail(e.target.value)}
                 maxLength={255}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                placeholder="lawyer@example.com"
+                placeholder={t("form.placeholders.email")}
               />
             </div>
             <div>
               <label htmlFor="admin-lawyer-phone" className="block text-sm font-medium text-foreground mb-1">
-                Phone
+                {t("table.phone")}
               </label>
               <input
                 id="admin-lawyer-phone"
@@ -585,12 +587,12 @@ export default function AdminLawyersPage() {
                 onChange={(e) => setFormPhone(e.target.value)}
                 maxLength={50}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                placeholder="e.g. +233 00 000 0000"
+                placeholder={t("form.placeholders.phone")}
               />
             </div>
             <div>
               <label htmlFor="admin-lawyer-primary-language" className="block text-sm font-medium text-foreground mb-1">
-                Primary language
+                {t("form.primaryLanguage")}
               </label>
               <input
                 id="admin-lawyer-primary-language"
@@ -599,12 +601,12 @@ export default function AdminLawyersPage() {
                 onChange={(e) => setFormPrimaryLanguage(e.target.value)}
                 maxLength={100}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                placeholder="e.g. English"
+                placeholder={t("form.placeholders.primaryLanguage")}
               />
             </div>
             <div>
               <label htmlFor="admin-lawyer-other-languages" className="block text-sm font-medium text-foreground mb-1">
-                Other languages
+                {t("form.otherLanguages")}
               </label>
               <input
                 id="admin-lawyer-other-languages"
@@ -613,12 +615,12 @@ export default function AdminLawyersPage() {
                 onChange={(e) => setFormOtherLanguages(e.target.value)}
                 maxLength={500}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                placeholder="e.g. French, Swahili"
+                placeholder={t("form.placeholders.otherLanguages")}
               />
             </div>
             <div className="sm:col-span-2">
               <label htmlFor="admin-lawyer-linkedin" className="block text-sm font-medium text-foreground mb-1">
-                LinkedIn URL <span className="text-muted-foreground">(optional)</span>
+                {t("form.linkedin")} <span className="text-muted-foreground">({t("optional")})</span>
               </label>
               <input
                 id="admin-lawyer-linkedin"
@@ -627,12 +629,12 @@ export default function AdminLawyersPage() {
                 onChange={(e) => setFormLinkedin(e.target.value)}
                 maxLength={500}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                placeholder="https://linkedin.com/in/..."
+                placeholder={t("form.placeholders.linkedin")}
               />
             </div>
             <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-foreground mb-1">
-                Photo <span className="text-muted-foreground">(optional)</span>
+                {t("form.photo")} <span className="text-muted-foreground">({t("optional")})</span>
               </label>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <input
@@ -641,7 +643,7 @@ export default function AdminLawyersPage() {
                   onChange={(e) => setFormImageUrl(e.target.value)}
                   maxLength={2048}
                   className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                  placeholder="Image URL or upload below"
+                  placeholder={t("form.placeholders.imageUrl")}
                 />
                 <label className="flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm cursor-pointer hover:bg-accent shrink-0">
                   <input
@@ -670,8 +672,8 @@ export default function AdminLawyersPage() {
                             apiErrorMessage(
                               d,
                               r.status === 413
-                                ? "Image too large for the server limit. Use a file under 5 MB or compress the photo."
-                                : "Upload failed. Ensure CLOUDINARY_* env vars are set on Vercel."
+                                ? t("errors.imageTooLarge")
+                                : t("errors.uploadFailed")
                             )
                           );
                         }
@@ -681,12 +683,12 @@ export default function AdminLawyersPage() {
                       }
                     }}
                   />
-                  {formImageUploading ? "Uploading…" : "Upload image"}
+                  {formImageUploading ? t("form.uploading") : t("form.uploadImage")}
                 </label>
               </div>
               {formImageUrl && (
                 <div className="mt-2">
-                  <img src={formImageUrl} alt="Preview" className="h-16 w-16 rounded-full object-cover border border-border" />
+                  <img src={formImageUrl} alt={t("form.previewAlt")} className="h-16 w-16 rounded-full object-cover border border-border" />
                 </div>
               )}
             </div>
@@ -697,14 +699,14 @@ export default function AdminLawyersPage() {
               onClick={() => setShowForm(false)}
               className="rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
             >
-              Cancel
+              {tc("cancel")}
             </button>
             <button
               type="submit"
               disabled={submitting}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
             >
-              {submitting ? "Adding…" : "Add lawyer"}
+              {submitting ? t("adding") : t("addLawyer")}
             </button>
           </div>
         </form>
@@ -712,11 +714,11 @@ export default function AdminLawyersPage() {
 
       {editing && (
         <form onSubmit={handleEditSubmit} className="mt-6 rounded-xl border border-border bg-card p-6 shadow-sm">
-          <h2 className="text-lg font-medium mb-4">Edit lawyer</h2>
+          <h2 className="text-lg font-medium mb-4">{t("form.editTitle")}</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="edit-lawyer-name" className="block text-sm font-medium text-foreground mb-1">
-                Name <span className="text-destructive">*</span>
+                {tc("name")} <span className="text-destructive">*</span>
               </label>
               <input
                 id="edit-lawyer-name"
@@ -730,7 +732,7 @@ export default function AdminLawyersPage() {
             </div>
             <div>
               <label htmlFor="edit-lawyer-country" className="block text-sm font-medium text-foreground mb-1">
-                Country
+                {t("table.country")}
               </label>
               <input
                 id="edit-lawyer-country"
@@ -743,7 +745,7 @@ export default function AdminLawyersPage() {
             </div>
             <div className="sm:col-span-2">
               <label htmlFor="edit-lawyer-expertise" className="block text-sm font-medium text-foreground mb-1">
-                Expertise <span className="text-destructive">*</span>
+                {t("table.expertise")} <span className="text-destructive">*</span>
               </label>
               <input
                 id="edit-lawyer-expertise"
@@ -757,7 +759,7 @@ export default function AdminLawyersPage() {
             </div>
             <div>
               <label htmlFor="edit-lawyer-email" className="block text-sm font-medium text-foreground mb-1">
-                Email
+                {tc("email")}
               </label>
               <input
                 id="edit-lawyer-email"
@@ -770,7 +772,7 @@ export default function AdminLawyersPage() {
             </div>
             <div>
               <label htmlFor="edit-lawyer-phone" className="block text-sm font-medium text-foreground mb-1">
-                Phone
+                {t("table.phone")}
               </label>
               <input
                 id="edit-lawyer-phone"
@@ -783,7 +785,7 @@ export default function AdminLawyersPage() {
             </div>
             <div>
               <label htmlFor="edit-lawyer-primary-language" className="block text-sm font-medium text-foreground mb-1">
-                Primary language
+                {t("form.primaryLanguage")}
               </label>
               <input
                 id="edit-lawyer-primary-language"
@@ -796,7 +798,7 @@ export default function AdminLawyersPage() {
             </div>
             <div>
               <label htmlFor="edit-lawyer-other-languages" className="block text-sm font-medium text-foreground mb-1">
-                Other languages
+                {t("form.otherLanguages")}
               </label>
               <input
                 id="edit-lawyer-other-languages"
@@ -809,7 +811,7 @@ export default function AdminLawyersPage() {
             </div>
             <div className="sm:col-span-2">
               <label htmlFor="edit-lawyer-linkedin" className="block text-sm font-medium text-foreground mb-1">
-                LinkedIn URL
+                {t("form.linkedin")}
               </label>
               <input
                 id="edit-lawyer-linkedin"
@@ -821,7 +823,7 @@ export default function AdminLawyersPage() {
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-foreground mb-1">Photo</label>
+              <label className="block text-sm font-medium text-foreground mb-1">{t("form.photo")}</label>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <input
                   type="url"
@@ -829,7 +831,7 @@ export default function AdminLawyersPage() {
                   onChange={(e) => setEditImageUrl(e.target.value)}
                   maxLength={2048}
                   className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                  placeholder="Image URL or upload"
+                  placeholder={t("form.placeholders.imageUrlOrUpload")}
                 />
                 <label className="flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm cursor-pointer hover:bg-accent shrink-0">
                   <input
@@ -858,8 +860,8 @@ export default function AdminLawyersPage() {
                             apiErrorMessage(
                               d,
                               r.status === 413
-                                ? "Image too large for the server limit. Use a file under 5 MB or compress the photo."
-                                : "Upload failed. Ensure CLOUDINARY_* env vars are set on Vercel."
+                                ? t("errors.imageTooLarge")
+                                : t("errors.uploadFailed")
                             )
                           );
                         }
@@ -869,12 +871,12 @@ export default function AdminLawyersPage() {
                       }
                     }}
                   />
-                  {editImageUploading ? "Uploading…" : "Upload"}
+                  {editImageUploading ? t("form.uploading") : t("form.upload")}
                 </label>
               </div>
               {editImageUrl && (
                 <div className="mt-2">
-                  <img src={editImageUrl} alt="Preview" className="h-16 w-16 rounded-full object-cover border border-border" />
+                  <img src={editImageUrl} alt={t("form.previewAlt")} className="h-16 w-16 rounded-full object-cover border border-border" />
                 </div>
               )}
             </div>
@@ -885,14 +887,14 @@ export default function AdminLawyersPage() {
               onClick={() => setEditing(null)}
               className="rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
             >
-              Cancel
+              {tc("cancel")}
             </button>
             <button
               type="submit"
               disabled={editSubmitting}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
             >
-              {editSubmitting ? "Saving…" : "Save changes"}
+              {editSubmitting ? tc("saving") : t("saveChanges")}
             </button>
           </div>
         </form>
@@ -914,23 +916,23 @@ export default function AdminLawyersPage() {
             <table className="w-full text-sm min-w-[800px]">
               <thead className="border-b border-border bg-muted/50">
                 <tr>
-                  <th className="text-left p-3 font-medium w-14">Photo</th>
-                  <th className="text-left p-3 font-medium">Name</th>
-                  <th className="text-left p-3 font-medium">Country</th>
-                  <th className="text-left p-3 font-medium max-w-[160px]">Expertise</th>
-                  <th className="text-left p-3 font-medium max-w-[140px]">Languages</th>
-                  <th className="text-left p-3 font-medium max-w-[160px]">Email</th>
-                  <th className="text-left p-3 font-medium max-w-[120px]">Phone</th>
-                  <th className="text-left p-3 font-medium w-20">Source</th>
-                  <th className="text-left p-3 font-medium">Added</th>
-                  <th className="text-left p-3 font-medium w-[100px] min-w-[100px] sticky right-0 bg-muted/50 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)] z-10">Actions</th>
+                  <th className="text-left p-3 font-medium w-14">{t("table.photo")}</th>
+                  <th className="text-left p-3 font-medium">{tc("name")}</th>
+                  <th className="text-left p-3 font-medium">{t("table.country")}</th>
+                  <th className="text-left p-3 font-medium max-w-[160px]">{t("table.expertise")}</th>
+                  <th className="text-left p-3 font-medium max-w-[140px]">{t("table.languages")}</th>
+                  <th className="text-left p-3 font-medium max-w-[160px]">{tc("email")}</th>
+                  <th className="text-left p-3 font-medium max-w-[120px]">{t("table.phone")}</th>
+                  <th className="text-left p-3 font-medium w-20">{t("table.source")}</th>
+                  <th className="text-left p-3 font-medium">{t("table.added")}</th>
+                  <th className="text-left p-3 font-medium w-[100px] min-w-[100px] sticky right-0 bg-muted/50 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)] z-10">{tc("actions")}</th>
                 </tr>
               </thead>
               <tbody>
                 {lawyers.length === 0 ? (
                   <tr>
                     <td colSpan={10} className="p-8 text-center text-muted-foreground">
-                      No lawyers in the directory yet. Add one manually or share the form link: /lawyers/join
+                      {t("empty")}
                     </td>
                   </tr>
                 ) : (
@@ -966,7 +968,7 @@ export default function AdminLawyersPage() {
                       </td>
                       <td className="p-3">
                         <span className={`rounded-full px-2 py-0.5 text-xs ${l.source === "form" ? "bg-blue-500/15 text-blue-700 dark:text-blue-400" : "bg-muted text-muted-foreground"}`}>
-                          {l.source === "form" ? "Form" : "Manual"}
+                          {l.source === "form" ? t("source.form") : t("source.manual")}
                         </span>
                       </td>
                       <td className="p-3 text-muted-foreground">{formatDate(l.created_at)}</td>
@@ -975,7 +977,7 @@ export default function AdminLawyersPage() {
                           type="button"
                           onClick={() => openEdit(l)}
                           className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground text-xs font-medium"
-                          title="Edit lawyer"
+                          title={t("editLawyer")}
                         >
                           Edit
                         </button>
@@ -984,7 +986,7 @@ export default function AdminLawyersPage() {
                           onClick={() => handleRemove(l.id)}
                           disabled={removingId === l.id}
                           className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
-                          title="Remove from directory"
+                          title={t("removeFromDirectory")}
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -999,7 +1001,9 @@ export default function AdminLawyersPage() {
       )}
 
       <p className="mt-4 text-xs text-muted-foreground">
-        Public form: <strong>/lawyers/join</strong> — lawyers can submit their details there to be added to the directory.
+        {t.rich("publicForm", {
+          strong: (chunks) => <strong>{chunks}</strong>,
+        })}
       </p>
       {confirmDialog}
     </div>
