@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, Loader2, Pencil, Trash2, X, Check } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 
@@ -13,6 +14,8 @@ type CategoryRow = {
 };
 
 export default function AdminLawCategoriesPage() {
+  const t = useTranslations("admin.laws.categories");
+  const tc = useTranslations("admin.common");
   const { confirm, confirmDialog } = useConfirm();
   const [categories, setCategories] = useState<CategoryRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,14 +40,14 @@ export default function AdminLawCategoriesPage() {
       .then((r) => r.json())
       .then((data) => {
         if (!Array.isArray(data?.categories)) {
-          setLoadError(data?.error ?? "Failed to load categories.");
+          setLoadError(data?.error ?? t("errors.loadFailed"));
           setCategories([]);
           return;
         }
         setCategories(data.categories as CategoryRow[]);
       })
       .catch(() => {
-        setLoadError("Failed to load categories.");
+        setLoadError(t("errors.loadFailed"));
         setCategories([]);
       })
       .finally(() => setLoading(false));
@@ -73,17 +76,17 @@ export default function AdminLawCategoriesPage() {
       };
       if (!res.ok) {
         if (res.status === 409 && data.category?.id) {
-          setAddError(`“${data.category.name}” already exists.`);
+          setAddError(t("alreadyExists", { name: data.category.name }));
           await loadCategories();
           return;
         }
-        setAddError(data.error ?? "Could not create category.");
+        setAddError(data.error ?? t("errors.createFailed"));
         return;
       }
       setNewName("");
       await loadCategories();
     } catch {
-      setAddError("Could not create category.");
+      setAddError(t("errors.createFailed"));
     } finally {
       setAdding(false);
     }
@@ -115,13 +118,13 @@ export default function AdminLawCategoriesPage() {
       });
       const data = (await res.json()) as { error?: string };
       if (!res.ok) {
-        setEditError(data.error ?? "Could not rename category.");
+        setEditError(data.error ?? t("errors.renameFailed"));
         return;
       }
       cancelEdit();
       await loadCategories();
     } catch {
-      setEditError("Could not rename category.");
+      setEditError(t("errors.renameFailed"));
     } finally {
       setSavingId(null);
     }
@@ -130,16 +133,16 @@ export default function AdminLawCategoriesPage() {
   const handleDelete = async (row: CategoryRow) => {
     if (row.lawCount > 0) {
       setDeleteError(
-        `“${row.name}” is used by ${row.lawCount} law(s). Reassign those laws before deleting.`
+        t("usedByLaws", { name: row.name, count: row.lawCount })
       );
       return;
     }
 
     const ok = await confirm({
-      title: "Delete category",
-      description: `Delete “${row.name}”? This cannot be undone.`,
-      confirmLabel: "Delete",
-      cancelLabel: "Cancel",
+      title: t("deleteTitle"),
+      description: t("deleteDescription", { name: row.name }),
+      confirmLabel: t("delete"),
+      cancelLabel: tc("cancel"),
       variant: "destructive",
     });
     if (!ok) return;
@@ -153,12 +156,12 @@ export default function AdminLawCategoriesPage() {
       });
       const data = (await res.json()) as { error?: string; lawCount?: number };
       if (!res.ok) {
-        setDeleteError(data.error ?? "Could not delete category.");
+        setDeleteError(data.error ?? t("errors.deleteFailed"));
         return;
       }
       await loadCategories();
     } catch {
-      setDeleteError("Could not delete category.");
+      setDeleteError(t("errors.deleteFailed"));
     } finally {
       setDeletingId(null);
     }
@@ -173,28 +176,27 @@ export default function AdminLawCategoriesPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to laws
+          {t("back")}
         </Link>
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Law categories</h1>
+          <h1 className="text-2xl font-semibold">{t("title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage categories used when classifying laws. You can also add categories inline when adding or editing a
-            law.
+            {t("subtitle")}
           </p>
         </div>
       </div>
 
       <form onSubmit={handleAdd} className="mt-6 max-w-xl">
-        <label className="mb-1 block text-sm font-medium">Add category</label>
+        <label className="mb-1 block text-sm font-medium">{t("addCategory")}</label>
         <div className="flex gap-2">
           <input
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder="e.g. Intellectual Property Law"
+            placeholder={t("categoryPlaceholder")}
             className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
           />
           <button
@@ -202,7 +204,7 @@ export default function AdminLawCategoriesPage() {
             disabled={adding || !newName.trim()}
             className="whitespace-nowrap rounded-md border border-input px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50"
           >
-            {adding ? "Adding…" : "Add category"}
+            {adding ? t("adding") : t("addCategory")}
           </button>
         </div>
         {addError ? <p className="mt-1 text-sm text-destructive">{addError}</p> : null}
@@ -218,15 +220,15 @@ export default function AdminLawCategoriesPage() {
       ) : loadError ? (
         <p className="mt-8 text-sm text-destructive">{loadError}</p>
       ) : categories.length === 0 ? (
-        <p className="mt-8 text-sm text-muted-foreground">No categories yet. Add one above.</p>
+        <p className="mt-8 text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
         <div className="mt-6 overflow-x-auto rounded-lg border border-border">
           <table className="w-full min-w-[32rem] text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-left">
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Laws</th>
-                <th className="px-4 py-3 font-medium text-right">Actions</th>
+                <th className="px-4 py-3 font-medium">{tc("name")}</th>
+                <th className="px-4 py-3 font-medium">{t("table.laws")}</th>
+                <th className="px-4 py-3 font-medium text-right">{tc("actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -269,23 +271,23 @@ export default function AdminLawCategoriesPage() {
                               onClick={() => void handleSaveRename(row.id)}
                               disabled={savingId === row.id || !editName.trim()}
                               className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-50"
-                              title="Save"
+                              title={tc("save")}
                             >
                               {savingId === row.id ? (
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                               ) : (
                                 <Check className="h-3.5 w-3.5" />
                               )}
-                              Save
+                              {tc("save")}
                             </button>
                             <button
                               type="button"
                               onClick={cancelEdit}
                               className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1.5 text-xs font-medium hover:bg-accent"
-                              title="Cancel"
+                              title={tc("cancel")}
                             >
                               <X className="h-3.5 w-3.5" />
-                              Cancel
+                              {tc("cancel")}
                             </button>
                           </>
                         ) : (
@@ -296,7 +298,7 @@ export default function AdminLawCategoriesPage() {
                               className="inline-flex items-center gap-1 rounded-md border border-input px-2 py-1.5 text-xs font-medium hover:bg-accent"
                             >
                               <Pencil className="h-3.5 w-3.5" />
-                              Rename
+                              {t("rename")}
                             </button>
                             <button
                               type="button"
@@ -305,7 +307,7 @@ export default function AdminLawCategoriesPage() {
                               title={
                                 row.lawCount > 0
                                   ? `Used by ${row.lawCount} law(s) — reassign before deleting`
-                                  : "Delete category"
+                                  : t("deleteCategoryHint")
                               }
                               className="inline-flex items-center gap-1 rounded-md border border-destructive/40 px-2 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
                             >
@@ -314,7 +316,7 @@ export default function AdminLawCategoriesPage() {
                               ) : (
                                 <Trash2 className="h-3.5 w-3.5" />
                               )}
-                              Delete
+                              {t("delete")}
                             </button>
                           </>
                         )}
