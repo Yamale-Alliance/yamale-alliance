@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
 
 type Country = { id: string; name: string };
@@ -19,6 +20,8 @@ type LogLine =
   | { kind: "err"; text: string };
 
 export default function AdminLawsFixOcrPage() {
+  const t = useTranslations("admin.laws.fixOcr");
+  const tc = useTranslations("admin.common");
   const [countries, setCountries] = useState<Country[]>([]);
   const [countryIds, setCountryIds] = useState<string[]>([]);
   const [laws, setLaws] = useState<LawRow[]>([]);
@@ -103,7 +106,12 @@ export default function AdminLawsFixOcrPage() {
     setLastFailedLaws([]);
     appendLog({
       kind: "info",
-      text: `Starting ${isRetry ? "retry " : ""}${dryRun ? "dry run (no saves) " : ""}for ${list.length} law(s) across ${countryIds.length} countr${countryIds.length === 1 ? "y" : "ies"}.`,
+      text: t("logs.starting", {
+        retryPrefix: isRetry ? t("logs.retryPrefix") : "",
+        dryRunPrefix: dryRun ? t("logs.dryRunPrefix") : "",
+        laws: list.length,
+        countries: countryIds.length,
+      }),
     });
 
     let ok = 0;
@@ -112,7 +120,7 @@ export default function AdminLawsFixOcrPage() {
 
     for (let i = 0; i < list.length; i++) {
       if (stopRef.current) {
-        appendLog({ kind: "info", text: "Stopped by user." });
+        appendLog({ kind: "info", text: t("logs.stoppedByUser") });
         break;
       }
       const law = list[i];
@@ -155,8 +163,8 @@ export default function AdminLawsFixOcrPage() {
               kind: "info",
               text:
                 d.reason === "already_fixed"
-                  ? `Skipped (already fixed earlier).`
-                  : `Skipped (looks clean; score ${d.heuristicScore ?? "?"}).`,
+                  ? t("logs.skippedAlreadyFixed")
+                  : t("logs.skippedLooksClean", { score: d.heuristicScore ?? "?" }),
             });
             setProgress({ done: i + 1, total: list.length });
             if (i < list.length - 1 && !stopRef.current && lawDelayMs > 0) {
@@ -168,13 +176,13 @@ export default function AdminLawsFixOcrPage() {
           appendLog({
             kind: "ok",
             text: dryRun
-              ? `Would write ${d.cleanedChars ?? "?"} chars (from ${d.originalChars ?? "?"}).`
-              : `Saved ${d.cleanedChars ?? "?"} chars.`,
+              ? t("logs.wouldWriteChars", { cleaned: d.cleanedChars ?? "?", original: d.originalChars ?? "?" })
+              : t("logs.savedChars", { cleaned: d.cleanedChars ?? "?" }),
           });
           if (dryRun && d.preview) {
             appendLog({
               kind: "info",
-              text: `Preview: ${d.preview.slice(0, 240).replace(/\n/g, " ")}…`,
+              text: t("logs.preview", { preview: d.preview.slice(0, 240).replace(/\n/g, " ") }),
             });
           }
         }
@@ -183,7 +191,7 @@ export default function AdminLawsFixOcrPage() {
         failedLaws.push(law);
         appendLog({
           kind: "err",
-          text: e instanceof Error ? e.message : "Request failed",
+          text: e instanceof Error ? e.message : t("errors.requestFailed"),
         });
       }
 
@@ -195,7 +203,7 @@ export default function AdminLawsFixOcrPage() {
 
     appendLog({
       kind: "info",
-      text: `Finished. Success: ${ok}, failed: ${failed}.`,
+      text: t("logs.finished", { success: ok, failed }),
     });
     setLastFailedLaws(failedLaws);
     setRunning(false);
@@ -216,7 +224,7 @@ export default function AdminLawsFixOcrPage() {
         className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to laws
+        {t("back")}
       </Link>
 
       <div className="flex items-start gap-3">
@@ -224,17 +232,16 @@ export default function AdminLawsFixOcrPage() {
           <Sparkles className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold">Fix OCR with AI</h1>
+          <h1 className="text-2xl font-semibold">{t("title")}</h1>
           <p className="mt-1 text-muted-foreground">
-            Choose a country and run Claude on each law to remove OCR noise and tidy formatting. Large
-            instruments are processed in chunks. Use dry run first to preview without saving.
+            {t("subtitle")}
           </p>
         </div>
       </div>
 
       <div className="mt-8 space-y-6 rounded-lg border border-border bg-card p-5">
         <div>
-          <label className="mb-1.5 block text-sm font-medium">Country</label>
+          <label className="mb-1.5 block text-sm font-medium">{t("country")}</label>
           <select
             value={countryIds}
             onChange={(e) => {
@@ -254,11 +261,11 @@ export default function AdminLawsFixOcrPage() {
             ))}
           </select>
           <p className="mt-1.5 text-xs text-muted-foreground">
-            Hold Cmd/Ctrl to select multiple countries.
+            {t("countryHint")}
           </p>
           {countryIds.length > 0 && !loadingLaws && (
             <p className="mt-1.5 text-xs text-muted-foreground">
-              {laws.length} unique law(s) across {selectedCountryNames.join(", ")}.
+              {t("selectedSummary", { laws: laws.length, countries: selectedCountryNames.join(", ") })}
             </p>
           )}
         </div>
@@ -272,17 +279,17 @@ export default function AdminLawsFixOcrPage() {
               disabled={running}
               className="rounded border-input"
             />
-            Dry run (preview only, no database writes)
+            {t("dryRun")}
           </label>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Max laws (optional)</label>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("maxLaws")}</label>
             <input
               type="number"
               min={1}
-              placeholder="All"
+              placeholder={tc("all")}
               value={limitStr}
               onChange={(e) => setLimitStr(e.target.value)}
               disabled={running}
@@ -291,7 +298,7 @@ export default function AdminLawsFixOcrPage() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
-              Pause between chunks (ms)
+              {t("chunkPause")}
             </label>
             <input
               type="number"
@@ -305,7 +312,7 @@ export default function AdminLawsFixOcrPage() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
-              Pause between laws (ms)
+              {t("lawPause")}
             </label>
             <input
               type="number"
@@ -327,7 +334,7 @@ export default function AdminLawsFixOcrPage() {
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
             {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {running ? "Running…" : dryRun ? "Start dry run" : "Clean and save"}
+            {running ? t("running") : dryRun ? t("startDryRun") : t("cleanAndSave")}
           </button>
           {!running && lastFailedLaws.length > 0 && (
             <button
@@ -335,7 +342,7 @@ export default function AdminLawsFixOcrPage() {
               onClick={() => void runBatch(lastFailedLaws)}
               className="rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
             >
-              Rerun failed ({lastFailedLaws.length})
+              {t("rerunFailed", { count: lastFailedLaws.length })}
             </button>
           )}
           {running && (
@@ -344,23 +351,23 @@ export default function AdminLawsFixOcrPage() {
               onClick={stop}
               className="rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
             >
-              Stop after current law
+              {t("stopAfterCurrent")}
             </button>
           )}
         </div>
 
         {running && progress.total > 0 && (
           <p className="text-sm text-muted-foreground">
-            Progress: {progress.done} / {progress.total}
+            {t("progress", { done: progress.done, total: progress.total })}
           </p>
         )}
       </div>
 
       <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4">
-        <h2 className="text-sm font-medium text-foreground">Log</h2>
+        <h2 className="text-sm font-medium text-foreground">{t("logTitle")}</h2>
         <div className="mt-2 max-h-80 overflow-y-auto font-mono text-xs space-y-1">
           {log.length === 0 ? (
-            <p className="text-muted-foreground">Output will appear here.</p>
+            <p className="text-muted-foreground">{t("logEmpty")}</p>
           ) : (
             log.map((line, i) => (
               <p
