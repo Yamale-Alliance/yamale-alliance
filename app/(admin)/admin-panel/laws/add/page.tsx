@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, Loader2, FileUp, FileText, CheckCircle2, Link2 } from "lucide-react";
 import { LAW_YEAR_MIN, LAW_YEAR_MAX } from "@/lib/admin-law-utils";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
@@ -16,6 +17,8 @@ type InputMode = "upload" | "paste" | "url";
 const MAX_SINGLE_UPLOAD_MB = 95;
 
 export default function AdminLawsAddPage() {
+  const t = useTranslations("admin.laws.add");
+  const tc = useTranslations("admin.common");
   const [countries, setCountries] = useState<Country[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [countryIds, setCountryIds] = useState<string[]>([]);
@@ -74,11 +77,11 @@ export default function AdminLawsAddPage() {
           setCategoryIds((prev) =>
             prev.includes(data.category!.id) ? prev : [...prev, data.category!.id]
           );
-          setSuccessMessage(`Category "${data.category.name}" already existed and was selected.`);
+          setSuccessMessage(t("messages.categoryAlreadySelected", { name: data.category.name }));
           setNewCategoryName("");
           return;
         }
-        setError(data.error ?? "Could not create category.");
+        setError(data.error ?? t("errors.createCategory"));
         return;
       }
       if (data.category?.id) {
@@ -89,11 +92,11 @@ export default function AdminLawsAddPage() {
         setCategoryIds((prev) =>
           prev.includes(data.category!.id) ? prev : [...prev, data.category!.id]
         );
-        setSuccessMessage(`Category "${data.category.name}" created and selected.`);
+        setSuccessMessage(t("messages.categoryCreated", { name: data.category.name }));
         setNewCategoryName("");
       }
     } catch {
-      setError("Could not create category.");
+      setError(t("errors.createCategory"));
     } finally {
       setAddingCategory(false);
     }
@@ -104,7 +107,7 @@ export default function AdminLawsAddPage() {
     setSuccessMessage(null);
     const u = sourceUrl.trim();
     if (!u.startsWith("http://") && !u.startsWith("https://")) {
-      setError("Enter a valid http(s) URL to a PDF.");
+      setError(t("errors.invalidUrl"));
       return;
     }
     setPreviewingUrl(true);
@@ -128,7 +131,7 @@ export default function AdminLawsAddPage() {
         usedClaude?: boolean;
       };
       if (!res.ok) {
-        setError(data.error ?? "Preview failed");
+        setError(data.error ?? t("errors.previewFailed"));
         return;
       }
       if (data.markdown) {
@@ -141,14 +144,14 @@ export default function AdminLawsAddPage() {
       if (data.suggested?.year != null) setYear(String(data.suggested.year));
       setUrlImportReady(true);
       let msg = data.usedClaude
-        ? "Preview loaded (Claude suggested title and jurisdiction). Table of contents was removed. Review and edit below, then save."
-        : "Preview loaded. Table of contents was removed. Review title, country, and category — then save.";
+        ? t("messages.previewLoadedClaude")
+        : t("messages.previewLoaded");
       if (data.needsCountry || data.needsCategory) {
-        msg += " If country or category is missing, select them manually before saving.";
+        msg += ` ${t("messages.previewNeedsManual")}`;
       }
       setSuccessMessage(msg);
     } catch {
-      setError("Could not preview URL.");
+      setError(t("errors.previewUrl"));
     } finally {
       setPreviewingUrl(false);
     }
@@ -159,19 +162,19 @@ export default function AdminLawsAddPage() {
     setError(null);
     setSuccessMessage(null);
     if (mode === "url" && !urlImportReady) {
-      setError('Click "Preview import" first, or switch to Upload / Paste.');
+      setError(t("errors.previewFirst"));
       return;
     }
     if (!title.trim()) {
-      setError("Title is required.");
+      setError(t("errors.titleRequired"));
       return;
     }
     if (!appliesToAll && countryIds.length === 0) {
-      setError("Select at least one country, or enable “All countries” for treaties and regional instruments.");
+      setError(t("errors.countryRequired"));
       return;
     }
     if (categoryIds.length === 0) {
-      setError("Select at least one category.");
+      setError(t("errors.categoryRequired"));
       return;
     }
 
@@ -203,11 +206,11 @@ export default function AdminLawsAddPage() {
         });
         const data = (await res.json()) as { error?: string };
         if (!res.ok) {
-          setError(data.error ?? "Failed to save law");
+          setError(data.error ?? t("errors.saveLaw"));
           setSubmitting(false);
           return;
         }
-        setSuccessMessage("Law added from URL import.");
+        setSuccessMessage(t("messages.addedFromUrl"));
         setCategoryIds([]);
         setTitle("");
         setYear("");
@@ -218,7 +221,7 @@ export default function AdminLawsAddPage() {
         setSubmitting(false);
         return;
       } catch {
-        setError("Save failed.");
+        setError(t("errors.saveFailed"));
         setSubmitting(false);
         return;
       }
@@ -226,23 +229,22 @@ export default function AdminLawsAddPage() {
 
     if (mode === "upload") {
       if (!file) {
-        setError("Please select a PDF file, or switch to “Paste content” to enter text.");
+        setError(t("errors.selectPdf"));
         return;
       }
       if (file.type !== "application/pdf") {
-        setError("File must be a PDF.");
+        setError(t("errors.fileMustBePdf"));
         return;
       }
       if (file.size > MAX_SINGLE_UPLOAD_MB * 1024 * 1024) {
         setError(
-          `This PDF is too large for browser upload (${(file.size / (1024 * 1024)).toFixed(1)}MB). ` +
-            `Use a smaller file or the CLI script for very large laws.`
+          t("errors.pdfTooLarge", { sizeMb: (file.size / (1024 * 1024)).toFixed(1) })
         );
         return;
       }
     } else {
       if (!pastedContent.trim()) {
-        setError("Paste the law content in the text area, or switch to “Upload PDF”.");
+        setError(t("errors.pasteRequired"));
         return;
       }
     }
@@ -287,15 +289,15 @@ export default function AdminLawsAddPage() {
         if (res.status === 413) {
           setError(
             data.error ??
-              "Upload is too large. Try a smaller PDF, disable OCR, or use the CLI import script."
+              t("errors.uploadTooLarge")
           );
         } else {
-          setError(data.error ?? "Failed to add law");
+          setError(data.error ?? t("errors.addFailed"));
         }
         setSubmitting(false);
         return;
       }
-      setSuccessMessage("Law added successfully. You can add another below.");
+      setSuccessMessage(t("messages.addedSuccess"));
       setCategoryIds([]);
       setTitle("");
       setYear("");
@@ -306,15 +308,15 @@ export default function AdminLawsAddPage() {
       if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
       if ((e as Error).name === "AbortError") {
-        setError("Request took too long. Try a smaller PDF or use “Paste content” for very large documents.");
+        setError(t("errors.requestTimeout"));
       } else {
         const msg = e instanceof Error ? e.message : "";
         const looksLikeNetwork =
           /failed to fetch|load failed|networkerror|network request failed/i.test(msg);
         setError(
           looksLikeNetwork
-            ? "Could not reach the server. Restart the dev server if you changed upload limits in next.config; for very large PDFs use the CLI import script."
-            : msg || "Something went wrong. Please try again."
+            ? t("errors.serverUnreachable")
+            : msg || t("errors.generic")
         );
       }
       setSubmitting(false);
@@ -329,14 +331,13 @@ export default function AdminLawsAddPage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to laws
+        {t("back")}
       </Link>
       <div>
         <div>
-          <h1 className="text-2xl font-semibold">Add law</h1>
+          <h1 className="text-2xl font-semibold">{t("title")}</h1>
           <p className="mt-1 text-muted-foreground">
-            Upload a PDF, paste content, or import from a PDF URL. The importer strips table-of-contents, converts to
-            Markdown, and suggests title and jurisdiction (Claude optional).
+            {t("subtitle")}
           </p>
         </div>
       </div>
@@ -356,7 +357,7 @@ export default function AdminLawsAddPage() {
 
         {/* Mode: Upload PDF vs Paste content */}
         <div>
-          <label className="block text-sm font-medium mb-2">How do you want to add the law?</label>
+          <label className="block text-sm font-medium mb-2">{t("mode.title")}</label>
           <div className="flex gap-4">
             <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-input bg-background px-4 py-3 has-[:checked]:border-primary has-[:checked]:ring-2 has-[:checked]:ring-primary/20">
               <input
@@ -373,7 +374,7 @@ export default function AdminLawsAddPage() {
                 className="sr-only"
               />
               <FileUp className="h-5 w-5" />
-              <span>Upload PDF</span>
+              <span>{t("mode.upload")}</span>
             </label>
             <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-input bg-background px-4 py-3 has-[:checked]:border-primary has-[:checked]:ring-2 has-[:checked]:ring-primary/20">
               <input
@@ -389,7 +390,7 @@ export default function AdminLawsAddPage() {
                 className="sr-only"
               />
               <FileText className="h-5 w-5" />
-              <span>Paste content</span>
+              <span>{t("mode.paste")}</span>
             </label>
             <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-input bg-background px-4 py-3 has-[:checked]:border-primary has-[:checked]:ring-2 has-[:checked]:ring-primary/20">
               <input
@@ -404,7 +405,7 @@ export default function AdminLawsAddPage() {
                 className="sr-only"
               />
               <Link2 className="h-5 w-5" />
-              <span>From PDF URL</span>
+              <span>{t("mode.url")}</span>
             </label>
           </div>
         </div>
@@ -422,20 +423,20 @@ export default function AdminLawsAddPage() {
               className="mt-1 rounded border-input"
             />
             <span>
-              <span className="font-medium text-foreground">All countries</span>
+              <span className="font-medium text-foreground">{t("allCountries.title")}</span>
               <span className="block text-muted-foreground text-xs mt-0.5">
-                One law record for treaties and instruments that apply across every jurisdiction (appears when filtering by any country).
+                {t("allCountries.hint")}
               </span>
             </span>
           </label>
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Countries{!appliesToAll ? " *" : ""}</label>
+          <label className="block text-sm font-medium mb-1">{t("countries.label")}{!appliesToAll ? " *" : ""}</label>
           <div className="max-h-56 overflow-y-auto rounded-md border border-input bg-background p-3">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs text-muted-foreground">
-                {appliesToAll ? "Disabled because All countries is enabled." : "Select one or more countries."}
+                {appliesToAll ? t("countries.disabledHint") : t("countries.selectHint")}
               </span>
               {!appliesToAll && (
                 <button
@@ -443,7 +444,7 @@ export default function AdminLawsAddPage() {
                   onClick={() => setCountryIds(countries.map((c) => c.id))}
                   className="text-xs text-primary hover:underline"
                 >
-                  Select all
+                  {t("countries.selectAll")}
                 </button>
               )}
             </div>
@@ -471,21 +472,20 @@ export default function AdminLawsAddPage() {
               })}
             </div>
           </div>
-          {!appliesToAll && <p className="mt-1 text-xs text-muted-foreground">{countryIds.length} selected</p>}
+          {!appliesToAll && <p className="mt-1 text-xs text-muted-foreground">{t("countries.selectedCount", { count: countryIds.length })}</p>}
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Categories *</label>
+          <label className="block text-sm font-medium mb-1">{t("categories.label")} *</label>
           <p className="mb-2 text-xs text-muted-foreground">
-            The law appears in the library under every category you tick. The first selected is the primary label used in
-            some views.
+            {t("categories.hint")}
           </p>
           <div className="mb-2 flex gap-2">
             <input
               type="text"
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
-              placeholder="Add new category name"
+              placeholder={t("categories.newPlaceholder")}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             />
             <button
@@ -494,7 +494,7 @@ export default function AdminLawsAddPage() {
               disabled={addingCategory || !newCategoryName.trim()}
               className="whitespace-nowrap rounded-md border border-input px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
             >
-              {addingCategory ? "Adding..." : "Add category"}
+              {addingCategory ? t("categories.adding") : t("categories.add")}
             </button>
           </div>
           <div className="max-h-48 overflow-y-auto rounded-md border border-input bg-background p-3">
@@ -521,24 +521,24 @@ export default function AdminLawsAddPage() {
               })}
             </div>
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">{categoryIds.length} selected</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("categories.selectedCount", { count: categoryIds.length })}</p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Status</label>
+          <label className="block text-sm font-medium mb-1">{tc("status")}</label>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
-            <option value="In force">In force</option>
-            <option value="Amended">Amended</option>
-            <option value="Repealed">Repealed</option>
+            <option value="In force">{t("statusValues.inForce")}</option>
+            <option value="Amended">{t("statusValues.amended")}</option>
+            <option value="Repealed">{t("statusValues.repealed")}</option>
           </select>
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Treaty type</label>
+          <label className="block text-sm font-medium mb-1">{t("treatyType")}</label>
           <select
             value={treatyType}
             onChange={(e) => setTreatyType(e.target.value as LawTreatyType)}
@@ -553,7 +553,7 @@ export default function AdminLawsAddPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Title *</label>
+          <label className="block text-sm font-medium mb-1">{t("titleLabel")} *</label>
           <input
             type="text"
             value={title}
@@ -561,21 +561,21 @@ export default function AdminLawsAddPage() {
               setTitle(e.target.value);
               setSuccessMessage(null);
             }}
-            placeholder="e.g. Companies Act, 2019"
+            placeholder={t("titlePlaceholder")}
             required
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Year (optional)</label>
+          <label className="block text-sm font-medium mb-1">{t("yearLabel")}</label>
           <input
             type="number"
             min={LAW_YEAR_MIN}
             max={LAW_YEAR_MAX}
             value={year}
             onChange={(e) => setYear(e.target.value)}
-            placeholder={`e.g. 1889 (${LAW_YEAR_MIN}–${LAW_YEAR_MAX})`}
+            placeholder={t("yearPlaceholder", { min: LAW_YEAR_MIN, max: LAW_YEAR_MAX })}
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           />
         </div>
@@ -583,7 +583,7 @@ export default function AdminLawsAddPage() {
         {mode === "url" ? (
           <>
             <div>
-              <label className="block text-sm font-medium mb-1">PDF URL *</label>
+              <label className="block text-sm font-medium mb-1">{t("url.label")} *</label>
               <input
                 type="url"
                 value={sourceUrl}
@@ -592,13 +592,13 @@ export default function AdminLawsAddPage() {
                   setUrlImportReady(false);
                   setSuccessMessage(null);
                 }}
-                placeholder="https://example.org/path/to/act.pdf"
+                placeholder={t("url.placeholder")}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                The server fetches the PDF, removes table-of-contents blocks, converts text to Markdown, and suggests
-                title and country/category when{" "}
-                <code className="text-xs">CLAUDE_API_KEY</code> is set; otherwise use heuristics.
+                {t.rich("url.hint", {
+                  code: () => <code className="text-xs">CLAUDE_API_KEY</code>,
+                })}
               </p>
             </div>
             <div className="flex items-start gap-3 rounded-lg border border-input bg-muted/30 px-4 py-3">
@@ -610,9 +610,9 @@ export default function AdminLawsAddPage() {
                 className="mt-1 h-4 w-4 rounded border-input"
               />
               <label htmlFor="forceOcrUrl" className="text-sm cursor-pointer">
-                <span className="font-medium">Force OCR</span>
+                <span className="font-medium">{t("ocr.forceTitle")}</span>
                 <span className="block text-muted-foreground mt-0.5">
-                  Use if the PDF is scanned or has little selectable text.
+                  {t("ocr.forceHint")}
                 </span>
               </label>
             </div>
@@ -625,23 +625,22 @@ export default function AdminLawsAddPage() {
               {previewingUrl ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Fetching &amp; processing…
+                  {t("url.fetching")}
                 </>
               ) : (
-                "Preview import"
+                t("url.previewImport")
               )}
             </button>
             {urlImportReady && (
               <p className="text-xs text-muted-foreground">
-                Content loaded into the fields below. Adjust country, category, title, and the Markdown body if needed,
-                then save with &quot;Add law&quot;.
+                {t("url.readyHint")}
               </p>
             )}
           </>
         ) : mode === "upload" ? (
           <>
             <div>
-              <label className="block text-sm font-medium mb-1">PDF file *</label>
+              <label className="block text-sm font-medium mb-1">{t("upload.label")} *</label>
               <input
                 key={fileInputKey}
                 type="file"
@@ -653,10 +652,10 @@ export default function AdminLawsAddPage() {
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:mr-4 file:rounded file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:text-primary-foreground"
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Text will be extracted and stored for the library. For scanned PDFs, enable OCR below.
+                {t("upload.hint")}
               </p>
               <p className="mt-1 text-xs text-amber-600 dark:text-amber-500">
-                Large PDFs or OCR can take 1–2 minutes. Please wait and do not refresh.
+                {t("upload.waitHint")}
               </p>
               <AdminVirusScanUploadBanner
                 active={lawUploadActive}
@@ -673,29 +672,29 @@ export default function AdminLawsAddPage() {
                 className="mt-1 h-4 w-4 rounded border-input"
               />
               <label htmlFor="forceOcr" className="text-sm cursor-pointer">
-                <span className="font-medium">This file needs OCR</span>
+                <span className="font-medium">{t("ocr.uploadTitle")}</span>
                 <span className="block text-muted-foreground mt-0.5">
-                  Check if the PDF is scanned or has little extractable text. OCR uses Tesseract and may take longer.
+                  {t("ocr.uploadHint")}
                 </span>
               </label>
             </div>
           </>
         ) : (
           <div>
-            <label className="block text-sm font-medium mb-1">Law content *</label>
+            <label className="block text-sm font-medium mb-1">{t("content.label")} *</label>
             <textarea
               value={pastedContent}
               onChange={(e) => {
                 setPastedContent(e.target.value);
                 setSuccessMessage(null);
               }}
-              placeholder="Paste the full text of the law here. You can use plain text or Markdown (headings, lists, etc.)."
+              placeholder={t("content.placeholder")}
               rows={14}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono placeholder:text-muted-foreground resize-y min-h-[200px]"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Plain text or Markdown. The library will detect and render Markdown when viewing.
-              {urlImportReady && " Edits here are saved when you click Add law."}
+              {t("content.hint")}
+              {urlImportReady ? ` ${t("content.urlReadySuffix")}` : ""}
             </p>
           </div>
         )}
@@ -709,17 +708,17 @@ export default function AdminLawsAddPage() {
             {submitting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                {mode === "upload" ? "Please wait…" : "Adding…"}
+                {mode === "upload" ? t("submit.pleaseWait") : t("submit.adding")}
               </>
             ) : (
-              "Add law"
+              t("submit.addLaw")
             )}
           </button>
           <Link
             href="/admin-panel/laws"
             className="rounded-lg border border-input px-4 py-2 text-sm font-medium hover:bg-accent"
           >
-            Cancel
+            {tc("cancel")}
           </Link>
         </div>
       </form>
