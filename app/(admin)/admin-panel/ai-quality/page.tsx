@@ -1,17 +1,17 @@
 import { Suspense } from "react";
+import { getTranslations } from "next-intl/server";
 import { AdminAiModerationHub } from "@/components/admin/AdminAiModerationHub";
 
-function Fallback() {
+export default async function AdminAiQualityPage() {
+  const t = await getTranslations("admin.common");
   return (
-    <div className="flex min-h-[40vh] items-center justify-center p-8">
-      <p className="text-sm text-muted-foreground">Loading…</p>
-    </div>
-  );
-}
-
-export default function AdminAiQualityPage() {
-  return (
-    <Suspense fallback={<Fallback />}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-[40vh] items-center justify-center p-8">
+          <p className="text-sm text-muted-foreground">{t("loading")}</p>
+        </div>
+      }
+    >
       <AdminAiModerationHub />
     </Suspense>
   );
