@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { FileCheck, ChevronLeft, ChevronDown, ChevronRight, Loader2, Plus, Trash2, Save, ExternalLink } from "lucide-react";
 import type { CountryRequirements } from "@/lib/afcfta-country-requirements";
 import { getRequirementsRegion, REQUIREMENTS_REGION_ORDER, type RequirementsRegionId } from "@/lib/afcfta-country-requirements";
@@ -23,6 +24,7 @@ function cloneRequirement(r: CountryRequirements): CountryRequirements {
 }
 
 export default function AdminAfCFTARequirementsPage() {
+  const t = useTranslations("admin.afcftaRequirements");
   const [requirements, setRequirements] = useState<CountryRequirements[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,11 +38,11 @@ export default function AdminAfCFTARequirementsPage() {
     setError(null);
     fetch("/api/admin/afcfta/requirements", { credentials: "include" })
       .then((res) => {
-        if (!res.ok) throw new Error("Failed to load");
+        if (!res.ok) throw new Error(t("errors.loadFailed"));
         return res.json();
       })
       .then((data) => setRequirements(Array.isArray(data) ? data : []))
-      .catch(() => setError("Failed to load export and import requirements."))
+      .catch(() => setError(t("errors.loadFailed")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -117,14 +119,14 @@ export default function AdminAfCFTARequirementsPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setSaveError(data.error || "Failed to save");
+        setSaveError(data.error || t("errors.saveFailed"));
         return;
       }
       await fetchRequirements();
       setExpandedCountry(null);
       setEditDraft(null);
     } catch {
-      setSaveError("Failed to save");
+      setSaveError(t("errors.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -152,7 +154,7 @@ export default function AdminAfCFTARequirementsPage() {
               type="button"
               onClick={() => removeItem(country, section, list, i)}
               className="shrink-0 p-1.5 text-muted-foreground hover:text-destructive rounded"
-              aria-label="Remove"
+              aria-label={t("remove")}
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -164,7 +166,7 @@ export default function AdminAfCFTARequirementsPage() {
         onClick={() => addItem(country, section, list)}
         className="mt-1 flex items-center gap-1 text-xs text-primary hover:underline"
       >
-        <Plus className="h-3.5 w-3.5" /> Add item
+        <Plus className="h-3.5 w-3.5" /> {t("addItem")}
       </button>
     </div>
   );
@@ -175,14 +177,14 @@ export default function AdminAfCFTARequirementsPage() {
         <Link
           href="/admin-panel/afcfta"
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/30 text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
-          aria-label="Back to AfCFTA"
+          aria-label={t("back")}
         >
           <ChevronLeft className="h-5 w-5" />
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-semibold tracking-tight">Export & import requirements</h1>
+          <h1 className="text-xl font-semibold tracking-tight">{t("title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            View and edit AfCFTA export and import requirements by country. Source links are for admin reference only.
+            {t("subtitle")}
           </p>
         </div>
       </div>
@@ -190,7 +192,7 @@ export default function AdminAfCFTARequirementsPage() {
       {loading && (
         <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-6 py-8 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Loading requirements…</span>
+            <span>{t("loading")}</span>
         </div>
       )}
 
@@ -202,7 +204,7 @@ export default function AdminAfCFTARequirementsPage() {
 
       {!loading && !error && requirements.length === 0 && (
         <div className="rounded-xl border border-border bg-card px-6 py-8 text-center text-sm text-muted-foreground">
-          No country requirements configured.
+          {t("empty")}
         </div>
       )}
 
@@ -214,7 +216,7 @@ export default function AdminAfCFTARequirementsPage() {
             const regionLabels: Record<RequirementsRegionId, string> = {
               SADC: "SADC",
               ECOWAS: "ECOWAS",
-              Others: "Others",
+              Others: t("regions.others"),
             };
             return (
               <section key={regionId}>
@@ -259,7 +261,7 @@ export default function AdminAfCFTARequirementsPage() {
                                     rel="noopener noreferrer"
                                     className="inline-flex items-center gap-1 text-primary hover:underline"
                                   >
-                                    Source (export) <ExternalLink className="h-3.5 w-3.5" />
+                                    {t("sourceExport")} <ExternalLink className="h-3.5 w-3.5" />
                                   </a>
                                 )}
                                 {sourceUrls.import && (
@@ -269,7 +271,7 @@ export default function AdminAfCFTARequirementsPage() {
                                     rel="noopener noreferrer"
                                     className="inline-flex items-center gap-1 text-primary hover:underline"
                                   >
-                                    Source (import) <ExternalLink className="h-3.5 w-3.5" />
+                                    {t("sourceImport")} <ExternalLink className="h-3.5 w-3.5" />
                                   </a>
                                 )}
                               </div>
@@ -278,24 +280,24 @@ export default function AdminAfCFTARequirementsPage() {
                             {/* Export */}
                             <section>
                               <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-3">
-                                Export requirements
+                                {t("exportRequirements")}
                               </h3>
                               <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-3">
-                                {renderEditableList(r.country, "export", "documents", data.export.documents, "Documents")}
-                                {renderEditableList(r.country, "export", "regulatory", data.export.regulatory, "Regulatory")}
-                                {renderEditableList(r.country, "export", "complianceNotes", data.export.complianceNotes, "Compliance notes")}
+                                {renderEditableList(r.country, "export", "documents", data.export.documents, t("labels.documents"))}
+                                {renderEditableList(r.country, "export", "regulatory", data.export.regulatory, t("labels.regulatory"))}
+                                {renderEditableList(r.country, "export", "complianceNotes", data.export.complianceNotes, t("labels.complianceNotes"))}
                               </div>
                             </section>
 
                             {/* Import */}
                             <section>
                               <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-3">
-                                Import requirements
+                                {t("importRequirements")}
                               </h3>
                               <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-3">
-                                {renderEditableList(r.country, "import", "documents", data.import.documents, "Documents")}
-                                {renderEditableList(r.country, "import", "regulatory", data.import.regulatory, "Regulatory")}
-                                {renderEditableList(r.country, "import", "complianceNotes", data.import.complianceNotes, "Compliance notes")}
+                                {renderEditableList(r.country, "import", "documents", data.import.documents, t("labels.documents"))}
+                                {renderEditableList(r.country, "import", "regulatory", data.import.regulatory, t("labels.regulatory"))}
+                                {renderEditableList(r.country, "import", "complianceNotes", data.import.complianceNotes, t("labels.complianceNotes"))}
                               </div>
                             </section>
 
@@ -309,7 +311,7 @@ export default function AdminAfCFTARequirementsPage() {
                               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
                             >
                               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                              Save changes
+                              {t("save")}
                             </button>
                           </div>
                         )}
