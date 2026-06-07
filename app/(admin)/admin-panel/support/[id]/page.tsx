@@ -3,6 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { SupportComingSoon } from "@/components/support/SupportComingSoon";
 
@@ -11,6 +12,7 @@ const SUPPORT_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
 type Msg = { id: string; author_role: string; body: string; created_at: string };
 
 export default function AdminSupportTicketPage() {
+  const t = useTranslations("admin.supportDetail");
   const params = useParams();
   const router = useRouter();
   const id = typeof params.id === "string" ? params.id : "";
@@ -80,7 +82,7 @@ export default function AdminSupportTicketPage() {
     );
   }
   if (!ticket) {
-    return <p className="p-6">Not found</p>;
+    return <p className="p-6">{t("notFound")}</p>;
   }
 
   const status = String(ticket.status);
@@ -89,11 +91,11 @@ export default function AdminSupportTicketPage() {
   return (
     <div className="p-4 sm:p-6">
       <Link href="/admin-panel/support" className="text-sm font-medium text-primary hover:underline">
-        ← All requests
+        {t("backToAll")}
       </Link>
       <h1 className="heading mt-4 text-2xl font-bold">{String(ticket.title)}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        {String(ticket.contact_name)} &lt;{String(ticket.contact_email)}&gt; · {status}
+        {String(ticket.contact_name)} &lt;{String(ticket.contact_email)}&gt; · {t(`status.${status}`)}
       </p>
 
       <div className="mt-8 space-y-4 max-w-3xl">
@@ -105,7 +107,7 @@ export default function AdminSupportTicketPage() {
             }`}
           >
             <div className="text-xs font-medium text-muted-foreground">
-              {m.author_role === "admin" ? "Admin" : "User"} · {new Date(m.created_at).toLocaleString()}
+              {m.author_role === "admin" ? t("admin") : t("user")} · {new Date(m.created_at).toLocaleString()}
             </div>
             <p className="mt-2 whitespace-pre-wrap text-sm">{m.body}</p>
           </div>
@@ -115,25 +117,25 @@ export default function AdminSupportTicketPage() {
       {!archived && (
         <form onSubmit={send} className="mt-10 max-w-3xl space-y-4">
           <div>
-            <label className="text-sm font-medium">Reply to user (sent to their email)</label>
+            <label className="text-sm font-medium">{t("replyLabel")}</label>
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={5}
               className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              placeholder="Your message…"
+              placeholder={t("replyPlaceholder")}
             />
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={markResolved} onChange={(e) => setMarkResolved(e.target.checked)} />
-            Mark as resolved and close (user can reopen for 24 hours)
+            {t("markResolved")}
           </label>
           <button
             type="submit"
             disabled={sending || !body.trim()}
             className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
           >
-            {sending ? "Sending…" : "Send reply"}
+            {sending ? t("sending") : t("sendReply")}
           </button>
         </form>
       )}
