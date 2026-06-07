@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { lawFlagCategoryLabel } from "@/lib/law-flag-categories";
 
@@ -21,6 +22,7 @@ type FlagRow = {
 };
 
 export default function AdminLawFlagsPage() {
+  const t = useTranslations("admin.lawFlags");
   const [status, setStatus] = useState<"all" | "open" | "in_progress" | "resolved" | "dismissed">("open");
   const [rows, setRows] = useState<FlagRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,9 +39,9 @@ export default function AdminLawFlagsPage() {
 
   return (
     <div className="p-4 sm:p-6">
-      <h1 className="heading text-2xl font-bold">Law flags</h1>
+      <h1 className="heading text-2xl font-bold">{t("title")}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        User reports on library documents (accuracy, UI, outdated text). Email alerts use Resend when configured.
+        {t("subtitle")}
       </p>
 
       <div className="mt-6 flex flex-wrap gap-2">
@@ -52,7 +54,7 @@ export default function AdminLawFlagsPage() {
               status === s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
-            {s === "all" ? "All" : s.replace("_", " ")}
+            {s === "all" ? t("status.all") : t(`status.${s}`)}
           </button>
         ))}
       </div>
@@ -64,7 +66,7 @@ export default function AdminLawFlagsPage() {
           </div>
         ) : rows.length === 0 ? (
           <p className="rounded-xl border border-border bg-muted/20 p-8 text-center text-sm text-muted-foreground">
-            No law flags in this view.
+            {t("empty")}
           </p>
         ) : (
           rows.map((r) => (
@@ -90,14 +92,14 @@ export default function AdminLawFlagsPage() {
                         : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/35 dark:text-emerald-200"
                   }`}
                 >
-                  {r.status.replace("_", " ")}
+                  {t(`status.${r.status}`)}
                 </span>
               </div>
               <p className="mt-3 text-sm text-foreground">
                 {lawFlagCategoryLabel(r.issue_category)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {r.user_name || "User"}
+                {r.user_name || t("userFallback")}
                 {r.user_email ? ` · ${r.user_email}` : ""}
               </p>
               {r.issue_details ? (
