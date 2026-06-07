@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, Link2, Loader2, Search, Sparkles, Trash2 } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { LAW_YEAR_MIN, LAW_YEAR_MAX } from "@/lib/admin-law-utils";
@@ -30,6 +31,8 @@ type LawForEdit = {
 };
 
 export default function AdminLawEditPage() {
+  const t = useTranslations("admin.laws.edit");
+  const tc = useTranslations("admin.common");
   const params = useParams();
   const id = params?.id as string;
   const searchParams = useSearchParams();
@@ -83,7 +86,7 @@ export default function AdminLawEditPage() {
       .then((r) => r.json())
       .then((data) => {
         if (!data.law) {
-          setError(data.error ?? "Law not found");
+          setError(data.error ?? t("errors.notFound"));
           setLaw(null);
           return;
         }
@@ -108,7 +111,7 @@ export default function AdminLawEditPage() {
         setText(lawData.content_plain ?? lawData.content ?? "");
       })
       .catch(() => {
-        setError("Failed to load law");
+        setError(t("errors.loadFailed"));
         setLaw(null);
       })
       .finally(() => setLoading(false));
@@ -136,11 +139,11 @@ export default function AdminLawEditPage() {
           setCategoryIds((prev) =>
             prev.includes(data.category!.id) ? prev : [...prev, data.category!.id]
           );
-          setStatusMsg(`Category "${data.category.name}" already existed and was selected.`);
+          setStatusMsg(t("messages.categoryAlreadySelected", { name: data.category.name }));
           setNewCategoryName("");
           return;
         }
-        setError(data.error ?? "Could not create category.");
+        setError(data.error ?? t("errors.createCategory"));
         return;
       }
       if (data.category?.id) {
@@ -151,11 +154,11 @@ export default function AdminLawEditPage() {
         setCategoryIds((prev) =>
           prev.includes(data.category!.id) ? prev : [...prev, data.category!.id]
         );
-        setStatusMsg(`Category "${data.category.name}" created and selected.`);
+        setStatusMsg(t("messages.categoryCreated", { name: data.category.name }));
         setNewCategoryName("");
       }
     } catch {
-      setError("Could not create category.");
+      setError(t("errors.createCategory"));
     } finally {
       setAddingCategory(false);
     }
@@ -180,11 +183,10 @@ export default function AdminLawEditPage() {
   const handleFixOcr = async () => {
     if (!id || !law) return;
     const ok = await confirm({
-      title: "Run AI cleanup",
-      description:
-        "OCR noise will be reduced and stored text will be replaced. Very large laws can take several minutes.",
-      confirmLabel: "Run cleanup",
-      cancelLabel: "Cancel",
+      title: t("confirm.fixOcrTitle"),
+      description: t("confirm.fixOcrDescription"),
+      confirmLabel: t("confirm.fixOcrConfirm"),
+      cancelLabel: tc("cancel"),
       variant: "default",
     });
     if (!ok) return;
@@ -200,13 +202,13 @@ export default function AdminLawEditPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(typeof data.error === "string" ? data.error : "Fix OCR failed.");
+        setError(typeof data.error === "string" ? data.error : t("errors.fixOcrFailed"));
         return;
       }
       const r2 = await fetch(`/api/admin/laws/${id}`, { credentials: "include" });
       const reload = await r2.json();
       if (!r2.ok || !reload.law) {
-        setStatusMsg("OCR cleaned. Refresh if the editor text looks stale.");
+        setStatusMsg(t("messages.ocrCleanedRefresh"));
         return;
       }
       const lawData = reload.law as LawForEdit;
@@ -216,10 +218,12 @@ export default function AdminLawEditPage() {
       );
       setText(lawData.content_plain ?? lawData.content ?? "");
       setStatusMsg(
-        `OCR cleaned (${typeof data.cleanedChars === "number" ? data.cleanedChars.toLocaleString() : "?"} characters).`
+        t("messages.ocrCleaned", {
+          count: typeof data.cleanedChars === "number" ? data.cleanedChars.toLocaleString() : "?",
+        })
       );
     } catch {
-      setError("Network error. Try again.");
+      setError(t("errors.networkTryAgain"));
     } finally {
       setFixOcrLoading(false);
     }
@@ -228,10 +232,10 @@ export default function AdminLawEditPage() {
   const handleDelete = async () => {
     if (!id || !law) return;
     const ok = await confirm({
-      title: "Delete law",
-      description: `Delete "${law.title}"? This cannot be undone and the law will be removed from the library and AI.`,
-      confirmLabel: "Delete",
-      cancelLabel: "Cancel",
+      title: t("confirm.deleteTitle"),
+      description: t("confirm.deleteDescription", { title: law.title }),
+      confirmLabel: t("confirm.delete"),
+      cancelLabel: tc("cancel"),
       variant: "destructive",
     });
     if (!ok) return;
@@ -241,13 +245,13 @@ export default function AdminLawEditPage() {
       const res = await fetch(`/api/admin/laws/${id}`, { method: "DELETE", credentials: "include" });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to delete law");
+        setError(data.error ?? t("errors.deleteFailed"));
         setDeleting(false);
         return;
       }
       router.push(returnTo);
     } catch {
-      setError("Network error. Please try again.");
+      setError(t("errors.networkPleaseTryAgain"));
       setDeleting(false);
     }
   };
@@ -256,15 +260,15 @@ export default function AdminLawEditPage() {
     e.preventDefault();
     if (!id) return;
     if (!title.trim()) {
-      setError("Title is required.");
+      setError(t("errors.titleRequired"));
       return;
     }
     if (!appliesToAll && !countryId.trim()) {
-      setError("Select a country, or enable “All countries” for treaties and regional instruments.");
+      setError(t("errors.countryRequired"));
       return;
     }
     if (categoryIds.length === 0) {
-      setError("Select at least one category.");
+      setError(t("errors.categoryRequired"));
       return;
     }
 
@@ -291,10 +295,10 @@ export default function AdminLawEditPage() {
       if (shareableDirty) {
         const total = peers + 1;
         const ok = await confirm({
-          title: "Update linked country variants",
-          description: `This law is in a shared link group. Saving will apply the same title, categories, year, status, treaty type, and law text to ${peers} other linked law${peers === 1 ? "" : "s"} (${total} laws in total). Country assignment stays separate for each law.`,
-          confirmLabel: `Save and update ${total} laws`,
-          cancelLabel: "Cancel",
+          title: t("confirm.updateLinkedTitle"),
+          description: t("confirm.updateLinkedDescription", { peers, total }),
+          confirmLabel: t("confirm.saveAndUpdate", { total }),
+          cancelLabel: tc("cancel"),
           variant: "default",
         });
         if (!ok) return;
@@ -322,7 +326,7 @@ export default function AdminLawEditPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to save changes");
+        setError(data.error ?? t("errors.saveFailed"));
         setSaving(false);
         return;
       }
@@ -331,8 +335,8 @@ export default function AdminLawEditPage() {
         : 0;
       setStatusMsg(
         propagated > 0
-          ? `Changes saved. ${propagated} linked country variant${propagated === 1 ? "" : "s"} updated to match.`
-          : "Changes saved."
+          ? t("messages.savedWithPropagation", { count: propagated })
+          : t("messages.saved")
       );
       if (data.law) {
         const u = data.law as Partial<LawForEdit> & { category_ids?: string[] };
@@ -346,7 +350,7 @@ export default function AdminLawEditPage() {
         }
       }
     } catch {
-      setError("Network error. Please try again.");
+      setError(t("errors.networkPleaseTryAgain"));
     }
     setSaving(false);
   };
@@ -359,7 +363,7 @@ export default function AdminLawEditPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to laws
+          {t("back")}
         </Link>
         {law && (
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -370,7 +374,7 @@ export default function AdminLawEditPage() {
               className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary hover:bg-primary/15 disabled:opacity-50"
             >
               {fixOcrLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-              Fix OCR
+              {t("actions.fixOcr")}
             </button>
             <Link
               href={lawDetailHref({ id: law.id, slug: (law as { slug?: string | null }).slug })}
@@ -378,7 +382,7 @@ export default function AdminLawEditPage() {
               rel="noopener noreferrer"
               className="text-xs text-primary hover:underline"
             >
-              View in library →
+              {t("actions.viewInLibrary")}
             </Link>
             <button
               type="button"
@@ -387,7 +391,7 @@ export default function AdminLawEditPage() {
               className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/50 bg-destructive/10 px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/20 disabled:opacity-50"
             >
               {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-              Delete law
+              {t("actions.deleteLaw")}
             </button>
           </div>
         )}
@@ -404,25 +408,23 @@ export default function AdminLawEditPage() {
       ) : !law ? null : (
         <form onSubmit={handleSave} className="max-w-4xl space-y-6">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Edit law</h1>
+            <h1 className="text-2xl font-semibold text-foreground">{t("title")}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Update metadata (title, country, category, etc.) and/or the law text. Changes apply to the library and AI.
+              {t("subtitle")}
             </p>
             {sharedLinkPeerCount > 0 && (
               <div className="mt-3 flex flex-wrap items-start gap-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2.5 text-sm text-foreground">
                 <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
                 <div>
-                  <p className="font-medium">Linked law</p>
+                  <p className="font-medium">{t("linked.title")}</p>
                   <p className="mt-0.5 text-muted-foreground">
-                    Saving changes to title, categories, year, status, treaty type, or body text will also update{" "}
-                    {sharedLinkPeerCount} other country variant{sharedLinkPeerCount === 1 ? "" : "s"} in this group.
-                    Country assignment is not synced.
+                    {t("linked.hint", { count: sharedLinkPeerCount })}
                   </p>
                   <Link
                     href="/admin-panel/laws/linked"
                     className="mt-2 inline-block text-xs font-medium text-primary hover:underline"
                   >
-                    View or unlink linked laws
+                    {t("linked.viewOrUnlink")}
                   </Link>
                 </div>
               </div>
@@ -430,7 +432,7 @@ export default function AdminLawEditPage() {
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2">
-            <p className="text-xs font-medium text-muted-foreground">Law ID: {law.id}</p>
+            <p className="text-xs font-medium text-muted-foreground">{t("lawId", { id: law.id })}</p>
             {law.last_verified_at ? (
               <LawLastVerifiedLabel
                 at={law.last_verified_at}
@@ -441,14 +443,14 @@ export default function AdminLawEditPage() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-foreground">Title *</label>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">{t("titleLabel")} *</label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 required
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder="e.g. Companies Act, 2019"
+                placeholder={t("titlePlaceholder")}
               />
             </div>
             <div className="sm:col-span-2">
@@ -464,15 +466,15 @@ export default function AdminLawEditPage() {
                   className="mt-1 rounded border-input"
                 />
                 <span>
-                  <span className="font-medium text-foreground">All countries</span>
+                  <span className="font-medium text-foreground">{t("allCountries.title")}</span>
                   <span className="block text-muted-foreground text-xs mt-0.5">
-                    Use for treaties and instruments that apply across all jurisdictions in the library (one record; appears in every country filter).
+                    {t("allCountries.hint")}
                   </span>
                 </span>
               </label>
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">Country</label>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">{t("country")}</label>
               <select
                 value={countryId}
                 onChange={(e) => setCountryId(e.target.value)}
@@ -480,24 +482,23 @@ export default function AdminLawEditPage() {
                 required={!appliesToAll}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-60"
               >
-                <option value="">Select country</option>
+                <option value="">{t("selectCountry")}</option>
                 {countries.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
             </div>
             <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-foreground">Categories *</label>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">{t("categories.label")} *</label>
               <p className="mb-2 text-xs text-muted-foreground">
-                The law is listed under each selected category in the library. The first ticked is the primary label in
-                some views.
+                {t("categories.hint")}
               </p>
               <div className="mb-2 flex gap-2">
                 <input
                   type="text"
                   value={newCategoryName}
                   onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="Add new category name"
+                  placeholder={t("categories.newPlaceholder")}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 />
                 <button
@@ -506,7 +507,7 @@ export default function AdminLawEditPage() {
                   disabled={addingCategory || !newCategoryName.trim()}
                   className="whitespace-nowrap rounded-md border border-input px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
                 >
-                  {addingCategory ? "Adding..." : "Add category"}
+                  {addingCategory ? t("categories.adding") : t("categories.add")}
                 </button>
               </div>
               <div className="max-h-40 overflow-y-auto rounded-md border border-input bg-background p-3">
@@ -533,10 +534,10 @@ export default function AdminLawEditPage() {
                   })}
                 </div>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">{categoryIds.length} selected</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t("categories.selectedCount", { count: categoryIds.length })}</p>
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">Year</label>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">{t("year")}</label>
               <input
                 type="number"
                 min={LAW_YEAR_MIN}
@@ -544,23 +545,23 @@ export default function AdminLawEditPage() {
                 value={year}
                 onChange={(e) => setYear(e.target.value)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder={`e.g. 2019 (${LAW_YEAR_MIN}–${LAW_YEAR_MAX})`}
+                placeholder={t("yearPlaceholder", { min: LAW_YEAR_MIN, max: LAW_YEAR_MAX })}
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">Status</label>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">{tc("status")}</label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
-                <option value="In force">In force</option>
-                <option value="Amended">Amended</option>
-                <option value="Repealed">Repealed</option>
+                <option value="In force">{t("statusValues.inForce")}</option>
+                <option value="Amended">{t("statusValues.amended")}</option>
+                <option value="Repealed">{t("statusValues.repealed")}</option>
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">Treaty type</label>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">{t("treatyType")}</label>
               <select
                 value={treatyType}
                 onChange={(e) => setTreatyType(e.target.value as LawTreatyType)}
@@ -578,14 +579,14 @@ export default function AdminLawEditPage() {
           <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium text-foreground">
               <Search className="h-4 w-4" />
-              Find and replace all
+              {t("findReplace.title")}
             </div>
             <p className="text-xs text-muted-foreground">
-              Find a repeated typo or phrase and replace it everywhere in this law’s text. Leave “Replace with” empty to delete all occurrences.
+              {t("findReplace.hint")}
             </p>
             <div className="flex flex-wrap items-end gap-2">
               <div className="min-w-[140px] flex-1">
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Find</label>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("findReplace.find")}</label>
                 <input
                   type="text"
                   value={findValue}
@@ -593,17 +594,17 @@ export default function AdminLawEditPage() {
                     setFindValue(e.target.value);
                     setReplaceResult(null);
                   }}
-                  placeholder="e.g. jfkjs"
+                  placeholder={t("findReplace.findPlaceholder")}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 />
               </div>
               <div className="min-w-[140px] flex-1">
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Replace with</label>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("findReplace.replaceWith")}</label>
                 <input
                   type="text"
                   value={replaceValue}
                   onChange={(e) => setReplaceValue(e.target.value)}
-                  placeholder="Leave empty to delete"
+                  placeholder={t("findReplace.replacePlaceholder")}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 />
               </div>
@@ -613,22 +614,22 @@ export default function AdminLawEditPage() {
                 disabled={!findValue.trim()}
                 className="rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50 disabled:pointer-events-none"
               >
-                Replace all
+                {t("findReplace.replaceAll")}
               </button>
             </div>
             {replaceResult !== null && (
               <p className="text-xs text-muted-foreground">
                 {replaceResult === 0
-                  ? "No occurrences found."
-                  : `Replaced ${replaceResult} occurrence${replaceResult === 1 ? "" : "s"}. Save changes to persist.`}
+                  ? t("findReplace.noneFound")
+                  : t("findReplace.replaced", { count: replaceResult })}
               </p>
             )}
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">Law text</label>
+            <label className="mb-2 block text-sm font-medium text-foreground">{t("lawText.label")}</label>
             <p className="mb-2 text-xs text-muted-foreground">
-              Raw text used by the library view and AI. Edit to fix typos or update content.
+              {t("lawText.hint")}
             </p>
             <textarea
               value={text}
@@ -637,7 +638,7 @@ export default function AdminLawEditPage() {
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono leading-relaxed"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              {text.length.toLocaleString()} characters
+              {t("lawText.characters", { count: text.length.toLocaleString() })}
             </p>
           </div>
 
@@ -654,7 +655,7 @@ export default function AdminLawEditPage() {
               className="ml-auto inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
             >
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              <span>Save changes</span>
+              <span>{t("saveChanges")}</span>
             </button>
           </div>
         </form>
