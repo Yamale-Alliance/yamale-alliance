@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -37,6 +38,7 @@ type QueryLogFallback = {
 };
 
 export default function AdminAiBugDetailPage() {
+  const t = useTranslations("admin.aiBugDetail");
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
   const [report, setReport] = useState<Report | null>(null);
@@ -118,29 +120,29 @@ export default function AdminAiBugDetailPage() {
   }
 
   if (!report) {
-    return <p className="p-6 text-muted-foreground">AI bug report not found.</p>;
+    return <p className="p-6 text-muted-foreground">{t("notFound")}</p>;
   }
 
   return (
     <div className="p-4 sm:p-6">
       <Link href="/admin-panel/ai-quality?tab=bugs" className="text-sm font-medium text-primary hover:underline">
-        ← All AI bug reports
+        {t("back")}
       </Link>
 
-      <h1 className="heading mt-4 text-2xl font-bold">AI bug report</h1>
+      <h1 className="heading mt-4 text-2xl font-bold">{t("title")}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        {report.user_name || "User"} ({report.user_email || report.user_id}) ·{" "}
+        {report.user_name || t("userFallback")} ({report.user_email || report.user_id}) ·{" "}
         {new Date(report.created_at).toLocaleString()}
       </p>
 
       <div className="mt-6 grid gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-3">
         <div>
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Issue category</p>
-          <p className="mt-1 text-sm font-medium text-foreground">{report.issue_category || "Not provided"}</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("issueCategory")}</p>
+          <p className="mt-1 text-sm font-medium text-foreground">{report.issue_category || t("notProvided")}</p>
         </div>
         <div className="md:col-span-2">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Issue details</p>
-          <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{report.issue_details || "No details provided."}</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("issueDetails")}</p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{report.issue_details || t("noDetails")}</p>
         </div>
       </div>
 
@@ -150,9 +152,9 @@ export default function AdminAiBugDetailPage() {
           onChange={(e) => setStatus(e.target.value as "open" | "in_progress" | "resolved")}
           className="rounded-md border border-input bg-background px-3 py-2 text-sm"
         >
-          <option value="open">Open</option>
-          <option value="in_progress">In progress</option>
-          <option value="resolved">Resolved</option>
+          <option value="open">{t("statusValues.open")}</option>
+          <option value="in_progress">{t("statusValues.in_progress")}</option>
+          <option value="resolved">{t("statusValues.resolved")}</option>
         </select>
         <button
           type="button"
@@ -160,23 +162,23 @@ export default function AdminAiBugDetailPage() {
           disabled={saving}
           className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
-          {saving ? "Saving…" : "Save status"}
+          {saving ? t("saving") : t("saveStatus")}
         </button>
       </div>
 
       {autoGapMeta ? (
         <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
-            Auto-detected corpus gap
+            {t("autoGapTitle")}
           </p>
           {autoGapMeta.gapKind ? (
             <p className="mt-2 text-sm text-foreground">
-              Gap type: {gapKindLabel(autoGapMeta.gapKind as AiResponseGapKind)}
+              {t("gapType", { value: gapKindLabel(autoGapMeta.gapKind as AiResponseGapKind) })}
             </p>
           ) : null}
           {autoGapMeta.matchedPhrases?.length ? (
             <p className="mt-1 text-sm text-muted-foreground">
-              Matched phrase: &quot;{autoGapMeta.matchedPhrases.join('"; "')}&quot;
+              {t("matchedPhrase", { value: autoGapMeta.matchedPhrases.join('"; "') })}
             </p>
           ) : null}
           {autoGapMeta.laws?.length ? (
@@ -190,17 +192,17 @@ export default function AdminAiBugDetailPage() {
             </ul>
           ) : null}
           {report.query_log_id ? (
-            <p className="mt-2 text-xs text-muted-foreground">Query log: {report.query_log_id}</p>
+            <p className="mt-2 text-xs text-muted-foreground">{t("queryLog", { id: report.query_log_id })}</p>
           ) : null}
         </div>
       ) : null}
 
-      <h2 className="mt-8 text-lg font-semibold text-foreground">Full conversation snapshot</h2>
+      <h2 className="mt-8 text-lg font-semibold text-foreground">{t("conversationTitle")}</h2>
       {conversation.length === 0 ? (
         <p className="mt-2 rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
-          Conversation snapshot not available.
+          {t("conversationMissing")}
           {report.query_log_id
-            ? " (Query log row missing or empty — check ai_query_log in Supabase.)"
+            ? ` ${t("conversationMissingHint")}`
             : null}
         </p>
       ) : (
@@ -215,7 +217,7 @@ export default function AdminAiBugDetailPage() {
               }`}
             >
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {m.role === "user" ? "User" : "AI"}
+                {m.role === "user" ? t("roles.user") : t("roles.ai")}
               </p>
               <div className="prose prose-sm mt-2 max-w-none text-foreground dark:prose-invert prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-pre:overflow-x-auto prose-code:break-words">
                 <ReactMarkdown
