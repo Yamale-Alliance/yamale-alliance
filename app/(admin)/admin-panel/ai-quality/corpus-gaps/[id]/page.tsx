@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ExternalLink, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -44,7 +45,15 @@ type QueryLog = {
   model: string | null;
 };
 
-function MessageBlock({ message }: { message: BugConversationMessage }) {
+function MessageBlock({
+  message,
+  userQuestionLabel,
+  aiAnswerLabel,
+}: {
+  message: BugConversationMessage;
+  userQuestionLabel: string;
+  aiAnswerLabel: string;
+}) {
   return (
     <div
       className={
@@ -54,7 +63,7 @@ function MessageBlock({ message }: { message: BugConversationMessage }) {
       }
     >
       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {message.role === "user" ? "User question" : "AI answer (excerpt)"}
+        {message.role === "user" ? userQuestionLabel : aiAnswerLabel}
       </p>
       <div className="prose prose-sm mt-2 max-w-none text-foreground dark:prose-invert prose-p:my-2">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
@@ -64,6 +73,7 @@ function MessageBlock({ message }: { message: BugConversationMessage }) {
 }
 
 export default function AdminCorpusGapDetailPage() {
+  const t = useTranslations("admin.corpusGapDetail");
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
   const [flag, setFlag] = useState<Flag | null>(null);
@@ -83,9 +93,9 @@ export default function AdminCorpusGapDetailPage() {
     fetch(`/api/admin/ai-corpus-gaps/${id}`, { credentials: "include" })
       .then(async (res) => {
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to load corpus gap");
+        if (!res.ok) throw new Error(data.error || t("errors.failedToLoad"));
         if (!data.flag || !isAiAutoLawFlagCategory(data.flag.issue_category)) {
-          throw new Error("Not a corpus gap flag");
+          throw new Error(t("errors.notCorpusGap"));
         }
         setFlag(data.flag);
         setStatus(data.flag.status);
@@ -153,9 +163,9 @@ export default function AdminCorpusGapDetailPage() {
     return (
       <div className="p-6">
         <Link href="/admin-panel/ai-quality?tab=corpus-gaps" className="text-sm text-primary hover:underline">
-          ← Corpus gaps
+          {t("back")}
         </Link>
-        <p className="mt-4 text-destructive">{error || "Corpus gap not found."}</p>
+        <p className="mt-4 text-destructive">{error || t("notFound")}</p>
       </div>
     );
   }
@@ -166,12 +176,14 @@ export default function AdminCorpusGapDetailPage() {
         href="/admin-panel/ai-quality?tab=corpus-gaps"
         className="text-sm font-medium text-primary hover:underline"
       >
-        ← Corpus gaps
+        {t("back")}
       </Link>
 
-      <h1 className="heading mt-4 text-2xl font-bold text-foreground">Corpus gap — {flag.law_title}</h1>
+      <h1 className="heading mt-4 text-2xl font-bold text-foreground">
+        {t("title", { lawTitle: flag.law_title })}
+      </h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Reported from chat by {flag.user_name || flag.user_email || flag.user_id} ·{" "}
+        {t("reportedBy", { user: flag.user_name || flag.user_email || flag.user_id })} ·{" "}
         {new Date(flag.created_at).toLocaleString()}
       </p>
 
@@ -185,10 +197,10 @@ export default function AdminCorpusGapDetailPage() {
       </div>
 
       <div className="mt-6 rounded-xl border border-border bg-card p-4 sm:p-6">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Instrument</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t("instrument")}</h2>
         <p className="mt-2 text-lg font-semibold text-foreground">{flag.law_title}</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          {[flag.law_country, flag.law_category].filter(Boolean).join(" · ") || "—"}
+          {[flag.law_country, flag.law_category].filter(Boolean).join(" · ") || t("na")}
         </p>
         <div className="mt-4 flex flex-wrap gap-4">
           <Link
@@ -197,7 +209,7 @@ export default function AdminCorpusGapDetailPage() {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
           >
-            Open in library
+            {t("openInLibrary")}
             <ExternalLink className="h-3.5 w-3.5" />
           </Link>
           {bugReport?.id ? (
@@ -205,7 +217,7 @@ export default function AdminCorpusGapDetailPage() {
               href={`/admin-panel/ai-bugs/${bugReport.id}`}
               className="text-sm font-medium text-primary hover:underline"
             >
-              Full AI bug report →
+              {t("openBugReport")}
             </Link>
           ) : null}
         </div>
@@ -213,69 +225,74 @@ export default function AdminCorpusGapDetailPage() {
 
       <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 sm:p-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-200">
-          What went wrong
+          {t("whatWentWrong")}
         </h2>
         {flag.issue_details ? (
           <pre className="mt-3 whitespace-pre-wrap rounded-lg bg-background/80 p-4 text-sm text-foreground">
             {flag.issue_details}
           </pre>
         ) : (
-          <p className="mt-2 text-sm text-muted-foreground">No details recorded.</p>
+          <p className="mt-2 text-sm text-muted-foreground">{t("noDetails")}</p>
         )}
         {autoGapMeta?.matchedPhrases?.length ? (
           <p className="mt-3 text-sm text-muted-foreground">
-            Trigger phrase: &quot;{autoGapMeta.matchedPhrases.join('"; "')}&quot;
+            {t("triggerPhrase", { value: autoGapMeta.matchedPhrases.join('"; "') })}
           </p>
         ) : null}
         {autoGapMeta?.gapKind ? (
           <p className="mt-1 text-sm text-muted-foreground">
-            Gap type: {gapKindLabel(autoGapMeta.gapKind as AiResponseGapKind)}
+            {t("gapType", { value: gapKindLabel(autoGapMeta.gapKind as AiResponseGapKind) })}
           </p>
         ) : null}
         {queryLogId ? (
-          <p className="mt-2 text-xs text-muted-foreground">Query log ID: {queryLogId}</p>
+          <p className="mt-2 text-xs text-muted-foreground">{t("queryLogId", { id: queryLogId })}</p>
         ) : null}
         {queryLog?.model ? (
-          <p className="mt-1 text-xs text-muted-foreground">Model: {queryLog.model}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("model", { value: queryLog.model })}</p>
         ) : null}
       </div>
 
-      <h2 className="mt-8 text-lg font-semibold text-foreground">Chat that triggered this flag</h2>
+      <h2 className="mt-8 text-lg font-semibold text-foreground">{t("chatTitle")}</h2>
       {conversation.length === 0 ? (
         <p className="mt-2 rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
-          No conversation stored. Open the linked bug report or check query log in Supabase.
+          {t("chatEmpty")}
         </p>
       ) : (
         <div className="mt-3 space-y-3">
           {conversation.map((m, idx) => (
-            <MessageBlock key={`${m.role}-${idx}`} message={m} />
+            <MessageBlock
+              key={`${m.role}-${idx}`}
+              message={m}
+              userQuestionLabel={t("roles.userQuestion")}
+              aiAnswerLabel={t("roles.aiAnswer")}
+            />
           ))}
         </div>
       )}
 
       <div className="mt-8 rounded-xl border border-border bg-card p-4 sm:p-6">
-        <h3 className="text-sm font-semibold text-foreground">Triage this flag</h3>
+        <h3 className="text-sm font-semibold text-foreground">{t("triage")}</h3>
         <label className="mt-4 block text-sm text-muted-foreground">
-          Status
+          {t("status")}
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as Flag["status"])}
             className="mt-1 w-full max-w-xs rounded-lg border border-border bg-background px-3 py-2 text-sm"
           >
-            <option value="open">Open</option>
-            <option value="in_progress">In progress</option>
-            <option value="resolved">Resolved</option>
-            <option value="dismissed">Dismissed</option>
+            <option value="open">{t("statusValues.open")}</option>
+            <option value="in_progress">{t("statusValues.in_progress")}</option>
+            <option value="resolved">{t("statusValues.resolved")}</option>
+            <option value="dismissed">{t("statusValues.dismissed")}</option>
           </select>
         </label>
         <label className="mt-4 block text-sm text-muted-foreground">
-          Admin notes (internal)
+          {t("adminNotes")}
           <textarea
             value={adminNotes}
             onChange={(e) => setAdminNotes(e.target.value)}
             rows={4}
             className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            placeholder="Ingestion task, false positive, excerpt budget, etc."
+            placeholder={t("adminNotesPlaceholder")}
           />
         </label>
         <button
@@ -284,7 +301,7 @@ export default function AdminCorpusGapDetailPage() {
           disabled={saving}
           className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
-          {saving ? "Saving…" : "Save"}
+          {saving ? t("saving") : t("save")}
         </button>
       </div>
     </div>
