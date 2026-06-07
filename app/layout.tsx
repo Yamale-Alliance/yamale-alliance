@@ -8,7 +8,6 @@ import { ClerkDevOriginWarning } from "@/components/auth/ClerkDevOriginWarning";
 import { GoogleAnalytics } from "@/components/analytics/GoogleAnalytics";
 import { SiteJsonLd } from "@/components/seo/SiteJsonLd";
 import { createRootMetadata } from "@/lib/site-seo";
-import { getPlatformBranding } from "@/lib/platform-branding";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { LayoutWithSettings } from "@/components/platform/LayoutWithSettings";
 import "./globals.css";
@@ -33,8 +32,7 @@ const playfair = Playfair_Display({
 const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('yamale-theme');if(t==='dark')document.documentElement.classList.add('dark');else document.documentElement.classList.remove('dark');}catch(e){}})();`;
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { faviconUrl } = await getPlatformBranding();
-  return createRootMetadata(faviconUrl);
+  return createRootMetadata();
 }
 
 export default async function RootLayout({
