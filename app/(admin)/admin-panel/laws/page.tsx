@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Plus, FileText, Loader2, Trash2, CopyCheck, Trash, History, Download, Scale, Link2, Tags } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
@@ -23,6 +24,8 @@ type Law = {
 };
 
 function AdminLawsPageInner() {
+  const t = useTranslations("admin.laws.list");
+  const tc = useTranslations("admin.common");
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -135,10 +138,10 @@ function AdminLawsPageInner() {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     const ok = await confirm({
-      title: "Update treaty type",
-      description: `Set treaty type to “${bulkTreatyType}” for ${ids.length} law(s)?`,
-      confirmLabel: "Update",
-      cancelLabel: "Cancel",
+      title: t("confirm.updateTreatyTitle"),
+      description: t("confirm.updateTreatyDescription", { treatyType: bulkTreatyType, count: ids.length }),
+      confirmLabel: t("confirm.update"),
+      cancelLabel: tc("cancel"),
     });
     if (!ok) return;
     setBulkTreatySaving(true);
@@ -155,13 +158,13 @@ function AdminLawsPageInner() {
         updated?: number;
       };
       if (!res.ok) {
-        setBulkTreatyError(typeof data.error === "string" ? data.error : "Update failed.");
+        setBulkTreatyError(typeof data.error === "string" ? data.error : t("errors.updateFailed"));
         return;
       }
       setSelectedIds(new Set());
       await loadLaws();
     } catch {
-      setBulkTreatyError("Network error.");
+      setBulkTreatyError(tc("networkError"));
     } finally {
       setBulkTreatySaving(false);
     }
@@ -171,10 +174,10 @@ function AdminLawsPageInner() {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     const ok = await confirm({
-      title: "Delete laws",
-      description: `Delete ${ids.length} law(s)? Bookmarks and related data will be removed. This cannot be undone.`,
-      confirmLabel: "Delete",
-      cancelLabel: "Cancel",
+      title: t("confirm.deleteTitle"),
+      description: t("confirm.deleteDescription", { count: ids.length }),
+      confirmLabel: t("confirm.delete"),
+      cancelLabel: tc("cancel"),
       variant: "destructive",
     });
     if (!ok) return;
@@ -189,13 +192,13 @@ function AdminLawsPageInner() {
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string; deleted?: number };
       if (!res.ok) {
-        setDeleteError(typeof data.error === "string" ? data.error : "Delete failed.");
+        setDeleteError(typeof data.error === "string" ? data.error : t("errors.deleteFailed"));
         return;
       }
       setSelectedIds(new Set());
       await loadLaws();
     } catch {
-      setDeleteError("Network error.");
+      setDeleteError(tc("networkError"));
     } finally {
       setDeleting(false);
     }
@@ -211,7 +214,7 @@ function AdminLawsPageInner() {
         method: "GET",
         credentials: "include",
       });
-      if (!response.ok) throw new Error("Failed to export laws.");
+      if (!response.ok) throw new Error(t("errors.exportFailed"));
       const blob = await response.blob();
       const downloadUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -219,13 +222,13 @@ function AdminLawsPageInner() {
         .get("content-disposition")
         ?.match(/filename="([^"]+)"/)?.[1];
       link.href = downloadUrl;
-      link.download = fileNameFromHeader ?? "laws-export.xlsx";
+      link.download = fileNameFromHeader ?? t("export.defaultFilename");
       document.body.appendChild(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(downloadUrl);
     } catch {
-      window.alert("Could not export laws. Please try again.");
+      window.alert(t("errors.exportAlert"));
     } finally {
       setExporting(false);
     }
@@ -244,9 +247,9 @@ function AdminLawsPageInner() {
       {confirmDialog}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Laws</h1>
+          <h1 className="text-2xl font-semibold">{t("title")}</h1>
           <p className="mt-1 text-muted-foreground">
-            View and add laws. Use filters to narrow by country, category, or status.
+            {t("subtitle")}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -254,62 +257,62 @@ function AdminLawsPageInner() {
             href="/admin-panel/laws/fix-ocr"
             className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
           >
-            Fix OCR (AI)
+            {t("actions.fixOcr")}
           </Link>
           <Link
             href="/admin-panel/laws/link-by-title"
             className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
           >
             <Link2 className="h-4 w-4" />
-            Link by title
+            {t("actions.linkByTitle")}
           </Link>
           <Link
             href="/admin-panel/laws/linked"
             className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
           >
             <Link2 className="h-4 w-4" />
-            Linked laws
+            {t("actions.linkedLaws")}
           </Link>
           <Link
             href="/admin-panel/laws/categories"
             className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
           >
             <Tags className="h-4 w-4" />
-            Categories
+            {t("actions.categories")}
           </Link>
           <Link
             href={`/admin-panel/laws/deleted?returnTo=${encodeURIComponent(currentListUrl)}`}
             className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
           >
             <Trash className="h-4 w-4" />
-            Recently deleted
+            {t("actions.recentlyDeleted")}
           </Link>
           <Link
             href="/admin-panel/laws/updated"
             className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
           >
             <History className="h-4 w-4" />
-            Recently updated
+            {t("actions.recentlyUpdated")}
           </Link>
           <Link
             href="/admin-panel/laws/add"
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
             <Plus className="h-4 w-4" />
-            Add law
+            {t("actions.addLaw")}
           </Link>
         </div>
       </div>
 
       <div className="mt-6 flex flex-wrap gap-4">
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Country</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("filters.country")}</label>
           <select
             value={countryId}
             onChange={(e) => setFilter("countryId", e.target.value)}
             className="rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
-            <option value="">All</option>
+            <option value="">{tc("all")}</option>
             {countries.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -318,13 +321,13 @@ function AdminLawsPageInner() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Category</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("filters.category")}</label>
           <select
             value={categoryId}
             onChange={(e) => setFilter("categoryId", e.target.value)}
             className="rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
-            <option value="">All</option>
+            <option value="">{tc("all")}</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -333,16 +336,16 @@ function AdminLawsPageInner() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Status</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">{tc("status")}</label>
           <select
             value={status}
             onChange={(e) => setFilter("status", e.target.value)}
             className="rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
-            <option value="">All</option>
-            <option value="In force">In force</option>
-            <option value="Amended">Amended</option>
-            <option value="Repealed">Repealed</option>
+            <option value="">{tc("all")}</option>
+            <option value="In force">{t("statusValues.inForce")}</option>
+            <option value="Amended">{t("statusValues.amended")}</option>
+            <option value="Repealed">{t("statusValues.repealed")}</option>
           </select>
         </div>
         <div className="self-end">
@@ -356,7 +359,7 @@ function AdminLawsPageInner() {
             disabled={!countryId && !categoryId && !status}
             className="rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50"
           >
-            Clear selected filters
+            {t("filters.clear")}
           </button>
         </div>
       </div>
@@ -376,7 +379,7 @@ function AdminLawsPageInner() {
               .then((data) => {
                 if (!data?.ok) {
                   setDupError(
-                    typeof data.error === "string" ? data.error : "Failed to check duplicates."
+                    typeof data.error === "string" ? data.error : t("duplicates.error")
                   );
                   setDupSummary(null);
                   return;
@@ -389,7 +392,7 @@ function AdminLawsPageInner() {
                 setDupSummary({ groups: groups.length, laws: lawsCount });
               })
               .catch(() => {
-                setDupError("Failed to check duplicates.");
+                setDupError(t("duplicates.error"));
                 setDupSummary(null);
               })
               .finally(() => setDupLoading(false));
@@ -402,19 +405,18 @@ function AdminLawsPageInner() {
           ) : (
             <CopyCheck className="h-3.5 w-3.5" />
           )}
-          {dupLoading ? "Checking duplicates…" : "Check duplicates in this category (within each country)"}
+          {dupLoading ? t("duplicates.checking") : t("duplicates.checkAction")}
         </button>
         {!categoryId ? (
           <span className="text-xs text-muted-foreground">
-            Select a category to check duplicates within each country.
+            {t("duplicates.selectCategoryHint")}
           </span>
         ) : dupError ? (
           <span className="text-xs text-destructive">{dupError}</span>
         ) : dupSummary ? (
           dupSummary.groups > 0 ? (
             <span className="text-xs text-muted-foreground">
-              Found {dupSummary.groups} duplicate group{dupSummary.groups === 1 ? "" : "s"} covering{" "}
-              {dupSummary.laws} law{dupSummary.laws === 1 ? "" : "s"}.{" "}
+              {t("duplicates.found", { groups: dupSummary.groups, laws: dupSummary.laws })}{" "}
               <button
                 type="button"
                 onClick={() => {
@@ -425,27 +427,27 @@ function AdminLawsPageInner() {
                 }}
                 className="text-primary underline-offset-2 hover:underline"
               >
-                View details
+                {t("duplicates.viewDetails")}
               </button>
             </span>
           ) : (
-            <span className="text-xs text-muted-foreground">No duplicates found for this country and category.</span>
+            <span className="text-xs text-muted-foreground">{t("duplicates.noneFound")}</span>
           )
         ) : null}
       </div>
 
       <div className="mt-4 flex flex-wrap items-end gap-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Export region</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("export.region")}</label>
           <select
             value={exportScope}
             onChange={(e) => setExportScope(e.target.value)}
             className="rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
-            <option value="all">All regions (each in its own sheet)</option>
+            <option value="all">{t("export.allRegions")}</option>
             {availableRegions.map((region) => (
               <option key={region} value={region}>
-                {region} only
+                {t("export.regionOnly", { region })}
               </option>
             ))}
           </select>
@@ -457,7 +459,7 @@ function AdminLawsPageInner() {
           className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50"
         >
           {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-          {exporting ? "Exporting…" : "Export laws spreadsheet"}
+          {exporting ? t("export.exporting") : t("export.exportButton")}
         </button>
       </div>
 
@@ -465,7 +467,7 @@ function AdminLawsPageInner() {
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
           <div className="flex flex-wrap items-end gap-2">
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Treaty type for selection</label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("bulk.treatyTypeLabel")}</label>
               <select
                 value={bulkTreatyType}
                 onChange={(e) => setBulkTreatyType(e.target.value as LawTreatyType)}
@@ -489,7 +491,7 @@ function AdminLawsPageInner() {
               ) : (
                 <Scale className="h-4 w-4" />
               )}
-              Apply to selected{selectedCount > 0 ? ` (${selectedCount})` : ""}
+              {t("bulk.applySelected", { count: selectedCount })}
             </button>
           </div>
           <button
@@ -499,7 +501,7 @@ function AdminLawsPageInner() {
             className="inline-flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/15 disabled:pointer-events-none disabled:opacity-50 sm:ml-auto"
           >
             {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-            Delete selected{selectedCount > 0 ? ` (${selectedCount})` : ""}
+            {t("bulk.deleteSelected", { count: selectedCount })}
           </button>
           {(bulkTreatyError || deleteError) && (
             <span className="text-sm text-destructive w-full sm:w-auto">
@@ -517,9 +519,9 @@ function AdminLawsPageInner() {
         ) : laws.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
             <FileText className="h-10 w-10 mb-2 opacity-50" />
-            <p>No laws match the filters.</p>
+            <p>{t("empty")}</p>
             <Link href="/admin-panel/laws/add" className="mt-2 text-sm text-primary hover:underline">
-              Add the first law
+              {t("emptyAddFirst")}
             </Link>
           </div>
         ) : (
@@ -534,15 +536,15 @@ function AdminLawsPageInner() {
                       checked={allVisibleSelected}
                       onChange={toggleSelectAllVisible}
                       className="h-4 w-4 rounded border-input"
-                      aria-label="Select all laws on this page"
+                      aria-label={t("table.selectAllAria")}
                     />
                   </th>
-                  <th className="text-left p-3 font-medium">Title</th>
-                  <th className="text-left p-3 font-medium">Country</th>
-                  <th className="text-left p-3 font-medium">Category</th>
-                  <th className="text-left p-3 font-medium">Treaty</th>
-                  <th className="text-left p-3 font-medium">Status</th>
-                  <th className="text-left p-3 font-medium">Year</th>
+                  <th className="text-left p-3 font-medium">{t("table.title")}</th>
+                  <th className="text-left p-3 font-medium">{t("table.country")}</th>
+                  <th className="text-left p-3 font-medium">{t("table.category")}</th>
+                  <th className="text-left p-3 font-medium">{t("table.treaty")}</th>
+                  <th className="text-left p-3 font-medium">{tc("status")}</th>
+                  <th className="text-left p-3 font-medium">{t("table.year")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -566,7 +568,7 @@ function AdminLawsPageInner() {
                       </Link>
                     </td>
                     <td className="p-3 text-muted-foreground">
-                      {law.applies_to_all_countries ? "All countries" : law.countries?.name ?? "—"}
+                      {law.applies_to_all_countries ? t("allCountries") : law.countries?.name ?? "—"}
                     </td>
                     <td className="p-3 text-muted-foreground">{law.categories?.name ?? "—"}</td>
                     <td className="p-3 text-muted-foreground">{law.treaty_type ?? "—"}</td>
