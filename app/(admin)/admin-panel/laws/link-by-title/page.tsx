@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, Link2, Loader2, Search } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 
@@ -20,6 +21,8 @@ type CandidateGroup = {
 };
 
 export default function AdminLinkLawsByTitlePage() {
+  const t = useTranslations("admin.laws.linkByTitle");
+  const tc = useTranslations("admin.common");
   const { confirm, confirmDialog } = useConfirm();
   const [groups, setGroups] = useState<CandidateGroup[]>([]);
   const [scanned, setScanned] = useState<number | null>(null);
@@ -39,7 +42,7 @@ export default function AdminLinkLawsByTitlePage() {
       const res = await fetch("/api/admin/laws/title-link-candidates", { credentials: "include" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(typeof data.error === "string" ? data.error : "Failed to load");
+        setError(typeof data.error === "string" ? data.error : t("errors.loadFailed"));
         setGroups([]);
         setScanCappedAt(null);
         return;
@@ -50,7 +53,7 @@ export default function AdminLinkLawsByTitlePage() {
       setSelectedByGroup({});
       setSourceByGroup({});
     } catch {
-      setError("Network error");
+      setError(tc("networkError"));
       setGroups([]);
       setScanCappedAt(null);
     } finally {
@@ -92,7 +95,7 @@ export default function AdminLinkLawsByTitlePage() {
     const key = g.normalized_title;
     const ids = Array.from(selectedByGroup[key] ?? []);
     if (ids.length < 2) {
-      setError("Select at least two laws to link.");
+      setError(t("errors.selectAtLeastTwo"));
       return;
     }
     let source = sourceByGroup[key];
@@ -101,10 +104,10 @@ export default function AdminLinkLawsByTitlePage() {
       setSourceByGroup((prev) => ({ ...prev, [key]: source }));
     }
     const ok = await confirm({
-      title: "Create shared link group",
-      description: `Link ${ids.length} laws. Text and metadata from the source law will be copied to the others (same as admin law propagation). Each law stays under its own country in the library.`,
-      confirmLabel: "Link and sync",
-      cancelLabel: "Cancel",
+      title: t("confirm.title"),
+      description: t("confirm.description", { count: ids.length }),
+      confirmLabel: t("confirm.confirm"),
+      cancelLabel: tc("cancel"),
       variant: "default",
     });
     if (!ok) return;
@@ -124,13 +127,13 @@ export default function AdminLinkLawsByTitlePage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(typeof data.error === "string" ? data.error : "Link failed");
+        setError(typeof data.error === "string" ? data.error : t("errors.linkFailed"));
         return;
       }
       await load();
       setExpandedKey(null);
     } catch {
-      setError("Network error");
+      setError(tc("networkError"));
     } finally {
       setLinkingKey(null);
     }
@@ -168,22 +171,20 @@ export default function AdminLinkLawsByTitlePage() {
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to laws
+            {t("back")}
           </Link>
-          <h1 className="mt-3 text-2xl font-semibold text-foreground">Link laws by title</h1>
+          <h1 className="mt-3 text-2xl font-semibold text-foreground">{t("title")}</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Find every law record that shares the same title (member states, regional blocs such as ECOWAS / COMESA /
-            EAC / OIC, or “All countries”). Link them so edits to shared fields propagate to all members. Each law
-            remains attached to its country; only content and shared metadata stay in sync when you save from the law
-            editor.
+            {t("subtitle")}
           </p>
           {scanned != null && (
-            <p className="mt-2 text-xs text-muted-foreground">Scanned {scanned.toLocaleString()} law rows.</p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {t("scanned", { count: scanned.toLocaleString() })}
+            </p>
           )}
           {scanCappedAt != null && (
             <p className="mt-1 text-xs text-amber-700 dark:text-amber-500">
-              List was truncated at the safety cap ({scanCappedAt.toLocaleString()} laws). Raise the cap in code if you
-              truly need more.
+              {t("safetyCap", { count: scanCappedAt.toLocaleString() })}
             </p>
           )}
         </div>
@@ -192,7 +193,7 @@ export default function AdminLinkLawsByTitlePage() {
             href="/admin-panel/laws/linked"
             className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
           >
-            View linked groups
+            {t("viewLinkedGroups")}
           </Link>
           <button
             type="button"
@@ -200,7 +201,7 @@ export default function AdminLinkLawsByTitlePage() {
             disabled={loading}
             className="shrink-0 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50"
           >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Refresh"}
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : tc("refresh")}
           </button>
         </div>
       </div>
@@ -214,7 +215,7 @@ export default function AdminLinkLawsByTitlePage() {
       {!loading && totalGroups > 0 && (
         <div className="mb-4 max-w-3xl">
           <label htmlFor="link-by-title-search" className="mb-1 block text-xs font-medium text-muted-foreground">
-            Search groups
+            {t("search")}
           </label>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -223,7 +224,7 @@ export default function AdminLinkLawsByTitlePage() {
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter by title, country (e.g. ECOWAS, COMESA, EAC, OIC), or status…"
+              placeholder={t("searchPlaceholder")}
               className="w-full rounded-md border border-input bg-background py-2 pl-9 pr-3 text-sm"
               autoComplete="off"
             />
@@ -237,15 +238,17 @@ export default function AdminLinkLawsByTitlePage() {
         </div>
       ) : totalGroups === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No groups found with the same title on two or more law records.
+          {t("empty")}
         </p>
       ) : sortedGroups.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No groups match your search.</p>
+        <p className="text-sm text-muted-foreground">{t("emptySearch")}</p>
       ) : (
         <>
         <p className="mb-3 text-xs text-muted-foreground">
-          {sortedGroups.length} group{sortedGroups.length === 1 ? "" : "s"}
-          {searchQuery.trim() ? ` matching “${searchQuery.trim()}”` : ""} · sorted A–Z by title
+          {t("groupsSummary", {
+            count: sortedGroups.length,
+            matching: searchQuery.trim() ? t("matching", { value: searchQuery.trim() }) : "",
+          })}
         </p>
         <ul className="space-y-3">
           {sortedGroups.map((g) => {
@@ -272,10 +275,12 @@ export default function AdminLinkLawsByTitlePage() {
                   className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left text-sm font-medium hover:bg-muted/50"
                 >
                   <span className="min-w-0 flex-1 break-words whitespace-normal leading-snug">
-                    <span className="text-muted-foreground">{n} laws · </span>
+                    <span className="text-muted-foreground">{t("lawsCount", { count: n })} · </span>
                     <span className="text-foreground">{g.laws[0]?.title ?? key}</span>
                   </span>
-                  <span className="shrink-0 pt-0.5 text-xs text-muted-foreground">{open ? "Hide" : "Expand"}</span>
+                  <span className="shrink-0 pt-0.5 text-xs text-muted-foreground">
+                    {open ? t("hide") : t("expand")}
+                  </span>
                 </button>
                 {open && (
                   <div className="border-t border-border px-4 py-3">
@@ -285,19 +290,18 @@ export default function AdminLinkLawsByTitlePage() {
                         onClick={() => selectAllInGroup(g)}
                         className="rounded-md border border-input bg-background px-2 py-1 text-xs hover:bg-accent"
                       >
-                        Select all
+                        {t("selectAll")}
                       </button>
                       <button
                         type="button"
                         onClick={() => clearGroup(key)}
                         className="rounded-md border border-input bg-background px-2 py-1 text-xs hover:bg-accent"
                       >
-                        Clear
+                        {t("clear")}
                       </button>
                     </div>
                     <p className="mb-2 text-xs text-muted-foreground">
-                      Source law (text copied to others on link): pick one radio, then tick laws to include (min 2).
-                      Long country lists scroll inside this box if you do not see every member.
+                      {t("sourceHint")}
                     </p>
                     <ul className="max-h-[min(28rem,70vh)] space-y-2 overflow-y-auto">
                       {g.laws.map((law) => (
@@ -326,13 +330,13 @@ export default function AdminLinkLawsByTitlePage() {
                               onChange={() => setSourceByGroup((prev) => ({ ...prev, [key]: law.id }))}
                               className="h-3.5 w-3.5"
                             />
-                            Source
+                            {t("source")}
                           </label>
                           <Link
                             href={`/admin-panel/laws/${law.id}?returnTo=${encodeURIComponent("/admin-panel/laws/link-by-title")}`}
                             className="shrink-0 text-xs text-primary hover:underline"
                           >
-                            Edit
+                            {t("edit")}
                           </Link>
                         </li>
                       ))}
@@ -349,7 +353,7 @@ export default function AdminLinkLawsByTitlePage() {
                         ) : (
                           <Link2 className="h-4 w-4" />
                         )}
-                        Link selected ({selected.size})
+                        {t("linkSelected", { count: selected.size })}
                       </button>
                     </div>
                   </div>
