@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, Undo2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 type SearchRow = {
   userId: string;
@@ -18,6 +19,8 @@ type SearchRow = {
 };
 
 export function LawyerSearchesPanel() {
+  const t = useTranslations("admin.revenue.lawyerSearchesPanel");
+  const tc = useTranslations("admin.common");
   const [searches, setSearches] = useState<SearchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +34,8 @@ export function LawyerSearchesPanel() {
       .then(({ ok, status, data }) => {
         if (!ok) {
           const msg =
-            data?.error ?? (status === 401 ? "Sign in required" : status === 403 ? "Admin access required" : "Failed to load");
+            data?.error ??
+            (status === 401 ? t("errors.signInRequired") : status === 403 ? t("errors.adminAccessRequired") : t("errors.failedToLoad"));
           setError(data?.details ? `${msg}: ${data.details}` : msg);
           setSearches([]);
         } else if (data?.error) {
@@ -41,11 +45,11 @@ export function LawyerSearchesPanel() {
         }
       })
       .catch(() => {
-        setError("Failed to load searches");
+        setError(t("errors.failedToLoadSearches"));
         setSearches([]);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchSearches();
@@ -71,12 +75,12 @@ export function LawyerSearchesPanel() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data?.error ?? data?.details ?? "Failed to revert");
+        setError(data?.error ?? data?.details ?? t("errors.failedToRevert"));
         return;
       }
       setSearches((prev) => prev.filter((s) => revertKey(s) !== id));
     } catch {
-      setError("Failed to revert search");
+      setError(t("errors.failedToRevertSearch"));
     } finally {
       setRevertingId(null);
     }
@@ -86,7 +90,7 @@ export function LawyerSearchesPanel() {
     if (dateString == null || dateString === "") return "—";
     const date = new Date(dateString);
     if (Number.isNaN(date.getTime()) || date.getTime() <= 0) return "—";
-    return date.toLocaleDateString("en-US", {
+    return date.toLocaleDateString(undefined, {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -105,25 +109,23 @@ export function LawyerSearchesPanel() {
 
   return (
     <div className="rounded-2xl border border-border/80 bg-card/80 p-4 shadow-sm sm:p-6">
-      <h3 className="text-lg font-semibold text-foreground">Lawyer search purchases</h3>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Paid searches (30-day access). You can revert a row to revoke access.
-      </p>
+      <h3 className="text-lg font-semibold text-foreground">{t("title")}</h3>
+      <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
       {error ? (
         <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
       ) : null}
       {searches.length === 0 && !error ? (
-        <p className="mt-6 text-center text-muted-foreground">No active searches found.</p>
+        <p className="mt-6 text-center text-muted-foreground">{t("noActiveSearches")}</p>
       ) : (
         <div className="mt-6 overflow-x-auto rounded-xl border border-border">
           <table className="w-full text-sm">
             <thead className="border-b border-border bg-muted/50">
               <tr>
-                <th className="p-3 text-left font-medium">User</th>
-                <th className="p-3 text-left font-medium">Search</th>
-                <th className="p-3 text-left font-medium">Purchased</th>
-                <th className="p-3 text-left font-medium">Expires</th>
-                <th className="p-3 text-right font-medium">Actions</th>
+                <th className="p-3 text-left font-medium">{tc("user")}</th>
+                <th className="p-3 text-left font-medium">{t("table.search")}</th>
+                <th className="p-3 text-left font-medium">{t("table.purchased")}</th>
+                <th className="p-3 text-left font-medium">{t("table.expires")}</th>
+                <th className="p-3 text-right font-medium">{tc("actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -147,7 +149,7 @@ export function LawyerSearchesPanel() {
                         className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
                       >
                         {isReverting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
-                        Revert
+                        {t("revert")}
                       </button>
                     </td>
                   </tr>
