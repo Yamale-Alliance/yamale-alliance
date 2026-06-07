@@ -218,6 +218,1658 @@
         "laws": "View and add laws",
         "pricing": "Edit pricing plans"
       }
+    },
+    "common": {
+      "email": "Email",
+      "role": "Role",
+      "user": "User",
+      "admin": "Admin",
+      "save": "Save",
+      "refresh": "Refresh",
+      "loading": "Loading…",
+      "networkError": "Network error",
+      "exportPdf": "Export PDF",
+      "previous": "Previous",
+      "next": "Next",
+      "when": "When",
+      "action": "Action",
+      "details": "Details",
+      "cancel": "Cancel",
+      "close": "Close",
+      "yes": "Yes",
+      "no": "No",
+      "saving": "Saving…",
+      "name": "Name",
+      "all": "All",
+      "month": "Month",
+      "failedToUpdate": "Failed to update",
+      "failedToUpdateRole": "Failed to update role",
+      "popupBlocked": "Popup blocked. Allow popups to export PDF.",
+      "pageOf": "Page {page} of {total}",
+      "showingRange": "Showing {start}–{end} of {total}",
+      "noEntries": "No entries",
+      "accessTier": "Access tier",
+      "giftAccess": "Gift access",
+      "queries": "Queries",
+      "inputTokens": "Input tokens",
+      "outputTokens": "Output tokens",
+      "totalTokens": "Total tokens",
+      "estCost": "Est. cost",
+      "actions": "Actions",
+      "status": "Status",
+      "submitted": "Submitted",
+      "customer": "Customer",
+      "item": "Item",
+      "reason": "Reason",
+      "provider": "Provider"
+    },
+    "admins": {
+      "title": "Admin Management",
+      "subtitle": "Add admins by email and role, and view version control (audit log) of admin actions.",
+      "addAdminTitle": "Add admin or set role",
+      "addAdminDesc": "Enter the email of an existing user to assign them a role (Admin or User). Lawyers are managed separately in the Lawyers directory.",
+      "emailPlaceholder": "user@example.com",
+      "saveRole": "Save role",
+      "enterEmail": "Enter an email address.",
+      "roleUpdatedSuccess": "Role updated successfully.",
+      "versionControl": "Version control",
+      "versionControlDesc": "Who added, updated, or changed what. Filter by control type, action, or admin below.",
+      "allControls": "All controls",
+      "createControls": "Create controls",
+      "updateControls": "Update controls",
+      "deleteControls": "Delete controls",
+      "roleControls": "Admin/access controls",
+      "allActions": "All actions",
+      "allAdmins": "All admins",
+      "noAuditEntries": "No audit entries yet. Actions (add law, update pricing, change user tier, add admin) will appear here.",
+      "auditActions": {
+        "law": {
+          "add": "Added law",
+          "update": "Updated law",
+          "delete": "Deleted law",
+          "delete_batch": "Deleted multiple laws"
+        },
+        "pricing": {
+          "update": "Updated pricing plan"
+        },
+        "user": {
+          "tier": "Changed user access tier"
+        },
+        "admin": {
+          "add": "Added/updated admin role",
+          "role": "Changed role"
+        },
+        "lawyer": {
+          "removed": "Removed lawyer"
+        },
+        "marketplace_item": {
+          "add": "Added marketplace item",
+          "update": "Updated marketplace item",
+          "delete": "Deleted marketplace item"
+        }
+      }
+    },
+    "users": {
+      "title": "User Management",
+      "subtitle": "Manage users and gift access to AI and other features by setting their plan tier. Change role in the table.",
+      "noUsersFound": "No users found.",
+      "giftAccessHint": "Setting a tier (Basic, Pro, Plus, Team) grants that user access to AI research and other plan features without payment.",
+      "tiers": {
+        "free": "Free",
+        "basic": "Basic (10 AI/mo)",
+        "pro": "Pro (50 AI/mo)",
+        "team": "Team (unlimited AI)"
+      },
+      "export": {
+        "documentTitle": "Users export – Yamalé Alliance",
+        "tagline": "AI legal search & research platform",
+        "reportTitle": "Users export",
+        "generated": "Generated {date}",
+        "footer": "Yamalé Alliance – Confidential. This report was generated from the admin panel."
+      }
+    },
+    "aiUsage": {
+      "title": "AI Usage",
+      "subtitle": "Credits (queries) and token usage for the current month. Limits: Basic 10/mo, Pro 50/mo, Team unlimited.",
+      "disclaimer": "Rough API-style estimate from input/output tokens (blended Haiku/Sonnet–class rates). Not a bill from Anthropic.",
+      "queriesThisMonth": "Queries this month",
+      "monthLabel": "Month: {month}",
+      "estApiCostMonth": "Est. API cost (month)",
+      "sumPerUserEstimates": "Sum of per-user token estimates.",
+      "noUsageForMonth": "No AI usage recorded for {month} yet.",
+      "failedToLoad": "Failed to load AI usage"
+    },
+    "refunds": {
+      "title": "Refund requests",
+      "introBeforeLomi": "Customer-initiated refund requests. Approving triggers Lomi or pawaPay per",
+      "introAfterProviders": "APIs and revokes access when the provider confirms completion.",
+      "noRequests": "No refund requests in this filter.",
+      "adminNotesPlaceholder": "Admin notes (optional)",
+      "approveRefund": "Approve & refund",
+      "reject": "Reject",
+      "actionFailed": "Action failed",
+      "statusFilters": {
+        "pending": "Pending",
+        "processing": "Processing",
+        "completed": "Completed",
+        "rejected": "Rejected",
+        "failed": "Failed",
+        "all": "All"
+      }
+    },
+    "revenue": {
+      "loadingFallback": "Loading revenue hub…",
+      "eyebrow": "Commerce",
+      "title": "Revenue & sales",
+      "subtitle": "Analytics, subscriptions, and one-time purchases in one place. Use the tabs to drill into each area without hunting the sidebar.",
+      "vaultShopAdmin": "Vault shop admin",
+      "sectionsAria": "Revenue sections",
+      "tabs": {
+        "analytics": "Analytics",
+        "subscriptions": "Subscriptions",
+        "lawyerSearches": "Lawyer searches",
+        "libraryPdfs": "Library PDFs",
+        "vault": "Vault"
+      },
+      "vaultTab": {
+        "title": "Yamalé Vault",
+        "description": "Vault purchase counts and revenue for any date range live on the Analytics tab (marketplace purchases × item price). This tab is for managing products, HTML, and the detailed purchase table.",
+        "purchaseCounts": "purchase counts and revenue",
+        "analyticsTab": "Analytics",
+        "openVaultAdmin": "Open Vault admin"
+      },
+      "analyticsDashboard": {
+        "eyebrow": "Revenue intelligence",
+        "title": "Analytics",
+        "subtitle": "Paid AI plans (period + run-rate), one-time unlocks, and Vault sales. Pick a date window and a source to see totals for that slice.",
+        "dateRange": "Date range",
+        "totalMade": "Total made (this window)",
+        "sourceFilter": "Source filter",
+        "mixInWindow": "Mix in this window",
+        "mixHint": "Tap a band to filter the total above to that source.",
+        "noRevenueInWindow": "No period revenue in this window yet. Try a longer range or another day.",
+        "mixAria": "Revenue mix by source",
+        "scannedUsers": "Scanned {count} Clerk users for subscription metrics.",
+        "detailTitle": "Who paid for what",
+        "detailSubtitle": "Row-level activity in the same date range as the cards above. Payment references are deposit or checkout IDs from pawaPay / Lomi where stored.",
+        "ranges": {
+          "today": "Today",
+          "this_week": "This week",
+          "last_week": "Last week",
+          "last_month": "Last month",
+          "last_60_days": "Last 60 days",
+          "last_90_days": "Last 90 days",
+          "all_time": "All time"
+        },
+        "segmentDescriptions": {
+          "all": "Sum of <strong>estimated first payments</strong> for new paid subscribers in range, plus document unlocks, lawyer search unlocks, and Vault purchases (list / item prices).",
+          "subscriptions": "Estimated revenue from users who became paid subscribers in this window (first cycle from Admin pricing; not MRR).",
+          "lawyerSearches": "Lawyer search unlock rows in range at the configured list price.",
+          "libraryPdf": "Library PDF unlock rows in range at the configured list price.",
+          "vault": "Marketplace purchase rows in range, priced from each Vault item."
+        },
+        "segments": {
+          "all": {
+            "label": "All sources",
+            "short": "All"
+          },
+          "subscriptions": {
+            "label": "AI subscriptions",
+            "short": "AI plans"
+          },
+          "lawyer_searches": {
+            "label": "Lawyer search unlocks",
+            "short": "Lawyer search"
+          },
+          "library_pdf": {
+            "label": "Library PDF unlocks",
+            "short": "Library PDF"
+          },
+          "vault": {
+            "label": "Yamalé Vault",
+            "short": "Vault"
+          }
+        },
+        "cards": {
+          "activePaidSubscribers": "Active paid subscribers",
+          "estimatedMrr": "Est. MRR {amount}",
+          "newSubscribers": "New subscribers (period)",
+          "estimatedFirstCycle": "Est. first-cycle {amount}",
+          "lawyerSearchUnlocks": "Lawyer search unlocks",
+          "libraryPdfUnlocks": "Library PDF unlocks",
+          "vault": "Yamalé Vault"
+        },
+        "errors": {
+          "failedToLoad": "Failed to load analytics"
+        }
+      },
+      "analyticsDetailTables": {
+        "truncation": "Showing up to {label} in this window; more rows exist — narrow the date range or use the dedicated tabs for full lists.",
+        "newSubscribers": {
+          "title": "New paid subscribers (in this window)",
+          "subtitle": "First billing cycle estimate · includes complimentary grants at $0",
+          "columns": {
+            "who": "Who",
+            "plan": "Plan",
+            "billing": "Billing",
+            "subscriberSince": "Subscriber since",
+            "estimatedFirstPayment": "Est. first payment",
+            "note": "Note"
+          },
+          "complimentaryGrant": "Complimentary grant",
+          "empty": "No new paid subscribers in this date window."
+        },
+        "vaultPurchases": {
+          "title": "Yamalé Vault — who bought what",
+          "subtitle": "Item title and list price at time of purchase (from catalog)",
+          "columns": {
+            "buyer": "Buyer",
+            "amount": "Amount",
+            "paymentRef": "Payment ref."
+          },
+          "itemId": "Item ID · {id}",
+          "empty": "No Vault purchases in this date window."
+        },
+        "payg": {
+          "title": "One-time unlocks & pay-as-you-go",
+          "subtitle": "Library PDFs, lawyer search, AI query packs, AfCFTA — line amounts use the same list prices as the summary cards",
+          "filteredLawyerSearch": "(filtered to lawyer search)",
+          "filteredLibraryPdf": "(filtered to library PDF)",
+          "columns": {
+            "buyer": "Buyer",
+            "product": "Product",
+            "qty": "Qty",
+            "lineTotal": "Line total",
+            "paymentRef": "Payment ref."
+          },
+          "emptyLawyerSearch": "No lawyer search unlocks in this date window.",
+          "emptyLibraryPdf": "No library PDF unlocks in this date window.",
+          "empty": "No pay-as-you-go rows in this date window."
+        }
+      },
+      "subscriptionsPanel": {
+        "title": "AI subscriptions",
+        "subtitle": "Paid AI plans (Basic / Pro / Team). Renewal dates come from Clerk metadata.",
+        "errors": {
+          "failedToLoad": "Failed to load subscriptions"
+        },
+        "table": {
+          "started": "Started",
+          "nextPaymentOrReset": "Next payment / Reset",
+          "noActiveSubscriptions": "No active subscriptions found.",
+          "resetsToFreeOn": "Resets to free on {date}",
+          "nextPaymentOn": "Next payment on {date}",
+          "userId": "User ID: {id}"
+        }
+      },
+      "lawyerSearchesPanel": {
+        "title": "Lawyer search purchases",
+        "subtitle": "Paid searches (30-day access). You can revert a row to revoke access.",
+        "revert": "Revert",
+        "noActiveSearches": "No active searches found.",
+        "errors": {
+          "signInRequired": "Sign in required",
+          "adminAccessRequired": "Admin access required",
+          "failedToLoad": "Failed to load",
+          "failedToLoadSearches": "Failed to load searches",
+          "failedToRevert": "Failed to revert",
+          "failedToRevertSearch": "Failed to revert search"
+        },
+        "table": {
+          "search": "Search",
+          "purchased": "Purchased",
+          "expires": "Expires"
+        }
+      },
+      "libraryPdfPanel": {
+        "title": "Library PDF purchases",
+        "subtitle": "One-time law PDF unlocks (<code>pay_as_you_go_purchases</code>). Also see totals on the <strong>Analytics</strong> tab.",
+        "errors": {
+          "signInRequired": "Sign in required",
+          "adminAccessRequired": "Admin access required",
+          "failedToLoad": "Failed to load",
+          "failedToLoadPurchases": "Failed to load purchases"
+        },
+        "table": {
+          "date": "Date",
+          "buyer": "Buyer",
+          "law": "Law",
+          "paymentRef": "Payment ref",
+          "noPurchases": "No library PDF purchases yet.",
+          "lawNotLinked": "Law not linked"
+        }
+      }
+    },
+    "vault": {
+      "title": "The Yamalé Vault",
+      "subtitle": "Books, courses, and templates. Prices are set here and charged at checkout (mobile money or card).",
+      "viewPublicVault": "View The Yamalé Vault →",
+      "marketplacePage": {
+        "types": {
+          "book": "Book",
+          "course": "Course",
+          "template": "Template",
+          "guide": "Guide"
+        },
+        "errors": {
+          "failedToDeleteSeries": "Failed to delete series",
+          "invalidServerResponse": "Invalid response from server",
+          "imageUploadFailed": "Image upload failed",
+          "uploadedNoImageUrl": "Upload succeeded but no image URL was returned.",
+          "imageUploadNetwork": "Image upload failed (network or blocked response). Check the browser Network tab.",
+          "invalidCoverUrl": "Cover URL must be a valid https Cloudinary link (res.cloudinary.com).",
+          "uploadFailed": "Upload failed",
+          "uploadMissingFileDetails": "Upload succeeded but file details were missing. Check Supabase storage and env.",
+          "uploadNetwork": "Upload failed (network or blocked response). Check the browser Network tab.",
+          "failedToCreate": "Failed to create",
+          "syncFailed": "Sync failed",
+          "networkErrorDuringCourseSync": "Network error during course sync",
+          "failedToDelete": "Failed to delete",
+          "failedToRevokePurchase": "Failed to revoke purchase",
+          "couldNotReadHtmlFile": "Could not read HTML file"
+        },
+        "notices": {
+          "syncedModules": "Synced {modules} files across {phases} phase folder(s) from the ZIP."
+        },
+        "confirm": {
+          "deleteSeriesTitle": "Delete series",
+          "deleteSeriesConfirm": "Delete series",
+          "deleteItemTitle": "Delete item",
+          "deleteItemDescription": "Delete this item? This cannot be undone.",
+          "revokePurchaseTitle": "Revoke purchase",
+          "revokePurchaseDescription": "Revoke this purchase? The user will lose access and can purchase again."
+        },
+        "actions": {
+          "remove": "Remove",
+          "pleaseWait": "Please wait…",
+          "uploadFile": "Upload file",
+          "create": "Create",
+          "addItem": "Add item",
+          "addSeries": "Add series",
+          "editSeries": "Edit series",
+          "delete": "Delete",
+          "configure": "Configure",
+          "edit": "Edit",
+          "revoking": "Revoking…",
+          "revoke": "Revoke",
+          "uploadNewFile": "Upload new file",
+          "replaceFile": "Replace file",
+          "syncModulesFromZip": "Sync modules from ZIP",
+          "removeFile": "Remove file"
+        },
+        "addItem": {
+          "title": "Add item"
+        },
+        "fields": {
+          "type": "Type",
+          "title": "Title",
+          "titlePlaceholder": "e.g. African Commercial Law",
+          "authorSeller": "Author / Seller",
+          "authorPlaceholder": "e.g. Dr. Kofi Mensah",
+          "priceUsd": "Price (USD)",
+          "pricePlaceholder": "0 = free",
+          "description": "Description",
+          "descriptionPlaceholder": "Short description for the product page",
+          "youtubeUrlOptional": "YouTube video URL (optional)",
+          "youtubePlaceholder": "e.g. https://www.youtube.com/watch?v=VIDEO_ID or https://youtu.be/VIDEO_ID",
+          "youtubeHint": "If provided, this video will be embedded on the public product page (for trailers, intros, or walkthroughs).",
+          "coverImage": "Cover image",
+          "customLandingHtml": "Custom landing page HTML (optional)",
+          "customLandingHtmlPlaceholder": "<!DOCTYPE html> … or paste body markup",
+          "loadFromHtmlFile": "Load from .html file",
+          "fileLabel": "File (PDF, EPUB, ZIP, etc.)",
+          "publishedVisible": "Published (visible in The Yamalé Vault)",
+          "onlineCourse": "Online course (implementation workspace)",
+          "sortOrder": "Sort order",
+          "courseZipHint": "For course items, upload a ZIP then save and use <strong>Sync modules from ZIP</strong> when editing.",
+          "fileAttached": "File attached",
+          "youtubePlaceholderShort": "https://www.youtube.com/watch?v=VIDEO_ID",
+          "youtubeHintShort": "Used to embed a YouTube clip on the product page.",
+          "pasteHtml": "Paste HTML…",
+          "replaceFromHtmlFile": "Replace from .html file",
+          "published": "Published",
+          "onlineCourseTitle": "Purchasers get View course and the online implementation workspace"
+        },
+        "series": {
+          "vaultSeriesTitle": "Vault series",
+          "builtinCatalogTitle": "Built-in catalog series"
+        },
+        "list": {
+          "standaloneHintBefore": "Standalone vault items only. Items in a series are managed in",
+          "standaloneHintAfter": "above and appear on the public vault inside that series."
+        },
+        "table": {
+          "cover": "Cover",
+          "type": "Type",
+          "title": "Title",
+          "freeSeries": "Free series",
+          "author": "Author",
+          "price": "Price",
+          "file": "File",
+          "published": "Published",
+          "noImage": "No img",
+          "free": "Free"
+        },
+        "empty": {
+          "noStandaloneItems": "No standalone items — all vault products are in a series. Add a new item or open a series to manage them.",
+          "noItemsYet": "No items in The Yamalé Vault yet. Add one above."
+        },
+        "purchases": {
+          "title": "Purchases",
+          "subtitle": "View which users currently own items from The Yamalé Vault. You can revoke a purchase so that the user can purchase again.",
+          "empty": "No purchases recorded yet.",
+          "columns": {
+            "buyer": "Buyer",
+            "purchasedAt": "Purchased at"
+          },
+          "itemId": "Item ID: {id}",
+          "userId": "User ID: {id}"
+        },
+        "editItem": {
+          "title": "Edit item"
+        }
+      },
+      "packageOffersFields": {
+        "title": "Dual pricing (standalone kit + bundle add-on)",
+        "subtitle": "For ZIP packages with a custom landing page. Shows two checkout options: standalone kit and bundle with another vault item.",
+        "standalonePriceLabel": "Standalone kit price (USD)",
+        "standalonePricePlaceholder": "199.00",
+        "standalonePriceHint": "e.g. $199 — \"Get the Kit\" on the landing page",
+        "bundleAddonPriceLabel": "Bundle add-on price (USD)",
+        "bundleAddonPricePlaceholder": "129.00",
+        "bundleAddonPriceHint": "e.g. $129 — also used as this item's vault list price when saved",
+        "bundleIncludesLabel": "Bundle includes (vault item)",
+        "autoDetectOption": "Auto-detect Law Firm Development Package ($499)",
+        "bundleHint": "Bundle checkout charges the add-on (e.g. $129) plus the selected vault item's list price. Customers receive access to both the kit and the partner item after payment."
+      },
+      "itemPackFields": {
+        "title": "Multi-item pack",
+        "subtitle": "Pair this item with one or more other vault items. Customers can buy this item alone or the whole pack at the price you set below.",
+        "packNameLabel": "Pack name",
+        "packNamePlaceholder": "e.g. Labour pack",
+        "wholePackPriceLabel": "Whole pack price (USD)",
+        "wholePackPricePlaceholder": "79.00",
+        "wholePackPriceHint": "Charged when a customer buys the full pack. Individual items keep their own list prices.",
+        "packIncludesLabel": "Pack includes (select one or more)",
+        "noOptionsHint": "Publish other paid items first to pair them.",
+        "packIncludesHint": "This item is always included in the pack. Selected partners are unlocked together at checkout."
+      },
+      "marketplaceCoverImageField": {
+        "helpText": "Shown on Vault cards and the product page. Stored in Cloudinary. JPEG, PNG, WebP, or HEIC — max {maxMb} MB.",
+        "coverPreviewAlt": "Cover preview",
+        "uploading": "Uploading…",
+        "replaceImage": "Replace image",
+        "remove": "Remove",
+        "uploadingCover": "Uploading cover…",
+        "uploadCoverImage": "Upload cover image",
+        "pasteUrlPlaceholder": "Or paste Cloudinary image URL (https://res.cloudinary.com/…)",
+        "useUrl": "Use URL",
+        "saveReadyHint": "Cover ready — save the item to publish on the Vault."
+      },
+      "focusCountrySelect": {
+        "label": "Focus country (map on card)",
+        "allAfrica": "All Africa (default)",
+        "hint": "Shown on the vault card when no cover image is set. Pick a country for a country map, or leave blank for the Africa continent."
+      },
+      "subcategorySelect": {
+        "label": "Vault series (optional)",
+        "none": "— None —",
+        "paidSeries": "paid series",
+        "freeSeries": "free series",
+        "hint": "Free series apply when price is $0. Paid series apply at any price.",
+        "loadedManageHint": "Manage series with Add series on the marketplace admin page.",
+        "loading": "Loading series…",
+        "quickInvestmentGuide": {
+          "before": "Quick Investment Guide: upload series cover in the series editor, or use static",
+          "after": "Suggested price ${amount} per country."
+        }
+      },
+      "virusScanBanner": {
+        "scanningTitle": "Scanning for viruses…",
+        "scanningHint": "Checking file with VirusTotal before storage.",
+        "uploadingTitle": "Scanning & uploading…",
+        "uploadingHint": "New files can take up to 2 minutes. Please keep this tab open."
+      },
+      "logoCropModal": {
+        "title": "Crop & resize logo",
+        "cropAlt": "Crop",
+        "zoom": "Zoom",
+        "zoomOut": "Zoom out",
+        "zoomIn": "Zoom in",
+        "instructions": "<strong>Pan:</strong> drag the crop box. <strong>Resize:</strong> drag corners or edges. <strong>Zoom:</strong> use the slider above.",
+        "outputSize": "Output size",
+        "outputHint": "Smaller width reduces file size; logo will scale up on the page if needed.",
+        "applying": "Applying…",
+        "applyAndUpload": "Apply & upload",
+        "widthOptions": {
+          "0": "Original size",
+          "200": "200px wide",
+          "300": "300px wide",
+          "400": "400px wide",
+          "512": "512px wide"
+        }
+      },
+      "heroImageCropModal": {
+        "title": "Crop & resize main page image",
+        "cropAlt": "Crop",
+        "zoom": "Zoom",
+        "zoomOut": "Zoom out",
+        "zoomIn": "Zoom in",
+        "instructions": "<strong>Pan:</strong> drag the crop box. <strong>Resize:</strong> drag corners or edges. <strong>Zoom:</strong> use the slider above.",
+        "outputSize": "Output size",
+        "outputHint": "Smaller width reduces file size; image will scale up on the page if needed.",
+        "applying": "Applying…",
+        "applyAndUpload": "Apply & upload",
+        "widthOptions": {
+          "0": "Original size",
+          "400": "400px wide",
+          "512": "512px wide",
+          "600": "600px wide",
+          "800": "800px wide"
+        }
+      },
+      "seriesEditor": {
+        "titleAdd": "Add vault series",
+        "titleEdit": "Edit vault series",
+        "loading": "loading…",
+        "paidSeries": "paid series",
+        "freeSeries": "free series",
+        "seriesSaved": "Series saved. You can keep editing or close when finished.",
+        "seriesSectionTitle": "Series",
+        "fields": {
+          "seriesName": "Series name",
+          "seriesNamePlaceholder": "e.g. Quick Investment Guide",
+          "seriesDescription": "Series description",
+          "seriesCoverImage": "Series cover image",
+          "defaultItemType": "Default item type",
+          "paidSeries": "Paid series",
+          "perCountryItemCovers": "Per-country item covers",
+          "bundlePriceUsd": "Bundle price (USD)",
+          "bundlePricePlaceholder": "e.g. 79.00",
+          "suggestedItemPriceUsd": "Suggested item price (USD)",
+          "suggestedItemPricePlaceholder": "e.g. 19.00",
+          "linkExistingVaultItem": "Link existing vault item",
+          "chooseStandaloneItem": "Choose a standalone item…",
+          "itemName": "Item name",
+          "priceUsd": "Price (USD)",
+          "published": "Published",
+          "itemDescription": "Item description",
+          "productFile": "Product file (PDF, EPUB, ZIP, etc.)",
+          "itemCover": "Item cover (Vault card)"
+        },
+        "coverModes": {
+          "countryMapTitle": "Country map",
+          "categoryColorTitle": "Category color",
+          "customImageTitle": "Custom cover image",
+          "category": "Category",
+          "saveReadyHint": "Cover ready — click Save at the bottom to publish this item cover."
+        },
+        "actions": {
+          "prev": "Prev",
+          "next": "Next",
+          "addItem": "Add item",
+          "addToSeries": "Add to series",
+          "pleaseWait": "Please wait…",
+          "uploadProductFile": "Upload product file",
+          "replaceFile": "Replace file",
+          "unlinkFromSeries": "Unlink from series (returns to vault)",
+          "removeItemFromSeries": "Remove this item from series",
+          "saved": "Saved",
+          "saveSeriesAndItems": "Save series & items",
+          "deleteSeries": "Delete series"
+        },
+        "deleteSeries": {
+          "title": "Delete series",
+          "confirm": "Delete series",
+          "builtinNote": "This is a built-in series: the catalog definition remains in code, but saved metadata and item grouping will be removed.",
+          "deleteItemsTooTitle": "Delete items too?",
+          "deleteItemsTooConfirm": "Delete items too",
+          "unlinkOnly": "Unlink only"
+        },
+        "errors": {
+          "failedToReloadSeries": "Failed to reload series",
+          "loadedWrongSeries": "Loaded the wrong series. Close and try again.",
+          "failedToLoadSeries": "Failed to load series",
+          "imageUploadFailed": "Image upload failed",
+          "fileUploadFailed": "File upload failed",
+          "uploadMissingFileDetails": "Upload succeeded but file details were missing.",
+          "seriesNameRequired": "Series name is required",
+          "addAtLeastOneItem": "Add at least one item with a title",
+          "failedToSaveSeries": "Failed to save series",
+          "failedToDeleteSeries": "Failed to delete series",
+          "invalidCoverUrl": "Cover URL must be a valid https Cloudinary link."
+        }
+      }
+    },
+    "settings": {
+      "title": "Platform Settings",
+      "subtitle": "Configure pricing, AI usage, and admin access. Use the links below to jump straight to a settings area.",
+      "areasTitle": "Settings areas",
+      "areasSubtitle": "These pages control how the platform behaves for all users.",
+      "links": {
+        "branding": {
+          "label": "Branding & logo",
+          "description": "Logo and founder portrait for the founder's note."
+        },
+        "pricing": {
+          "label": "Pricing & plans",
+          "description": "Edit subscription tiers and one-off pricing."
+        },
+        "aiUsage": {
+          "label": "AI usage & limits",
+          "description": "Review AI credits and token consumption."
+        },
+        "admins": {
+          "label": "Admins & access",
+          "description": "Manage admin users and permissions."
+        },
+        "mfa": {
+          "label": "Admin second factor (TOTP)",
+          "description": "Enroll or verify your authenticator app for admin step-up."
+        }
+      }
+    },
+    "content": {
+      "title": "Content Management",
+      "subtitle": "Manage the core content that powers the platform: library entries, The Yamalé Vault products, and the lawyer directory.",
+      "areasTitle": "Content areas",
+      "areasSubtitle": "Choose what you want to manage.",
+      "pricingHintPrefix": "To change day pass, lawyer search, print, and other one-off prices, go to",
+      "pricingHintLink": "Pricing & plans",
+      "pricingHintSuffix": ".",
+      "links": {
+        "laws": {
+          "label": "Library & laws",
+          "description": "Add, update, and curate the legal library."
+        },
+        "vault": {
+          "label": "The Yamalé Vault items",
+          "description": "Manage books, courses, and templates for sale."
+        },
+        "lawyers": {
+          "label": "Lawyers directory",
+          "description": "Maintain lawyer profiles shown to users."
+        }
+      }
+    },
+    "pricing": {
+      "title": "Pricing",
+      "subtitle": "Edit subscription tiers above. Below, edit the five pay-as-you-go prices shown on the public pricing page.",
+      "popular": "Popular",
+      "edit": "Edit",
+      "perMonth": "/mo",
+      "annualPerMonth": "${value}/mo billed annually",
+      "annualTotal": "${value}/yr total",
+      "editPlan": "Edit {name}",
+      "fields": {
+        "priceMonthly": "Price (monthly) $",
+        "annualPerMonth": "Annual per month $",
+        "annualTotal": "Annual total $",
+        "description": "Description",
+        "subtitle": "Subtitle (e.g. or $50/year)",
+        "features": "Features (one per line, HTML allowed)",
+        "buttonText": "Button text (CTA)",
+        "highlightMostPopular": "Highlight as \"Most Popular\""
+      }
+    },
+    "mfa": {
+      "title": "Admin second factor",
+      "descriptions": {
+        "redirectedNeedsSetup": "Before you can use the admin panel, set up an authenticator app.",
+        "needsSetup": "Set up an authenticator app before using the admin panel.",
+        "enterCode": "Enter the 6-digit code from your authenticator app."
+      },
+      "enforcedBanner": "Admin MFA is enforced on this environment. You must complete this step to continue.",
+      "setupHint": "Use Google Authenticator, 1Password, Authy, or any TOTP app. Scan the QR code and confirm with a one-time code.",
+      "preparingSetup": "Preparing your authenticator setup…",
+      "setUpAuthenticator": "Set up authenticator",
+      "qrAlt": "Authenticator QR code",
+      "manualEntryKey": "Manual entry key",
+      "confirmationCode": "Confirmation code",
+      "authenticatorCode": "Authenticator code",
+      "codePlaceholder": "000000",
+      "confirmAndContinue": "Confirm and continue",
+      "verifyAndContinue": "Verify and continue",
+      "errors": {
+        "unableToLoadStatus": "Unable to load MFA status",
+        "enrollmentFailed": "Enrollment failed",
+        "unexpectedServerResponse": "Unexpected server response",
+        "verificationFailedWithStatus": "Verification failed ({status})",
+        "verificationFailed": "Verification failed",
+        "tooManyAttempts": "Too many attempts. Try again in {minutes} minutes.",
+        "unableToLoadSettings": "Unable to load MFA settings."
+      }
+    },
+    "launchMetricsReset": {
+      "title": "Reset launch metrics",
+      "intro": "Clears Supabase purchase and usage rows so <revenue>Revenue & analytics</revenue> and <aiUsage>AI usage</aiUsage> start fresh after go-live. This does <not>not</not> change Clerk subscription metadata — paid tiers in Clerk may still show in subscription estimates until you adjust users manually.",
+      "warning": "Clearing revenue data removes vault purchases, library PDF unlocks, lawyer unlocks, and related PAYG rows. Customers will lose access tied only to those purchase records.",
+      "resetFailed": "Reset failed",
+      "networkError": "Network error",
+      "confirmPrompt": "Type <phrase/> to confirm",
+      "scope": {
+        "all": "Everything",
+        "revenue": "Revenue & purchases only",
+        "ai": "AI usage only"
+      },
+      "cta": {
+        "all": "Reset all launch metrics",
+        "revenue": "Reset revenue data",
+        "ai": "Reset AI usage"
+      },
+      "rowsDeleted": "{count} deleted"
+    },
+    "aiModeration": {
+      "eyebrow": "Moderation",
+      "title": "AI quality",
+      "subtitle": "Bug triage, auto corpus gaps, and user-flagged feedback in one workspace.",
+      "tabs": {
+        "bugs": "Bug reports",
+        "corpusGaps": "Corpus gaps",
+        "feedback": "Flagged feedback"
+      },
+      "bugs": {
+        "title": "AI bug reports",
+        "subtitle": "Negative AI feedback with conversation snapshots. Open a row for full triage.",
+        "empty": "No AI bug reports found.",
+        "userFallback": "User",
+        "issueAutoGap": "Auto gap: {value}",
+        "issueLabel": "Issue: {value}",
+        "issueUncategorized": "Issue: not categorized",
+        "status": {
+          "all": "All",
+          "open": "Open",
+          "in_progress": "In progress",
+          "resolved": "Resolved"
+        }
+      },
+      "corpusGaps": {
+        "title": "Auto corpus & excerpt gaps",
+        "subtitle": "Created automatically when the assistant says material is missing from the library, not in the excerpt, or nothing was retrieved. Reporter is the user who asked the question.",
+        "failedToLoad": "Failed to load corpus gaps",
+        "empty": "No auto gap flags in this view.",
+        "reportedFromChat": "Reported from chat:",
+        "viewFullReport": "View full report →",
+        "status": {
+          "all": "All",
+          "open": "Open",
+          "in_progress": "In progress",
+          "resolved": "Resolved",
+          "dismissed": "Dismissed"
+        }
+      },
+      "feedback": {
+        "title": "Flagged chat feedback",
+        "subtitle": "Negative ratings submitted from the AI assistant.",
+        "loading": "Loading…",
+        "failedToLoad": "Failed to load feedback",
+        "empty": "No flagged responses yet.",
+        "unknownUser": "Unknown user",
+        "categoryLabel": "Category:",
+        "uncategorized": "Uncategorized",
+        "statusLabel": "Status: {status}",
+        "openBugTriage": "Open bug triage",
+        "messageLabel": "Message: {value}",
+        "na": "n/a"
+      }
+    },
+    "aiBugDetail": {
+      "notFound": "AI bug report not found.",
+      "back": "← All AI bug reports",
+      "title": "AI bug report",
+      "userFallback": "User",
+      "issueCategory": "Issue category",
+      "notProvided": "Not provided",
+      "issueDetails": "Issue details",
+      "noDetails": "No details provided.",
+      "statusValues": {
+        "open": "Open",
+        "in_progress": "In progress",
+        "resolved": "Resolved"
+      },
+      "saving": "Saving…",
+      "saveStatus": "Save status",
+      "autoGapTitle": "Auto-detected corpus gap",
+      "gapType": "Gap type: {value}",
+      "matchedPhrase": "Matched phrase: \"{value}\"",
+      "queryLog": "Query log: {id}",
+      "conversationTitle": "Full conversation snapshot",
+      "conversationMissing": "Conversation snapshot not available.",
+      "conversationMissingHint": "(Query log row missing or empty — check ai_query_log in Supabase.)",
+      "roles": {
+        "user": "User",
+        "ai": "AI"
+      }
+    },
+    "corpusGapDetail": {
+      "errors": {
+        "failedToLoad": "Failed to load corpus gap",
+        "notCorpusGap": "Not a corpus gap flag"
+      },
+      "back": "← Corpus gaps",
+      "notFound": "Corpus gap not found.",
+      "title": "Corpus gap — {lawTitle}",
+      "reportedBy": "Reported from chat by {user}",
+      "instrument": "Instrument",
+      "na": "—",
+      "openInLibrary": "Open in library",
+      "openBugReport": "Full AI bug report →",
+      "whatWentWrong": "What went wrong",
+      "noDetails": "No details recorded.",
+      "triggerPhrase": "Trigger phrase: \"{value}\"",
+      "gapType": "Gap type: {value}",
+      "queryLogId": "Query log ID: {id}",
+      "model": "Model: {value}",
+      "chatTitle": "Chat that triggered this flag",
+      "chatEmpty": "No conversation stored. Open the linked bug report or check query log in Supabase.",
+      "roles": {
+        "userQuestion": "User question",
+        "aiAnswer": "AI answer (excerpt)"
+      },
+      "triage": "Triage this flag",
+      "status": "Status",
+      "statusValues": {
+        "open": "Open",
+        "in_progress": "In progress",
+        "resolved": "Resolved",
+        "dismissed": "Dismissed"
+      },
+      "adminNotes": "Admin notes (internal)",
+      "adminNotesPlaceholder": "Ingestion task, false positive, excerpt budget, etc.",
+      "saving": "Saving…",
+      "save": "Save"
+    },
+    "laws": {
+      "list": {
+        "title": "Laws",
+        "subtitle": "View and add laws. Use filters to narrow by country, category, or status.",
+        "actions": {
+          "fixOcr": "Fix OCR (AI)",
+          "linkByTitle": "Link by title",
+          "linkedLaws": "Linked laws",
+          "categories": "Categories",
+          "recentlyDeleted": "Recently deleted",
+          "recentlyUpdated": "Recently updated",
+          "addLaw": "Add law"
+        },
+        "filters": {
+          "country": "Country",
+          "category": "Category",
+          "clear": "Clear selected filters"
+        },
+        "statusValues": {
+          "inForce": "In force",
+          "amended": "Amended",
+          "repealed": "Repealed"
+        },
+        "duplicates": {
+          "error": "Failed to check duplicates.",
+          "checking": "Checking duplicates…",
+          "checkAction": "Check duplicates in this category (within each country)",
+          "selectCategoryHint": "Select a category to check duplicates within each country.",
+          "found": "Found {groups} duplicate groups covering {laws} laws.",
+          "viewDetails": "View details",
+          "noneFound": "No duplicates found for this country and category."
+        },
+        "export": {
+          "region": "Export region",
+          "allRegions": "All regions (each in its own sheet)",
+          "regionOnly": "{region} only",
+          "exporting": "Exporting…",
+          "exportButton": "Export laws spreadsheet",
+          "defaultFilename": "laws-export.xlsx"
+        },
+        "bulk": {
+          "treatyTypeLabel": "Treaty type for selection",
+          "applySelected": "Apply to selected{count, plural, =0 {} other { ({count})}}",
+          "deleteSelected": "Delete selected{count, plural, =0 {} other { ({count})}}"
+        },
+        "confirm": {
+          "updateTreatyTitle": "Update treaty type",
+          "updateTreatyDescription": "Set treaty type to \"{treatyType}\" for {count} laws?",
+          "update": "Update",
+          "deleteTitle": "Delete laws",
+          "deleteDescription": "Delete {count} laws? Bookmarks and related data will be removed. This cannot be undone.",
+          "delete": "Delete"
+        },
+        "errors": {
+          "updateFailed": "Update failed.",
+          "deleteFailed": "Delete failed.",
+          "exportFailed": "Failed to export laws.",
+          "exportAlert": "Could not export laws. Please try again."
+        },
+        "table": {
+          "selectAllAria": "Select all laws on this page",
+          "title": "Title",
+          "country": "Country",
+          "category": "Category",
+          "treaty": "Treaty",
+          "year": "Year"
+        },
+        "allCountries": "All countries",
+        "empty": "No laws match the filters.",
+        "emptyAddFirst": "Add the first law"
+      },
+      "add": {
+        "back": "Back to laws",
+        "title": "Add law",
+        "subtitle": "Upload a PDF, paste content, or import from a PDF URL. The importer removes table-of-contents blocks, converts to Markdown, and can suggest title and jurisdiction.",
+        "messages": {
+          "categoryAlreadySelected": "Category \"{name}\" already existed and was selected.",
+          "categoryCreated": "Category \"{name}\" created and selected.",
+          "previewLoadedClaude": "Preview loaded (Claude suggested title and jurisdiction). Table of contents was removed. Review and edit below, then save.",
+          "previewLoaded": "Preview loaded. Table of contents was removed. Review title, country, and category, then save.",
+          "previewNeedsManual": "If country or category is missing, select them manually before saving.",
+          "addedFromUrl": "Law added from URL import.",
+          "addedSuccess": "Law added successfully. You can add another below."
+        },
+        "errors": {
+          "createCategory": "Could not create category.",
+          "invalidUrl": "Enter a valid http(s) URL to a PDF.",
+          "previewFailed": "Preview failed",
+          "previewUrl": "Could not preview URL.",
+          "previewFirst": "Click \"Preview import\" first, or switch to Upload / Paste.",
+          "titleRequired": "Title is required.",
+          "countryRequired": "Select at least one country, or enable \"All countries\" for treaties and regional instruments.",
+          "categoryRequired": "Select at least one category.",
+          "saveLaw": "Failed to save law",
+          "saveFailed": "Save failed.",
+          "selectPdf": "Please select a PDF file, or switch to \"Paste content\" to enter text.",
+          "fileMustBePdf": "File must be a PDF.",
+          "pdfTooLarge": "This PDF is too large for browser upload ({sizeMb}MB). Use a smaller file or the CLI script for very large laws.",
+          "pasteRequired": "Paste the law content in the text area, or switch to \"Upload PDF\".",
+          "uploadTooLarge": "Upload is too large. Try a smaller PDF, disable OCR, or use the CLI import script.",
+          "addFailed": "Failed to add law",
+          "requestTimeout": "Request took too long. Try a smaller PDF or use \"Paste content\" for very large documents.",
+          "serverUnreachable": "Could not reach the server. Restart the dev server if you changed upload limits in next.config; for very large PDFs use the CLI import script.",
+          "generic": "Something went wrong. Please try again."
+        },
+        "mode": {
+          "title": "How do you want to add the law?",
+          "upload": "Upload PDF",
+          "paste": "Paste content",
+          "url": "From PDF URL"
+        },
+        "allCountries": {
+          "title": "All countries",
+          "hint": "One law record for treaties and instruments that apply across every jurisdiction (appears when filtering by any country)."
+        },
+        "countries": {
+          "label": "Countries",
+          "disabledHint": "Disabled because All countries is enabled.",
+          "selectHint": "Select one or more countries.",
+          "selectAll": "Select all",
+          "selectedCount": "{count} selected"
+        },
+        "categories": {
+          "label": "Categories",
+          "hint": "The law appears in the library under every category you tick. The first selected is the primary label used in some views.",
+          "newPlaceholder": "Add new category name",
+          "adding": "Adding...",
+          "add": "Add category",
+          "selectedCount": "{count} selected"
+        },
+        "statusValues": {
+          "inForce": "In force",
+          "amended": "Amended",
+          "repealed": "Repealed"
+        },
+        "treatyType": "Treaty type",
+        "titleLabel": "Title",
+        "titlePlaceholder": "e.g. Companies Act, 2019",
+        "yearLabel": "Year (optional)",
+        "yearPlaceholder": "e.g. 1889 ({min}–{max})",
+        "url": {
+          "label": "PDF URL",
+          "placeholder": "https://example.org/path/to/act.pdf",
+          "hint": "The server fetches the PDF, removes table-of-contents blocks, converts text to Markdown, and suggests title and country/category when <code>CLAUDE_API_KEY</code> is set; otherwise it uses heuristics.",
+          "fetching": "Fetching & processing…",
+          "previewImport": "Preview import",
+          "readyHint": "Content loaded into the fields below. Adjust country, category, title, and the Markdown body if needed, then save with \"Add law\"."
+        },
+        "ocr": {
+          "forceTitle": "Force OCR",
+          "forceHint": "Use if the PDF is scanned or has little selectable text.",
+          "uploadTitle": "This file needs OCR",
+          "uploadHint": "Check if the PDF is scanned or has little extractable text. OCR uses Tesseract and may take longer."
+        },
+        "upload": {
+          "label": "PDF file",
+          "hint": "Text will be extracted and stored for the library. For scanned PDFs, enable OCR below.",
+          "waitHint": "Large PDFs or OCR can take 1–2 minutes. Please wait and do not refresh."
+        },
+        "content": {
+          "label": "Law content",
+          "placeholder": "Paste the full text of the law here. You can use plain text or Markdown (headings, lists, etc.).",
+          "hint": "Plain text or Markdown. The library will detect and render Markdown when viewing.",
+          "urlReadySuffix": "Edits here are saved when you click Add law."
+        },
+        "submit": {
+          "pleaseWait": "Please wait…",
+          "adding": "Adding…",
+          "addLaw": "Add law"
+        }
+      },
+      "edit": {
+        "back": "Back to laws",
+        "title": "Edit law",
+        "subtitle": "Update metadata (title, country, category, etc.) and/or the law text. Changes apply to the library and AI.",
+        "lawId": "Law ID: {id}",
+        "titleLabel": "Title",
+        "titlePlaceholder": "e.g. Companies Act, 2019",
+        "allCountries": {
+          "title": "All countries",
+          "hint": "Use for treaties and instruments that apply across all jurisdictions in the library (one record; appears in every country filter)."
+        },
+        "country": "Country",
+        "selectCountry": "Select country",
+        "categories": {
+          "label": "Categories",
+          "hint": "The law is listed under each selected category in the library. The first ticked is the primary label in some views.",
+          "newPlaceholder": "Add new category name",
+          "adding": "Adding...",
+          "add": "Add category",
+          "selectedCount": "{count} selected"
+        },
+        "year": "Year",
+        "yearPlaceholder": "e.g. 2019 ({min}–{max})",
+        "statusValues": {
+          "inForce": "In force",
+          "amended": "Amended",
+          "repealed": "Repealed"
+        },
+        "treatyType": "Treaty type",
+        "linked": {
+          "title": "Linked law",
+          "hint": "Saving changes to title, categories, year, status, treaty type, or body text will also update {count} other country variants in this group. Country assignment is not synced.",
+          "viewOrUnlink": "View or unlink linked laws"
+        },
+        "actions": {
+          "fixOcr": "Fix OCR",
+          "viewInLibrary": "View in library →",
+          "deleteLaw": "Delete law"
+        },
+        "findReplace": {
+          "title": "Find and replace all",
+          "hint": "Find a repeated typo or phrase and replace it everywhere in this law's text. Leave \"Replace with\" empty to delete all occurrences.",
+          "find": "Find",
+          "findPlaceholder": "e.g. jfkjs",
+          "replaceWith": "Replace with",
+          "replacePlaceholder": "Leave empty to delete",
+          "replaceAll": "Replace all",
+          "noneFound": "No occurrences found.",
+          "replaced": "Replaced {count} occurrences. Save changes to persist."
+        },
+        "lawText": {
+          "label": "Law text",
+          "hint": "Raw text used by the library view and AI. Edit to fix typos or update content.",
+          "characters": "{count} characters"
+        },
+        "saveChanges": "Save changes",
+        "confirm": {
+          "fixOcrTitle": "Run AI cleanup",
+          "fixOcrDescription": "OCR noise will be reduced and stored text will be replaced. Very large laws can take several minutes.",
+          "fixOcrConfirm": "Run cleanup",
+          "deleteTitle": "Delete law",
+          "deleteDescription": "Delete \"{title}\"? This cannot be undone and the law will be removed from the library and AI.",
+          "delete": "Delete",
+          "updateLinkedTitle": "Update linked country variants",
+          "updateLinkedDescription": "This law is in a shared link group. Saving will apply the same title, categories, year, status, treaty type, and law text to {peers} other linked laws ({total} laws in total). Country assignment stays separate for each law.",
+          "saveAndUpdate": "Save and update {total} laws"
+        },
+        "messages": {
+          "categoryAlreadySelected": "Category \"{name}\" already existed and was selected.",
+          "categoryCreated": "Category \"{name}\" created and selected.",
+          "ocrCleanedRefresh": "OCR cleaned. Refresh if the editor text looks stale.",
+          "ocrCleaned": "OCR cleaned ({count} characters).",
+          "savedWithPropagation": "Changes saved. {count} linked country variants updated to match.",
+          "saved": "Changes saved."
+        },
+        "errors": {
+          "notFound": "Law not found",
+          "loadFailed": "Failed to load law",
+          "createCategory": "Could not create category.",
+          "fixOcrFailed": "Fix OCR failed.",
+          "networkTryAgain": "Network error. Try again.",
+          "deleteFailed": "Failed to delete law",
+          "networkPleaseTryAgain": "Network error. Please try again.",
+          "titleRequired": "Title is required.",
+          "countryRequired": "Select a country, or enable \"All countries\" for treaties and regional instruments.",
+          "categoryRequired": "Select at least one category.",
+          "saveFailed": "Failed to save changes"
+        }
+      },
+      "fixOcr": {
+        "back": "Back to laws",
+        "title": "Fix OCR with AI",
+        "subtitle": "Choose a country and run Claude on each law to remove OCR noise and tidy formatting. Large instruments are processed in chunks. Use dry run first to preview without saving.",
+        "country": "Country",
+        "countryHint": "Hold Cmd/Ctrl to select multiple countries.",
+        "selectedSummary": "{laws} unique laws across {countries}.",
+        "dryRun": "Dry run (preview only, no database writes)",
+        "maxLaws": "Max laws (optional)",
+        "chunkPause": "Pause between chunks (ms)",
+        "lawPause": "Pause between laws (ms)",
+        "running": "Running…",
+        "startDryRun": "Start dry run",
+        "cleanAndSave": "Clean and save",
+        "rerunFailed": "Rerun failed ({count})",
+        "stopAfterCurrent": "Stop after current law",
+        "progress": "Progress: {done} / {total}",
+        "logTitle": "Log",
+        "logEmpty": "Output will appear here.",
+        "errors": {
+          "requestFailed": "Request failed"
+        },
+        "logs": {
+          "retryPrefix": "retry ",
+          "dryRunPrefix": "dry run (no saves) ",
+          "starting": "Starting {retryPrefix}{dryRunPrefix}for {laws} laws across {countries} countries.",
+          "stoppedByUser": "Stopped by user.",
+          "skippedAlreadyFixed": "Skipped (already fixed earlier).",
+          "skippedLooksClean": "Skipped (looks clean; score {score}).",
+          "wouldWriteChars": "Would write {cleaned} chars (from {original}).",
+          "savedChars": "Saved {cleaned} chars.",
+          "preview": "Preview: {preview}…",
+          "finished": "Finished. Success: {success}, failed: {failed}."
+        }
+      },
+      "linked": {
+        "back": "Back to laws",
+        "title": "Linked laws",
+        "subtitle": "Laws in a shared link group stay in sync when you edit shared fields from any member. Unlinking only removes the group - each law keeps whatever title, text, and categories it has now.",
+        "counts": "{groups} groups · {linkedLaws} linked laws",
+        "linkByTitle": "Link by title",
+        "emptySuffix": "to create one.",
+        "untitledGroup": "Untitled group",
+        "linkedLawsCount": "{count} linked laws",
+        "moreCountries": " +{count} more",
+        "updatedAt": "updated {date}",
+        "hide": "Hide",
+        "show": "Show",
+        "editLaw": "Edit law",
+        "confirm": {
+          "unlinkGroupTitle": "Unlink entire group",
+          "unlinkGroupDescription": "Stop syncing {count} laws. Each law keeps its current title, text, categories, and country - only the shared link is removed. Future edits to one law will not propagate to the others.",
+          "unlinkGroupConfirm": "Unlink group",
+          "removeAndDissolveTitle": "Remove law and dissolve group",
+          "removeAndDissolveDescription": "Removing \"{country}\" leaves only one linked law, so the whole group will be dissolved. That law keeps its current content.",
+          "removeFromGroupTitle": "Remove law from group",
+          "removeFromGroupDescription": "Remove \"{title}\" ({country}) from this link group. Its content stays as-is; the other laws remain linked.",
+          "removeAndUnlinkAll": "Remove and unlink all",
+          "removeFromGroupConfirm": "Remove from group"
+        },
+        "errors": {
+          "loadFailed": "Failed to load linked groups",
+          "unlinkFailed": "Unlink failed",
+          "removeFailed": "Remove failed"
+        }
+      },
+      "linkByTitle": {
+        "back": "Back to laws",
+        "title": "Link laws by title",
+        "subtitle": "Find every law record that shares the same title (member states, regional blocs such as ECOWAS / COMESA / EAC / OIC, or \"All countries\"). Link them so edits to shared fields propagate to all members. Each law remains attached to its country; only content and shared metadata stay in sync when you save from the law editor.",
+        "scanned": "Scanned {count} law rows.",
+        "safetyCap": "List was truncated at the safety cap ({count} laws). Raise the cap in code if you truly need more.",
+        "viewLinkedGroups": "View linked groups",
+        "search": "Search groups",
+        "searchPlaceholder": "Filter by title, country (e.g. ECOWAS, COMESA, EAC, OIC), or status…",
+        "empty": "No groups found with the same title on two or more law records.",
+        "emptySearch": "No groups match your search.",
+        "groupsSummary": "{count} groups{matching} · sorted A-Z by title",
+        "matching": " matching \"{value}\"",
+        "lawsCount": "{count} laws",
+        "hide": "Hide",
+        "expand": "Expand",
+        "selectAll": "Select all",
+        "clear": "Clear",
+        "sourceHint": "Source law (text copied to others on link): pick one radio, then tick laws to include (min 2). Long country lists scroll inside this box if you do not see every member.",
+        "source": "Source",
+        "edit": "Edit",
+        "linkSelected": "Link selected ({count})",
+        "confirm": {
+          "title": "Create shared link group",
+          "description": "Link {count} laws. Text and metadata from the source law will be copied to the others (same as admin law propagation). Each law stays under its own country in the library.",
+          "confirm": "Link and sync"
+        },
+        "errors": {
+          "loadFailed": "Failed to load",
+          "selectAtLeastTwo": "Select at least two laws to link.",
+          "linkFailed": "Link failed"
+        }
+      },
+      "updated": {
+        "back": "Back to laws",
+        "title": "Recently updated laws",
+        "subtitle": "Audit trail of law edits from the admin panel. Restored entries are shown with a badge.",
+        "empty": "No recent updates in this view.",
+        "restored": "Restored",
+        "noFieldMetadata": "No field metadata",
+        "unknownAdmin": "Unknown admin",
+        "table": {
+          "law": "Law",
+          "changed": "Changed fields",
+          "updatedBy": "Updated by"
+        },
+        "fieldLabels": {
+          "title": "Title",
+          "category_id": "Category",
+          "country_id": "Country",
+          "applies_to_all_countries": "Global scope",
+          "status": "Status",
+          "year": "Year",
+          "content": "Content"
+        },
+        "errors": {
+          "loadFailed": "Failed to load recently updated laws."
+        }
+      },
+      "deleted": {
+        "back": "Back to laws",
+        "title": "Recently deleted laws",
+        "subtitle": "Soft-deleted laws can be restored from here. Permanent removal happens after the retention period.",
+        "empty": "No deleted laws in this view.",
+        "restore": "Restore",
+        "table": {
+          "title": "Title",
+          "country": "Country",
+          "category": "Category",
+          "year": "Year",
+          "deletedAt": "Deleted at",
+          "reason": "Reason"
+        },
+        "errors": {
+          "loadFailed": "Failed to load deleted laws.",
+          "restoreFailed": "Restore failed.",
+          "networkRestore": "Network error while restoring."
+        }
+      },
+      "categories": {
+        "back": "Back to laws",
+        "title": "Law categories",
+        "subtitle": "Categories group laws in the library filters and admin lists. Renaming updates the label everywhere.",
+        "addCategory": "Add category",
+        "adding": "Adding…",
+        "categoryPlaceholder": "Category name",
+        "empty": "No categories yet.",
+        "alreadyExists": "Category \"{name}\" already exists and was selected.",
+        "usedByLaws": "Cannot delete \"{name}\" — {count} laws use this category.",
+        "deleteTitle": "Delete category",
+        "deleteDescription": "Delete category \"{name}\"? This cannot be undone.",
+        "delete": "Delete",
+        "rename": "Rename",
+        "deleteCategoryHint": "Delete category",
+        "table": {
+          "laws": "Laws"
+        },
+        "errors": {
+          "loadFailed": "Failed to load categories.",
+          "createFailed": "Could not create category.",
+          "renameFailed": "Could not rename category.",
+          "deleteFailed": "Could not delete category."
+        }
+      },
+      "duplicates": {
+        "back": "Back to laws",
+        "title": "Duplicate laws",
+        "subtitle": "Laws with the same normalized title within one country and category. Review before bulk delete or mass dedupe.",
+        "empty": "No duplicate groups in this category.",
+        "deleteSelected": "Delete selected",
+        "dedupingAll": "Deduping…",
+        "massDedupe": "Mass dedupe (keep Claude-cleaned)",
+        "confirmMassDedupe": "Mass dedupe keeps one law per group (preferring Claude-cleaned text) and deletes the rest. Continue?",
+        "groupSummary": "{count} duplicates in {country}",
+        "thisCountry": "this country",
+        "table": {
+          "title": "Title",
+          "year": "Year",
+          "country": "Country",
+          "claudeCleaned": "Claude cleaned",
+          "createdAt": "Created"
+        },
+        "errors": {
+          "selectCategory": "Select a category on the laws page first.",
+          "loadFailed": "Failed to load duplicates.",
+          "deleteFailed": "Delete failed.",
+          "networkDelete": "Network error while deleting.",
+          "massDedupeFailed": "Mass dedupe failed.",
+          "refreshFailed": "Deleted laws but could not refresh the list.",
+          "networkMassDedupe": "Network error during mass dedupe."
+        }
+      }
+    },
+    "support": {
+      "title": "Support requests",
+      "subtitle": "Open a ticket to view the thread and reply by email.",
+      "empty": "No tickets.",
+      "table": {
+        "title": "Title",
+        "user": "User",
+        "status": "Status",
+        "lastActivity": "Last activity"
+      },
+      "status": {
+        "all": "All",
+        "open": "Open",
+        "in_progress": "In progress",
+        "resolved": "Resolved",
+        "archived": "Archived"
+      }
+    },
+    "supportDetail": {
+      "notFound": "Not found",
+      "backToAll": "← All requests",
+      "admin": "Admin",
+      "user": "User",
+      "replyLabel": "Reply to user (sent to their email)",
+      "replyPlaceholder": "Your message…",
+      "markResolved": "Mark as resolved and close (user can reopen for 24 hours)",
+      "sending": "Sending…",
+      "sendReply": "Send reply",
+      "status": {
+        "open": "Open",
+        "in_progress": "In progress",
+        "resolved": "Resolved",
+        "archived": "Archived"
+      }
+    },
+    "lawFlags": {
+      "title": "Law flags",
+      "subtitle": "User reports on library documents (accuracy, UI, outdated text). Email alerts use Resend when configured.",
+      "empty": "No law flags in this view.",
+      "userFallback": "User",
+      "status": {
+        "all": "All",
+        "open": "Open",
+        "in_progress": "In progress",
+        "resolved": "Resolved",
+        "dismissed": "Dismissed"
+      }
+    },
+    "lawFlagsDetail": {
+      "title": "Law flag",
+      "notFound": "Law flag not found.",
+      "backToCorpusGaps": "← Corpus gaps",
+      "backToAll": "← All law flags",
+      "openFullCorpusReport": "Open full corpus gap report →",
+      "userFallback": "User",
+      "openInLibrary": "Open in library",
+      "issueType": "Issue type",
+      "status": "Status",
+      "userDetails": "User details",
+      "triage": "Triage",
+      "adminNotes": "Admin notes (internal)",
+      "adminNotesPlaceholder": "Resolution notes, editor assigned, etc.",
+      "saving": "Saving…",
+      "save": "Save",
+      "statusValues": {
+        "open": "Open",
+        "in_progress": "In progress",
+        "resolved": "Resolved",
+        "dismissed": "Dismissed"
+      }
+    },
+    "contentPricing": {
+      "title": "Pay-as-you-go prices",
+      "subtitle": "These five prices match the cards on the public pricing page. Subscription plans are edited above.",
+      "publicPreview": "Public pricing page:",
+      "save": "Save pay-as-you-go prices",
+      "saved": "Prices saved. They will appear on the public pricing page and at checkout.",
+      "errors": {
+        "couldNotLoad": "Could not load current prices.",
+        "failedToSave": "Failed to save"
+      },
+      "fields": {
+        "lawPrint": {
+          "label": "Print a law",
+          "description": "Download a full law as a clean, print-ready PDF."
+        },
+        "lawyerSearch": {
+          "label": "Lawyer directory search",
+          "description": "Unlock contacts for one country + practice area on /lawyers."
+        },
+        "dayPass": {
+          "label": "Daily pass",
+          "description": "Full platform access for 24 hours."
+        },
+        "afcfta": {
+          "label": "Additional AfCFTA Passport route",
+          "description": "One origin-to-destination route with checklist and tariff data."
+        },
+        "aiQuery": {
+          "label": "AI research query pack",
+          "description": "One additional AI research query with library citations."
+        }
+      }
+    },
+    "lawPrintPricing": {
+      "title": "Law print pricing",
+      "subtitle": "One-time fee users pay to download a law as a print-ready PDF from the library.",
+      "pricePerLaw": "Price per law (USD)",
+      "priceHelp": "Shown on the library, pricing page, and charged at checkout for PDF download unlocks.",
+      "previewPrefix": "Checkout and UI will show",
+      "save": "Save print price",
+      "errors": {
+        "couldNotLoad": "Could not load current price.",
+        "failedToSave": "Failed to save"
+      }
+    },
+    "branding": {
+      "title": "Branding Settings",
+      "subtitle": "Upload your platform logo and the founder portrait shown on the founder's note and welcome modal. The favicon is managed as static files in the repo under <code/>.",
+      "uploading": "Uploading...",
+      "removing": "Removing...",
+      "confirmRemove": "Remove the current {label}? This cannot be undone.",
+      "toasts": {
+        "updated": "{label} updated successfully",
+        "removed": "{label} removed"
+      },
+      "errors": {
+        "uploadFailed": "Upload failed",
+        "removeFailed": "Remove failed",
+        "loadFailed": "Failed to load branding settings"
+      },
+      "logo": {
+        "title": "Logo",
+        "titleLower": "logo",
+        "description": "Your platform logo appears in the header and on the home page. Upload an image to crop, zoom, and resize it. Supports PNG, JPG, SVG, and other image formats.",
+        "currentAlt": "Current logo",
+        "upload": "Upload Logo",
+        "change": "Change Logo",
+        "remove": "Remove logo"
+      },
+      "founder": {
+        "title": "Founder portrait",
+        "titleLower": "founder portrait",
+        "description": "Photo of Meghan Waters for the founder's note (<code/>), the one-time welcome dialog, and related pages. Use a square or portrait image (PNG or JPG).",
+        "previewAlt": "Founder portrait preview",
+        "upload": "Upload portrait",
+        "change": "Change portrait",
+        "remove": "Remove portrait"
+      }
+    },
+    "afcfta": {
+      "title": "AfCFTA tariff schedule",
+      "subtitle": "Add entries one by one or import from a file (PDF, XLSX, or CSV). The system detects HS Code, Product Description, and other columns automatically.",
+      "requirementsLink": "View export & import requirements by country",
+      "table": {
+        "hsCode": "HS Code",
+        "product": "Product",
+        "category": "Category",
+        "sensitivity": "Sensitivity",
+        "mfn": "MFN %",
+        "phase": "Phase",
+        "years": "Years",
+        "savings": "Savings $10k"
+      },
+      "delete": {
+        "title": "Delete country data",
+        "subtitle": "Remove all AfCFTA tariff schedule entries and import history for a country. The country will no longer appear in the compliance tool or tariff filters. This cannot be undone.",
+        "country": "Country",
+        "selectCountry": "Select a country",
+        "button": "Delete",
+        "confirm": "Delete",
+        "confirmDescription": "Delete all tariff data and import history for \"{country}\"? This cannot be undone.",
+        "failed": "Failed to delete",
+        "empty": "No countries with tariff data. Import a file or add entries to see countries here."
+      },
+      "addSingle": {
+        "title": "Add single entry",
+        "country": "Country",
+        "selectCountry": "Select country",
+        "hsCode": "HS Code",
+        "productDescription": "Product Description",
+        "productCategory": "Product Category",
+        "sensitivity": "Sensitivity",
+        "mfnRate": "MFN Rate (%)",
+        "afcfta2026": "AfCFTA 2026 (%)",
+        "afcfta2030": "AfCFTA 2030 (%)",
+        "afcfta2035": "AfCFTA 2035 (%)",
+        "phaseCategory": "Phase Category",
+        "phaseYears": "Phase Years",
+        "annualSavings": "Annual Savings on $10k Shipment",
+        "requiredError": "Country, HS Code, and Product Description are required.",
+        "failed": "Failed to add row",
+        "saved": "Entry added.",
+        "submit": "Add entry"
+      },
+      "import": {
+        "title": "Import from file",
+        "subtitle": "Upload a PDF, XLSX, or CSV file. The system will detect columns (HS Code, Product Description, MFN Rate, etc.) and add all rows for the selected country.",
+        "country": "Country",
+        "selectCountry": "Select country",
+        "file": "File (PDF, XLSX, or CSV)",
+        "requiredError": "Select a country and a file (PDF, XLSX, or CSV).",
+        "failed": "Import failed",
+        "importedRows": "Imported {count} row(s).",
+        "importedData": "Imported data",
+        "selected": "Selected: {name}",
+        "importing": "Importing…",
+        "submit": "Import file"
+      },
+      "history": {
+        "title": "Import history",
+        "subtitle": "View data from past file imports. Click a row to expand and see the imported rows.",
+        "empty": "No imports yet.",
+        "loadingRows": "Loading rows…",
+        "noRowData": "No row data."
+      }
+    },
+    "afcftaRequirements": {
+      "title": "Export & import requirements",
+      "subtitle": "View and edit AfCFTA export and import requirements by country. Source links are for admin reference only.",
+      "back": "Back to AfCFTA",
+      "loading": "Loading requirements…",
+      "empty": "No country requirements configured.",
+      "regions": {
+        "others": "Others"
+      },
+      "sourceExport": "Source (export)",
+      "sourceImport": "Source (import)",
+      "exportRequirements": "Export requirements",
+      "importRequirements": "Import requirements",
+      "labels": {
+        "documents": "Documents",
+        "regulatory": "Regulatory",
+        "complianceNotes": "Compliance notes"
+      },
+      "addItem": "Add item",
+      "remove": "Remove",
+      "save": "Save changes",
+      "errors": {
+        "loadFailed": "Failed to load export and import requirements.",
+        "saveFailed": "Failed to save"
+      }
+    },
+    "lawyers": {
+      "title": "Lawyers directory",
+      "subtitle": "Lawyers are added manually or via the public form. They appear on the Find a Lawyer page.",
+      "addLawyer": "Add lawyer",
+      "adding": "Adding…",
+      "edit": "Edit",
+      "editLawyer": "Edit lawyer",
+      "saveChanges": "Save changes",
+      "removeFromDirectory": "Remove from directory",
+      "removeLawyerTitle": "Remove lawyer",
+      "removeLawyerDescription": "Remove this lawyer from the directory? They will no longer appear on the Find a Lawyer page.",
+      "removeLawyerButton": "Remove",
+      "optional": "optional",
+      "empty": "No lawyers in the directory yet. Add one manually or share the form link: /lawyers/join",
+      "publicForm": "Public form: <strong>/lawyers/join</strong> — lawyers can submit their details there to be added to the directory.",
+      "source": {
+        "form": "Form",
+        "manual": "Manual"
+      },
+      "video": {
+        "title": "Lawyers onboarding video",
+        "description": "MP4 shown once when someone opens the <strong>Find a Lawyer</strong> tab (<strong>/lawyers</strong>). They can replay it via the onboarding video button in the hero. Uploads go directly to Cloudinary (max 100 MB).",
+        "upload": "Upload MP4",
+        "replace": "Replace video",
+        "removeTitle": "Remove onboarding video?",
+        "removeDescription": "Visitors will no longer see the lawyers tab intro video until you upload a new one.",
+        "removeButton": "Remove",
+        "empty": "No video uploaded yet."
+      },
+      "form": {
+        "addTitle": "Add lawyer to directory",
+        "editTitle": "Edit lawyer",
+        "primaryLanguage": "Primary language",
+        "otherLanguages": "Other languages",
+        "linkedin": "LinkedIn URL",
+        "photo": "Photo",
+        "uploadImage": "Upload image",
+        "upload": "Upload",
+        "placeholders": {
+          "fullName": "Full name",
+          "country": "e.g. Ghana, Kenya",
+          "expertise": "e.g. Corporate law, Tax, Employment",
+          "email": "lawyer@example.com",
+          "phone": "e.g. +233 00 000 0000",
+          "primaryLanguage": "e.g. English",
+          "otherLanguages": "e.g. French, Swahili",
+          "imageUrl": "Image URL or upload below",
+          "imageUrlOrUpload": "Image URL or upload",
+          "linkedin": "https://linkedin.com/in/..."
+        },
+        "uploading": "Uploading…",
+        "previewAlt": "Preview"
+      },
+      "table": {
+        "photo": "Photo",
+        "country": "Country",
+        "expertise": "Expertise",
+        "languages": "Languages",
+        "phone": "Phone",
+        "source": "Source",
+        "added": "Added"
+      },
+      "export": {
+        "documentTitle": "Lawyers directory – Yamalé Alliance",
+        "reportTitle": "Lawyers directory export",
+        "generated": "Generated {date}",
+        "footer": "Yamalé Alliance – Confidential. This report was generated from the admin panel.",
+        "tableHeaders": {
+          "name": "Name",
+          "country": "Country",
+          "expertise": "Expertise",
+          "email": "Email",
+          "phone": "Phone",
+          "added": "Added"
+        }
+      },
+      "errors": {
+        "videoMustBeMp4": "Onboarding video must be an MP4 file",
+        "videoTooLarge": "Video must be under 100 MB",
+        "removeFailed": "Remove failed",
+        "nameExpertiseRequired": "Name and expertise are required.",
+        "emailOrPhoneRequired": "Email or phone is required.",
+        "addFailed": "Failed to add lawyer",
+        "updateFailed": "Failed to update lawyer",
+        "imageTooLarge": "Image too large for the server limit. Use a file under 5 MB or compress the photo.",
+        "uploadFailed": "Upload failed. Ensure CLOUDINARY_* env vars are set on Vercel.",
+        "serverNonJson": "Server returned non-JSON (check deployment logs).",
+        "videoUploadFailed": "Video upload failed"
+      }
     }
   },
   "library": {
