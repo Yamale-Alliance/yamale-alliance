@@ -49,13 +49,20 @@ export function verifyAdminMfaSessionToken(token: string, userId: string): boole
   }
 }
 
-export function adminMfaCookieOptions(maxAgeSec = getAdminMfaSessionTtlSec()) {
+/** Serialize options for `Response.cookies.set(name, value, options)` — do not include `name`. */
+export function adminMfaCookieSerializeOptions(maxAgeSec = getAdminMfaSessionTtlSec()) {
+  const insecure =
+    process.env.ADMIN_MFA_COOKIE_INSECURE === "true" || process.env.ADMIN_MFA_COOKIE_INSECURE === "1";
   return {
-    name: ADMIN_MFA_COOKIE_NAME,
     httpOnly: true as const,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure: !insecure && process.env.NODE_ENV === "production",
     path: "/",
     maxAge: maxAgeSec,
   };
+}
+
+/** @deprecated Use adminMfaCookieSerializeOptions — kept for call sites migrating off the old shape. */
+export function adminMfaCookieOptions(maxAgeSec = getAdminMfaSessionTtlSec()) {
+  return adminMfaCookieSerializeOptions(maxAgeSec);
 }
