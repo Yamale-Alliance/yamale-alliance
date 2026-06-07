@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 type AdminPackageOffersFieldsProps = {
   enabled: boolean;
   onEnabledChange: (enabled: boolean) => void;
@@ -25,6 +27,7 @@ export function AdminPackageOffersFields({
   bundlePartnerOptions,
   showHint = true,
 }: AdminPackageOffersFieldsProps) {
+  const t = useTranslations("admin.vault.packageOffersFields");
   return (
     <div className="min-w-0 rounded-lg border border-border bg-muted/20 p-4 sm:col-span-2">
       <label className="flex cursor-pointer items-start gap-3">
@@ -35,10 +38,9 @@ export function AdminPackageOffersFields({
           className="mt-1 rounded border-input"
         />
         <span>
-          <span className="block text-sm font-medium">Dual pricing (standalone kit + bundle add-on)</span>
+          <span className="block text-sm font-medium">{t("title")}</span>
           <span className="mt-1 block text-xs text-muted-foreground">
-            For ZIP packages with a custom landing page. Shows two checkout options: standalone kit and bundle
-            with another vault item.
+            {t("subtitle")}
           </span>
         </span>
       </label>
@@ -46,7 +48,7 @@ export function AdminPackageOffersFields({
       {enabled && (
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm font-medium">Standalone kit price (USD)</label>
+            <label className="mb-1 block text-sm font-medium">{t("standalonePriceLabel")}</label>
             <input
               type="number"
               step="0.01"
@@ -54,12 +56,12 @@ export function AdminPackageOffersFields({
               value={standaloneUsd}
               onChange={(e) => onStandaloneUsdChange(e.target.value)}
               className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              placeholder="199.00"
+              placeholder={t("standalonePricePlaceholder")}
             />
-            <p className="mt-1 text-xs text-muted-foreground">e.g. $199 — &quot;Get the Kit&quot; on the landing page</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("standalonePriceHint")}</p>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Bundle add-on price (USD)</label>
+            <label className="mb-1 block text-sm font-medium">{t("bundleAddonPriceLabel")}</label>
             <input
               type="number"
               step="0.01"
@@ -67,20 +69,20 @@ export function AdminPackageOffersFields({
               value={bundleAddonUsd}
               onChange={(e) => onBundleAddonUsdChange(e.target.value)}
               className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              placeholder="129.00"
+              placeholder={t("bundleAddonPricePlaceholder")}
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              e.g. $129 — also used as this item&apos;s vault list price when saved
+              {t("bundleAddonPriceHint")}
             </p>
           </div>
           <div className="sm:col-span-2">
-            <label className="mb-1 block text-sm font-medium">Bundle includes (vault item)</label>
+            <label className="mb-1 block text-sm font-medium">{t("bundleIncludesLabel")}</label>
             <select
               value={bundleWithItemId}
               onChange={(e) => onBundleWithItemIdChange(e.target.value)}
               className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
             >
-              <option value="">Auto-detect Law Firm Development Package ($499)</option>
+              <option value="">{t("autoDetectOption")}</option>
               {bundlePartnerOptions.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.title} — ${(item.price_cents / 100).toFixed(2)}
@@ -89,8 +91,7 @@ export function AdminPackageOffersFields({
             </select>
             {showHint && (
               <p className="mt-1 text-xs text-muted-foreground">
-                Bundle checkout charges the add-on (e.g. $129) plus the selected vault item&apos;s list price.
-                Customers receive access to both the kit and the partner item after payment.
+                {t("bundleHint")}
               </p>
             )}
           </div>
