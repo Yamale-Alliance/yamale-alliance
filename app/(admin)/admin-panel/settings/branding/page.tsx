@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Upload, Image as ImageIcon, CheckCircle2, Loader2, Trash2 } from "lucide-react";
+import { Upload, CheckCircle2, Loader2, Trash2 } from "lucide-react";
 import { LogoCropModal } from "@/components/admin/LogoCropModal";
 
 function showToast(message: string, type: "success" | "error" = "success") {
-  // Simple toast implementation
   const toast = document.createElement("div");
   toast.className = `fixed bottom-4 right-4 z-50 rounded-lg px-4 py-3 shadow-lg ${
     type === "success" ? "bg-green-500 text-white" : "bg-red-500 text-white"
@@ -25,22 +24,18 @@ function showToast(message: string, type: "success" | "error" = "success") {
 
 interface PlatformSettings {
   logoUrl: string | null;
-  faviconUrl: string | null;
   founderPortraitUrl: string | null;
 }
 
 export default function BrandingSettingsPage() {
   const [settings, setSettings] = useState<PlatformSettings>({
     logoUrl: null,
-    faviconUrl: null,
     founderPortraitUrl: null,
   });
   const [loading, setLoading] = useState(true);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [uploadingFavicon, setUploadingFavicon] = useState(false);
   const [uploadingFounderPortrait, setUploadingFounderPortrait] = useState(false);
   const [removingLogo, setRemovingLogo] = useState(false);
-  const [removingFavicon, setRemovingFavicon] = useState(false);
   const [removingFounderPortrait, setRemovingFounderPortrait] = useState(false);
   const [logoCropImage, setLogoCropImage] = useState<{ url: string; fileName: string } | null>(null);
 
@@ -55,7 +50,6 @@ export default function BrandingSettingsPage() {
         const data = await res.json();
         setSettings({
           logoUrl: data.logoUrl,
-          faviconUrl: data.faviconUrl,
           founderPortraitUrl: data.founderPortraitUrl ?? null,
         });
       }
@@ -66,22 +60,12 @@ export default function BrandingSettingsPage() {
     }
   };
 
-  const handleUpload = useCallback(async (type: "logo" | "favicon" | "founder_portrait", file: File) => {
-    if (type === "favicon" && !file.name.toLowerCase().endsWith(".ico")) {
-      showToast("Favicon must be a .ico file", "error");
-      return;
-    }
-
+  const handleUpload = useCallback(async (type: "logo" | "founder_portrait", file: File) => {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("type", type);
 
-    const setUploading =
-      type === "logo"
-        ? setUploadingLogo
-        : type === "favicon"
-          ? setUploadingFavicon
-          : setUploadingFounderPortrait;
+    const setUploading = type === "logo" ? setUploadingLogo : setUploadingFounderPortrait;
     setUploading(true);
 
     try {
@@ -96,84 +80,61 @@ export default function BrandingSettingsPage() {
       }
 
       const data = await res.json();
-      
+
       if (type === "logo") {
         setSettings((prev) => ({ ...prev, logoUrl: data.url }));
-      } else if (type === "favicon") {
-        setSettings((prev) => ({ ...prev, faviconUrl: data.url }));
       } else {
         setSettings((prev) => ({ ...prev, founderPortraitUrl: data.url }));
       }
 
-      const label =
-        type === "logo" ? "Logo" : type === "favicon" ? "Favicon" : "Founder portrait";
+      const label = type === "logo" ? "Logo" : "Founder portrait";
       showToast(`${label} updated successfully`, "success");
-      
-      // Reload page after a short delay to show new favicon
-      if (type === "favicon") {
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-      }
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Upload failed", "error");
     } finally {
       setUploading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleRemove = useCallback(
-    async (type: "logo" | "favicon" | "founder_portrait") => {
-      const label =
-        type === "logo" ? "logo" : type === "favicon" ? "favicon" : "founder portrait";
-      if (!window.confirm(`Remove the current ${label}? This cannot be undone.`)) return;
+  const handleRemove = useCallback(async (type: "logo" | "founder_portrait") => {
+    const label = type === "logo" ? "logo" : "founder portrait";
+    if (!window.confirm(`Remove the current ${label}? This cannot be undone.`)) return;
 
-      const setRemoving =
-        type === "logo"
-          ? setRemovingLogo
-          : type === "favicon"
-            ? setRemovingFavicon
-            : setRemovingFounderPortrait;
-      setRemoving(true);
+    const setRemoving = type === "logo" ? setRemovingLogo : setRemovingFounderPortrait;
+    setRemoving(true);
 
-      try {
-        const res = await fetch(`/api/admin/platform-settings?type=${type}`, {
-          method: "DELETE",
-        });
-        if (!res.ok) {
-          const error = await res.json();
-          throw new Error(error.error || "Remove failed");
-        }
-
-        if (type === "logo") {
-          setSettings((prev) => ({ ...prev, logoUrl: null }));
-        } else if (type === "favicon") {
-          setSettings((prev) => ({ ...prev, faviconUrl: null }));
-        } else {
-          setSettings((prev) => ({ ...prev, founderPortraitUrl: null }));
-        }
-
-        showToast(`${label.charAt(0).toUpperCase()}${label.slice(1)} removed`, "success");
-
-        if (type === "favicon") {
-          setTimeout(() => window.location.reload(), 800);
-        }
-      } catch (error) {
-        showToast(error instanceof Error ? error.message : "Remove failed", "error");
-      } finally {
-        setRemoving(false);
+    try {
+      const res = await fetch(`/api/admin/platform-settings?type=${type}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Remove failed");
       }
-    },
-    []
-  );
 
-  const handleLogoCropComplete = useCallback((blob: Blob, fileName: string, imageSrcToRevoke: string) => {
-    URL.revokeObjectURL(imageSrcToRevoke);
-    setLogoCropImage(null);
-    const file = new File([blob], fileName, { type: blob.type });
-    handleUpload("logo", file);
-  }, [handleUpload]);
+      if (type === "logo") {
+        setSettings((prev) => ({ ...prev, logoUrl: null }));
+      } else {
+        setSettings((prev) => ({ ...prev, founderPortraitUrl: null }));
+      }
+
+      showToast(`${label.charAt(0).toUpperCase()}${label.slice(1)} removed`, "success");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Remove failed", "error");
+    } finally {
+      setRemoving(false);
+    }
+  }, []);
+
+  const handleLogoCropComplete = useCallback(
+    (blob: Blob, fileName: string, imageSrcToRevoke: string) => {
+      URL.revokeObjectURL(imageSrcToRevoke);
+      setLogoCropImage(null);
+      const file = new File([blob], fileName, { type: blob.type });
+      handleUpload("logo", file);
+    },
+    [handleUpload]
+  );
 
   if (loading) {
     return (
@@ -190,13 +151,12 @@ export default function BrandingSettingsPage() {
       <div className="rounded-2xl border border-border bg-card px-4 py-6 shadow-sm sm:px-6 sm:py-8 md:px-8 md:py-10">
         <h1 className="text-2xl font-semibold tracking-tight">Branding Settings</h1>
         <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-          Upload your platform logo, favicon, and the founder portrait shown on the founder&apos;s note and welcome
-          modal. Changes apply immediately across the site.
+          Upload your platform logo and the founder portrait shown on the founder&apos;s note and welcome
+          modal. The favicon is managed as static files in the repo under <code className="text-xs">public/</code>.
         </p>
       </div>
 
       <div className="mt-8 space-y-8">
-        {/* Logo Upload */}
         <div className="rounded-xl border border-border bg-card p-6">
           <div className="flex items-start justify-between">
             <div className="flex-1">
@@ -204,10 +164,10 @@ export default function BrandingSettingsPage() {
               <p className="mt-1 text-sm text-muted-foreground">
                 Your platform logo appears in the header and on the home page. Upload an image to crop, zoom, and resize it. Supports PNG, JPG, SVG, and other image formats.
               </p>
-              
+
               {settings.logoUrl && (
                 <div className="mt-4">
-                  <div className="relative inline-block rounded-lg border border-border p-2 bg-background">
+                  <div className="relative inline-block rounded-lg border border-border bg-background p-2">
                     <img
                       src={settings.logoUrl}
                       alt="Current logo"
@@ -218,7 +178,7 @@ export default function BrandingSettingsPage() {
               )}
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
-                <label className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent cursor-pointer">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent">
                   <Upload className="h-4 w-4" />
                   {uploadingLogo ? "Uploading..." : settings.logoUrl ? "Change Logo" : "Upload Logo"}
                   <input
@@ -260,12 +220,11 @@ export default function BrandingSettingsPage() {
               )}
             </div>
             {settings.logoUrl && (
-              <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0 ml-4" />
+              <CheckCircle2 className="ml-4 h-5 w-5 shrink-0 text-green-500" />
             )}
           </div>
         </div>
 
-        {/* Founder portrait */}
         <div className="rounded-xl border border-border bg-card p-6">
           <div className="flex items-start justify-between">
             <div className="flex-1">
@@ -288,7 +247,7 @@ export default function BrandingSettingsPage() {
               )}
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
-                <label className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent cursor-pointer">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent">
                   <Upload className="h-4 w-4" />
                   {uploadingFounderPortrait
                     ? "Uploading..."
@@ -322,61 +281,6 @@ export default function BrandingSettingsPage() {
             </div>
             {settings.founderPortraitUrl && (
               <CheckCircle2 className="ml-4 h-5 w-5 shrink-0 text-green-500" />
-            )}
-          </div>
-        </div>
-
-        {/* Favicon Upload */}
-        <div className="rounded-xl border border-border bg-card p-6">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <h2 className="text-lg font-semibold text-foreground">Favicon</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                The favicon appears in browser tabs. Must be a .ico file format.
-              </p>
-              
-              {settings.faviconUrl && (
-                <div className="mt-4">
-                  <div className="relative inline-block rounded-lg border border-border p-2 bg-background">
-                    <img
-                      src={settings.faviconUrl}
-                      alt="Current favicon"
-                      className="h-8 w-8 object-contain"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <label className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent cursor-pointer">
-                  <ImageIcon className="h-4 w-4" />
-                  {uploadingFavicon ? "Uploading..." : settings.faviconUrl ? "Change Favicon" : "Upload Favicon"}
-                  <input
-                    type="file"
-                    accept=".ico"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleUpload("favicon", file);
-                    }}
-                    disabled={uploadingFavicon || removingFavicon}
-                  />
-                </label>
-                {settings.faviconUrl && (
-                  <button
-                    type="button"
-                    onClick={() => void handleRemove("favicon")}
-                    disabled={removingFavicon || uploadingFavicon}
-                    className="inline-flex items-center gap-2 rounded-lg border border-destructive/40 bg-background px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    {removingFavicon ? "Removing..." : "Remove favicon"}
-                  </button>
-                )}
-              </div>
-            </div>
-            {settings.faviconUrl && (
-              <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0 ml-4" />
             )}
           </div>
         </div>
