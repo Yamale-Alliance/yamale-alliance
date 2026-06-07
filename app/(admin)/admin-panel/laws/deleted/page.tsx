@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, RotateCcw, Trash2 } from "lucide-react";
 
 type DeletedLawRow = {
@@ -21,6 +22,8 @@ type Category = { id: string; name: string };
 const PAGE_SIZE = 25;
 
 export default function AdminDeletedLawsPage() {
+  const t = useTranslations("admin.laws.deleted");
+  const tc = useTranslations("admin.common");
   const searchParams = useSearchParams();
   const returnToParam = searchParams.get("returnTo");
   const returnTo =
@@ -55,7 +58,7 @@ export default function AdminDeletedLawsPage() {
         setCategories(metaRes.categories ?? []);
       })
       .catch(() => {
-        setError("Failed to load recently deleted laws.");
+        setError(t("errors.loadFailed"));
       })
       .finally(() => setLoading(false));
   }, [page]);
@@ -77,14 +80,14 @@ export default function AdminDeletedLawsPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(typeof data.error === "string" ? data.error : "Failed to restore law.");
+        setError(typeof data.error === "string" ? data.error : t("errors.restoreFailed"));
         setRestoringId(null);
         return;
       }
       setRows((prev) => prev.filter((r) => r.id !== id));
       setTotal((prev) => Math.max(0, prev - 1));
     } catch {
-      setError("Network error while restoring.");
+      setError(t("errors.networkRestore"));
     } finally {
       setRestoringId(null);
     }
@@ -99,7 +102,7 @@ export default function AdminDeletedLawsPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to laws
+          {t("back")}
         </Link>
       </div>
 
@@ -108,9 +111,9 @@ export default function AdminDeletedLawsPage() {
           <Trash2 className="h-4 w-4 text-primary" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold">Recently deleted laws</h1>
+          <h1 className="text-xl font-semibold">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">
-            View and restore laws that were deleted from the library. Restored laws reappear in their original country and category.
+            {t("subtitle")}
           </p>
         </div>
       </div>
@@ -127,7 +130,7 @@ export default function AdminDeletedLawsPage() {
         </div>
       ) : rows.length === 0 ? (
         <div className="mt-8 rounded-lg border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-          No recently deleted laws.
+          {t("empty")}
         </div>
       ) : (
         <>
@@ -135,14 +138,14 @@ export default function AdminDeletedLawsPage() {
             <table className="w-full text-sm">
             <thead className="border-b border-border bg-muted/40">
               <tr>
-                <th className="p-2 text-left font-medium">Title</th>
-                <th className="p-2 text-left font-medium">Country</th>
-                <th className="p-2 text-left font-medium">Category</th>
-                <th className="p-2 text-left font-medium">Status</th>
-                <th className="p-2 text-left font-medium">Year</th>
-                <th className="p-2 text-left font-medium">Deleted at</th>
-                <th className="p-2 text-left font-medium">Reason</th>
-                <th className="p-2 text-right font-medium">Actions</th>
+                <th className="p-2 text-left font-medium">{t("table.title")}</th>
+                <th className="p-2 text-left font-medium">{t("table.country")}</th>
+                <th className="p-2 text-left font-medium">{t("table.category")}</th>
+                <th className="p-2 text-left font-medium">{tc("status")}</th>
+                <th className="p-2 text-left font-medium">{t("table.year")}</th>
+                <th className="p-2 text-left font-medium">{t("table.deletedAt")}</th>
+                <th className="p-2 text-left font-medium">{t("table.reason")}</th>
+                <th className="p-2 text-right font-medium">{tc("actions")}</th>
               </tr>
             </thead>
               <tbody>
@@ -175,7 +178,7 @@ export default function AdminDeletedLawsPage() {
                         ) : (
                           <RotateCcw className="h-3.5 w-3.5" />
                         )}
-                        Restore
+                        {t("restore")}
                       </button>
                     </td>
                   </tr>
@@ -195,7 +198,7 @@ export default function AdminDeletedLawsPage() {
                 className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-50"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
-                Previous
+                {tc("previous")}
               </button>
               <span className="text-xs text-muted-foreground">
                 Page {page} of {totalPages}
@@ -206,7 +209,7 @@ export default function AdminDeletedLawsPage() {
                 disabled={page >= totalPages}
                 className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-50"
               >
-                Next
+                {tc("next")}
                 <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
