@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { lawFlagCategoryLabel } from "@/lib/law-flag-categories";
 
@@ -21,6 +22,7 @@ type CorpusGapRow = {
 };
 
 export function AiCorpusGapsPanel() {
+  const t = useTranslations("admin.aiModeration.corpusGaps");
   const [status, setStatus] = useState<"all" | "open" | "in_progress" | "resolved" | "dismissed">("open");
   const [rows, setRows] = useState<CorpusGapRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +35,7 @@ export function AiCorpusGapsPanel() {
     fetch(`/api/admin/ai-corpus-gaps${q}`, { credentials: "include" })
       .then(async (res) => {
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to load corpus gaps");
+        if (!res.ok) throw new Error(data.error || t("failedToLoad"));
         setRows(Array.isArray(data.flags) ? data.flags : []);
       })
       .catch((e: Error) => {
@@ -45,10 +47,9 @@ export function AiCorpusGapsPanel() {
 
   return (
     <div className="rounded-2xl border border-border/80 bg-card/80 p-4 shadow-sm sm:p-6">
-      <h3 className="text-lg font-semibold text-foreground">Auto corpus & excerpt gaps</h3>
+      <h3 className="text-lg font-semibold text-foreground">{t("title")}</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        Created automatically when the assistant says material is missing from the library, not in the excerpt, or
-        nothing was retrieved. Reporter is the user who asked the question.
+        {t("subtitle")}
       </p>
 
       <div className="mt-6 flex flex-wrap gap-2">
@@ -61,7 +62,7 @@ export function AiCorpusGapsPanel() {
               status === s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
-            {s === "all" ? "All" : s.replace("_", " ")}
+            {s === "all" ? t("status.all") : t(`status.${s}`)}
           </button>
         ))}
       </div>
@@ -77,7 +78,7 @@ export function AiCorpusGapsPanel() {
         <div className="mt-6 space-y-3">
           {rows.length === 0 ? (
             <p className="rounded-xl border border-border bg-muted/20 p-8 text-center text-sm text-muted-foreground">
-              No auto gap flags in this view.
+              {t("empty")}
             </p>
           ) : (
             rows.map((r) => (
@@ -100,7 +101,7 @@ export function AiCorpusGapsPanel() {
                   </span>
                 </div>
                 <p className="mt-3 text-sm">
-                  <span className="font-medium text-foreground">Reported from chat:</span>{" "}
+                  <span className="font-medium text-foreground">{t("reportedFromChat")}</span>{" "}
                   {r.user_name || r.user_email || r.user_id}
                 </p>
                 {r.issue_details ? (
@@ -110,9 +111,9 @@ export function AiCorpusGapsPanel() {
                 ) : null}
                 <div className="mt-3 flex flex-wrap items-center gap-3 text-xs font-medium text-primary">
                   <span className="text-muted-foreground font-normal">
-                    {new Date(r.created_at).toLocaleString()} · {r.status}
+                    {new Date(r.created_at).toLocaleString()} · {t(`status.${r.status}`)}
                   </span>
-                  <span>View full report →</span>
+                  <span>{t("viewFullReport")}</span>
                 </div>
               </Link>
             ))
