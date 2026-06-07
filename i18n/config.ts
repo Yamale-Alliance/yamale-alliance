@@ -15,3 +15,10 @@ export const localeLabels: Record<Locale, string> = {
   fr: "Français",
   pt: "Português",
 };
+
+/** Short codes for compact selects (e.g. tablet header). */
+export const localeShortLabels: Record<Locale, string> = {
+  en: "EN",
+  fr: "FR",
+  pt: "PT",
+};
