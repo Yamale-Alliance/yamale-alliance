@@ -1,34 +1,8 @@
 import type { MetadataRoute } from "next";
 import { SITE, getSiteUrl } from "@/lib/site-seo";
-import { getPlatformBranding } from "@/lib/platform-branding";
 
-export default async function manifest(): Promise<MetadataRoute.Manifest> {
+export default function manifest(): MetadataRoute.Manifest {
   const base = getSiteUrl();
-  const { faviconUrl } = await getPlatformBranding();
-
-  const icons: MetadataRoute.Manifest["icons"] = faviconUrl
-    ? [
-        {
-          src: `${base}/icon`,
-          sizes: "48x48",
-          type: "image/x-icon",
-          purpose: "any",
-        },
-        {
-          src: `${base}/apple-icon`,
-          sizes: "180x180",
-          type: "image/png",
-          purpose: "any",
-        },
-      ]
-    : [
-        {
-          src: `${base}/icon`,
-          sizes: "48x48",
-          type: "image/x-icon",
-          purpose: "any",
-        },
-      ];
 
   return {
     id: "/",
@@ -44,6 +18,25 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     categories: ["legal", "education", "productivity", "business"],
     lang: SITE.locale,
     dir: "ltr",
-    icons,
+    icons: [
+      {
+        src: `${base}/favicon.ico`,
+        sizes: "48x48",
+        type: "image/x-icon",
+        purpose: "any",
+      },
+      {
+        src: `${base}/favicon-192.png`,
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: `${base}/apple-touch-icon.png`,
+        sizes: "180x180",
+        type: "image/png",
+        purpose: "any",
+      },
+    ],
   };
 }
