@@ -86,8 +86,7 @@ export async function getPlatformLogo(): Promise<string | null> {
 }
 
 export async function getPlatformFavicon(): Promise<string | null> {
-  const settings = await getPlatformSettings();
-  return settings.faviconUrl;
+  return "/favicon.ico";
 }
 
 export async function getPlatformHeroImage(): Promise<string | null> {
