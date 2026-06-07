@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { Loader2, Pencil, X, DollarSign, Sparkles } from "lucide-react";
 import { ContentPricingSection } from "@/components/admin/ContentPricingSection";
 
@@ -20,6 +21,8 @@ type Plan = {
 };
 
 export default function AdminPricingPage() {
+  const t = useTranslations("admin.pricing");
+  const tc = useTranslations("admin.common");
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Plan | null>(null);
@@ -69,7 +72,7 @@ export default function AdminPricingPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to update");
+        setError(data.error ?? tc("failedToUpdate"));
         setSaving(false);
         return;
       }
@@ -77,7 +80,7 @@ export default function AdminPricingPage() {
       fetchPlans();
       setEditing(null);
     } catch {
-      setError("Network error");
+      setError(tc("networkError"));
     }
     setSaving(false);
   };
@@ -89,9 +92,9 @@ export default function AdminPricingPage() {
           <DollarSign className="h-5 w-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Pricing</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Edit subscription tiers above. Below, edit the five pay-as-you-go prices shown on the public pricing page.
+            {t("subtitle")}
           </p>
         </div>
       </div>
@@ -114,7 +117,7 @@ export default function AdminPricingPage() {
               {plan.highlighted && (
                 <div className="absolute -top-2.5 right-4 flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground shadow-sm">
                   <Sparkles className="h-3 w-3" />
-                  Popular
+                  {t("popular")}
                 </div>
               )}
               <div className="flex items-start justify-between gap-2">
@@ -128,16 +131,16 @@ export default function AdminPricingPage() {
                   className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:border-primary/30"
                 >
                   <Pencil className="h-3.5 w-3.5" />
-                  Edit
+                  {t("edit")}
                 </button>
               </div>
               <div className="mt-4 flex items-baseline gap-1">
                 <span className="text-2xl font-bold tracking-tight text-foreground">${plan.price_monthly}</span>
-                <span className="text-sm text-muted-foreground">/mo</span>
+                <span className="text-sm text-muted-foreground">{t("perMonth")}</span>
               </div>
               <ul className="mt-4 space-y-1.5 text-xs text-muted-foreground">
-                <li>${plan.price_annual_per_month}/mo billed annually</li>
-                <li>${plan.price_annual_total}/yr total</li>
+                <li>{t("annualPerMonth", { value: plan.price_annual_per_month })}</li>
+                <li>{t("annualTotal", { value: plan.price_annual_total })}</li>
                 <li className="pt-1 font-medium text-foreground">{plan.cta}</li>
               </ul>
             </div>
@@ -154,12 +157,12 @@ export default function AdminPricingPage() {
           />
           <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Edit {editing.name}</h2>
+              <h2 className="text-lg font-semibold">{t("editPlan", { name: editing.name })}</h2>
               <button
                 type="button"
                 onClick={() => setEditing(null)}
                 className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="Close"
+                aria-label={tc("close")}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -171,7 +174,7 @@ export default function AdminPricingPage() {
             )}
             <form onSubmit={handleSave} className="space-y-4 max-h-[70vh] overflow-y-auto">
               <div>
-                <label className="block text-sm font-medium mb-1">Name</label>
+                <label className="block text-sm font-medium mb-1">{tc("name")}</label>
                 <input
                   name="name"
                   defaultValue={editing.name}
@@ -180,7 +183,7 @@ export default function AdminPricingPage() {
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Price (monthly) $</label>
+                  <label className="block text-sm font-medium mb-1">{t("fields.priceMonthly")}</label>
                   <input
                     type="number"
                     name="price_monthly"
@@ -190,7 +193,7 @@ export default function AdminPricingPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Annual per month $</label>
+                  <label className="block text-sm font-medium mb-1">{t("fields.annualPerMonth")}</label>
                   <input
                     type="number"
                     name="price_annual_per_month"
@@ -200,7 +203,7 @@ export default function AdminPricingPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Annual total $</label>
+                  <label className="block text-sm font-medium mb-1">{t("fields.annualTotal")}</label>
                   <input
                     type="number"
                     name="price_annual_total"
@@ -211,7 +214,7 @@ export default function AdminPricingPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Description</label>
+                <label className="block text-sm font-medium mb-1">{t("fields.description")}</label>
                 <input
                   name="description"
                   defaultValue={editing.description ?? ""}
@@ -219,7 +222,7 @@ export default function AdminPricingPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Subtitle (e.g. or $50/year)</label>
+                <label className="block text-sm font-medium mb-1">{t("fields.subtitle")}</label>
                 <input
                   name="subtitle"
                   defaultValue={editing.subtitle ?? ""}
@@ -227,7 +230,7 @@ export default function AdminPricingPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Features (one per line, HTML allowed)</label>
+                <label className="block text-sm font-medium mb-1">{t("fields.features")}</label>
                 <textarea
                   name="features"
                   rows={6}
@@ -236,7 +239,7 @@ export default function AdminPricingPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Button text (CTA)</label>
+                <label className="block text-sm font-medium mb-1">{t("fields.buttonText")}</label>
                 <input
                   name="cta"
                   defaultValue={editing.cta}
@@ -251,7 +254,7 @@ export default function AdminPricingPage() {
                   defaultChecked={editing.highlighted}
                   className="rounded border-input"
                 />
-                <label htmlFor="highlighted" className="text-sm">Highlight as &quot;Most Popular&quot;</label>
+                <label htmlFor="highlighted" className="text-sm">{t("fields.highlightMostPopular")}</label>
               </div>
               <div className="flex gap-2 pt-2">
                 <button
@@ -259,14 +262,14 @@ export default function AdminPricingPage() {
                   disabled={saving}
                   className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
                 >
-                  {saving ? "Saving…" : "Save"}
+                  {saving ? tc("saving") : tc("save")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditing(null)}
                   className="rounded-lg border border-input px-4 py-2 text-sm font-medium hover:bg-accent"
                 >
-                  Cancel
+                  {tc("cancel")}
                 </button>
               </div>
             </form>
