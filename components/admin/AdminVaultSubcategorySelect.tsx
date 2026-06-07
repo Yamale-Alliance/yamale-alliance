@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   listVaultSeries,
   setVaultSeriesRegistry,
@@ -20,6 +21,7 @@ export function AdminVaultSubcategorySelect({
   defaultValue,
   className,
 }: Props) {
+  const t = useTranslations("admin.vault.subcategorySelect");
   const [series, setSeries] = useState<VaultSeriesRecord[]>(() => listVaultSeries());
   const [loaded, setLoaded] = useState(false);
 
@@ -41,29 +43,30 @@ export function AdminVaultSubcategorySelect({
 
   return (
     <div className={className}>
-      <label className="mb-1 block text-sm font-medium">Vault series (optional)</label>
+      <label className="mb-1 block text-sm font-medium">{t("label")}</label>
       <select
         name={name}
         defaultValue={defaultValue ?? ""}
         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
       >
-        <option value="">— None —</option>
+        <option value="">{t("none")}</option>
         {series.map((s) => (
           <option key={s.id} value={s.id}>
             {s.label}
-            {s.paid ? " (paid series)" : " (free series)"}
+            {s.paid ? ` (${t("paidSeries")})` : ` (${t("freeSeries")})`}
           </option>
         ))}
       </select>
       <p className="mt-1 text-xs text-muted-foreground">
-        Free series apply when price is $0. Paid series apply at any price.{" "}
-        {loaded ? "Manage series with Add series on the marketplace admin page." : "Loading series…"}
+        {t("hint")} {loaded ? t("loadedManageHint") : t("loading")}
       </p>
       {defaultValue === "quick_investment_guide" ? (
         <p className="mt-2 text-xs text-muted-foreground">
-          Quick Investment Guide: upload series cover in the series editor, or use static{" "}
-          <code className="rounded bg-muted px-1">public/vault/quick-investment-guide/cover.jpg</code>. Suggested price $
-          {((vaultSeriesSuggestedItemPriceCents("quick_investment_guide") ?? 1900) / 100).toFixed(0)} per country.
+          {t("quickInvestmentGuide.before")}{" "}
+          <code className="rounded bg-muted px-1">public/vault/quick-investment-guide/cover.jpg</code>.{" "}
+          {t("quickInvestmentGuide.after", {
+            amount: ((vaultSeriesSuggestedItemPriceCents("quick_investment_guide") ?? 1900) / 100).toFixed(0),
+          })}
         </p>
       ) : null}
     </div>
