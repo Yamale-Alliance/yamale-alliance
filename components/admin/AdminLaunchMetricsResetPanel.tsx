@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { LAUNCH_METRICS_RESET_CONFIRM_PHRASE, LAUNCH_METRICS_RESET_TABLE_LABELS } from "@/lib/admin-reset-launch-metrics";
 
@@ -13,6 +14,7 @@ type TableResult = {
 };
 
 export function AdminLaunchMetricsResetPanel({ defaultScope = "all" }: { defaultScope?: Scope }) {
+  const t = useTranslations("admin.launchMetricsReset");
   const [scope, setScope] = useState<Scope>(defaultScope);
   const [confirmText, setConfirmText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,14 +36,14 @@ export function AdminLaunchMetricsResetPanel({ defaultScope = "all" }: { default
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Reset failed");
+        setError(data.error ?? t("resetFailed"));
         if (data.tables) setResult({ tables: data.tables });
         return;
       }
       setResult({ message: data.message, tables: data.tables });
       setConfirmText("");
     } catch {
-      setError("Network error");
+      setError(t("networkError"));
     } finally {
       setLoading(false);
     }
@@ -52,24 +54,24 @@ export function AdminLaunchMetricsResetPanel({ defaultScope = "all" }: { default
       <div className="flex items-start gap-3">
         <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden />
         <div className="min-w-0 flex-1">
-          <h2 className="text-lg font-semibold text-foreground">Reset launch metrics</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t("title")}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Clears Supabase purchase and usage rows so <strong className="font-medium text-foreground">Revenue &amp; analytics</strong> and{" "}
-            <strong className="font-medium text-foreground">AI usage</strong> start fresh after go-live. This does{" "}
-            <strong className="font-medium text-foreground">not</strong> change Clerk subscription metadata — paid tiers in
-            Clerk may still show in subscription estimates until you adjust users manually.
+            {t.rich("intro", {
+              revenue: (chunks) => <strong className="font-medium text-foreground">{chunks}</strong>,
+              aiUsage: (chunks) => <strong className="font-medium text-foreground">{chunks}</strong>,
+              not: (chunks) => <strong className="font-medium text-foreground">{chunks}</strong>,
+            })}
           </p>
           <p className="mt-2 text-sm text-destructive/90">
-            Clearing revenue data removes vault purchases, library PDF unlocks, lawyer unlocks, and related PAYG rows. Customers
-            will lose access tied only to those purchase records.
+            {t("warning")}
           </p>
 
           <div className="mt-4 flex flex-wrap gap-2">
             {(
               [
-                { value: "all" as const, label: "Everything" },
-                { value: "revenue" as const, label: "Revenue & purchases only" },
-                { value: "ai" as const, label: "AI usage only" },
+                { value: "all" as const, label: t("scope.all") },
+                { value: "revenue" as const, label: t("scope.revenue") },
+                { value: "ai" as const, label: t("scope.ai") },
               ] as const
             ).map((opt) => (
               <button
@@ -88,7 +90,11 @@ export function AdminLaunchMetricsResetPanel({ defaultScope = "all" }: { default
           </div>
 
           <label className="mt-4 block text-sm font-medium text-foreground">
-            Type <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{LAUNCH_METRICS_RESET_CONFIRM_PHRASE}</code> to confirm
+            {t.rich("confirmPrompt", {
+              phrase: () => (
+                <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{LAUNCH_METRICS_RESET_CONFIRM_PHRASE}</code>
+              ),
+            })}
           </label>
           <input
             type="text"
@@ -106,7 +112,11 @@ export function AdminLaunchMetricsResetPanel({ defaultScope = "all" }: { default
             className="mt-4 inline-flex items-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition hover:opacity-90 disabled:opacity-50"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Reset {scope === "all" ? "all launch metrics" : scope === "revenue" ? "revenue data" : "AI usage"}
+            {scope === "all"
+              ? t("cta.all")
+              : scope === "revenue"
+                ? t("cta.revenue")
+                : t("cta.ai")}
           </button>
 
           {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
@@ -119,7 +129,7 @@ export function AdminLaunchMetricsResetPanel({ defaultScope = "all" }: { default
                 <li key={row.table} className="flex justify-between gap-2">
                   <span>{LAUNCH_METRICS_RESET_TABLE_LABELS[row.table] ?? row.table}</span>
                   <span className={row.error ? "text-destructive" : "text-muted-foreground"}>
-                    {row.error ? row.error : `${row.deleted ?? 0} deleted`}
+                    {row.error ? row.error : t("rowsDeleted", { count: row.deleted ?? 0 })}
                   </span>
                 </li>
               ))}
