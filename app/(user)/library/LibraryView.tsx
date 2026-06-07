@@ -41,7 +41,6 @@ import { usePlatformSettings } from "@/components/platform/PlatformSettingsConte
 import { MarketingDiscountPrice } from "@/components/pricing/MarketingDiscountPrice";
 import { formatUsdPrice } from "@/lib/content-pricing";
 import { LibraryFiltersBar } from "@/components/library/LibraryFiltersBar";
-import { LibraryOcrDisclaimer } from "@/components/library/LibraryOcrDisclaimer";
 import { platformBusinessMailto } from "@/lib/platform-emails";
 import { lawDetailHref } from "@/lib/law-public-url";
 import { LawLastVerifiedLabel } from "@/components/library/LawLastVerifiedLabel";
@@ -1132,10 +1131,6 @@ export function LibraryView({
             </span>
           </p>
         </div>
-      </div>
-
-      <div className="mx-auto max-w-[1280px] px-4 pt-5 sm:px-8">
-        <LibraryOcrDisclaimer />
       </div>
 
       <LibraryFiltersBar
