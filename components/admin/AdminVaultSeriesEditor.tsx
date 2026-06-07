@@ -14,6 +14,7 @@ import { isValidMarketplaceCoverUrl } from "@/lib/marketplace-cover-url";
 import { MARKETPLACE_FILE_ACCEPT } from "@/lib/marketplace-file-accept";
 import { slugifyVaultSeriesId } from "@/lib/marketplace-vault-series";
 import type { VaultSeriesRecord } from "@/lib/marketplace-vault-series";
+import { useTranslations } from "next-intl";
 
 type ItemFileRef = {
   path: string;
@@ -109,7 +110,7 @@ function newItemDraft(sortOrder: number, seriesUsesPerCountryCovers = false): It
 function itemFileLabel(it: ItemDraft): string | null {
   if (it.removeFile) return null;
   if (it.pendingFile) return it.pendingFile.file_name;
-  if (it.file_path) return it.file_name ?? "File attached";
+  if (it.file_path) return it.file_name ?? it.file_path.split("/").pop() ?? null;
   return null;
 }
 
@@ -182,6 +183,8 @@ export function AdminVaultSeriesEditor({
   onClose,
   onSaved,
 }: Props) {
+  const t = useTranslations("admin.vault.seriesEditor");
+  const tc = useTranslations("admin.common");
   const [createdSeriesId, setCreatedSeriesId] = useState<string | null>(null);
   const activeSeriesId = seriesId ?? createdSeriesId;
   const isNew = !activeSeriesId;
@@ -253,11 +256,11 @@ export function AdminVaultSeriesEditor({
       );
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error ?? "Failed to reload series");
+        throw new Error(data.error ?? t("errors.failedToReloadSeries"));
       }
       const s = data.series as VaultSeriesRecord;
       if (s?.id && s.id !== id) {
-        throw new Error("Loaded the wrong series. Close and try again.");
+        throw new Error(t("errors.loadedWrongSeries"));
       }
       const rows = Array.isArray(data.items) ? data.items : [];
       applyBundleToForm(s, rows, opts);
@@ -313,18 +316,18 @@ export function AdminVaultSeriesEditor({
         const data = await res.json();
         if (cancelled) return;
         if (!res.ok) {
-          setError(data.error ?? "Failed to load series");
+          setError(data.error ?? t("errors.failedToLoadSeries"));
           return;
         }
         const s = data.series as VaultSeriesRecord;
         if (s?.id && s.id !== requestedId) {
-          setError("Loaded the wrong series. Close and try again.");
+          setError(t("errors.loadedWrongSeries"));
           return;
         }
         const rows = Array.isArray(data.items) ? data.items : [];
         applyBundleToForm(s, rows);
       } catch {
-        if (!cancelled) setError("Failed to load series");
+        if (!cancelled) setError(t("errors.failedToLoadSeries"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -347,12 +350,12 @@ export function AdminVaultSeriesEditor({
       });
       const data = await parseJsonSafe(res);
       if (!res.ok || !data.url) {
-        setError(data.error ?? "Image upload failed");
+        setError(data.error ?? t("errors.imageUploadFailed"));
       } else {
         onUrl(data.url);
       }
     } catch {
-      setError("Image upload failed");
+      setError(t("errors.imageUploadFailed"));
     }
     setCoverUploading(false);
   };
@@ -386,7 +389,7 @@ export function AdminVaultSeriesEditor({
         file_format?: string;
       };
       if (!res.ok) {
-        setError(data.error ?? "File upload failed");
+        setError(data.error ?? t("errors.fileUploadFailed"));
         return;
       }
       if (data.path && data.file_name != null && data.file_format != null) {
@@ -399,10 +402,10 @@ export function AdminVaultSeriesEditor({
           removeFile: false,
         });
       } else {
-        setError("Upload succeeded but file details were missing.");
+        setError(t("errors.uploadMissingFileDetails"));
       }
     } catch {
-      setError("File upload failed");
+      setError(t("errors.fileUploadFailed"));
     } finally {
       setFileUploading(false);
       setUploadingFileName(null);
@@ -496,7 +499,7 @@ export function AdminVaultSeriesEditor({
 
   const handleSave = async () => {
     if (!label.trim()) {
-      setError("Series name is required");
+      setError(t("errors.seriesNameRequired"));
       return;
     }
     const payloadItems = items
@@ -525,7 +528,7 @@ export function AdminVaultSeriesEditor({
       }));
 
     if (payloadItems.length === 0) {
-      setError("Add at least one item with a title");
+      setError(t("errors.addAtLeastOneItem"));
       return;
     }
 
@@ -560,7 +563,7 @@ export function AdminVaultSeriesEditor({
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to save series");
+        setError(data.error ?? t("errors.failedToSaveSeries"));
         setSaving(false);
         return;
       }
@@ -573,7 +576,7 @@ export function AdminVaultSeriesEditor({
       setSaveSuccess(true);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save series");
+      setError(err instanceof Error ? err.message : t("errors.failedToSaveSeries"));
     }
     setSaving(false);
   };
@@ -587,18 +590,18 @@ export function AdminVaultSeriesEditor({
     const name = label.trim() || activeSeriesId;
     const builtin = isBuiltinVaultSeriesId(activeSeriesId);
     const builtinNote = builtin
-      ? " This is a built-in series: the catalog definition remains in code, but saved metadata and item grouping will be removed."
+      ? ` ${t("deleteSeries.builtinNote")}`
       : "";
 
     const ok = await confirm({
-      title: "Delete series",
+      title: t("deleteSeries.title"),
       description: `Delete “${name}”? Series metadata will be removed.${builtinNote}${
         persistedItemCount > 0
           ? ` ${persistedItemCount} item${persistedItemCount === 1 ? "" : "s"} will be unlinked and stay in the vault as standalone products.`
           : ""
       }`,
-      confirmLabel: "Delete series",
-      cancelLabel: "Cancel",
+      confirmLabel: t("deleteSeries.confirm"),
+      cancelLabel: tc("cancel"),
       variant: "destructive",
     });
     if (!ok) return;
@@ -606,10 +609,10 @@ export function AdminVaultSeriesEditor({
     let deleteItems = false;
     if (persistedItemCount > 0) {
       const deleteItemsToo = await confirm({
-        title: "Delete items too?",
+        title: t("deleteSeries.deleteItemsTooTitle"),
         description: `Permanently delete all ${persistedItemCount} marketplace item${persistedItemCount === 1 ? "" : "s"} in this series? Choose Cancel to unlink only (items remain in the vault).`,
-        confirmLabel: "Delete items too",
-        cancelLabel: "Unlink only",
+        confirmLabel: t("deleteSeries.deleteItemsTooConfirm"),
+        cancelLabel: t("deleteSeries.unlinkOnly"),
         variant: "destructive",
       });
       deleteItems = deleteItemsToo;
@@ -629,14 +632,14 @@ export function AdminVaultSeriesEditor({
       );
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to delete series");
+        setError(data.error ?? t("errors.failedToDeleteSeries"));
         setDeleting(false);
         return;
       }
       onSaved();
       onClose();
     } catch {
-      setError("Failed to delete series");
+      setError(t("errors.failedToDeleteSeries"));
     }
     setDeleting(false);
   };
@@ -652,7 +655,7 @@ export function AdminVaultSeriesEditor({
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-4 sm:px-6 sm:py-5">
           <div className="min-w-0 pr-2">
             <h2 id="vault-series-editor-title" className="text-lg font-medium leading-snug">
-              {isNew ? "Add vault series" : "Edit vault series"}
+              {isNew ? t("titleAdd") : t("titleEdit")}
               {!isNew && label.trim() ? (
                 <span className="mt-0.5 block text-sm font-normal text-muted-foreground">{label}</span>
               ) : null}
@@ -660,7 +663,7 @@ export function AdminVaultSeriesEditor({
             {!isNew ? (
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
                 Series id: <code className="rounded bg-muted px-1 py-0.5">{resolvedId}</code>
-                {loading ? " · loading…" : paid ? " · paid series" : " · free series"}
+                {loading ? ` · ${t("loading")}` : paid ? ` · ${t("paidSeries")}` : ` · ${t("freeSeries")}`}
               </p>
             ) : null}
           </div>
@@ -668,7 +671,7 @@ export function AdminVaultSeriesEditor({
             type="button"
             onClick={onClose}
             className="rounded-lg p-2 text-muted-foreground hover:bg-muted"
-            aria-label="Close"
+            aria-label={tc("close")}
           >
             <X className="h-5 w-5" />
           </button>
@@ -687,25 +690,25 @@ export function AdminVaultSeriesEditor({
             ) : null}
             {saveSuccess ? (
               <div className="mb-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
-                Series saved. You can keep editing or close when finished.
+                {t("seriesSaved")}
               </div>
             ) : null}
 
             <section className="rounded-lg border border-border bg-muted/20 p-4">
-              <h3 className="text-sm font-semibold">Series</h3>
+              <h3 className="text-sm font-semibold">{t("seriesSectionTitle")}</h3>
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
                 <div className="sm:col-span-2">
-                  <label className="mb-1 block text-sm font-medium">Series name</label>
+                  <label className="mb-1 block text-sm font-medium">{t("fields.seriesName")}</label>
                   <input
                     type="text"
                     value={label}
                     onChange={(e) => setLabel(e.target.value)}
                     className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                    placeholder="e.g. Quick Investment Guide"
+                    placeholder={t("fields.seriesNamePlaceholder")}
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="mb-1 block text-sm font-medium">Series description</label>
+                  <label className="mb-1 block text-sm font-medium">{t("fields.seriesDescription")}</label>
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
@@ -714,7 +717,7 @@ export function AdminVaultSeriesEditor({
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="mb-1 block text-sm font-medium">Series cover image</label>
+                  <label className="mb-1 block text-sm font-medium">{t("fields.seriesCoverImage")}</label>
                   <MarketplaceCoverImageField
                     previewUrl={coverUrl}
                     uploading={coverUploading}
@@ -722,7 +725,7 @@ export function AdminVaultSeriesEditor({
                     onClear={() => setCoverUrl(null)}
                     onPasteUrl={(url) => {
                       if (!isValidMarketplaceCoverUrl(url)) {
-                        setError("Cover URL must be a valid https Cloudinary link.");
+                        setError(t("errors.invalidCoverUrl"));
                         return;
                       }
                       setCoverUrl(url.trim());
@@ -731,7 +734,7 @@ export function AdminVaultSeriesEditor({
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium">Default item type</label>
+                  <label className="mb-1 block text-sm font-medium">{t("fields.defaultItemType")}</label>
                   <select
                     value={defaultType}
                     onChange={(e) =>
@@ -753,7 +756,7 @@ export function AdminVaultSeriesEditor({
                       onChange={(e) => setPaid(e.target.checked)}
                       className="rounded border-input"
                     />
-                    Paid series
+                    {t("fields.paidSeries")}
                   </label>
                   <label className="flex items-center gap-2 text-sm">
                     <input
@@ -762,13 +765,13 @@ export function AdminVaultSeriesEditor({
                       onChange={(e) => handlePerCountryCoversChange(e.target.checked)}
                       className="rounded border-input"
                     />
-                    Per-country item covers
+                    {t("fields.perCountryItemCovers")}
                   </label>
                 </div>
                 {paid ? (
                   <>
                     <div>
-                      <label className="mb-1 block text-sm font-medium">Bundle price (USD)</label>
+                      <label className="mb-1 block text-sm font-medium">{t("fields.bundlePriceUsd")}</label>
                       <input
                         type="number"
                         step="0.01"
@@ -776,11 +779,11 @@ export function AdminVaultSeriesEditor({
                         value={bundleUsd}
                         onChange={(e) => setBundleUsd(e.target.value)}
                         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                        placeholder="e.g. 79.00"
+                        placeholder={t("fields.bundlePricePlaceholder")}
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium">Suggested item price (USD)</label>
+                      <label className="mb-1 block text-sm font-medium">{t("fields.suggestedItemPriceUsd")}</label>
                       <input
                         type="number"
                         step="0.01"
@@ -788,7 +791,7 @@ export function AdminVaultSeriesEditor({
                         value={suggestedUsd}
                         onChange={(e) => setSuggestedUsd(e.target.value)}
                         className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                        placeholder="e.g. 19.00"
+                        placeholder={t("fields.suggestedItemPricePlaceholder")}
                       />
                     </div>
                   </>
@@ -808,7 +811,7 @@ export function AdminVaultSeriesEditor({
                     onClick={() => setActiveIndex((i) => Math.max(0, i - 1))}
                     className="inline-flex items-center gap-1 rounded-lg border border-input px-2 py-1 text-xs disabled:opacity-40"
                   >
-                    <ChevronLeft className="h-3.5 w-3.5" /> Prev
+                    <ChevronLeft className="h-3.5 w-3.5" /> {t("actions.prev")}
                   </button>
                   <button
                     type="button"
@@ -816,28 +819,28 @@ export function AdminVaultSeriesEditor({
                     onClick={() => setActiveIndex((i) => Math.min(items.length - 1, i + 1))}
                     className="inline-flex items-center gap-1 rounded-lg border border-input px-2 py-1 text-xs disabled:opacity-40"
                   >
-                    Next <ChevronRight className="h-3.5 w-3.5" />
+                    {t("actions.next")} <ChevronRight className="h-3.5 w-3.5" />
                   </button>
                   <button
                     type="button"
                     onClick={addItem}
                     className="inline-flex items-center gap-1 rounded-lg border border-dashed border-input px-2 py-1 text-xs font-medium"
                   >
-                    <Plus className="h-3.5 w-3.5" /> Add item
+                    <Plus className="h-3.5 w-3.5" /> {t("actions.addItem")}
                   </button>
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap items-end gap-2 rounded-lg border border-dashed border-border bg-muted/20 p-3">
                 <div className="min-w-[200px] flex-1">
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Link existing vault item
+                    {t("fields.linkExistingVaultItem")}
                   </label>
                   <select
                     value={linkPickerId}
                     onChange={(e) => setLinkPickerId(e.target.value)}
                     className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                   >
-                    <option value="">Choose a standalone item…</option>
+                    <option value="">{t("fields.chooseStandaloneItem")}</option>
                     {linkableVaultItems.map((it) => (
                       <option key={it.id} value={it.id}>
                         {it.title}
@@ -852,7 +855,7 @@ export function AdminVaultSeriesEditor({
                   onClick={() => linkExistingVaultItem(linkPickerId)}
                   className="rounded-lg border border-input px-3 py-2 text-xs font-medium hover:bg-accent disabled:opacity-40"
                 >
-                  Add to series
+                  {t("actions.addToSeries")}
                 </button>
                 <p className="w-full text-xs text-muted-foreground">
                   Linked items leave the standalone vault list and appear only inside this series on the public
@@ -881,7 +884,7 @@ export function AdminVaultSeriesEditor({
                     ))}
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="mb-1 block text-sm font-medium">Item name</label>
+                    <label className="mb-1 block text-sm font-medium">{t("fields.itemName")}</label>
                     <input
                       type="text"
                       value={activeItem.title}
@@ -890,7 +893,7 @@ export function AdminVaultSeriesEditor({
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium">Price (USD)</label>
+                    <label className="mb-1 block text-sm font-medium">{t("fields.priceUsd")}</label>
                     <input
                       type="number"
                       step="0.01"
@@ -908,7 +911,7 @@ export function AdminVaultSeriesEditor({
                         onChange={(e) => updateActiveItem({ published: e.target.checked })}
                         className="rounded border-input"
                       />
-                      Published
+                      {t("fields.published")}
                     </label>
                   </div>
                   {perCountryCovers ? (
@@ -920,7 +923,7 @@ export function AdminVaultSeriesEditor({
                     />
                   ) : null}
                   <div className="sm:col-span-2">
-                    <label className="mb-1 block text-sm font-medium">Item description</label>
+                    <label className="mb-1 block text-sm font-medium">{t("fields.itemDescription")}</label>
                     <textarea
                       value={activeItem.description}
                       onChange={(e) => updateActiveItem({ description: e.target.value })}
@@ -929,7 +932,7 @@ export function AdminVaultSeriesEditor({
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="mb-1 block text-sm font-medium">Product file (PDF, EPUB, ZIP, etc.)</label>
+                    <label className="mb-1 block text-sm font-medium">{t("fields.productFile")}</label>
                     <p className="mb-2 text-xs text-muted-foreground">
                       Purchasers can view or download this file. ZIP up to 200&nbsp;MB; other types up to
                       50&nbsp;MB.
@@ -978,7 +981,7 @@ export function AdminVaultSeriesEditor({
                         ) : (
                           <Upload className="h-4 w-4" />
                         )}
-                        {fileUploading ? "Please wait…" : "Upload product file"}
+                        {fileUploading ? t("actions.pleaseWait") : t("actions.uploadProductFile")}
                       </button>
                     )}
                     <AdminVirusScanUploadBanner
@@ -995,12 +998,12 @@ export function AdminVaultSeriesEditor({
                         }
                         className="mt-2 text-xs font-medium text-primary hover:underline disabled:opacity-50"
                       >
-                        Replace file
+                        {t("actions.replaceFile")}
                       </button>
                     ) : null}
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="mb-2 block text-sm font-medium">Item cover (Vault card)</label>
+                    <label className="mb-2 block text-sm font-medium">{t("fields.itemCover")}</label>
                     <div className="flex flex-col gap-2">
                       {perCountryCovers ? (
                         <label className="flex cursor-pointer items-start gap-2 text-sm">
@@ -1014,7 +1017,7 @@ export function AdminVaultSeriesEditor({
                             className="mt-0.5"
                           />
                           <span>
-                            <span className="font-medium">Country map</span>
+                            <span className="font-medium">{t("coverModes.countryMapTitle")}</span>
                             <span className="mt-0.5 block text-xs text-muted-foreground">
                               Uses the focus country silhouette (or Africa if none selected).
                             </span>
@@ -1032,7 +1035,7 @@ export function AdminVaultSeriesEditor({
                             className="mt-0.5"
                           />
                           <span>
-                            <span className="font-medium">Category color</span>
+                            <span className="font-medium">{t("coverModes.categoryColorTitle")}</span>
                             <span className="mt-0.5 block text-xs text-muted-foreground">
                               Default guide/book color block with no photo.
                             </span>
@@ -1048,7 +1051,7 @@ export function AdminVaultSeriesEditor({
                           className="mt-0.5"
                         />
                         <span>
-                          <span className="font-medium">Custom cover image</span>
+                            <span className="font-medium">{t("coverModes.customImageTitle")}</span>
                           <span className="mt-0.5 block text-xs text-muted-foreground">
                             Upload your own photo or artwork for this item.
                           </span>
@@ -1072,7 +1075,7 @@ export function AdminVaultSeriesEditor({
                         className="mt-3 flex h-28 w-28 items-center justify-center rounded-lg text-xs text-white/90 shadow-sm"
                         style={{ background: defaultGradient }}
                       >
-                        Category
+                        {t("coverModes.category")}
                       </div>
                     ) : null}
                     {activeItem.coverMode === "custom" ? (
@@ -1080,7 +1083,7 @@ export function AdminVaultSeriesEditor({
                         <MarketplaceCoverImageField
                           previewUrl={activeItem.imageUrl}
                           uploading={itemImageUploading}
-                          saveReadyHint="Cover ready — click Save at the bottom to publish this item cover."
+                          saveReadyHint={t("coverModes.saveReadyHint")}
                           onUpload={(f) => {
                             setItemImageUploading(true);
                             uploadCover(f, (url) => {
@@ -1091,7 +1094,7 @@ export function AdminVaultSeriesEditor({
                           onClear={() => updateActiveItem({ imageUrl: null })}
                           onPasteUrl={(url) => {
                             if (!isValidMarketplaceCoverUrl(url)) {
-                              setError("Cover URL must be a valid https Cloudinary link.");
+                              setError(t("errors.invalidCoverUrl"));
                               return;
                             }
                             updateActiveItem({ imageUrl: url.trim(), coverMode: "custom" });
@@ -1110,8 +1113,8 @@ export function AdminVaultSeriesEditor({
                       >
                         <Trash2 className="h-3.5 w-3.5" />{" "}
                         {activeItem.linkedExisting
-                          ? "Unlink from series (returns to vault)"
-                          : "Remove this item from series"}
+                          ? t("actions.unlinkFromSeries")
+                          : t("actions.removeItemFromSeries")}
                       </button>
                     </div>
                   ) : null}
@@ -1128,7 +1131,7 @@ export function AdminVaultSeriesEditor({
             onClick={handleSave}
             className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saveSuccess ? "Saved" : "Save series & items"}
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saveSuccess ? t("actions.saved") : t("actions.saveSeriesAndItems")}
           </button>
           <button
             type="button"
@@ -1136,7 +1139,7 @@ export function AdminVaultSeriesEditor({
             disabled={deleting}
             className="rounded-lg border border-input px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50"
           >
-            Cancel
+            {tc("cancel")}
           </button>
           {!isNew && deletable ? (
             <button
@@ -1150,7 +1153,7 @@ export function AdminVaultSeriesEditor({
               ) : (
                 <Trash2 className="h-4 w-4" />
               )}
-              Delete series
+              {t("actions.deleteSeries")}
             </button>
           ) : null}
         </div>
