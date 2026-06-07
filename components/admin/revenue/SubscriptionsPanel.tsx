@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Clock, CreditCard, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 type SubscriptionRow = {
   user_id: string;
@@ -15,6 +16,8 @@ type SubscriptionRow = {
 };
 
 export function SubscriptionsPanel() {
+  const t = useTranslations("admin.revenue.subscriptionsPanel");
+  const tc = useTranslations("admin.common");
   const [data, setData] = useState<SubscriptionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,11 +36,11 @@ export function SubscriptionsPanel() {
         }
       })
       .catch(() => {
-        setError("Failed to load subscriptions");
+        setError(t("errors.failedToLoad"));
         setData([]);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   const formatDateTime = (iso: string) => {
     const d = new Date(iso);
@@ -67,40 +70,38 @@ export function SubscriptionsPanel() {
     <div className="rounded-2xl border border-border/80 bg-card/80 p-4 shadow-sm sm:p-6">
       <div className="flex items-center gap-2 text-foreground">
         <CreditCard className="h-5 w-5 text-primary" />
-        <h3 className="text-lg font-semibold">AI subscriptions</h3>
+        <h3 className="text-lg font-semibold">{t("title")}</h3>
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Paid AI plans (Basic / Pro / Team). Renewal dates come from Clerk metadata.
-      </p>
+      <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
       <div className="mt-6 overflow-x-auto rounded-xl border border-border">
         <table className="w-full min-w-[720px] text-sm">
           <thead className="border-b border-border bg-muted/50">
             <tr>
-              <th className="p-3 text-left font-medium">User</th>
-              <th className="p-3 text-left font-medium">Email</th>
-              <th className="p-3 text-left font-medium">Tier</th>
-              <th className="p-3 text-left font-medium">Status</th>
-              <th className="p-3 text-left font-medium">Started</th>
-              <th className="p-3 text-left font-medium">Next payment / Reset</th>
+              <th className="p-3 text-left font-medium">{tc("user")}</th>
+              <th className="p-3 text-left font-medium">{tc("email")}</th>
+              <th className="p-3 text-left font-medium">{tc("accessTier")}</th>
+              <th className="p-3 text-left font-medium">{tc("status")}</th>
+              <th className="p-3 text-left font-medium">{t("table.started")}</th>
+              <th className="p-3 text-left font-medium">{t("table.nextPaymentOrReset")}</th>
             </tr>
           </thead>
           <tbody>
             {data.length === 0 ? (
               <tr>
                 <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                  No active subscriptions found.
+                  {t("table.noActiveSubscriptions")}
                 </td>
               </tr>
             ) : (
               data.map((row) => {
                 const resetOrNext = row.cancel_at_period_end
-                  ? `Resets to free on ${formatDateTime(row.current_period_end)}`
-                  : `Next payment on ${formatDateTime(row.current_period_end)}`;
+                  ? t("table.resetsToFreeOn", { date: formatDateTime(row.current_period_end) })
+                  : t("table.nextPaymentOn", { date: formatDateTime(row.current_period_end) });
                 return (
                   <tr key={`${row.user_id}-${row.started_at}`} className="border-b border-border/80 last:border-0 hover:bg-muted/30">
                     <td className="p-3">
                       <div className="font-medium">{row.name}</div>
-                      <div className="text-[11px] text-muted-foreground">User ID: {row.user_id}</div>
+                      <div className="text-[11px] text-muted-foreground">{t("table.userId", { id: row.user_id })}</div>
                     </td>
                     <td className="p-3 text-muted-foreground">{row.email ?? "—"}</td>
                     <td className="p-3">
