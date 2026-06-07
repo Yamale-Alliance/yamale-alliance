@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Loader2, ShieldCheck, Smartphone } from "lucide-react";
 
 type MfaStatus = {
@@ -16,10 +16,20 @@ type EnrollPayload = {
   qrDataUrl: string;
 };
 
+function safeAdminReturnTo(raw: string | null): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/admin-panel";
+  if (!raw.startsWith("/admin-panel")) return "/admin-panel";
+  if (raw === "/admin-panel/mfa" || raw.startsWith("/admin-panel/mfa/")) return "/admin-panel";
+  return raw;
+}
+
+function goToAdminReturnTo(returnTo: string) {
+  window.location.assign(returnTo);
+}
+
 export function AdminMfaPanel() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const returnTo = searchParams.get("returnTo") || "/admin-panel";
+  const returnTo = safeAdminReturnTo(searchParams.get("returnTo"));
 
   const [status, setStatus] = useState<MfaStatus | null>(null);
   const [enroll, setEnroll] = useState<EnrollPayload | null>(null);
@@ -42,14 +52,15 @@ export function AdminMfaPanel() {
       const data = (await res.json()) as MfaStatus;
       setStatus(data);
       if (data.stepUpComplete && data.enrolled) {
-        router.replace(returnTo);
+        goToAdminReturnTo(returnTo);
+        return;
       }
     } catch {
       setError("Network error");
     } finally {
       setLoading(false);
     }
-  }, [returnTo, router]);
+  }, [returnTo]);
 
   useEffect(() => {
     void loadStatus();
@@ -98,7 +109,13 @@ export function AdminMfaPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, code }),
       });
-      const data = await res.json();
+      let data: { error?: string; lockoutSec?: number } = {};
+      try {
+        data = (await res.json()) as { error?: string; lockoutSec?: number };
+      } catch {
+        setError(res.ok ? "Unexpected server response" : `Verification failed (${res.status})`);
+        return;
+      }
       if (!res.ok) {
         if (data.lockoutSec) {
           setError(`Too many attempts. Try again in ${Math.ceil(data.lockoutSec / 60)} minutes.`);
@@ -107,7 +124,7 @@ export function AdminMfaPanel() {
         }
         return;
       }
-      router.replace(returnTo);
+      goToAdminReturnTo(returnTo);
     } catch {
       setError("Network error");
     } finally {
