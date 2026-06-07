@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { Loader2, Gift, Download } from "lucide-react";
 
 type UserRow = {
@@ -12,20 +13,12 @@ type UserRow = {
   role: string | null;
 };
 
-const TIER_OPTIONS = [
-  { value: "free", label: "Free" },
-  { value: "basic", label: "Basic (10 AI/mo)" },
-  { value: "pro", label: "Pro (50 AI/mo)" },
-  { value: "team", label: "Team (unlimited AI)" },
-];
-
-const ROLE_OPTIONS = [
-  { value: "user", label: "User" },
-  { value: "admin", label: "Admin" },
-];
-const VALID_ROLES = ROLE_OPTIONS.map((o) => o.value);
+const TIER_VALUES = ["free", "basic", "pro", "team"] as const;
+const ROLE_VALUES = ["user", "admin"] as const;
 
 export default function AdminUsersPage() {
+  const t = useTranslations("admin.users");
+  const tc = useTranslations("admin.common");
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -54,13 +47,13 @@ export default function AdminUsersPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to update");
+        setError(data.error ?? tc("failedToUpdate"));
         setUpdating(null);
         return;
       }
       setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, tier } : u)));
     } catch {
-      setError("Network error");
+      setError(tc("networkError"));
     }
     setUpdating(null);
   };
@@ -78,13 +71,13 @@ export default function AdminUsersPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to update role");
+        setError(data.error ?? tc("failedToUpdateRole"));
         setUpdating(null);
         return;
       }
       setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
     } catch {
-      setError("Network error");
+      setError(tc("networkError"));
     }
     setUpdating(null);
   };
@@ -92,7 +85,7 @@ export default function AdminUsersPage() {
   const exportPdf = () => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
-      setError("Popup blocked. Allow popups to export PDF.");
+      setError(tc("popupBlocked"));
       return;
     }
     const name = (u: UserRow) => [u.firstName, u.lastName].filter(Boolean).join(" ") || "—";
@@ -100,7 +93,7 @@ export default function AdminUsersPage() {
     const generated = new Date().toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
     printWindow.document.write(`
       <!DOCTYPE html>
-      <html><head><title>Users export – Yamalé Alliance</title>
+      <html><head><title>${esc(t("export.documentTitle"))}</title>
       <meta charset="utf-8">
       <style>
         * { box-sizing: border-box; }
@@ -120,17 +113,17 @@ export default function AdminUsersPage() {
       </head><body>
       <div class="header">
         <div class="company">Yamalé Alliance</div>
-        <div class="tagline">AI legal search & research platform</div>
+        <div class="tagline">${esc(t("export.tagline"))}</div>
       </div>
-      <h1 class="report-title">Users export</h1>
-      <p class="report-meta">Generated ${esc(generated)}</p>
+      <h1 class="report-title">${esc(t("export.reportTitle"))}</h1>
+      <p class="report-meta">${esc(t("export.generated", { date: generated }))}</p>
       <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Access tier</th></tr></thead>
+        <thead><tr><th>${esc(tc("name"))}</th><th>${esc(tc("email"))}</th><th>${esc(tc("role"))}</th><th>${esc(tc("accessTier"))}</th></tr></thead>
         <tbody>
           ${users.map((u) => `<tr><td>${esc(name(u))}</td><td>${esc(u.email ?? "—")}</td><td>${esc(u.role ?? "—")}</td><td>${esc(u.tier)}</td></tr>`).join("")}
         </tbody>
       </table>
-      <div class="footer">Yamalé Alliance – Confidential. This report was generated from the admin panel.</div>
+      <div class="footer">${esc(t("export.footer"))}</div>
       </body></html>
     `);
     printWindow.document.close();
@@ -143,10 +136,8 @@ export default function AdminUsersPage() {
 
   return (
     <div className="p-4 sm:p-6">
-      <h1 className="text-2xl font-semibold">User Management</h1>
-      <p className="mt-1 text-muted-foreground">
-        Manage users and gift access to AI and other features by setting their plan tier. Change role in the table.
-      </p>
+      <h1 className="text-2xl font-semibold">{t("title")}</h1>
+      <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
 
       {!loading && users.length > 0 && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -156,7 +147,7 @@ export default function AdminUsersPage() {
             className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent"
           >
             <Download className="h-4 w-4" />
-            Export PDF
+            {tc("exportPdf")}
           </button>
         </div>
       )}
@@ -177,11 +168,11 @@ export default function AdminUsersPage() {
             <table className="w-full text-sm">
               <thead className="border-b border-border bg-muted/50">
                 <tr>
-                  <th className="text-left p-3 font-medium">User</th>
-                  <th className="text-left p-3 font-medium">Email</th>
-                  <th className="text-left p-3 font-medium">Role</th>
-                  <th className="text-left p-3 font-medium">Access tier</th>
-                  <th className="text-left p-3 font-medium">Gift access</th>
+                  <th className="text-left p-3 font-medium">{tc("user")}</th>
+                  <th className="text-left p-3 font-medium">{tc("email")}</th>
+                  <th className="text-left p-3 font-medium">{tc("role")}</th>
+                  <th className="text-left p-3 font-medium">{tc("accessTier")}</th>
+                  <th className="text-left p-3 font-medium">{tc("giftAccess")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -193,14 +184,14 @@ export default function AdminUsersPage() {
                     <td className="p-3 text-muted-foreground">{u.email ?? "—"}</td>
                     <td className="p-3">
                       <select
-                        value={u.role && VALID_ROLES.includes(u.role) ? u.role : "user"}
+                        value={u.role && (ROLE_VALUES as readonly string[]).includes(u.role) ? u.role : "user"}
                         onChange={(e) => setRole(u.id, e.target.value)}
                         disabled={updating === u.id}
                         className="rounded-md border border-input bg-background px-2 py-1 text-sm"
                       >
-                        {ROLE_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
+                        {ROLE_VALUES.map((value) => (
+                          <option key={value} value={value}>
+                            {value === "admin" ? tc("admin") : tc("user")}
                           </option>
                         ))}
                       </select>
@@ -218,9 +209,9 @@ export default function AdminUsersPage() {
                         disabled={updating === u.id}
                         className="rounded-md border border-input bg-background px-2 py-1 text-sm"
                       >
-                        {TIER_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
+                        {TIER_VALUES.map((value) => (
+                          <option key={value} value={value}>
+                            {t(`tiers.${value}`)}
                           </option>
                         ))}
                       </select>
@@ -232,7 +223,7 @@ export default function AdminUsersPage() {
           </div>
           {users.length === 0 && (
             <div className="py-12 text-center text-muted-foreground">
-              No users found.
+              {t("noUsersFound")}
             </div>
           )}
         </div>
@@ -240,7 +231,7 @@ export default function AdminUsersPage() {
 
       <p className="mt-4 text-xs text-muted-foreground flex items-center gap-1">
         <Gift className="h-3 w-3" />
-        Setting a tier (Basic, Pro, Plus, Team) grants that user access to AI research and other plan features without payment.
+        {t("giftAccessHint")}
       </p>
     </div>
   );
