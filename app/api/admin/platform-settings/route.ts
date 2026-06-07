@@ -43,17 +43,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (type !== "logo" && type !== "favicon" && type !== "hero" && type !== "founder_portrait") {
+    if (type !== "logo" && type !== "hero" && type !== "founder_portrait") {
       return NextResponse.json(
-        { error: "Type must be 'logo', 'favicon', 'hero', or 'founder_portrait'" },
-        { status: 400 }
-      );
-    }
-
-    // Validate favicon format
-    if (type === "favicon" && !file.name.toLowerCase().endsWith(".ico")) {
-      return NextResponse.json(
-        { error: "Favicon must be a .ico file" },
+        { error: "Type must be 'logo', 'hero', or 'founder_portrait'" },
         { status: 400 }
       );
     }
@@ -86,11 +78,9 @@ export async function POST(request: NextRequest) {
     const updateField =
       type === "logo"
         ? "logo_url"
-        : type === "favicon"
-          ? "favicon_url"
-          : type === "hero"
-            ? "hero_image_url"
-            : "founder_portrait_url";
+        : type === "hero"
+          ? "hero_image_url"
+          : "founder_portrait_url";
     const { error: updateError } = await (supabase.from("platform_settings") as any)
       .update({
         [updateField]: secure_url,
@@ -135,7 +125,6 @@ export async function POST(request: NextRequest) {
 
 const DELETE_FIELD_MAP = {
   logo: "logo_url",
-  favicon: "favicon_url",
   founder_portrait: "founder_portrait_url",
   hero: "hero_image_url",
 } as const;
@@ -150,7 +139,7 @@ export async function DELETE(request: NextRequest) {
   const type = request.nextUrl.searchParams.get("type") as DeleteBrandingType | null;
   if (!type || !(type in DELETE_FIELD_MAP)) {
     return NextResponse.json(
-      { error: "Query type must be logo, favicon, founder_portrait, or hero" },
+      { error: "Query type must be logo, founder_portrait, or hero" },
       { status: 400 }
     );
   }
@@ -161,11 +150,9 @@ export async function DELETE(request: NextRequest) {
     const currentUrl =
       type === "logo"
         ? settings.logoUrl
-        : type === "favicon"
-          ? settings.faviconUrl
-          : type === "founder_portrait"
-            ? settings.founderPortraitUrl
-            : settings.heroImageUrl;
+        : type === "founder_portrait"
+          ? settings.founderPortraitUrl
+          : settings.heroImageUrl;
 
     if (currentUrl) {
       const publicId = publicIdFromCloudinaryUrl(currentUrl);
