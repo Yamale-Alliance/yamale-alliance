@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 type Phase = "scan" | "upload";
 
@@ -18,24 +19,25 @@ function useVirusScanUploadPhase(active: boolean): Phase | null {
   return active ? phase : null;
 }
 
-function phaseCopy(phase: Phase): { title: string; hint: string } {
+function phaseCopy(phase: Phase, t: ReturnType<typeof useTranslations>): { title: string; hint: string } {
   if (phase === "scan") {
     return {
-      title: "Scanning for viruses…",
-      hint: "Checking file with VirusTotal before storage.",
+      title: t("admin.vault.virusScanBanner.scanningTitle"),
+      hint: t("admin.vault.virusScanBanner.scanningHint"),
     };
   }
   return {
-    title: "Scanning & uploading…",
-    hint: "New files can take up to 2 minutes. Please keep this tab open.",
+    title: t("admin.vault.virusScanBanner.uploadingTitle"),
+    hint: t("admin.vault.virusScanBanner.uploadingHint"),
   };
 }
 
 /** Live status text for upload buttons during VirusTotal + storage. */
 export function useVirusScanUploadStatus(active: boolean) {
+  const t = useTranslations();
   const phase = useVirusScanUploadPhase(active);
   if (!phase) return null;
-  return phaseCopy(phase);
+  return phaseCopy(phase, t);
 }
 
 type BannerProps = {
