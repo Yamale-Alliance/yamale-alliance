@@ -2,6 +2,7 @@
 
 import * as Tabs from "@radix-ui/react-tabs";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Bug, MessageSquareWarning, Scale } from "lucide-react";
 import { AiBugsPanel } from "@/components/admin/ai-moderation/AiBugsPanel";
 import { AiCorpusGapsPanel } from "@/components/admin/ai-moderation/AiCorpusGapsPanel";
@@ -16,6 +17,7 @@ function normalizeTab(raw: string | null): AiQualityTab {
 }
 
 export function AdminAiModerationHub() {
+  const t = useTranslations("admin.aiModeration");
   const searchParams = useSearchParams();
   const router = useRouter();
   const tab = normalizeTab(searchParams.get("tab"));
@@ -28,10 +30,10 @@ export function AdminAiModerationHub() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 md:py-10">
       <div className="border-b border-border/60 pb-8">
-        <p className="text-xs font-semibold uppercase tracking-widest text-primary/90">Moderation</p>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">AI quality</h1>
+        <p className="text-xs font-semibold uppercase tracking-widest text-primary/90">{t("eyebrow")}</p>
+        <h1 className="mt-1 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{t("title")}</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-          Bug triage, auto corpus gaps, and user-flagged feedback in one workspace.
+          {t("subtitle")}
         </p>
       </div>
 
@@ -42,21 +44,21 @@ export function AdminAiModerationHub() {
             className="inline-flex min-h-[42px] flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-md data-[state=inactive]:hover:text-foreground sm:flex-none"
           >
             <Bug className="h-4 w-4" />
-            Bug reports
+            {t("tabs.bugs")}
           </Tabs.Trigger>
           <Tabs.Trigger
             value="corpus-gaps"
             className="inline-flex min-h-[42px] flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-md data-[state=inactive]:hover:text-foreground sm:flex-none"
           >
             <Scale className="h-4 w-4" />
-            Corpus gaps
+            {t("tabs.corpusGaps")}
           </Tabs.Trigger>
           <Tabs.Trigger
             value="feedback"
             className="inline-flex min-h-[42px] flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-md data-[state=inactive]:hover:text-foreground sm:flex-none"
           >
             <MessageSquareWarning className="h-4 w-4" />
-            Flagged feedback
+            {t("tabs.feedback")}
           </Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="bugs" className="mt-8 outline-none">
