@@ -156,11 +156,11 @@ export function AdminAnalyticsDashboard() {
               <div className="flex flex-wrap gap-2">
                 {RANGE_OPTIONS.map((opt) => (
                   <button
-                    key={opt.value}
+                    key={opt}
                     type="button"
-                    onClick={() => setRange(opt.value)}
+                    onClick={() => setRange(opt)}
                     className={`rounded-full px-3.5 py-2 text-xs font-medium transition-all sm:px-4 sm:text-sm ${
-                      range === opt.value
+                      range === opt
                         ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
                         : "border border-border/80 bg-background/80 text-muted-foreground hover:border-primary/40 hover:text-foreground"
                     }`}
