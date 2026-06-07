@@ -186,9 +186,9 @@ export function createHomeMetadata(): Metadata {
 }
 
 /** Root layout metadata (metadataBase, title template, defaults) */
-export function createRootMetadata(faviconUrl?: string | null): Metadata {
+export function createRootMetadata(): Metadata {
   const siteUrl = getSiteUrl();
-  const icons = buildFaviconMetadataIcons(faviconUrl ?? null);
+  const icons = buildFaviconMetadataIcons();
 
   return {
     metadataBase: new URL(getMetadataBaseUrl()),
