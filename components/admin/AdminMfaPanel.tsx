@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Loader2, ShieldCheck, Smartphone } from "lucide-react";
 
 type MfaStatus = {
@@ -28,6 +29,8 @@ function goToAdminReturnTo(returnTo: string) {
 }
 
 export function AdminMfaPanel() {
+  const t = useTranslations("admin.mfa");
+  const tc = useTranslations("admin.common");
   const searchParams = useSearchParams();
   const returnTo = safeAdminReturnTo(searchParams.get("returnTo"));
 
@@ -46,7 +49,7 @@ export function AdminMfaPanel() {
       const res = await fetch("/api/admin/mfa", { credentials: "include" });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "Unable to load MFA status");
+        setError(data.error ?? t("errors.unableToLoadStatus"));
         return;
       }
       const data = (await res.json()) as MfaStatus;
@@ -56,7 +59,7 @@ export function AdminMfaPanel() {
         return;
       }
     } catch {
-      setError("Network error");
+      setError(tc("networkError"));
     } finally {
       setLoading(false);
     }
@@ -78,12 +81,12 @@ export function AdminMfaPanel() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Enrollment failed");
+        setError(data.error ?? t("errors.enrollmentFailed"));
         return;
       }
       setEnroll(data as EnrollPayload);
     } catch {
-      setError("Network error");
+      setError(tc("networkError"));
     } finally {
       setSubmitting(false);
     }
@@ -113,20 +116,20 @@ export function AdminMfaPanel() {
       try {
         data = (await res.json()) as { error?: string; lockoutSec?: number };
       } catch {
-        setError(res.ok ? "Unexpected server response" : `Verification failed (${res.status})`);
+        setError(res.ok ? t("errors.unexpectedServerResponse") : t("errors.verificationFailedWithStatus", { status: res.status }));
         return;
       }
       if (!res.ok) {
         if (data.lockoutSec) {
-          setError(`Too many attempts. Try again in ${Math.ceil(data.lockoutSec / 60)} minutes.`);
+          setError(t("errors.tooManyAttempts", { minutes: Math.ceil(data.lockoutSec / 60) }));
         } else {
-          setError(data.error ?? "Verification failed");
+          setError(data.error ?? t("errors.verificationFailed"));
         }
         return;
       }
       goToAdminReturnTo(returnTo);
     } catch {
-      setError("Network error");
+      setError(tc("networkError"));
     } finally {
       setSubmitting(false);
     }
@@ -136,7 +139,7 @@ export function AdminMfaPanel() {
     return (
       <div className="flex min-h-[40vh] items-center justify-center text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden />
-        Loading…
+        {tc("loading")}
       </div>
     );
   }
@@ -144,7 +147,7 @@ export function AdminMfaPanel() {
   if (!status) {
     return (
       <div className="p-6">
-        <p className="text-destructive">{error ?? "Unable to load MFA settings."}</p>
+        <p className="text-destructive">{error ?? t("errors.unableToLoadSettings")}</p>
       </div>
     );
   }
@@ -160,20 +163,20 @@ export function AdminMfaPanel() {
             <ShieldCheck className="h-6 w-6 text-primary" aria-hidden />
           </div>
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">Admin second factor</h1>
+            <h1 className="text-xl font-semibold tracking-tight">{t("title")}</h1>
             <p className="text-sm text-muted-foreground">
               {needsEnrollment
                 ? redirectedFromAdmin
-                  ? "Before you can use the admin panel, set up an authenticator app."
-                  : "Set up an authenticator app before using the admin panel."
-                : "Enter the 6-digit code from your authenticator app."}
+                  ? t("descriptions.redirectedNeedsSetup")
+                  : t("descriptions.needsSetup")
+                : t("descriptions.enterCode")}
             </p>
           </div>
         </div>
 
         {status.enforced && (
           <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
-            Admin MFA is enforced on this environment. You must complete this step to continue.
+            {t("enforcedBanner")}
           </p>
         )}
 
@@ -182,14 +185,13 @@ export function AdminMfaPanel() {
             <div className="flex items-start gap-3 text-sm text-muted-foreground">
               <Smartphone className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
               <p>
-                Use Google Authenticator, 1Password, Authy, or any TOTP app. Scan the QR code and
-                confirm with a one-time code.
+                {t("setupHint")}
               </p>
             </div>
             {submitting ? (
               <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-                Preparing your authenticator setup…
+                {t("preparingSetup")}
               </div>
             ) : (
               <button
@@ -197,7 +199,7 @@ export function AdminMfaPanel() {
                 onClick={() => void startEnroll()}
                 className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
               >
-                Set up authenticator
+                {t("setUpAuthenticator")}
               </button>
             )}
           </div>
@@ -207,14 +209,14 @@ export function AdminMfaPanel() {
           <div className="mt-6 space-y-4">
             <div className="flex justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={enroll.qrDataUrl} alt="Authenticator QR code" className="rounded-lg border border-border" />
+              <img src={enroll.qrDataUrl} alt={t("qrAlt")} className="rounded-lg border border-border" />
             </div>
             <div className="rounded-lg bg-muted/50 p-3 text-xs">
-              <p className="font-medium text-foreground">Manual entry key</p>
+              <p className="font-medium text-foreground">{t("manualEntryKey")}</p>
               <p className="mt-1 break-all font-mono text-muted-foreground">{enroll.secret}</p>
             </div>
             <label className="block text-sm font-medium">
-              Confirmation code
+              {t("confirmationCode")}
               <input
                 type="text"
                 inputMode="numeric"
@@ -223,7 +225,7 @@ export function AdminMfaPanel() {
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2 text-center text-lg tracking-widest"
-                placeholder="000000"
+                placeholder={t("codePlaceholder")}
               />
             </label>
             <button
@@ -232,7 +234,7 @@ export function AdminMfaPanel() {
               onClick={() => void submitCode("confirm-enroll")}
               className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
             >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm and continue"}
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : t("confirmAndContinue")}
             </button>
           </div>
         )}
@@ -240,7 +242,7 @@ export function AdminMfaPanel() {
         {needsVerify && (
           <div className="mt-6 space-y-4">
             <label className="block text-sm font-medium">
-              Authenticator code
+              {t("authenticatorCode")}
               <input
                 type="text"
                 inputMode="numeric"
@@ -249,7 +251,7 @@ export function AdminMfaPanel() {
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2 text-center text-lg tracking-widest"
-                placeholder="000000"
+                placeholder={t("codePlaceholder")}
               />
             </label>
             <button
@@ -258,7 +260,7 @@ export function AdminMfaPanel() {
               onClick={() => void submitCode("verify")}
               className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
             >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify and continue"}
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : t("verifyAndContinue")}
             </button>
           </div>
         )}
