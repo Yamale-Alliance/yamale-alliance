@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 
 type RefundRow = {
@@ -24,6 +25,8 @@ type RefundRow = {
 const FILTERS = ["pending", "processing", "completed", "rejected", "failed", "all"] as const;
 
 export function AdminRefundsPanel() {
+  const t = useTranslations("admin.refunds");
+  const tc = useTranslations("admin.common");
   const [status, setStatus] = useState<(typeof FILTERS)[number]>("pending");
   const [rows, setRows] = useState<RefundRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,7 +62,7 @@ export function AdminRefundsPanel() {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Action failed");
+        alert(data.error || t("actionFailed"));
         return;
       }
       load();
@@ -71,7 +74,7 @@ export function AdminRefundsPanel() {
   return (
     <div>
       <p className="text-sm text-muted-foreground">
-        Customer-initiated refund requests. Approving triggers Lomi or pawaPay per{" "}
+        {t("introBeforeLomi")}{" "}
         <a
           href="https://docs.lomi.africa/reference/payments/refunds"
           className="text-primary hover:underline"
@@ -89,7 +92,7 @@ export function AdminRefundsPanel() {
         >
           pawaPay
         </a>{" "}
-        APIs and revokes access when the provider confirms completion.
+        {t("introAfterProviders")}
       </p>
 
       <div className="mt-6 flex flex-wrap gap-2">
@@ -102,7 +105,7 @@ export function AdminRefundsPanel() {
               status === s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
-            {s === "all" ? "All" : s}
+            {t(`statusFilters.${s}`)}
           </button>
         ))}
       </div>
@@ -113,18 +116,18 @@ export function AdminRefundsPanel() {
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : rows.length === 0 ? (
-          <p className="px-4 py-12 text-center text-muted-foreground">No refund requests in this filter.</p>
+          <p className="px-4 py-12 text-center text-muted-foreground">{t("noRequests")}</p>
         ) : (
           <table className="w-full min-w-[900px] text-left text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/50">
-                <th className="p-3 font-medium">Customer</th>
-                <th className="p-3 font-medium">Item</th>
-                <th className="p-3 font-medium">Reason</th>
-                <th className="p-3 font-medium">Status</th>
-                <th className="p-3 font-medium">Provider</th>
-                <th className="p-3 font-medium">Submitted</th>
-                <th className="p-3 font-medium">Actions</th>
+                <th className="p-3 font-medium">{tc("customer")}</th>
+                <th className="p-3 font-medium">{tc("item")}</th>
+                <th className="p-3 font-medium">{tc("reason")}</th>
+                <th className="p-3 font-medium">{tc("status")}</th>
+                <th className="p-3 font-medium">{tc("provider")}</th>
+                <th className="p-3 font-medium">{tc("submitted")}</th>
+                <th className="p-3 font-medium">{tc("actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -161,7 +164,7 @@ export function AdminRefundsPanel() {
                     {r.status === "pending" ? (
                       <div className="flex min-w-[200px] flex-col gap-2">
                         <textarea
-                          placeholder="Admin notes (optional)"
+                          placeholder={t("adminNotesPlaceholder")}
                           value={notes[r.id] ?? ""}
                           onChange={(e) => setNotes((prev) => ({ ...prev, [r.id]: e.target.value }))}
                           rows={2}
@@ -174,7 +177,7 @@ export function AdminRefundsPanel() {
                             onClick={() => act(r.id, "approve")}
                             className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
                           >
-                            Approve &amp; refund
+                            {t("approveRefund")}
                           </button>
                           <button
                             type="button"
@@ -182,7 +185,7 @@ export function AdminRefundsPanel() {
                             onClick={() => act(r.id, "reject")}
                             className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted"
                           >
-                            Reject
+                            {t("reject")}
                           </button>
                         </div>
                       </div>
