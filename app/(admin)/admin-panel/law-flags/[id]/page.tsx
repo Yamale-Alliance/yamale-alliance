@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ExternalLink, Loader2 } from "lucide-react";
 import { isAiAutoLawFlagCategory, lawFlagCategoryLabel } from "@/lib/law-flag-categories";
 
@@ -25,6 +26,7 @@ type Flag = {
 };
 
 export default function AdminLawFlagDetailPage() {
+  const t = useTranslations("admin.lawFlagsDetail");
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
   const [flag, setFlag] = useState<Flag | null>(null);
@@ -77,7 +79,7 @@ export default function AdminLawFlagDetailPage() {
   }
 
   if (!flag) {
-    return <p className="p-6 text-muted-foreground">Law flag not found.</p>;
+    return <p className="p-6 text-muted-foreground">{t("notFound")}</p>;
   }
 
   return (
@@ -90,20 +92,20 @@ export default function AdminLawFlagDetailPage() {
         }
         className="text-sm font-medium text-primary hover:underline"
       >
-        {isAiAutoLawFlagCategory(flag.issue_category) ? "← Corpus gaps" : "← All law flags"}
+        {isAiAutoLawFlagCategory(flag.issue_category) ? t("backToCorpusGaps") : t("backToAll")}
       </Link>
       {isAiAutoLawFlagCategory(flag.issue_category) ? (
         <Link
           href={`/admin-panel/ai-quality/corpus-gaps/${flag.id}`}
           className="ml-4 text-sm font-medium text-primary hover:underline"
         >
-          Open full corpus gap report →
+          {t("openFullCorpusReport")}
         </Link>
       ) : null}
 
-      <h1 className="heading mt-4 text-2xl font-bold">Law flag</h1>
+      <h1 className="heading mt-4 text-2xl font-bold">{t("title")}</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        {flag.user_name || "User"} ({flag.user_email || flag.user_id}) ·{" "}
+        {flag.user_name || t("userFallback")} ({flag.user_email || flag.user_id}) ·{" "}
         {new Date(flag.created_at).toLocaleString()}
       </p>
 
@@ -118,24 +120,24 @@ export default function AdminLawFlagDetailPage() {
           rel="noopener noreferrer"
           className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
         >
-          Open in library
+          {t("openInLibrary")}
           <ExternalLink className="h-3.5 w-3.5" />
         </Link>
 
         <dl className="mt-6 grid gap-3 text-sm sm:grid-cols-2">
           <div>
-            <dt className="font-medium text-muted-foreground">Issue type</dt>
+            <dt className="font-medium text-muted-foreground">{t("issueType")}</dt>
             <dd className="mt-0.5 text-foreground">{lawFlagCategoryLabel(flag.issue_category)}</dd>
           </div>
           <div>
-            <dt className="font-medium text-muted-foreground">Status</dt>
-            <dd className="mt-0.5 capitalize text-foreground">{flag.status.replace("_", " ")}</dd>
+            <dt className="font-medium text-muted-foreground">{t("status")}</dt>
+            <dd className="mt-0.5 capitalize text-foreground">{t(`statusValues.${flag.status}`)}</dd>
           </div>
         </dl>
 
         {flag.issue_details ? (
           <div className="mt-4">
-            <p className="text-sm font-medium text-muted-foreground">User details</p>
+            <p className="text-sm font-medium text-muted-foreground">{t("userDetails")}</p>
             <pre className="mt-2 whitespace-pre-wrap rounded-lg bg-muted/40 p-4 text-sm text-foreground">
               {flag.issue_details}
             </pre>
@@ -144,28 +146,28 @@ export default function AdminLawFlagDetailPage() {
       </div>
 
       <div className="mt-6 rounded-xl border border-border bg-card p-4 sm:p-6">
-        <h3 className="text-sm font-semibold text-foreground">Triage</h3>
+        <h3 className="text-sm font-semibold text-foreground">{t("triage")}</h3>
         <label className="mt-4 block text-sm text-muted-foreground">
-          Status
+          {t("status")}
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as Flag["status"])}
             className="mt-1 w-full max-w-xs rounded-lg border border-border bg-background px-3 py-2 text-sm"
           >
-            <option value="open">Open</option>
-            <option value="in_progress">In progress</option>
-            <option value="resolved">Resolved</option>
-            <option value="dismissed">Dismissed</option>
+            <option value="open">{t("statusValues.open")}</option>
+            <option value="in_progress">{t("statusValues.in_progress")}</option>
+            <option value="resolved">{t("statusValues.resolved")}</option>
+            <option value="dismissed">{t("statusValues.dismissed")}</option>
           </select>
         </label>
         <label className="mt-4 block text-sm text-muted-foreground">
-          Admin notes (internal)
+          {t("adminNotes")}
           <textarea
             value={adminNotes}
             onChange={(e) => setAdminNotes(e.target.value)}
             rows={4}
             className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            placeholder="Resolution notes, editor assigned, etc."
+            placeholder={t("adminNotesPlaceholder")}
           />
         </label>
         <button
@@ -174,7 +176,7 @@ export default function AdminLawFlagDetailPage() {
           disabled={saving}
           className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
         >
-          {saving ? "Saving…" : "Save"}
+          {saving ? t("saving") : t("save")}
         </button>
       </div>
     </div>
