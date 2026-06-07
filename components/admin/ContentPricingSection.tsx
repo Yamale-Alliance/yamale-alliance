@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { DollarSign, Loader2 } from "lucide-react";
 import { formatUsdPrice } from "@/lib/content-pricing";
 
 type PriceField = {
   id: string;
-  label: string;
-  description: string;
+  key: string;
   usdKey: string;
   centsKey: string;
 };
@@ -16,42 +16,39 @@ type PriceField = {
 const PRICE_FIELDS: PriceField[] = [
   {
     id: "law-print",
-    label: "Print a law",
-    description: "Download a full law as a clean, print-ready PDF.",
+    key: "lawPrint",
     usdKey: "lawPrintPriceUsd",
     centsKey: "lawPrintPriceUsdCents",
   },
   {
     id: "lawyer-search",
-    label: "Lawyer directory search",
-    description: "Unlock contacts for one country + practice area on /lawyers.",
+    key: "lawyerSearch",
     usdKey: "lawyerSearchUnlockPriceUsd",
     centsKey: "lawyerSearchUnlockPriceUsdCents",
   },
   {
     id: "day-pass",
-    label: "Daily pass",
-    description: "Full platform access for 24 hours.",
+    key: "dayPass",
     usdKey: "dayPassPriceUsd",
     centsKey: "dayPassPriceUsdCents",
   },
   {
     id: "afcfta",
-    label: "Additional AfCFTA Passport route",
-    description: "One origin-to-destination route with checklist and tariff data.",
+    key: "afcfta",
     usdKey: "afcftaReportPriceUsd",
     centsKey: "afcftaReportPriceUsdCents",
   },
   {
     id: "ai-query",
-    label: "AI research query pack",
-    description: "One additional AI research query with library citations.",
+    key: "aiQuery",
     usdKey: "aiQueryPriceUsd",
     centsKey: "aiQueryPriceUsdCents",
   },
 ];
 
 export function ContentPricingSection() {
+  const t = useTranslations("admin.contentPricing");
+  const tc = useTranslations("admin.common");
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -77,7 +74,7 @@ export function ContentPricingSection() {
         setInputs(nextInputs);
         setSaved(nextSaved);
       })
-      .catch(() => setError("Could not load current prices."))
+      .catch(() => setError(t("errors.couldNotLoad")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -104,7 +101,7 @@ export function ContentPricingSection() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to save");
+        setError(data.error ?? t("errors.failedToSave"));
         return;
       }
       const nextSaved: Record<string, number> = {};
@@ -116,9 +113,9 @@ export function ContentPricingSection() {
         }
       }
       setSaved(nextSaved);
-      setSuccess("Prices saved. They will appear on the public pricing page and at checkout.");
+      setSuccess(t("saved"));
     } catch {
-      setError("Network error");
+      setError(tc("networkError"));
     } finally {
       setSaving(false);
     }
@@ -131,9 +128,9 @@ export function ContentPricingSection() {
           <DollarSign className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Pay-as-you-go prices</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t("title")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            These five prices match the cards on the public pricing page. Subscription plans are edited above.
+            {t("subtitle")}
           </p>
         </div>
       </div>
@@ -141,7 +138,7 @@ export function ContentPricingSection() {
       {loading ? (
         <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Loading…
+          {tc("loading")}
         </div>
       ) : (
         <form onSubmit={(e) => void handleSave(e)} className="mt-6 space-y-6">
@@ -157,9 +154,9 @@ export function ContentPricingSection() {
               return (
                 <div key={field.id} className="rounded-xl border border-border bg-background/50 p-4">
                   <label htmlFor={field.id} className="block text-sm font-medium text-foreground">
-                    {field.label}
+                    {t(`fields.${field.key}.label`)}
                   </label>
-                  <p className="mt-1 text-xs text-muted-foreground">{field.description}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{t(`fields.${field.key}.description`)}</p>
                   <div className="relative mt-3">
                     <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                       $
@@ -179,7 +176,7 @@ export function ContentPricingSection() {
                   </div>
                   {preview ? (
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Public pricing page:{" "}
+                      {t("publicPreview")}{" "}
                       <span className="font-medium text-foreground">{preview}</span>
                     </p>
                   ) : null}
@@ -195,7 +192,7 @@ export function ContentPricingSection() {
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Save pay-as-you-go prices
+            {t("save")}
           </button>
         </form>
       )}
