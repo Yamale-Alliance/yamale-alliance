@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, Loader2, Trash2, CopyCheck } from "lucide-react";
 
 type DuplicateLaw = {
@@ -25,6 +26,8 @@ type DuplicateGroup = {
 };
 
 export default function AdminLawDuplicatesPage() {
+  const t = useTranslations("admin.laws.duplicates");
+  const tc = useTranslations("admin.common");
   const searchParams = useSearchParams();
   const categoryId = searchParams.get("categoryId") ?? "";
   const returnToParam = searchParams.get("returnTo");
@@ -42,7 +45,7 @@ export default function AdminLawDuplicatesPage() {
 
   useEffect(() => {
     if (!categoryId) {
-      setError("Select a category from the main Laws page, then click Check duplicates.");
+      setError(t("errors.selectCategory"));
       setLoading(false);
       return;
     }
@@ -58,7 +61,7 @@ export default function AdminLawDuplicatesPage() {
           setError(
             typeof data.error === "string"
               ? data.error
-              : "Failed to load duplicates."
+              : t("errors.loadFailed")
           );
           setGroups([]);
           return;
@@ -66,7 +69,7 @@ export default function AdminLawDuplicatesPage() {
         setGroups(Array.isArray(data.duplicates) ? data.duplicates : []);
       })
       .catch(() => {
-        setError("Failed to load duplicates.");
+        setError(t("errors.loadFailed"));
         setGroups([]);
       })
       .finally(() => setLoading(false));
@@ -95,7 +98,7 @@ export default function AdminLawDuplicatesPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(typeof data.error === "string" ? data.error : "Failed to delete duplicates.");
+        setError(typeof data.error === "string" ? data.error : t("errors.deleteFailed"));
         setDeleting(false);
         return;
       }
@@ -109,7 +112,7 @@ export default function AdminLawDuplicatesPage() {
       );
       setSelectedIds(new Set());
     } catch {
-      setError("Network error while deleting.");
+      setError(t("errors.networkDelete"));
     } finally {
       setDeleting(false);
     }
@@ -118,7 +121,7 @@ export default function AdminLawDuplicatesPage() {
   const handleMassDedupe = async () => {
     if (!categoryId || dedupingAll) return;
     const yes = window.confirm(
-      "This will delete duplicates within each country for this category, keeping one per country+title (Claude-cleaned preferred, otherwise latest). Continue?"
+      t("confirmMassDedupe")
     );
     if (!yes) return;
     setDedupingAll(true);
@@ -132,7 +135,7 @@ export default function AdminLawDuplicatesPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(typeof data.error === "string" ? data.error : "Failed to dedupe all duplicates.");
+        setError(typeof data.error === "string" ? data.error : t("errors.massDedupeFailed"));
         return;
       }
       setSelectedIds(new Set());
@@ -141,12 +144,12 @@ export default function AdminLawDuplicatesPage() {
       });
       const refreshedData = await refreshed.json().catch(() => ({}));
       if (!refreshed.ok || !refreshedData?.ok) {
-        setError("Dedupe completed, but failed to refresh the duplicate list.");
+        setError(t("errors.refreshFailed"));
         return;
       }
       setGroups(Array.isArray(refreshedData.duplicates) ? refreshedData.duplicates : []);
     } catch {
-      setError("Network error while deduplicating.");
+      setError(t("errors.networkMassDedupe"));
     } finally {
       setDedupingAll(false);
     }
@@ -160,7 +163,7 @@ export default function AdminLawDuplicatesPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to laws
+          {t("back")}
         </Link>
       </div>
 
@@ -169,9 +172,9 @@ export default function AdminLawDuplicatesPage() {
           <CopyCheck className="h-4 w-4 text-primary" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold">Check duplicates</h1>
+          <h1 className="text-xl font-semibold">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">
-            Shows duplicate titles within each country for one category (same law in different countries is allowed). Delete one by one, or mass-dedupe while keeping Claude-cleaned records (or latest if none are Claude-cleaned).
+            {t("subtitle")}
           </p>
         </div>
       </div>
@@ -188,7 +191,7 @@ export default function AdminLawDuplicatesPage() {
         </div>
       ) : groups.length === 0 ? (
         <div className="mt-8 rounded-lg border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-          No duplicates found for this country and category.
+          {t("empty")}
         </div>
       ) : (
         <>
@@ -204,7 +207,7 @@ export default function AdminLawDuplicatesPage() {
               ) : (
                 <Trash2 className="h-4 w-4" />
               )}
-              Delete selected duplicates
+              {t("deleteSelected")}
               {selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
             </button>
             <button
@@ -214,7 +217,7 @@ export default function AdminLawDuplicatesPage() {
               className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50 disabled:pointer-events-none"
             >
               {dedupingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <CopyCheck className="h-4 w-4" />}
-              {dedupingAll ? "Deduplicating all…" : "Mass dedupe all duplicates"}
+              {dedupingAll ? t("dedupingAll") : t("massDedupe")}
             </button>
           </div>
 
@@ -228,7 +231,7 @@ export default function AdminLawDuplicatesPage() {
                   <div>
                     <div className="text-sm font-medium">{group.title}</div>
                     <div className="text-xs text-muted-foreground">
-                      {group.count} duplicates in {group.laws[0]?.country_name ?? "this country"} for this category
+                      {t("groupSummary", { count: group.count, country: group.laws[0]?.country_name ?? t("thisCountry") })}
                     </div>
                   </div>
                 </div>
@@ -237,12 +240,12 @@ export default function AdminLawDuplicatesPage() {
                     <thead className="border-b border-border bg-muted/40">
                       <tr>
                         <th className="w-8 p-2" />
-                        <th className="p-2 text-left font-medium">Title</th>
-                        <th className="p-2 text-left font-medium">Status</th>
-                        <th className="p-2 text-left font-medium">Year</th>
-                        <th className="p-2 text-left font-medium">Country</th>
-                        <th className="p-2 text-left font-medium">Claude cleaned</th>
-                        <th className="p-2 text-left font-medium">Created at</th>
+                        <th className="p-2 text-left font-medium">{t("table.title")}</th>
+                        <th className="p-2 text-left font-medium">{tc("status")}</th>
+                        <th className="p-2 text-left font-medium">{t("table.year")}</th>
+                        <th className="p-2 text-left font-medium">{t("table.country")}</th>
+                        <th className="p-2 text-left font-medium">{t("table.claudeCleaned")}</th>
+                        <th className="p-2 text-left font-medium">{t("table.createdAt")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -261,7 +264,7 @@ export default function AdminLawDuplicatesPage() {
                           <td className="p-2 align-top">{law.status}</td>
                           <td className="p-2 align-top">{law.year ?? "—"}</td>
                           <td className="p-2 align-top">{law.country_name ?? "—"}</td>
-                          <td className="p-2 align-top">{law.is_claude_cleaned ? "Yes" : "No"}</td>
+                          <td className="p-2 align-top">{law.is_claude_cleaned ? tc("yes") : tc("no")}</td>
                           <td className="p-2 align-top text-muted-foreground">
                             {law.created_at
                               ? new Date(law.created_at).toLocaleDateString()
