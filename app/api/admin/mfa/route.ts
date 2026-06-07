@@ -10,7 +10,10 @@ import {
   verifyAdminStepUpCode,
 } from "@/lib/admin-mfa";
 import { issueAdminStepUpCookie } from "@/lib/admin-mfa-gate";
-import { ADMIN_MFA_COOKIE_NAME, adminMfaCookieOptions } from "@/lib/admin-mfa-session";
+import {
+  ADMIN_MFA_COOKIE_NAME,
+  adminMfaCookieSerializeOptions,
+} from "@/lib/admin-mfa-session";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { recordAuditLog } from "@/lib/admin-audit";
 
@@ -76,9 +79,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid code" }, { status: 400 });
     }
 
-    const cookie = await issueAdminStepUpCookie(admin.userId);
+    let cookie: { name: string; value: string };
+    try {
+      cookie = await issueAdminStepUpCookie(admin.userId);
+    } catch (err) {
+      console.error("admin mfa confirm-enroll cookie:", err);
+      return NextResponse.json(
+        { error: "MFA session could not be started. Check ADMIN_MFA_SECRET is configured." },
+        { status: 500 }
+      );
+    }
     const res = NextResponse.json({ ok: true, stepUpComplete: true });
-    res.cookies.set(cookie.name, cookie.value, adminMfaCookieOptions());
+    res.cookies.set(cookie.name, cookie.value, adminMfaCookieSerializeOptions());
     await recordAuditLog(getSupabaseServer(), {
       adminId: admin.userId,
       adminEmail: admin.email,
@@ -108,9 +120,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid code" }, { status: 400 });
     }
 
-    const cookie = await issueAdminStepUpCookie(admin.userId);
+    let cookie: { name: string; value: string };
+    try {
+      cookie = await issueAdminStepUpCookie(admin.userId);
+    } catch (err) {
+      console.error("admin mfa verify cookie:", err);
+      return NextResponse.json(
+        { error: "MFA session could not be started. Check ADMIN_MFA_SECRET is configured." },
+        { status: 500 }
+      );
+    }
     const res = NextResponse.json({ ok: true, stepUpComplete: true });
-    res.cookies.set(cookie.name, cookie.value, adminMfaCookieOptions());
+    res.cookies.set(cookie.name, cookie.value, adminMfaCookieSerializeOptions());
     return res;
   }
 
@@ -130,7 +151,7 @@ export async function POST(request: NextRequest) {
     }
 
     const res = NextResponse.json({ ok: true });
-    res.cookies.set(ADMIN_MFA_COOKIE_NAME, "", { ...adminMfaCookieOptions(0), maxAge: 0 });
+    res.cookies.set(ADMIN_MFA_COOKIE_NAME, "", { ...adminMfaCookieSerializeOptions(0), maxAge: 0 });
     await recordAuditLog(getSupabaseServer(), {
       adminId: admin.userId,
       adminEmail: admin.email,
@@ -144,7 +165,7 @@ export async function POST(request: NextRequest) {
 
   if (action === "logout") {
     const res = NextResponse.json({ ok: true });
-    res.cookies.set(ADMIN_MFA_COOKIE_NAME, "", { ...adminMfaCookieOptions(0), maxAge: 0 });
+    res.cookies.set(ADMIN_MFA_COOKIE_NAME, "", { ...adminMfaCookieSerializeOptions(0), maxAge: 0 });
     return res;
   }
 
