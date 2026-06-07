@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   FileCheck,
   Plus,
@@ -74,6 +75,8 @@ function parseNumInput(value: string): number | null {
 }
 
 export default function AdminAfCFTAPage() {
+  const t = useTranslations("admin.afcfta");
+  const tc = useTranslations("admin.common");
   const [form, setForm] = useState(emptyForm);
   const [addStatus, setAddStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [addError, setAddError] = useState<string | null>(null);
@@ -135,10 +138,10 @@ export default function AdminAfCFTAPage() {
 
   const handleDeleteCountry = useCallback(async (country: string) => {
     const ok = await confirm({
-      title: "Delete country data",
-      description: `Delete all tariff data and import history for "${country}"? This cannot be undone.`,
-      confirmLabel: "Delete",
-      cancelLabel: "Cancel",
+      title: t("delete.title"),
+      description: t("delete.confirmDescription", { country }),
+      confirmLabel: t("delete.confirm"),
+      cancelLabel: tc("cancel"),
       variant: "destructive",
     });
     if (!ok) return;
@@ -151,14 +154,14 @@ export default function AdminAfCFTAPage() {
       });
       const json = await res.json();
       if (!res.ok) {
-        setDeleteError(json.error || "Failed to delete");
+        setDeleteError(json.error || t("delete.failed"));
         return;
       }
       setSelectedCountryToDelete("");
       fetchImportHistory();
       fetchCountriesWithData();
     } catch {
-      setDeleteError("Failed to delete");
+      setDeleteError(t("delete.failed"));
     } finally {
       setDeletingCountry(null);
     }
@@ -189,17 +192,17 @@ export default function AdminAfCFTAPage() {
       <table className="w-full min-w-[720px] text-left text-sm">
         <thead className="sticky top-0 z-10 border-b border-border bg-muted/80 backdrop-blur-sm">
           <tr>
-            <th className="p-2 font-medium">HS Code</th>
-            <th className="p-2 font-medium">Product</th>
-            <th className="p-2 font-medium">Category</th>
-            <th className="p-2 font-medium">Sensitivity</th>
-            <th className="p-2 font-medium">MFN %</th>
+            <th className="p-2 font-medium">{t("table.hsCode")}</th>
+            <th className="p-2 font-medium">{t("table.product")}</th>
+            <th className="p-2 font-medium">{t("table.category")}</th>
+            <th className="p-2 font-medium">{t("table.sensitivity")}</th>
+            <th className="p-2 font-medium">{t("table.mfn")}</th>
             <th className="p-2 font-medium">2026</th>
             <th className="p-2 font-medium">2030</th>
             <th className="p-2 font-medium">2035</th>
-            <th className="p-2 font-medium">Phase</th>
-            <th className="p-2 font-medium">Years</th>
-            <th className="p-2 font-medium">Savings $10k</th>
+            <th className="p-2 font-medium">{t("table.phase")}</th>
+            <th className="p-2 font-medium">{t("table.years")}</th>
+            <th className="p-2 font-medium">{t("table.savings")}</th>
           </tr>
         </thead>
         <tbody>
@@ -226,7 +229,7 @@ export default function AdminAfCFTAPage() {
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.country || !form.hsCode.trim() || !form.productDescription.trim()) {
-      setAddError("Country, HS Code, and Product Description are required.");
+      setAddError(t("addSingle.requiredError"));
       setAddStatus("error");
       return;
     }
@@ -255,7 +258,7 @@ export default function AdminAfCFTAPage() {
       });
       const json = await res.json();
       if (!res.ok) {
-        setAddError(json.error || "Failed to add row");
+        setAddError(json.error || t("addSingle.failed"));
         setAddStatus("error");
         return;
       }
@@ -263,7 +266,7 @@ export default function AdminAfCFTAPage() {
       setForm({ ...emptyForm, country: form.country });
     } catch (err) {
       console.error("Add error", err);
-      setAddError("Failed to add row");
+      setAddError(t("addSingle.failed"));
       setAddStatus("error");
     }
   };
@@ -271,7 +274,7 @@ export default function AdminAfCFTAPage() {
   const handleImportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!importCountry || !importFile) {
-      setImportError("Select a country and a file (PDF, XLSX, or CSV).");
+      setImportError(t("import.requiredError"));
       setImportStatus("error");
       return;
     }
@@ -288,7 +291,7 @@ export default function AdminAfCFTAPage() {
       });
       const json = await res.json();
       if (!res.ok) {
-        setImportError(json.error || "Import failed");
+        setImportError(json.error || t("import.failed"));
         setImportStatus("error");
         return;
       }
@@ -297,7 +300,7 @@ export default function AdminAfCFTAPage() {
       setImportFile(null);
     } catch (err) {
       console.error("Import error", err);
-      setImportError("Import failed");
+      setImportError(t("import.failed"));
       setImportStatus("error");
     }
   };
@@ -309,16 +312,16 @@ export default function AdminAfCFTAPage() {
           <FileCheck className="h-6 w-6 text-primary" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">AfCFTA tariff schedule</h1>
+          <h1 className="text-xl font-semibold tracking-tight">{t("title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Add entries one by one or import from a file (PDF, XLSX, or CSV). The system detects HS Code, Product Description, and other columns automatically.
+            {t("subtitle")}
           </p>
           <Link
             href="/admin-panel/afcfta/requirements"
             className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
           >
             <FileText className="h-4 w-4" />
-            View export & import requirements by country
+            {t("requirementsLink")}
           </Link>
         </div>
       </div>
@@ -327,10 +330,10 @@ export default function AdminAfCFTAPage() {
       <div className="mb-10 rounded-2xl border border-border bg-card p-6 shadow-sm">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
           <Trash2 className="h-5 w-5 text-destructive" />
-          Delete country data
+          {t("delete.title")}
         </h2>
         <p className="mb-4 text-sm text-muted-foreground">
-          Remove all AfCFTA tariff schedule entries and import history for a country. The country will no longer appear in the compliance tool or tariff filters. This cannot be undone.
+          {t("delete.subtitle")}
         </p>
         {deleteError && (
           <div className="mb-4 flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -341,15 +344,15 @@ export default function AdminAfCFTAPage() {
         {countriesWithDataLoading ? (
           <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            Loading…
+            {tc("loading")}
           </div>
         ) : countriesWithData.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">No countries with tariff data. Import a file or add entries to see countries here.</p>
+          <p className="py-6 text-center text-sm text-muted-foreground">{t("delete.empty")}</p>
         ) : (
           <div className="flex flex-col sm:flex-row sm:items-end gap-4 max-w-xl">
             <div className="flex-1 min-w-0">
               <label htmlFor="delete-country-select" className="mb-1.5 block text-sm font-medium text-foreground">
-                Country
+                {t("delete.country")}
               </label>
               <select
                 id="delete-country-select"
@@ -357,7 +360,7 @@ export default function AdminAfCFTAPage() {
                 onChange={(e) => setSelectedCountryToDelete(e.target.value)}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
-                <option value="">Select a country</option>
+                <option value="">{t("delete.selectCountry")}</option>
                 {countriesWithData.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
@@ -370,10 +373,10 @@ export default function AdminAfCFTAPage() {
               }}
               disabled={!selectedCountryToDelete || deletingCountry !== null}
               className="shrink-0 flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 disabled:pointer-events-none transition-colors h-[42px]"
-              aria-label="Delete selected country data"
+              aria-label={t("delete.button")}
             >
               {deletingCountry !== null ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-              Delete
+              {t("delete.button")}
             </button>
           </div>
         )}
@@ -384,25 +387,25 @@ export default function AdminAfCFTAPage() {
         <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
             <Plus className="h-5 w-5" />
-            Add single entry
+            {t("addSingle.title")}
           </h2>
           <form onSubmit={handleAddSubmit} className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium">Country <span className="text-destructive">*</span></label>
+              <label className="mb-1 block text-sm font-medium">{t("addSingle.country")} <span className="text-destructive">*</span></label>
               <select
                 value={form.country}
                 onChange={(e) => setForm((f) => ({ ...f, country: e.target.value }))}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                 required
               >
-                <option value="">Select country</option>
+                <option value="">{t("addSingle.selectCountry")}</option>
                 {AFRICA_COUNTRIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">HS Code <span className="text-destructive">*</span></label>
+              <label className="mb-1 block text-sm font-medium">{t("addSingle.hsCode")} <span className="text-destructive">*</span></label>
               <input
                 type="text"
                 value={form.hsCode}
@@ -413,7 +416,7 @@ export default function AdminAfCFTAPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Product Description <span className="text-destructive">*</span></label>
+              <label className="mb-1 block text-sm font-medium">{t("addSingle.productDescription")} <span className="text-destructive">*</span></label>
               <input
                 type="text"
                 value={form.productDescription}
@@ -425,7 +428,7 @@ export default function AdminAfCFTAPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium">Product Category</label>
+                <label className="mb-1 block text-sm font-medium">{t("addSingle.productCategory")}</label>
                 <input
                   type="text"
                   value={form.productCategory}
@@ -434,7 +437,7 @@ export default function AdminAfCFTAPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">Sensitivity</label>
+                <label className="mb-1 block text-sm font-medium">{t("addSingle.sensitivity")}</label>
                 <input
                   type="text"
                   value={form.sensitivity}
@@ -445,7 +448,7 @@ export default function AdminAfCFTAPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium">MFN Rate (%)</label>
+                <label className="mb-1 block text-sm font-medium">{t("addSingle.mfnRate")}</label>
                 <input
                   type="text"
                   value={form.mfnRatePercent}
@@ -455,7 +458,7 @@ export default function AdminAfCFTAPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">AfCFTA 2026 (%)</label>
+                <label className="mb-1 block text-sm font-medium">{t("addSingle.afcfta2026")}</label>
                 <input
                   type="text"
                   value={form.afcfta2026Percent}
@@ -467,7 +470,7 @@ export default function AdminAfCFTAPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium">AfCFTA 2030 (%)</label>
+                <label className="mb-1 block text-sm font-medium">{t("addSingle.afcfta2030")}</label>
                 <input
                   type="text"
                   value={form.afcfta2030Percent}
@@ -477,7 +480,7 @@ export default function AdminAfCFTAPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">AfCFTA 2035 (%)</label>
+                <label className="mb-1 block text-sm font-medium">{t("addSingle.afcfta2035")}</label>
                 <input
                   type="text"
                   value={form.afcfta2035Percent}
@@ -489,7 +492,7 @@ export default function AdminAfCFTAPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium">Phase Category</label>
+                <label className="mb-1 block text-sm font-medium">{t("addSingle.phaseCategory")}</label>
                 <input
                   type="text"
                   value={form.phaseCategory}
@@ -498,7 +501,7 @@ export default function AdminAfCFTAPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">Phase Years</label>
+                <label className="mb-1 block text-sm font-medium">{t("addSingle.phaseYears")}</label>
                 <input
                   type="text"
                   value={form.phaseYears}
@@ -508,7 +511,7 @@ export default function AdminAfCFTAPage() {
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Annual Savings on $10k Shipment</label>
+              <label className="mb-1 block text-sm font-medium">{t("addSingle.annualSavings")}</label>
               <input
                 type="text"
                 value={form.annualSavings10k}
@@ -526,7 +529,7 @@ export default function AdminAfCFTAPage() {
             {addStatus === "saved" && (
               <div className="flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
-                Entry added.
+                {t("addSingle.saved")}
               </div>
             )}
             <button
@@ -534,7 +537,7 @@ export default function AdminAfCFTAPage() {
               disabled={addStatus === "saving"}
               className="w-full rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
-              {addStatus === "saving" ? "Saving…" : "Add entry"}
+              {addStatus === "saving" ? tc("saving") : t("addSingle.submit")}
             </button>
           </form>
         </div>
@@ -543,27 +546,27 @@ export default function AdminAfCFTAPage() {
         <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
             <FileSpreadsheet className="h-5 w-5" />
-            Import from file
+            {t("import.title")}
           </h2>
           <p className="mb-4 text-sm text-muted-foreground">
-            Upload a PDF, XLSX, or CSV file. The system will detect columns (HS Code, Product Description, MFN Rate, etc.) and add all rows for the selected country.
+            {t("import.subtitle")}
           </p>
           <form onSubmit={handleImportSubmit} className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium">Country <span className="text-destructive">*</span></label>
+              <label className="mb-1 block text-sm font-medium">{t("import.country")} <span className="text-destructive">*</span></label>
               <select
                 value={importCountry}
                 onChange={(e) => setImportCountry(e.target.value)}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
               >
-                <option value="">Select country</option>
+                <option value="">{t("import.selectCountry")}</option>
                 {AFRICA_COUNTRIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">File (PDF, XLSX, or CSV) <span className="text-destructive">*</span></label>
+              <label className="mb-1 block text-sm font-medium">{t("import.file")} <span className="text-destructive">*</span></label>
               <input
                 type="file"
                 accept=".pdf,.xlsx,.xls,.csv"
@@ -577,7 +580,7 @@ export default function AdminAfCFTAPage() {
               />
               {importFile && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Selected: {importFile.name}
+                  {t("import.selected", { name: importFile.name })}
                 </p>
               )}
             </div>
@@ -592,12 +595,12 @@ export default function AdminAfCFTAPage() {
                 <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">
                   <div className="flex items-center gap-2 font-medium">
                     <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    Imported {importResult.inserted} row(s).
+                    {t("import.importedRows", { count: importResult.inserted })}
                   </div>
                 </div>
                 {importResult.rows && importResult.rows.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-sm font-medium text-foreground">Imported data</p>
+                    <p className="text-sm font-medium text-foreground">{t("import.importedData")}</p>
                     {renderRowsTable(importResult.rows)}
                   </div>
                 )}
@@ -609,7 +612,7 @@ export default function AdminAfCFTAPage() {
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
               <Upload className="h-4 w-4" />
-              {importStatus === "uploading" ? "Importing…" : "Import file"}
+              {importStatus === "uploading" ? t("import.importing") : t("import.submit")}
             </button>
           </form>
         </div>
@@ -619,18 +622,18 @@ export default function AdminAfCFTAPage() {
       <div className="mt-10 rounded-2xl border border-border bg-card p-6 shadow-sm">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
           <History className="h-5 w-5" />
-          Import history
+          {t("history.title")}
         </h2>
         <p className="mb-4 text-sm text-muted-foreground">
-          View data from past file imports. Click a row to expand and see the imported rows.
+          {t("history.subtitle")}
         </p>
         {importHistoryLoading ? (
           <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            Loading…
+            {tc("loading")}
           </div>
         ) : importHistory.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">No imports yet.</p>
+          <p className="py-6 text-center text-sm text-muted-foreground">{t("history.empty")}</p>
         ) : (
           <div className="space-y-2">
             {importHistory.map((batch) => (
@@ -661,12 +664,12 @@ export default function AdminAfCFTAPage() {
                     {expandedBatchLoading ? (
                       <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
                         <Loader2 className="h-5 w-5 animate-spin" />
-                        Loading rows…
+                        {t("history.loadingRows")}
                       </div>
                     ) : expandedBatchRows && expandedBatchRows.length > 0 ? (
                       renderRowsTable(expandedBatchRows)
                     ) : (
-                      <p className="py-4 text-center text-sm text-muted-foreground">No row data.</p>
+                      <p className="py-4 text-center text-sm text-muted-foreground">{t("history.noRowData")}</p>
                     )}
                   </div>
                 )}
