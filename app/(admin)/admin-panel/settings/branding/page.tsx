@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { Upload, CheckCircle2, Loader2, Trash2 } from "lucide-react";
 import { LogoCropModal } from "@/components/admin/LogoCropModal";
 
@@ -28,6 +29,7 @@ interface PlatformSettings {
 }
 
 export default function BrandingSettingsPage() {
+  const t = useTranslations("admin.branding");
   const [settings, setSettings] = useState<PlatformSettings>({
     logoUrl: null,
     founderPortraitUrl: null,
@@ -55,6 +57,7 @@ export default function BrandingSettingsPage() {
       }
     } catch (error) {
       console.error("Failed to fetch settings:", error);
+      showToast(t("errors.loadFailed"), "error");
     } finally {
       setLoading(false);
     }
@@ -76,7 +79,7 @@ export default function BrandingSettingsPage() {
 
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.error || "Upload failed");
+        throw new Error(error.error || t("errors.uploadFailed"));
       }
 
       const data = await res.json();
@@ -87,18 +90,18 @@ export default function BrandingSettingsPage() {
         setSettings((prev) => ({ ...prev, founderPortraitUrl: data.url }));
       }
 
-      const label = type === "logo" ? "Logo" : "Founder portrait";
-      showToast(`${label} updated successfully`, "success");
+      const label = type === "logo" ? t("logo.title") : t("founder.title");
+      showToast(t("toasts.updated", { label }), "success");
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Upload failed", "error");
+      showToast(error instanceof Error ? error.message : t("errors.uploadFailed"), "error");
     } finally {
       setUploading(false);
     }
-  }, []);
+  }, [t]);
 
   const handleRemove = useCallback(async (type: "logo" | "founder_portrait") => {
-    const label = type === "logo" ? "logo" : "founder portrait";
-    if (!window.confirm(`Remove the current ${label}? This cannot be undone.`)) return;
+    const label = type === "logo" ? t("logo.titleLower") : t("founder.titleLower");
+    if (!window.confirm(t("confirmRemove", { label }))) return;
 
     const setRemoving = type === "logo" ? setRemovingLogo : setRemovingFounderPortrait;
     setRemoving(true);
@@ -109,7 +112,7 @@ export default function BrandingSettingsPage() {
       });
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.error || "Remove failed");
+        throw new Error(error.error || t("errors.removeFailed"));
       }
 
       if (type === "logo") {
@@ -118,13 +121,13 @@ export default function BrandingSettingsPage() {
         setSettings((prev) => ({ ...prev, founderPortraitUrl: null }));
       }
 
-      showToast(`${label.charAt(0).toUpperCase()}${label.slice(1)} removed`, "success");
+      showToast(t("toasts.removed", { label: label.charAt(0).toUpperCase() + label.slice(1) }), "success");
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Remove failed", "error");
+      showToast(error instanceof Error ? error.message : t("errors.removeFailed"), "error");
     } finally {
       setRemoving(false);
     }
-  }, []);
+  }, [t]);
 
   const handleLogoCropComplete = useCallback(
     (blob: Blob, fileName: string, imageSrcToRevoke: string) => {
@@ -149,10 +152,11 @@ export default function BrandingSettingsPage() {
   return (
     <div className="p-4 sm:p-6 md:p-8">
       <div className="rounded-2xl border border-border bg-card px-4 py-6 shadow-sm sm:px-6 sm:py-8 md:px-8 md:py-10">
-        <h1 className="text-2xl font-semibold tracking-tight">Branding Settings</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-          Upload your platform logo and the founder portrait shown on the founder&apos;s note and welcome
-          modal. The favicon is managed as static files in the repo under <code className="text-xs">public/</code>.
+          {t.rich("subtitle", {
+            code: () => <code className="text-xs">public/</code>,
+          })}
         </p>
       </div>
 
@@ -160,9 +164,9 @@ export default function BrandingSettingsPage() {
         <div className="rounded-xl border border-border bg-card p-6">
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <h2 className="text-lg font-semibold text-foreground">Logo</h2>
+              <h2 className="text-lg font-semibold text-foreground">{t("logo.title")}</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Your platform logo appears in the header and on the home page. Upload an image to crop, zoom, and resize it. Supports PNG, JPG, SVG, and other image formats.
+                {t("logo.description")}
               </p>
 
               {settings.logoUrl && (
@@ -170,7 +174,7 @@ export default function BrandingSettingsPage() {
                   <div className="relative inline-block rounded-lg border border-border bg-background p-2">
                     <img
                       src={settings.logoUrl}
-                      alt="Current logo"
+                      alt={t("logo.currentAlt")}
                       className="h-20 max-w-[300px] object-contain"
                     />
                   </div>
@@ -180,7 +184,7 @@ export default function BrandingSettingsPage() {
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent">
                   <Upload className="h-4 w-4" />
-                  {uploadingLogo ? "Uploading..." : settings.logoUrl ? "Change Logo" : "Upload Logo"}
+                  {uploadingLogo ? t("uploading") : settings.logoUrl ? t("logo.change") : t("logo.upload")}
                   <input
                     type="file"
                     accept="image/*"
@@ -204,7 +208,7 @@ export default function BrandingSettingsPage() {
                     className="inline-flex items-center gap-2 rounded-lg border border-destructive/40 bg-background px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
                   >
                     <Trash2 className="h-4 w-4" />
-                    {removingLogo ? "Removing..." : "Remove logo"}
+                    {removingLogo ? t("removing") : t("logo.remove")}
                   </button>
                 )}
               </div>
@@ -228,10 +232,11 @@ export default function BrandingSettingsPage() {
         <div className="rounded-xl border border-border bg-card p-6">
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <h2 className="text-lg font-semibold text-foreground">Founder portrait</h2>
+              <h2 className="text-lg font-semibold text-foreground">{t("founder.title")}</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Photo of Meghan Waters for the founder&apos;s note (<code className="text-xs">/founders-note</code>),
-                the one-time welcome dialog, and related pages. Use a square or portrait image (PNG or JPG).
+                {t.rich("founder.description", {
+                  code: () => <code className="text-xs">/founders-note</code>,
+                })}
               </p>
 
               {settings.founderPortraitUrl && (
@@ -239,7 +244,7 @@ export default function BrandingSettingsPage() {
                   <div className="relative inline-block overflow-hidden rounded-full border-2 border-[#C8922A]/40 p-0.5">
                     <img
                       src={settings.founderPortraitUrl}
-                      alt="Founder portrait preview"
+                      alt={t("founder.previewAlt")}
                       className="h-32 w-32 rounded-full object-cover"
                     />
                   </div>
@@ -250,10 +255,10 @@ export default function BrandingSettingsPage() {
                 <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent">
                   <Upload className="h-4 w-4" />
                   {uploadingFounderPortrait
-                    ? "Uploading..."
+                    ? t("uploading")
                     : settings.founderPortraitUrl
-                      ? "Change portrait"
-                      : "Upload portrait"}
+                      ? t("founder.change")
+                      : t("founder.upload")}
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
@@ -274,7 +279,7 @@ export default function BrandingSettingsPage() {
                     className="inline-flex items-center gap-2 rounded-lg border border-destructive/40 bg-background px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
                   >
                     <Trash2 className="h-4 w-4" />
-                    {removingFounderPortrait ? "Removing..." : "Remove portrait"}
+                    {removingFounderPortrait ? t("removing") : t("founder.remove")}
                   </button>
                 )}
               </div>
