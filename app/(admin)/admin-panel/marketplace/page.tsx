@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Loader2, Plus, Pencil, Trash2, BookOpen, GraduationCap, FileText, Upload, X } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { AdminPackageOffersFields } from "@/components/admin/AdminPackageOffersFields";
@@ -59,13 +60,6 @@ type MarketplaceItem = {
   is_course?: boolean;
 };
 
-const TYPE_LABELS: Record<string, string> = {
-  book: "Book",
-  course: "Course",
-  template: "Template",
-  guide: "Guide",
-};
-
 function TypeIcon({ type }: { type: string }) {
   switch (type) {
     case "book":
@@ -82,6 +76,9 @@ function TypeIcon({ type }: { type: string }) {
 import { MARKETPLACE_FILE_ACCEPT } from "@/lib/marketplace-file-accept";
 
 export default function AdminMarketplacePage() {
+  const t = useTranslations("admin.vault");
+  const tp = useTranslations("admin.vault.marketplacePage");
+  const tc = useTranslations("admin.common");
   const router = useRouter();
   const searchParams = useSearchParams();
   const [items, setItems] = useState<MarketplaceItem[]>([]);
@@ -187,14 +184,14 @@ export default function AdminMarketplacePage() {
 
   const handleDeleteSeriesFromList = async (series: { id: string; label: string; itemCount: number }) => {
     const ok = await confirm({
-      title: "Delete series",
+      title: tp("confirm.deleteSeriesTitle"),
       description: `Delete “${series.label}”?${
         series.itemCount > 0
           ? ` ${series.itemCount} item${series.itemCount === 1 ? "" : "s"} will be unlinked (not deleted) unless you delete them from the series editor.`
           : " Series metadata will be removed."
       }`,
-      confirmLabel: "Delete series",
-      cancelLabel: "Cancel",
+      confirmLabel: tp("confirm.deleteSeriesConfirm"),
+      cancelLabel: tc("cancel"),
       variant: "destructive",
     });
     if (!ok) return;
@@ -212,7 +209,7 @@ export default function AdminMarketplacePage() {
       );
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to delete series");
+        setError(data.error ?? tp("errors.failedToDeleteSeries"));
         return;
       }
       if (data.noop && typeof data.message === "string") {
@@ -221,7 +218,7 @@ export default function AdminMarketplacePage() {
       fetchItems();
       refreshVaultSeriesRegistry();
     } catch {
-      setError("Failed to delete series");
+      setError(tp("errors.failedToDeleteSeries"));
     }
   };
 
@@ -245,7 +242,7 @@ export default function AdminMarketplacePage() {
         landing_page_html?: string;
       };
     } catch {
-      return { error: text.slice(0, 200) || "Invalid response from server" };
+      return { error: text.slice(0, 200) || tp("errors.invalidServerResponse") };
     }
   }
 
@@ -262,17 +259,17 @@ export default function AdminMarketplacePage() {
       });
       const data = await parseJsonSafe(res);
       if (!res.ok) {
-        setError(data.error ?? "Image upload failed");
+        setError(data.error ?? tp("errors.imageUploadFailed"));
         return;
       }
       if (data.url) {
         setPendingImageUrl(data.url);
         setCoverImageCleared(false);
       } else {
-        setError("Upload succeeded but no image URL was returned.");
+        setError(tp("errors.uploadedNoImageUrl"));
       }
     } catch {
-      setError("Image upload failed (network or blocked response). Check the browser Network tab.");
+      setError(tp("errors.imageUploadNetwork"));
     }
     setImageUploading(false);
   };
@@ -286,7 +283,7 @@ export default function AdminMarketplacePage() {
 
   const handlePasteCoverUrl = (url: string) => {
     if (!isValidMarketplaceCoverUrl(url)) {
-      setError("Cover URL must be a valid https Cloudinary link (res.cloudinary.com).");
+      setError(tp("errors.invalidCoverUrl"));
       return;
     }
     setPendingImageUrl(url.trim());
@@ -309,7 +306,7 @@ export default function AdminMarketplacePage() {
       });
       const data = await parseJsonSafe(res);
       if (!res.ok) {
-        setError(data.error ?? "Upload failed");
+        setError(data.error ?? tp("errors.uploadFailed"));
         return;
       }
       if (data.path && data.file_name != null && data.file_format != null) {
@@ -327,10 +324,10 @@ export default function AdminMarketplacePage() {
           }
         }
       } else {
-        setError("Upload succeeded but file details were missing. Check Supabase storage and env.");
+        setError(tp("errors.uploadMissingFileDetails"));
       }
     } catch {
-      setError("Upload failed (network or blocked response). Check the browser Network tab.");
+      setError(tp("errors.uploadNetwork"));
     } finally {
       setFileUploading(false);
       setUploadingFileName(null);
@@ -516,7 +513,7 @@ export default function AdminMarketplacePage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to create");
+        setError(data.error ?? tp("errors.failedToCreate"));
         setSaving(false);
         return;
       }
@@ -537,7 +534,7 @@ export default function AdminMarketplacePage() {
       setAddItemPackPartners([]);
       form.reset();
     } catch {
-      setError("Network error");
+      setError(tc("networkError"));
     }
     setSaving(false);
   };
@@ -602,7 +599,7 @@ export default function AdminMarketplacePage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to update");
+        setError(data.error ?? tc("failedToUpdate"));
         setSaving(false);
         return;
       }
@@ -613,7 +610,7 @@ export default function AdminMarketplacePage() {
       setPendingFile(null);
       setRemoveFile(false);
     } catch {
-      setError("Network error");
+      setError(tc("networkError"));
     }
     setSaving(false);
   };
@@ -629,14 +626,12 @@ export default function AdminMarketplacePage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Sync failed");
+        setError(data.error ?? tp("errors.syncFailed"));
         return;
       }
-      setNotice(
-        `Synced ${data.moduleCount ?? 0} files across ${data.phaseCount ?? 0} phase folder(s) from the ZIP.`
-      );
+      setNotice(tp("notices.syncedModules", { modules: data.moduleCount ?? 0, phases: data.phaseCount ?? 0 }));
     } catch {
-      setError("Network error during course sync");
+      setError(tp("errors.networkErrorDuringCourseSync"));
     } finally {
       setSyncingCourseId(null);
     }
@@ -644,10 +639,10 @@ export default function AdminMarketplacePage() {
 
   const handleDelete = async (id: string) => {
     const ok = await confirm({
-      title: "Delete item",
-      description: "Delete this item? This cannot be undone.",
-      confirmLabel: "Delete",
-      cancelLabel: "Cancel",
+      title: tp("confirm.deleteItemTitle"),
+      description: tp("confirm.deleteItemDescription"),
+      confirmLabel: tp("actions.delete"),
+      cancelLabel: tc("cancel"),
       variant: "destructive",
     });
     if (!ok) return;
@@ -660,16 +655,16 @@ export default function AdminMarketplacePage() {
       setItems((prev) => prev.filter((p) => p.id !== id));
       if (editing?.id === id) setEditing(null);
     } catch {
-      setError("Failed to delete");
+      setError(tp("errors.failedToDelete"));
     }
   };
 
   const handleRevokePurchase = async (id: string) => {
     const ok = await confirm({
-      title: "Revoke purchase",
-      description: "Revoke this purchase? The user will lose access and can purchase again.",
-      confirmLabel: "Revoke",
-      cancelLabel: "Cancel",
+      title: tp("confirm.revokePurchaseTitle"),
+      description: tp("confirm.revokePurchaseDescription"),
+      confirmLabel: tp("actions.revoke"),
+      cancelLabel: tc("cancel"),
       variant: "destructive",
     });
     if (!ok) return;
@@ -682,13 +677,13 @@ export default function AdminMarketplacePage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to revoke purchase");
+        setError(data.error ?? tp("errors.failedToRevokePurchase"));
         setRevokingId(null);
         return;
       }
       setPurchases((prev) => prev.filter((p) => p.id !== id));
     } catch {
-      setError("Failed to revoke purchase");
+      setError(tp("errors.failedToRevokePurchase"));
     }
     setRevokingId(null);
   };
@@ -697,10 +692,8 @@ export default function AdminMarketplacePage() {
     <div className="p-4 sm:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">The Yamalé Vault</h1>
-          <p className="mt-1 text-muted-foreground">
-            Books, courses, and templates. Prices are set here and charged at checkout (mobile money or card).
-          </p>
+          <h1 className="text-2xl font-semibold">{t("title")}</h1>
+          <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
         </div>
         <Link
           href="/marketplace"
@@ -708,7 +701,7 @@ export default function AdminMarketplacePage() {
           rel="noopener noreferrer"
           className="text-sm text-primary hover:underline"
         >
-          View The Yamalé Vault →
+          {t("viewPublicVault")}
         </Link>
       </div>
 
@@ -726,54 +719,52 @@ export default function AdminMarketplacePage() {
 
       {adding && (
         <div className="mt-6 rounded-lg border border-border bg-card p-4">
-          <h2 className="text-lg font-medium">Add item</h2>
+          <h2 className="text-lg font-medium">{tp("addItem.title")}</h2>
           <form onSubmit={handleCreate} className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium">Type</label>
+              <label className="mb-1 block text-sm font-medium">{tp("fields.type")}</label>
               <select name="type" className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" required>
-                <option value="book">Book</option>
-                <option value="course">Course</option>
-                <option value="template">Template</option>
-                <option value="guide">Guide</option>
+                <option value="book">{tp("types.book")}</option>
+                <option value="course">{tp("types.course")}</option>
+                <option value="template">{tp("types.template")}</option>
+                <option value="guide">{tp("types.guide")}</option>
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Title</label>
-              <input name="title" type="text" required className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="e.g. African Commercial Law" />
+              <label className="mb-1 block text-sm font-medium">{tp("fields.title")}</label>
+              <input name="title" type="text" required className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder={tp("fields.titlePlaceholder")} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Author / Seller</label>
-              <input name="author" type="text" className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="e.g. Dr. Kofi Mensah" />
+              <label className="mb-1 block text-sm font-medium">{tp("fields.authorSeller")}</label>
+              <input name="author" type="text" className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder={tp("fields.authorPlaceholder")} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Price (USD)</label>
-              <input name="price_cents" type="number" step="0.01" min="0" defaultValue="0" className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="0 = free" />
+              <label className="mb-1 block text-sm font-medium">{tp("fields.priceUsd")}</label>
+              <input name="price_cents" type="number" step="0.01" min="0" defaultValue="0" className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder={tp("fields.pricePlaceholder")} />
             </div>
             <AdminVaultSubcategorySelect className="sm:col-span-2" />
             <AdminVaultFocusCountrySelect className="sm:col-span-2" />
             <div className="sm:col-span-2">
-              <label className="mb-1 block text-sm font-medium">Description</label>
+              <label className="mb-1 block text-sm font-medium">{tp("fields.description")}</label>
               <textarea
                 name="description"
                 rows={3}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                placeholder="Short description for the product page"
+                placeholder={tp("fields.descriptionPlaceholder")}
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="mb-1 block text-sm font-medium">YouTube video URL (optional)</label>
+              <label className="mb-1 block text-sm font-medium">{tp("fields.youtubeUrlOptional")}</label>
               <input
                 name="video_url"
                 type="url"
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                placeholder="e.g. https://www.youtube.com/watch?v=VIDEO_ID or https://youtu.be/VIDEO_ID"
+                placeholder={tp("fields.youtubePlaceholder")}
               />
-              <p className="mt-1 text-xs text-muted-foreground">
-                If provided, this video will be embedded on the public product page (for trailers, intros, or walkthroughs).
-              </p>
+              <p className="mt-1 text-xs text-muted-foreground">{tp("fields.youtubeHint")}</p>
             </div>
             <div className="sm:col-span-2">
-              <label className="mb-1 block text-sm font-medium">Cover image</label>
+              <label className="mb-1 block text-sm font-medium">{tp("fields.coverImage")}</label>
               <MarketplaceCoverImageField
                 previewUrl={coverImageCleared ? null : pendingImageUrl}
                 uploading={imageUploading}
@@ -786,7 +777,7 @@ export default function AdminMarketplacePage() {
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="mb-1 block text-sm font-medium">Custom landing page HTML (optional)</label>
+              <label className="mb-1 block text-sm font-medium">{tp("fields.customLandingHtml")}</label>
               <p className="mb-2 text-xs text-muted-foreground">
                 Paste a full HTML document (or include <code className="rounded bg-muted px-1">index.html</code> in a ZIP —
                 it is imported automatically on upload). ZIP packages show this on{" "}
@@ -801,7 +792,7 @@ export default function AdminMarketplacePage() {
                 onChange={(e) => setLandingPageHtmlAdd(e.target.value)}
                 rows={6}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 font-mono text-xs"
-                placeholder="<!DOCTYPE html> … or paste body markup"
+                placeholder={tp("fields.customLandingHtmlPlaceholder")}
               />
               <input
                 ref={landingHtmlFileAddRef}
@@ -811,7 +802,7 @@ export default function AdminMarketplacePage() {
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) {
-                    f.text().then(setLandingPageHtmlAdd).catch(() => setError("Could not read HTML file"));
+                    f.text().then(setLandingPageHtmlAdd).catch(() => setError(tp("errors.couldNotReadHtmlFile")));
                   }
                   e.target.value = "";
                 }}
@@ -821,7 +812,7 @@ export default function AdminMarketplacePage() {
                 onClick={() => landingHtmlFileAddRef.current?.click()}
                 className="mt-2 text-xs font-medium text-primary hover:underline"
               >
-                Load from .html file
+                {tp("fields.loadFromHtmlFile")}
               </button>
             </div>
             {showDualPricingAdd && (
@@ -851,7 +842,7 @@ export default function AdminMarketplacePage() {
               />
             )}
             <div className="sm:col-span-2">
-              <label className="mb-1 block text-sm font-medium">File (PDF, EPUB, ZIP, etc.)</label>
+              <label className="mb-1 block text-sm font-medium">{tp("fields.fileLabel")}</label>
               <p className="mb-2 text-xs text-muted-foreground">
                 Optional. Purchasers can view (PDF/video) or download. ZIP uploads allowed up to 200&nbsp;MB; other types up
                 to 50&nbsp;MB.
@@ -872,7 +863,7 @@ export default function AdminMarketplacePage() {
                   <FileText className="h-4 w-4 text-muted-foreground" />
                   <span className="truncate">{pendingFile.file_name}</span>
                   <span className="text-muted-foreground">(.{pendingFile.file_format})</span>
-                  <button type="button" onClick={() => setPendingFile(null)} className="ml-auto rounded p-1 hover:bg-muted" aria-label="Remove">
+                  <button type="button" onClick={() => setPendingFile(null)} className="ml-auto rounded p-1 hover:bg-muted" aria-label={tp("actions.remove")}>
                     <X className="h-4 w-4" />
                   </button>
                 </div>
@@ -884,7 +875,7 @@ export default function AdminMarketplacePage() {
                   className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-3 py-2 text-sm text-muted-foreground hover:border-primary hover:text-foreground disabled:opacity-50"
                 >
                   {fileUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                  {fileUploading ? "Please wait…" : "Upload file"}
+                  {fileUploading ? tp("actions.pleaseWait") : tp("actions.uploadFile")}
                 </button>
               )}
               <AdminVirusScanUploadBanner
@@ -896,23 +887,23 @@ export default function AdminMarketplacePage() {
             <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
               <label className="flex items-center gap-2 text-sm">
                 <input name="published" type="checkbox" defaultChecked className="rounded border-input" />
-                Published (visible in The Yamalé Vault)
+                {tp("fields.publishedVisible")}
               </label>
-              <label className="flex items-center gap-2 text-sm" title="Purchasers get View course and the online implementation workspace">
+              <label className="flex items-center gap-2 text-sm" title={tp("fields.onlineCourseTitle")}>
                 <input name="is_course" type="checkbox" className="rounded border-input" />
-                Online course (implementation workspace)
+                {tp("fields.onlineCourse")}
               </label>
               <label className="flex items-center gap-2 text-sm">
-                Sort order
+                {tp("fields.sortOrder")}
                 <input name="sort_order" type="number" defaultValue="0" className="w-20 rounded border border-input bg-background px-2 py-1 text-sm" />
               </label>
             </div>
             <p className="text-xs text-muted-foreground sm:col-span-2">
-              For course items, upload a ZIP then save and use <strong>Sync modules from ZIP</strong> when editing.
+              {tp.rich("fields.courseZipHint", { strong: (chunks) => <strong>{chunks}</strong> })}
             </p>
             <div className="flex gap-2 sm:col-span-2">
               <button type="submit" disabled={saving} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50">
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create"}
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : tp("actions.create")}
               </button>
               <button
                 type="button"
@@ -922,7 +913,7 @@ export default function AdminMarketplacePage() {
                 }}
                 className="rounded-lg border border-input px-4 py-2 text-sm font-medium hover:bg-accent"
               >
-                Cancel
+                {tc("cancel")}
               </button>
             </div>
           </form>
@@ -939,14 +930,14 @@ export default function AdminMarketplacePage() {
             }}
             className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-4 py-2 text-sm font-medium text-muted-foreground hover:border-primary hover:text-primary"
           >
-            <Plus className="h-4 w-4" /> Add item
+            <Plus className="h-4 w-4" /> {tp("actions.addItem")}
           </button>
           <button
             type="button"
             onClick={() => openSeriesEditor("new")}
             className="flex items-center gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10"
           >
-            <Plus className="h-4 w-4" /> Add series
+            <Plus className="h-4 w-4" /> {tp("actions.addSeries")}
           </button>
         </div>
       )}
@@ -957,7 +948,7 @@ export default function AdminMarketplacePage() {
         <div className="mt-6 space-y-4">
           {managedVaultSeries.length > 0 ? (
             <div className="rounded-lg border border-border bg-card p-4">
-              <h2 className="text-sm font-semibold">Vault series</h2>
+              <h2 className="text-sm font-semibold">{tp("series.vaultSeriesTitle")}</h2>
               <p className="mt-1 text-xs text-muted-foreground">
                 Series with saved metadata and/or linked items. Delete unlinks items (or removes them if you choose in
                 the editor).
@@ -979,14 +970,14 @@ export default function AdminMarketplacePage() {
                         onClick={() => openSeriesEditor(s.id)}
                         className="rounded-lg border border-input px-3 py-1 text-xs font-medium hover:bg-accent"
                       >
-                        Edit series
+                        {tp("actions.editSeries")}
                       </button>
                       <button
                         type="button"
                         onClick={() => void handleDeleteSeriesFromList(s)}
                         className="rounded-lg border border-destructive/40 px-3 py-1 text-xs font-medium text-destructive hover:bg-destructive/10"
                       >
-                        Delete
+                        {tp("actions.delete")}
                       </button>
                     </div>
                   </li>
@@ -997,7 +988,7 @@ export default function AdminMarketplacePage() {
 
           {catalogOnlyVaultSeries.length > 0 ? (
             <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4">
-              <h2 className="text-sm font-semibold">Built-in catalog series</h2>
+              <h2 className="text-sm font-semibold">{tp("series.builtinCatalogTitle")}</h2>
               <p className="mt-1 text-xs text-muted-foreground">
                 These names are defined in app code for the public Vault. They are not stored in the database yet and
                 have no linked items — Delete does nothing useful. Use <strong>Edit series</strong> to save cover and
@@ -1015,7 +1006,7 @@ export default function AdminMarketplacePage() {
                       onClick={() => openSeriesEditor(s.id)}
                       className="rounded-lg border border-input px-3 py-1 text-xs font-medium hover:bg-accent"
                     >
-                      Configure
+                      {tp("actions.configure")}
                     </button>
                   </li>
                 ))}
@@ -1032,21 +1023,21 @@ export default function AdminMarketplacePage() {
       ) : (
         <div className="mt-6 overflow-x-auto">
           <p className="mb-3 text-xs text-muted-foreground">
-            Standalone vault items only. Items in a series are managed in{" "}
-            <strong>Edit series</strong> above and appear on the public vault inside that series.
+            {tp("list.standaloneHintBefore")}{" "}
+            <strong>{tp("actions.editSeries")}</strong> {tp("list.standaloneHintAfter")}
           </p>
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="pb-2 text-left font-medium">Cover</th>
-                <th className="pb-2 text-left font-medium">Type</th>
-                <th className="pb-2 text-left font-medium">Title</th>
-                <th className="pb-2 text-left font-medium">Free series</th>
-                <th className="pb-2 text-left font-medium">Author</th>
-                <th className="pb-2 text-right font-medium">Price</th>
-                <th className="pb-2 text-center font-medium">File</th>
-                <th className="pb-2 text-center font-medium">Published</th>
-                <th className="pb-2 text-right font-medium">Actions</th>
+                <th className="pb-2 text-left font-medium">{tp("table.cover")}</th>
+                <th className="pb-2 text-left font-medium">{tp("table.type")}</th>
+                <th className="pb-2 text-left font-medium">{tp("table.title")}</th>
+                <th className="pb-2 text-left font-medium">{tp("table.freeSeries")}</th>
+                <th className="pb-2 text-left font-medium">{tp("table.author")}</th>
+                <th className="pb-2 text-right font-medium">{tp("table.price")}</th>
+                <th className="pb-2 text-center font-medium">{tp("table.file")}</th>
+                <th className="pb-2 text-center font-medium">{tp("table.published")}</th>
+                <th className="pb-2 text-right font-medium">{tc("actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -1057,28 +1048,28 @@ export default function AdminMarketplacePage() {
                       <img src={item.image_url} alt="" className="h-10 w-10 rounded object-cover border border-border" />
                     ) : (
                       <span className="inline-flex h-10 w-10 items-center justify-center rounded border border-dashed border-border text-[10px] text-muted-foreground">
-                        No img
+                        {tp("table.noImage")}
                       </span>
                     )}
                   </td>
                   <td className="py-3">
                     <span className="flex items-center gap-2">
                       <TypeIcon type={item.type} />
-                      {TYPE_LABELS[item.type] ?? item.type}
+                      {tp(`types.${item.type}`)}
                     </span>
                   </td>
                   <td className="py-3 font-medium">{item.title}</td>
                   <td className="py-3 text-muted-foreground text-xs">
                     {item.price_cents === 0
-                      ? labelForVaultSubcategory(item.vault_subcategory) ?? "Free"
+                      ? labelForVaultSubcategory(item.vault_subcategory) ?? tp("table.free")
                       : labelForVaultSubcategory(item.vault_subcategory) ?? "—"}
                   </td>
                   <td className="py-3 text-muted-foreground">{item.author || "—"}</td>
                   <td className="py-3 text-right">
-                    {item.price_cents === 0 ? "Free" : `$${(item.price_cents / 100).toFixed(2)}`}
+                    {item.price_cents === 0 ? tp("table.free") : `$${(item.price_cents / 100).toFixed(2)}`}
                   </td>
-                  <td className="py-3 text-center">{item.file_path ? (item.file_format ? `.${item.file_format}` : "Yes") : "—"}</td>
-                  <td className="py-3 text-center">{item.published ? "Yes" : "No"}</td>
+                  <td className="py-3 text-center">{item.file_path ? (item.file_format ? `.${item.file_format}` : tc("yes")) : "—"}</td>
+                  <td className="py-3 text-center">{item.published ? tc("yes") : tc("no")}</td>
                   <td className="py-3 text-right">
                     <button
                       type="button"
@@ -1095,7 +1086,7 @@ export default function AdminMarketplacePage() {
                         setCoverImageCleared(false);
                       }}
                       className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                      aria-label="Edit"
+                      aria-label={tp("actions.edit")}
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
@@ -1103,7 +1094,7 @@ export default function AdminMarketplacePage() {
                       type="button"
                       onClick={() => handleDelete(item.id)}
                       className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      aria-label="Delete"
+                      aria-label={tp("actions.delete")}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -1115,8 +1106,8 @@ export default function AdminMarketplacePage() {
           {standaloneItems.length === 0 && !adding && (
             <p className="py-8 text-center text-muted-foreground">
               {items.length > 0
-                ? "No standalone items — all vault products are in a series. Add a new item or open a series to manage them."
-                : "No items in The Yamalé Vault yet. Add one above."}
+                  ? tp("empty.noStandaloneItems")
+                  : tp("empty.noItemsYet")}
             </p>
           )}
         </div>
@@ -1125,34 +1116,32 @@ export default function AdminMarketplacePage() {
       {/* Purchases overview */}
       <div className="mt-10 rounded-lg border border-border bg-card p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Purchases</h2>
+          <h2 className="text-lg font-semibold">{tp("purchases.title")}</h2>
           <button
             type="button"
             onClick={fetchPurchases}
             className="text-xs font-medium text-primary hover:underline"
           >
-            Refresh
+            {tc("refresh")}
           </button>
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          View which users currently own items from The Yamalé Vault. You can revoke a purchase so that the user can purchase again.
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">{tp("purchases.subtitle")}</p>
 
         {loadingPurchases ? (
           <div className="flex items-center justify-center py-6">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : purchases.length === 0 ? (
-          <p className="mt-4 text-sm text-muted-foreground">No purchases recorded yet.</p>
+          <p className="mt-4 text-sm text-muted-foreground">{tp("purchases.empty")}</p>
         ) : (
           <div className="mt-4 overflow-x-auto">
             <table className="min-w-full divide-y divide-border text-sm">
               <thead className="bg-muted/40">
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Item</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Buyer</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Purchased at</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">Actions</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">{tc("item")}</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">{tp("purchases.columns.buyer")}</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">{tp("purchases.columns.purchasedAt")}</th>
+                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">{tc("actions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -1162,11 +1151,11 @@ export default function AdminMarketplacePage() {
                       <div className="max-w-xs truncate text-sm font-medium text-foreground" title={p.item_title}>
                         {p.item_title}
                       </div>
-                      <div className="text-xs text-muted-foreground">Item ID: {p.marketplace_item_id}</div>
+                      <div className="text-xs text-muted-foreground">{tp("purchases.itemId", { id: p.marketplace_item_id })}</div>
                     </td>
                     <td className="px-3 py-2 align-top text-xs text-muted-foreground">
                       <div className="text-foreground text-sm">{p.buyer_name}</div>
-                      <div className="text-[10px] text-muted-foreground/80">User ID: {p.user_id}</div>
+                      <div className="text-[10px] text-muted-foreground/80">{tp("purchases.userId", { id: p.user_id })}</div>
                     </td>
                     <td className="px-3 py-2 align-top text-xs text-muted-foreground">
                       {new Date(p.created_at).toLocaleString()}
@@ -1178,7 +1167,7 @@ export default function AdminMarketplacePage() {
                         disabled={revokingId === p.id}
                         className="inline-flex items-center rounded-md border border-border px-2 py-1 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
                       >
-                        {revokingId === p.id ? "Revoking…" : "Revoke"}
+                        {revokingId === p.id ? tp("actions.revoking") : tp("actions.revoke")}
                       </button>
                     </td>
                   </tr>
@@ -1199,13 +1188,13 @@ export default function AdminMarketplacePage() {
           >
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-6">
               <h2 id="edit-vault-item-title" className="text-lg font-medium">
-                Edit item
+                {tp("editItem.title")}
               </h2>
               <button
                 type="button"
                 onClick={() => setEditing(null)}
                 className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="Close"
+                aria-label={tc("close")}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1217,24 +1206,24 @@ export default function AdminMarketplacePage() {
             >
               <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                <label className="mb-1 block text-sm font-medium">Type</label>
+                <label className="mb-1 block text-sm font-medium">{tp("fields.type")}</label>
                 <select name="type" defaultValue={editing.type} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
-                  <option value="book">Book</option>
-                  <option value="course">Course</option>
-                  <option value="template">Template</option>
-                  <option value="guide">Guide</option>
+                <option value="book">{tp("types.book")}</option>
+                <option value="course">{tp("types.course")}</option>
+                <option value="template">{tp("types.template")}</option>
+                <option value="guide">{tp("types.guide")}</option>
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">Title</label>
+                <label className="mb-1 block text-sm font-medium">{tp("fields.title")}</label>
                 <input name="title" type="text" defaultValue={editing.title} required className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">Author / Seller</label>
+                <label className="mb-1 block text-sm font-medium">{tp("fields.authorSeller")}</label>
                 <input name="author" type="text" defaultValue={editing.author} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium">Price (USD)</label>
+                <label className="mb-1 block text-sm font-medium">{tp("fields.priceUsd")}</label>
                 <input name="price_cents" type="number" step="0.01" min="0" defaultValue={(editing.price_cents / 100).toFixed(2)} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" />
               </div>
               <AdminVaultSubcategorySelect
@@ -1246,11 +1235,11 @@ export default function AdminMarketplacePage() {
                 defaultValue={editing.focus_country}
               />
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-sm font-medium">Description</label>
+                <label className="mb-1 block text-sm font-medium">{tp("fields.description")}</label>
                 <textarea name="description" rows={3} defaultValue={editing.description ?? ""} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" />
               </div>
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-sm font-medium">YouTube video URL (optional)</label>
+                <label className="mb-1 block text-sm font-medium">{tp("fields.youtubeUrlOptional")}</label>
                 <input
                   name="video_url"
                   type="url"
@@ -1258,14 +1247,12 @@ export default function AdminMarketplacePage() {
                     editing.video_url && editing.video_url !== "null" ? editing.video_url : ""
                   }
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                  placeholder="https://www.youtube.com/watch?v=VIDEO_ID"
+                  placeholder={tp("fields.youtubePlaceholderShort")}
                 />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Used to embed a YouTube clip on the product page.
-                </p>
+                <p className="mt-1 text-xs text-muted-foreground">{tp("fields.youtubeHintShort")}</p>
               </div>
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-sm font-medium">Cover image</label>
+                <label className="mb-1 block text-sm font-medium">{tp("fields.coverImage")}</label>
                 <MarketplaceCoverImageField
                   previewUrl={coverImageCleared ? null : pendingImageUrl ?? editing.image_url}
                   uploading={imageUploading}
@@ -1278,7 +1265,7 @@ export default function AdminMarketplacePage() {
                 />
               </div>
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-sm font-medium">Custom landing page HTML (optional)</label>
+                <label className="mb-1 block text-sm font-medium">{tp("fields.customLandingHtml")}</label>
                 <p className="mb-2 text-xs text-muted-foreground">
                   Full HTML for ZIP packages on <code className="rounded bg-muted px-1">/marketplace/[id]/package</code>.
                   Re-upload a ZIP with <code className="rounded bg-muted px-1">index.html</code> to import automatically.
@@ -1289,7 +1276,7 @@ export default function AdminMarketplacePage() {
                   onChange={(e) => setEditLandingHtml(e.target.value)}
                   rows={8}
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 font-mono text-xs"
-                  placeholder="Paste HTML…"
+                  placeholder={tp("fields.pasteHtml")}
                 />
                 <input
                   ref={landingHtmlFileEditRef}
@@ -1299,7 +1286,7 @@ export default function AdminMarketplacePage() {
                   onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) {
-                      f.text().then(setEditLandingHtml).catch(() => setError("Could not read HTML file"));
+                      f.text().then(setEditLandingHtml).catch(() => setError(tp("errors.couldNotReadHtmlFile")));
                     }
                     e.target.value = "";
                   }}
@@ -1309,7 +1296,7 @@ export default function AdminMarketplacePage() {
                   onClick={() => landingHtmlFileEditRef.current?.click()}
                   className="mt-2 text-xs font-medium text-primary hover:underline"
                 >
-                  Replace from .html file
+                  {tp("fields.replaceFromHtmlFile")}
                 </button>
               </div>
               {showDualPricingEdit && (
@@ -1340,19 +1327,19 @@ export default function AdminMarketplacePage() {
                 />
               )}
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-sm font-medium">File (PDF, EPUB, ZIP, etc.)</label>
+                <label className="mb-1 block text-sm font-medium">{tp("fields.fileLabel")}</label>
                 {editing.file_path && !removeFile && !pendingFile ? (
                   <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
                     <FileText className="h-4 w-4 text-muted-foreground" />
-                    <span className="truncate">{editing.file_name ?? "File attached"}</span>
+                    <span className="truncate">{editing.file_name ?? tp("fields.fileAttached")}</span>
                     {editing.file_format && <span className="text-muted-foreground">(.{editing.file_format})</span>}
-                    <button type="button" onClick={() => setRemoveFile(true)} className="ml-auto rounded p-1 hover:bg-destructive/10 text-destructive text-xs">Remove file</button>
+                    <button type="button" onClick={() => setRemoveFile(true)} className="ml-auto rounded p-1 hover:bg-destructive/10 text-destructive text-xs">{tp("actions.removeFile")}</button>
                   </div>
                 ) : pendingFile ? (
                   <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
                     <FileText className="h-4 w-4 text-muted-foreground" />
                     <span className="truncate">{pendingFile.file_name}</span>
-                    <button type="button" onClick={() => setPendingFile(null)} className="ml-auto rounded p-1 hover:bg-muted" aria-label="Cancel"><X className="h-4 w-4" /></button>
+                    <button type="button" onClick={() => setPendingFile(null)} className="ml-auto rounded p-1 hover:bg-muted" aria-label={tc("cancel")}><X className="h-4 w-4" /></button>
                   </div>
                 ) : (
                   <>
@@ -1374,7 +1361,7 @@ export default function AdminMarketplacePage() {
                       className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-3 py-2 text-sm text-muted-foreground hover:border-primary hover:text-foreground disabled:opacity-50"
                     >
                       {fileUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                      {fileUploading ? "Please wait…" : removeFile ? "Upload new file" : "Replace file"}
+                      {fileUploading ? tp("actions.pleaseWait") : removeFile ? tp("actions.uploadNewFile") : tp("actions.replaceFile")}
                     </button>
                   </>
                 )}
@@ -1387,19 +1374,19 @@ export default function AdminMarketplacePage() {
               <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
                 <label className="flex items-center gap-2 text-sm">
                   <input name="published" type="checkbox" defaultChecked={editing.published} className="rounded border-input" />
-                  Published
+                  {tp("fields.published")}
                 </label>
-                <label className="flex items-center gap-2 text-sm" title="Purchasers get View course and the online implementation workspace">
+                <label className="flex items-center gap-2 text-sm" title={tp("fields.onlineCourseTitle")}>
                   <input
                     name="is_course"
                     type="checkbox"
                     defaultChecked={Boolean(editing.is_course)}
                     className="rounded border-input"
                   />
-                  Online course (implementation workspace)
+                  {tp("fields.onlineCourse")}
                 </label>
                 <label className="flex items-center gap-2 text-sm">
-                  Sort order
+                  {tp("fields.sortOrder")}
                   <input name="sort_order" type="number" defaultValue={editing.sort_order} className="w-20 rounded border border-input bg-background px-2 py-1 text-sm" />
                 </label>
               </div>
@@ -1416,7 +1403,7 @@ export default function AdminMarketplacePage() {
                   {syncingCourseId === editing.id ? (
                     <Loader2 className="inline h-4 w-4 animate-spin" />
                   ) : (
-                    "Sync modules from ZIP"
+                    tp("actions.syncModulesFromZip")
                   )}
                 </button>
               ) : null}
@@ -1426,14 +1413,14 @@ export default function AdminMarketplacePage() {
                 disabled={saving}
                 className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
               >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : tc("save")}
               </button>
               <button
                 type="button"
                 onClick={() => setEditing(null)}
                 className="rounded-lg border border-input px-4 py-2 text-sm font-medium hover:bg-accent"
               >
-                Cancel
+                {tc("cancel")}
               </button>
             </div>
           </div>
