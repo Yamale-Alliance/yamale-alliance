@@ -1,10 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { FileDown, Loader2 } from "lucide-react";
 import { formatLawPrintPriceUsd } from "@/lib/law-print-pricing";
 
 export function LawPrintPricingCard() {
+  const t = useTranslations("admin.lawPrintPricing");
+  const tc = useTranslations("admin.common");
   const [usdInput, setUsdInput] = useState("3");
   const [savedCents, setSavedCents] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,7 +26,7 @@ export function LawPrintPricingCard() {
           setUsdInput(String(data.lawPrintPriceUsdCents / 100));
         }
       })
-      .catch(() => setError("Could not load current price."))
+      .catch(() => setError(t("errors.couldNotLoad")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -45,7 +48,7 @@ export function LawPrintPricingCard() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to save");
+        setError(data.error ?? t("errors.failedToSave"));
         return;
       }
       if (typeof data.lawPrintPriceUsdCents === "number") {
@@ -56,7 +59,7 @@ export function LawPrintPricingCard() {
         );
       }
     } catch {
-      setError("Network error");
+      setError(tc("networkError"));
     } finally {
       setSaving(false);
     }
@@ -75,25 +78,25 @@ export function LawPrintPricingCard() {
           <FileDown className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Law print pricing</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t("title")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            One-time fee users pay to download a law as a print-ready PDF from the library.
+            {t("subtitle")}
           </p>
         </div>
       </div>
       {loading ? (
         <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Loading…
+          {tc("loading")}
         </div>
       ) : (
         <form onSubmit={(e) => void handleSave(e)} className="mt-4 max-w-md space-y-4">
           <div>
             <label htmlFor="law-print-price-usd" className="block text-sm font-medium text-foreground">
-              Price per law (USD)
+              {t("pricePerLaw")}
             </label>
             <p className="mt-1 text-xs text-muted-foreground">
-              Shown on the library, pricing page, and charged at checkout for PDF download unlocks.
+              {t("priceHelp")}
             </p>
             <div className="relative mt-2">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -114,7 +117,7 @@ export function LawPrintPricingCard() {
           </div>
           {previewCents != null ? (
             <p className="text-xs text-muted-foreground">
-              Checkout and UI will show{" "}
+              {t("previewPrefix")}{" "}
               <span className="font-medium text-foreground">{formatLawPrintPriceUsd(previewCents)}</span> per law.
             </p>
           ) : null}
@@ -126,7 +129,7 @@ export function LawPrintPricingCard() {
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Save print price
+            {t("save")}
           </button>
         </form>
       )}
