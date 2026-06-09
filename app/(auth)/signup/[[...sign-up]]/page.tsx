@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { EmbeddedSignUp } from "@/components/auth/EmbeddedSignUp";
 import { SignupIntentCookie } from "@/components/auth/SignupIntentCookie";
 
 function SignUpPageContent() {
+  const t = useTranslations("auth");
   const searchParams = useSearchParams();
   const redirectUrl = searchParams.get("redirect_url");
   const safeRedirect =
@@ -23,22 +25,17 @@ function SignUpPageContent() {
     <>
       <SignupIntentCookie role="user" />
       <AuthShell
-        title="Join Yamalé Legal"
+        title={t("joinTitle")}
         subtitle={
-          safeRedirect?.startsWith("/library")
-            ? "Create a free account to search African statutes, regulations, and treaties in the legal library."
-            : "Create a client account to access the library, AfCFTA tools, The Yamalé Vault, and AI research."
+          safeRedirect?.startsWith("/library") ? t("signUpSubtitleLibrary") : t("signUpSubtitle")
         }
         footer={
           <>
-            Already have an account?{" "}
+            {t("alreadyHaveAccount")}{" "}
             <Link href={signInHref} className="font-medium text-primary hover:underline">
-              Sign in
+              {t("signIn")}
             </Link>
-            <p className="mt-4 text-xs leading-relaxed">
-              Lawyer accounts are created and invited by the admin team. If you are a lawyer, use
-              the secure sign-in link sent to your email.
-            </p>
+            <p className="mt-4 text-xs leading-relaxed">{t("lawyerInviteNote")}</p>
           </>
         }
       >
@@ -49,11 +46,13 @@ function SignUpPageContent() {
 }
 
 export default function SignUpPage() {
+  const t = useTranslations("auth");
+
   return (
     <Suspense
       fallback={
         <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted-foreground">
-          Loading sign up…
+          {t("loadingSignUp")}
         </div>
       }
     >
