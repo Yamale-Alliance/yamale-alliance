@@ -20,6 +20,7 @@ import {
   LAW_RAG_PENDING_STATUS,
 } from "@/lib/laws-rag-integrity";
 import { scanFile } from "@/lib/uploads/scanner";
+import { normalizeLawDocumentLanguageCode } from "@/lib/law-document-language";
 
 // Allow up to 5 minutes for PDF extraction and OCR (large or scanned PDFs)
 export const maxDuration = 300;
@@ -74,6 +75,9 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file") as File | null;
     const content = formData.get("content") as string | null;
     const forceOcr = formData.get("forceOcr") === "true";
+    const languageCode = normalizeLawDocumentLanguageCode(
+      (formData.get("languageCode") as string | null) ?? null
+    );
 
     const title = normaliseLawTitle(rawTitle);
     const treatyType = typeof treatyTypeRaw === "string" ? treatyTypeRaw.trim() : "Not a treaty";
@@ -172,6 +176,7 @@ export async function POST(request: NextRequest) {
             status: (status ?? "In force").trim(),
             content: contentTrimmed,
             content_plain: contentTrimmed,
+            language_code: languageCode,
             ...integrityFields,
           },
         ]
@@ -187,6 +192,7 @@ export async function POST(request: NextRequest) {
           status: (status ?? "In force").trim(),
           content: contentTrimmed,
           content_plain: contentTrimmed,
+          language_code: languageCode,
           ...integrityFields,
         }));
 
