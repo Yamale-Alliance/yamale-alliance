@@ -39,6 +39,7 @@ export type LibraryLawRow = {
   country_id: string | null;
   applies_to_all_countries: boolean;
   category_id: string;
+  language_code?: string | null;
   /** All category IDs this law is filed under (library filters). */
   all_category_ids?: string[];
   countries: { name: string } | null;
@@ -174,7 +175,7 @@ const FETCH_TIMEOUT_MS = 55 * 1000; // large catalogs + enrichment; parallelized
 const CATEGORY_ID_IN_CHUNK = 80;
 
 const LAWS_SELECT_FIELDS =
-  "id, slug, title, source_name, year, status, treaty_type, country_id, applies_to_all_countries, category_id, created_at, updated_at, last_verified_at, countries(name), categories!laws_category_id_fkey(name)";
+  "id, slug, title, source_name, year, status, treaty_type, country_id, applies_to_all_countries, category_id, language_code, created_at, updated_at, last_verified_at, countries(name), categories!laws_category_id_fkey(name)";
 
 let cachedData: LibraryData | null = null;
 let cacheTimestamp = 0;
