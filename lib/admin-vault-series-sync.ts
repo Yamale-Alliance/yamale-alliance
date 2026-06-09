@@ -16,6 +16,12 @@ import {
   assertVaultSeriesTableAvailable,
   isMarketplaceVaultSeriesTableMissing,
 } from "@/lib/marketplace-vault-series-db";
+import {
+  legacyFieldsFromMarketplaceFiles,
+  listMarketplaceItemFilesByItemIds,
+  parseMarketplaceItemFilesInput,
+  syncMarketplaceItemFiles,
+} from "@/lib/marketplace-item-files";
 
 const VALID_ITEM_TYPES = ["book", "course", "template", "guide"] as const;
 
@@ -47,6 +53,7 @@ export type VaultSeriesItemInput = {
   file_name?: string | null;
   file_format?: string | null;
   remove_file?: boolean;
+  language_files?: unknown;
 };
 
 export type VaultSeriesBundleInput = {
@@ -149,7 +156,19 @@ export async function loadVaultSeriesBundle(
     .order("created_at", { ascending: true });
 
   if (error) throw new Error(error.message);
-  return { series, items: items ?? [] };
+  const rows = items ?? [];
+  const filesByItem = await listMarketplaceItemFilesByItemIds(
+    supabase,
+    rows.map((row) => String((row as { id: string }).id))
+  );
+  const itemsWithLanguages = rows.map((row) => {
+    const itemId = String((row as { id: string }).id);
+    return {
+      ...row,
+      language_files: filesByItem.get(itemId) ?? [],
+    };
+  });
+  return { series, items: itemsWithLanguages };
 }
 
 export async function saveVaultSeriesBundle(
@@ -221,13 +240,22 @@ export async function saveVaultSeriesBundle(
 
     const price = Math.max(0, Math.round(item.price_cents ?? 0));
     const imageUrl = item.use_default_cover ? null : item.image_url?.trim() || null;
-    const fileFields = item.remove_file
-      ? { file_path: null, file_name: null, file_format: null }
-      : {
-          file_path: item.file_path?.trim() || null,
-          file_name: item.file_name?.trim() || null,
-          file_format: item.file_format?.trim() || null,
-        };
+    const parsedLanguageFiles = parseMarketplaceItemFilesInput(item.language_files);
+    const legacyFromLanguages =
+      parsedLanguageFiles !== null
+        ? parsedLanguageFiles.length > 0
+          ? legacyFieldsFromMarketplaceFiles(parsedLanguageFiles)
+          : { file_path: null, file_name: null, file_format: null }
+        : null;
+    const fileFields = legacyFromLanguages
+      ? legacyFromLanguages
+      : item.remove_file
+        ? { file_path: null, file_name: null, file_format: null }
+        : {
+            file_path: item.file_path?.trim() || null,
+            file_name: item.file_name?.trim() || null,
+            file_format: item.file_format?.trim() || null,
+          };
     const itemType = VALID_ITEM_TYPES.includes(
       item.type as (typeof VALID_ITEM_TYPES)[number]
     )
@@ -259,6 +287,9 @@ export async function saveVaultSeriesBundle(
       if (error) throw new Error(error.message);
       if (data) {
         savedItems.push(data as Record<string, unknown>);
+        if (parsedLanguageFiles !== null) {
+          await syncMarketplaceItemFiles(supabase, String(data.id), parsedLanguageFiles);
+        }
         try {
           await assignMarketplaceItemSlug(supabase, {
             id: String(data.id),
@@ -277,6 +308,9 @@ export async function saveVaultSeriesBundle(
       if (error) throw new Error(error.message);
       if (data) {
         savedItems.push(data as Record<string, unknown>);
+        if (parsedLanguageFiles !== null) {
+          await syncMarketplaceItemFiles(supabase, String(data.id), parsedLanguageFiles);
+        }
         try {
           await assignMarketplaceItemSlug(supabase, {
             id: String(data.id),
