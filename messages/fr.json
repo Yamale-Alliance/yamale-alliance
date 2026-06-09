@@ -1339,6 +1339,37 @@
           "saveFailed": "Échec de l'enregistrement des modifications"
         }
       },
+      "documentLanguage": {
+        "label": "Langue du document",
+        "hint": "Affichée aux lecteurs sous forme de badge (ex. FR, EN) sur la loi dans la bibliothèque.",
+        "unspecified": "Non précisée",
+        "options": {
+          "en": "Anglais (EN)",
+          "fr": "Français (FR)",
+          "pt": "Portugais (PT)",
+          "ar": "Arabe (AR)",
+          "sw": "Swahili (SW)",
+          "am": "Amharique (AM)",
+          "af": "Afrikaans (AF)",
+          "ha": "Haoussa (HA)",
+          "yo": "Yoruba (YO)",
+          "ig": "Igbo (IG)",
+          "zu": "Zoulou (ZU)",
+          "rw": "Kinyarwanda (RW)",
+          "so": "Somali (SO)",
+          "om": "Oromo (OM)",
+          "mg": "Malgache (MG)",
+          "ln": "Lingala (LN)",
+          "sn": "Shona (SN)",
+          "st": "Sotho (ST)",
+          "tn": "Tswana (TN)",
+          "ts": "Tsonga (TS)",
+          "de": "Allemand (DE)",
+          "es": "Espagnol (ES)",
+          "it": "Italien (IT)",
+          "other": "Autre"
+        }
+      },
       "fixOcr": {
         "back": "Retour aux lois",
         "title": "Corriger OCR avec l'IA",
@@ -1831,6 +1862,64 @@
         "videoUploadFailed": "Échec du téléversement de la vidéo"
       }
     }
+  },
+  "foundersNotePage": {
+    "metaTitle": "Mot de la fondatrice",
+    "metaDescription": "Pourquoi nous avons créé Yamalé — un message de Meghan Waters, PDG, sur le manque d'infrastructure juridique en Afrique et la construction de la plateforme ensemble.",
+    "backToHome": "Retour à l'accueil",
+    "footerHint": "Vous pouvez revenir à cette page à tout moment depuis le pied de page, sous",
+    "footerHintPath": "Entreprise → Mot de la fondatrice",
+    "eyebrow": "Mot de la fondatrice",
+    "title": "Pourquoi nous avons créé Yamalé",
+    "paragraphs": [
+      "Pendant toutes les années où j'ai travaillé à travers l'Afrique, avec des gouvernements, des entreprises et des communautés confrontées à certains des défis juridiques et de gouvernance les plus complexes du continent, le problème était toujours le même. Le droit était partout et nulle part à la fois.",
+      "Les entreprises passaient des semaines à rechercher des codes d'investissement. Les avocats conservaient des bibliothèques PDF personnelles parce qu'aucune source centrale fiable n'existait. Des lois essentielles ne se trouvaient que dans d'anciens journaux officiels papier ou sur des sites ministériels défaillants. Lorsque nous avions besoin d'un article précis d'un Acte uniforme OHADA, ou devions vérifier si un permis minier était conforme au droit national, nous perdions des heures, parfois des jours, rien que pour trouver et confirmer le texte.",
+      "Le coût n'était jamais seulement une perte de temps. C'était un obstacle à l'investissement, à la conformité, à la redevabilité et au commerce transfrontalier que la Zone de libre-échange continentale africaine promet, mais ne peut pas concrétiser sans une infrastructure juridique fonctionnelle.",
+      "En janvier 2026, nous avons créé Yamalé. C'est une organisation à but non lucratif et une plateforme qui travaillent ensemble. L'organisation à but non lucratif poursuit le travail consultatif que nous avons toujours mené, en accompagnant les gouvernements dans des négociations à enjeux élevés, en aidant les communautés minières à protéger leurs droits et en renforçant les institutions. La plateforme construit l'infrastructure dont ce travail dépend : une bibliothèque juridique complète, alimentée par l'IA, couvrant les 54 pays africains, des outils de conformité ZLECAf et une place de marché pour l'expertise juridique spécialisée.",
+      "Yamalé est une plateforme communautaire, et nous voulons être honnêtes avec vous dès le premier jour quant à son état actuel. Nous avons des lois pour chaque pays africain, bien que certaines soient encore en cours de nettoyage à partir d'anciens documents numérisés. Le Vault de contenus d'experts à vendre est modeste au lancement et grandira progressivement. L'annuaire d'avocats vérifiés est sur invitation uniquement pour l'instant, par choix délibéré, pendant que nous le construisons avec soin. Le Passeport ZLECAf, notre outil de conformité étape par étape pour le commerce transfrontalier, est encore en développement et sera lancé plus tard cette année.",
+      "Nous lançons maintenant parce qu'une ressource qui grandit aux côtés de ses utilisateurs vaut bien plus qu'une ressource perfectionnée en privé et livrée trop tard. L'alternative actuelle — des informations juridiques dispersées et souvent peu fiables — ne sert personne assez bien.",
+      "Cette plateforme ne fonctionnera que si nous sommes honnêtes les uns envers les autres. Nous vous disons ce qui est prêt et ce qui ne l'est pas, et nous vous demandons de faire de même en retour. Les personnes les mieux placées pour renforcer Yamalé sont celles qui l'utiliseront chaque jour. Si quelque chose doit être corrigé, dites-le-nous. Si une loi dont vous dépendez manque, soumettez-la. Si un document est erroné ou obsolète, signalez-le. Si vous êtes avocat ou expert juridique et souhaitez contribuer, postulez pour rejoindre notre réseau. Chaque correction, chaque contribution et chaque retour honnête façonne ce que devient cette plateforme.",
+      "Yamalé existe parce que les entreprises, gouvernements et professionnels du droit africains méritent le même accès à l'infrastructure juridique que celui dont bénéficient les personnes dans d'autres régions. Nous la construisons ensemble, et nous espérons que vous nous aiderez à la construire bien."
+    ],
+    "signature": {
+      "name": "Meghan Waters",
+      "title": "Directrice générale, Yamalé",
+      "location": "Dakar, Sénégal · juin 2026"
+    },
+    "dialog": {
+      "title": "Bienvenue sur Yamalé",
+      "description": "Un court mot de notre fondatrice avant de commencer.",
+      "readAgain": "Relire à tout moment",
+      "continue": "Continuer vers Yamalé",
+      "closeAria": "Fermer"
+    }
+  },
+  "lawLanguages": {
+    "flairTitle": "Ce document est en {language}",
+    "en": "anglais",
+    "fr": "français",
+    "pt": "portugais",
+    "ar": "arabe",
+    "sw": "swahili",
+    "am": "amharique",
+    "af": "afrikaans",
+    "ha": "haoussa",
+    "yo": "yoruba",
+    "ig": "igbo",
+    "zu": "zoulou",
+    "rw": "kinyarwanda",
+    "so": "somali",
+    "om": "oromo",
+    "mg": "malgache",
+    "ln": "lingala",
+    "sn": "shona",
+    "st": "sotho",
+    "tn": "tswana",
+    "ts": "tsonga",
+    "de": "allemand",
+    "es": "espagnol",
+    "it": "italien",
+    "other": "une autre langue"
   },
   "library": {
     "eyebrow": "Bibliothèque juridique",
