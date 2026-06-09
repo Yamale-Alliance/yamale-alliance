@@ -2,12 +2,17 @@
 
 import * as Dialog from "@radix-ui/react-dialog";
 import { Download, Eye, Loader2, X } from "lucide-react";
+import { VaultLanguageBadges } from "@/components/marketplace/VaultLanguageBadges";
+import type { MarketplaceFileAccessMeta } from "@/lib/marketplace-file-access";
 
 type MarketplaceFileAccessDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   fileName?: string | null;
   busy?: boolean;
+  languageFiles?: MarketplaceFileAccessMeta[];
+  selectedLanguage?: string | null;
+  onLanguageChange?: (languageCode: string) => void;
   onPreview: () => void;
   onDownload: () => void;
 };
@@ -17,9 +22,18 @@ export function MarketplaceFileAccessDialog({
   onOpenChange,
   fileName,
   busy = false,
+  languageFiles = [],
+  selectedLanguage = null,
+  onLanguageChange,
   onPreview,
   onDownload,
 }: MarketplaceFileAccessDialogProps) {
+  const hasMultipleLanguages = languageFiles.length > 1;
+  const activeLanguage = selectedLanguage ?? languageFiles[0]?.language_code ?? null;
+  const activeFile =
+    languageFiles.find((f) => f.language_code === activeLanguage) ?? languageFiles[0] ?? null;
+  const displayName = activeFile?.file_name ?? fileName;
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -29,14 +43,19 @@ export function MarketplaceFileAccessDialog({
             <div>
               <Dialog.Title className="text-lg font-semibold text-foreground">View or download</Dialog.Title>
               <Dialog.Description className="mt-1 text-sm text-muted-foreground">
-                {fileName ? (
+                {displayName ? (
                   <>
-                    Choose how to open <span className="font-medium text-foreground">{fileName}</span>.
+                    Choose how to open <span className="font-medium text-foreground">{displayName}</span>.
                   </>
                 ) : (
                   "Choose how you would like to open this file."
                 )}
               </Dialog.Description>
+              {languageFiles.length > 0 ? (
+                <div className="mt-2">
+                  <VaultLanguageBadges languageCodes={languageFiles.map((f) => f.language_code)} />
+                </div>
+              ) : null}
             </div>
             <Dialog.Close asChild>
               <button
@@ -48,6 +67,34 @@ export function MarketplaceFileAccessDialog({
               </button>
             </Dialog.Close>
           </div>
+
+          {hasMultipleLanguages ? (
+            <div className="mt-5">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Document language
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {languageFiles.map((file) => {
+                  const active = file.language_code === activeLanguage;
+                  return (
+                    <button
+                      key={file.language_code}
+                      type="button"
+                      disabled={busy}
+                      onClick={() => onLanguageChange?.(file.language_code)}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-50 ${
+                        active
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                      }`}
+                    >
+                      {file.language_code}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
 
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
             <button
