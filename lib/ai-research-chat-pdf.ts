@@ -7,6 +7,7 @@ import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
 import { loadImageAsDataUrl } from "@/lib/afcfta-report-pdf";
 import { plainTextForAiChatExport } from "@/lib/ai-chat-plain-text";
+import { humanizeDocMarkersInAnswer, type DocTitleBySlot } from "@/lib/ai-citation-verify";
 import { parseLawBodyBlocks } from "@/lib/library/law-body-blocks";
 import { plainTextFromMarkdownish } from "@/lib/library/law-document-pdf";
 import {
@@ -37,6 +38,7 @@ export type AiResearchChatPdfMessage = {
   role: "user" | "assistant";
   content: string;
   sources?: string[];
+  sourceCards?: DocTitleBySlot[];
 };
 
 export type AiResearchChatPdfInput = {
@@ -262,15 +264,19 @@ function drawMessageBlock(
   y: number,
   role: "user" | "assistant",
   content: string,
-  sources?: string[]
+  sources?: string[],
+  sourceCards?: DocTitleBySlot[]
 ): number {
   const label = role === "user" ? "Your question" : "Yamalé AI";
   if (!content?.trim() && (!sources || sources.length === 0)) return y;
 
+  const bodyContent =
+    role === "assistant" ? humanizeDocMarkersInAnswer(content, sourceCards) : content;
+
   const blockPad = 4;
   const innerW = CONTENT_W - blockPad * 2 - 3;
   const labelH = 6;
-  let contentH = content?.trim() ? estimateMessageBodyHeight(doc, innerW, content) + 2 : 0;
+  let contentH = bodyContent?.trim() ? estimateMessageBodyHeight(doc, innerW, bodyContent) + 2 : 0;
   if (sources?.length) {
     contentH += 4;
     for (const src of sources.slice(0, 12)) {
@@ -291,8 +297,8 @@ function drawMessageBlock(
   const blockTop = y;
   if (!useShadedBox) {
     y = writeWrapped(doc, label, MARGIN, y, CONTENT_W, 9, "bold") + (labelH - 6);
-    if (content?.trim()) {
-      y = drawMessageBody(doc, y, MARGIN, CONTENT_W, content);
+    if (bodyContent?.trim()) {
+      y = drawMessageBody(doc, y, MARGIN, CONTENT_W, bodyContent);
     }
     if (sources?.length) {
       y = writeWrapped(doc, "Sources consulted", MARGIN, y, CONTENT_W, 8, "bold") + 1;
@@ -326,8 +332,8 @@ function drawMessageBlock(
   y = writeWrapped(doc, label, textX, y, innerW, 9, "bold");
   y += 2;
 
-  if (content?.trim()) {
-    y = drawMessageBody(doc, y, textX, innerW, content);
+  if (bodyContent?.trim()) {
+    y = drawMessageBody(doc, y, textX, innerW, bodyContent);
   }
 
   if (sources && sources.length > 0) {
@@ -400,7 +406,7 @@ export async function buildAiResearchChatPdfBlob(input: AiResearchChatPdfInput):
     writeWrapped(doc, "No messages in this conversation.", MARGIN, y, CONTENT_W, 10);
   } else {
     for (const msg of exportMessages) {
-      y = drawMessageBlock(doc, y, msg.role, msg.content, msg.sources);
+      y = drawMessageBlock(doc, y, msg.role, msg.content, msg.sources, msg.sourceCards);
     }
   }
 
