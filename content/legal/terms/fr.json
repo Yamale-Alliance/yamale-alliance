@@ -1,0 +1,355 @@
+{
+  "meta": {
+    "title": "Conditions d'utilisation",
+    "description": "Conditions générales d'utilisation de la plateforme Yamalé Legal, y compris les abonnements, The Yamalé Vault, la recherche juridique par IA et l'annuaire d'avocats.",
+    "heroTitle": "Conditions d'utilisation",
+    "heroSubtitle": "Règles et conditions d'utilisation de la plateforme Yamalé Legal",
+    "dateLine": "Dernière mise à jour : 12 février 2026"
+  },
+  "sections": [
+    {
+      "kind": "section",
+      "number": "1",
+      "title": "Acceptation des conditions",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "En accédant à la plateforme Yamalé Legal (« Plateforme », « nous », « notre ») ou en l'utilisant, y compris notre site web, la bibliothèque juridique, les outils ZLECAf, la recherche juridique par IA, l'annuaire d'avocats, The Yamalé Vault et tout service connexe, vous acceptez d'être lié par les présentes Conditions d'utilisation (« Conditions »). Si vous n'acceptez pas ces Conditions, vous ne devez pas utiliser la Plateforme. Des conditions supplémentaires peuvent s'appliquer à certaines fonctionnalités (par exemple, les paiements ou la vérification des avocats) ; ces conditions sont incorporées par renvoi."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "2",
+      "title": "Description des services",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "La plateforme Yamalé Legal propose, entre autres :"
+            }
+          ]
+        },
+        {
+          "type": "bullets",
+          "items": [
+            {
+              "label": "Bibliothèque juridique :",
+              "text": "Consultation et accès à des documents juridiques africains par juridiction et domaine."
+            },
+            {
+              "label": "Outils ZLECAf :",
+              "text": "Outils de conformité transfrontalière, listes de contrôle sectorielles et orientations de type règles d'origine."
+            },
+            {
+              "label": "Recherche juridique par IA :",
+              "text": "Assistance à la recherche par IA en droit africain et conformité. Les réponses sont indicatives et ne constituent pas un avis juridique."
+            },
+            {
+              "label": "Annuaire d'avocats :",
+              "text": "Annuaire de professionnels du droit vérifiés. Les coordonnées peuvent être débloquées moyennant paiement (par recherche ou pass journalier), comme indiqué sur la Plateforme."
+            },
+            {
+              "label": "The Yamalé Vault :",
+              "text": "Produits numériques (par exemple, livres, cours, modèles) à usage juridique et de conformité. Les droits et l'accès sont soumis au paiement et aux conditions propres à chaque article."
+            },
+            {
+              "label": "Abonnements et paiements :",
+              "text": "Formules d'abonnement (par exemple, Basic, Pro, Team) et achats ponctuels (par exemple, déblocages de recherche, pass journalier, articles The Yamalé Vault), tels que décrits sur les pages de tarification et de paiement."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "3",
+      "title": "Comptes et éligibilité",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Vous devez avoir au moins 18 ans et être en mesure de conclure un contrat juridiquement contraignant pour utiliser la Plateforme. Vous êtes responsable de la confidentialité de vos identifiants de compte et de toute activité effectuée sous votre compte. Vous devez fournir des informations exactes et complètes lors de votre inscription. Les avocats doivent satisfaire aux exigences de vérification et de profil ; nous pouvons approuver, refuser ou supprimer des fiches à notre discrétion."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "4",
+      "title": "Abonnements et paiements",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Les frais d'abonnement, les paiements ponctuels (par exemple, déblocage de coordonnées d'avocats, pass journalier, achats The Yamalé Vault) et les cycles de facturation sont ceux affichés au moment de l'achat. Les paiements sont traités par nos prestataires de paiement (tels que pawaPay). En effectuant un achat, vous acceptez les tarifs applicables et notre "
+            },
+            {
+              "kind": "link",
+              "href": "/payment-refund",
+              "label": "Politique de paiement et de remboursement"
+            },
+            {
+              "kind": "text",
+              "value": ". Nous pouvons modifier les tarifs avec un préavis lorsque la loi l'exige ; la poursuite de l'utilisation après modification peut valoir acceptation. Les limites d'abonnement et d'utilisation (par exemple, crédits de recherche par IA) sont appliquées conformément à la description du produit et à notre Politique de confidentialité."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "5",
+      "title": "Annuaire d'avocats et déblocages",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "L'annuaire d'avocats est fourni à titre informatif et pour faciliter la prise de contact. Une inscription ne garantit ni la disponibilité ni l'adéquation d'un avocat. Le déblocage des coordonnées (par recherche ou via un pass journalier) vous donne accès aux informations affichées au moment du déblocage. Nous ne garantissons aucun résultat découlant d'une relation avec un avocat. Tout accord entre vous et un avocat est conclu exclusivement entre vous et cet avocat ; nous ne sommes pas partie à de tels accords."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "6",
+      "title": "Recherche par IA – Pas un avis juridique",
+      "blocks": [
+        {
+          "type": "callout",
+          "label": "Important",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "La recherche juridique par IA sur la Plateforme est destinée uniquement à des fins d'information et de recherche générale. Elle "
+            },
+            {
+              "kind": "strong",
+              "value": "ne"
+            },
+            {
+              "kind": "text",
+              "value": " constitue pas un avis juridique, fiscal ou professionnel. Les réponses peuvent être incomplètes, obsolètes ou inapplicables à votre situation. Vous ne devez pas vous fier aux résultats de l'IA comme substitut à l'avis d'un avocat qualifié ou d'un autre professionnel. Nous recommandons vivement de consulter un professionnel qualifié pour toute question juridique ou de conformité spécifique."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "7",
+      "title": "Utilisation acceptable",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Vous vous engagez à ne pas :"
+            }
+          ]
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "Utiliser la Plateforme en violation de toute loi ou réglementation applicable.",
+            "Porter atteinte à la propriété intellectuelle ou à d'autres droits nous appartenant ou appartenant à des tiers.",
+            "Transmettre des logiciels malveillants, du spam ou du contenu nuisible ou illégal.",
+            "Tenter d'obtenir un accès non autorisé à nos systèmes, à d'autres comptes ou à des services tiers.",
+            "Extraire des données, automatiser l'accès ou surcharger la Plateforme d'une manière qui en altère le fonctionnement.",
+            "Utiliser la Plateforme pour harceler, diffamer ou nuire à autrui."
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Nous pouvons suspendre ou résilier l'accès en cas de violation des présentes Conditions ou pour toute autre raison que nous jugeons nécessaire pour protéger la Plateforme, nos utilisateurs ou des tiers."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "8",
+      "title": "Propriété intellectuelle",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "La Plateforme (y compris sa conception, ses textes, ses logiciels et notre image de marque) nous appartient ou fait l'objet d'une licence en notre faveur. Vous ne pouvez pas copier, modifier, distribuer ou créer des œuvres dérivées sans notre consentement écrit préalable. Le contenu juridique et le contenu The Yamalé Vault peuvent être soumis à des droits de tiers ; votre utilisation doit respecter les licences ou conditions affichées pour ce contenu."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "9",
+      "title": "Exclusions de garantie",
+      "blocks": [
+        {
+          "type": "callout",
+          "label": "Avertissement",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "LA PLATEFORME ET L'ENSEMBLE DE SON CONTENU ET DE SES SERVICES SONT FOURNIS « EN L'ÉTAT » ET « SELON DISPONIBILITÉ ». NOUS EXCLUONS TOUTE GARANTIE, EXPRESSE OU IMPLICITE, Y COMPRIS LES GARANTIES DE QUALITÉ MARCHANDE, D'ADÉQUATION À UN USAGE PARTICULIER ET DE NON-CONTREFAÇON. NOUS NE GARANTISSONS PAS QUE LA PLATEFORME SERA ININTERROMPUE, EXEMPTE D'ERREURS OU DE COMPOSANTS NUISIBLES. L'UTILISATION DE LA RECHERCHE PAR IA, DE LA BIBLIOTHÈQUE JURIDIQUE, DES OUTILS ZLECAF ET DE L'ANNUAIRE D'AVOCATS SE FAIT À VOS PROPRES RISQUES."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "10",
+      "title": "Limitation de responsabilité",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "DANS LA MESURE MAXIMALE PERMISE PAR LA LOI APPLICABLE, NOUS (ET NOS FILIALES, DIRIGEANTS, EMPLOYÉS ET MANDATAIRES) NE SERONS PAS RESPONSABLES DES DOMMAGES INDIRECTS, ACCESSOIRES, SPÉCIAUX, CONSÉCUTIFS OU PUNITIFS, NI DES PERTES DE BÉNÉFICES, DE DONNÉES OU DE CLIENTÈLE, DÉCOULANT DE VOTRE UTILISATION OU DE VOTRE IMPOSSIBILITÉ D'UTILISER LA PLATEFORME. NOTRE RESPONSABILITÉ TOTALE POUR TOUTE RÉCLAMATION DÉCOULANT DES PRÉSENTES CONDITIONS OU DE LA PLATEFORME OU Y ÉTANT LIÉE NE DÉPASSERA PAS LE MONTANT QUE VOUS NOUS AVEZ VERSÉ AU COURS DES DOUZE (12) MOIS PRÉCÉDANT LA RÉCLAMATION (OU, LE CAS ÉCHÉANT, CENT DOLLARS AMÉRICAINS). CERTAINES JURIDICTIONS N'AUTORISENT PAS CERTAINES LIMITATIONS ; DANS CE CAS, NOTRE RESPONSABILITÉ SERA LIMITÉE DANS LA MESURE MAXIMALE PERMISE PAR LA LOI."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "11",
+      "title": "Indemnisation",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Vous acceptez d'indemniser et de dégager de toute responsabilité la plateforme Yamalé Legal et ses filiales, dirigeants, employés et mandataires contre toute réclamation, tout dommage, toute perte ou toute dépense (y compris les honoraires juridiques raisonnables) découlant de votre utilisation de la Plateforme, de votre violation des présentes Conditions ou de votre méconnaissance de toute loi ou de droits de tiers."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "12",
+      "title": "Résiliation",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Nous pouvons suspendre ou résilier votre accès à la Plateforme à tout moment, avec ou sans motif et avec ou sans préavis. Vous pouvez cesser d'utiliser la Plateforme à tout moment. En cas de résiliation, votre droit d'utiliser la Plateforme prend fin ; les dispositions qui, de par leur nature, doivent survivre (par exemple, exclusions de garantie, limitation de responsabilité, indemnisation, droit applicable) resteront en vigueur."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "13",
+      "title": "Droit applicable et litiges",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Les présentes Conditions sont régies par les lois de la juridiction dans laquelle la plateforme Yamalé Legal exerce ses activités, sans égard aux principes de conflit de lois. Tout litige découlant des présentes Conditions ou de la Plateforme ou s'y rapportant sera tranché par les tribunaux de cette juridiction, sauf disposition contraire. Vous pouvez également bénéficier de droits en vertu des lois de protection des consommateurs de votre pays, droits qui ne peuvent être exclus par contrat."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "14",
+      "title": "Modifications des conditions",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Nous pouvons modifier les présentes Conditions de temps à autre. Nous publierons les Conditions mises à jour sur cette page et actualiserons la date de « Dernière mise à jour ». Votre utilisation continue de la Plateforme après modification vaut acceptation. Pour les modifications substantielles, nous pouvons fournir un avis supplémentaire (par exemple, par courriel ou notification dans le produit) lorsque la loi l'exige."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "15",
+      "title": "Contact",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Pour toute question relative aux présentes Conditions, contactez-nous à "
+            },
+            {
+              "kind": "email",
+              "address": "hello@yamalelegal.com"
+            },
+            {
+              "kind": "text",
+              "value": "."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "updatedBanner": [
+    {
+      "kind": "text",
+      "value": "Les présentes Conditions d'utilisation ont été mises à jour pour la dernière fois le "
+    },
+    {
+      "kind": "strong",
+      "value": "12 février 2026"
+    },
+    {
+      "kind": "text",
+      "value": ". Veuillez les consulter périodiquement pour prendre connaissance des mises à jour."
+    }
+  ],
+  "footerLinks": [
+    {
+      "href": "/privacy",
+      "label": "Politique de confidentialité"
+    },
+    {
+      "href": "/payment-refund",
+      "label": "Politique de paiement et de remboursement"
+    },
+    {
+      "href": "/",
+      "label": "Accueil"
+    }
+  ]
+}
