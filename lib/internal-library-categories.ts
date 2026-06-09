@@ -9,12 +9,14 @@ export { AI_LEGAL_METHODOLOGY_CATEGORY };
 
 const INTERNAL_CATEGORY_NAMES = new Set<string>([AI_LEGAL_METHODOLOGY_CATEGORY]);
 
-/** Titles that must never appear in library search or law detail (still shown on AI source cards). */
+/** Titles that must never appear in library search, law detail, or AI source cards. */
 const INTERNAL_LIBRARY_TITLE_PATTERNS: RegExp[] = [
   /yamal[eé]\s+ai\s+brain/i,
   /contextual\s+brain/i,
   /ai\s+brain.*\bconfidential\b/i,
   /\bconfidential\b.*ai\s+brain/i,
+  /legal\s+system\s+deep\s+dive/i,
+  /\bdeep\s+dive\b/i,
 ];
 
 let cachedInternalCategoryId: string | null | undefined;
@@ -96,4 +98,26 @@ export function excludeInternalCategoryFromLawsQuery<T extends { neq: (col: stri
 
 export function clearInternalLibraryCategoryIdCache(): void {
   cachedInternalCategoryId = undefined;
+}
+
+/** Split statute RAG hits from internal brain / methodology rows (never user-facing sources). */
+export function partitionLegalContextForAiTurn<
+  T extends { title?: string | null; category?: string | null },
+>(docs: T[], internalCategoryId: string | null, includeInternalInStatuteList = false): {
+  statuteDocs: T[];
+  internalDocs: T[];
+} {
+  if (includeInternalInStatuteList) {
+    return { statuteDocs: docs, internalDocs: [] };
+  }
+  const statuteDocs: T[] = [];
+  const internalDocs: T[] = [];
+  for (const doc of docs) {
+    if (isInternalLibraryForUserDisplay(doc, internalCategoryId)) {
+      internalDocs.push(doc);
+    } else {
+      statuteDocs.push(doc);
+    }
+  }
+  return { statuteDocs, internalDocs };
 }
