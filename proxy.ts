@@ -33,6 +33,10 @@ const isPublicRoute = createRouteMatcher([
   "/library(.*)", // page shows sign-in prompt; laws API requires Clerk session
   "/afcfta(.*)",
   "/ai-research(.*)",
+  "/ai-legal-search-africa(.*)",
+  "/ohada-ai-legal-research(.*)",
+  "/afcfta-ai-legal-research(.*)",
+  "/african-legal-library-ai(.*)",
   "/marketplace(.*)",
   "/lawyers(.*)",
   "/api/pricing", // public pricing data for pricing page
