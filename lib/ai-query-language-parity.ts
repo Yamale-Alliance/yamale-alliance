@@ -241,11 +241,13 @@ export function detectUserQueryLanguage(query: string): "fr" | "en" | "ar" | "ot
   if (/[\u0600-\u06FF]/.test(query)) return "ar";
   const q = normalizeQueryForLibrarySearch(query).toLowerCase();
   const frSignals =
-    /\b(loi|droit|code|quelles?|comment|pourquoi|est-ce|sont|des|une|aux|fiscale?|impots?|travail|societe|société|juridique|legislation|decret|arrete)\b/.test(
+    /\b(loi|droit|code|quelles?|quels|comment|pourquoi|est-ce|sont|des|une|aux|fiscale?|impots?|travail|societe|société|juridique|legislation|decret|arrete|actes?\s+uniformes?)\b/.test(
       q
     );
   const enSignals =
-    /\b(law|what|how|does|shall|statute|regulation|act|code|tax|company|employment)\b/.test(q);
+    /\b(law|laws|what|how|does|shall|statute|regulation|acts?|code|tax|company|employment|list|all|uniform)\b/.test(
+      q
+    );
   if (frSignals && !enSignals) return "fr";
   if (enSignals && !frSignals) return "en";
   if (frSignals && enSignals) return "other";
