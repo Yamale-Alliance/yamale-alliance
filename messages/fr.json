@@ -37,6 +37,27 @@
     "workspace": "Chargement de l'espace de travail…",
     "yourProgramme": "Chargement de votre programme…"
   },
+  "auth": {
+    "welcomeBack": "Bon retour",
+    "signInSubtitle": "Connectez-vous à Yamalé Legal pour accéder à votre bibliothèque, coffre-fort et recherche IA.",
+    "signInSubtitleLibrary": "Connectez-vous pour parcourir la bibliothèque juridique africaine — lois, règlements et traités dans 54 pays.",
+    "loadingSignIn": "Chargement de la connexion…",
+    "loadingSignUp": "Chargement de l'inscription…",
+    "newHere": "Nouveau ici ?",
+    "createAccount": "Créer un compte",
+    "joinTitle": "Rejoindre Yamalé Legal",
+    "signUpSubtitle": "Créez un compte client pour accéder à la bibliothèque, aux outils ZLECAf, au Coffre Yamalé et à la recherche IA.",
+    "signUpSubtitleLibrary": "Créez un compte gratuit pour rechercher les lois, règlements et traités africains dans la bibliothèque juridique.",
+    "alreadyHaveAccount": "Vous avez déjà un compte ?",
+    "lawyerInviteNote": "Les comptes avocat sont créés et invités par l'équipe admin. Si vous êtes avocat, utilisez le lien de connexion sécurisé envoyé par e-mail.",
+    "signIn": "Connexion",
+    "signUp": "Inscription",
+    "formDidNotLoadSignIn": "Le formulaire de connexion ne s'est pas chargé.",
+    "formDidNotLoadSignUp": "Le formulaire d'inscription ne s'est pas chargé.",
+    "formDidNotLoadHint": "Essayez un rechargement forcé, désactivez les bloqueurs de publicité ou extensions de confidentialité pour ce site, ou utilisez un autre navigateur (Chrome ou Edge). Si le problème persiste, contactez",
+    "signInUnavailable": "La connexion est temporairement indisponible. Veuillez contacter {email}.",
+    "signUpUnavailable": "L'inscription est temporairement indisponible. Veuillez contacter {email}."
+  },
   "accountMenu": {
     "menu": "Menu compte",
     "profileSecurity": "Profil et sécurité",
@@ -544,6 +565,18 @@
       "title": "Le Yamalé Vault",
       "subtitle": "Livres, cours et modèles. Les prix sont définis ici et facturés au paiement (mobile money ou carte).",
       "viewPublicVault": "Voir le Yamalé Vault →",
+      "documentLanguage": {
+        "label": "Langues du document",
+        "hint": "Téléversez un fichier par langue. Les acheteurs peuvent télécharger chaque langue ajoutée. Des badges (ex. EN, FR) s’affichent au téléchargement.",
+        "addLanguage": "Ajouter une langue",
+        "removeLanguage": "Supprimer la langue",
+        "uploadForLanguage": "Téléverser le fichier pour cette langue",
+        "replaceFile": "Remplacer le fichier",
+        "uploading": "Téléversement…",
+        "selectLanguageFirst": "Sélectionnez une langue du document avant de téléverser.",
+        "uploadFailed": "Échec du téléversement du fichier.",
+        "uploadMissingDetails": "Téléversement réussi, mais les détails du fichier sont manquants."
+      },
       "marketplacePage": {
         "types": {
           "book": "Book",
@@ -1983,6 +2016,12 @@
       "bilateral": "Bilatéral",
       "multilateral": "Multilatéral",
       "notTreaty": "Pas un traité"
+    },
+    "signInPrompt": {
+      "title": "Connectez-vous pour parcourir la bibliothèque juridique",
+      "body": "La bibliothèque juridique africaine est réservée aux utilisateurs inscrits. Connectez-vous ou créez un compte gratuit pour rechercher lois, règlements et traités dans 54 juridictions.",
+      "signIn": "Connexion",
+      "createAccount": "Créer un compte"
     }
   },
   "account": {
