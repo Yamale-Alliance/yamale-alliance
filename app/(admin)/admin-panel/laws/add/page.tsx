@@ -9,6 +9,7 @@ import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
 import {
   AdminVirusScanUploadBanner,
 } from "@/components/admin/AdminVirusScanUploadBanner";
+import { AdminLawLanguageSelect } from "@/components/admin/AdminLawLanguageSelect";
 
 type Country = { id: string; name: string };
 type Category = { id: string; name: string };
@@ -28,6 +29,7 @@ export default function AdminLawsAddPage() {
   const [treatyType, setTreatyType] = useState<LawTreatyType>("Not a treaty");
   const [title, setTitle] = useState("");
   const [year, setYear] = useState("");
+  const [languageCode, setLanguageCode] = useState("");
   const [mode, setMode] = useState<InputMode>("upload");
   const [file, setFile] = useState<File | null>(null);
   /** Remount file input so we never set `.value` on the DOM (avoids uncontrolled→controlled warnings). */
@@ -202,6 +204,7 @@ export default function AdminLawsAddPage() {
             })(),
             forceOcr,
             markdown: pastedContent.trim(),
+            languageCode: languageCode || null,
           }),
         });
         const data = (await res.json()) as { error?: string };
@@ -214,6 +217,7 @@ export default function AdminLawsAddPage() {
         setCategoryIds([]);
         setTitle("");
         setYear("");
+        setLanguageCode("");
         setPastedContent("");
         setSourceUrl("");
         setUrlImportReady(false);
@@ -261,6 +265,7 @@ export default function AdminLawsAddPage() {
     formData.set("treatyType", treatyType);
     formData.set("title", title.trim());
     if (year.trim()) formData.set("year", year.trim());
+    if (languageCode) formData.set("languageCode", languageCode);
 
     if (mode === "upload" && file) {
       formData.set("file", file);
@@ -579,6 +584,12 @@ export default function AdminLawsAddPage() {
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           />
         </div>
+
+        <AdminLawLanguageSelect
+          id="admin-law-language"
+          value={languageCode}
+          onChange={setLanguageCode}
+        />
 
         {mode === "url" ? (
           <>
