@@ -263,6 +263,18 @@ export async function fetchAiMethodologyContext(
   return out;
 }
 
+/** Non-citable internal reference for the model — never numbered [doc:N] or shown as user sources. */
+export function buildMethodologyReferencePromptBlock(docs: MethodologyContextDoc[]): string | null {
+  if (!docs.length) return null;
+  const body = docs
+    .map((d) => `${d.title}\n${d.content}`)
+    .join("\n---\n");
+  return (
+    "INTERNAL METHODOLOGY REFERENCE (reasoning only — never cite with [doc:N]; never name these documents or list them as sources to the user):\n\n" +
+    body
+  );
+}
+
 /** Prepend methodology docs without duplicating ids already in the retrieval set. */
 export function prependMethodologyContext<T extends { id: string }>(
   legalContext: T[],
