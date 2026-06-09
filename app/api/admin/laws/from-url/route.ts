@@ -10,6 +10,7 @@ import {
 } from "@/lib/admin-law-url-import-core";
 import type { CountryOpt, CategoryOpt } from "@/lib/law-url-import";
 import { LEGAL_SOURCE_DOMAIN_REJECT_MESSAGE } from "@/lib/uploads/url-validator";
+import { normalizeLawDocumentLanguageCode } from "@/lib/law-document-language";
 
 export const maxDuration = 300;
 
@@ -83,6 +84,13 @@ export async function POST(request: NextRequest) {
     const status = typeof body.status === "string" ? body.status.trim() : "In force";
     const treatyTypeRaw = typeof body.treatyType === "string" ? body.treatyType.trim() : "Not a treaty";
     const yearRaw = body.year;
+    const languageCodeRaw = body.languageCode ?? body.language_code;
+    const languageCode =
+      languageCodeRaw !== undefined
+        ? normalizeLawDocumentLanguageCode(
+            typeof languageCodeRaw === "string" ? languageCodeRaw : null
+          )
+        : undefined;
     const year =
       typeof yearRaw === "number" && !Number.isNaN(yearRaw)
         ? yearRaw
@@ -126,6 +134,7 @@ export async function POST(request: NextRequest) {
       status,
       treatyType: treatyTypeRaw,
       year: year !== null && !Number.isNaN(year) ? year : null,
+      languageCode: languageCode ?? null,
       markdownOverride: markdownOverride.length >= 50 ? markdownOverride : undefined,
       auditSource: "url-import",
     });
