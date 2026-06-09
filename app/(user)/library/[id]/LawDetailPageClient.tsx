@@ -54,6 +54,7 @@ import { formatUsdPrice } from "@/lib/content-pricing";
 import { lawDetailHref } from "@/lib/law-public-url";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { LawLastVerifiedLabel } from "@/components/library/LawLastVerifiedLabel";
+import { LawLanguageBadge } from "@/components/library/LawLanguageBadge";
 import { fetchDocumentExportUnlockLawIds } from "@/lib/library-document-export-unlocks-client";
 import {
   applyLawDocumentSearchHighlights,
@@ -1348,9 +1349,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                 </span>
               )}
               {law.language_code && (
-                <span className="rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-medium text-white/75">
-                  Language: {law.language_code.toUpperCase()}
-                </span>
+                <LawLanguageBadge code={law.language_code} variant="hero" />
               )}
               {law.last_verified_at && (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/35 bg-emerald-950/40 px-3.5 py-1.5 text-xs font-medium text-emerald-100/95">
@@ -1523,7 +1522,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                 <span>Country: {law.countries.name}</span>
               ) : null}
               {law.categories?.name && <span>Category: {law.categories.name}</span>}
-              {law.language_code && <span>Language: {law.language_code.toUpperCase()}</span>}
+              {law.language_code && <LawLanguageBadge code={law.language_code} />}
               {law.year != null && <span>Year: {law.year}</span>}
               {law.status ? <span>Status: {law.status}</span> : null}
               {law.last_verified_at ? (
