@@ -1339,6 +1339,37 @@
           "saveFailed": "Falha ao guardar alterações"
         }
       },
+      "documentLanguage": {
+        "label": "Idioma do documento",
+        "hint": "Mostrado aos leitores como distintivo (ex.: FR, EN) na lei na biblioteca.",
+        "unspecified": "Não especificado",
+        "options": {
+          "en": "Inglês (EN)",
+          "fr": "Francês (FR)",
+          "pt": "Português (PT)",
+          "ar": "Árabe (AR)",
+          "sw": "Suaíli (SW)",
+          "am": "Amárico (AM)",
+          "af": "Afrikaans (AF)",
+          "ha": "Hauçá (HA)",
+          "yo": "Iorubá (YO)",
+          "ig": "Igbo (IG)",
+          "zu": "Zulu (ZU)",
+          "rw": "Kinyarwanda (RW)",
+          "so": "Somali (SO)",
+          "om": "Oromo (OM)",
+          "mg": "Malgaxe (MG)",
+          "ln": "Lingala (LN)",
+          "sn": "Shona (SN)",
+          "st": "Sotho (ST)",
+          "tn": "Tswana (TN)",
+          "ts": "Tsonga (TS)",
+          "de": "Alemão (DE)",
+          "es": "Espanhol (ES)",
+          "it": "Italiano (IT)",
+          "other": "Outro"
+        }
+      },
       "fixOcr": {
         "back": "Voltar às leis",
         "title": "Corrigir OCR com IA",
@@ -1831,6 +1862,64 @@
         "videoUploadFailed": "Falha no carregamento do vídeo"
       }
     }
+  },
+  "foundersNotePage": {
+    "metaTitle": "Nota da fundadora",
+    "metaDescription": "Porque criámos a Yamalé — uma mensagem de Meghan Waters, CEO, sobre a lacuna na infraestrutura jurídica africana e a construção da plataforma em conjunto.",
+    "backToHome": "Voltar ao início",
+    "footerHint": "Pode voltar a esta página a qualquer momento a partir do rodapé, em",
+    "footerHintPath": "Empresa → Nota da fundadora",
+    "eyebrow": "Nota da fundadora",
+    "title": "Porque criámos a Yamalé",
+    "paragraphs": [
+      "Durante todos os anos em que trabalhei em África, com governos, empresas e comunidades a enfrentar alguns dos desafios jurídicos e de governação mais complexos do continente, o problema era sempre o mesmo. A lei estava em todo o lado e em lado nenhum ao mesmo tempo.",
+      "As empresas passavam semanas à procura de códigos de investimento. Os advogados mantinham bibliotecas PDF pessoais porque não existia uma fonte central fiável. Leis críticas só se encontravam em jornais oficiais em papel desatualizados ou em sites ministeriais inoperacionais. Quando precisávamos de um artigo específico de um Ato Uniforme OHADA, ou de verificar se uma licença mineira cumpria a lei nacional, perdíamos horas, por vezes dias, apenas a encontrar e confirmar o texto.",
+      "O custo nunca foi apenas tempo perdido. Foi uma barreira ao investimento, à conformidade, à responsabilização e ao comércio transfronteiriço que a Zona de Comércio Livre Continental Africana promete, mas não pode concretizar sem infraestrutura jurídica funcional.",
+      "Em janeiro de 2026, criámos a Yamalé. É uma organização sem fins lucrativos e uma plataforma a trabalhar em conjunto. A organização sem fins lucrativos continua o trabalho consultivo que sempre fizemos, apoiando governos em negociações de alto risco, ajudando comunidades mineiras a proteger os seus direitos e reforçando instituições. A plataforma constrói a infraestrutura de que esse trabalho depende: uma biblioteca jurídica abrangente, com IA, cobrindo os 54 países africanos, ferramentas de conformidade ZLECAF e um marketplace de especialização jurídica.",
+      "A Yamalé é uma plataforma comunitária, e queremos ser honestos consigo desde o primeiro dia quanto ao estado atual. Temos leis para todos os países africanos, embora algumas ainda estejam a ser limpas a partir de documentos digitalizados antigos. O Vault de conteúdos de especialistas à venda é modesto no lançamento e crescerá de forma constante. O diretório de advogados verificados é apenas por convite por agora, por desenho, enquanto o construímos com cuidado. O Passaporte ZLECAF, a nossa ferramenta de conformidade passo a passo para o comércio transfronteiriço, ainda está em desenvolvimento e será lançado mais tarde este ano.",
+      "Lançamo-nos agora porque um recurso que cresce junto dos seus utilizadores vale muito mais do que um perfeccionado em privado e entregue tarde demais. A alternativa atual — informação jurídica dispersa e muitas vezes pouco fiável — não serve ninguém suficientemente bem.",
+      "Esta plataforma só funcionará se formos honestos uns com os outros. Estamos a dizer-lhe o que está pronto e o que não está, e pedimos-lhe que faça o mesmo. As pessoas mais bem colocadas para tornar a Yamalé mais forte são as que a usarão todos os dias. Se algo precisar de correção, diga-nos. Se faltar uma lei da qual depende, submeta-a. Se um documento estiver errado ou desatualizado, sinalize-o. Se é advogado ou especialista jurídico e quer contribuir, candidate-se à nossa rede. Cada correção, cada contribuição e cada feedback honesto molda o que esta plataforma se torna.",
+      "A Yamalé existe porque empresas, governos e profissionais jurídicos africanos merecem o mesmo acesso à infraestrutura jurídica que as pessoas noutras regiões dão como garantido. Estamos a construí-la juntos, e esperamos que nos ajude a construí-la bem."
+    ],
+    "signature": {
+      "name": "Meghan Waters",
+      "title": "Diretora executiva, Yamalé",
+      "location": "Dacar, Senegal · junho de 2026"
+    },
+    "dialog": {
+      "title": "Bem-vindo à Yamalé",
+      "description": "Uma breve nota da nossa fundadora antes de começar.",
+      "readAgain": "Ler novamente a qualquer momento",
+      "continue": "Continuar para a Yamalé",
+      "closeAria": "Fechar"
+    }
+  },
+  "lawLanguages": {
+    "flairTitle": "Este documento está em {language}",
+    "en": "inglês",
+    "fr": "francês",
+    "pt": "português",
+    "ar": "árabe",
+    "sw": "suaíli",
+    "am": "amárico",
+    "af": "afrikaans",
+    "ha": "hauçá",
+    "yo": "iorubá",
+    "ig": "igbo",
+    "zu": "zulu",
+    "rw": "kinyarwanda",
+    "so": "somali",
+    "om": "oromo",
+    "mg": "malgaxe",
+    "ln": "lingala",
+    "sn": "shona",
+    "st": "sotho",
+    "tn": "tswana",
+    "ts": "tsonga",
+    "de": "alemão",
+    "es": "espanhol",
+    "it": "italiano",
+    "other": "outro idioma"
   },
   "library": {
     "eyebrow": "Biblioteca jurídica",
