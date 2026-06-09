@@ -25,7 +25,7 @@ import { stashPaygAiQueryLomiSessionId } from "@/lib/lomi-payg-ai-query-return";
 import {
   PRICING_AFCFTA_COMING_SOON,
   PRICING_LAWYERS_COMING_SOON,
-  applyPricingComingSoonFeatures,
+  normalizePricingFeatures,
 } from "@/lib/pricing-coming-soon-features";
 import { PLATFORM_MAIL_LINK_REL, platformBusinessMailto } from "@/lib/platform-emails";
 
@@ -54,7 +54,6 @@ const FALLBACK_TIERS: Tier[] = [
     description: "Explore African law",
     features: [
       "Unlimited browsing of full texts of laws",
-      "Save up to 10 documents for easy access",
       PRICING_LAWYERS_COMING_SOON,
       "Browse The Yamalé Vault",
     ],
@@ -70,7 +69,6 @@ const FALLBACK_TIERS: Tier[] = [
     subtitle: "or $50/year (save $10)",
     features: [
       "Unlimited browsing of full texts of laws",
-      "<strong>5 document downloads/month</strong>",
       "<strong>Basic level AI queries/month</strong> (limited)",
       PRICING_AFCFTA_COMING_SOON,
       PRICING_LAWYERS_COMING_SOON,
@@ -89,7 +87,6 @@ const FALLBACK_TIERS: Tier[] = [
     subtitle: "or $150/year (save $30)",
     features: [
       "Unlimited browsing of full texts of laws",
-      "<strong>20 document downloads/month</strong>",
       "<strong>Pro level AI queries/month</strong> (limited)",
       PRICING_AFCFTA_COMING_SOON,
       PRICING_LAWYERS_COMING_SOON,
@@ -109,7 +106,6 @@ const FALLBACK_TIERS: Tier[] = [
     subtitle: "or $400/year (save $80)",
     features: [
       "<strong>5 user seats included</strong>",
-      "<strong>25 document downloads per user/month</strong>",
       "<strong>Team level AI queries per user/month</strong> (limited)",
       PRICING_AFCFTA_COMING_SOON,
       PRICING_LAWYERS_COMING_SOON,
@@ -270,7 +266,7 @@ export default function PricingPage() {
           setTiers(
             data.map((tier: Tier) => ({
               ...tier,
-              features: applyPricingComingSoonFeatures(tier.features),
+              features: normalizePricingFeatures(tier.features),
             }))
           );
         }
