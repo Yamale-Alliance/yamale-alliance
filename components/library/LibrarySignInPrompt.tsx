@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { BookOpen } from "lucide-react";
 
 export function LibrarySignInPrompt() {
+  const t = useTranslations("library.signInPrompt");
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const qs = searchParams.toString();
@@ -26,24 +28,23 @@ export function LibrarySignInPrompt() {
             <BookOpen className="h-7 w-7" aria-hidden />
           </div>
           <h1 className="heading text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Sign in to browse the legal library
+            {t("title")}
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
-            The African legal library is available to registered users. Sign in or create a free account to search
-            statutes, regulations, and treaties across 54 jurisdictions.
+            {t("body")}
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               href={signInHref}
               className="inline-flex min-w-[10rem] items-center justify-center rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
             >
-              Sign in
+              {t("signIn")}
             </Link>
             <Link
               href={signUpHref}
               className="inline-flex min-w-[10rem] items-center justify-center rounded-xl border border-border bg-card px-6 py-3 text-sm font-semibold text-foreground hover:bg-accent"
             >
-              Create account
+              {t("createAccount")}
             </Link>
           </div>
         </div>
