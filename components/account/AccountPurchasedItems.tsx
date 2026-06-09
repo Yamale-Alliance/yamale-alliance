@@ -10,6 +10,7 @@ import { useTranslations } from "next-intl";
 import { advisoryCourseHref, isMarketplaceCourseItem } from "@/lib/marketplace-course";
 import { marketplaceItemDetailHref } from "@/lib/marketplace-public-url";
 import { displayVaultProductTitle } from "@/lib/marketplace-display";
+import { VaultLanguageBadges } from "@/components/marketplace/VaultLanguageBadges";
 
 type Product = {
   id: string;
@@ -26,6 +27,7 @@ type Product = {
   has_file?: boolean;
   file_name?: string | null;
   file_format?: string | null;
+  language_codes?: string[];
   is_course?: boolean;
 };
 
@@ -210,13 +212,18 @@ export function AccountPurchasedItems({
                   </Link>
                 ) : null}
                 {product.has_file ? (
-                  <Link
-                    href={fileAccessHref}
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
-                  >
-                    <Eye className="h-3.5 w-3.5" aria-hidden />
-                    View & download
-                  </Link>
+                  <>
+                    <Link
+                      href={fileAccessHref}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                    >
+                      <Eye className="h-3.5 w-3.5" aria-hidden />
+                      View & download
+                    </Link>
+                    {product.language_codes && product.language_codes.length > 0 ? (
+                      <VaultLanguageBadges languageCodes={product.language_codes} />
+                    ) : null}
+                  </>
                 ) : (
                   <Link
                     href={href}
