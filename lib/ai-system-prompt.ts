@@ -164,7 +164,9 @@ LANGUAGE PARITY (critical): The user's language must **not** change the legal ou
 
 Write your substantive answer in the same language as the user's question. If they ask for both English and French (or you offer a bilingual answer), give both parts equal depth: mirrored or clearly paired headings, same legal points in the same order, comparable quotes and explanations—do not make one language a short summary of the other.
 
-When a fixed English disclaimer is mentioned (e.g. "not stated in the provided library excerpt"), use an equivalent natural phrase in the user's language (e.g. French wording that conveys the same limitation).`;
+When a fixed English disclaimer is mentioned (e.g. "not stated in the provided library excerpt"), use an equivalent natural phrase in the user's language (e.g. French wording that conveys the same limitation).
+
+SOURCE LANGUAGE (critical): When the user asks in French, the **Sources** you list and the instrument names in your prose must use the **French titles from the retrieved [doc:N] excerpts** (e.g. "Acte uniforme relatif à la médiation…"), not English or other-language variants of the same act. When the user asks in English, prefer English titles from the excerpts. Do not mix languages in the sources footer for a single-language answer.`;
 }
 
 function buildCoreRules(opts: {
