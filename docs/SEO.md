@@ -17,7 +17,9 @@ This sets `metadataBase`, canonical URLs, `robots.txt` host, and `sitemap.xml` e
 | LLM site guide | `/llms.txt` |
 | Open Graph image | `/opengraph-image` (auto-generated) |
 | Favicon (browser + Google) | `/favicon.ico` route + `public/favicon-default.ico` fallback (48×48+) + optional admin branding |
-| JSON-LD | Organization, WebSite, WebApplication, ItemList in `<head>` (`components/seo/SiteJsonLd.tsx`) |
+| JSON-LD | Organization, WebSite, WebApplication, ItemList in `<head>` (`components/seo/SiteJsonLd.tsx`); FAQPage on AI SEO routes (`components/seo/FaqJsonLd.tsx`) |
+| AI research SEO copy | Server-rendered on `/ai-research` (`components/seo/AiResearchMarketingSection.tsx`) |
+| SEO landing pages | `/ai-legal-search-africa`, `/ohada-ai-legal-research`, `/afcfta-ai-legal-research`, `/african-legal-library-ai` |
 
 ## Audience keywords
 
@@ -95,6 +97,38 @@ If a main marketing URL shows as redirect, check Clerk middleware (`proxy.ts`) a
 3. Set **preferred domain** to `www` (or bare domain) and redirect the other in DNS/Vercel
 4. Validate with [Rich Results Test](https://search.google.com/test/rich-results) and [Meta Tags](https://developers.facebook.com/tools/debug/)
 5. Share `/llms.txt` with teams wiring Yamalé into AI assistants or internal bots
+
+### Request indexing (Search Console)
+
+**URL Inspection** accepts a **full URL only** — not `site:yamalelegal.com` queries.
+
+1. Search Console → top bar → **Inspect any URL**
+2. Paste e.g. `https://www.yamalelegal.com/ai-research` or `https://www.yamalelegal.com/ai-legal-search-africa`
+3. **Test live URL** → **Request indexing**
+
+Repeat for each new SEO landing page after deploy.
+
+To see what Google has indexed, use **google.com** (not Search Console):
+
+```
+site:yamalelegal.com ai research
+site:yamalelegal.com/ai-legal-search-africa
+```
+
+Watch **Performance → Queries** for impressions on “AI legal search”, “African law AI”, etc.
+
+## Off-site growth (not in code)
+
+Rankings for competitive terms also need authority outside the site:
+
+| Priority | Action |
+|----------|--------|
+| Backlinks & PR | Law schools, bar associations, AfCFTA newsletters, legal-tech press |
+| LinkedIn | Regular posts using **“AI legal search in Africa”**; link to `/ai-legal-search-africa` |
+| Directories | Submit Yamalé to “legal tech Africa” roundups and comparison listicles |
+| Partnerships | Co-marketing with firms or institutions that already rank for African law |
+
+One backlink from a ranking listicle often moves you faster than on-page tweaks alone.
 
 ## Optional next steps
 
