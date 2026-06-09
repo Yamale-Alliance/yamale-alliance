@@ -113,6 +113,20 @@ import {
   isOhadaInstrument,
 } from "@/lib/ohada-commercial-companies-retrieval";
 import {
+  OHADA_UNIFORM_ACT_CATALOG_MAX_DOCS,
+  detectOhadaUniformActInventoryQuery,
+  dedupeOhadaUniformActsByInstrumentKey,
+  fetchOhadaUniformActCatalogCandidates,
+  finalizeOhadaUniformActCatalog,
+  ohadaUniformActRankingLexicon,
+} from "@/lib/ohada-uniform-act-catalog";
+import type { PreferredDocumentLanguage } from "@/lib/law-language-preference";
+import {
+  resolvePreferredDocumentLanguage,
+  lawDocumentLanguageScore,
+  shouldIncludeLawForPreferredLanguage,
+} from "@/lib/law-language-preference";
+import {
   AI_CHAT_SSE_HEADERS,
   encodeSseEvent,
   readAnthropicMessageStream,
@@ -397,6 +411,10 @@ const SUPRANATIONAL_FRAMEWORKS: SupranationalFramework[] = [
       "sociétés commerciales",
       "societes commerciales",
       "commercial companies",
+      "médiation",
+      "mediation",
+      "arbitrage",
+      "arbitration",
     ],
     description:
       "OHADA Uniform Acts apply uniformly across all 17 OHADA member states; no single country must be specified.",
@@ -1504,7 +1522,7 @@ function buildShortPhraseEscapedCandidates(tokens: string[], primaryIntentId: st
 }
 
 const LAWS_AI_SELECT =
-  "id, title, content, content_plain, year, status, metadata, source_name, country_id, applies_to_all_countries, category_id, countries(name), categories!laws_category_id_fkey(name)";
+  "id, title, content, content_plain, year, status, metadata, source_name, language_code, country_id, applies_to_all_countries, category_id, countries(name), categories!laws_category_id_fkey(name)";
 
 function normalizeCountryLabelForMatch(s: string): string {
   return s
@@ -1813,6 +1831,7 @@ async function searchLegalLibrary(
 
     const specificLawHint = extractSpecificLawHint(query);
     const qForTokens = normalizeSearchQueryForAi(query);
+    const preferredDocumentLanguage = resolvePreferredDocumentLanguage(query);
     const resolvedIntent = resolveLibrarySearchIntent(qForTokens);
     perfStep(perf, "intent", {
       primaryId: resolvedIntent.primaryId,
@@ -1824,10 +1843,16 @@ async function searchLegalLibrary(
     const germanyAfricaBitCatalog = !latinAmericaTreatyCatalog && detectGermanyAfricaBitQuery(query);
     const globalTreatyCatalog =
       !latinAmericaTreatyCatalog && !germanyAfricaBitCatalog && detectGlobalTreatyInventoryQuery(query);
+    const ohadaUniformActCatalog =
+      !latinAmericaTreatyCatalog &&
+      !germanyAfricaBitCatalog &&
+      !globalTreatyCatalog &&
+      detectOhadaUniformActInventoryQuery(query);
     const countryBilateralCatalog =
       !latinAmericaTreatyCatalog &&
       !germanyAfricaBitCatalog &&
       !globalTreatyCatalog &&
+      !ohadaUniformActCatalog &&
       Boolean(searchCountry) &&
       detectCountryBilateralInventoryQuery(query, searchCountry);
     const rawTokens = extractSearchTokens(qForTokens);
@@ -1937,6 +1962,14 @@ async function searchLegalLibrary(
       titleMatchedLaws.push(...(globalTreatyRows as any[]));
     }
 
+    const ohadaUniformActRows = ohadaUniformActCatalog
+      ? await fetchOhadaUniformActCatalogCandidates(supabase, LAWS_AI_SELECT, preferredDocumentLanguage)
+      : [];
+    const ohadaCatalogLaws = ohadaUniformActRows as any[];
+    if (ohadaCatalogLaws.length > 0) {
+      titleMatchedLaws.push(...ohadaCatalogLaws);
+    }
+
     const germanyAfricaBitRows = germanyAfricaBitCatalog
       ? await fetchGermanyAfricaBitTitleCandidates(supabase, query, LAWS_AI_SELECT)
       : [];
@@ -1967,6 +2000,7 @@ async function searchLegalLibrary(
     const skipBroadLibraryTextSearch =
       (latinAmericaTreatyCatalog ||
         globalTreatyCatalog ||
+        ohadaUniformActCatalog ||
         germanyAfricaBitCatalog ||
         countryBilateralCatalog) &&
       !specificLawHint &&
@@ -1977,6 +2011,7 @@ async function searchLegalLibrary(
       ...resolvedIntent.mergedLexiconExtra,
       ...latinAmericaTreatyRankingLexicon(query),
       ...(globalTreatyCatalog ? globalTreatyRankingLexicon() : []),
+      ...(ohadaUniformActCatalog ? ohadaUniformActRankingLexicon() : []),
       ...(germanyAfricaBitCatalog ? germanyAfricaBitRankingLexicon() : []),
       ...(countryBilateralCatalog && searchCountry
         ? countryBilateralInventoryRankingLexicon(searchCountry)
@@ -2502,9 +2537,24 @@ async function searchLegalLibrary(
       globalTreatyCatalog ||
       hasDuplicateTitles ||
       intentFilteredRanked.some((law) => matchRegionalFrameworkForLaw(law as any) !== null);
-    const candidateLaws: any[] = shouldDedupeByTitle
-      ? dedupeLawsByNormalizedTitle(intentFilteredRanked)
+    let candidateLaws: any[] = shouldDedupeByTitle
+      ? dedupeLawsByNormalizedTitle(intentFilteredRanked, undefined, preferredDocumentLanguage)
       : intentFilteredRanked;
+
+    if (
+      ohadaUniformActCatalog ||
+      supranationalMatches.some((m) => m.id === "ohada") ||
+      intentFilteredRanked.some((law) => isOhadaInstrument(law))
+    ) {
+      candidateLaws = dedupeOhadaUniformActsByInstrumentKey(candidateLaws, preferredDocumentLanguage);
+      if (preferredDocumentLanguage) {
+        candidateLaws = candidateLaws.filter(
+          (law) =>
+            !isOhadaInstrument(law) ||
+            shouldIncludeLawForPreferredLanguage(law, preferredDocumentLanguage, { strict: true })
+        );
+      }
+    }
 
     const baseResponseSize = latinAmericaTreatyCatalog
       ? LATIN_AMERICA_TREATY_CATALOG_MAX_DOCS
@@ -2514,12 +2564,20 @@ async function searchLegalLibrary(
           ? COUNTRY_BILATERAL_INVENTORY_MAX_DOCS
           : globalTreatyCatalog
             ? GLOBAL_TREATY_CATALOG_MAX_DOCS
-            : countryCatalogRequest
+            : ohadaUniformActCatalog
+              ? OHADA_UNIFORM_ACT_CATALOG_MAX_DOCS
+              : countryCatalogRequest
               ? 20
               : detailedMode
                 ? ragMaxSystemDocsDetailedFromEnv()
                 : ragMaxSystemDocsFromEnv();
     const lawsForResponse: any[] = (() => {
+      if (ohadaUniformActCatalog && ohadaCatalogLaws.length > 0) {
+        return finalizeOhadaUniformActCatalog(ohadaCatalogLaws, preferredDocumentLanguage).slice(
+          0,
+          baseResponseSize
+        );
+      }
       if (specificLawHint && candidateLaws.length > 0) {
         return pickLawsForSpecificHint(candidateLaws, specificLawHint);
       }
@@ -2607,6 +2665,17 @@ async function searchLegalLibrary(
         }
         return [...treatyFirst, ...rest].slice(0, baseResponseSize);
       }
+      if (ohadaUniformActCatalog && candidateLaws.length > 0) {
+        const ohadaFirst = finalizeOhadaUniformActCatalog(
+          candidateLaws.filter((law) => isOhadaInstrument(law)),
+          preferredDocumentLanguage
+        );
+        const rest = candidateLaws.filter((law) => !isOhadaInstrument(law));
+        if (ohadaFirst.length >= 3) {
+          return [...ohadaFirst, ...rest].slice(0, baseResponseSize);
+        }
+        return candidateLaws.slice(0, baseResponseSize);
+      }
       let picked = ensureIntentTopicSlotsInResponse(
         candidateLaws,
         baseResponseSize,
@@ -2675,6 +2744,7 @@ async function searchLegalLibrary(
       countryCatalogRequest ||
       latinAmericaTreatyCatalog ||
       globalTreatyCatalog ||
+      ohadaUniformActCatalog ||
       germanyAfricaBitCatalog ||
       countryBilateralCatalog ||
       (isBilateralOrMultiCountryQuery && isMultiInstrumentListQuery(query));
@@ -2682,6 +2752,7 @@ async function searchLegalLibrary(
       countryCatalogRequest,
       latinAmericaTreatyCatalog,
       globalTreatyCatalog,
+      ohadaUniformActCatalog,
       germanyAfricaBitCatalog,
       countryBilateralCatalog,
       preferMoreDocuments,
@@ -2715,6 +2786,7 @@ async function searchLegalLibrary(
         ? ragPrimaryStatutePerDocFromEnv()
         : latinAmericaTreatyCatalog ||
             globalTreatyCatalog ||
+            ohadaUniformActCatalog ||
             germanyAfricaBitCatalog ||
             countryBilateralCatalog
           ? 4500
@@ -2733,6 +2805,7 @@ async function searchLegalLibrary(
         ? ragPrimaryStatuteTotalFromEnv()
         : latinAmericaTreatyCatalog ||
             globalTreatyCatalog ||
+            ohadaUniformActCatalog ||
             germanyAfricaBitCatalog ||
             countryBilateralCatalog
           ? 100_000
@@ -2766,6 +2839,7 @@ async function searchLegalLibrary(
       }
       if (latinAmericaTreatyCatalog && titleLikelyLatinAmericaTreaty(String(law.title ?? ""))) bonus += 52;
       if (globalTreatyCatalog && titleLooksLikeCrossBorderTreatyTitle(String(law.title ?? ""))) bonus += 46;
+      if (ohadaUniformActCatalog && isOhadaInstrument(law)) bonus += 64;
       if (germanyAfricaBitCatalog && titleLikelyGermanyAfricaBit(String(law.title ?? ""))) bonus += 58;
       if (
         countryBilateralCatalog &&
@@ -2775,6 +2849,9 @@ async function searchLegalLibrary(
         bonus += 56;
       }
       bonus += retrievalTuningBoost(law, query, searchCountry);
+      if (preferredDocumentLanguage) {
+        bonus += lawDocumentLanguageScore(law, preferredDocumentLanguage);
+      }
       return baseScore + resolvedIntent.rankBoost(law, rankingTokens) + bonus;
     };
 
@@ -3057,6 +3134,7 @@ async function finalizeAssistantTurn(opts: {
   userEmail: string | null;
   skipAutoQualityFlags?: boolean;
   userQuery: string;
+  preferredDocumentLanguage?: PreferredDocumentLanguage | null;
   effectiveCountry: string | null;
   strictCountryMode: boolean;
   currentCategory: string | null;
@@ -3079,6 +3157,7 @@ async function finalizeAssistantTurn(opts: {
     userEmail,
     skipAutoQualityFlags,
     userQuery,
+    preferredDocumentLanguage,
     effectiveCountry,
     strictCountryMode,
     currentCategory,
@@ -3170,6 +3249,15 @@ async function finalizeAssistantTurn(opts: {
         internalCategoryId
       );
       if (isMethodology) return false;
+      if (
+        preferredDocumentLanguage &&
+        isOhadaInstrument({ title: law.title }) &&
+        !shouldIncludeLawForPreferredLanguage({ title: law.title }, preferredDocumentLanguage, {
+          strict: true,
+        })
+      ) {
+        return false;
+      }
       return legalContextItemEligibleForDisplayedSourceCard(
         law,
         userQuery,
@@ -3217,7 +3305,8 @@ async function finalizeAssistantTurn(opts: {
         return sb - sa;
       }
       return a.usedInAnswer ? -1 : 1;
-    })
+    }),
+    preferredDocumentLanguage ?? null
   ).map(({ retrievalScore: _rs, ...card }) => card);
 
   const citationVerification = {
@@ -4048,6 +4137,7 @@ export async function POST(request: NextRequest) {
       userEmail: reporterEmail,
       skipAutoQualityFlags: isEvalBatch,
       userQuery,
+      preferredDocumentLanguage: resolvePreferredDocumentLanguage(userQuery),
       effectiveCountry: effectiveHints.country ?? null,
       strictCountryMode,
       currentCategory: currentHints.category ?? null,
