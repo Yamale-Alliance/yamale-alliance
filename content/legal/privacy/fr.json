@@ -1,0 +1,1727 @@
+{
+  "meta": {
+    "title": "Politique de confidentialité",
+    "description": "Comment la Plateforme juridique Yamalé collecte, utilise, stocke et protège vos données personnelles dans le cadre de nos services de recherche juridique africaine.",
+    "heroTitle": "Politique de confidentialité",
+    "heroSubtitle": "Comment Yamalé collecte, utilise et protège vos données",
+    "dateLine": "Dernière mise à jour : 12 février 2026"
+  },
+  "sections": [
+    {
+      "kind": "section",
+      "id": "introduction",
+      "number": "1",
+      "title": "Introduction",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "La Plateforme juridique Yamalé (« Yamalé », « nous », « notre » ou « nos ») exploite le site web et les applications mobiles de la Plateforme juridique Yamalé (collectivement, la « Plateforme »), qui fournissent la recherche juridique africaine, des outils de conformité AfCFTA, la recherche juridique assistée par IA, une bibliothèque complète de documents juridiques, un annuaire vérifié d'avocats et The Yamalé Vault pour les ressources juridiques et de conformité."
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "La présente Politique de confidentialité explique comment nous collectons, utilisons, divulguons et protégeons vos informations personnelles lorsque vous utilisez notre Plateforme et nos services. Nous nous engageons à protéger votre vie privée et à traiter vos données de manière transparente et responsable."
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "En accédant à la Plateforme ou en l'utilisant, vous reconnaissez avoir lu, compris et accepté d'être lié par la présente Politique de confidentialité. Si vous n'acceptez pas une partie de cette politique, veuillez ne pas utiliser nos services."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "info-collect",
+      "number": "2",
+      "title": "Informations que nous collectons",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Nous collectons différents types d'informations pour fournir et améliorer nos services :"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "2.1",
+      "title": "Informations de compte et d'identité",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Lorsque vous créez un compte, nous collectons :"
+            }
+          ]
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "Nom complet",
+            "Adresse e-mail",
+            "Mot de passe (chiffré)",
+            "Préférences et paramètres du compte",
+            "Niveau d'abonnement et informations de facturation",
+            "Données d'authentification fournies par notre prestataire de services d'authentification"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "2.2",
+      "title": "Informations de profil d'avocat (pour les professionnels du droit)",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Si vous vous inscrivez en tant qu'avocat dans notre annuaire, nous collectons et stockons :"
+            }
+          ]
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "Informations professionnelles : nom complet, nom du cabinet, titre/fonction, domaines de pratique, années d'expérience, détails d'inscription au barreau",
+            "Coordonnées : adresse e-mail professionnelle, numéro de téléphone, adresse du bureau",
+            "Informations géographiques : pays, ville et régions où vous exercez",
+            "Langues parlées",
+            "Formation et qualifications",
+            "Photo de profil (facultatif)",
+            "Pronoms professionnels (facultatif)",
+            "Documents de vérification : certificats du barreau, licences, diplômes et autres justificatifs (stockés de manière sécurisée et utilisés uniquement à des fins de vérification)",
+            "Données d'évaluation et d'avis des utilisateurs de la plateforme"
+          ]
+        },
+        {
+          "type": "callout",
+          "label": "Important",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Vos coordonnées (e-mail, téléphone, adresse du bureau) et le nom complet de votre cabinet sont "
+            },
+            {
+              "kind": "strong",
+              "value": "masqués"
+            },
+            {
+              "kind": "text",
+              "value": " par défaut aux autres utilisateurs. Ces informations ne sont révélées qu'aux utilisateurs qui paient pour débloquer votre profil. Vos domaines de pratique, votre localisation, votre expérience, vos langues et autres détails professionnels restent visibles pour aider les utilisateurs à trouver l'avocat adapté à leurs besoins."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "2.3",
+      "title": "Informations d'utilisation et d'activité",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Nous collectons automatiquement des informations sur la façon dont vous interagissez avec notre Plateforme :"
+            }
+          ]
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "Pages consultées et documents accédés",
+            "Requêtes de recherche et filtres utilisés",
+            "Requêtes et conversations de recherche IA",
+            "Téléchargements et exportations de documents",
+            "Rapports AfCFTA générés",
+            "Recherches et filtres dans l'annuaire d'avocats",
+            "Profils d'avocats débloqués (y compris les informations de paiement)",
+            "Achats et utilisation de passes journaliers",
+            "Statistiques d'utilisation des fonctionnalités (p. ex., nombre de requêtes IA, documents enregistrés)",
+            "Temps passé sur la Plateforme",
+            "Informations sur l'appareil : adresse IP, type de navigateur, système d'exploitation, identifiants d'appareil",
+            "Données de journal : heures d'accès, erreurs et activité système"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "2.4",
+      "title": "Informations de paiement et de transaction",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Nous traitons les paiements via des processeurs de paiement tiers sécurisés (tels que pawaPay). Nous ne stockons "
+            },
+            {
+              "kind": "strong",
+              "value": "PAS"
+            },
+            {
+              "kind": "text",
+              "value": " vos informations complètes de carte de crédit sur nos serveurs. Nous collectons et stockons :"
+            }
+          ]
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "Niveau et statut d'abonnement",
+            "Historique des transactions et reçus",
+            "Achats de déblocage de profils d'avocats",
+            "Achats de passes journaliers",
+            "Enregistrements d'utilisation au compteur",
+            "Adresse de facturation",
+            "Type de moyen de paiement (4 derniers chiffres uniquement)",
+            "Références de transactions mobile money (le cas échéant)"
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Nos processeurs de paiement collectent et traitent les détails complets de la carte de paiement conformément aux normes PCI DSS."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "2.5",
+      "title": "Communications et correspondance",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Si vous nous contactez pour obtenir de l'aide ou des renseignements :"
+            }
+          ]
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "Correspondance par e-mail avec notre équipe d'assistance (info@yamaleadvisory.com)",
+            "Tickets d'assistance client et messages de chat",
+            "Commentaires et réponses aux enquêtes",
+            "Messages envoyés via la Plateforme"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "2.6",
+      "title": "Activité The Yamalé Vault",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Lorsque vous utilisez The Yamalé Vault pour des ressources juridiques :"
+            }
+          ]
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "Historique d'achat de modèles, cours et kits d'outils",
+            "Ressources téléchargées",
+            "Avis et évaluations que vous fournissez",
+            "Informations du vendeur (si vous proposez des produits)"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "how-use",
+      "number": "3",
+      "title": "Comment nous utilisons vos informations",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Nous utilisons les informations que nous collectons aux fins suivantes :"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "3.1",
+      "title": "Pour fournir et maintenir nos services",
+      "blocks": [
+        {
+          "type": "bullets",
+          "items": [
+            "Authentifier votre identité et gérer votre compte",
+            "Traiter et exécuter votre abonnement",
+            "Donner accès aux documents juridiques, aux outils de recherche et aux fonctionnalités IA",
+            "Générer des rapports de conformité AfCFTA",
+            "Afficher les profils d'avocats dans notre annuaire (avec les contrôles de confidentialité appropriés)",
+            "Traiter les paiements de déblocage de profils d'avocats et révéler les coordonnées aux utilisateurs payants",
+            "Faciliter les transactions The Yamalé Vault",
+            "Suivre les limites d'utilisation selon votre niveau d'abonnement",
+            "Permettre les téléchargements et exportations de documents"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "3.2",
+      "title": "Pour traiter les paiements et appliquer les règles d'abonnement",
+      "blocks": [
+        {
+          "type": "bullets",
+          "items": [
+            "Traiter les paiements d'abonnement mensuels ou annuels",
+            "Traiter les paiements uniques pour le déblocage de contacts d'avocats",
+            "Traiter les achats de passes journaliers (9,99 $ pour un accès de 24 heures)",
+            "Traiter les frais au compteur (documents, requêtes IA, rapports)",
+            "Gérer les litiges de facturation et les remboursements",
+            "Appliquer les limites d'utilisation et les restrictions de niveau",
+            "Prévenir la fraude aux paiements"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "3.3",
+      "title": "Pour exploiter l'annuaire d'avocats",
+      "blocks": [
+        {
+          "type": "bullets",
+          "items": [
+            "Afficher les profils d'avocats aux utilisateurs recherchant des professionnels du droit",
+            "Afficher les informations publiques : initiales (avant déblocage), titre, domaines de pratique, localisation, expérience, langues, formation, inscription au barreau, évaluations",
+            "MASQUER les informations sensibles jusqu'au paiement : nom complet, nom du cabinet, e-mail, téléphone, adresse du bureau",
+            "Vérifier les qualifications des avocats et maintenir la qualité de l'annuaire",
+            "Permettre la recherche et le filtrage par localisation, expertise et langue",
+            "Faciliter les connexions entre utilisateurs et professionnels du droit après paiement",
+            "Suivre quels utilisateurs ont débloqué quels profils d'avocats"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "3.4",
+      "title": "Pour améliorer et personnaliser notre Plateforme",
+      "blocks": [
+        {
+          "type": "bullets",
+          "items": [
+            "Analyser les modèles et tendances d'utilisation",
+            "Développer de nouvelles fonctionnalités et services",
+            "Améliorer les capacités de recherche IA",
+            "Améliorer la recherche et la découverte",
+            "Personnaliser les recommandations de contenu",
+            "Optimiser les performances de la Plateforme",
+            "Mener des recherches et analyses internes"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "3.5",
+      "title": "Pour communiquer avec vous",
+      "blocks": [
+        {
+          "type": "bullets",
+          "items": [
+            "Envoyer des e-mails transactionnels (création de compte, réinitialisation de mot de passe, confirmations d'achat)",
+            "Fournir une assistance client et répondre aux demandes",
+            "Envoyer des rappels de renouvellement d'abonnement",
+            "Vous informer des mises à jour de la Plateforme et des nouvelles fonctionnalités (avec possibilité de désinscription)",
+            "Envoyer des avis juridiques et de conformité",
+            "Mener des enquêtes auprès des utilisateurs (participation facultative)"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "3.6",
+      "title": "Pour la conformité juridique et la sécurité",
+      "blocks": [
+        {
+          "type": "bullets",
+          "items": [
+            "Respecter les obligations légales et les exigences réglementaires",
+            "Appliquer nos Conditions d'utilisation et autres politiques",
+            "Protéger contre la fraude, les abus et les accès non autorisés",
+            "Résoudre les litiges et prévenir les activités illégales",
+            "Protéger les droits, la propriété et la sécurité de Yamalé, de nos utilisateurs et du public",
+            "Répondre aux demandes légales des autorités"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "sharing",
+      "number": "4",
+      "title": "Comment nous partageons vos informations",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Nous pouvons partager vos informations avec des tiers dans les circonstances suivantes :"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "4.1",
+      "title": "Prestataires de services et partenaires commerciaux",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Nous partageons des informations avec des prestataires de services tiers de confiance qui nous aident à exploiter la Plateforme :"
+            }
+          ]
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "Services d'authentification (p. ex., Clerk, Auth0) — pour gérer les comptes utilisateurs et la connexion",
+            "Fournisseurs de bases de données et de stockage (p. ex., Supabase, AWS) — pour stocker les données et documents de la Plateforme",
+            "Processeurs de paiement (p. ex., pawaPay, fournisseurs de mobile money) — pour traiter les abonnements et paiements de déblocage",
+            "Fournisseurs d'IA (p. ex., Anthropic) — pour alimenter nos fonctionnalités de recherche juridique IA",
+            "Fournisseurs de services e-mail — pour envoyer des e-mails transactionnels et de notification",
+            "Fournisseurs d'analyses — pour comprendre l'utilisation et les performances de la Plateforme",
+            "Fournisseurs d'infrastructure cloud — pour héberger et exploiter la Plateforme",
+            "Outils d'assistance client — pour fournir de l'aide"
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Ces prestataires de services sont contractuellement tenus de protéger vos informations et de les utiliser uniquement pour les services spécifiques qu'ils nous fournissent. Ils ne peuvent pas utiliser vos données à leurs propres fins."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "4.2",
+      "title": "Autres utilisateurs de la Plateforme (annuaire d'avocats)",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Si vous êtes un avocat inscrit :"
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Informations visibles publiquement (affichées à tous les utilisateurs)",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Vos initiales (p. ex., « C. A. » au lieu du nom complet)",
+                "Titre professionnel (p. ex., « Associé principal »)",
+                "Domaines de pratique et expertise",
+                "Ville et pays",
+                "Années d'expérience",
+                "Langues parlées",
+                "Année d'inscription au barreau",
+                "Formation",
+                "Note en étoiles et nombre d'avis",
+                "Statut du badge de vérification"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Informations masquées (révélées uniquement après paiement)",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Votre prénom et nom complets",
+                "Nom complet du cabinet",
+                "Adresse e-mail",
+                "Numéro de téléphone",
+                "Adresse du bureau"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Lorsqu'un utilisateur paie pour débloquer votre profil, il obtient un accès permanent à vos coordonnées. Nous vous informons lorsque votre profil est débloqué et fournissons le nom et l'e-mail de l'utilisateur débloquant afin que vous puissiez anticiper son contact."
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Les utilisateurs qui débloquent votre profil peuvent vous contacter directement en dehors de la Plateforme. Nous ne sommes pas responsables de la façon dont ils utilisent vos coordonnées une fois révélées."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "4.3",
+      "title": "Exigences légales et protection des droits",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Nous pouvons divulguer vos informations lorsque la loi l'exige ou lorsque cela est nécessaire pour :"
+            }
+          ]
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "Se conformer aux ordonnances judiciaires, citations à comparaître ou procédures légales",
+            "Répondre aux demandes des autorités gouvernementales ou des forces de l'ordre",
+            "Appliquer nos Conditions d'utilisation, politiques ou accords utilisateurs",
+            "Protéger les droits, la propriété ou la sécurité de Yamalé, de nos utilisateurs ou d'autres personnes",
+            "Enquêter et prévenir la fraude, les violations de sécurité ou les activités illégales",
+            "Défendre contre des réclamations ou litiges juridiques"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "4.4",
+      "title": "Transferts d'entreprise",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Si Yamalé est impliquée dans une fusion, acquisition, vente d'actifs, faillite ou transaction commerciale similaire, vos informations peuvent être transférées à l'entité acquéreuse. Nous vous informerons de tout changement de ce type et vous fournirons des informations sur vos choix concernant vos données."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "4.5",
+      "title": "Avec votre consentement",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Nous pouvons partager vos informations à d'autres fins avec votre consentement explicite ou selon vos instructions."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "retention",
+      "number": "5",
+      "title": "Conservation des données",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Nous conservons vos informations personnelles aussi longtemps que nécessaire pour atteindre les objectifs décrits dans la présente Politique de confidentialité, sauf si une période de conservation plus longue est requise ou autorisée par la loi."
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Comptes actifs",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Nous conservons les informations de votre compte et les données d'utilisation tant que votre compte est actif."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Profils d'avocats",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Les informations de profil d'avocat sont conservées tant que vous maintenez votre fiche dans l'annuaire. Les documents de vérification sont conservés pour la conformité réglementaire."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Enregistrements de transactions",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Les enregistrements de paiement et de transaction sont conservés pendant au moins 7 ans à des fins fiscales, comptables et de conformité juridique."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Contacts débloqués",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Les enregistrements de déblocage de profils d'avocats sont conservés indéfiniment pour éviter les frais en double et maintenir l'historique de service."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Après suppression du compte",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Lorsque vous supprimez votre compte, nous supprimerons ou anonymiserons vos informations personnelles dans un délai de 90 jours, sauf les informations que nous sommes tenus de conserver pour des raisons juridiques, fiscales, d'audit ou de sécurité. Cela inclut :"
+                }
+              ]
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "Enregistrements de transactions (7 ans)",
+                "Documents de conformité juridique",
+                "Données d'utilisation anonymisées à des fins d'analyse",
+                "Informations nécessaires pour prévenir la fraude ou appliquer nos Conditions"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Suppression de profil d'avocat",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Si vous êtes avocat et demandez la suppression de votre profil, les coordonnées révélées aux utilisateurs qui avaient précédemment débloqué votre profil resteront chez ces utilisateurs, la transaction ayant été finalisée. Nous retirerons votre profil des résultats de recherche actifs dans un délai de 30 jours."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "security",
+      "number": "6",
+      "title": "Sécurité des données",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Nous mettons en œuvre des mesures de sécurité techniques, administratives et physiques appropriées pour protéger vos informations personnelles contre l'accès, la divulgation, la modification et la destruction non autorisés."
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Mesures techniques",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Chiffrement des données en transit (TLS/SSL) et au repos",
+                "Systèmes d'authentification sécurisés avec hachage des mots de passe",
+                "Audits de sécurité réguliers et évaluations des vulnérabilités",
+                "Protection par pare-feu et systèmes de détection d'intrusion",
+                "Contrôles d'accès API sécurisés",
+                "Mises à jour logicielles et correctifs de sécurité réguliers"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Mesures administratives",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Formation des employés sur la protection des données et la confidentialité",
+                "Contrôles d'accès limitant qui peut consulter les informations personnelles",
+                "Vérifications des antécédents pour les employés ayant accès aux données",
+                "Procédures de réponse aux incidents",
+                "Examens et mises à jour réguliers des politiques"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Mesures physiques",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                "Centres de données sécurisés avec accès restreint",
+                "Contrôles environnementaux et redondance",
+                "Élimination sécurisée des documents physiques"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Sécurité des paiements",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Nous utilisons des processeurs de paiement conformes à la norme PCI DSS. Nous ne stockons pas les numéros complets de cartes de crédit sur nos serveurs."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "label": "Limitation importante",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Bien que nous mettions en œuvre des mesures de sécurité robustes, aucun système n'est sécurisé à 100 %. Vous fournissez des informations à vos propres risques. Nous ne pouvons garantir une sécurité absolue et ne sommes pas responsables des accès non autorisés résultant de circonstances indépendantes de notre volonté raisonnable."
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "label": "Votre responsabilité",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Vous êtes responsable de la confidentialité de vos identifiants de compte. Ne partagez jamais votre mot de passe et informez-nous immédiatement si vous suspectez un accès non autorisé à votre compte."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "rights",
+      "number": "7",
+      "title": "Vos droits et choix",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Selon votre localisation et les lois applicables sur la protection des données (y compris le RGPD, le CCPA et les réglementations africaines sur la protection des données), vous pouvez disposer des droits suivants :"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "7.1",
+      "title": "Droit d'accès",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Vous avez le droit de demander l'accès aux informations personnelles que nous détenons à votre sujet et d'en recevoir une copie dans un format structuré et couramment utilisé."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "7.2",
+      "title": "Droit de rectification",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Vous pouvez mettre à jour la plupart des informations de votre compte directement via les paramètres de votre profil. Pour les profils d'avocats, vous pouvez mettre à jour vos informations de pratique, vos coordonnées et autres données de profil. Si vous ne pouvez pas mettre à jour les informations vous-même, contactez-nous à "
+            },
+            {
+              "kind": "email",
+              "address": "info@yamaleadvisory.com"
+            },
+            {
+              "kind": "text",
+              "value": "."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "7.3",
+      "title": "Droit à l'effacement",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Vous pouvez demander la suppression de vos informations personnelles, sous réserve de certaines exceptions (p. ex., obligations légales, prévention de la fraude, enregistrements de transactions). Pour supprimer votre compte, contactez-nous à "
+            },
+            {
+              "kind": "email",
+              "address": "info@yamaleadvisory.com"
+            },
+            {
+              "kind": "text",
+              "value": "."
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "label": "Note pour les avocats",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Si des utilisateurs ont précédemment débloqué votre profil, ils conserveront l'accès aux coordonnées pour lesquelles ils ont payé. Nous ne pouvons pas récupérer les informations déjà divulguées dans le cadre d'une transaction finalisée."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "7.4",
+      "title": "Droit d'opposition et de limitation du traitement",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Vous pouvez vous opposer à certains traitements de vos informations personnelles ou demander que nous limitions le traitement dans certaines circonstances, par exemple lorsque vous contestez l'exactitude de vos données ou la licéité du traitement."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "7.5",
+      "title": "Droit à la portabilité des données",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Le cas échéant, vous avez le droit de recevoir vos informations personnelles dans un format portable et de les transmettre à un autre prestataire de services."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "7.6",
+      "title": "Droit de retirer le consentement",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Lorsque nous traitons vos informations sur la base du consentement, vous avez le droit de retirer ce consentement à tout moment. Cela n'affectera pas la licéité du traitement effectué avant le retrait."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "7.7",
+      "title": "Communications marketing",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Vous pouvez vous désinscrire des e-mails marketing en cliquant sur le lien « se désabonner » dans tout e-mail marketing ou en mettant à jour vos préférences de communication dans les paramètres de votre compte. Vous continuerez à recevoir des e-mails transactionnels (p. ex., reçus, réinitialisations de mot de passe) même si vous vous désinscrivez du marketing."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "7.8",
+      "title": "Comment exercer vos droits",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Pour exercer l'un de ces droits, veuillez nous contacter à "
+            },
+            {
+              "kind": "email",
+              "address": "info@yamaleadvisory.com"
+            },
+            {
+              "kind": "text",
+              "value": ". Nous répondrons à votre demande dans le délai requis par la loi applicable (généralement 30 jours). Nous pouvons avoir besoin de vérifier votre identité avant de traiter votre demande."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "cookies",
+      "number": "8",
+      "title": "Cookies et technologies similaires",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Nous et nos prestataires de services utilisons des cookies, balises web et technologies de suivi similaires pour :"
+            }
+          ]
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "Authentifier les utilisateurs et maintenir les sessions de connexion",
+            "Mémoriser vos préférences et paramètres",
+            "Analyser l'utilisation et les performances de la Plateforme",
+            "Assurer la sécurité et détecter la fraude",
+            "Fournir et mesurer l'efficacité des fonctionnalités"
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Types de cookies que nous utilisons",
+          "blocks": [
+            {
+              "type": "bullets",
+              "items": [
+                {
+                  "label": "Cookies essentiels :",
+                  "text": "Requis pour le fonctionnement de la Plateforme (authentification, sécurité, gestion de session)"
+                },
+                {
+                  "label": "Cookies fonctionnels :",
+                  "text": "Mémorisent vos préférences et paramètres"
+                },
+                {
+                  "label": "Cookies analytiques :",
+                  "text": "Nous aident à comprendre comment vous utilisez la Plateforme"
+                },
+                {
+                  "label": "Cookies de sécurité :",
+                  "text": "Détectent et préviennent les activités frauduleuses"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Gestion des cookies",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "La plupart des navigateurs web acceptent les cookies par défaut. Vous pouvez ajuster les paramètres de votre navigateur pour refuser les cookies ou vous alerter lorsque des cookies sont envoyés. Cependant, certaines fonctionnalités de la Plateforme peuvent ne pas fonctionner correctement si vous désactivez les cookies, notamment l'authentification et la gestion de session."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Cookies tiers",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Certains cookies peuvent être définis par nos prestataires de services (p. ex., outils d'analyse). Ces tiers ont leurs propres politiques de confidentialité régissant l'utilisation de vos informations."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "third-party",
+      "number": "9",
+      "title": "Liens et services tiers",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Notre Plateforme peut contenir des liens vers des sites web, applications ou services tiers (y compris des ressources dans The Yamalé Vault, des bases de données juridiques externes ou des plateformes de médias sociaux). Nous ne sommes pas responsables des pratiques de confidentialité ou du contenu de ces tiers."
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Lorsque vous cliquez sur un lien tiers ou accédez à un service tiers, vous quittez notre Plateforme et êtes soumis à la politique de confidentialité et aux conditions d'utilisation de ce tiers. Nous vous encourageons à lire les politiques de confidentialité de tout service tiers que vous visitez."
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Ressources The Yamalé Vault",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Lorsque vous achetez des modèles, cours ou autres ressources auprès de vendeurs tiers dans The Yamalé Vault, le vendeur peut collecter des informations supplémentaires auprès de vous. Nous facilitons la transaction mais ne sommes pas responsables des pratiques de confidentialité du vendeur."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "transfers",
+      "number": "10",
+      "title": "Transferts internationaux de données",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Yamalé opère à l'international et vos informations peuvent être transférées, stockées et traitées dans des pays autres que votre pays de résidence, y compris d'autres pays d'Afrique, les États-Unis, l'Europe et d'autres régions où nos prestataires de services opèrent."
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Ces pays peuvent avoir des lois sur la protection des données différentes de celles de votre pays. Lorsque nous transférons vos informations personnelles à l'international, nous mettons en œuvre des garanties appropriées pour protéger vos données, notamment :"
+            }
+          ]
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "Clauses contractuelles types (CCT) approuvées par les autorités compétentes",
+            "Accords de traitement des données avec les prestataires de services",
+            "Décisions d'adéquation des autorités compétentes en matière de protection des données",
+            "Autres mécanismes de transfert légalement reconnus"
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Lorsque la loi l'exige, nous obtiendrons votre consentement avant de transférer vos informations à l'international."
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "label": "Pour les utilisateurs africains",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Nous nous efforçons de stocker les données des utilisateurs africains en Afrique ou dans des juridictions disposant de normes adéquates de protection des données. Cependant, certains de nos prestataires de services (notamment les fournisseurs d'IA et d'infrastructure cloud) peuvent traiter des données en dehors de l'Afrique. Nous veillons à ce que ces prestataires respectent les exigences applicables en matière de protection des données."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "children",
+      "number": "11",
+      "title": "Confidentialité des enfants",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Notre Plateforme n'est pas destinée à être utilisée par des personnes de moins de 18 ans (ou l'âge minimum de consentement numérique dans votre juridiction). Nous ne collectons pas sciemment d'informations personnelles auprès d'enfants."
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Si vous êtes parent ou tuteur et pensez que votre enfant nous a fourni des informations personnelles, veuillez nous contacter immédiatement à "
+            },
+            {
+              "kind": "email",
+              "address": "info@yamaleadvisory.com"
+            },
+            {
+              "kind": "text",
+              "value": ". Après vérification, nous supprimerons rapidement ces informations de nos systèmes."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "contact",
+      "number": "12",
+      "title": "Délégué à la protection des données et coordonnées",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Si vous avez des questions, des préoccupations ou des demandes concernant la présente Politique de confidentialité ou nos pratiques en matière de données, veuillez nous contacter :"
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "E-mail",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "strong",
+                  "value": "E-mail :"
+                },
+                {
+                  "kind": "text",
+                  "value": " "
+                },
+                {
+                  "kind": "email",
+                  "address": "info@yamaleadvisory.com"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Objet",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "strong",
+                  "value": "Objet :"
+                },
+                {
+                  "kind": "text",
+                  "value": " Demande de confidentialité — [Votre sujet]"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Délégué à la protection des données",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Pour les demandes RGPD ou autres demandes relatives à la protection des données, vous pouvez demander à parler à notre Délégué à la protection des données en envoyant un e-mail à "
+                },
+                {
+                  "kind": "email",
+                  "address": "info@yamaleadvisory.com"
+                },
+                {
+                  "kind": "text",
+                  "value": " avec l'objet « Attention : DPO »."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Délai de réponse",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Nous nous efforçons de répondre à toutes les demandes de confidentialité dans un délai de 30 jours. Pour les demandes complexes, nous pouvons prolonger ce délai et vous en informerons."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Droit de déposer une plainte",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Si vous êtes situé dans l'Union européenne, au Royaume-Uni ou dans une autre juridiction disposant d'une autorité de protection des données, vous avez le droit de déposer une plainte auprès de votre autorité de contrôle locale si vous estimez que nous avons violé vos droits en matière de protection des données."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "changes",
+      "number": "13",
+      "title": "Modifications de la présente Politique de confidentialité",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Nous pouvons mettre à jour la présente Politique de confidentialité de temps à autre pour refléter les changements dans nos pratiques, services, exigences légales ou pour d'autres raisons opérationnelles, juridiques ou réglementaires."
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Notification des modifications",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Lorsque nous apportons des modifications, nous :"
+                }
+              ]
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "Mettrons à jour la date « Dernière mise à jour » en haut de cette politique",
+                "Publierons la politique révisée sur notre Plateforme",
+                "Pour les modifications importantes affectant significativement vos droits, nous fournirons un avis supplémentaire par e-mail ou par un avis visible sur la Plateforme"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Utilisation continue",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Votre utilisation continue de la Plateforme après la date d'entrée en vigueur de toute modification constitue votre acceptation de la Politique de confidentialité révisée. Si vous n'acceptez pas les modifications, vous devez cesser d'utiliser la Plateforme et pouvez demander la suppression de votre compte."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Modifications importantes",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Les modifications seront considérées comme « importantes » si elles :"
+                }
+              ]
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "Étendent significativement notre collecte ou utilisation d'informations personnelles",
+                "Modifient les finalités pour lesquelles nous utilisons les informations",
+                "Altèrent substantiellement la façon dont nous partageons les informations avec des tiers",
+                "Réduisent vos droits ou protections en vertu de la politique"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "gdpr",
+      "number": "14",
+      "title": "Base juridique du traitement (conformité RGPD)",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Pour les utilisateurs de l'Union européenne, du Royaume-Uni et d'autres juridictions aux exigences similaires, nous traitons vos informations personnelles sur la base des fondements juridiques suivants :"
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Exécution du contrat",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Le traitement est nécessaire à l'exécution de notre contrat avec vous (p. ex., fourniture des services de la Plateforme, traitement des abonnements, déblocage de profils d'avocats)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Intérêts légitimes",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Le traitement est nécessaire à nos intérêts commerciaux légitimes (p. ex., amélioration des services, prévention de la fraude, analyses), à condition que ces intérêts ne prévalent pas sur vos droits fondamentaux."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Obligations légales",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Le traitement est requis pour se conformer aux obligations légales ou réglementaires (p. ex., registres fiscaux, réponse aux demandes légales)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Consentement",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Dans certains cas, nous traitons les informations sur la base de votre consentement explicite. Vous pouvez retirer votre consentement à tout moment, sans que cela n'affecte la licéité du traitement antérieur."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Intérêts vitaux",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Dans de rares cas, le traitement peut être nécessaire pour protéger vos intérêts vitaux ou ceux d'une autre personne."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "ccpa",
+      "number": "15",
+      "title": "Droits à la vie privée en Californie (CCPA)",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Si vous résidez en Californie aux États-Unis, vous disposez de droits spécifiques en vertu de la California Consumer Privacy Act (CCPA) :"
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Droit de savoir",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Vous pouvez demander des informations sur les données personnelles que nous avons collectées à votre sujet au cours des 12 derniers mois, y compris les catégories d'informations, les sources, les finalités et les tiers avec lesquels nous les partageons."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Droit à l'effacement",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Vous pouvez demander la suppression de vos informations personnelles, sous réserve de certaines exceptions."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Droit de refus",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Nous ne « vendons » pas d'informations personnelles au sens de la CCPA. Si cela change, nous mettrons en place un mécanisme de refus."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Droit à la non-discrimination",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Nous ne vous discriminerons pas pour avoir exercé vos droits CCPA."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Comment exercer vos droits",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Contactez-nous à "
+                },
+                {
+                  "kind": "email",
+                  "address": "info@yamaleadvisory.com"
+                },
+                {
+                  "kind": "text",
+                  "value": " avec « Droits à la vie privée en Californie » dans l'objet. Nous vérifierons votre identité avant de traiter votre demande."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Agents autorisés",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Vous pouvez désigner un agent autorisé pour faire des demandes en votre nom. L'agent doit fournir une preuve d'autorisation."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "automated",
+      "number": "16",
+      "title": "Décision automatisée et profilage",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Nous utilisons des systèmes automatisés, y compris l'IA, pour améliorer votre expérience sur la Plateforme. Cela inclut :"
+            }
+          ]
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "Recherche juridique et analyse de documents assistées par IA",
+            "Recommandations de contenu personnalisées",
+            "Détection de fraude et surveillance de la sécurité",
+            "Analyse des modèles d'utilisation"
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Annuaire d'avocats",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Nous n'utilisons pas la prise de décision automatisée pour évaluer ou noter individuellement les avocats de notre annuaire. Les évaluations sont basées sur les avis des utilisateurs, et l'affichage des profils repose sur les critères de recherche des utilisateurs (localisation, expertise, langue)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "label",
+          "label": "Vos droits",
+          "blocks": [
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Si vous êtes soumis à une prise de décision automatisée produisant des effets juridiques ou des effets similaires significatifs, vous avez le droit de :"
+                }
+              ]
+            },
+            {
+              "type": "bullets",
+              "items": [
+                "Obtenir une intervention humaine",
+                "Exprimer votre point de vue",
+                "Contester la décision"
+              ]
+            },
+            {
+              "type": "p",
+              "segments": [
+                {
+                  "kind": "text",
+                  "value": "Contactez-nous à "
+                },
+                {
+                  "kind": "email",
+                  "address": "info@yamaleadvisory.com"
+                },
+                {
+                  "kind": "text",
+                  "value": " si vous avez des préoccupations concernant le traitement automatisé."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "acceptance",
+      "number": "17",
+      "title": "Acceptation de la présente politique",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "En accédant à la Plateforme juridique Yamalé ou en l'utilisant, vous reconnaissez avoir lu, compris et accepté d'être lié par la présente Politique de confidentialité. Cette politique entre en vigueur à la date « Dernière mise à jour » indiquée en haut de ce document."
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Si vous n'acceptez pas la présente Politique de confidentialité, vous ne devez pas accéder à notre Plateforme ni l'utiliser."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "updatedBanner": [
+    {
+      "kind": "text",
+      "value": "La présente Politique de confidentialité a été mise à jour pour la dernière fois le "
+    },
+    {
+      "kind": "strong",
+      "value": "12 février 2026"
+    },
+    {
+      "kind": "text",
+      "value": ". Pour toute question ou préoccupation, contactez : "
+    },
+    {
+      "kind": "email",
+      "address": "info@yamaleadvisory.com"
+    }
+  ],
+  "footerLinks": [
+    {
+      "href": "/terms",
+      "label": "Conditions d'utilisation"
+    },
+    {
+      "href": "/payment-refund",
+      "label": "Politique de paiement et de remboursement"
+    },
+    {
+      "href": "/",
+      "label": "Accueil"
+    }
+  ]
+}
