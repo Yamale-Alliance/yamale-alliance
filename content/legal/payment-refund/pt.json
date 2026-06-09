@@ -1,0 +1,1034 @@
+{
+  "meta": {
+    "title": "Política de pagamento e reembolso",
+    "description": "Faturação, pagamentos por mobile money e cartão, subscrições, cancelamentos e reembolsos para a Plataforma Jurídica Yamalé e O Yamalé Vault.",
+    "heroTitle": "Política de pagamento e reembolso",
+    "heroSubtitle": "Faturação, métodos de pagamento aceites e os seus direitos quando algo corre mal",
+    "dateLine": "Data de entrada em vigor: maio de 2026 · Versão 1.0"
+  },
+  "sections": [
+    {
+      "kind": "section",
+      "id": "introduction",
+      "number": "1",
+      "title": "Introdução",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "A presente Política de Pagamento e Reembolso (a «Política») rege todas as transações financeiras na Plataforma Jurídica Yamalé (a «Plataforma»), operada pela Yamalé, entidade jurídica constituída ao abrigo das leis do Senegal e com sede em Dakar, Senegal."
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Ao concluir uma compra ou subscrever qualquer funcionalidade paga na Plataforma, aceita os termos da presente Política. Esta Política integra e deve ser lida em conjunto com os "
+            },
+            {
+              "kind": "link",
+              "href": "/terms",
+              "label": "Termos de Serviço da Yamalé"
+            },
+            {
+              "kind": "text",
+              "value": " e a "
+            },
+            {
+              "kind": "link",
+              "href": "/privacy",
+              "label": "Política de Privacidade"
+            },
+            {
+              "kind": "text",
+              "value": "."
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Se tiver dúvidas sobre um débito ou pagamento, contacte-nos em "
+            },
+            {
+              "kind": "email",
+              "address": "info@yamaleadvisory.com"
+            },
+            {
+              "kind": "text",
+              "value": " antes de iniciar uma disputa ou estorno junto do seu prestador de pagamentos."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "products",
+      "number": "2",
+      "title": "Produtos e serviços oferecidos",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "A Plataforma oferece as seguintes categorias de produtos e serviços pagos. Os termos de faturação e reembolso aplicáveis a cada categoria estão descritos na presente Política."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "2.1",
+      "title": "Subscrições",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Os planos de subscrição proporcionam acesso contínuo às funcionalidades da Plataforma, incluindo a Biblioteca Jurídica, as Ferramentas AfCFTA e a Pesquisa Jurídica por IA, com faturação recorrente mensal ou anual. As subscrições renovam-se automaticamente no final de cada período de faturação, salvo cancelamento em conformidade com a Secção 5."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "2.2",
+      "title": "O Yamalé Vault — Compras no marketplace",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "O Yamalé Vault é um marketplace de conteúdos jurídicos e de conformidade, incluindo cursos, webinars, modelos de documentos e materiais de referência. As compras no Vault são transações únicas para acesso a conteúdos específicos. O conteúdo do Vault fica disponível imediatamente após a confirmação do pagamento."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "2.3",
+      "title": "Passaporte AfCFTA e ferramentas de conformidade",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "O Passaporte AfCFTA e as ferramentas de conformidade associadas podem ser oferecidos como produtos autónomos ou incluídos em planos de subscrição. Quando oferecidos como compra autónoma, aplicam-se os termos da Secção 2.2 (compras únicas)."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "2.4",
+      "title": "Rede de advogados selecionados",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "A Rede de Advogados Selecionados (Encontrar um Advogado) é um diretório por convite de profissionais jurídicos verificados com experiência em direito empresarial africano. Os advogados são admitidos na rede pela Yamalé sem custos. O acesso ao diretório está incluído como funcionalidade da Plataforma; não é cobrada qualquer taxa separada aos utilizadores para consultar ou contactar advogados listados."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "2.5",
+      "title": "Transferências de documentos jurídicos",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "A Biblioteca Jurídica Yamalé dá acesso a leis, estatutos, decretos, tratados e outros instrumentos jurídicos dos 54 países africanos. Consoante o seu plano de subscrição, as transferências de documentos jurídicos individuais podem estar incluídas no seu plano ou disponíveis como compras autónomas. Quando as transferências estão incluídas na subscrição, o acesso está sujeito a quaisquer limites de uso razoável aplicáveis ao seu plano. As transferências autónomas de documentos são compras únicas regidas pelos termos da Secção 2.2."
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Os documentos transferidos são fornecidos apenas para referência pessoal e profissional e não podem ser redistribuídos, revendidos ou publicados sem o consentimento prévio por escrito da Yamalé."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "payment-methods",
+      "number": "3",
+      "title": "Métodos de pagamento aceites",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Aceitamos as seguintes formas de pagamento. Todas as transações são processadas pelos nossos parceiros autorizados de processamento de pagamentos. A Yamalé não armazena as credenciais do seu cartão ou carteira. Os dados de pagamento são mantidos de forma segura pelos nossos processadores de pagamento, e conservamos apenas um token seguro para processar débitos recorrentes em seu nome."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "3.1",
+      "title": "Cartões de crédito e débito",
+      "blocks": [
+        {
+          "type": "bullets",
+          "items": [
+            "Visa (crédito e débito)",
+            "Mastercard (crédito e débito)",
+            "American Express",
+            "Outras redes de cartões internacionalmente reconhecidas quando suportadas pelo nosso processador de pagamentos"
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Os pagamentos por cartão são processados em USD. O emissor do seu cartão pode aplicar taxas de câmbio ou de transação internacional se o seu cartão não estiver denominado em USD. A Yamalé não é responsável pelas taxas aplicadas pelo emissor do seu cartão."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "3.2",
+      "title": "Carteiras mobile money",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Aceitamos pagamentos através dos seguintes serviços de mobile money, sujeitos à disponibilidade no seu país:"
+            }
+          ]
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "M-Pesa (Quénia, Tanzânia, Gana e outros mercados suportados)",
+            "MTN Mobile Money / MoMo (Gana, Uganda, Camarões, Costa do Marfim, Ruanda, Zâmbia e outros mercados suportados)",
+            "Orange Money (Senegal, Costa do Marfim, Mali, Burkina Faso, Guiné e outros mercados suportados)",
+            "Wave (Senegal, Costa do Marfim e outros mercados suportados)",
+            "Airtel Money (mercados suportados)",
+            "Outras carteiras móveis locais disponibilizadas no checkout"
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Os pagamentos por mobile money são processados na moeda local da carteira aplicável. As taxas de câmbio e quaisquer taxas do operador móvel são determinadas pelo seu operador de rede móvel, e não pela Yamalé. É sua responsabilidade garantir que a sua carteira móvel está suficientemente financiada antes de iniciar uma transação. A disponibilidade de prestadores específicos de mobile money varia consoante o país. As opções de pagamento disponíveis serão apresentadas no checkout com base na sua localização."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "3.3",
+      "title": "Parceiros de processamento de pagamentos",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Os pagamentos na Plataforma Jurídica Yamalé são processados pelos nossos parceiros autorizados de processamento de pagamentos. Os pagamentos por cartão são processados pela lomi.africa S.A.R.L («lomi.»), empresa de serviços de pagamento constituída na Costa do Marfim. A lomi. atua como «Merchant of Record» para transações processadas através da sua plataforma, o que significa que a lomi. é a entidade de referência para efeitos de cobrança de pagamentos. Os pagamentos por mobile money são processados pela lomi. e pela PawaPay Limited («PawaPay»), agregador de mobile money que suporta uma vasta gama de carteiras móveis em África. Ao concluir um pagamento, aceita os termos de serviço do processador de pagamentos aplicável. A Yamalé não é responsável por falhas, atrasos ou erros imputáveis a processadores de pagamentos ou operadores de rede móvel."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "3.4",
+      "title": "Moeda",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Todos os preços na Plataforma são apresentados em dólares americanos (USD). O seu banco ou operador de rede móvel pode aplicar taxas de conversão se a sua conta estiver denominada noutra moeda. A Yamalé não é responsável por essas taxas."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "billing",
+      "number": "4",
+      "title": "Termos de faturação e pagamento",
+      "blocks": []
+    },
+    {
+      "kind": "subsection",
+      "number": "4.1",
+      "title": "Pagamento no momento da compra",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Todos os pagamentos são devidos no momento da compra ou da ativação da subscrição. O acesso às funcionalidades pagas é concedido após confirmação de pagamento bem-sucedido. Quando o pagamento falha ou é recusado, o acesso não será concedido ou será suspenso até que o pagamento seja concluído com sucesso."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "4.2",
+      "title": "Ciclos de faturação das subscrições",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Subscrições mensais: faturadas a cada 30 dias a partir da data de ativação. Subscrições anuais: faturadas uma vez por ano a partir da data de ativação. A sua data de faturação é definida no momento da subscrição inicial e mantém-se igual em cada período de renovação, salvo alteração da subscrição."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "4.3",
+      "title": "Renovação automática",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "As subscrições renovam-se automaticamente no final de cada período de faturação ao preço de subscrição então em vigor. Receberá uma notificação de lembrete pelo menos sete (7) dias antes da renovação da sua subscrição. Ao subscrever, autoriza a Yamalé a debitar o seu método de pagamento selecionado em cada período de renovação até cancelar."
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "strong",
+              "value": "Para pagamentos por mobile money:"
+            },
+            {
+              "kind": "text",
+              "value": " quando o seu operador de rede móvel suporta pagamentos recorrentes ou programados, a sua carteira será debitada automaticamente na data de renovação. Quando o débito automático não é suportado pelo seu operador, receberá notificações automáticas de lembrete antes da data de renovação, solicitando que autorize o pagamento. Se o pagamento não for recebido com sucesso na data de renovação, será enviado um lembrete final. O acesso será suspenso doze (12) horas após a data de renovação se o pagamento não tiver sido concluído. Este prazo é aplicado rigorosamente; a Yamalé não concede períodos de tolerância superiores a doze (12) horas para renovações por mobile money. Garantir que a sua carteira móvel está financiada antes da data de renovação é da sua responsabilidade."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "4.4",
+      "title": "Alterações de preço",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "A Yamalé reserva-se o direito de alterar os preços das subscrições. Será notificado de qualquer alteração de preço pelo menos trinta (30) dias antes da sua entrada em vigor. A utilização continuada da Plataforma após a data de entrada em vigor de uma alteração de preço constitui aceitação do novo preço. Se não aceitar o novo preço, pode cancelar a sua subscrição antes da alteração entrar em vigor, em conformidade com a Secção 5."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "4.5",
+      "title": "Impostos e taxas",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Os preços apresentados na Plataforma podem ou não incluir impostos, taxas ou direitos aplicáveis consoante a sua jurisdição. Quando exigido pela lei aplicável, os impostos aplicáveis (incluindo IVA, GST ou impostos sobre serviços digitais) serão adicionados à sua fatura e são da sua responsabilidade. A Yamalé não é responsável por retenções na fonte, taxas de operadores móveis ou taxas de transação impostas por terceiros."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "4.6",
+      "title": "Faturas e recibos",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Um recibo eletrónico será enviado para o seu endereço de e-mail registado após cada transação bem-sucedida. Os recibos servem como comprovativo de pagamento. Se necessitar de uma fatura formal para fins empresariais ou fiscais, contacte "
+            },
+            {
+              "kind": "email",
+              "address": "info@yamaleadvisory.com"
+            },
+            {
+              "kind": "text",
+              "value": " no prazo de 30 dias após a transação."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "cancellation",
+      "number": "5",
+      "title": "Cancelamento",
+      "blocks": []
+    },
+    {
+      "kind": "subsection",
+      "number": "5.1",
+      "title": "Como cancelar",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Pode cancelar a sua subscrição a qualquer momento através das definições da sua conta, em «Faturação», ou contactando "
+            },
+            {
+              "kind": "email",
+              "address": "info@yamaleadvisory.com"
+            },
+            {
+              "kind": "text",
+              "value": ". O cancelamento produz efeitos no final do seu período de faturação atual. Manterá o acesso às funcionalidades pagas até ao final do período já pago."
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Para subscrições anuais, o cancelamento interrompe a renovação automática; não confere direito a reembolso proporcional da parte não utilizada do período anual, exceto conforme previsto na Secção 6."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "5.2",
+      "title": "Efeito do cancelamento",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Após o cancelamento, a sua subscrição não será renovada. O seu acesso às funcionalidades exclusivas de subscrição terminará no final do seu período de faturação atual. O conteúdo adquirido através do Yamalé Vault permanece acessível de acordo com os termos dessa compra, salvo se a sua conta for encerrada por violação dos Termos de Serviço."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "5.3",
+      "title": "Cancelamento pela Yamalé",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "A Yamalé reserva-se o direito de suspender ou encerrar a sua conta e o acesso a serviços pagos, sem reembolso, se violar os Termos de Serviço, praticar fraude, iniciar um estorno injustificado ou utilizar a Plataforma de forma que cause prejuízo a outros utilizadores ou à Yamalé."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "refunds",
+      "number": "6",
+      "title": "Política de reembolso",
+      "blocks": []
+    },
+    {
+      "kind": "subsection",
+      "number": "6.1",
+      "title": "Princípio geral",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "A Yamalé opera uma plataforma que disponibiliza acesso imediato a conteúdos e serviços digitais. Como o acesso é concedido no momento do pagamento, os reembolsos não estão automaticamente disponíveis. No entanto, reconhecemos que podem surgir problemas e tratamos os pedidos de reembolso de forma justa, caso a caso, no âmbito descrito abaixo."
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "label": "Tenha em atenção",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "A taxa de processamento da transação aplicada ao seu pagamento original não é reembolsável em nenhum caso. Qualquer reembolso aprovado corresponderá ao montante pago, menos a taxa de processamento aplicada no momento da transação."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "6.2",
+      "title": "Subscrições — Período de reflexão",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Se for um novo subscritor e cancelar a sua subscrição no prazo de catorze (14) dias após o pagamento inicial (o «Período de Reflexão»), tem direito a reembolso integral desse pagamento inicial, desde que não tenha feito uso substancial da Plataforma durante esse período. O uso substancial inclui a submissão de mais de duas (2) consultas de Pesquisa Jurídica por IA."
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "O período de reflexão de 14 dias aplica-se apenas a pagamentos de subscrição. Não se aplica a compras no Yamalé Vault, a cobranças de renovação, a upgrades de subscrição anual nem a qualquer período de faturação subsequente."
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Este período de reflexão é consistente com as disposições de proteção do consumidor aplicáveis na UE, no Reino Unido e em várias jurisdições africanas, incluindo o Quénia e a África do Sul. Os utilizadores noutras jurisdições podem ter direitos legais adicionais ao abrigo da lei local."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "6.3",
+      "title": "Subscrições — Renovações",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "As cobranças de renovação são, em regra, não reembolsáveis. Se se esquecer de cancelar antes de uma data de renovação, contacte "
+            },
+            {
+              "kind": "email",
+              "address": "info@yamaleadvisory.com"
+            },
+            {
+              "kind": "text",
+              "value": " no prazo de três (3) dias após a cobrança de renovação. Consideraremos pedidos de reembolso neste prazo quando: (a) não tiver utilizado a Plataforma no período renovado; e (b) o pedido for o seu primeiro deste tipo. Reservamo-nos o direito de recusar pedidos de reembolso que pareçam abusivos ou repetitivos."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "6.4",
+      "title": "Yamalé Vault — Compras únicas",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "As compras no Vault não são reembolsáveis uma vez que o conteúdo tenha sido acedido, transferido ou visualizado, uma vez que o conteúdo digital é entregue imediatamente após o pagamento. Se tiver uma falha técnica que impeça o acesso ao conteúdo adquirido, contacte "
+            },
+            {
+              "kind": "email",
+              "address": "info@yamaleadvisory.com"
+            },
+            {
+              "kind": "text",
+              "value": " no prazo de sete (7) dias com uma descrição do problema e resolveremos o problema de acesso ou emitiremos um reembolso integral."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "6.5",
+      "title": "Reembolsos por erros ou falhas da Plataforma",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Se uma falha de serviço, erro técnico ou interrupção imputável à Yamalé o impedir de aceder a uma funcionalidade paga durante um período cumulativo superior a 48 horas num período de faturação, tem direito a um crédito proporcional pelo período afetado. Este crédito será aplicado ao seu próximo ciclo de faturação. Para reclamar um crédito por falha de serviço, contacte "
+            },
+            {
+              "kind": "email",
+              "address": "info@yamaleadvisory.com"
+            },
+            {
+              "kind": "text",
+              "value": " no prazo de 14 dias após o incidente com detalhes do problema."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "6.6",
+      "title": "Cobranças duplicadas ou erróneas",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Se for cobrado mais do que uma vez pela mesma transação, ou se o montante cobrado estiver incorreto, contacte "
+            },
+            {
+              "kind": "email",
+              "address": "info@yamaleadvisory.com"
+            },
+            {
+              "kind": "text",
+              "value": " imediatamente. Investigaremos e emitiremos um reembolso integral de qualquer cobrança duplicada ou errónea no prazo de dez (10) dias úteis após confirmação do erro."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "6.7",
+      "title": "Método de reembolso",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Os reembolsos aprovados serão devolvidos ao método de pagamento original utilizado na transação:"
+            }
+          ]
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "Reembolsos por cartão de crédito ou débito: processados no prazo de 5 a 10 dias úteis após aprovação, sujeitos aos prazos de processamento do emissor do cartão.",
+            "Reembolsos por mobile money: processados no prazo de 5 a 10 dias úteis após aprovação para a carteira móvel de origem. Quando uma reversão direta na carteira não é tecnicamente suportada pelo operador, a Yamalé trabalhará consigo para organizar um método de reembolso alternativo.",
+            "Transferência bancária local (região UEMOA): processada no prazo de 5 a 10 dias úteis após aprovação."
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "A Yamalé não pode emitir reembolsos para um método de pagamento diferente do originalmente utilizado, exceto quando o método original já não estiver disponível; nesse caso, contacte "
+            },
+            {
+              "kind": "email",
+              "address": "info@yamaleadvisory.com"
+            },
+            {
+              "kind": "text",
+              "value": "."
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Os reembolsos são iniciados após a Yamalé confirmar a receção dos fundos correspondentes do seu processador de pagamentos. Os prazos de liquidação variam consoante o método de pagamento e o processador. Em casos de erro verificado da plataforma ou cobrança duplicada, iniciaremos o processo de reembolso após confirmação do erro, independentemente do estado da liquidação."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "6.8",
+      "title": "Como solicitar um reembolso",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Para solicitar um reembolso, envie um e-mail para "
+            },
+            {
+              "kind": "email",
+              "address": "info@yamaleadvisory.com"
+            },
+            {
+              "kind": "text",
+              "value": " com o assunto «Pedido de reembolso — [O seu nome]» e inclua: o endereço de e-mail da sua conta, a data da transação, o montante cobrado, o método de pagamento utilizado e o motivo do pedido. Confirmaremos a receção do seu pedido no prazo de dois (2) dias úteis e procuraremos resolvê-lo no prazo de dez (10) dias úteis."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "disputes",
+      "number": "7",
+      "title": "Transações falhadas e disputadas",
+      "blocks": []
+    },
+    {
+      "kind": "subsection",
+      "number": "7.1",
+      "title": "Pagamentos falhados",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Se um pagamento falhar (por fundos insuficientes, cartão expirado, desativação da carteira, indisponibilidade do operador ou outros motivos), notificá-lo-emos e daremos a oportunidade de atualizar o seu método de pagamento. A Yamalé não é responsável por falhas de transação causadas pelo seu prestador de pagamentos, operador de rede móvel ou banco."
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "strong",
+              "value": "Para pagamentos por mobile money:"
+            },
+            {
+              "kind": "text",
+              "value": " transações falhadas em que os fundos foram debitados da sua carteira mas não recebidos pela Yamalé devem ser reportadas a "
+            },
+            {
+              "kind": "email",
+              "address": "info@yamaleadvisory.com"
+            },
+            {
+              "kind": "text",
+              "value": " com o seu número de referência da transação. Investigaremos no prazo de cinco (5) dias úteis. Se os fundos foram debitados e não recebidos, aplicaremos o pagamento à sua conta ou coordenaremos uma reversão com o processador de pagamentos."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "7.2",
+      "title": "Disputas e estornos",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Se considerar que uma cobrança é não autorizada ou incorreta, contacte "
+            },
+            {
+              "kind": "email",
+              "address": "info@yamaleadvisory.com"
+            },
+            {
+              "kind": "text",
+              "value": " antes de iniciar uma disputa ou estorno junto do seu banco ou emissor do cartão. Trabalharemos para resolver o problema diretamente e com celeridade."
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "label": "Importante",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Iniciar um estorno por uma cobrança válida ao abrigo da presente Política pode resultar na suspensão imediata da sua conta enquanto decorre a investigação, e pode resultar no encerramento permanente da sua conta se o estorno for considerado injustificado. As taxas de processamento de estornos são cobradas pelo nosso processador de pagamentos a uma taxa fixa de 10 000 F CFA por estorno (ou 15 USD / 15 EUR para transações processadas nessas moedas). Estas taxas não são reembolsáveis, independentemente do resultado da disputa. A Yamalé reserva-se o direito de recuperar o montante disputado, juntamente com quaisquer taxas de estorno incorridas, de quaisquer montantes em dívida a seu favor."
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "strong",
+              "value": "Para disputas de mobile money:"
+            },
+            {
+              "kind": "text",
+              "value": " se considerar que um montante incorreto foi deduzido da sua carteira móvel, deve também contactar diretamente o seu operador de rede móvel, uma vez que os operadores têm os seus próprios processos de resolução de disputas. A Yamalé cooperará com investigações iniciadas pelos operadores."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "7.3",
+      "title": "Fraude e transações não autorizadas",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Se suspeitar de utilização fraudulenta do seu método de pagamento na Plataforma, contacte "
+            },
+            {
+              "kind": "email",
+              "address": "info@yamaleadvisory.com"
+            },
+            {
+              "kind": "text",
+              "value": " e o seu prestador de pagamentos imediatamente. A Yamalé suspenderá a conta afetada enquanto decorre a investigação após receção de um relatório de fraude credível."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "promotions",
+      "number": "8",
+      "title": "Promoções, testes e descontos",
+      "blocks": []
+    },
+    {
+      "kind": "subsection",
+      "number": "8.1",
+      "title": "Testes gratuitos",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Quando a Yamalé oferece um período de teste gratuito, não é efetuada qualquer cobrança durante o teste. No final do teste, a sua subscrição converter-se-á automaticamente num plano pago e o seu método de pagamento selecionado será debitado, salvo se cancelar antes do fim do período de teste. Receberá um lembrete antes do fim do teste."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "8.2",
+      "title": "Preços promocionais",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Os preços promocionais ou com desconto aplicam-se apenas durante o período promocional indicado no momento da subscrição. No final do período promocional, a sua subscrição renovar-se-á ao preço standard. Será notificado desta alteração antes da sua entrada em vigor."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "subsection",
+      "number": "8.3",
+      "title": "Códigos de desconto e cupões",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Os códigos de desconto e cupões são válidos apenas para os produtos, datas e condições específicas indicadas. Não podem ser combinados com outras promoções, aplicados retroativamente, trocados por dinheiro ou transferidos. A utilização indevida de códigos promocionais pode resultar no cancelamento da subscrição ou compra associada, sem reembolso."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "enterprise",
+      "number": "9",
+      "title": "Contas empresariais e institucionais",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Escritórios de advocacia, instituições governamentais e clientes corporativos que adquiram subscrições multi-utilizador ou licenças empresariais estão sujeitos aos termos de pagamento e reembolso definidos no respetivo contrato-quadro de serviços ou acordo de licença institucional. Na ausência de acordo separado, aplica-se a presente Política."
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Os clientes empresariais faturados estão sujeitos aos prazos de pagamento acordados por escrito. Os pagamentos em atraso podem incorrer em juros à taxa de 1,5% por mês ou à taxa máxima permitida pela lei aplicável, prevalecendo a mais baixa."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "governing-law",
+      "number": "10",
+      "title": "Lei aplicável e disputas",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "A presente Política rege-se pelas leis do Senegal. As disputas decorrentes de questões de faturação ou pagamento que não possam ser resolvidas através do processo descrito na presente Política podem ser submetidas aos tribunais competentes de Dakar, Senegal, ou resolvidas por arbitragem conforme previsto nos Termos de Serviço da Yamalé."
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Nada na presente Política limita os seus direitos legais ao abrigo das leis de proteção do consumidor ou de proteção de dados aplicáveis na sua jurisdição."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "contact",
+      "number": "11",
+      "title": "Contacte-nos",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Para todas as questões de faturação e pagamento:"
+            }
+          ]
+        },
+        {
+          "type": "bullets",
+          "items": [
+            {
+              "label": "E-mail:",
+              "text": "info@yamaleadvisory.com"
+            },
+            {
+              "label": "Assunto:",
+              "text": "inclua «Faturação» ou «Pedido de reembolso» para encaminhamento mais rápido"
+            },
+            {
+              "label": "Prazo de resposta:",
+              "text": "no prazo de dois (2) dias úteis"
+            },
+            {
+              "label": "Morada:",
+              "text": "Yamalé, Dakar, Senegal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "id": "changes",
+      "number": "12",
+      "title": "Alterações à presente Política",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "A Yamalé reserva-se o direito de atualizar a presente Política periodicamente. Alterações materiais — incluindo alterações aos termos de reembolso, métodos de pagamento aceites ou ciclos de faturação — serão comunicadas por e-mail e publicadas na Plataforma pelo menos catorze (14) dias antes da sua entrada em vigor. A utilização continuada da Plataforma após a data de entrada em vigor constitui aceitação da Política revista."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "updatedBanner": [
+    {
+      "kind": "text",
+      "value": "A presente Política de Pagamento e Reembolso foi atualizada em "
+    },
+    {
+      "kind": "strong",
+      "value": "maio de 2026"
+    },
+    {
+      "kind": "text",
+      "value": " (Versão 1.0). Para questões, contacte "
+    },
+    {
+      "kind": "email",
+      "address": "info@yamaleadvisory.com"
+    },
+    {
+      "kind": "text",
+      "value": "."
+    }
+  ],
+  "footerLinks": [
+    {
+      "href": "/terms",
+      "label": "Termos de Serviço"
+    },
+    {
+      "href": "/privacy",
+      "label": "Política de Privacidade"
+    },
+    {
+      "href": "/",
+      "label": "Início"
+    }
+  ]
+}
