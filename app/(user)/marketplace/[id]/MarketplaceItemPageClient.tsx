@@ -19,7 +19,9 @@ import {
   defaultMarketplaceDownloadName,
   fetchMarketplaceFileUrl,
   saveMarketplaceFile,
+  type MarketplaceFileAccessMeta,
 } from "@/lib/marketplace-file-access";
+import { VaultLanguageBadges } from "@/components/marketplace/VaultLanguageBadges";
 import { MarketplaceLandingIframe } from "@/components/marketplace/MarketplaceLandingIframe";
 import { useMarketplacePaymentReturn } from "@/components/marketplace/use-marketplace-payment-return";
 import { notifyMarketplaceCartUpdated } from "@/lib/marketplace-cart-events";
@@ -61,6 +63,8 @@ type Item = {
   has_file?: boolean;
   file_name?: string | null;
   file_format?: string | null;
+  language_codes?: string[];
+  language_files?: MarketplaceFileAccessMeta[];
   video_url?: string | null;
   landing_page_html?: string | null;
   package_offers?: unknown;
@@ -124,6 +128,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
   const [isInCart, setIsInCart] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [fileAccessOpen, setFileAccessOpen] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
   const [myRating, setMyRating] = useState<number | null>(null);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [savingRating, setSavingRating] = useState(false);
@@ -175,12 +180,15 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
 
   const checkoutCancelled = paymentParams.checkoutCancelled;
 
+  const activeLanguage =
+    selectedLanguage ?? item?.language_files?.[0]?.language_code ?? item?.language_codes?.[0] ?? null;
+
   const handleView = async () => {
     if (!item?.id || !item.has_file) return;
     setViewing(true);
     setError(null);
     try {
-      const { url } = await fetchMarketplaceFileUrl(item.id);
+      const { url } = await fetchMarketplaceFileUrl(item.id, activeLanguage);
       setViewerUrl(url);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -194,10 +202,15 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
     setDownloading(true);
     setError(null);
     try {
-      const { url, file_name: apiFileName } = await fetchMarketplaceFileUrl(item.id);
+      const { url, file_name: apiFileName, file_format: apiFileFormat } = await fetchMarketplaceFileUrl(
+        item.id,
+        activeLanguage
+      );
+      const activeMeta =
+        item.language_files?.find((f) => f.language_code === activeLanguage) ?? item.language_files?.[0];
       const downloadName = defaultMarketplaceDownloadName(
-        apiFileName ?? item.file_name,
-        item.file_format
+        apiFileName ?? activeMeta?.file_name ?? item.file_name,
+        apiFileFormat ?? activeMeta?.file_format ?? item.file_format
       );
       await saveMarketplaceFile(url, downloadName);
     } catch (e) {
@@ -815,11 +828,13 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
                 )}
                 View & download
               </button>
-              {item.file_format && (
+              {item.language_codes && item.language_codes.length > 0 ? (
+                <VaultLanguageBadges languageCodes={item.language_codes} />
+              ) : item.file_format ? (
                 <span className="text-xs text-muted-foreground">
                   {item.file_name ?? `.${item.file_format}`}
                 </span>
-              )}
+              ) : null}
             </div>
           )}
           {(owned || free) && !item.has_file && (
@@ -840,6 +855,9 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
           open={fileAccessOpen}
           onOpenChange={setFileAccessOpen}
           fileName={item.file_name}
+          languageFiles={item.language_files}
+          selectedLanguage={activeLanguage}
+          onLanguageChange={setSelectedLanguage}
           busy={viewing || downloading}
           onPreview={() => void handleView()}
           onDownload={() => void handleDownload()}
