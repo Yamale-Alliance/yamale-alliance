@@ -44,6 +44,7 @@ import { LibraryFiltersBar } from "@/components/library/LibraryFiltersBar";
 import { platformBusinessMailto } from "@/lib/platform-emails";
 import { lawDetailHref } from "@/lib/law-public-url";
 import { LawLastVerifiedLabel } from "@/components/library/LawLastVerifiedLabel";
+import { LawLanguageBadge } from "@/components/library/LawLanguageBadge";
 
 const PAGE_SIZE = LIBRARY_PAGE_SIZE;
 const SUPPORT_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
@@ -84,6 +85,7 @@ type Law = {
   slug?: string | null;
   /** Cross-country shared link group (admin-only flair). */
   is_linked_shared_law?: boolean;
+  language_code?: string | null;
 };
 
 const STATUSES: LawStatus[] = ["In force", "Amended", "Repealed"];
@@ -187,6 +189,7 @@ function mapRowToLaw(row: LibraryLawRow): Law {
     last_verified_at: row.last_verified_at,
     slug: row.slug,
     is_linked_shared_law: row.is_linked_shared_law,
+    language_code: row.language_code ?? null,
   };
 }
 
@@ -1261,6 +1264,7 @@ export function LibraryView({
                     </Link>
                     <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-3">
                       <StatusBadge status={law.status} />
+                      <LawLanguageBadge code={law.language_code} />
                       <LawLastVerifiedLabel
                         at={law.last_verified_at}
                         variant="compact"
