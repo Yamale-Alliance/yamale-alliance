@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
+import { PLATFORM_TECHNICAL_EMAIL } from "@/lib/platform-emails";
 
 type ClerkAuthMountGuardProps = {
   children: ReactNode;
@@ -9,6 +11,7 @@ type ClerkAuthMountGuardProps = {
 
 /** Detects when Clerk auth UI failed to mount (ad blockers, CSP, CSS conflicts). */
 export function ClerkAuthMountGuard({ children, mode }: ClerkAuthMountGuardProps) {
+  const t = useTranslations("auth");
   const rootRef = useRef<HTMLDivElement>(null);
   const [showHelp, setShowHelp] = useState(false);
 
@@ -24,8 +27,6 @@ export function ClerkAuthMountGuard({ children, mode }: ClerkAuthMountGuardProps
     return () => window.clearTimeout(deadline);
   }, []);
 
-  const label = mode === "sign-in" ? "Sign in" : "Sign up";
-
   return (
     <div ref={rootRef} className="min-h-[12rem] w-full">
       {children}
@@ -34,12 +35,16 @@ export function ClerkAuthMountGuard({ children, mode }: ClerkAuthMountGuardProps
           className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-foreground"
           role="alert"
         >
-          <p className="font-medium">{label} form did not load.</p>
+          <p className="font-medium">
+            {mode === "sign-in" ? t("formDidNotLoadSignIn") : t("formDidNotLoadSignUp")}
+          </p>
           <p className="mt-1 text-muted-foreground">
-            Try a hard refresh, disable ad blockers or privacy extensions for this site, or use
-            another browser (Chrome or Edge). If it still fails, contact{" "}
-            <a href="mailto:support@yamalelegal.com" className="text-primary hover:underline">
-              support@yamalelegal.com
+            {t("formDidNotLoadHint")}{" "}
+            <a
+              href={`mailto:${PLATFORM_TECHNICAL_EMAIL}`}
+              className="text-primary hover:underline"
+            >
+              {PLATFORM_TECHNICAL_EMAIL}
             </a>
             .
           </p>
