@@ -1,7 +1,8 @@
 import { countryLabelsEquivalentForSources } from "@/lib/ai-source-relevance";
+import { matchRegionalFrameworkForLaw } from "@/lib/law-source-display";
 
 /** Bilateral / multilateral instruments legitimately name multiple states. */
-function isLikelyMultiCountryInstrumentTitle(title: string): boolean {
+export function isLikelyMultiCountryInstrumentTitle(title: string): boolean {
   const t = title.toLowerCase();
   if (/\b(bit|treaty|agreement|protocol|convention|memorandum|mou|tifa|epa|afcfta|ohada|comesa|sadc|ecowas|eac|aripo|wipo|berne|paris)\b/i.test(t)) {
     return true;
@@ -92,4 +93,33 @@ export function lawTitleContradictsCountryMetadata(title: string, countryLabel: 
   }
 
   return false;
+}
+
+/**
+ * Whether a library row may be used for a national-law question scoped to `effectiveCountry`.
+ * Rejects foreign sovereign statutes; keeps regional / bilateral instruments.
+ */
+export function lawIsInScopeForCountryQuery(
+  title: string,
+  countryLabel: string,
+  effectiveCountry: string
+): boolean {
+  const trimmedTitle = title?.trim() ?? "";
+  const trimmedCountry = countryLabel?.trim() ?? "";
+  const target = effectiveCountry?.trim() ?? "";
+  if (!target) return true;
+
+  if (trimmedTitle && lawTitleContradictsCountryMetadata(trimmedTitle, target)) return false;
+  if (trimmedTitle && matchRegionalFrameworkForLaw({ title: trimmedTitle })) return true;
+  if (trimmedTitle && isLikelyMultiCountryInstrumentTitle(trimmedTitle)) return true;
+
+  if (!trimmedCountry) return false;
+  if (trimmedCountry === "All countries" || trimmedCountry === "Multiple countries") {
+    return (
+      isLikelyMultiCountryInstrumentTitle(trimmedTitle) ||
+      Boolean(trimmedTitle && matchRegionalFrameworkForLaw({ title: trimmedTitle }))
+    );
+  }
+
+  return countryLabelsEquivalentForSources(trimmedCountry, target);
 }
