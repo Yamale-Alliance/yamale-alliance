@@ -286,6 +286,27 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["marketplace_items"]["Insert"]>;
       };
+      marketplace_item_files: {
+        Row: {
+          id: string;
+          marketplace_item_id: string;
+          language_code: string;
+          file_path: string;
+          file_name: string;
+          file_format: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          marketplace_item_id: string;
+          language_code: string;
+          file_path: string;
+          file_name: string;
+          file_format: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["marketplace_item_files"]["Insert"]>;
+      };
       marketplace_course_modules: {
         Row: {
           id: string;
