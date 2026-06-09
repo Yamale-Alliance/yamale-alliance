@@ -8,7 +8,10 @@ import {
 } from "@/lib/pawapay";
 import { recordUnlock, recordSearchUnlockGrant } from "@/lib/unlocks";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { getCompletedLomiCheckoutMetadata } from "@/lib/lomi-checkout";
+import {
+  getCompletedLomiCheckoutMetadata,
+  normalizeLomiCheckoutSessionIdFromClient,
+} from "@/lib/lomi-checkout";
 import { fulfillPaymentFromMetadata } from "@/lib/payment-webhook-fulfillment";
 
 /**
@@ -24,8 +27,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const sessionId = body.session_id as string | undefined;
-    if (!sessionId || typeof sessionId !== "string") {
+    const sessionId = normalizeLomiCheckoutSessionIdFromClient(
+      typeof body.session_id === "string" ? body.session_id : null
+    );
+    if (!sessionId) {
       return NextResponse.json({ error: "session_id required" }, { status: 400 });
     }
 
