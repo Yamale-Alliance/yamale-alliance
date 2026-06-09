@@ -14,6 +14,55 @@ const LOMI_INTEGRATION_DOC_URL = "https://docs.lomi.africa/reference/setup/integ
 
 export type LomiCurrencyCode = "USD" | "EUR" | "XOF";
 
+/** Stripe-style token in success_url templates; replaced with the real id after session create. */
+export const LOMI_CHECKOUT_SESSION_PLACEHOLDER = "{CHECKOUT_SESSION_ID}";
+
+export function isLomiCheckoutSessionIdPlaceholder(sessionId: string | null | undefined): boolean {
+  if (!sessionId || typeof sessionId !== "string") return false;
+  const t = sessionId.trim();
+  if (!t) return false;
+  return (
+    t === LOMI_CHECKOUT_SESSION_PLACEHOLDER ||
+    decodeURIComponent(t) === LOMI_CHECKOUT_SESSION_PLACEHOLDER
+  );
+}
+
+export function injectCheckoutSessionIdIntoUrl(template: string, sessionId: string): string {
+  const id = sessionId.trim();
+  return template
+    .split(LOMI_CHECKOUT_SESSION_PLACEHOLDER)
+    .join(encodeURIComponent(id));
+}
+
+/** Client redirect / confirm body: drop unresolved Lomi placeholder tokens. */
+export function normalizeLomiCheckoutSessionIdFromClient(
+  sessionId: string | null | undefined
+): string | null {
+  if (!sessionId || typeof sessionId !== "string") return null;
+  const t = sessionId.trim();
+  if (!t || isLomiCheckoutSessionIdPlaceholder(t)) return null;
+  return t;
+}
+
+/** success_url for POST /checkout-sessions — omit placeholder until PATCH with real session id. */
+function lomiSuccessUrlForSessionCreate(template: string): string {
+  if (!template.includes(LOMI_CHECKOUT_SESSION_PLACEHOLDER)) return template;
+  try {
+    const url = new URL(template);
+    const sessionParam = url.searchParams.get("session_id");
+    if (isLomiCheckoutSessionIdPlaceholder(sessionParam)) {
+      url.searchParams.delete("session_id");
+    }
+    let out = url.toString();
+    if (out.includes(LOMI_CHECKOUT_SESSION_PLACEHOLDER)) {
+      out = out.replaceAll(LOMI_CHECKOUT_SESSION_PLACEHOLDER, "");
+    }
+    return out;
+  } catch {
+    return template.replaceAll(LOMI_CHECKOUT_SESSION_PLACEHOLDER, "");
+  }
+}
+
 export function isLomiConfigured(): boolean {
   return Boolean(process.env.LOMI_API_KEY?.trim());
 }
@@ -90,13 +139,19 @@ export function getLomiRestBaseUrl(): string {
 
 /**
  * Lomi stores success_url at session create time. Patch it after we know checkout_session_id
- * so the browser return includes session_id (Lomi does not substitute `{CHECKOUT_SESSION_ID}`).
+ * so the browser return includes the real session id.
  */
 export async function patchLomiCheckoutSessionSuccessUrl(
   sessionId: string,
   successUrl: string
 ): Promise<void> {
-  if (!isLomiConfigured() || !sessionId.trim()) return;
+  if (!isLomiConfigured() || !sessionId.trim() || isLomiCheckoutSessionIdPlaceholder(sessionId)) {
+    return;
+  }
+  let resolvedSuccessUrl = successUrl;
+  if (resolvedSuccessUrl.includes(LOMI_CHECKOUT_SESSION_PLACEHOLDER)) {
+    resolvedSuccessUrl = injectCheckoutSessionIdIntoUrl(resolvedSuccessUrl, sessionId);
+  }
   const apiKey = process.env.LOMI_API_KEY?.trim();
   if (!apiKey) return;
   const base = getLomiRestBaseUrl();
@@ -108,7 +163,7 @@ export async function patchLomiCheckoutSessionSuccessUrl(
         "X-API-Key": apiKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ success_url: successUrl }),
+      body: JSON.stringify({ success_url: resolvedSuccessUrl }),
     });
     if (!res.ok) {
       console.warn(
@@ -259,9 +314,10 @@ export async function createLomiHostedCheckoutSession(
   }
 
   const lomi = getLomiSdk();
+  const successUrlAtCreate = lomiSuccessUrlForSessionCreate(input.success_url);
   const body: Record<string, unknown> = {
     currency_code: input.currency_code,
-    success_url: input.success_url,
+    success_url: successUrlAtCreate,
     cancel_url: input.cancel_url,
     metadata: input.metadata ?? {},
     title: input.title ?? undefined,
@@ -307,6 +363,13 @@ export async function createLomiHostedCheckoutSession(
     });
   }
 
+  if (input.success_url.includes(LOMI_CHECKOUT_SESSION_PLACEHOLDER)) {
+    await patchLomiCheckoutSessionSuccessUrl(
+      sessionId,
+      injectCheckoutSessionIdIntoUrl(input.success_url, sessionId)
+    );
+  }
+
   return { checkoutUrl, sessionId };
 }
 
@@ -321,7 +384,7 @@ function sleep(ms: number): Promise<void> {
 export async function getCompletedLomiCheckoutMetadata(
   sessionId: string
 ): Promise<Record<string, string> | null> {
-  if (!isLomiConfigured()) return null;
+  if (!isLomiConfigured() || isLomiCheckoutSessionIdPlaceholder(sessionId)) return null;
   try {
     const lomi = getLomiSdk();
     const session = await lomi.checkoutSessions.get(sessionId);
