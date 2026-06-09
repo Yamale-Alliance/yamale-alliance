@@ -37,6 +37,27 @@
     "workspace": "A carregar espaço de trabalho…",
     "yourProgramme": "A carregar o seu programa…"
   },
+  "auth": {
+    "welcomeBack": "Bem-vindo de volta",
+    "signInSubtitle": "Inicie sessão na Yamalé Legal para aceder à biblioteca, cofre e pesquisa IA.",
+    "signInSubtitleLibrary": "Inicie sessão para explorar a biblioteca jurídica africana — estatutos, regulamentos e tratados em 54 países.",
+    "loadingSignIn": "A carregar início de sessão…",
+    "loadingSignUp": "A carregar registo…",
+    "newHere": "Novo por aqui?",
+    "createAccount": "Criar conta",
+    "joinTitle": "Junte-se à Yamalé Legal",
+    "signUpSubtitle": "Crie uma conta de cliente para aceder à biblioteca, ferramentas AfCFTA, Cofre Yamalé e pesquisa IA.",
+    "signUpSubtitleLibrary": "Crie uma conta gratuita para pesquisar estatutos, regulamentos e tratados africanos na biblioteca jurídica.",
+    "alreadyHaveAccount": "Já tem conta?",
+    "lawyerInviteNote": "As contas de advogado são criadas e convidadas pela equipa de administração. Se é advogado, use a ligação segura de início de sessão enviada por e-mail.",
+    "signIn": "Entrar",
+    "signUp": "Registar",
+    "formDidNotLoadSignIn": "O formulário de início de sessão não carregou.",
+    "formDidNotLoadSignUp": "O formulário de registo não carregou.",
+    "formDidNotLoadHint": "Tente atualizar a página, desative bloqueadores de anúncios ou extensões de privacidade neste site, ou use outro navegador (Chrome ou Edge). Se continuar a falhar, contacte",
+    "signInUnavailable": "O início de sessão está temporariamente indisponível. Contacte {email}.",
+    "signUpUnavailable": "O registo está temporariamente indisponível. Contacte {email}."
+  },
   "accountMenu": {
     "menu": "Menu da conta",
     "profileSecurity": "Perfil e segurança",
@@ -544,6 +565,18 @@
       "title": "O Yamalé Vault",
       "subtitle": "Livros, cursos e modelos. Os preços são definidos aqui e cobrados no checkout (mobile money ou cartão).",
       "viewPublicVault": "Ver o Yamalé Vault →",
+      "documentLanguage": {
+        "label": "Idiomas do documento",
+        "hint": "Carregue um ficheiro por idioma. Os compradores podem transferir todos os idiomas adicionados. Os distintivos (ex. EN, FR) aparecem na transferência.",
+        "addLanguage": "Adicionar idioma",
+        "removeLanguage": "Remover idioma",
+        "uploadForLanguage": "Carregar ficheiro para este idioma",
+        "replaceFile": "Substituir ficheiro",
+        "uploading": "A carregar…",
+        "selectLanguageFirst": "Selecione um idioma do documento antes de carregar.",
+        "uploadFailed": "Falha ao carregar o ficheiro.",
+        "uploadMissingDetails": "Carregamento concluído, mas faltam detalhes do ficheiro."
+      },
       "marketplacePage": {
         "types": {
           "book": "Book",
@@ -1983,6 +2016,12 @@
       "bilateral": "Bilateral",
       "multilateral": "Multilateral",
       "notTreaty": "Não é tratado"
+    },
+    "signInPrompt": {
+      "title": "Inicie sessão para explorar a biblioteca jurídica",
+      "body": "A biblioteca jurídica africana está disponível para utilizadores registados. Inicie sessão ou crie uma conta gratuita para pesquisar estatutos, regulamentos e tratados em 54 jurisdições.",
+      "signIn": "Entrar",
+      "createAccount": "Criar conta"
     }
   },
   "account": {
