@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import {
+  listMarketplaceItemFilesByItemIds,
+  sortMarketplaceLanguageCodes,
+} from "@/lib/marketplace-item-files";
 
 /** GET: list all purchased marketplace items for the authenticated user. */
 export async function GET() {
@@ -61,12 +65,24 @@ export async function GET() {
     };
 
     const itemRows = (items ?? []) as ItemRow[];
-    const itemsWithPurchaseDate = itemRows.map((item) => ({
-      ...item,
-      purchased: true,
-      purchased_at: purchaseMap.get(item.id) ?? new Date().toISOString(),
-      has_file: !!item.file_path,
-    }));
+    const filesByItem = await listMarketplaceItemFilesByItemIds(
+      supabase,
+      itemRows.map((item) => item.id)
+    );
+    const itemsWithPurchaseDate = itemRows.map((item) => {
+      const languageFiles = filesByItem.get(item.id) ?? [];
+      const language_codes =
+        languageFiles.length > 0
+          ? sortMarketplaceLanguageCodes(languageFiles.map((f) => f.language_code))
+          : [];
+      return {
+        ...item,
+        purchased: true,
+        purchased_at: purchaseMap.get(item.id) ?? new Date().toISOString(),
+        has_file: languageFiles.length > 0 || !!item.file_path,
+        language_codes,
+      };
+    });
 
     return NextResponse.json({ items: itemsWithPurchaseDate });
   } catch (err) {
