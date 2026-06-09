@@ -1,4 +1,8 @@
-import { getLomiRestBaseUrl, getLomiSdk } from "@/lib/lomi-checkout";
+import {
+  getLomiRestBaseUrl,
+  getLomiSdk,
+  isLomiCheckoutSessionIdPlaceholder,
+} from "@/lib/lomi-checkout";
 
 export type LomiRefundCreateInput = {
   transaction_id: string;
@@ -19,7 +23,7 @@ export async function resolveLomiTransactionIdFromCheckoutSession(
   checkoutSessionId: string
 ): Promise<string | null> {
   const id = checkoutSessionId.trim();
-  if (!id) return null;
+  if (!id || isLomiCheckoutSessionIdPlaceholder(id)) return null;
   try {
     const lomi = getLomiSdk();
     const session = await lomi.checkoutSessions.get(id);
