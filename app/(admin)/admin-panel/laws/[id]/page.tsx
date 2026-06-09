@@ -10,6 +10,7 @@ import { LAW_YEAR_MIN, LAW_YEAR_MAX } from "@/lib/admin-law-utils";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
 import { lawDetailHref } from "@/lib/law-public-url";
 import { LawLastVerifiedLabel } from "@/components/library/LawLastVerifiedLabel";
+import { AdminLawLanguageSelect } from "@/components/admin/AdminLawLanguageSelect";
 
 type Country = { id: string; name: string };
 type Category = { id: string; name: string };
@@ -26,6 +27,7 @@ type LawForEdit = {
   year: number | null;
   status: string;
   treaty_type: string;
+  language_code?: string | null;
   content: string | null;
   content_plain: string | null;
 };
@@ -52,6 +54,7 @@ export default function AdminLawEditPage() {
   const [year, setYear] = useState("");
   const [status, setStatus] = useState("In force");
   const [treatyType, setTreatyType] = useState<LawTreatyType>("Not a treaty");
+  const [languageCode, setLanguageCode] = useState("");
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -108,6 +111,7 @@ export default function AdminLawEditPage() {
         setYear(lawData.year != null ? String(lawData.year) : "");
         setStatus(lawData.status ?? "In force");
         setTreatyType((lawData.treaty_type as LawTreatyType) ?? "Not a treaty");
+        setLanguageCode(lawData.language_code ?? "");
         setText(lawData.content_plain ?? lawData.content ?? "");
       })
       .catch(() => {
@@ -321,6 +325,7 @@ export default function AdminLawEditPage() {
           year: year.trim() ? Number(year.trim()) : null,
           status: status.trim() || "In force",
           treaty_type: treatyType,
+          language_code: languageCode || null,
           content: text,
         }),
       });
@@ -548,6 +553,11 @@ export default function AdminLawEditPage() {
                 placeholder={t("yearPlaceholder", { min: LAW_YEAR_MIN, max: LAW_YEAR_MAX })}
               />
             </div>
+            <AdminLawLanguageSelect
+              id="edit-law-language"
+              value={languageCode}
+              onChange={setLanguageCode}
+            />
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">{tc("status")}</label>
               <select
