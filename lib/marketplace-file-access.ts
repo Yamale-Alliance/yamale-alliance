@@ -1,10 +1,36 @@
+export type MarketplaceFileAccessMeta = {
+  language_code: string;
+  file_name: string;
+  file_format: string;
+};
+
 /** Fetch a signed URL for a marketplace item file (view or download). */
-export async function fetchMarketplaceFileUrl(itemId: string): Promise<{ url: string; file_name: string | null }> {
-  const res = await fetch(`/api/marketplace/${itemId}/download`, { credentials: "include" });
-  const data = (await res.json()) as { url?: string; file_name?: string | null; error?: string };
+export async function fetchMarketplaceFileUrl(
+  itemId: string,
+  languageCode?: string | null
+): Promise<{
+  url: string;
+  file_name: string | null;
+  file_format?: string | null;
+  language_code?: string | null;
+}> {
+  const qs = languageCode?.trim() ? `?lang=${encodeURIComponent(languageCode.trim())}` : "";
+  const res = await fetch(`/api/marketplace/${itemId}/download${qs}`, { credentials: "include" });
+  const data = (await res.json()) as {
+    url?: string;
+    file_name?: string | null;
+    file_format?: string | null;
+    language_code?: string | null;
+    error?: string;
+  };
   if (!res.ok) throw new Error(data.error ?? "Could not get file");
   if (!data.url) throw new Error("Could not get file");
-  return { url: data.url, file_name: data.file_name ?? null };
+  return {
+    url: data.url,
+    file_name: data.file_name ?? null,
+    file_format: data.file_format ?? null,
+    language_code: data.language_code ?? languageCode ?? null,
+  };
 }
 
 /** Save a file to the user's device (blob when possible, otherwise open signed URL). */
