@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { pollPawaPayDepositUntilComplete } from "@/lib/pawapay";
-import { getCompletedLomiCheckoutMetadata } from "@/lib/lomi-checkout";
+import {
+  getCompletedLomiCheckoutMetadata,
+  normalizeLomiCheckoutSessionIdFromClient,
+} from "@/lib/lomi-checkout";
 import {
   fulfillSubscriptionPlanPayment,
   isPaidTier,
@@ -17,8 +20,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const sessionId = body.session_id as string | undefined;
-    if (!sessionId || typeof sessionId !== "string") {
+    const sessionId = normalizeLomiCheckoutSessionIdFromClient(
+      typeof body.session_id === "string" ? body.session_id : null
+    );
+    if (!sessionId) {
       return NextResponse.json({ error: "Missing session_id" }, { status: 400 });
     }
 
