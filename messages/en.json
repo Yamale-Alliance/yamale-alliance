@@ -37,6 +37,27 @@
     "workspace": "Loading workspace…",
     "yourProgramme": "Loading your programme…"
   },
+  "auth": {
+    "welcomeBack": "Welcome back",
+    "signInSubtitle": "Sign in to Yamalé Legal to access your library, vault, and AI research.",
+    "signInSubtitleLibrary": "Sign in to browse the African legal library — statutes, regulations, and treaties across 54 countries.",
+    "loadingSignIn": "Loading sign in…",
+    "loadingSignUp": "Loading sign up…",
+    "newHere": "New here?",
+    "createAccount": "Create an account",
+    "joinTitle": "Join Yamalé Legal",
+    "signUpSubtitle": "Create a client account to access the library, AfCFTA tools, The Yamalé Vault, and AI research.",
+    "signUpSubtitleLibrary": "Create a free account to search African statutes, regulations, and treaties in the legal library.",
+    "alreadyHaveAccount": "Already have an account?",
+    "lawyerInviteNote": "Lawyer accounts are created and invited by the admin team. If you are a lawyer, use the secure sign-in link sent to your email.",
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "formDidNotLoadSignIn": "Sign in form did not load.",
+    "formDidNotLoadSignUp": "Sign up form did not load.",
+    "formDidNotLoadHint": "Try a hard refresh, disable ad blockers or privacy extensions for this site, or use another browser (Chrome or Edge). If it still fails, contact",
+    "signInUnavailable": "Sign-in is temporarily unavailable. Please contact {email}.",
+    "signUpUnavailable": "Sign-up is temporarily unavailable. Please contact {email}."
+  },
   "accountMenu": {
     "menu": "Account menu",
     "profileSecurity": "Profile & security",
@@ -544,6 +565,18 @@
       "title": "The Yamalé Vault",
       "subtitle": "Books, courses, and templates. Prices are set here and charged at checkout (mobile money or card).",
       "viewPublicVault": "View The Yamalé Vault →",
+      "documentLanguage": {
+        "label": "Document languages",
+        "hint": "Upload one file per language. Purchasers who own this item can download every language you add. Language badges (e.g. EN, FR) appear on download.",
+        "addLanguage": "Add language",
+        "removeLanguage": "Remove language",
+        "uploadForLanguage": "Upload file for this language",
+        "replaceFile": "Replace file",
+        "uploading": "Uploading…",
+        "selectLanguageFirst": "Select a document language before uploading.",
+        "uploadFailed": "File upload failed.",
+        "uploadMissingDetails": "Upload succeeded but file details were missing."
+      },
       "marketplacePage": {
         "types": {
           "book": "Book",
@@ -2023,6 +2056,12 @@
       "bilateral": "Bilateral",
       "multilateral": "Multilateral",
       "notTreaty": "Not a treaty"
+    },
+    "signInPrompt": {
+      "title": "Sign in to browse the legal library",
+      "body": "The African legal library is available to registered users. Sign in or create a free account to search statutes, regulations, and treaties across 54 jurisdictions.",
+      "signIn": "Sign in",
+      "createAccount": "Create account"
     }
   },
   "account": {
