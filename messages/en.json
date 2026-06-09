@@ -1339,6 +1339,37 @@
           "saveFailed": "Failed to save changes"
         }
       },
+      "documentLanguage": {
+        "label": "Document language",
+        "hint": "Shown to readers as a language badge (e.g. FR, EN) on the law in the library.",
+        "unspecified": "Not specified",
+        "options": {
+          "en": "English (EN)",
+          "fr": "French (FR)",
+          "pt": "Portuguese (PT)",
+          "ar": "Arabic (AR)",
+          "sw": "Swahili (SW)",
+          "am": "Amharic (AM)",
+          "af": "Afrikaans (AF)",
+          "ha": "Hausa (HA)",
+          "yo": "Yoruba (YO)",
+          "ig": "Igbo (IG)",
+          "zu": "Zulu (ZU)",
+          "rw": "Kinyarwanda (RW)",
+          "so": "Somali (SO)",
+          "om": "Oromo (OM)",
+          "mg": "Malagasy (MG)",
+          "ln": "Lingala (LN)",
+          "sn": "Shona (SN)",
+          "st": "Sotho (ST)",
+          "tn": "Tswana (TN)",
+          "ts": "Tsonga (TS)",
+          "de": "German (DE)",
+          "es": "Spanish (ES)",
+          "it": "Italian (IT)",
+          "other": "Other"
+        }
+      },
       "fixOcr": {
         "back": "Back to laws",
         "title": "Fix OCR with AI",
@@ -1871,6 +1902,64 @@
         "videoUploadFailed": "Video upload failed"
       }
     }
+  },
+  "foundersNotePage": {
+    "metaTitle": "Founder's Note",
+    "metaDescription": "Why we built Yamalé — a message from Meghan Waters, CEO, on the gap in African legal infrastructure and building the platform together.",
+    "backToHome": "Back to home",
+    "footerHint": "You can return to this page anytime from the footer under",
+    "footerHintPath": "Company → Founder's note",
+    "eyebrow": "Founder's note",
+    "title": "Why We Built Yamalé",
+    "paragraphs": [
+      "For all the years I have worked across Africa, with governments, with businesses, with communities navigating some of the continent's most complex legal and governance challenges, the problem was always the same. The law was everywhere and nowhere at once.",
+      "Companies spent weeks hunting down investment codes. Lawyers kept personal PDF libraries because no reliable central source existed. Critical laws sat only in outdated paper gazettes or on broken ministry websites. When we needed a specific article of an OHADA Uniform Act, or had to check whether a mining permit complied with national law, we lost hours, sometimes days, just finding and confirming the text.",
+      "The cost was never only in lost time. It was a barrier to investment, to compliance, to accountability, and to the cross-border trade that the African Continental Free Trade Area promises but cannot deliver without functioning legal infrastructure.",
+      "In January 2026, we built Yamalé. It is a nonprofit and a platform working together. The nonprofit continues the advisory work we have always done, supporting governments in high-stakes negotiations, helping mining communities protect their rights, and strengthening institutions. The platform builds the infrastructure that work depends on: a comprehensive, AI-powered legal library covering all 54 African countries, tools for AfCFTA compliance, and a marketplace for specialized legal expertise.",
+      "Yamalé is a community platform, and we want to be honest with you from day one about where it stands. We have laws for every African country, though some are still being cleaned up from old scanned documents. The Vault of expert content for sale is modest at launch and will grow steadily. The directory of vetted lawyers is invitation-only for now, by design, as we build it with care. The AfCFTA Passport, our step-by-step compliance tool for cross-border trade, is still in development and will launch later this year.",
+      "We are launching now because a resource that grows alongside its users is worth far more than one perfected in private and delivered too late. The current alternative, scattered and often unreliable legal information, is not serving anyone well enough.",
+      "This platform will only work if we are honest with each other. We are telling you what is ready and what is not, and we are asking you to do the same in return. The people best placed to make Yamalé stronger are the ones who will use it every day. If something needs fixing, please tell us. If a law you rely on is missing, submit it. If a document is wrong or out of date, flag it. If you are a lawyer or legal expert who wants to contribute, apply to join our network. Every correction, every contribution, and every honest piece of feedback shapes what this platform becomes.",
+      "Yamalé exists because African businesses, governments, and legal professionals deserve the same access to legal infrastructure that people in other regions take for granted. We are building it together, and we hope you will help us build it well."
+    ],
+    "signature": {
+      "name": "Meghan Waters",
+      "title": "Chief Executive Officer, Yamalé",
+      "location": "Dakar, Senegal · June 2026"
+    },
+    "dialog": {
+      "title": "Welcome to Yamalé",
+      "description": "A short note from our founder before you begin.",
+      "readAgain": "Read again anytime",
+      "continue": "Continue to Yamalé",
+      "closeAria": "Close"
+    }
+  },
+  "lawLanguages": {
+    "flairTitle": "This document is in {language}",
+    "en": "English",
+    "fr": "French",
+    "pt": "Portuguese",
+    "ar": "Arabic",
+    "sw": "Swahili",
+    "am": "Amharic",
+    "af": "Afrikaans",
+    "ha": "Hausa",
+    "yo": "Yoruba",
+    "ig": "Igbo",
+    "zu": "Zulu",
+    "rw": "Kinyarwanda",
+    "so": "Somali",
+    "om": "Oromo",
+    "mg": "Malagasy",
+    "ln": "Lingala",
+    "sn": "Shona",
+    "st": "Sotho",
+    "tn": "Tswana",
+    "ts": "Tsonga",
+    "de": "German",
+    "es": "Spanish",
+    "it": "Italian",
+    "other": "Another language"
   },
   "library": {
     "eyebrow": "Legal Library",
