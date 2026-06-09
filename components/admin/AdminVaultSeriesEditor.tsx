@@ -1,26 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, FileText, Loader2, Plus, Trash2, Upload, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Plus, Trash2, X } from "lucide-react";
+import { AdminMarketplaceLanguageFilesField } from "@/components/admin/AdminMarketplaceLanguageFilesField";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { isBuiltinVaultSeriesId } from "@/lib/marketplace-vault-categories-fallback";
 import { MarketplaceCoverImageField } from "@/components/admin/MarketplaceCoverImageField";
-import {
-  AdminVirusScanUploadBanner,
-} from "@/components/admin/AdminVirusScanUploadBanner";
 import { AdminVaultFocusCountrySelect } from "@/components/admin/AdminVaultFocusCountrySelect";
 import { VaultCountryMapIcon } from "@/components/marketplace/VaultCountryMapIcon";
 import { isValidMarketplaceCoverUrl } from "@/lib/marketplace-cover-url";
-import { MARKETPLACE_FILE_ACCEPT } from "@/lib/marketplace-file-accept";
+import {
+  buildLanguageFilesPayload,
+  defaultMarketplaceLanguageFileDrafts,
+  draftsFromMarketplaceItemFiles,
+  type MarketplaceItemFileRow,
+  type MarketplaceLanguageFileDraft,
+} from "@/lib/marketplace-item-files";
 import { slugifyVaultSeriesId } from "@/lib/marketplace-vault-series";
 import type { VaultSeriesRecord } from "@/lib/marketplace-vault-series";
 import { useTranslations } from "next-intl";
-
-type ItemFileRef = {
-  path: string;
-  file_name: string;
-  file_format: string;
-};
 
 /** Card cover on the public Vault: type color, country map, or uploaded image. */
 type ItemCoverMode = "type" | "map" | "custom";
@@ -55,11 +53,7 @@ type ItemDraft = {
   focus_country: string;
   sort_order: number;
   published: boolean;
-  file_path: string | null;
-  file_name: string | null;
-  file_format: string | null;
-  pendingFile: ItemFileRef | null;
-  removeFile: boolean;
+  languageFiles: MarketplaceLanguageFileDraft[];
 };
 
 type Props = {
@@ -99,19 +93,12 @@ function newItemDraft(sortOrder: number, seriesUsesPerCountryCovers = false): It
     focus_country: "",
     sort_order: sortOrder,
     published: true,
-    file_path: null,
-    file_name: null,
-    file_format: null,
-    pendingFile: null,
-    removeFile: false,
+    languageFiles: defaultMarketplaceLanguageFileDrafts(),
   };
 }
 
-function itemFileLabel(it: ItemDraft): string | null {
-  if (it.removeFile) return null;
-  if (it.pendingFile) return it.pendingFile.file_name;
-  if (it.file_path) return it.file_name ?? it.file_path.split("/").pop() ?? null;
-  return null;
+function itemHasLanguageFiles(it: ItemDraft): boolean {
+  return buildLanguageFilesPayload(it.languageFiles).length > 0;
 }
 
 function mapLoadedItem(
@@ -131,11 +118,18 @@ function mapLoadedItem(
     focus_country: row.focus_country ? String(row.focus_country) : "",
     sort_order: typeof row.sort_order === "number" ? row.sort_order : i,
     published: row.published !== false,
-    file_path: row.file_path ? String(row.file_path) : null,
-    file_name: row.file_name ? String(row.file_name) : null,
-    file_format: row.file_format ? String(row.file_format) : null,
-    pendingFile: null,
-    removeFile: false,
+    languageFiles: Array.isArray(row.language_files) && (row.language_files as MarketplaceItemFileRow[]).length > 0
+      ? draftsFromMarketplaceItemFiles(row.language_files as MarketplaceItemFileRow[])
+      : row.file_path
+        ? [
+            {
+              language_code: "en",
+              file_path: String(row.file_path),
+              file_name: row.file_name ? String(row.file_name) : null,
+              file_format: row.file_format ? String(row.file_format) : null,
+            },
+          ]
+        : defaultMarketplaceLanguageFileDrafts(),
   };
 }
 
@@ -209,8 +203,6 @@ export function AdminVaultSeriesEditor({
   const [items, setItems] = useState<ItemDraft[]>([newItemDraft(0, false)]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [itemImageUploading, setItemImageUploading] = useState(false);
-  const [fileUploading, setFileUploading] = useState(false);
-  const [uploadingFileName, setUploadingFileName] = useState<string | null>(null);
   const [deletedIds, setDeletedIds] = useState<string[]>([]);
   const [unlinkedIds, setUnlinkedIds] = useState<string[]>([]);
   const [vaultCatalog, setVaultCatalog] = useState<VaultCatalogItem[]>([]);
@@ -368,50 +360,6 @@ export function AdminVaultSeriesEditor({
     );
   };
 
-  const uploadProductFile = async (file: File) => {
-    const itemId = items[activeIndex]?.id;
-    setFileUploading(true);
-    setUploadingFileName(file.name);
-    setError(null);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      if (itemId) form.append("itemId", itemId);
-      const res = await fetch(`${origin}/api/admin/marketplace/upload-file`, {
-        method: "POST",
-        credentials: "include",
-        body: form,
-      });
-      const data = (await parseJsonSafe(res)) as {
-        error?: string;
-        path?: string;
-        file_name?: string;
-        file_format?: string;
-      };
-      if (!res.ok) {
-        setError(data.error ?? t("errors.fileUploadFailed"));
-        return;
-      }
-      if (data.path && data.file_name != null && data.file_format != null) {
-        updateActiveItem({
-          pendingFile: {
-            path: data.path,
-            file_name: data.file_name,
-            file_format: data.file_format,
-          },
-          removeFile: false,
-        });
-      } else {
-        setError(t("errors.uploadMissingFileDetails"));
-      }
-    } catch {
-      setError(t("errors.fileUploadFailed"));
-    } finally {
-      setFileUploading(false);
-      setUploadingFileName(null);
-    }
-  };
-
   const addItem = () => {
     setItems((prev) => [...prev, newItemDraft(prev.length, perCountryCovers)]);
     setActiveIndex(items.length);
@@ -440,11 +388,16 @@ export function AdminVaultSeriesEditor({
       focus_country: row.focus_country ? String(row.focus_country) : "",
       sort_order: items.length,
       published: row.published !== false,
-      file_path: row.file_path,
-      file_name: row.file_name,
-      file_format: row.file_format,
-      pendingFile: null,
-      removeFile: false,
+      languageFiles: row.file_path
+        ? [
+            {
+              language_code: "en",
+              file_path: row.file_path,
+              file_name: row.file_name,
+              file_format: row.file_format,
+            },
+          ]
+        : defaultMarketplaceLanguageFileDrafts(),
     };
     setItems((prev) => [...prev, draft]);
     setActiveIndex(items.length);
@@ -515,16 +468,7 @@ export function AdminVaultSeriesEditor({
         focus_country: it.focus_country || null,
         sort_order: it.sort_order,
         published: it.published,
-        remove_file: it.removeFile,
-        file_path: it.removeFile
-          ? null
-          : it.pendingFile?.path ?? it.file_path,
-        file_name: it.removeFile
-          ? null
-          : it.pendingFile?.file_name ?? it.file_name,
-        file_format: it.removeFile
-          ? null
-          : it.pendingFile?.file_format ?? it.file_format,
+        language_files: buildLanguageFilesPayload(it.languageFiles),
       }));
 
     if (payloadItems.length === 0) {
@@ -879,7 +823,7 @@ export function AdminVaultSeriesEditor({
                       >
                         {it.title.trim() || `Item ${i + 1}`}
                         {it.linkedExisting ? " · linked" : ""}
-                        {itemFileLabel(it) ? " · file" : ""}
+                        {itemHasLanguageFiles(it) ? " · file" : ""}
                       </button>
                     ))}
                   </div>
@@ -932,75 +876,12 @@ export function AdminVaultSeriesEditor({
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="mb-1 block text-sm font-medium">{t("fields.productFile")}</label>
-                    <p className="mb-2 text-xs text-muted-foreground">
-                      Purchasers can view or download this file. ZIP up to 200&nbsp;MB; other types up to
-                      50&nbsp;MB.
-                    </p>
-                    <input
-                      type="file"
-                      accept={MARKETPLACE_FILE_ACCEPT}
-                      className="hidden"
-                      id="vault-series-item-file-input"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) void uploadProductFile(f);
-                        e.target.value = "";
-                      }}
+                    <AdminMarketplaceLanguageFilesField
+                      itemId={activeItem.id}
+                      origin={origin}
+                      files={activeItem.languageFiles}
+                      onChange={(languageFiles) => updateActiveItem({ languageFiles })}
                     />
-                    {itemFileLabel(activeItem) ? (
-                      <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
-                        <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span className="min-w-0 truncate">{itemFileLabel(activeItem)}</span>
-                        {activeItem.pendingFile?.file_format || activeItem.file_format ? (
-                          <span className="text-muted-foreground">
-                            (.{activeItem.pendingFile?.file_format ?? activeItem.file_format})
-                          </span>
-                        ) : null}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            updateActiveItem({ pendingFile: null, removeFile: true })
-                          }
-                          className="ml-auto rounded p-1 text-xs text-destructive hover:bg-destructive/10"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={fileUploading}
-                        onClick={() =>
-                          document.getElementById("vault-series-item-file-input")?.click()
-                        }
-                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border px-3 py-3 text-sm text-muted-foreground hover:border-primary hover:text-foreground disabled:opacity-50"
-                      >
-                        {fileUploading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Upload className="h-4 w-4" />
-                        )}
-                        {fileUploading ? t("actions.pleaseWait") : t("actions.uploadProductFile")}
-                      </button>
-                    )}
-                    <AdminVirusScanUploadBanner
-                      active={fileUploading}
-                      fileName={uploadingFileName}
-                      className="mt-2"
-                    />
-                    {itemFileLabel(activeItem) ? (
-                      <button
-                        type="button"
-                        disabled={fileUploading}
-                        onClick={() =>
-                          document.getElementById("vault-series-item-file-input")?.click()
-                        }
-                        className="mt-2 text-xs font-medium text-primary hover:underline disabled:opacity-50"
-                      >
-                        {t("actions.replaceFile")}
-                      </button>
-                    ) : null}
                   </div>
                   <div className="sm:col-span-2">
                     <label className="mb-2 block text-sm font-medium">{t("fields.itemCover")}</label>
