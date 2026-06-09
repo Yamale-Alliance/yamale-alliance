@@ -59,7 +59,10 @@ export function buildLomiSubscriptionCheckoutInput(params: {
   title?: string;
   description?: string;
 }): HostedLomiCheckoutInput {
-  const priceId = getLomiSubscriptionPriceId(params.planId, params.interval);
+  // Prorated upgrades are one-time delta charges — catalog subscription price_id + custom amount breaks Lomi checkout.
+  const priceId = params.isProration
+    ? null
+    : getLomiSubscriptionPriceId(params.planId, params.interval);
   return buildLomiCatalogCheckoutInput({
     currency_code: params.currency_code,
     success_url: params.success_url,
@@ -69,7 +72,7 @@ export function buildLomiSubscriptionCheckoutInput(params: {
     description: params.description,
     amountMinor: params.amountMinor,
     price_id: priceId,
-    includeAmountWithPriceId: params.isProration,
+    includeAmountWithPriceId: false,
   });
 }
 
