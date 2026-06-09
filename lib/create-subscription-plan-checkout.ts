@@ -68,22 +68,35 @@ export async function createSubscriptionPlanCheckoutRedirect(params: CreatePlanC
       };
     }
     const amountCents = convertUsdCentsToPawapayMinor(usdCents, currencyCode);
+    if (amountCents <= 0) {
+      return { ok: false, status: 400, error: "Checkout amount must be greater than zero." };
+    }
     const isProration = baseMeta.change_type === "upgrade";
-    const { checkoutUrl } = await createLomiHostedCheckoutSession(
-      buildLomiSubscriptionCheckoutInput({
-        planId,
-        interval,
-        amountMinor: amountCents,
-        isProration,
-        currency_code: currencyCode,
-        metadata: baseMeta,
-        title: `${planId} plan (${interval})`,
-        description: `${String(planId).toUpperCase()} ${interval} subscription`,
-        success_url: `${origin}${successPath.startsWith("/") ? successPath : `/${successPath}`}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}${cancelPath.startsWith("/") ? cancelPath : `/${cancelPath}`}?canceled=1`,
-      })
-    );
-    return { ok: true, url: checkoutUrl, provider: "lomi" };
+    try {
+      const { checkoutUrl } = await createLomiHostedCheckoutSession(
+        buildLomiSubscriptionCheckoutInput({
+          planId,
+          interval,
+          amountMinor: amountCents,
+          isProration,
+          currency_code: currencyCode,
+          metadata: baseMeta,
+          title: isProration
+            ? `Upgrade to ${planId} (${interval})`
+            : `${planId} plan (${interval})`,
+          description: isProration
+            ? `Prorated upgrade to ${String(planId).toUpperCase()}`
+            : `${String(planId).toUpperCase()} ${interval} subscription`,
+          success_url: `${origin}${successPath.startsWith("/") ? successPath : `/${successPath}`}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${origin}${cancelPath.startsWith("/") ? cancelPath : `/${cancelPath}`}?canceled=1`,
+        })
+      );
+      return { ok: true, url: checkoutUrl, provider: "lomi" };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Lomi checkout failed";
+      console.error("Lomi subscription checkout error:", err);
+      return { ok: false, status: 502, error: msg };
+    }
   }
 
   if (!isPawapayConfigured()) {
@@ -95,6 +108,9 @@ export async function createSubscriptionPlanCheckoutRedirect(params: CreatePlanC
   const returnBase = resolvePawapayReturnOrigin(requestOrigin);
 
   const amountCents = convertUsdCentsToPawapayMinor(usdCents, gate.country.currency);
+  if (amountCents <= 0) {
+    return { ok: false, status: 400, error: "Checkout amount must be greater than zero." };
+  }
   const depositId = crypto.randomUUID();
   const returnUrl = `${returnBase}${successPath.startsWith("/") ? successPath : `/${successPath}`}?checkout=success&session_id=${encodeURIComponent(depositId)}`;
 
@@ -117,6 +133,8 @@ export async function createSubscriptionPlanCheckoutRedirect(params: CreatePlanC
     if (err instanceof PawapayReturnUrlError) {
       return { ok: false, status: 400, error: err.message };
     }
-    throw err;
+    const msg = err instanceof Error ? err.message : "Mobile money checkout failed";
+    console.error("pawaPay subscription checkout error:", err);
+    return { ok: false, status: 502, error: msg };
   }
 }
