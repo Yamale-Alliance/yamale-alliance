@@ -14,6 +14,12 @@ import {
 import { vaultSeriesUsesPerCountryCoversFromDb } from "@/lib/marketplace-vault-series";
 import { resolveFocusCountryForSave } from "@/lib/marketplace-vault-country";
 import { assignMarketplaceItemSlug } from "@/lib/content-slug-assign";
+import {
+  legacyFieldsFromMarketplaceFiles,
+  listMarketplaceItemFiles,
+  parseMarketplaceItemFilesInput,
+  syncMarketplaceItemFiles,
+} from "@/lib/marketplace-item-files";
 
 type Update = Database["public"]["Tables"]["marketplace_items"]["Update"];
 const VALID_TYPES = ["book", "course", "template", "guide"] as const;
@@ -39,7 +45,8 @@ export async function GET(
   if (error || !data) {
     return NextResponse.json({ error: "Item not found" }, { status: 404 });
   }
-  return NextResponse.json({ item: data });
+  const language_files = await listMarketplaceItemFiles(supabase, id);
+  return NextResponse.json({ item: data, language_files });
 }
 
 /** PUT: update marketplace item */
@@ -75,7 +82,16 @@ export async function PUT(
       vault_subcategory,
       focus_country,
       is_course,
+      language_files,
     } = body;
+
+    const parsedLanguageFiles = parseMarketplaceItemFilesInput(language_files);
+    const legacyFromLanguages =
+      parsedLanguageFiles && parsedLanguageFiles.length > 0
+        ? legacyFieldsFromMarketplaceFiles(parsedLanguageFiles)
+        : parsedLanguageFiles !== null
+          ? { file_path: null, file_name: null, file_format: null }
+          : null;
 
     const updates: Update = {};
     if (type !== undefined) {
@@ -92,9 +108,15 @@ export async function PUT(
     if (image_url !== undefined) updates.image_url = image_url || null;
     if (typeof published === "boolean") updates.published = published;
     if (typeof sort_order === "number") updates.sort_order = sort_order;
-    if (file_path !== undefined) updates.file_path = file_path || null;
-    if (file_name !== undefined) updates.file_name = file_name || null;
-    if (file_format !== undefined) updates.file_format = file_format || null;
+    if (legacyFromLanguages) {
+      updates.file_path = legacyFromLanguages.file_path;
+      updates.file_name = legacyFromLanguages.file_name;
+      updates.file_format = legacyFromLanguages.file_format;
+    } else {
+      if (file_path !== undefined) updates.file_path = file_path || null;
+      if (file_name !== undefined) updates.file_name = file_name || null;
+      if (file_format !== undefined) updates.file_format = file_format || null;
+    }
     if (video_url !== undefined) {
       const trimmed = typeof video_url === "string" ? video_url.trim() : String(video_url);
       updates.video_url = trimmed || null;
@@ -194,6 +216,10 @@ export async function PUT(
       await imageQuery;
     }
 
+    if (parsedLanguageFiles !== null) {
+      await syncMarketplaceItemFiles(supabase, id, parsedLanguageFiles);
+    }
+
     await recordAuditLog(supabase, {
       adminId: admin.userId,
       adminEmail: admin.email,
@@ -203,7 +229,8 @@ export async function PUT(
       details: { title: data?.title },
     });
 
-    return NextResponse.json({ item: data });
+    const syncedLanguageFiles = await listMarketplaceItemFiles(supabase, id);
+    return NextResponse.json({ item: data, language_files: syncedLanguageFiles });
   } catch (err) {
     console.error("Admin marketplace PUT error:", err);
     return NextResponse.json({ error: "Failed to update item" }, { status: 500 });
