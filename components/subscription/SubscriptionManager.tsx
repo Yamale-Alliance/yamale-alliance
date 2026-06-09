@@ -97,6 +97,12 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
   }, [isLoaded, isSignedIn, refreshSubscription]);
 
   useEffect(() => {
+    if (subState?.isPaid && (subState.interval === "monthly" || subState.interval === "annual")) {
+      setBilling(subState.interval);
+    }
+  }, [subState?.isPaid, subState?.interval]);
+
+  useEffect(() => {
     const plan = searchParams.get("plan");
     const interval = searchParams.get("interval") as BillingInterval | null;
     if (plan && ["basic", "pro", "team"].includes(plan)) {
@@ -430,11 +436,18 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
               <strong>Monthly</strong> = pay each billing period. <strong>Annual</strong> = one payment for the full
               year. Upgrades charge a prorated difference for the time left in your current period.
             </p>
+            {subState?.isPaid && subState.interval && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Upgrades use your current <span className="font-medium capitalize">{subState.interval}</span> billing
+                period.
+              </p>
+            )}
             <div className="mt-4 inline-flex rounded-full border border-border p-1">
               <button
                 type="button"
                 onClick={() => setBilling("monthly")}
-                className={`rounded-full px-5 py-2 text-sm font-medium ${
+                disabled={subState?.isPaid === true && subState.interval === "annual"}
+                className={`rounded-full px-5 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${
                   !isAnnual ? "bg-primary text-primary-foreground" : "text-muted-foreground"
                 }`}
               >
@@ -443,7 +456,8 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
               <button
                 type="button"
                 onClick={() => setBilling("annual")}
-                className={`rounded-full px-5 py-2 text-sm font-medium ${
+                disabled={subState?.isPaid === true && subState.interval === "monthly"}
+                className={`rounded-full px-5 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${
                   isAnnual ? "bg-primary text-primary-foreground" : "text-muted-foreground"
                 }`}
               >
