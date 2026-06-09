@@ -4,6 +4,11 @@
  * not a random member-state country from duplicate rows.
  */
 
+import type { PreferredDocumentLanguage } from "@/lib/law-language-preference";
+import { lawDocumentLanguageScore } from "@/lib/law-language-preference";
+import { normalizeOhadaUniformActKey } from "@/lib/ohada-uniform-act-catalog";
+import { isOhadaInstrument } from "@/lib/ohada-commercial-companies-retrieval";
+
 export type RegionalFrameworkMatcher = {
   id: string;
   canonicalName: string;
@@ -71,6 +76,7 @@ export const REGIONAL_FRAMEWORK_MATCHERS: RegionalFrameworkMatcher[] = [
 export type LawSourceDisplayInput = {
   title?: string | null;
   source_name?: string | null;
+  language_code?: string | null;
   applies_to_all_countries?: boolean | null;
   countries?: { name?: string } | null;
 };
@@ -147,10 +153,23 @@ export function lawCountryDisplayName(law: LawSourceDisplayInput): string {
   return law.countries?.name?.trim() || "";
 }
 
+function dedupeKeyForLaw(
+  law: LawSourceDisplayInput,
+  matchers: RegionalFrameworkMatcher[]
+): string {
+  const title = String(law.title ?? "");
+  if (isOhadaInstrument(law)) {
+    const actKey = normalizeOhadaUniformActKey(title);
+    if (actKey) return `ohada:${actKey}`;
+  }
+  return normalizeTitleKey(title);
+}
+
 /** When the same instrument exists once per member state, keep the best row for RAG + citations. */
 export function pickRepresentativeRegionalDuplicateLaw<T extends LawSourceDisplayInput>(
   group: T[],
-  matchers: RegionalFrameworkMatcher[] = REGIONAL_FRAMEWORK_MATCHERS
+  matchers: RegionalFrameworkMatcher[] = REGIONAL_FRAMEWORK_MATCHERS,
+  preferredLanguage?: PreferredDocumentLanguage | null
 ): T {
   if (group.length <= 1) return group[0]!;
   const score = (law: T) => {
@@ -163,6 +182,8 @@ export function pickRepresentativeRegionalDuplicateLaw<T extends LawSourceDispla
       s += 60;
     }
     if (!law.countries?.name?.trim()) s += 20;
+    if (preferredLanguage) s += lawDocumentLanguageScore(law, preferredLanguage);
+    if (/\bau\s+sommaire\b/i.test(String(law.title ?? ""))) s -= 200;
     return s;
   };
   return [...group].sort((a, b) => score(b) - score(a))[0]!;
@@ -170,12 +191,13 @@ export function pickRepresentativeRegionalDuplicateLaw<T extends LawSourceDispla
 
 export function dedupeLawsByNormalizedTitle<T extends LawSourceDisplayInput & { title?: string | null }>(
   laws: T[],
-  matchers: RegionalFrameworkMatcher[] = REGIONAL_FRAMEWORK_MATCHERS
+  matchers: RegionalFrameworkMatcher[] = REGIONAL_FRAMEWORK_MATCHERS,
+  preferredLanguage?: PreferredDocumentLanguage | null
 ): T[] {
   const buckets = new Map<string, T[]>();
   const noTitle: T[] = [];
   for (const law of laws) {
-    const key = normalizeTitleKey(String(law.title ?? ""));
+    const key = dedupeKeyForLaw(law, matchers);
     if (!key) {
       noTitle.push(law);
       continue;
@@ -184,27 +206,41 @@ export function dedupeLawsByNormalizedTitle<T extends LawSourceDisplayInput & { 
   }
   const out: T[] = [...noTitle];
   for (const group of buckets.values()) {
-    out.push(pickRepresentativeRegionalDuplicateLaw(group, matchers));
+    out.push(pickRepresentativeRegionalDuplicateLaw(group, matchers, preferredLanguage));
   }
   return out;
 }
 
 export function dedupeSourceCardsByTitle<
-  T extends { title: string; country: string; retrievalScore?: number; usedInAnswer?: boolean },
->(cards: T[]): T[] {
+  T extends {
+    title: string;
+    country: string;
+    retrievalScore?: number;
+    usedInAnswer?: boolean;
+    language_code?: string | null;
+  },
+>(cards: T[], preferredLanguage?: PreferredDocumentLanguage | null): T[] {
   const byTitle = new Map<string, T>();
   for (const card of cards) {
-    const key = normalizeTitleKey(card.title);
+    const ohadaKey = isOhadaInstrument({ title: card.title })
+      ? normalizeOhadaUniformActKey(card.title)
+      : "";
+    const key = ohadaKey ? `ohada:${ohadaKey}` : normalizeTitleKey(card.title);
     const prev = byTitle.get(key);
     if (!prev) {
       byTitle.set(key, card);
       continue;
     }
-    const preferNew = (card.retrievalScore ?? 0) > (prev.retrievalScore ?? 0);
-    const base = preferNew ? card : prev;
+    const score = (c: T) => {
+      let s = c.retrievalScore ?? 0;
+      if (preferredLanguage) s += lawDocumentLanguageScore(c, preferredLanguage);
+      if (c.usedInAnswer) s += 200;
+      return s;
+    };
+    const base = score(card) >= score(prev) ? card : prev;
     const merged = {
       ...base,
-      usedInAnswer: Boolean((prev as { usedInAnswer?: boolean }).usedInAnswer || card.usedInAnswer),
+      usedInAnswer: Boolean(prev.usedInAnswer || card.usedInAnswer),
     } as T;
     byTitle.set(key, merged);
   }
