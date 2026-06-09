@@ -80,6 +80,8 @@ export type BuildAiResearchSystemPromptParams = {
   legalContextMaxDocs?: number;
   /** Subscription tier — selects compact security-hardened prompt template. */
   subscriptionTier?: AiSubscriptionTier;
+  /** Internal brain / methodology excerpts — never numbered [doc:N] or user-facing sources. */
+  methodologyReferenceBlock?: string | null;
 };
 
 export type SystemPromptValidationResult = {
