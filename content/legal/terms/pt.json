@@ -1,0 +1,355 @@
+{
+  "meta": {
+    "title": "Termos de Serviço",
+    "description": "Termos e condições de utilização da plataforma Yamalé Legal, incluindo subscrições, The Yamalé Vault, pesquisa jurídica com IA e o diretório de advogados.",
+    "heroTitle": "Termos de Serviço",
+    "heroSubtitle": "Regras e condições de utilização da plataforma Yamalé Legal",
+    "dateLine": "Última atualização: 12 de fevereiro de 2026"
+  },
+  "sections": [
+    {
+      "kind": "section",
+      "number": "1",
+      "title": "Aceitação dos Termos",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Ao aceder ou utilizar a plataforma Yamalé Legal (« Plataforma », « nós », « nos », « nosso »), incluindo o nosso website, biblioteca jurídica, ferramentas AfCFTA, pesquisa jurídica com IA, diretório de advogados, The Yamalé Vault e quaisquer serviços relacionados, concorda em ficar vinculado a estes Termos de Serviço (« Termos »). Se não concordar, não deve utilizar a Plataforma. Podem aplicar-se termos adicionais a funcionalidades específicas (por exemplo, pagamentos ou verificação de advogados); esses termos são incorporados por referência."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "2",
+      "title": "Descrição dos Serviços",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "A plataforma Yamalé Legal disponibiliza, entre outros:"
+            }
+          ]
+        },
+        {
+          "type": "bullets",
+          "items": [
+            {
+              "label": "Biblioteca Jurídica:",
+              "text": "Consulta e acesso a materiais jurídicos africanos por jurisdição e domínio."
+            },
+            {
+              "label": "Ferramentas AfCFTA:",
+              "text": "Ferramentas de conformidade transfronteiriça, listas de verificação setoriais e orientações no estilo de regras de origem."
+            },
+            {
+              "label": "Pesquisa Jurídica com IA:",
+              "text": "Assistência de pesquisa com IA para o direito africano e conformidade. As respostas são indicativas e não constituem aconselhamento jurídico."
+            },
+            {
+              "label": "Diretório de Advogados:",
+              "text": "Diretório de profissionais jurídicos verificados. Os contactos podem ser desbloqueados mediante pagamento (por pesquisa ou passe diário), conforme descrito na Plataforma."
+            },
+            {
+              "label": "The Yamalé Vault:",
+              "text": "Produtos digitais (por exemplo, livros, cursos, modelos) para uso jurídico e de conformidade. Os direitos e o acesso estão sujeitos a pagamento e a quaisquer termos específicos de cada item."
+            },
+            {
+              "label": "Subscrições e Pagamentos:",
+              "text": "Planos de subscrição (por exemplo, Basic, Pro, Team) e compras pontuais (por exemplo, desbloqueios de pesquisa, passe diário, itens The Yamalé Vault), conforme descrito nas páginas de preços e checkout."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "3",
+      "title": "Contas e Elegibilidade",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Deve ter pelo menos 18 anos de idade e capacidade para celebrar um contrato vinculativo para utilizar a Plataforma. É responsável por manter as credenciais da sua conta seguras e por toda a atividade realizada na sua conta. Deve fornecer informações exatas e completas no registo. Os advogados devem cumprir os requisitos de verificação e de perfil; podemos aprovar, rejeitar ou remover listagens a nosso critério."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "4",
+      "title": "Subscrições e Pagamentos",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "As taxas de subscrição, os pagamentos pontuais (por exemplo, desbloqueios de contactos de advogados, passe diário, compras The Yamalé Vault) e os ciclos de faturação são os apresentados no momento da compra. Os pagamentos são processados pelos nossos prestadores de pagamento (como a pawaPay). Ao efetuar uma compra, concorda com os preços aplicáveis e com a nossa "
+            },
+            {
+              "kind": "link",
+              "href": "/payment-refund",
+              "label": "Política de Pagamento e Reembolso"
+            },
+            {
+              "kind": "text",
+              "value": ". Podemos alterar as taxas com aviso prévio quando exigido; a utilização continuada após alterações pode constituir aceitação. Os limites de subscrição e de utilização (por exemplo, créditos de pesquisa com IA) são aplicados conforme descrito no produto e na nossa Política de Privacidade."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "5",
+      "title": "Diretório de Advogados e Desbloqueios",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "O diretório de advogados destina-se a fins informativos e de contacto. A listagem não garante disponibilidade nem adequação. O desbloqueio de contactos (por pesquisa ou via passe diário) concede-lhe acesso aos dados apresentados no momento do desbloqueio. Não garantimos resultados de qualquer relação com advogados. Qualquer acordo entre si e um advogado é exclusivamente entre si e esse advogado; não somos parte de tais acordos."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "6",
+      "title": "Pesquisa com IA – Não Constitui Aconselhamento Jurídico",
+      "blocks": [
+        {
+          "type": "callout",
+          "label": "Importante",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "A pesquisa jurídica com IA na Plataforma destina-se apenas a informação e pesquisa geral. "
+            },
+            {
+              "kind": "strong",
+              "value": "Não"
+            },
+            {
+              "kind": "text",
+              "value": " constitui aconselhamento jurídico, fiscal ou profissional. As respostas podem ser incompletas, desatualizadas ou inaplicáveis à sua situação. Não deve confiar nos resultados da IA como substituto do aconselhamento de um advogado qualificado ou de outro profissional. Recomendamos vivamente que consulte um profissional qualificado para qualquer questão jurídica ou de conformidade específica."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "7",
+      "title": "Utilização Aceitável",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Concorda em não:"
+            }
+          ]
+        },
+        {
+          "type": "bullets",
+          "items": [
+            "Utilizar a Plataforma em violação de qualquer lei ou regulamento aplicável.",
+            "Infringir a propriedade intelectual ou outros direitos nossos ou de terceiros.",
+            "Transmitir malware, spam ou conteúdo nocivo ou ilegal.",
+            "Tentar obter acesso não autorizado aos nossos sistemas, a outras contas ou a serviços de terceiros.",
+            "Extrair dados, automatizar o acesso ou sobrecarregar a Plataforma de forma a prejudicar o seu funcionamento.",
+            "Utilizar a Plataforma para assediar, difamar ou prejudicar terceiros."
+          ]
+        },
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Podemos suspender ou terminar o acesso por violação destes Termos ou por qualquer outra razão que consideremos necessária para proteger a Plataforma, os nossos utilizadores ou terceiros."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "8",
+      "title": "Propriedade Intelectual",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "A Plataforma (incluindo design, texto, software e a nossa marca) é nossa ou licenciada para nós. Não pode copiar, modificar, distribuir ou criar obras derivadas sem o nosso consentimento prévio por escrito. O conteúdo jurídico e o conteúdo The Yamalé Vault podem estar sujeitos a direitos de terceiros; a sua utilização deve cumprir quaisquer licenças ou termos apresentados para esse conteúdo."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "9",
+      "title": "Exclusões de Responsabilidade",
+      "blocks": [
+        {
+          "type": "callout",
+          "label": "Aviso Legal",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "A PLATAFORMA E TODO O CONTEÚDO E SERVIÇOS SÃO FORNECIDOS «TAL COMO ESTÃO» E «CONFORME DISPONÍVEIS». EXCLUÍMOS TODAS AS GARANTIAS, EXPRESSAS OU IMPLÍCITAS, INCLUINDO COMERCIALIZAÇÃO, ADEQUAÇÃO A UM FIM ESPECÍFICO E NÃO VIOLAÇÃO. NÃO GARANTIMOS QUE A PLATAFORMA SERÁ ININTERRUPTA, ISENTA DE ERROS OU LIVRE DE COMPONENTES NOCIVOS. A UTILIZAÇÃO DA PESQUISA COM IA, DA BIBLIOTECA JURÍDICA, DAS FERRAMENTAS AFCFTA E DO DIRETÓRIO DE ADVOGADOS É FEITA POR SUA CONTA E RISCO."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "10",
+      "title": "Limitação de Responsabilidade",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "NA MEDIDA MÁXIMA PERMITIDA PELA LEI APLICÁVEL, NÓS (E AS NOSSAS AFILIADAS, ADMINISTRADORES, EMPREGADOS E AGENTES) NÃO SEREMOS RESPONSÁVEIS POR QUAISQUER DANOS INDIRETOS, INCIDENTAIS, ESPECIAIS, CONSEQUENCIAIS OU PUNITIVOS, OU POR PERDA DE LUCROS, DADOS OU GOODWILL, DECORRENTES DA SUA UTILIZAÇÃO OU INCAPACIDADE DE UTILIZAR A PLATAFORMA. A NOSSA RESPONSABILIDADE TOTAL POR QUAISQUER RECLAMAÇÕES DECORRENTES OU RELACIONADAS COM ESTES TERMOS OU COM A PLATAFORMA NÃO EXCEDERÁ O VALOR QUE NOS PAGOU NOS DOZE (12) MESES ANTERIORES À RECLAMAÇÃO (OU, SE FOR SUPERIOR, CEM DÓLARES AMERICANOS). ALGUMAS JURISDIÇÕES NÃO PERMITEM CERTAS LIMITAÇÕES; NESSAS SITUAÇÕES, A NOSSA RESPONSABILIDADE SERÁ LIMITADA NA MEDIDA MÁXIMA PERMITIDA PELA LEI."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "11",
+      "title": "Indemnização",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Concorda em indemnizar e isentar de responsabilidade a plataforma Yamalé Legal e as suas afiliadas, administradores, empregados e agentes de quaisquer reclamações, danos, perdas ou despesas (incluindo honorários jurídicos razoáveis) decorrentes da sua utilização da Plataforma, da sua violação destes Termos ou da violação de qualquer lei ou direitos de terceiros."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "12",
+      "title": "Rescisão",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Podemos suspender ou terminar o seu acesso à Plataforma a qualquer momento, com ou sem motivo e com ou sem aviso. Pode deixar de utilizar a Plataforma a qualquer momento. Com a rescisão, o seu direito de utilizar a Plataforma cessa; as disposições que, pela sua natureza, devam subsistir (por exemplo, exclusões de responsabilidade, limitação de responsabilidade, indemnização, lei aplicável) permanecerão em vigor."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "13",
+      "title": "Lei Aplicável e Litígios",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Estes Termos são regidos pelas leis da jurisdição em que a plataforma Yamalé Legal opera, sem consideração dos princípios de conflito de leis. Qualquer litígio decorrente ou relacionado com estes Termos ou com a Plataforma será resolvido nos tribunais dessa jurisdição, salvo quando proibido. Pode também ter direitos ao abrigo das leis de proteção do consumidor do seu país que não podem ser renunciados por contrato."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "14",
+      "title": "Alterações aos Termos",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Podemos modificar estes Termos periodicamente. Publicaremos os Termos atualizados nesta página e atualizaremos a data de «Última atualização». A sua utilização continuada da Plataforma após alterações constitui aceitação. Para alterações materiais, podemos fornecer aviso adicional (por exemplo, por email ou notificação no produto) quando exigido por lei."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "section",
+      "number": "15",
+      "title": "Contacto",
+      "blocks": [
+        {
+          "type": "p",
+          "segments": [
+            {
+              "kind": "text",
+              "value": "Para questões sobre estes Termos, contacte-nos em "
+            },
+            {
+              "kind": "email",
+              "address": "hello@yamalelegal.com"
+            },
+            {
+              "kind": "text",
+              "value": "."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "updatedBanner": [
+    {
+      "kind": "text",
+      "value": "Estes Termos de Serviço foram atualizados pela última vez em "
+    },
+    {
+      "kind": "strong",
+      "value": "12 de fevereiro de 2026"
+    },
+    {
+      "kind": "text",
+      "value": ". Consulte-os periodicamente para verificar atualizações."
+    }
+  ],
+  "footerLinks": [
+    {
+      "href": "/privacy",
+      "label": "Política de Privacidade"
+    },
+    {
+      "href": "/payment-refund",
+      "label": "Política de Pagamento e Reembolso"
+    },
+    {
+      "href": "/",
+      "label": "Início"
+    }
+  ]
+}
