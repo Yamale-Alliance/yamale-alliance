@@ -18,6 +18,7 @@ import {
   lawSourceDisplayLabel,
   matchRegionalFrameworkForLaw,
 } from "@/lib/law-source-display";
+import { lawTitleContradictsCountryMetadata } from "@/lib/law-country-metadata-mismatch";
 import {
   detectCountryAliasFromQueryText,
   detectAllCountryAliasesFromQuery,
@@ -1552,6 +1553,7 @@ function filterLegalLibraryDocsForCountryLock<
   return docs.filter((d) => {
     const c = d.country || "";
     if (!c) return false;
+    if (d.title && lawTitleContradictsCountryMetadata(d.title, effectiveCountry)) return false;
     if (c === "All countries" || c === "Multiple countries") return true;
     if (d.title && matchRegionalFrameworkForLaw({ title: d.title })) return true;
     return countryLabelsEquivalentForRag(c, effectiveCountry);
