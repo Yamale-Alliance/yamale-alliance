@@ -13,6 +13,7 @@ import {
   propagateSharedLawFields,
   toSharedLawUpdates,
 } from "@/lib/law-shared-groups";
+import { normalizeLawDocumentLanguageCode } from "@/lib/law-document-language";
 
 type LawRow = Database["public"]["Tables"]["laws"]["Row"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -33,9 +34,9 @@ export async function GET(
   try {
     const supabase = getSupabaseServer();
     const fullSelect =
-      "id, slug, title, country_id, applies_to_all_countries, category_id, year, status, treaty_type, source_url, source_name, content, content_plain, last_verified_at";
+      "id, slug, title, country_id, applies_to_all_countries, category_id, year, status, treaty_type, source_url, source_name, content, content_plain, language_code, last_verified_at";
     const legacySelect =
-      "id, slug, title, country_id, applies_to_all_countries, category_id, year, status, source_url, source_name, content, content_plain, last_verified_at";
+      "id, slug, title, country_id, applies_to_all_countries, category_id, year, status, source_url, source_name, content, content_plain, language_code, last_verified_at";
 
     const { data, error } = await supabase
       .from("laws")
@@ -176,6 +177,11 @@ export async function PUT(
     }
     if (typeof body.source_url === "string") updates.source_url = body.source_url.trim() || null;
     if (typeof body.source_name === "string") updates.source_name = body.source_name.trim() || null;
+    if (body.language_code !== undefined) {
+      updates.language_code = normalizeLawDocumentLanguageCode(
+        typeof body.language_code === "string" ? body.language_code : null
+      );
+    }
 
     if (typeof body.content === "string") {
       const trimmed = body.content.trim() || null;
