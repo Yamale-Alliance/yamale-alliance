@@ -2,6 +2,11 @@
  * Gate which retrieved library instruments stay in the AI prompt and appear as user-facing sources.
  */
 
+import {
+  lawIsInScopeForCountryQuery,
+  lawTitleContradictsCountryMetadata,
+} from "@/lib/law-country-metadata-mismatch";
+
 export type LawRelevanceFields = {
   title: string;
   category: string;
@@ -134,14 +139,16 @@ export type LawRelevanceGateOptions = {
 export function isLawRelevantForAiSources(opts: LawRelevanceGateOptions): boolean {
   const { law, overlapTokens, usedInAnswer, isOffTopic, effectiveCountry, enforceCountryScope } = opts;
 
-  if (usedInAnswer) return true;
   if (isOffTopic) return false;
 
-  if (
-    !lawCountryInScope(law.country, law.title, effectiveCountry, Boolean(enforceCountryScope))
-  ) {
-    return false;
+  const scopeEnforced = Boolean(enforceCountryScope && effectiveCountry?.trim());
+  if (scopeEnforced) {
+    if (!lawCountryInScope(law.country, law.title, effectiveCountry, true)) return false;
+    if (lawTitleContradictsCountryMetadata(law.title, effectiveCountry!)) return false;
+    if (!lawIsInScopeForCountryQuery(law.title, law.country, effectiveCountry!)) return false;
   }
+
+  if (usedInAnswer) return true;
 
   const substantive = substantiveOverlapTokens(overlapTokens);
   const titleBlob = law.title.toLowerCase();
