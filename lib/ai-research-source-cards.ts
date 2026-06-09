@@ -1,3 +1,5 @@
+import { isInternalLibraryForUserDisplay } from "@/lib/internal-library-categories";
+
 /** Legacy label — kept for normalizing stored sessions; never shown to users. */
 export const AI_RESEARCH_ENGINE_SOURCE_LABEL = "Yamalé Legal Library · AI Research";
 
@@ -60,9 +62,10 @@ export function isAiResearchMethodologySourceCard(
 ): boolean {
   if (card.sourceKind === "methodology") return true;
   if (card.sourceKind === "law") return false;
-  const cat = card.category?.trim() ?? "";
-  if (cat === "AI Legal Methodology") return true;
-  return /contextual\s+brain|yamal[eé]\s+ai\s+brain/i.test(card.title ?? "");
+  return isInternalLibraryForUserDisplay({
+    title: card.title,
+    category: card.category,
+  });
 }
 
 export function methodologySourceCardSnippet(content: string, maxLen = 480): string {
