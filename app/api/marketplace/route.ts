@@ -7,6 +7,10 @@ import {
 } from "@/lib/marketplace-series-image-normalize";
 import { fetchVaultSeriesDbRows, rowToVaultSeriesRecord } from "@/lib/marketplace-vault-series";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import {
+  listMarketplaceItemFilesByItemIds,
+  sortMarketplaceLanguageCodes,
+} from "@/lib/marketplace-item-files";
 
 /** GET: list published marketplace items. If user is signed in, includes owned: true for purchased items. */
 export async function GET() {
@@ -60,10 +64,22 @@ export async function GET() {
       }
     }
 
-    const itemsWithOwned = items.map((item) => ({
-      ...item,
-      owned: ownedIds.has(item.id),
-    }));
+    const filesByItem = await listMarketplaceItemFilesByItemIds(
+      supabase,
+      items.map((item) => item.id)
+    );
+    const itemsWithOwned = items.map((item) => {
+      const languageFiles = filesByItem.get(item.id) ?? [];
+      const language_codes =
+        languageFiles.length > 0
+          ? sortMarketplaceLanguageCodes(languageFiles.map((f) => f.language_code))
+          : [];
+      return {
+        ...item,
+        owned: ownedIds.has(item.id),
+        language_codes,
+      };
+    });
 
     const seriesRows = await fetchVaultSeriesDbRows(supabase);
     const perCountryCovers = perCountryCoversMapFromSeries(
