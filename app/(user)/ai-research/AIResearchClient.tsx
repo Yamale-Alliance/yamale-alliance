@@ -1331,7 +1331,7 @@ export default function AIResearchClient() {
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-primary/25 bg-primary/10">
             <Lock className="h-7 w-7 text-primary" />
           </div>
-          <h1 className="heading mt-6 text-xl font-semibold tracking-tight text-card-foreground">{t("title")}</h1>
+          <h2 className="heading mt-6 text-xl font-semibold tracking-tight text-card-foreground">{t("title")}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             {t("availableOnPlans")}
           </p>
@@ -1480,9 +1480,9 @@ export default function AIResearchClient() {
                 <Menu className="h-5 w-5" />
               </button>
               <div className="min-w-0">
-                <h1 className="heading truncate text-[14px] font-semibold tracking-tight text-foreground md:text-[15px]">
+                <h2 className="heading truncate text-[14px] font-semibold tracking-tight text-foreground md:text-[15px]">
                   AI Legal Research
-                </h1>
+                </h2>
                 <p className="hidden truncate text-[11px] leading-tight text-muted-foreground sm:block">
                   Yamalé AI · African law and compliance
                 </p>
