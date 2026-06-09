@@ -3,6 +3,11 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { auth } from "@clerk/nextjs/server";
 import { isAdvisoryWorkspacePreviewEnabled } from "@/lib/law-firm-advisory-preview";
 import { fetchPublishedMarketplaceItem } from "@/lib/marketplace-item-db";
+import {
+  listMarketplaceItemFiles,
+  publicLanguageFileMeta,
+  sortMarketplaceLanguageCodes,
+} from "@/lib/marketplace-item-files";
 import type { Database } from "@/lib/database.types";
 
 type MarketplaceItemRow = Database["public"]["Tables"]["marketplace_items"]["Row"];
@@ -44,9 +49,20 @@ export async function GET(
       purchased = !!purchase;
     }
 
-    const has_file = !!row.file_path;
+    const languageFiles = await listMarketplaceItemFiles(supabase, itemId);
+    const language_codes =
+      languageFiles.length > 0
+        ? sortMarketplaceLanguageCodes(languageFiles.map((f) => f.language_code))
+        : [];
+    const has_file = languageFiles.length > 0 || !!row.file_path;
     const { file_path: _fp, ...rest } = row;
-    const item = { ...rest, purchased, has_file };
+    const item = {
+      ...rest,
+      purchased,
+      has_file,
+      language_codes,
+      language_files: publicLanguageFileMeta(languageFiles),
+    };
     return NextResponse.json({
       item,
       advisoryWorkspacePreview: isAdvisoryWorkspacePreviewEnabled(),
