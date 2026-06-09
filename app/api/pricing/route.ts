@@ -6,7 +6,7 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import {
   PRICING_AFCFTA_COMING_SOON,
   PRICING_LAWYERS_COMING_SOON,
-  applyPricingComingSoonFeatures,
+  normalizePricingFeatures,
 } from "@/lib/pricing-coming-soon-features";
 
 export type PricingTier = {
@@ -28,7 +28,6 @@ const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
     description: "Explore African law",
     features: [
       "Unlimited browsing of full texts of laws",
-      "Save up to 10 documents for easy access",
       PRICING_LAWYERS_COMING_SOON,
       "Browse marketplace",
     ],
@@ -41,7 +40,6 @@ const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
     subtitle: "or $50/year (save $10)",
     features: [
       "Unlimited browsing of full texts of laws",
-      "<strong>5 document downloads/month</strong>",
       "<strong>Basic level AI queries/month</strong> (limited)",
       PRICING_AFCFTA_COMING_SOON,
       PRICING_LAWYERS_COMING_SOON,
@@ -56,7 +54,6 @@ const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
     subtitle: "or $150/year (save $30)",
     features: [
       "Unlimited browsing of full texts of laws",
-      "<strong>20 document downloads/month</strong>",
       "<strong>Pro level AI queries/month</strong> (limited)",
       PRICING_AFCFTA_COMING_SOON,
       PRICING_LAWYERS_COMING_SOON,
@@ -72,7 +69,6 @@ const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
     subtitle: "or $400/year (save $80)",
     features: [
       "<strong>5 users included</strong>",
-      "<strong>25 document downloads per user/month</strong>",
       "<strong>Team level AI queries per user/month</strong> (limited)",
       PRICING_AFCFTA_COMING_SOON,
       PRICING_LAWYERS_COMING_SOON,
@@ -126,7 +122,7 @@ function mapRowsToTiers(data: Row[]): PricingTier[] {
       priceAnnualTotal: row.price_annual_total ?? 0,
       description: row.description?.trim() ? row.description : (fallback?.description ?? ""),
       subtitle: row.subtitle?.trim() ? row.subtitle : (fallback?.subtitle ?? undefined),
-      features: applyPricingComingSoonFeatures(
+      features: normalizePricingFeatures(
         Array.isArray(row.features) && (row.features as string[]).length > 0
           ? (row.features as string[])
           : (fallback?.features ?? [])
