@@ -71,6 +71,8 @@ export function countryLabelsEquivalentForSources(a: string, b: string): boolean
   if (ivoirian.has(na) && ivoirian.has(nb)) return true;
   const caboVerde = new Set(["caboverde", "capeverde"]);
   if (caboVerde.has(na) && caboVerde.has(nb)) return true;
+  const congoRepublic = new Set(["congo", "congorepublic", "republicofthecongo"]);
+  if (congoRepublic.has(na) && congoRepublic.has(nb)) return true;
   return false;
 }
 
