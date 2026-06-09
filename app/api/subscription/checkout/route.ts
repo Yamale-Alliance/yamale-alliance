@@ -11,9 +11,9 @@ import {
   applySubscriptionPeriodTransitions,
   computeUpgradeProrationUsdCents,
   fulfillSubscriptionPlanPayment,
-  inferPeriodStartFromEnd,
   isPaidTier,
   readSubscriptionState,
+  resolveSubscriptionPeriodForUpgrade,
   tierRank,
 } from "@/lib/subscription-state";
 
@@ -88,47 +88,45 @@ export async function POST(request: NextRequest) {
 
     const isUpgrade = rankNew > rankCur && isPaidTier(currentTier);
     if (isUpgrade) {
-      if (!state.periodEnd || !state.interval) {
-        return NextResponse.json(
-          { error: "We could not find your billing period. Subscribe from checkout or contact support." },
-          { status: 400 }
-        );
-      }
-      if (state.interval !== interval) {
+      const billingPeriod = resolveSubscriptionPeriodForUpgrade(state);
+      if (!billingPeriod) {
         return NextResponse.json(
           {
             error:
-              "Upgrades use the same billing period as your current subscription (monthly vs annual). Switch interval or cancel at period end and resubscribe.",
+              "We could not find your billing period. Subscribe from checkout or contact support.",
           },
           { status: 400 }
         );
       }
-      const periodEnd = new Date(state.periodEnd);
-      if (Number.isNaN(periodEnd.getTime()) || periodEnd.getTime() <= Date.now()) {
-        return NextResponse.json({ error: "Your billing period has ended. Start a new subscription instead." }, { status: 400 });
+
+      const upgradeInterval = billingPeriod.interval;
+      const upgradeFullUsdCents = await getSubscriptionPlanUsdCents(supabase, planId, upgradeInterval);
+      if (upgradeFullUsdCents == null) {
+        return NextResponse.json(
+          {
+            error:
+              "This plan's price is not set. Open Admin → Pricing and set monthly or annual amounts (whole dollars).",
+          },
+          { status: 400 }
+        );
       }
 
-      let periodStart = state.periodStart ? new Date(state.periodStart) : inferPeriodStartFromEnd(periodEnd, interval);
-      if (Number.isNaN(periodStart.getTime())) {
-        periodStart = inferPeriodStartFromEnd(periodEnd, interval);
-      }
-
-      const oldPrice = await getSubscriptionPlanUsdCents(supabase, currentTier, interval);
+      const oldPrice = await getSubscriptionPlanUsdCents(supabase, currentTier, upgradeInterval);
       if (oldPrice == null) {
         return NextResponse.json({ error: "Could not load current plan price." }, { status: 500 });
       }
 
       const prorationCents = computeUpgradeProrationUsdCents({
-        periodStart,
-        periodEnd,
+        periodStart: billingPeriod.periodStart,
+        periodEnd: billingPeriod.periodEnd,
         oldPriceUsdCents: oldPrice,
-        newPriceUsdCents: fullUsdCents,
+        newPriceUsdCents: upgradeFullUsdCents,
       });
 
       if (prorationCents <= 0) {
         await fulfillSubscriptionPlanPayment(userId, {
           plan_id: planId,
-          interval,
+          interval: upgradeInterval,
           change_type: "upgrade",
           payment_provider: provider,
         });
@@ -138,7 +136,7 @@ export async function POST(request: NextRequest) {
       const result = await createSubscriptionPlanCheckoutRedirect({
         userId,
         planId,
-        interval,
+        interval: upgradeInterval,
         usdCents: prorationCents,
         metadataExtra: { change_type: "upgrade" },
         requestOrigin,
@@ -149,7 +147,11 @@ export async function POST(request: NextRequest) {
       });
 
       if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
-      return NextResponse.json({ url: result.url, provider: result.provider });
+      return NextResponse.json({
+        url: result.url,
+        provider: result.provider,
+        prorationUsdCents: prorationCents,
+      });
     }
 
     const result = await createSubscriptionPlanCheckoutRedirect({
@@ -169,6 +171,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: result.url, provider: result.provider });
   } catch (err) {
     console.error("subscription checkout:", err);
-    return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
+    const msg = err instanceof Error ? err.message : "Checkout failed";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
