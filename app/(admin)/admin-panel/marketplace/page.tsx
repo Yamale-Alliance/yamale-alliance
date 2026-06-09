@@ -4,7 +4,9 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Loader2, Plus, Pencil, Trash2, BookOpen, GraduationCap, FileText, Upload, X } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, BookOpen, GraduationCap, FileText, X } from "lucide-react";
+import { AdminMarketplaceLanguageFilesField } from "@/components/admin/AdminMarketplaceLanguageFilesField";
+import { VaultLanguageBadges } from "@/components/marketplace/VaultLanguageBadges";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { AdminPackageOffersFields } from "@/components/admin/AdminPackageOffersFields";
 import { AdminItemPackFields } from "@/components/admin/AdminItemPackFields";
@@ -13,8 +15,11 @@ import { AdminVaultSubcategorySelect } from "@/components/admin/AdminVaultSubcat
 import { AdminVaultFocusCountrySelect } from "@/components/admin/AdminVaultFocusCountrySelect";
 import { AdminVaultSeriesEditor } from "@/components/admin/AdminVaultSeriesEditor";
 import {
-  AdminVirusScanUploadBanner,
-} from "@/components/admin/AdminVirusScanUploadBanner";
+  buildLanguageFilesPayload,
+  defaultMarketplaceLanguageFileDrafts,
+  draftsFromMarketplaceItemFiles,
+  type MarketplaceLanguageFileDraft,
+} from "@/lib/marketplace-item-files";
 import {
   isVaultSeriesMemberItem,
   labelForVaultSubcategory,
@@ -58,7 +63,16 @@ type MarketplaceItem = {
   vault_subcategory?: string | null;
   focus_country?: string | null;
   is_course?: boolean;
+  language_codes?: string[];
 };
+
+function hasZipLanguageFile(drafts: MarketplaceLanguageFileDraft[]): boolean {
+  return drafts.some(
+    (draft) =>
+      !draft.removed &&
+      (draft.pending?.file_format === "zip" || draft.file_format === "zip")
+  );
+}
 
 function TypeIcon({ type }: { type: string }) {
   switch (type) {
@@ -72,8 +86,6 @@ function TypeIcon({ type }: { type: string }) {
       return <FileText className="h-4 w-4" />;
   }
 }
-
-import { MARKETPLACE_FILE_ACCEPT } from "@/lib/marketplace-file-accept";
 
 export default function AdminMarketplacePage() {
   const t = useTranslations("admin.vault");
@@ -90,15 +102,15 @@ export default function AdminMarketplacePage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [dbSeriesIds, setDbSeriesIds] = useState<Set<string>>(() => new Set());
-  const [fileUploading, setFileUploading] = useState(false);
-  const [uploadingFileName, setUploadingFileName] = useState<string | null>(null);
-  const [pendingFile, setPendingFile] = useState<{ path: string; file_name: string; file_format: string } | null>(null);
-  const [removeFile, setRemoveFile] = useState(false);
+  const [addLanguageFiles, setAddLanguageFiles] = useState<MarketplaceLanguageFileDraft[]>(
+    defaultMarketplaceLanguageFileDrafts
+  );
+  const [editLanguageFiles, setEditLanguageFiles] = useState<MarketplaceLanguageFileDraft[]>(
+    defaultMarketplaceLanguageFileDrafts
+  );
   const [imageUploading, setImageUploading] = useState(false);
   const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
   const [coverImageCleared, setCoverImageCleared] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const editFileInputRef = useRef<HTMLInputElement>(null);
   const landingHtmlFileAddRef = useRef<HTMLInputElement>(null);
   const landingHtmlFileEditRef = useRef<HTMLInputElement>(null);
 
@@ -291,49 +303,6 @@ export default function AdminMarketplacePage() {
     setError(null);
   };
 
-  const handleUploadFile = async (file: File, itemId?: string) => {
-    setFileUploading(true);
-    setUploadingFileName(file.name);
-    setError(null);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      if (itemId) form.append("itemId", itemId);
-      const res = await fetch(`${origin}/api/admin/marketplace/upload-file`, {
-        method: "POST",
-        credentials: "include",
-        body: form,
-      });
-      const data = await parseJsonSafe(res);
-      if (!res.ok) {
-        setError(data.error ?? tp("errors.uploadFailed"));
-        return;
-      }
-      if (data.path && data.file_name != null && data.file_format != null) {
-        setPendingFile({ path: data.path, file_name: data.file_name, file_format: data.file_format });
-        if (
-          data.file_format === "zip" &&
-          typeof data.landing_page_html === "string" &&
-          data.landing_page_html.trim()
-        ) {
-          const landingHtml = data.landing_page_html;
-          if (itemId && editing) {
-            setEditLandingHtml(landingHtml);
-          } else if (!itemId) {
-            setLandingPageHtmlAdd((prev) => (prev.trim() ? prev : landingHtml));
-          }
-        }
-      } else {
-        setError(tp("errors.uploadMissingFileDetails"));
-      }
-    } catch {
-      setError(tp("errors.uploadNetwork"));
-    } finally {
-      setFileUploading(false);
-      setUploadingFileName(null);
-    }
-  };
-
   const fetchItems = () => {
     setLoading(true);
     fetch(`${origin}/api/admin/marketplace`, { credentials: "include" })
@@ -367,6 +336,20 @@ export default function AdminMarketplacePage() {
   }, [editing?.id]);
 
   useEffect(() => {
+    if (!editing?.id) {
+      setEditLanguageFiles(defaultMarketplaceLanguageFileDrafts());
+      return;
+    }
+    fetch(`${origin}/api/admin/marketplace/${editing.id}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        const rows = Array.isArray(data.language_files) ? data.language_files : [];
+        setEditLanguageFiles(draftsFromMarketplaceItemFiles(rows));
+      })
+      .catch(() => setEditLanguageFiles(defaultMarketplaceLanguageFileDrafts()));
+  }, [editing?.id, origin]);
+
+  useEffect(() => {
     if (!editing) return;
     const d = itemPackageOffersToFormDefaults(editing.package_offers, editing.price_cents);
     setEditDualPricing(d.enabled);
@@ -392,9 +375,9 @@ export default function AdminMarketplacePage() {
     .filter((i) => i.published && i.price_cents > 0)
     .map((i) => ({ id: i.id, title: i.title, price_cents: i.price_cents }));
 
-  const showDualPricingAdd = Boolean(landingPageHtmlAdd.trim() || pendingFile?.file_format === "zip");
+  const showDualPricingAdd = Boolean(landingPageHtmlAdd.trim() || hasZipLanguageFile(addLanguageFiles));
   const showDualPricingEdit = Boolean(
-    editing && (editLandingHtml.trim() || editing.file_format === "zip")
+    editing && (editLandingHtml.trim() || hasZipLanguageFile(editLanguageFiles) || editing.file_format === "zip")
   );
 
   // Restore add / series editor from URL on refresh
@@ -499,9 +482,7 @@ export default function AdminMarketplacePage() {
           image_url: coverImageCleared ? null : pendingImageUrl ?? null,
           published: (form.elements.namedItem("published") as HTMLInputElement)?.checked ?? true,
           sort_order: parseInt((form.elements.namedItem("sort_order") as HTMLInputElement)?.value ?? "0", 10),
-          file_path: pendingFile?.path ?? null,
-          file_name: pendingFile?.file_name ?? null,
-          file_format: pendingFile?.file_format ?? null,
+          language_files: buildLanguageFilesPayload(addLanguageFiles),
           video_url: (form.elements.namedItem("video_url") as HTMLInputElement)?.value?.trim() || null,
           landing_page_html: landingPageHtmlAdd.trim() || null,
           vault_subcategory:
@@ -520,7 +501,7 @@ export default function AdminMarketplacePage() {
       setItems((prev) => [...prev, data.item]);
       setAdding(false);
       updateViewInUrl({});
-      setPendingFile(null);
+      setAddLanguageFiles(defaultMarketplaceLanguageFileDrafts());
       setPendingImageUrl(null);
       setCoverImageCleared(false);
       setLandingPageHtmlAdd("");
@@ -585,9 +566,7 @@ export default function AdminMarketplacePage() {
           image_url: resolveCoverImageUrl(),
           published: (form.elements.namedItem("published") as HTMLInputElement)?.checked ?? editing.published,
           sort_order: parseInt((form.elements.namedItem("sort_order") as HTMLInputElement)?.value ?? "0", 10),
-          file_path: removeFile ? null : (pendingFile ? pendingFile.path : editing.file_path),
-          file_name: removeFile ? null : (pendingFile ? pendingFile.file_name : editing.file_name),
-          file_format: removeFile ? null : (pendingFile ? pendingFile.file_format : editing.file_format),
+          language_files: buildLanguageFilesPayload(editLanguageFiles),
           video_url: (form.elements.namedItem("video_url") as HTMLInputElement)?.value?.trim() || null,
           landing_page_html: editLandingHtml.trim() || null,
           vault_subcategory:
@@ -607,8 +586,7 @@ export default function AdminMarketplacePage() {
       setEditing(null);
       setPendingImageUrl(null);
       setCoverImageCleared(false);
-      setPendingFile(null);
-      setRemoveFile(false);
+      setEditLanguageFiles(defaultMarketplaceLanguageFileDrafts());
     } catch {
       setError(tc("networkError"));
     }
@@ -842,46 +820,13 @@ export default function AdminMarketplacePage() {
               />
             )}
             <div className="sm:col-span-2">
-              <label className="mb-1 block text-sm font-medium">{tp("fields.fileLabel")}</label>
-              <p className="mb-2 text-xs text-muted-foreground">
-                Optional. Purchasers can view (PDF/video) or download. ZIP uploads allowed up to 200&nbsp;MB; other types up
-                to 50&nbsp;MB.
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept={MARKETPLACE_FILE_ACCEPT}
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleUploadFile(f);
-                  e.target.value = "";
-                }}
-              />
-              {pendingFile ? (
-                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <span className="truncate">{pendingFile.file_name}</span>
-                  <span className="text-muted-foreground">(.{pendingFile.file_format})</span>
-                  <button type="button" onClick={() => setPendingFile(null)} className="ml-auto rounded p-1 hover:bg-muted" aria-label={tp("actions.remove")}>
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={fileUploading}
-                  className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-3 py-2 text-sm text-muted-foreground hover:border-primary hover:text-foreground disabled:opacity-50"
-                >
-                  {fileUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                  {fileUploading ? tp("actions.pleaseWait") : tp("actions.uploadFile")}
-                </button>
-              )}
-              <AdminVirusScanUploadBanner
-                active={fileUploading}
-                fileName={uploadingFileName}
-                className="mt-2"
+              <AdminMarketplaceLanguageFilesField
+                origin={origin}
+                files={addLanguageFiles}
+                onChange={setAddLanguageFiles}
+                onUploadZipLandingHtml={(html) =>
+                  setLandingPageHtmlAdd((prev) => (prev.trim() ? prev : html))
+                }
               />
             </div>
             <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
@@ -925,6 +870,7 @@ export default function AdminMarketplacePage() {
           <button
             type="button"
             onClick={() => {
+              setAddLanguageFiles(defaultMarketplaceLanguageFileDrafts());
               setAdding(true);
               updateViewInUrl({ add: true });
             }}
@@ -1068,7 +1014,15 @@ export default function AdminMarketplacePage() {
                   <td className="py-3 text-right">
                     {item.price_cents === 0 ? tp("table.free") : `$${(item.price_cents / 100).toFixed(2)}`}
                   </td>
-                  <td className="py-3 text-center">{item.file_path ? (item.file_format ? `.${item.file_format}` : tc("yes")) : "—"}</td>
+                  <td className="py-3 text-center">
+                    {item.language_codes && item.language_codes.length > 0 ? (
+                      <VaultLanguageBadges languageCodes={item.language_codes} />
+                    ) : item.file_path ? (
+                      item.file_format ? `.${item.file_format}` : tc("yes")
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td className="py-3 text-center">{item.published ? tc("yes") : tc("no")}</td>
                   <td className="py-3 text-right">
                     <button
@@ -1080,8 +1034,6 @@ export default function AdminMarketplacePage() {
                           return;
                         }
                         setEditing(item);
-                        setRemoveFile(false);
-                        setPendingFile(null);
                         setPendingImageUrl(null);
                         setCoverImageCleared(false);
                       }}
@@ -1327,48 +1279,14 @@ export default function AdminMarketplacePage() {
                 />
               )}
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-sm font-medium">{tp("fields.fileLabel")}</label>
-                {editing.file_path && !removeFile && !pendingFile ? (
-                  <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <span className="truncate">{editing.file_name ?? tp("fields.fileAttached")}</span>
-                    {editing.file_format && <span className="text-muted-foreground">(.{editing.file_format})</span>}
-                    <button type="button" onClick={() => setRemoveFile(true)} className="ml-auto rounded p-1 hover:bg-destructive/10 text-destructive text-xs">{tp("actions.removeFile")}</button>
-                  </div>
-                ) : pendingFile ? (
-                  <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <span className="truncate">{pendingFile.file_name}</span>
-                    <button type="button" onClick={() => setPendingFile(null)} className="ml-auto rounded p-1 hover:bg-muted" aria-label={tc("cancel")}><X className="h-4 w-4" /></button>
-                  </div>
-                ) : (
-                  <>
-                    <input
-                      ref={editFileInputRef}
-                      type="file"
-                      accept={MARKETPLACE_FILE_ACCEPT}
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) handleUploadFile(f, editing.id);
-                        e.target.value = "";
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => editFileInputRef.current?.click()}
-                      disabled={fileUploading}
-                      className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-3 py-2 text-sm text-muted-foreground hover:border-primary hover:text-foreground disabled:opacity-50"
-                    >
-                      {fileUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                      {fileUploading ? tp("actions.pleaseWait") : removeFile ? tp("actions.uploadNewFile") : tp("actions.replaceFile")}
-                    </button>
-                  </>
-                )}
-                <AdminVirusScanUploadBanner
-                  active={fileUploading}
-                  fileName={uploadingFileName}
-                  className="mt-2"
+                <AdminMarketplaceLanguageFilesField
+                  itemId={editing.id}
+                  origin={origin}
+                  files={editLanguageFiles}
+                  onChange={setEditLanguageFiles}
+                  onUploadZipLandingHtml={(html) =>
+                    setEditLandingHtml((prev) => (prev.trim() ? prev : html))
+                  }
                 />
               </div>
               <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
@@ -1393,7 +1311,8 @@ export default function AdminMarketplacePage() {
               </div>
             </form>
             <div className="flex shrink-0 flex-wrap gap-2 border-t border-border bg-card px-4 py-4 sm:px-6">
-              {editing.is_course && editing.file_path ? (
+              {editing.is_course &&
+              (buildLanguageFilesPayload(editLanguageFiles).length > 0 || editing.file_path) ? (
                 <button
                   type="button"
                   disabled={syncingCourseId === editing.id || saving}
