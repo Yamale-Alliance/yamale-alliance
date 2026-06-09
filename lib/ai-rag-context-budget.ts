@@ -81,6 +81,7 @@ export type FullInstrumentReviewFlags = {
   countryCatalogRequest: boolean;
   latinAmericaTreatyCatalog: boolean;
   globalTreatyCatalog: boolean;
+  ohadaUniformActCatalog?: boolean;
   germanyAfricaBitCatalog: boolean;
   countryBilateralCatalog: boolean;
   preferMoreDocuments: boolean;
@@ -92,6 +93,7 @@ export function shouldPreferFullInstrumentReview(flags: FullInstrumentReviewFlag
   if (
     flags.latinAmericaTreatyCatalog ||
     flags.globalTreatyCatalog ||
+    flags.ohadaUniformActCatalog ||
     flags.germanyAfricaBitCatalog ||
     flags.countryBilateralCatalog
   ) {
@@ -145,6 +147,9 @@ export const RAG_NAMED_STATUTE_TOTAL_CHARS = 48_000;
 export function isMultiInstrumentListQuery(query: string): boolean {
   const q = query.toLowerCase();
   if (/\b(all|every|each|list|how many|which ones?|what are the)\b/.test(q)) return true;
+  if (/\bohada\b/.test(q) && /\b(laws?|acts?|actes|instruments?|uniform\s+acts?|actes\s+uniformes)\b/.test(q)) {
+    return true;
+  }
   const pluralInstrument = /\b(treaties|agreements|bits|bilateral\s+agreements?)\b/.test(q);
   const listScope =
     /\b(signed|concluded|entered|past|since|last\s+\d+|between|with|in\s+the\s+last)\b/.test(q) ||
