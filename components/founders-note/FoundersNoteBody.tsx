@@ -1,4 +1,6 @@
-import { FOUNDERS_NOTE } from "@/lib/founders-note";
+"use client";
+
+import { useTranslations } from "next-intl";
 import { FoundersNotePortrait } from "@/components/founders-note/FoundersNotePortrait";
 
 type Props = {
@@ -7,19 +9,22 @@ type Props = {
 };
 
 export function FoundersNoteBody({ className = "", portraitUrl = null }: Props) {
+  const t = useTranslations("foundersNotePage");
+  const paragraphs = t.raw("paragraphs") as string[];
+
   return (
     <article className={className}>
       <header>
         <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#C8922A]">
-          {FOUNDERS_NOTE.eyebrow}
+          {t("eyebrow")}
         </p>
         <h1 className="heading mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          {FOUNDERS_NOTE.title}
+          {t("title")}
         </h1>
       </header>
 
       <div className="mt-6 space-y-4 text-[15px] leading-[1.75] text-foreground/90 sm:text-base">
-        {FOUNDERS_NOTE.paragraphs.map((paragraph) => (
+        {paragraphs.map((paragraph) => (
           <p key={paragraph.slice(0, 48)}>{paragraph}</p>
         ))}
       </div>
@@ -31,10 +36,10 @@ export function FoundersNoteBody({ className = "", portraitUrl = null }: Props) 
           ) : null}
           <div className="text-center sm:text-left">
             <p className="heading text-lg font-semibold text-foreground">
-              — {FOUNDERS_NOTE.signature.name}
+              — {t("signature.name")}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">{FOUNDERS_NOTE.signature.title}</p>
-            <p className="mt-0.5 text-sm text-muted-foreground">{FOUNDERS_NOTE.signature.location}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{t("signature.title")}</p>
+            <p className="mt-0.5 text-sm text-muted-foreground">{t("signature.location")}</p>
           </div>
         </div>
       </footer>
