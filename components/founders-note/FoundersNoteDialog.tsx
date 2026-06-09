@@ -3,6 +3,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import Link from "next/link";
 import { X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { FoundersNoteBody } from "@/components/founders-note/FoundersNoteBody";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
 
@@ -14,6 +15,7 @@ type Props = {
 
 export function FoundersNoteDialog({ open, onOpenChange, onContinue }: Props) {
   const { founderPortraitUrl } = usePlatformSettings();
+  const t = useTranslations("foundersNotePage.dialog");
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -23,17 +25,17 @@ export function FoundersNoteDialog({ open, onOpenChange, onContinue }: Props) {
           <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-5 py-4 sm:px-6">
             <div className="min-w-0 pe-2">
               <Dialog.Title className="text-lg font-semibold tracking-tight text-foreground">
-                Welcome to Yamalé
+                {t("title")}
               </Dialog.Title>
               <Dialog.Description className="mt-1 text-sm text-muted-foreground">
-                A short note from our founder before you begin.
+                {t("description")}
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
               <button
                 type="button"
                 className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="Close"
+                aria-label={t("closeAria")}
                 onClick={onContinue}
               >
                 <X className="h-5 w-5" />
@@ -51,14 +53,14 @@ export function FoundersNoteDialog({ open, onOpenChange, onContinue }: Props) {
               className="text-center text-sm font-medium text-[#8a6518] underline decoration-[#C8922A] underline-offset-2 hover:text-[#6e4f12] dark:text-[#e3ba65] sm:text-left"
               onClick={onContinue}
             >
-              Read again anytime
+              {t("readAgain")}
             </Link>
             <button
               type="button"
               onClick={onContinue}
               className="inline-flex w-full items-center justify-center rounded-lg bg-[#0D1B2A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#162436] sm:w-auto dark:bg-primary dark:text-primary-foreground"
             >
-              Continue to Yamalé
+              {t("continue")}
             </button>
           </div>
         </Dialog.Content>
