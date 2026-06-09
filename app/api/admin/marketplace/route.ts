@@ -9,6 +9,13 @@ import { parseItemPackInput } from "@/lib/marketplace-item-packs";
 import { resolveVaultSubcategoryForSave } from "@/lib/marketplace-vault-categories";
 import { resolveFocusCountryForSave } from "@/lib/marketplace-vault-country";
 import { assignMarketplaceItemSlug } from "@/lib/content-slug-assign";
+import {
+  legacyFieldsFromMarketplaceFiles,
+  listMarketplaceItemFilesByItemIds,
+  parseMarketplaceItemFilesInput,
+  sortMarketplaceLanguageCodes,
+  syncMarketplaceItemFiles,
+} from "@/lib/marketplace-item-files";
 
 type Insert = Database["public"]["Tables"]["marketplace_items"]["Insert"];
 const VALID_TYPES = ["book", "course", "template", "guide"] as const;
@@ -29,7 +36,22 @@ export async function GET() {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    return NextResponse.json({ items: data ?? [] });
+    const rows = data ?? [];
+    const filesByItem = await listMarketplaceItemFilesByItemIds(
+      supabase,
+      rows.map((row) => String((row as { id: string }).id))
+    );
+    const items = rows.map((row) => {
+      const record = row as Record<string, unknown> & { id: string };
+      const id = String(record.id);
+      const languageFiles = filesByItem.get(id) ?? [];
+      const language_codes =
+        languageFiles.length > 0
+          ? sortMarketplaceLanguageCodes(languageFiles.map((f) => f.language_code))
+          : [];
+      return { ...record, language_codes };
+    });
+    return NextResponse.json({ items });
   } catch (err) {
     console.error("Admin marketplace list error:", err);
     return NextResponse.json({ error: "Failed to load items" }, { status: 500 });
@@ -63,6 +85,7 @@ export async function POST(request: NextRequest) {
       vault_subcategory,
       focus_country,
       is_course,
+      language_files,
     } = body as {
       type?: string;
       title?: string;
@@ -83,6 +106,7 @@ export async function POST(request: NextRequest) {
       vault_subcategory?: string | null;
       focus_country?: string | null;
       is_course?: boolean;
+      language_files?: unknown;
     };
 
     let landingHtml: string | null = null;
@@ -103,6 +127,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "title is required" }, { status: 400 });
     }
     const price = typeof price_cents === "number" ? Math.max(0, Math.round(price_cents)) : 0;
+    const parsedLanguageFiles = parseMarketplaceItemFilesInput(language_files);
+    const legacyFromLanguages =
+      parsedLanguageFiles && parsedLanguageFiles.length > 0
+        ? legacyFieldsFromMarketplaceFiles(parsedLanguageFiles)
+        : null;
 
     const row: Insert = {
       type: type as (typeof VALID_TYPES)[number],
@@ -114,9 +143,15 @@ export async function POST(request: NextRequest) {
       image_url: typeof image_url === "string" && image_url ? image_url : null,
       published: !!published,
       sort_order: typeof sort_order === "number" ? sort_order : 0,
-      file_path: typeof file_path === "string" && file_path ? file_path : null,
-      file_name: typeof file_name === "string" && file_name ? file_name : null,
-      file_format: typeof file_format === "string" && file_format ? file_format : null,
+      file_path:
+        legacyFromLanguages?.file_path ??
+        (typeof file_path === "string" && file_path ? file_path : null),
+      file_name:
+        legacyFromLanguages?.file_name ??
+        (typeof file_name === "string" && file_name ? file_name : null),
+      file_format:
+        legacyFromLanguages?.file_format ??
+        (typeof file_format === "string" && file_format ? file_format : null),
       video_url: typeof video_url === "string" && video_url ? video_url.trim() : null,
       landing_page_html: landingHtml,
       package_offers: parseItemPackageOffersInput(package_offers),
@@ -142,6 +177,10 @@ export async function POST(request: NextRequest) {
       } catch {
         /* slug column may not be migrated yet */
       }
+    }
+
+    if (data?.id && parsedLanguageFiles !== null) {
+      await syncMarketplaceItemFiles(supabase, String(data.id), parsedLanguageFiles);
     }
 
     await recordAuditLog(supabase, {
