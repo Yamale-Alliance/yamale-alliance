@@ -23,7 +23,7 @@ type ZipRow = {
  * Used for an attachment-style preview without downloading the whole file to the user device.
  */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -32,8 +32,9 @@ export async function GET(
       return NextResponse.json({ error: "Invalid id" }, { status: 400 });
     }
 
+    const language = request.nextUrl.searchParams.get("lang");
     const supabase = getSupabaseServer();
-    const item = await loadMarketplaceZipItem(supabase, id);
+    const item = await loadMarketplaceZipItem(supabase, id, language);
     if (!item) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
