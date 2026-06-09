@@ -78,3 +78,43 @@ export function mergeUsedFlagsFromTitleMentions(
   }
   return out;
 }
+
+function shortenTitleForCitation(title: string): string {
+  const trimmed = title.trim();
+  if (!trimmed) return "Source";
+  const noYear = trimmed.replace(/\s*[-–—,]\s*\b(19|20)\d{2}\b.*$/i, "").trim();
+  const base = (noYear.length >= 8 ? noYear : trimmed).replace(/\s+/g, " ");
+  return base.length > 72 ? `${base.slice(0, 69).trim()}…` : base;
+}
+
+export type DocTitleBySlot = { docSlot?: number; title: string };
+
+/**
+ * Replace [doc:N] / [doc:N, art:M] markers with readable instrument names for PDF/copy export.
+ */
+export function humanizeDocMarkersInAnswer(
+  assistantText: string,
+  cards: DocTitleBySlot[] | undefined
+): string {
+  if (!assistantText?.trim() || !cards?.length) return assistantText;
+  const titleBySlot = new Map<number, string>();
+  cards.forEach((card, idx) => {
+    const slot = card.docSlot ?? idx + 1;
+    if (card.title?.trim()) titleBySlot.set(slot, card.title.trim());
+  });
+  if (titleBySlot.size === 0) return assistantText;
+
+  return assistantText.replace(DOC_REF_GLOBAL_RE, (match, rawN: string, rawArt?: string) => {
+    const n = Number.parseInt(rawN, 10);
+    if (Number.isNaN(n)) return match;
+    const title = titleBySlot.get(n);
+    if (!title) return match;
+    const label = shortenTitleForCitation(title);
+    const art = rawArt?.trim();
+    if (art) {
+      const artNorm = art.replace(/^s\.?/i, "s.").replace(/^sec\.?/i, "s.");
+      return `${label}, ${artNorm}`;
+    }
+    return label;
+  });
+}
