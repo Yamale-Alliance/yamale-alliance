@@ -18,7 +18,10 @@ import {
   lawSourceDisplayLabel,
   matchRegionalFrameworkForLaw,
 } from "@/lib/law-source-display";
-import { lawTitleContradictsCountryMetadata } from "@/lib/law-country-metadata-mismatch";
+import {
+  lawIsInScopeForCountryQuery,
+  lawTitleContradictsCountryMetadata,
+} from "@/lib/law-country-metadata-mismatch";
 import {
   detectCountryAliasFromQueryText,
   detectAllCountryAliasesFromQuery,
@@ -76,6 +79,7 @@ import {
   parseYearWindowFromQuery,
   titleLikelyCountryBilateralTreaty,
 } from "@/lib/ai-country-bilateral-inventory";
+import { filterAiResearchSourceCardsForDisplay } from "@/lib/ai-research-source-cards";
 import { pickContentExcerpt } from "@/lib/ai-law-excerpt";
 import { selectInstrumentContentForReview } from "@/lib/ai-law-full-content";
 import {
@@ -90,6 +94,7 @@ import {
   excludeInternalCategoryFromLawsQuery,
   filterPublicLibraryLawRows,
   isInternalLibraryForUserDisplay,
+  partitionLegalContextForAiTurn,
   resolveInternalLibraryCategoryId,
 } from "@/lib/internal-library-categories";
 import {
@@ -169,6 +174,7 @@ import {
 import { enrichAiResearchAnswerWithOfficialSource } from "@/lib/ai-system-prompt";
 import {
   fetchAiMethodologyContext,
+  buildMethodologyReferencePromptBlock,
   prependMethodologyContext,
 } from "@/lib/ai-methodology-retrieval";
 import {
@@ -1548,16 +1554,11 @@ function countryLabelsEquivalentForRag(a: string, b: string): boolean {
 
 function filterLegalLibraryDocsForCountryLock<
   T extends { country: string; title?: string },
->(docs: T[], effectiveCountry: string | null, strictCountryMode: boolean): T[] {
-  if (!strictCountryMode || !effectiveCountry?.trim()) return docs;
-  return docs.filter((d) => {
-    const c = d.country || "";
-    if (!c) return false;
-    if (d.title && lawTitleContradictsCountryMetadata(d.title, effectiveCountry)) return false;
-    if (c === "All countries" || c === "Multiple countries") return true;
-    if (d.title && matchRegionalFrameworkForLaw({ title: d.title })) return true;
-    return countryLabelsEquivalentForRag(c, effectiveCountry);
-  });
+>(docs: T[], effectiveCountry: string | null): T[] {
+  if (!effectiveCountry?.trim()) return docs;
+  return docs.filter((d) =>
+    lawIsInScopeForCountryQuery(d.title ?? "", d.country, effectiveCountry)
+  );
 }
 
 function normalizeLawStatus(status: string | undefined | null): "in force" | "amended" | "repealed" | "other" {
@@ -3310,6 +3311,7 @@ async function finalizeAssistantTurn(opts: {
     }),
     preferredDocumentLanguage ?? null
   ).map(({ retrievalScore: _rs, ...card }) => card);
+  const displaySourceCards = filterAiResearchSourceCardsForDisplay(sourceCards);
 
   const citationVerification = {
     invalidDocRefs: citationParse.invalidDocRefs,
@@ -3362,8 +3364,8 @@ async function finalizeAssistantTurn(opts: {
         userQuery,
         effectiveCountry,
         retrievedLawCount: legalContext.length,
-        displayedSourceCardCount: sourceCards.length,
-        lawsUsedInAnswerCount: sourceCards.filter((c) => c.usedInAnswer).length,
+        displayedSourceCardCount: displaySourceCards.length,
+        lawsUsedInAnswerCount: displaySourceCards.filter((c) => c.usedInAnswer).length,
       });
 
   const networkEnabled = isLawyersNetworkLive();
@@ -3395,8 +3397,12 @@ async function finalizeAssistantTurn(opts: {
 
   return {
     content,
-    sources,
-    sourceCards,
+    sources: platformGuideMeta
+      ? []
+      : displaySourceCards.length > 0
+        ? Array.from(new Set(displaySourceCards.map((c) => `${c.title} (${c.country})`)))
+        : sources,
+    sourceCards: displaySourceCards,
     contentGap,
     retrievedLawCount: platformGuideMeta ? 0 : legalContext.length,
     lawyerNudge,
@@ -3818,7 +3824,7 @@ export async function POST(request: NextRequest) {
       perfStep(perf, "assistant_workflow_context", { docs: legalContext.length });
     }
 
-    if (!platformGuideMeta && methodology.length > 0) {
+    if (!platformGuideMeta && assistantWorkflowMeta && methodology.length > 0) {
       legalContext = prependMethodologyContext(legalContext, methodology);
     }
 
@@ -3852,11 +3858,11 @@ export async function POST(request: NextRequest) {
         });
       }
     }
+    const internalCategoryIdForTurn = await resolveInternalLibraryCategoryId(supabaseForTurn);
     if (!platformGuideMeta) {
       legalContext = filterLegalLibraryDocsForCountryLock(
         legalContext,
-        effectiveHints.country ?? null,
-        strictCountryMode
+        effectiveHints.country ?? null
       );
       perfStep(perf, "country_lock_filter", { docs: legalContext.length });
 
@@ -3879,6 +3885,14 @@ export async function POST(request: NextRequest) {
         before: beforeRelevance,
         after: legalContext.length,
       });
+
+      if (!assistantWorkflowMeta) {
+        legalContext = partitionLegalContextForAiTurn(
+          legalContext,
+          internalCategoryIdForTurn
+        ).statuteDocs;
+        perfStep(perf, "partition_internal_library", { docs: legalContext.length });
+      }
     }
 
     let webSearchSupplementBlock: string | null = webResult.block;
@@ -4029,6 +4043,10 @@ export async function POST(request: NextRequest) {
       webSearchSupplementBlock,
       germanyAfricaBitInventoryBlock: germanyAfricaBitInventoryBlock || null,
       countryBilateralInventoryBlock: countryBilateralInventoryBlock || null,
+      methodologyReferenceBlock:
+        !platformGuideMeta && !assistantWorkflowMeta
+          ? buildMethodologyReferencePromptBlock(methodology)
+          : null,
       legalContextMaxDocs: useFullLibraryContext
         ? Math.max(1, legalContext.length)
         : latinAmericaTreatyCatalog
