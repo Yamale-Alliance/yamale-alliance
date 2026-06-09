@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import { canShareByEmail, canDownloadConversations } from "@/lib/plan-limits";
 import { plainTextForAiChatExport } from "@/lib/ai-chat-plain-text";
+import { humanizeDocMarkersInAnswer } from "@/lib/ai-citation-verify";
 import { downloadAiResearchChatPdf } from "@/lib/ai-research-chat-pdf";
 import { AIResearchChatExportPreviewDialog } from "@/components/ai-research/AIResearchChatExportPreviewDialog";
 import { SubscriptionCheckoutConfirm } from "@/components/checkout/SubscriptionCheckoutConfirm";
@@ -770,7 +771,11 @@ export default function AIResearchClient() {
       .map((m) => {
         const label = m.role === "user" ? "You" : "Yamalé AI";
         const text =
-          m.role === "assistant" ? plainTextForAiChatExport(m.content) : m.content;
+          m.role === "assistant"
+            ? plainTextForAiChatExport(
+                humanizeDocMarkersInAnswer(m.content, filterAiResearchSourceCardsForDisplay(m.sourceCards))
+              )
+            : m.content;
         return `${label}: ${text}`;
       })
       .join("\n\n");
@@ -808,7 +813,17 @@ export default function AIResearchClient() {
 
   const handleCopyMessage = useCallback(async (messageId: string, text: string, role: Message["role"]) => {
     try {
-      const plain = role === "assistant" ? plainTextForAiChatExport(text) : text;
+      const plain =
+        role === "assistant"
+          ? plainTextForAiChatExport(
+              humanizeDocMarkersInAnswer(
+                text,
+                filterAiResearchSourceCardsForDisplay(
+                  currentSession?.messages.find((m) => m.id === messageId)?.sourceCards
+                )
+              )
+            )
+          : text;
       await navigator.clipboard.writeText(plain);
       setCopiedMessageId(messageId);
       setTimeout(() => {
@@ -817,7 +832,7 @@ export default function AIResearchClient() {
     } catch {
       // ignore clipboard errors
     }
-  }, []);
+  }, [currentSession]);
 
   const handleDownloadChat = useCallback(async () => {
     if (!currentSession || chatPdfDownloading) return;
@@ -829,6 +844,7 @@ export default function AIResearchClient() {
           role: m.role,
           content: m.content,
           sources: filterAiResearchSourcesForDisplay(m.sources),
+          sourceCards: filterAiResearchSourceCardsForDisplay(m.sourceCards),
         })),
         generatedAt: new Date(),
       });
@@ -1753,7 +1769,10 @@ export default function AIResearchClient() {
                                 ),
                               }}
                             >
-                              {msg.content}
+                              {humanizeDocMarkersInAnswer(
+                                msg.content,
+                                filterAiResearchSourceCardsForDisplay(msg.sourceCards)
+                              )}
                             </ReactMarkdown>
                           </div>
                         ) : null}
