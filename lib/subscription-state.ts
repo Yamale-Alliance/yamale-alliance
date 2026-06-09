@@ -66,7 +66,7 @@ function parseStoredPaymentProvider(raw: unknown): SubscriptionPaymentProvider |
 export function readSubscriptionState(meta: Record<string, unknown> | undefined): SubscriptionPublicState {
   const m = meta ?? {};
   const tier = (m.tier ?? m.subscriptionTier ?? "free") as string;
-  const t = typeof tier === "string" ? tier : "free";
+  const t = typeof tier === "string" ? tier.toLowerCase().trim() || "free" : "free";
   const intervalRaw = m.subscription_interval;
   const interval: BillingInterval | null =
     intervalRaw === "annual" || intervalRaw === "monthly" ? intervalRaw : null;
@@ -202,6 +202,46 @@ export async function fulfillSubscriptionPlanPayment(
     nextMeta.team_extra_seats = (existing.team_extra_seats as number) ?? 0;
   }
   await clerk.users.updateUserMetadata(clerkUserId, { publicMetadata: nextMeta });
+}
+
+export type ResolvedSubscriptionPeriod = {
+  periodStart: Date;
+  periodEnd: Date;
+  interval: BillingInterval;
+};
+
+/**
+ * Billing window for prorated upgrades. Backfills from subscriber_since when period
+ * fields are missing (legacy accounts or confirm-before-webhook race).
+ */
+export function resolveSubscriptionPeriodForUpgrade(
+  state: SubscriptionPublicState
+): ResolvedSubscriptionPeriod | null {
+  const interval: BillingInterval = state.interval ?? "monthly";
+
+  if (state.periodEnd) {
+    const periodEnd = new Date(state.periodEnd);
+    if (!Number.isNaN(periodEnd.getTime()) && periodEnd.getTime() > Date.now()) {
+      let periodStart = state.periodStart ? new Date(state.periodStart) : inferPeriodStartFromEnd(periodEnd, interval);
+      if (Number.isNaN(periodStart.getTime())) {
+        periodStart = inferPeriodStartFromEnd(periodEnd, interval);
+      }
+      return { periodStart, periodEnd, interval: state.interval ?? interval };
+    }
+  }
+
+  const anchorRaw = state.subscriberSince ?? state.periodStart;
+  if (anchorRaw) {
+    const anchor = new Date(anchorRaw);
+    if (!Number.isNaN(anchor.getTime())) {
+      const periodEnd = addBillingPeriod(anchor, interval);
+      if (periodEnd.getTime() > Date.now()) {
+        return { periodStart: anchor, periodEnd, interval };
+      }
+    }
+  }
+
+  return null;
 }
 
 export function computeUpgradeProrationUsdCents(params: {
