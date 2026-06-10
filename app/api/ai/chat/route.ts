@@ -32,6 +32,7 @@ import {
 import {
   normalizeSearchQueryForAi,
   resolveLibrarySearchIntent,
+  compareNationalLawTreatyOffTopicTitles,
   compareRegistrationOffTopicTitles,
   prioritizeTokensForLibrarySearch,
   escapeSupplementalTermsForFetch,
@@ -79,6 +80,12 @@ import {
   parseYearWindowFromQuery,
   titleLikelyCountryBilateralTreaty,
 } from "@/lib/ai-country-bilateral-inventory";
+import {
+  isBilateralOrInvestmentTreatyTitle,
+  isCoreLaborStatuteTitle,
+  isOffTopicInvestmentTreatyForNationalLawQuery,
+  shouldDemoteInvestmentTreatyNoise,
+} from "@/lib/ai-investment-treaty-noise";
 import { filterAiResearchSourceCardsForDisplay } from "@/lib/ai-research-source-cards";
 import { pickContentExcerpt } from "@/lib/ai-law-excerpt";
 import { selectInstrumentContentForReview } from "@/lib/ai-law-full-content";
@@ -810,7 +817,13 @@ function isClearlyOffTopicForPrimaryIntent(
   rankingTokens: string[],
   userQuery?: string
 ): boolean {
-  const title = String(law?.title ?? "").toLowerCase();
+  const titleRaw = String(law?.title ?? "");
+  if (
+    isOffTopicInvestmentTreatyForNationalLawQuery(titleRaw, primaryIntentId, userQuery)
+  ) {
+    return true;
+  }
+  const title = titleRaw.toLowerCase();
   const category = String(law?.categories?.name ?? "").toLowerCase();
   const blob = `${title}\n${String(law?.content_plain ?? law?.content ?? "").toLowerCase()}`;
   if (primaryIntentId === "tax") {
@@ -845,7 +858,7 @@ function isClearlyOffTopicForPrimaryIntent(
   if (primaryIntentId === "labor") {
     const laborSignals = /(labor|labour|employment|decent work|travail|wage|salary|union|collective|dismissal|worker)/i;
     const laborTitle =
-      /(basic\s+conditions\s+of\s+employment|labou?r\s+relations|minimum\s+wage|labou?r\s+code|employment\s+act|code\s+du\s+travail|industrial\s+relations)/i;
+      /(basic\s+conditions\s+of\s+employment|industrial\s+(and\s+)?labou?r\s+relations|labou?r\s+relations|minimum\s+wage|labou?r\s+code|employment\s+code|employment\s+act|code\s+du\s+travail|industrial\s+relations)/i;
     const ipSignals = /(intellectual property|patent|trademark|copyright|industrial property)/i;
     const hasLabor = laborSignals.test(blob) || rankingTokens.some((t) => laborSignals.test(t));
     const looksLikeIp = ipSignals.test(title) || ipSignals.test(category);
@@ -2433,8 +2446,10 @@ async function searchLegalLibrary(
     const filtered = lawsRows.filter((row) => normalizeLawStatus(row.status) !== "repealed");
 
     const rankedLaws = [...filtered].sort((a: any, b: any) => {
-      const off = compareRegistrationOffTopicTitles(a, b, resolvedIntent);
-      if (off !== 0) return off;
+      const offReg = compareRegistrationOffTopicTitles(a, b, resolvedIntent);
+      if (offReg !== 0) return offReg;
+      const offTreaty = compareNationalLawTreatyOffTopicTitles(a, b, resolvedIntent, query);
+      if (offTreaty !== 0) return offTreaty;
       const titleA = String(a.title ?? "").toLowerCase();
       const titleB = String(b.title ?? "").toLowerCase();
       const contentA = String(a.content_plain ?? a.content ?? "").toLowerCase();
@@ -2701,6 +2716,26 @@ async function searchLegalLibrary(
         const ccRest = picked.filter((law) => !ccFirst.includes(law));
         if (ccFirst.length > 0) {
           picked = [...ccFirst, ...ccRest].slice(0, baseResponseSize);
+        }
+      }
+      if (resolvedIntent.primaryId === "labor") {
+        const coreLabor = picked.filter((law) =>
+          isCoreLaborStatuteTitle(String((law as any).title ?? ""))
+        );
+        if (coreLabor.length > 0) {
+          const rest = picked.filter((law) => !coreLabor.includes(law));
+          picked = [...coreLabor, ...rest].slice(0, baseResponseSize);
+        }
+      }
+      if (shouldDemoteInvestmentTreatyNoise(resolvedIntent.primaryId, query)) {
+        const onTopic = picked.filter(
+          (law) => !isBilateralOrInvestmentTreatyTitle(String((law as any).title ?? ""))
+        );
+        const treatyNoise = picked.filter((law) =>
+          isBilateralOrInvestmentTreatyTitle(String((law as any).title ?? ""))
+        );
+        if (onTopic.length > 0) {
+          picked = [...onTopic, ...treatyNoise].slice(0, baseResponseSize);
         }
       }
       if (
