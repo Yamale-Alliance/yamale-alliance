@@ -93,6 +93,7 @@ function sortCountriesAlphabetically(countries: LibraryCountry[]): LibraryCountr
 
 function buildSearchOrFilter(query: string): string | null {
   const plan = librarySearchMatchPlan(query);
+  if (plan.strictTitleMatch) return null;
   const parts: string[] = [];
   const tryAdd = (clause: string): boolean => {
     const next = parts.length === 0 ? clause : `${parts.join(",")},${clause}`;
@@ -107,6 +108,27 @@ function buildSearchOrFilter(query: string): string | null {
   }
   if (parts.length === 0) return null;
   return parts.join(",");
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyLibraryTextSearchFilter(query: any, searchQuery: string): any {
+  const trimmed = searchQuery.trim();
+  if (!trimmed) return query;
+
+  const plan = librarySearchMatchPlan(trimmed);
+  if (plan.strictTitleMatch) {
+    const tokens =
+      plan.strictTitleTokens.length > 0 ? plan.strictTitleTokens : plan.primaryTokens;
+    let q = query;
+    for (const t of tokens.slice(0, 10)) {
+      q = q.ilike("title", `%${postgrestIlikePattern(t)}%`);
+    }
+    return q;
+  }
+
+  const orFilter = buildSearchOrFilter(trimmed);
+  if (orFilter) return query.or(orFilter);
+  return query.ilike("title", `%${escapeIlikePattern(trimmed)}%`);
 }
 
 function sanitizeLibraryDataForPublic(
@@ -585,12 +607,7 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
       }
       if (filters?.status) countQuery = countQuery.eq("status", filters.status);
       if (filters?.q?.trim()) {
-        const orFilter = buildSearchOrFilter(filters.q);
-        if (orFilter) countQuery = countQuery.or(orFilter);
-        else {
-          const term = escapeIlikePattern(filters.q.trim());
-          countQuery = countQuery.ilike("title", `%${term}%`);
-        }
+        countQuery = applyLibraryTextSearchFilter(countQuery, filters.q);
       }
       countQuery = applyScalarLibraryFilters(countQuery, filters);
 
@@ -606,12 +623,7 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
         }
         if (filters?.status) lawsQuery = lawsQuery.eq("status", filters.status);
         if (filters?.q?.trim()) {
-          const orFilter = buildSearchOrFilter(filters.q);
-          if (orFilter) lawsQuery = lawsQuery.or(orFilter);
-          else {
-            const term = escapeIlikePattern(filters.q.trim());
-            lawsQuery = lawsQuery.ilike("title", `%${term}%`);
-          }
+          lawsQuery = applyLibraryTextSearchFilter(lawsQuery, filters.q);
         }
         lawsQuery = applyScalarLibraryFilters(lawsQuery, filters);
         return excludeInternalCategoryFromLawsQuery(lawsQuery, internalCategoryId);
