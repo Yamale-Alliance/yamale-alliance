@@ -136,11 +136,14 @@ export function buildIntentTitleSearchTerms(
     terms.push(
       "labour code",
       "labor code",
+      "employment code",
       "employment act",
       "code du travail",
       "basic conditions of employment",
       "labour relations",
       "labor relations",
+      "industrial and labour relations",
+      "industrial relations act",
       "minimum wage",
       "industrial relations"
     );
@@ -239,6 +242,10 @@ const SLOT_TITLE_SEARCH_TERMS: Record<string, string[]> = {
     "basic conditions of employment",
     "labour relations act",
     "labor relations act",
+    "industrial and labour relations",
+    "industrial relations act",
+    "employment code act",
+    "employment code",
     "labour code",
     "labor code",
     "employment act",
@@ -316,7 +323,7 @@ const INTENT_TOPIC_SLOTS: Record<string, TopicSlot[]> = {
     {
       label: "labor_core",
       titleTest: (t) =>
-        /\b(basic\s+conditions\s+of\s+employment|labou?r\s+relations\s+act|employment\s+act|labou?r\s+code|code\s+du\s+travail)\b/i.test(
+        /\b(basic\s+conditions\s+of\s+employment|industrial\s+(and\s+)?labou?r\s+relations|labou?r\s+relations\s+act|employment\s+code(\s+act)?|employment\s+act|labou?r\s+code|labor\s+code|code\s+du\s+travail)\b/i.test(
           t
         ),
     },
