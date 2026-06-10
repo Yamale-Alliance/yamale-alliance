@@ -4,6 +4,10 @@
  * callers that scope with lawsCountryOrGlobal* or lawsGlobalTextIlikeOrTerms.
  */
 
+import {
+  isOffTopicInvestmentTreatyForNationalLawQuery,
+  shouldDemoteInvestmentTreatyNoise as shouldDemoteBitNoiseForIntent,
+} from "@/lib/ai-investment-treaty-noise";
 import { canonicalCategoryForLibraryIntent } from "@/lib/ai-canonical-categories";
 import { escapeIlikePattern } from "@/lib/law-country-scope";
 import { crossLanguageRetrievalTokens } from "@/lib/ai-query-language-parity";
@@ -273,13 +277,22 @@ function boostInvestmentTreaty(law: LawTextFields, tokens: string[]): number {
 }
 
 function boostLabor(law: LawTextFields, tokens: string[]): number {
-  const blob = `${String(law.title ?? "").toLowerCase()}\n${String(law.content_plain ?? law.content ?? "").toLowerCase()}`;
+  const title = String(law.title ?? "").toLowerCase();
+  const blob = `${title}\n${String(law.content_plain ?? law.content ?? "").toLowerCase()}`;
   let b = 0;
+  if (/\bemployment\s+code(\s+act)?\b/i.test(title)) b += 38;
   const needles = [
     "code du travail",
     "labour code",
     "labor code",
+    "employment code act",
+    "employment code",
     "employment act",
+    "labour relations act",
+    "labor relations act",
+    "industrial and labour relations",
+    "industrial relations act",
+    "basic conditions of employment",
     "travail",
     "salarié",
     "salari",
@@ -997,6 +1010,8 @@ export type ResolvedLibrarySearchIntent = {
   useWideTokenSlice: boolean;
   /** Demote constitution / BIT titles when primary is company registration and user is not clearly asking treaty law */
   shouldDemoteRegistrationNoise: boolean;
+  /** Demote bilateral investment treaties when the user asks national labour, IP, tax, etc. */
+  shouldDemoteInvestmentTreatyNoise: boolean;
   /** Remove from substantive token OR list (e.g. "public" on public-holiday queries). */
   substantiveTokenDenylist: string[];
   rankBoost: (law: LawTextFields, tokens: string[]) => number;
@@ -1056,6 +1071,7 @@ export function resolveLibrarySearchIntent(qNormalized: string): ResolvedLibrary
   };
 
   const shouldDemoteRegistrationNoise = primary.id === "registration" && !wantsInvestmentTreaty;
+  const shouldDemoteInvestmentTreatyNoise = shouldDemoteBitNoiseForIntent(primary.id, qNormalized);
 
   const substantiveTokenDenylist = dedupeLower(matches.flatMap((m) => m.substantiveTokenDenylist ?? []));
 
@@ -1066,6 +1082,7 @@ export function resolveLibrarySearchIntent(qNormalized: string): ResolvedLibrary
     supplementalTermsRaw,
     useWideTokenSlice: matches.length > 0,
     shouldDemoteRegistrationNoise,
+    shouldDemoteInvestmentTreatyNoise,
     substantiveTokenDenylist,
     rankBoost,
   };
@@ -1080,6 +1097,23 @@ export function compareRegistrationOffTopicTitles(
   if (!resolved.shouldDemoteRegistrationNoise) return 0;
   const oa = isOffTopicForCompanyRegistrationTitle(String(a.title ?? "")) ? 1 : 0;
   const ob = isOffTopicForCompanyRegistrationTitle(String(b.title ?? "")) ? 1 : 0;
+  return oa - ob;
+}
+
+/** Sort key: investment BITs after on-topic national statutes for labour, IP, tax, etc. */
+export function compareNationalLawTreatyOffTopicTitles(
+  a: LawTextFields,
+  b: LawTextFields,
+  resolved: ResolvedLibrarySearchIntent,
+  userQuery?: string
+): number {
+  if (!resolved.shouldDemoteInvestmentTreatyNoise) return 0;
+  const oa = isOffTopicInvestmentTreatyForNationalLawQuery(String(a.title ?? ""), resolved.primaryId, userQuery)
+    ? 1
+    : 0;
+  const ob = isOffTopicInvestmentTreatyForNationalLawQuery(String(b.title ?? ""), resolved.primaryId, userQuery)
+    ? 1
+    : 0;
   return oa - ob;
 }
 
