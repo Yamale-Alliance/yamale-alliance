@@ -381,18 +381,69 @@ export function scoreLibrarySearchEntry(
   return score;
 }
 
+/** Statute-style query (e.g. "Employment Code Act No. 3 of 2019") — use AND on title tokens, not OR. */
+export function isSpecificInstrumentTitleQuery(freeText: string, tokens: string[]): boolean {
+  if (tokens.length < 2) return false;
+  const lower = freeText.toLowerCase();
+  const hasInstrumentMarker =
+    /\b(acts?|codes?|regulations?|statutes?|proclamation|decree|order|rules?|chapter|cap\.?)\b/i.test(
+      lower
+    ) || /\bno\.?\s*\d+/i.test(lower);
+  if (!hasInstrumentMarker) return false;
+  if (tokens.length >= 3) return true;
+  return tokens.some((t) => t.length >= 5);
+}
+
+const STRICT_TITLE_TOKEN_SKIP = new Set(["no", "nr", "of", "the", "and", "or"]);
+
+/**
+ * Normalize statute citations so equivalent forms match, e.g.
+ * "Employment Code Act No. 3 of 2019" ↔ "Employment Code Act - 2019".
+ */
+export function normalizeInstrumentCitationForMatch(text: string): string {
+  let s = normalizeLibraryMatchText(text);
+  s = s.replace(/\bno\.?\s*\d+\s+of\s+/g, "");
+  s = s.replace(/\b(act|code|law)\s+no\.?\s*\d+\b/g, "$1");
+  s = s.replace(/\s*-\s*/g, " ");
+  return s.replace(/\s+/g, " ").trim();
+}
+
+/** Tokens that must all appear in the title for statute-style searches. */
+export function strictInstrumentTitleTokens(tokens: string[], freeText: string): string[] {
+  const dropActNumber = /\bno\.?\s*\d+/i.test(freeText);
+  return tokens.filter((t) => {
+    const x = t.trim().toLowerCase();
+    if (!x || STRICT_TITLE_TOKEN_SKIP.has(x)) return false;
+    if (dropActNumber && /^\d{1,3}$/.test(x)) return false;
+    if (/^\d{4}$/.test(x)) return true;
+    if (/^\d{1,3}$/.test(x)) return true;
+    if (x.length >= 3) return true;
+    return false;
+  });
+}
+
 /** Tokens + category hints for server-side /api/laws?q= filtering. */
 export function librarySearchMatchPlan(query: string): {
   matchTokens: string[];
   categoryHints: YamaleLawCategory[];
   phraseLower: string;
+  primaryTokens: string[];
+  strictTitleMatch: boolean;
+  strictTitleTokens: string[];
 } {
   const parsed = parseLibrarySearchQuery(query);
   const expanded = expandLibrarySearchFromQuery(parsed.freeText, parsed.tokens);
+  const strictTitleMatch = isSpecificInstrumentTitleQuery(parsed.freeText, parsed.tokens);
+  const strictTitleTokens = strictTitleMatch
+    ? strictInstrumentTitleTokens(parsed.tokens, parsed.freeText)
+    : [];
   return {
     matchTokens: expanded.matchTokens,
     categoryHints: expanded.categoryHints,
     phraseLower: normalizeLibraryMatchText(parsed.freeText),
+    primaryTokens: parsed.tokens,
+    strictTitleMatch,
+    strictTitleTokens,
   };
 }
 
@@ -406,10 +457,32 @@ export function lawRowMatchesLibrarySearch(
   plan: ReturnType<typeof librarySearchMatchPlan>
 ): boolean {
   if (plan.matchTokens.length === 0 && !plan.phraseLower) return true;
+
+  const normTitle = normalizeLibraryMatchText(fields.title);
+  const phraseNorm = normalizeLibraryMatchText(plan.phraseLower);
+
+  if (plan.strictTitleMatch) {
+    const normQueryCitation = normalizeInstrumentCitationForMatch(plan.phraseLower);
+    const normTitleCitation = normalizeInstrumentCitationForMatch(fields.title);
+    if (
+      normQueryCitation.length >= 8 &&
+      normTitleCitation.length >= 8 &&
+      (normQueryCitation === normTitleCitation ||
+        normTitleCitation.includes(normQueryCitation) ||
+        normQueryCitation.includes(normTitleCitation))
+    ) {
+      return true;
+    }
+    if (phraseNorm.length >= 4 && normTitle.includes(phraseNorm)) return true;
+    const required =
+      plan.strictTitleTokens.length > 0 ? plan.strictTitleTokens : plan.primaryTokens;
+    if (required.length === 0) return false;
+    return required.every((t) => normTitle.includes(normalizeLibraryMatchText(t)));
+  }
+
   const haystack = normalizeLibraryMatchText(
     [fields.title, fields.category, fields.country, fields.sourceName ?? ""].join(" ")
   );
-  const phraseNorm = normalizeLibraryMatchText(plan.phraseLower);
   if (phraseNorm && haystack.includes(phraseNorm)) return true;
   if (plan.matchTokens.some((t) => haystack.includes(normalizeLibraryMatchText(t)))) return true;
   if (
