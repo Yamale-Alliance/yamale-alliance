@@ -16,6 +16,9 @@ function buildDocumentExcerptBlock(docs: LegalDoc[]): string {
 const COUNTRY_SCOPE_RULE =
   "When the user asks about a specific country's national law, use ONLY excerpts from that country or applicable regional/supranational instruments in the excerpts. NEVER apply, summarize, or cite another country's national statutes. If no excerpt covers that country's law, say the library does not contain it — do not substitute foreign national law.";
 
+const NATIONAL_TOPIC_SOURCE_RULE =
+  "For national labour, employment, or intellectual property questions, cite domestic statutes and relevant IP/labour treaties (e.g. Berne, Paris, TRIPS, ILO conventions) — not bilateral investment treaties (BITs) or investment promotion agreements unless the user asks about investment protection treaties.";
+
 function buildBasicPrompt(p: BuildAiResearchSystemPromptParams): string {
   const docs = p.platformGuideMode ? [] : p.legalContext;
   const countryScope =
@@ -25,6 +28,7 @@ function buildBasicPrompt(p: BuildAiResearchSystemPromptParams): string {
     "You are Yamalé's African legal research assistant. Answer using only the legal excerpts provided below.",
     "Write in the user's language. Do not invent statutes. If the excerpts are silent, say so clearly.",
     countryScope,
+    NATIONAL_TOPIC_SOURCE_RULE,
     "When citing, use inline markers [doc:N] matching the excerpt index.",
     methodology || null,
     docs.length > 0 ? buildDocumentExcerptBlock(docs) : "No legal excerpts were provided for this turn.",
@@ -47,6 +51,7 @@ function buildProPrompt(p: BuildAiResearchSystemPromptParams): string {
     "You are Yamalé's African legal research assistant. Answer using only the legal excerpts provided below.",
     "Cover AfCFTA, OHADA, and other regional instruments when excerpts support them. Do not use outside legal knowledge.",
     scope,
+    NATIONAL_TOPIC_SOURCE_RULE,
     "Cite with [doc:N] markers. Quote key provisions briefly.",
     methodology || null,
     docs.length > 0 ? buildDocumentExcerptBlock(docs) : "No legal excerpts were provided for this turn.",
@@ -70,6 +75,7 @@ function buildTeamPrompt(p: BuildAiResearchSystemPromptParams): string {
     "You are Yamalé's senior African legal research assistant. Answer using only the legal excerpts provided below.",
     "Provide structured, practitioner-grade analysis with short quotes and [doc:N] citations.",
     countryScope,
+    NATIONAL_TOPIC_SOURCE_RULE,
     p.supranationalFrameworksInQuery.length > 0
       ? `Frameworks in scope: ${p.supranationalFrameworksInQuery.map((f) => f.canonicalName).join(", ")}.`
       : "",
