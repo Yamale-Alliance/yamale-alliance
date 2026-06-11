@@ -19,9 +19,15 @@ export async function readAdminMfaGateState(userId: string | null | undefined): 
   if (!userId) {
     return { enforced, enrolled: false, stepUpComplete: false };
   }
-  const enrolled = await adminHasConfirmedTotp(userId);
   const stepUpComplete = await adminHasValidStepUpCookie(userId);
-  return { enforced, enrolled, stepUpComplete };
+  if (!enforced) {
+    return { enforced: false, enrolled: false, stepUpComplete };
+  }
+  if (stepUpComplete) {
+    return { enforced: true, enrolled: true, stepUpComplete: true };
+  }
+  const enrolled = await adminHasConfirmedTotp(userId);
+  return { enforced, enrolled, stepUpComplete: false };
 }
 
 export async function adminHasValidStepUpCookie(userId: string): Promise<boolean> {
