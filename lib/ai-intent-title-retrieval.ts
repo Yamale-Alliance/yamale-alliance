@@ -1,5 +1,6 @@
 import { isNationalInvestmentLawExistenceQuery } from "@/lib/ai-multilingual-search";
-import { escapeIlikePattern, lawsCountryOrGlobalWithTitleTerms } from "@/lib/law-country-scope";
+import { escapeIlikePattern, lawsOrGlobalForCountry } from "@/lib/law-country-scope";
+import { applyCountryScopedTitleSearch } from "@/lib/law-country-scope-query";
 import { LAW_HAS_BODY_OR_FILTER, filterLawsWithReadableBody } from "@/lib/law-readable-body";
 import type { ResolvedLibrarySearchIntent } from "@/lib/ai-library-search-intent";
 import { expandCommercialRegistrationTokens } from "@/lib/ai-library-search-intent";
@@ -165,6 +166,79 @@ export function buildIntentTitleSearchTerms(
   return dedupeTerms(terms).slice(0, 12);
 }
 
+/** Direct title ilike patterns when batch hydration misses a mandatory slot. */
+const SLOT_DIRECT_TITLE_ILIKE: Record<string, string[]> = {
+  labor_core: [
+    "%employment code%",
+    "%labour relations act%",
+    "%labor relations act%",
+    "%industrial and labour relations%",
+    "%industrial relations act%",
+    "%labour code%",
+    "%code du travail%",
+  ],
+  ip_national: [
+    "%copyright%",
+    "%copyright and performance%",
+    "%copyright and neighbouring%",
+    "%intellectual property act%",
+    "%patents act%",
+    "%trademarks act%",
+  ],
+};
+
+async function backfillMandatorySlotsByTitleIlike(
+  supabase: any,
+  opts: TitleFetchOpts,
+  slots: TopicSlot[],
+  found: any[]
+): Promise<any[]> {
+  const { countryId, countryScopeOr, excludeIds } = opts;
+  if (!countryId) return found;
+
+  const foundIds = new Set<string>([
+    ...(excludeIds ? [...excludeIds] : []),
+    ...found.map((row) => String((row as any).id)),
+  ]);
+  const out = [...found];
+
+  for (const slot of slots) {
+    if (out.some((row) => slot.titleTest(String((row as any).title ?? "")))) continue;
+    const patterns = SLOT_DIRECT_TITLE_ILIKE[slot.label];
+    if (!patterns?.length) continue;
+
+    for (const pattern of patterns) {
+      let q = supabase
+        .from("laws")
+        .select(LAWS_AI_SELECT)
+        .or(LAW_HAS_BODY_OR_FILTER)
+        .neq("status", "Repealed")
+        .ilike("title", pattern)
+        .limit(6);
+      q = countryScopeOr ? q.or(countryScopeOr) : q.or(lawsOrGlobalForCountry(countryId));
+
+      const { data, error } = await q;
+      if (error) {
+        console.warn("[mandatory-intent-slots] backfill error:", error.message ?? error);
+        continue;
+      }
+
+      const match = filterLawsWithReadableBody((data ?? []) as any[]).find((row) => {
+        const id = String((row as any).id);
+        return !foundIds.has(id) && slot.titleTest(String((row as any).title ?? ""));
+      });
+      if (match) {
+        const id = String((match as any).id);
+        out.push(match);
+        foundIds.add(id);
+        break;
+      }
+    }
+  }
+
+  return out;
+}
+
 /**
  * Fetch laws in a country whose titles match intent-specific phrases (metadata-first).
  * Fills gaps when full-text search returns unrelated hits but the library has the right act.
@@ -191,13 +265,8 @@ export async function fetchCountryIntentTitleCandidates(
     .select(LAWS_AI_SELECT)
     .or(LAW_HAS_BODY_OR_FILTER)
     .neq("status", "Repealed")
-    .limit(Math.max(maxLaws, 24));
-
-  if (countryScopeOr) {
-    q = q.or(countryScopeOr);
-  } else {
-    q = q.or(lawsCountryOrGlobalWithTitleTerms(countryId, titleTerms));
-  }
+    .limit(Math.max(maxLaws, 32));
+  q = applyCountryScopedTitleSearch(q, countryId, countryScopeOr, titleTerms);
 
   const { data, error } = await q;
   if (error) {
@@ -231,7 +300,16 @@ const SLOT_TITLE_SEARCH_TERMS: Record<string, string[]> = {
   commercial_code: ["commercial code", "code de commerce", "business names act"],
   beneficial_ownership: ["beneficial ownership"],
   investment_code: ["investissement", "investments", "investment code", "code investissement"],
-  ip_national: ["copyright", "trademark", "trade mark", "intellectual property", "patent"],
+  ip_national: [
+    "copyright",
+    "copyright and performance",
+    "copyright and neighbouring",
+    "trademark",
+    "trade mark",
+    "intellectual property",
+    "patent",
+    "performers rights",
+  ],
   ip_treaty: ["berne", "oapi", "bangui", "trips", "paris convention"],
   ny_convention: ["new york convention"],
   arbitration: ["arbitration", "mediation", "dispute resolution"],
@@ -246,6 +324,7 @@ const SLOT_TITLE_SEARCH_TERMS: Record<string, string[]> = {
     "industrial relations act",
     "employment code act",
     "employment code",
+    "employment code act -",
     "labour code",
     "labor code",
     "employment act",
@@ -302,7 +381,13 @@ const INTENT_TOPIC_SLOTS: Record<string, TopicSlot[]> = {
     },
   ],
   intellectual_property: [
-    { label: "ip_national", titleTest: (t) => /\b(copyright|trademark|patent|intellectual\s+property)\b/i.test(t) },
+    {
+      label: "ip_national",
+      titleTest: (t) =>
+        /\b(copyright|trademark|trade\s*mark|patent|intellectual\s+property|performers?\s+rights|neighbou?ring\s+rights)\b/i.test(
+          t
+        ) && !/\b(berne|paris\s+convention|trips|wipo|oapi|bangui|aripo)\b/i.test(t),
+    },
     { label: "ip_treaty", titleTest: (t) => /\b(berne|paris\s+convention|trips|oapi|bangui|wipo)\b/i.test(t) },
   ],
   dispute_resolution: [
@@ -392,13 +477,8 @@ export async function fetchMandatoryIntentSlotLaws(
     .select(LAWS_AI_SELECT)
     .or(LAW_HAS_BODY_OR_FILTER)
     .neq("status", "Repealed")
-    .limit(48);
-
-  if (countryScopeOr) {
-    q = q.or(countryScopeOr);
-  } else {
-    q = q.or(lawsCountryOrGlobalWithTitleTerms(countryId, searchTerms.slice(0, 6)));
-  }
+    .limit(64);
+  q = applyCountryScopedTitleSearch(q, countryId, countryScopeOr, searchTerms);
 
   const { data, error } = await q;
   if (error) {
@@ -434,7 +514,7 @@ export async function fetchMandatoryIntentSlotLaws(
     }
   }
 
-  return found;
+  return backfillMandatorySlotsByTitleIlike(supabase, opts, slots, found);
 }
 
 export { LAWS_AI_SELECT as INTENT_TITLE_LAWS_SELECT };
