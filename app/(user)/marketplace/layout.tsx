@@ -10,5 +10,10 @@ export const metadata = createPageMetadata({
 });
 
 export default function MarketplaceLayout({ children }: { children: ReactNode }) {
-  return children;
+  return (
+    <>
+      <link rel="preconnect" href="https://res.cloudinary.com" crossOrigin="anonymous" />
+      {children}
+    </>
+  );
 }
