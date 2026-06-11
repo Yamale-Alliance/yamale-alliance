@@ -6,7 +6,10 @@ import { useRouter } from "next/navigation";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { Download, Loader2 } from "lucide-react";
 import { useMarketplacePaymentReturn } from "@/components/marketplace/use-marketplace-payment-return";
-import type { CheckoutPaymentProvider } from "@/components/checkout/PaymentMethodPicker";
+import {
+  defaultCheckoutPaymentProvider,
+  type CheckoutPaymentProvider,
+} from "@/components/checkout/PaymentMethodPicker";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { LawFirmDevelopmentZipLanding } from "@/components/marketplace/law-firm-development-package/LawFirmDevelopmentZipLanding";
 import { GenericZipPackageLanding } from "@/components/marketplace/GenericZipPackageLanding";
@@ -68,7 +71,9 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
     Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
   const lomiComingSoon = false;
-  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
+  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>(
+    defaultCheckoutPaymentProvider()
+  );
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
 
   const [item, setItem] = useState<Item | null>(null);
