@@ -1,4 +1,5 @@
-import { v2 as cloudinary } from 'cloudinary';
+import { Readable } from "node:stream";
+import { v2 as cloudinary } from "cloudinary";
 
 // Configure Cloudinary (set CLOUDINARY_* in .env)
 const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
@@ -19,6 +20,27 @@ cloudinary.config({
 });
 
 export { cloudinary };
+
+function uploadBufferStream(
+  buffer: Buffer,
+  uploadOptions: Record<string, unknown>
+): Promise<{ secure_url: string; public_id: string }> {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(uploadOptions as any, (error, result) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        if (!result?.secure_url || !result.public_id) {
+          reject(new Error("Cloudinary returned no URL"));
+          return;
+        }
+        resolve({ secure_url: result.secure_url, public_id: result.public_id });
+      }
+    );
+    Readable.from(buffer).pipe(stream);
+  });
+}
 
 /**
  * Upload image to Cloudinary
@@ -50,29 +72,17 @@ export async function uploadToCloudinary(
       uploadOptions.public_id = publicId;
     }
 
-    let uploadData: string;
-    if (typeof file === 'string') {
-      uploadData = file;
-    } else if (file instanceof File) {
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const base64 = buffer.toString('base64');
-      const mime = file.type || 'image/jpeg';
-      uploadData = `data:${mime};base64,${base64}`;
-    } else if (file instanceof Blob) {
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const base64 = buffer.toString('base64');
-      const mime = file.type || 'image/jpeg';
-      uploadData = `data:${mime};base64,${base64}`;
-    } else {
-      uploadData = `data:image/png;base64,${(file as Buffer).toString('base64')}`;
+    if (typeof file === "string") {
+      const result = await cloudinary.uploader.upload(file, uploadOptions as any);
+      return { secure_url: result.secure_url, public_id: result.public_id };
     }
 
-    const result = await cloudinary.uploader.upload(uploadData, uploadOptions as any);
+    const buffer =
+      file instanceof File || file instanceof Blob
+        ? Buffer.from(await file.arrayBuffer())
+        : (file as Buffer);
 
-    return {
-      secure_url: result.secure_url,
-      public_id: result.public_id,
-    };
+    return uploadBufferStream(buffer, uploadOptions);
   } catch (error) {
     console.error('Cloudinary upload error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -91,6 +101,8 @@ export const LAWYERS_ONBOARDING_VIDEO_MAX_MB = 100;
 
 export const LAWYERS_ONBOARDING_VIDEO_FOLDER = 'yamale/lawyers-onboarding';
 export const LAWYERS_ONBOARDING_VIDEO_PUBLIC_ID = 'yamale/lawyers-onboarding/current';
+
+export const MARKETPLACE_COVER_CLOUDINARY_FOLDER = 'yamale/marketplace';
 
 function cloudinaryErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
@@ -135,6 +147,28 @@ export function signLawyersOnboardingVideoUpload(): {
     folder: LAWYERS_ONBOARDING_VIDEO_FOLDER,
     publicId: LAWYERS_ONBOARDING_VIDEO_PUBLIC_ID,
   };
+}
+
+/** Signed direct browser upload for Vault product covers (skips proxying through Next.js). */
+export function signMarketplaceCoverImageUpload(): {
+  cloudName: string;
+  apiKey: string;
+  timestamp: number;
+  signature: string;
+  folder: string;
+} {
+  if (!cloudName || !apiKey || !apiSecret) {
+    throw new Error(
+      'Cloudinary credentials not configured. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in your .env file.'
+    );
+  }
+
+  const timestamp = Math.round(Date.now() / 1000);
+  const folder = MARKETPLACE_COVER_CLOUDINARY_FOLDER;
+  const paramsToSign = { timestamp, folder };
+  const signature = cloudinary.utils.api_sign_request(paramsToSign, apiSecret);
+
+  return { cloudName, apiKey, timestamp, signature, folder };
 }
 
 export function isLawyersOnboardingCloudinaryDeliveryUrl(url: string): boolean {
