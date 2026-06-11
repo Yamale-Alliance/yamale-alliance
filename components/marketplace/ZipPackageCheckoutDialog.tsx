@@ -9,6 +9,11 @@ import {
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import type { PackageOfferTier, PackageOffersResolved } from "@/lib/marketplace-package-offers";
 import { formatUsd } from "@/lib/marketplace-package-offers";
+import {
+  dialogPanelBaseClass,
+  dialogScrollViewportClass,
+  dialogScrollViewportInnerClass,
+} from "@/components/ui/dialog-shell-classes";
 
 export type ZipPackageCheckoutDialogProps = {
   open: boolean;
@@ -66,7 +71,9 @@ export function ZipPackageCheckoutDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-[201] flex max-h-[min(92vh,100dvh)] w-[calc(100%-1.5rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+        <div className={`${dialogScrollViewportClass} z-[201]`}>
+          <div className={dialogScrollViewportInnerClass}>
+            <Dialog.Content className={`${dialogPanelBaseClass} max-w-lg overflow-hidden`}>
           <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-5 py-4">
             <div>
               <Dialog.Title className="text-lg font-semibold text-foreground">Complete your purchase</Dialog.Title>
@@ -181,7 +188,9 @@ export function ZipPackageCheckoutDialog({
               You will confirm payment on the provider screen, then return here to download.
             </p>
           </div>
-        </Dialog.Content>
+            </Dialog.Content>
+          </div>
+        </div>
       </Dialog.Portal>
     </Dialog.Root>
   );
