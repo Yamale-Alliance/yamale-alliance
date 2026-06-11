@@ -8,6 +8,11 @@ import { isBuiltinVaultSeriesId } from "@/lib/marketplace-vault-categories-fallb
 import { MarketplaceCoverImageField } from "@/components/admin/MarketplaceCoverImageField";
 import { AdminVaultFocusCountrySelect } from "@/components/admin/AdminVaultFocusCountrySelect";
 import { VaultCountryMapIcon } from "@/components/marketplace/VaultCountryMapIcon";
+import {
+  prefetchMarketplaceCoverUploadSignature,
+  uploadMarketplaceCoverToCloudinaryDirect,
+} from "@/lib/marketplace-cover-cloudinary-client";
+import { prepareMarketplaceCoverFile } from "@/lib/marketplace-cover-client-prepare";
 import { isValidMarketplaceCoverUrl } from "@/lib/marketplace-cover-url";
 import {
   buildLanguageFilesPayload,
@@ -287,6 +292,7 @@ export function AdminVaultSeriesEditor({
         setVaultCatalog(Array.isArray(data.items) ? data.items : []);
       })
       .catch(() => setVaultCatalog([]));
+    if (origin) prefetchMarketplaceCoverUploadSignature(origin);
   }, [origin]);
 
   useEffect(() => {
@@ -333,19 +339,14 @@ export function AdminVaultSeriesEditor({
     setCoverUploading(true);
     setError(null);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch(`${origin}/api/admin/marketplace/upload-image`, {
-        method: "POST",
-        credentials: "include",
-        body: form,
-      });
-      const data = await parseJsonSafe(res);
-      if (!res.ok || !data.url) {
-        setError(data.error ?? t("errors.imageUploadFailed"));
-      } else {
-        onUrl(data.url);
+      let uploadFile = file;
+      try {
+        uploadFile = await prepareMarketplaceCoverFile(file);
+      } catch {
+        uploadFile = file;
       }
+      const url = await uploadMarketplaceCoverToCloudinaryDirect(origin, uploadFile);
+      onUrl(url);
     } catch {
       setError(t("errors.imageUploadFailed"));
     }
