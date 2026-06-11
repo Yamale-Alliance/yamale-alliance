@@ -53,7 +53,7 @@ import { AIResearchChatExportPreviewDialog } from "@/components/ai-research/AIRe
 import { SubscriptionCheckoutConfirm } from "@/components/checkout/SubscriptionCheckoutConfirm";
 import {
   clearPaygAiQueryLomiSessionIdStorage,
-  readPaygAiQueryLomiSessionIdFromStorage,
+  parsePaygAiQueryReturn,
 } from "@/lib/lomi-payg-ai-query-return";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
 import { AiChatStoppedError, parseAiChatResponse } from "@/lib/ai-chat-client-stream";
@@ -280,6 +280,7 @@ export default function AIResearchClient() {
   const historyScrollModeRef = useRef<"history" | "live">("history");
   const historyScrollDoneFingerprintRef = useRef<string | null>(null);
   const paygConfirmAttemptRef = useRef<string | null>(null);
+  const usageFetchGenRef = useRef(0);
   /** Legacy name kept defined (some HMR/cache paths still touch it); do not use for the attempt key. */
   const paygConfirmInFlightRef = useRef(false);
   /** Do not put `confirmingPayment` in the payg effect deps — it re-runs cleanup, cancels the fetch, and `finally` used to skip clearing the UI (stuck on "Confirming payment…"). */
@@ -339,6 +340,8 @@ export default function AIResearchClient() {
     []
   );
   const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const paygReturn = useMemo(() => parsePaygAiQueryReturn(searchParams), [searchParams]);
+  const [paygAccessPending, setPaygAccessPending] = useState(false);
   const [showPayAsYouGoPrompt, setShowPayAsYouGoPrompt] = useState(false);
   const [models, setModels] = useState<Array<{ id: string; display_name?: string }>>([]);
   const [defaultModelId, setDefaultModelId] = useState<string | null>(null);
@@ -484,7 +487,8 @@ export default function AIResearchClient() {
   }, [currentId, sessions, isTurnBusy, scrollMessageTopIntoChatPane]);
 
   const fetchAiUsage = useCallback(async () => {
-    if (!user) return;
+    if (!user) return null;
+    const gen = ++usageFetchGenRef.current;
     try {
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 15_000);
@@ -501,22 +505,29 @@ export default function AIResearchClient() {
         payAsYouGoCount?: number;
         canQuery?: boolean;
       };
-      if (res.ok) {
-        setAiUsage({
-          used: data.used ?? 0,
-          limit: data.limit ?? null,
-          remaining: data.remaining ?? null,
-          tier: (data.tier as Tier) ?? undefined,
-          payAsYouGoCount: data.payAsYouGoCount ?? 0,
-          canQuery: data.canQuery ?? true,
-        });
-      }
+      if (!res.ok || gen !== usageFetchGenRef.current) return null;
+      const snapshot = {
+        used: data.used ?? 0,
+        limit: data.limit ?? null,
+        remaining: data.remaining ?? null,
+        tier: (data.tier as Tier) ?? undefined,
+        payAsYouGoCount: data.payAsYouGoCount ?? 0,
+        canQuery: data.canQuery ?? true,
+      };
+      setAiUsage(snapshot);
+      return snapshot;
     } catch {
-      // ignore
+      return null;
     } finally {
-      setUsageFetched(true);
+      if (gen === usageFetchGenRef.current) {
+        setUsageFetched(true);
+      }
     }
   }, [user]);
+
+  useEffect(() => {
+    setPaygAccessPending(Boolean(paygReturn?.canConfirm));
+  }, [paygReturn?.canConfirm, paygReturn?.confirmationKey]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -524,9 +535,10 @@ export default function AIResearchClient() {
       setUsageFetched(true);
       return;
     }
+    if (paygAccessPending) return;
     setUsageFetched(false);
     void fetchAiUsage();
-  }, [isLoaded, user, fetchAiUsage]);
+  }, [isLoaded, user, fetchAiUsage, paygAccessPending]);
 
   useEffect(() => {
     if (isLoaded) {
@@ -622,25 +634,22 @@ export default function AIResearchClient() {
 
   // Handle payment confirmation after PawaPay (session_id) or Lomi (cookie + from_lomi=1)
   useEffect(() => {
-    const payg = searchParams.get("payg");
-    const fromLomi = searchParams.get("from_lomi") === "1";
-    const rawSession = searchParams.get("session_id");
-    const decoded = rawSession ? decodeURIComponent(rawSession) : "";
-    const isPlaceholder =
-      decoded === "{CHECKOUT_SESSION_ID}" || rawSession === "{CHECKOUT_SESSION_ID}";
-    const sessionIdFromUrl = rawSession && !isPlaceholder ? rawSession : null;
-    const sessionIdFromStorage = fromLomi ? readPaygAiQueryLomiSessionIdFromStorage() : null;
-    const sessionId = sessionIdFromUrl ?? sessionIdFromStorage;
-    const useLomiCookie = fromLomi && !sessionId;
-    const confirmationKey = `payg=${payg ?? ""}|sid=${sessionId ?? ""}|lomi=${useLomiCookie ? "1" : "0"}`;
-
-    if (payg !== "ai_query" || !user) return;
-    if (!sessionId && !useLomiCookie) return;
+    if (!paygReturn || !user) {
+      if (!paygReturn?.canConfirm) setPaygAccessPending(false);
+      return;
+    }
+    if (!paygReturn.canConfirm) {
+      setPaygAccessPending(false);
+      return;
+    }
+    const { confirmationKey, sessionId, useLomiCookie } = paygReturn;
     if (paygConfirmAttemptRef.current === confirmationKey) return;
     paygConfirmAttemptRef.current = confirmationKey;
 
     let cancelled = false;
+    usageFetchGenRef.current += 1;
     setConfirmingPayment(true);
+    setPaygAccessPending(true);
     const body = sessionId
       ? { session_id: sessionId }
       : { from_lomi_cookie: true as const };
@@ -662,7 +671,13 @@ export default function AIResearchClient() {
             clearPaygAiQueryLomiSessionIdStorage();
             await new Promise((resolve) => setTimeout(resolve, 500));
             if (cancelled) return;
-            await fetchAiUsage();
+            for (let usageAttempt = 0; usageAttempt < 5; usageAttempt++) {
+              const usage = await fetchAiUsage();
+              if ((usage?.payAsYouGoCount ?? 0) > 0 || usage?.canQuery) break;
+              if (usageAttempt < 4) {
+                await new Promise((resolve) => setTimeout(resolve, 800));
+              }
+            }
             window.history.replaceState({}, "", "/ai-research");
             window.dispatchEvent(new PopStateEvent("popstate"));
             return;
@@ -678,25 +693,25 @@ export default function AIResearchClient() {
           console.error("Failed to confirm payment:", err);
           clearPaygAiQueryLomiSessionIdStorage();
           await fetchAiUsage();
-          // Avoid infinite re-confirm loops from sticky query params after a failed attempt.
           window.history.replaceState({}, "", "/ai-research");
           window.dispatchEvent(new PopStateEvent("popstate"));
         }
       } finally {
-        // Always clear UI gate (see effect comment on `confirmingPayment` deps).
-        setConfirmingPayment(false);
+        if (!cancelled) {
+          setConfirmingPayment(false);
+          setPaygAccessPending(false);
+        }
       }
     })();
 
     return () => {
       cancelled = true;
-      setConfirmingPayment(false);
       // React Strict Mode: remount must be allowed to confirm the same return URL again.
       if (paygConfirmAttemptRef.current === confirmationKey) {
         paygConfirmAttemptRef.current = null;
       }
     };
-  }, [searchParams, user, fetchAiUsage]);
+  }, [paygReturn, user, fetchAiUsage]);
 
   // Load sessions from backend for signed-in users
   useEffect(() => {
@@ -1330,18 +1345,18 @@ export default function AIResearchClient() {
   const isSubscriptionCheckoutReturn =
     searchParams.get("checkout") === "success" && Boolean(searchParams.get("session_id")?.trim());
   if (isSubscriptionCheckoutReturn) {
-    return <SubscriptionCheckoutConfirm fullPage onSynced={fetchAiUsage} />;
+    return <SubscriptionCheckoutConfirm fullPage onSynced={() => void fetchAiUsage()} />;
   }
 
-  if (!effectiveTierLoaded || confirmingPayment || !noticeCheckDone) {
+  if (!effectiveTierLoaded || confirmingPayment || paygAccessPending || !noticeCheckDone) {
     return (
       <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-[#fafaf7] px-4 dark:bg-[#0D1B2A]">
         <div className="text-center">
           <Loader2 className="mx-auto mb-2 h-8 w-8 animate-spin text-[#C8922A]" />
-          {confirmingPayment && (
+          {(confirmingPayment || paygAccessPending) && (
             <p className="mt-2 text-sm text-[#0D1B2A]/70 dark:text-white/70">{tCommon("confirmingPayment")}</p>
           )}
-          {!confirmingPayment && !usageFetched && (
+          {!confirmingPayment && !paygAccessPending && !usageFetched && (
             <p className="mt-2 text-sm text-[#0D1B2A]/70 dark:text-white/70">{tLoading("yourPlan")}</p>
           )}
         </div>
