@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ShoppingCart, Trash2, Loader2, Check, Sparkles, Package } from "lucide-react";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
-import Image from "next/image";
+import { VaultCoverImage } from "@/components/marketplace/VaultCoverImage";
 import {
   PaymentMethodPicker,
   type CheckoutPaymentProvider,
@@ -210,11 +210,9 @@ export default function CartPage() {
                         <div className="flex items-start gap-4">
                           <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/70 bg-muted/30 shadow-sm">
                             {item.item.image_url ? (
-                              <Image
+                              <VaultCoverImage
                                 src={item.item.image_url}
-                                alt=""
-                                width={64}
-                                height={64}
+                                variant="thumb"
                                 className="h-full w-full object-cover"
                               />
                             ) : (
