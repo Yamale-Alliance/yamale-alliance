@@ -143,8 +143,8 @@ import type { PreferredDocumentLanguage } from "@/lib/law-language-preference";
 import {
   resolvePreferredDocumentLanguage,
   lawDocumentLanguageScore,
-  shouldIncludeLawForPreferredLanguage,
 } from "@/lib/law-language-preference";
+import { englishLibraryTokensFromFrenchQuery } from "@/lib/ai-query-language-parity";
 import {
   AI_CHAT_SSE_HEADERS,
   encodeSseEvent,
@@ -1116,14 +1116,19 @@ function buildExcerptAnchorTokens(query: string, primaryIntentId: string): strin
 
 function scoreLawAgainstSpecificHint(law: { title?: string | null }, hint: string): number {
   const title = String(law.title ?? "").toLowerCase();
-  const hintNorm = hint.trim().toLowerCase();
+  const hintNorm = normalizeSearchQueryForAi(hint).trim().toLowerCase();
   if (!title || !hintNorm) return 0;
   let score = 0;
   if (title === hintNorm) score += 200;
   if (title.includes(hintNorm) || hintNorm.includes(title)) score += 120;
-  const hintTokens = hintNorm.split(/[^a-z0-9]+/).filter((t) => t.length >= 3);
+  const hintTokens = hintNorm
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((t) => t.length >= 3);
   for (const t of hintTokens) {
     if (title.includes(t)) score += 12;
+  }
+  for (const englishToken of englishLibraryTokensFromFrenchQuery(hint)) {
+    if (title.includes(englishToken.toLowerCase())) score += 18;
   }
   if (/\btrademarks?\s+act\b|\btrade\s+marks?\s+act\b/.test(hintNorm) && isNationalTrademarksActTitle(title)) {
     score += 90;
@@ -1172,7 +1177,17 @@ function extractSpecificLawHint(query: string): string | null {
     if (/\b(act|code|regulation|regulations|decree|ordinance|order|proclamation|constitution|bill)\b/i.test(value)) {
       return true;
     }
+    if (
+      /\b(loi|code|decret|décret|arrete|arrêté|ordonnance|reglement|règlement|acte\s+uniforme)\b/i.test(
+        value
+      )
+    ) {
+      return true;
+    }
     if (/\b(trademarks?|trade\s+marks?)\s+act\b/i.test(value)) return true;
+    if (/\b(code\s+du\s+travail|code\s+fiscal|code\s+p[eé]nal|code\s+des\s+investissements)\b/i.test(value)) {
+      return true;
+    }
     if (/\bcap\.?\s*\d+\b/i.test(value) && /\bact\b/i.test(value)) return true;
     return false;
   };
@@ -1207,8 +1222,26 @@ function extractSpecificLawHint(query: string): string | null {
     query.match(/\b([A-Z][A-Za-z'’\-\s]+?\s+Act(?:\s*No\.?\s*[\d/.-]+)?)\b/i);
   if (explicitNamedAct?.[1]?.trim()) return explicitNamedAct[1].trim();
 
+  const frenchNamedInstrument =
+    query.match(
+      /\b((?:loi|code|décret|decret|arrêté|arrete|ordonnance|règlement|reglement)\s+(?:n[°ºo.]?\s*[\d\-–—/]+\s+)?(?:sur\s+)?[\p{L}\p{N}'’\-\s]{3,80})/iu
+    ) ||
+    query.match(/\b(code\s+du\s+travail|code\s+fiscal|code\s+p[eé]nal|code\s+des\s+investissements)\b/iu);
+  if (frenchNamedInstrument?.[1]?.trim() && looksLikeNamedLawTitle(frenchNamedInstrument[1])) {
+    return frenchNamedInstrument[1].trim();
+  }
+
   // fallback: if query looks like a direct named-law prompt
-  if (q.includes("law no") || q.includes("decree") || q.includes("article")) return query.trim();
+  if (
+    q.includes("law no") ||
+    q.includes("decree") ||
+    q.includes("article") ||
+    q.includes("loi n") ||
+    q.includes("decret") ||
+    q.includes("décret")
+  ) {
+    return query.trim();
+  }
   return null;
 }
 
@@ -2594,13 +2627,6 @@ async function searchLegalLibrary(
       intentFilteredRanked.some((law) => isOhadaInstrument(law))
     ) {
       candidateLaws = dedupeOhadaUniformActsByInstrumentKey(candidateLaws, preferredDocumentLanguage);
-      if (preferredDocumentLanguage) {
-        candidateLaws = candidateLaws.filter(
-          (law) =>
-            !isOhadaInstrument(law) ||
-            shouldIncludeLawForPreferredLanguage(law, preferredDocumentLanguage, { strict: true })
-        );
-      }
     }
 
     const baseResponseSize = latinAmericaTreatyCatalog
@@ -3313,15 +3339,6 @@ async function finalizeAssistantTurn(opts: {
         internalCategoryId
       );
       if (isMethodology) return false;
-      if (
-        preferredDocumentLanguage &&
-        isOhadaInstrument({ title: law.title }) &&
-        !shouldIncludeLawForPreferredLanguage({ title: law.title }, preferredDocumentLanguage, {
-          strict: true,
-        })
-      ) {
-        return false;
-      }
       return legalContextItemEligibleForDisplayedSourceCard(
         law,
         userQuery,
