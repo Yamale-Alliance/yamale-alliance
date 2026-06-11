@@ -41,4 +41,39 @@ export function clearPaygAiQueryLomiSessionIdStorage(): void {
   }
 }
 
+function normalizePaygSessionIdFromUrl(raw: string | null): string | null {
+  if (!raw?.trim()) return null;
+  const decoded = decodeURIComponent(raw);
+  if (decoded === "{CHECKOUT_SESSION_ID}" || raw === "{CHECKOUT_SESSION_ID}") return null;
+  return raw.trim();
+}
+
+export type PaygAiQueryReturnContext = {
+  sessionId: string | null;
+  useLomiCookie: boolean;
+  confirmationKey: string;
+  canConfirm: boolean;
+};
+
+/** Parse `/ai-research?payg=ai_query…` return URLs after Pawapay or Lomi checkout. */
+export function parsePaygAiQueryReturn(
+  searchParams: Pick<URLSearchParams, "get">
+): PaygAiQueryReturnContext | null {
+  if (searchParams.get("payg") !== "ai_query") return null;
+
+  const fromLomi = searchParams.get("from_lomi") === "1";
+  const sessionIdFromUrl = normalizePaygSessionIdFromUrl(searchParams.get("session_id"));
+  const sessionIdFromStorage = readPaygAiQueryLomiSessionIdFromStorage();
+  const sessionId = sessionIdFromUrl ?? sessionIdFromStorage;
+  const useLomiCookie = fromLomi && !sessionId;
+  const confirmationKey = `payg=ai_query|sid=${sessionId ?? ""}|lomi=${useLomiCookie ? "1" : "0"}`;
+
+  return {
+    sessionId,
+    useLomiCookie,
+    confirmationKey,
+    canConfirm: Boolean(sessionId || useLomiCookie),
+  };
+}
+
 export { LOMI_PAYG_AI_QUERY_SESSION_COOKIE };
