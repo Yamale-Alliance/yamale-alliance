@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { MarketingDiscountSubscriptionPrice } from "@/components/pricing/MarketingDiscountPrice";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { Check, Loader2 } from "lucide-react";
 import { useAlertDialog, useConfirm } from "@/components/ui/use-confirm";
@@ -28,10 +29,12 @@ type Tier = {
   highlighted?: boolean;
 };
 
-function formatDate(iso: string | null): string {
+const PAID_TIER_IDS = ["basic", "pro", "team"] as const;
+
+function formatDate(iso: string | null, locale: string): string {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleDateString(undefined, {
+    return new Date(iso).toLocaleDateString(locale, {
       year: "numeric",
       month: "long",
       day: "numeric",
@@ -39,6 +42,16 @@ function formatDate(iso: string | null): string {
   } catch {
     return iso;
   }
+}
+
+function tierLabel(
+  tPricing: ReturnType<typeof useTranslations<"pricing">>,
+  tierId: string
+): string {
+  if ((PAID_TIER_IDS as readonly string[]).includes(tierId) || tierId === "free") {
+    return tPricing(`tiers.${tierId as "free" | "basic" | "pro" | "team"}`);
+  }
+  return tierId.charAt(0).toUpperCase() + tierId.slice(1);
 }
 
 export type SubscriptionManagerProps = {
@@ -49,6 +62,10 @@ export type SubscriptionManagerProps = {
 };
 
 export function SubscriptionManager({ basePath, compact = false }: SubscriptionManagerProps) {
+  const t = useTranslations("subscriptionManager");
+  const tCommon = useTranslations("common");
+  const tPricing = useTranslations("pricing");
+  const locale = useLocale();
   const { isLoaded, isSignedIn } = useAppUser();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -112,7 +129,7 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
     }
   }, [searchParams, router, basePath]);
 
-  const paidTiers = useMemo(() => tiers.filter((t) => t.id !== "free"), [tiers]);
+  const paidTiers = useMemo(() => tiers.filter((tier) => tier.id !== "free"), [tiers]);
 
   const lowerTiersForDowngrade = useMemo(() => {
     if (!subState?.isPaid) return [];
@@ -152,17 +169,17 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
       });
       const data = await res.json();
       if (!res.ok) {
-        await showAlert(data.error || "Checkout failed", "Checkout");
+        await showAlert(data.error || t("checkoutFailed"), t("checkoutTitle"));
         return;
       }
       if (data.upgraded) {
         await refreshSubscription();
-        await showAlert("Your plan has been upgraded.", "Done");
+        await showAlert(t("upgraded"), t("done"));
         return;
       }
       if (data.url) window.location.href = data.url;
     } catch {
-      await showAlert("Something went wrong. Please try again.", "Checkout");
+      await showAlert(t("somethingWrong"), t("checkoutTitle"));
     } finally {
       setCheckoutLoading(false);
     }
@@ -179,7 +196,7 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
       });
       const data = await res.json();
       if (!res.ok) {
-        await showAlert(data.error || "Could not cancel", "Subscription");
+        await showAlert(data.error || t("couldNotCancel"), t("subscriptionDialogTitle"));
         return;
       }
       await refreshSubscription();
@@ -217,13 +234,13 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
       });
       const data = await res.json();
       if (!res.ok) {
-        await showAlert(data.error || "Could not schedule change", "Subscription");
+        await showAlert(data.error || t("couldNotSchedule"), t("subscriptionDialogTitle"));
         return;
       }
       await refreshSubscription();
       await showAlert(
-        `Starting next billing period, your plan will be ${downgradeTarget}. Until then you keep your current features.`,
-        "Downgrade scheduled"
+        t("downgradeScheduledMessage", { tier: tierLabel(tPricing, downgradeTarget) }),
+        t("downgradeScheduled")
       );
     } finally {
       setActionLoading(null);
@@ -243,19 +260,21 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
   if (!isSignedIn) {
     return (
       <div className={`mx-auto max-w-lg text-center ${compact ? "py-6" : "px-4 py-16"}`}>
-        <h2 className="heading text-xl font-bold">Subscription</h2>
-        <p className="mt-2 text-sm text-muted-foreground">Sign in to manage your plan and checkout.</p>
+        <h2 className="heading text-xl font-bold">{t("title")}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">{t("signInDesc")}</p>
         <Link
           href={`/sign-in?redirect_url=${signInRedirect}`}
           className="mt-6 inline-block rounded-lg bg-primary px-6 py-3 font-semibold text-primary-foreground"
         >
-          Sign in
+          {tCommon("signIn")}
         </Link>
       </div>
     );
   }
 
   const shellClass = compact ? "max-w-full" : "mx-auto max-w-5xl px-4 py-10 sm:px-6";
+  const intervalLabel =
+    subState?.interval === "annual" ? t("annual").toLowerCase() : t("monthly").toLowerCase();
 
   return (
     <div className={shellClass}>
@@ -264,13 +283,11 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
 
       {!compact && (
         <div className="mb-10">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Billing</p>
-          <h1 className="heading mt-1 text-3xl font-bold text-foreground">Subscription & checkout</h1>
-          <p className="mt-2 max-w-2xl text-muted-foreground">
-            Choose monthly or annual billing, pay here, then manage upgrades, downgrades, and cancellation. Monthly and
-            annual are prepaid periods (pay again when it renews). Cancelling turns off renewal — you keep access until
-            the date shown.
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {t("billingEyebrow")}
           </p>
+          <h1 className="heading mt-1 text-3xl font-bold text-foreground">{t("pageTitle")}</h1>
+          <p className="mt-2 max-w-2xl text-muted-foreground">{t("pageDesc")}</p>
         </div>
       )}
 
@@ -281,84 +298,82 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
       ) : (
         <>
           <section className={`rounded-xl border border-border bg-card p-6 shadow-sm ${compact ? "mb-6" : "mb-10"}`}>
-            <h2 className="text-lg font-semibold">Current plan</h2>
+            <h2 className="text-lg font-semibold">{t("currentPlan")}</h2>
             {subState && (
               <div className="mt-4 space-y-2 text-sm">
                 <p>
-                  <span className="text-muted-foreground">Tier:</span>{" "}
-                  <span className="font-medium capitalize">{subState.tier}</span>
+                  <span className="text-muted-foreground">{t("tier")}</span>{" "}
+                  <span className="font-medium">{tierLabel(tPricing, subState.tier)}</span>
                 </p>
                 {subState.isPaid && (
                   <p>
-                    <span className="text-muted-foreground">Paid with:</span>{" "}
+                    <span className="text-muted-foreground">{t("paidWith")}</span>{" "}
                     <span className="font-medium">
                       {subState.paymentProvider === "pawapay"
-                        ? "Mobile money (pawaPay)"
+                        ? t("paymentPawapay")
                         : subState.paymentProvider === "lomi"
-                          ? "Card & wallets (Lomi)"
+                          ? t("paymentLomi")
                           : subState.isSubscriptionGrant
-                            ? "Plan grant (complimentary)"
-                            : "Not recorded"}
+                            ? t("paymentGrant")
+                            : t("paymentNotRecorded")}
                     </span>
                     {subState.isSubscriptionGrant && !subState.paymentProvider && (
-                      <span className="text-muted-foreground">
-                        {" "}
-                        — your tier was assigned by an administrator without going through checkout.
-                      </span>
+                      <span className="text-muted-foreground"> {t("grantNote")}</span>
                     )}
                     {!subState.isSubscriptionGrant && !subState.paymentProvider && (
-                      <span className="text-muted-foreground">
-                        {" "}
-                        — not stored for this account (e.g. purchase before payment tracking).
-                      </span>
+                      <span className="text-muted-foreground"> {t("notStoredNote")}</span>
                     )}
                   </p>
                 )}
                 {subState.isPaid && (subState.subscriberSince || subState.periodStart) && (
                   <p>
-                    <span className="text-muted-foreground">Subscriber since:</span>{" "}
+                    <span className="text-muted-foreground">{t("subscriberSince")}</span>{" "}
                     <span className="font-medium">
-                      {formatDate(subState.subscriberSince ?? subState.periodStart)}
+                      {formatDate(subState.subscriberSince ?? subState.periodStart, locale)}
                     </span>
                     {!subState.subscriberSince && subState.periodStart && (
-                      <span className="text-muted-foreground"> (from your first billing period on file)</span>
+                      <span className="text-muted-foreground"> {t("fromFirstPeriod")}</span>
                     )}
                   </p>
                 )}
                 {displayPeriodStart && subState.isPaid && (
                   <p>
-                    <span className="text-muted-foreground">Billing period starts:</span>{" "}
-                    <span className="font-medium">{formatDate(displayPeriodStart)}</span>
+                    <span className="text-muted-foreground">{t("periodStarts")}</span>{" "}
+                    <span className="font-medium">{formatDate(displayPeriodStart, locale)}</span>
                   </p>
                 )}
                 {displayPeriodEnd && subState.isPaid && (
                   <p>
-                    <span className="text-muted-foreground">Billing period ends:</span>{" "}
-                    <span className="font-medium">{formatDate(displayPeriodEnd)}</span>
+                    <span className="text-muted-foreground">{t("periodEnds")}</span>{" "}
+                    <span className="font-medium">{formatDate(displayPeriodEnd, locale)}</span>
                     {subState.interval && (
                       <span className="text-muted-foreground">
                         {" "}
-                        ({subState.interval === "annual" ? "annual prepay" : "monthly billing period"})
+                        (
+                        {subState.interval === "annual" ? t("annualPrepay") : t("monthlyPeriod")})
                       </span>
                     )}
                   </p>
                 )}
                 {billingWindow?.accessThroughIso && subState.interval === "monthly" && (
                   <p className="text-xs text-muted-foreground">
-                    Your prepaid access is recorded through {formatDate(billingWindow.accessThroughIso)}. The dates
-                    above are the current monthly cycle for display.
+                    {t("prepaidAccessNote", {
+                      date: formatDate(billingWindow.accessThroughIso, locale),
+                    })}
                   </p>
                 )}
                 {subState.cancelAtPeriodEnd && (
                   <p className="rounded-md bg-amber-500/10 px-3 py-2 text-amber-900 dark:text-amber-100">
-                    Renewal cancelled — you stay on your plan until {formatDate(subState.periodEnd)}, then access ends
-                    unless you subscribe again.
+                    {t("renewalCancelled", {
+                      date: formatDate(subState.periodEnd, locale),
+                    })}
                   </p>
                 )}
                 {subState.scheduledTier && (
                   <p className="rounded-md bg-muted px-3 py-2">
-                    Scheduled change: after this period you&apos;ll move to{" "}
-                    <span className="font-semibold capitalize">{subState.scheduledTier}</span>.
+                    {t("scheduledChange", {
+                      tier: tierLabel(tPricing, subState.scheduledTier),
+                    })}
                   </p>
                 )}
               </div>
@@ -371,16 +386,15 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
                   disabled={actionLoading !== null}
                   onClick={async () => {
                     const ok = await confirm({
-                      description:
-                        "Cancel renewal? You’ll keep access until the end of the current billing period, then your plan ends unless you subscribe again.",
+                      description: t("cancelRenewalConfirm"),
                       variant: "destructive",
-                      confirmLabel: "Cancel renewal",
+                      confirmLabel: t("cancelRenewal"),
                     });
                     if (ok) await handleCancel();
                   }}
                   className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60"
                 >
-                  {actionLoading === "cancel" ? "…" : "Cancel renewal"}
+                  {actionLoading === "cancel" ? t("working") : t("cancelRenewal")}
                 </button>
               )}
               {subState?.cancelAtPeriodEnd && (
@@ -390,29 +404,27 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
                   onClick={handleResume}
                   className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
                 >
-                  {actionLoading === "resume" ? "…" : "Resume renewal"}
+                  {actionLoading === "resume" ? t("working") : t("resumeRenewal")}
                 </button>
               )}
             </div>
 
             {lowerTiersForDowngrade.length > 0 && (
               <div className="mt-8 border-t border-border pt-6">
-                <h3 className="text-sm font-semibold">Schedule downgrade</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Keep your current features until the end of this billing period; the lower price applies next cycle.
-                </p>
+                <h3 className="text-sm font-semibold">{t("scheduleDowngrade")}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{t("scheduleDowngradeDesc")}</p>
                 <div className="mt-4 flex flex-wrap items-end gap-3">
                   <label className="block">
-                    <span className="text-xs text-muted-foreground">Move to</span>
+                    <span className="text-xs text-muted-foreground">{t("moveTo")}</span>
                     <select
                       value={downgradeTarget}
                       onChange={(e) => setDowngradeTarget(e.target.value)}
                       className="mt-1 block w-full min-w-[160px] rounded-md border border-input bg-background px-3 py-2 text-sm"
                     >
-                      <option value="">Choose…</option>
+                      <option value="">{t("choose")}</option>
                       {lowerTiersForDowngrade.map((id) => (
                         <option key={id} value={id}>
-                          {id.charAt(0).toUpperCase() + id.slice(1)}
+                          {tierLabel(tPricing, id)}
                         </option>
                       ))}
                     </select>
@@ -423,7 +435,7 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
                     onClick={handleScheduleDowngrade}
                     className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
                   >
-                    {actionLoading === "downgrade" ? "…" : "Schedule downgrade"}
+                    {actionLoading === "downgrade" ? t("working") : t("scheduleDowngrade")}
                   </button>
                 </div>
               </div>
@@ -431,15 +443,11 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
           </section>
 
           <section className="mb-8">
-            <h2 className="text-lg font-semibold">Billing period</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              <strong>Monthly</strong> = pay each billing period. <strong>Annual</strong> = one payment for the full
-              year. Upgrades charge a prorated difference for the time left in your current period.
-            </p>
+            <h2 className="text-lg font-semibold">{t("billingPeriod")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t("billingPeriodDesc")}</p>
             {subState?.isPaid && subState.interval && (
               <p className="mt-2 text-sm text-muted-foreground">
-                Upgrades use your current <span className="font-medium capitalize">{subState.interval}</span> billing
-                period.
+                {t("upgradesUseInterval", { interval: intervalLabel })}
               </p>
             )}
             <div className="mt-4 inline-flex rounded-full border border-border p-1">
@@ -451,7 +459,7 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
                   !isAnnual ? "bg-primary text-primary-foreground" : "text-muted-foreground"
                 }`}
               >
-                Monthly
+                {t("monthly")}
               </button>
               <button
                 type="button"
@@ -461,13 +469,13 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
                   isAnnual ? "bg-primary text-primary-foreground" : "text-muted-foreground"
                 }`}
               >
-                Annual
+                {t("annual")}
               </button>
             </div>
           </section>
 
           <section className="mb-8">
-            <h2 className="text-lg font-semibold">Choose a plan</h2>
+            <h2 className="text-lg font-semibold">{t("choosePlan")}</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
               {paidTiers.map((tier) => {
                 const price =
@@ -487,7 +495,9 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
                       <MarketingDiscountSubscriptionPrice currentUsd={price} period="/mo" />
                     </div>
                     {isAnnual && tier.priceMonthly > 0 && (
-                      <p className="mt-1 text-xs text-muted-foreground">${tier.priceAnnualTotal} billed annually</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {t("billedAnnually", { total: tier.priceAnnualTotal })}
+                      </p>
                     )}
                   </button>
                 );
@@ -496,19 +506,20 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
           </section>
 
           <section className="rounded-xl border border-border bg-card p-6">
-            <h2 className="text-lg font-semibold">Payment method</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Mobile money or card / wallets via Lomi — choose before paying.</p>
+            <h2 className="text-lg font-semibold">{t("paymentMethod")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t("paymentMethodDesc")}</p>
             <div className="mt-4 max-w-xl">
               <PaymentMethodPicker
                 value={paymentProvider}
                 onChange={setPaymentProvider}
                 lomiAvailable={lomiAvailable}
+                hideLabel
               />
               {paymentProvider === "pawapay" && (
                 <div className="mt-4">
                   <PawapayCountrySelect
                     id="subscription-pawapay-country"
-                    label="Mobile money country"
+                    label={t("mobileMoneyCountry")}
                     value={pawapayPaymentCountry}
                     onChange={setPawapayPaymentCountry}
                   />
@@ -521,12 +532,12 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
               onClick={handlePay}
               className="mt-8 w-full max-w-md rounded-lg bg-[#0D1B2A] py-3 text-center font-semibold text-white hover:bg-[#162436] disabled:opacity-60 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
             >
-              {checkoutLoading ? "Starting checkout…" : "Continue to payment"}
+              {checkoutLoading ? t("startingCheckout") : t("continueToPayment")}
             </button>
           </section>
 
           <section className="mt-10 rounded-lg border border-dashed border-border p-5">
-            <h3 className="text-sm font-semibold">Compare features</h3>
+            <h3 className="text-sm font-semibold">{t("compareFeatures")}</h3>
             <div className="mt-4 grid gap-6 md:grid-cols-3">
               {paidTiers.map((tier) => (
                 <div key={tier.id}>
@@ -542,8 +553,11 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
                 </div>
               ))}
             </div>
-            <Link href="/pricing" className="mt-4 inline-block text-sm font-medium text-primary underline-offset-4 hover:underline">
-              Full pricing details →
+            <Link
+              href="/pricing"
+              className="mt-4 inline-block text-sm font-medium text-primary underline-offset-4 hover:underline"
+            >
+              {t("fullPricingDetails")}
             </Link>
           </section>
         </>
