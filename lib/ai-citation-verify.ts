@@ -118,3 +118,44 @@ export function humanizeDocMarkersInAnswer(
     return label;
   });
 }
+
+/** Remove internal [doc:N] markers from user-visible assistant text (matches server finalize). */
+export function stripDocMarkersFromAnswer(assistantText: string): string {
+  if (!assistantText) return assistantText;
+  return assistantText.replace(/\s*\[(?=[^\]]*\bdoc:\s*\d+)[^\]]+\]/gi, "");
+}
+
+/** Hide a partially streamed marker suffix such as `[doc:1` before the closing `]`. */
+export function stripTrailingPartialDocMarker(assistantText: string): string {
+  if (!assistantText) return assistantText;
+  return assistantText.replace(/\[(?:doc(?::\s*\d*)?(?:\s*,\s*art:\s*[\w\s./-]*)?)?$/i, "");
+}
+
+/**
+ * User-facing assistant prose: humanize [doc:N] to instrument names when slots are known,
+ * strip any leftover markers, and hide incomplete markers while SSE is still drafting.
+ */
+export function formatAssistantAnswerForDisplay(
+  assistantText: string,
+  cards: DocTitleBySlot[] | undefined,
+  opts?: { streaming?: boolean }
+): string {
+  if (!assistantText) return assistantText;
+  let out = cards?.length ? humanizeDocMarkersInAnswer(assistantText, cards) : assistantText;
+  out = stripDocMarkersFromAnswer(out);
+  if (opts?.streaming) {
+    out = stripTrailingPartialDocMarker(out);
+  }
+  return out;
+}
+
+/** 1-based [doc:N] slots for live humanization — sent before answer tokens stream. */
+export function buildCitationLookupCardsFromLegalContext(
+  legalContext: Array<{ id: string; title: string }>
+): DocTitleBySlot[] {
+  return legalContext.map((law, idx) => ({
+    docSlot: idx + 1,
+    title: law.title,
+    lawId: law.id,
+  }));
+}
