@@ -50,6 +50,38 @@ function detectSupranationalFrameworks(query) {
   return SUPRANATIONAL_FRAMEWORKS.filter((f) => f.detect.test(query)).map((f) => f.id);
 }
 
+const RE_COUNTRY_INVESTMENT_OVERVIEW =
+  /\b(invest(ing|ment|ments)|foreign\s+direct|fdi)\b[\s\S]{0,140}\b(all|every|laws?|requirements?|tips?|information|overview|guide|rules?|framework|need\s+to\s+know)\b|\b(all|every|laws?|requirements?|tips?|information|overview)\b[\s\S]{0,140}\binvest(ing|ment|ments)\b|\binvest(ing|ment)\s+in\b/i;
+
+const ECOWAS_COUNTRIES = new Set([
+  "Benin", "Burkina Faso", "Cabo Verde", "Côte d'Ivoire", "Gambia", "Ghana", "Guinea",
+  "Guinea-Bissau", "Liberia", "Mali", "Niger", "Nigeria", "Senegal", "Sierra Leone", "Togo",
+]);
+
+function detectCountryInvestmentOverviewQuery(raw, countryName) {
+  if (!countryName?.trim()) return false;
+  const q = raw.trim().toLowerCase();
+  if (q.length < 10) return false;
+  if (RE_COUNTRY_INVESTMENT_OVERVIEW.test(q)) return true;
+  const investmentCue =
+    /\b(invest(ing|ment|ments|or)|foreign\s+direct|fdi|bit|bits|bilateral\s+investment|investment\s+code|investment\s+law)\b/i.test(q);
+  const overviewCue =
+    /\b(all|every|laws?|requirements?|tips?|information|overview|guide|what\s+(do\s+i\s+need|are\s+the\s+rules)|legal\s+framework|need\s+to\s+know)\b/i.test(q);
+  return investmentCue && overviewCue;
+}
+
+function inferInvestmentRegionalFrameworkIds(countryName) {
+  const ids = ["afcfta"];
+  if (ECOWAS_COUNTRIES.has(countryName)) ids.push("ecowas");
+  return ids;
+}
+
+function mergeSupranationalForInvestment(query, countryName, explicitIds) {
+  if (!countryName || !detectCountryInvestmentOverviewQuery(query, countryName)) return explicitIds;
+  const inferred = inferInvestmentRegionalFrameworkIds(countryName);
+  return Array.from(new Set([...explicitIds, ...inferred]));
+}
+
 function extractHyphenatedProperNounPairs(query) {
   if (!query?.trim()) return [];
   const out = [];
@@ -125,6 +157,24 @@ const cases = [
     expectFrameworks: [], expectCountries: ["Benin"], expectBilateralPair: false },
   { id: "Patrick-5", q: "Under the SADC Protocol on Finance and Investment, what protections exist for foreign investors against arbitrary state action?",
     expectFrameworks: ["sadc"], expectCountries: [], expectBilateralPair: false },
+
+  // Andrea — country investment overview (BIT inventory + regional frameworks)
+  {
+    id: "Andrea-inv-Guinea",
+    q: "please provide me all the laws for investing in guinea and i need requirements and tips",
+    expectFrameworks: ["afcfta", "ecowas"],
+    expectCountries: ["Guinea"],
+    expectBilateralPair: false,
+    expectInvestmentOverview: true,
+  },
+  {
+    id: "Andrea-inv-Liberia",
+    q: "please provide me with all the information you have on Liberia and investments, the BITs, investment code, and tips",
+    expectFrameworks: ["afcfta", "ecowas"],
+    expectCountries: ["Liberia"],
+    expectBilateralPair: false,
+    expectInvestmentOverview: true,
+  },
 ];
 
 let pass = 0;
@@ -132,8 +182,10 @@ let fail = 0;
 const failures = [];
 
 for (const c of cases) {
-  const frameworks = detectSupranationalFrameworks(c.q);
+  const frameworksExplicit = detectSupranationalFrameworks(c.q);
   const countries = findCountriesInQuery(c.q, COUNTRY_NAMES);
+  const countryForInvestment = c.expectCountries?.[0] ?? countries[0];
+  const frameworks = mergeSupranationalForInvestment(c.q, countryForInvestment, frameworksExplicit);
   const hyphenPairs = extractHyphenatedProperNounPairs(c.q);
   const bilateralTokens = Array.from(new Set([
     ...countries.map((s) => s.toLowerCase()),
@@ -159,6 +211,9 @@ for (const c of cases) {
   }
   if (!c.expectBilateralPair && isBilateral) {
     errs.push(`unexpected bilateral pair detected: ${bilateralTokens.join(", ")}`);
+  }
+  if (c.expectInvestmentOverview && !detectCountryInvestmentOverviewQuery(c.q, countryForInvestment)) {
+    errs.push(`expected country investment overview query for ${countryForInvestment}`);
   }
 
   if (errs.length === 0) {
