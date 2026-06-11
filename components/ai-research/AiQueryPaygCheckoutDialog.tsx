@@ -45,7 +45,7 @@ export function AiQueryPaygCheckoutDialog({
 }: Props) {
   const t = useTranslations("aiResearch.landing");
   const tCommon = useTranslations("common");
-  const tSub = useTranslations("subscription");
+  const tBilling = useTranslations("subscriptionManager");
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -92,7 +92,7 @@ export function AiQueryPaygCheckoutDialog({
                   {paymentProvider === "pawapay" && (
                     <div className={lomiAvailable ? "mt-4" : undefined}>
                       <PawapayCountrySelect
-                        label={tSub("mobileMoneyCountry")}
+                        label={tBilling("mobileMoneyCountry")}
                         value={pawapayPaymentCountry}
                         onChange={onPawapayPaymentCountryChange}
                       />
