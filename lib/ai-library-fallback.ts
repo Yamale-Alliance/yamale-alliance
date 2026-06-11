@@ -1,4 +1,4 @@
-import { lawsCountryOrGlobalWithTitleTerms } from "@/lib/law-country-scope";
+import { applyCountryScopedTitleSearch } from "@/lib/law-country-scope-query";
 import { applyLawRagApprovalFilter } from "@/lib/law-rag-approval";
 import { LAW_HAS_BODY_OR_FILTER } from "@/lib/law-readable-body";
 import { INTENT_TITLE_LAWS_SELECT } from "@/lib/ai-intent-title-retrieval";
@@ -30,10 +30,8 @@ export async function fastCountryScopedLawFallback(
     supabase.from("laws").select(LAWS_LIST_SELECT).or(LAW_HAS_BODY_OR_FILTER).neq("status", "Repealed")
   );
 
-  if (words.length > 0) {
-    q = q.or(lawsCountryOrGlobalWithTitleTerms(opts.countryId, words));
-  } else if (opts.countryScopeOr) {
-    q = q.or(opts.countryScopeOr);
+  if (words.length > 0 || opts.countryScopeOr) {
+    q = applyCountryScopedTitleSearch(q, opts.countryId, opts.countryScopeOr, words);
   } else {
     q = q.eq("country_id", opts.countryId);
   }
