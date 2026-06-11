@@ -5,9 +5,12 @@ import {
   MARKETPLACE_COVER_MAX_MB,
   uploadMarketplaceCoverImage,
 } from "@/lib/marketplace-cover-image";
-import { scanFile } from "@/lib/uploads/scanner";
+import { scanAdminImageFile } from "@/lib/uploads/scanner";
 
-/** POST: upload a cover image for a marketplace item. Admin only. Stored in Cloudinary. Returns { url }. */
+/**
+ * POST: upload a cover image for a marketplace item. Admin only. Stored in Cloudinary. Returns { url }.
+ * Prefer GET /upload-image/signature + direct browser upload (see marketplace-cover-cloudinary-client.ts).
+ */
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin();
   if (admin instanceof NextResponse) return admin;
@@ -41,7 +44,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const buffer = Buffer.from(await file.arrayBuffer());
-    const scan = await scanFile(buffer, file.name);
+    const scan = await scanAdminImageFile(buffer, file.name);
     if (!scan.clean) {
       console.error("Marketplace image upload rejected by VirusTotal:", {
         filename: file.name,
