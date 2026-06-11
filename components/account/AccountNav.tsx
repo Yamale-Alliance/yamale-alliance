@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   LayoutDashboard,
@@ -39,8 +40,23 @@ const linkDefs: Array<{
   },
 ];
 
+function isAccountNavActive(pathname: string | null, href: string): boolean {
+  if (!pathname) return false;
+  if (href === "/account") return pathname === "/account";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function accountNavLinkClass(active: boolean): string {
+  const base =
+    "flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition md:shrink";
+  return active
+    ? `${base} bg-primary/10 text-primary shadow-sm ring-1 ring-primary/25`
+    : `${base} text-muted-foreground hover:bg-muted hover:text-foreground`;
+}
+
 export function AccountNav({ supportLive, isAdmin }: AccountNavProps) {
   const t = useTranslations("account");
+  const pathname = usePathname();
 
   return (
     <>
@@ -54,13 +70,15 @@ export function AccountNav({ supportLive, isAdmin }: AccountNavProps) {
             item.href === "/account/support" && !supportLive && item.labelSoonKey
               ? t(item.labelSoonKey)
               : t(item.labelKey);
+          const active = isAccountNavActive(pathname, item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
-              className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground md:shrink"
+              className={accountNavLinkClass(active)}
+              aria-current={active ? "page" : undefined}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className={`h-4 w-4 ${active ? "text-primary" : ""}`} aria-hidden />
               {label}
             </Link>
           );
