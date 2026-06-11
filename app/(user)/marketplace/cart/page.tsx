@@ -8,6 +8,8 @@ import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { VaultCoverImage } from "@/components/marketplace/VaultCoverImage";
 import {
   PaymentMethodPicker,
+  defaultCheckoutPaymentProvider,
+  isLomiCheckoutAvailable,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
@@ -44,11 +46,11 @@ export default function CartPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
+  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>(
+    defaultCheckoutPaymentProvider()
+  );
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
-  const lomiAvailable =
-    process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
-    Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
+  const lomiAvailable = isLomiCheckoutAvailable();
   const lomiComingSoon = false;
   const [removing, setRemoving] = useState<string | null>(null);
   const { alert: showAlert, alertDialog } = useAlertDialog();
