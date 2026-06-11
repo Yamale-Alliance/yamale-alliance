@@ -53,11 +53,15 @@ export const RE_PUBLIC_HOLIDAYS =
   /\b(public\s+holidays?|national\s+holidays?|bank\s+holidays?|legal\s+holidays?|listed\s+holidays|official\s+holidays?|fériés?\s+publics?|jours?\s+féri|statutory\s+holidays?|jour\s+ferie|jours\s+feries|conges\s+payes|عطلة\s+رسمية|عطل\s+رسمية|أيام\s+العطل|ايام\s+العطل|العطل\s+الرسمية|عطلات)\b|(?:عطلة|عطل\s+رسمية)/iu;
 
 export const RE_INVESTMENT_TREATY =
-  /\b(investment\s+treat(y|ies)|bilateral\s+investment|\bbit\b|icsid|reciprocal\s+promotion|protection\s+of\s+investments|promotion\s+y\s+protecci[oó]n|promotion\s+et\s+protection.*invest|protection\s+r[eé]ciproque\s+d[e']invest|trait[eé]\s+bilateral|accord\s+bilateral\s+d\s*investissement|اتفاقية\s+استثمار|حماية\s+الاستثمار|الاستثمار\s+الأجنبي|الاستثمار\s+الاجنبي|معاهدة\s+استثمار|استثمار\s+ثنائي)\b|(?:استثمار|اتفاقية\s+استثمار)/iu;
+  /\b(investment\s+treat(y|ies)|bilateral\s+investment|\bbits?\b|icsid|reciprocal\s+promotion|protection\s+of\s+investments|promotion\s+y\s+protecci[oó]n|promotion\s+et\s+protection.*invest|protection\s+r[eé]ciproque\s+d[e']invest|trait[eé]\s+bilateral|accord\s+bilateral\s+d\s*investissement|اتفاقية\s+استثمار|حماية\s+الاستثمار|الاستثمار\s+الأجنبي|الاستثمار\s+الاجنبي|معاهدة\s+استثمار|استثمار\s+ثنائي)\b|(?:استثمار|اتفاقية\s+استثمار)/iu;
 
 /** Domestic / national investment codes (not BITs). */
 export const RE_NATIONAL_INVESTMENT =
-  /\b(investment\s+law|investment\s+code|code\s+des\s+investissements|code\s+investissement|charte\s+des\s+investissements|foreign\s+investment|national\s+investment|investment\s+promotion|framework\s+for\s+investment|loi\s+.*investissement|have\s+an?\s+investment\s+law|dedicated\s+investment|does\s+.+\s+have\s+.{0,24}investment\s+law)\b|(?:قانون\s+الاستثمار|مدونة\s+الاستثمار)/iu;
+  /\b(investment\s+law|investment\s+code|code\s+des\s+investissements|code\s+investissement|charte\s+des\s+investissements|foreign\s+investment|national\s+investment|investment\s+promotion|framework\s+for\s+investment|loi\s+.*investissement|have\s+an?\s+investment\s+law|dedicated\s+investment|does\s+.+\s+have\s+.{0,24}investment\s+law|invest(ing|ment|ments)\s+in)\b|(?:قانون\s+الاستثمار|مدونة\s+الاستثمار)/iu;
+
+/** Country-scoped investment overview without explicit BIT / treaty keywords. */
+export const RE_COUNTRY_INVESTMENT_OVERVIEW =
+  /\b(invest(ing|ment|ments)|foreign\s+direct|fdi)\b[\s\S]{0,140}\b(all|every|laws?|requirements?|tips?|information|overview|guide|rules?|framework|need\s+to\s+know)\b|\b(all|every|laws?|requirements?|tips?|information|overview)\b[\s\S]{0,140}\binvest(ing|ment|ments)\b|\binvest(ing|ment)\s+in\b/i;
 
 /** “Does [country] have an investment law?” — must hydrate national code body, not only title index. */
 export function isNationalInvestmentLawExistenceQuery(query: string): boolean {
