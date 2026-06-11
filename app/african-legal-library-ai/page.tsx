@@ -12,5 +12,5 @@ export const metadata = createPageMetadata({
 });
 
 export default function AfricanLegalLibraryAiPage() {
-  return <SeoLandingPage content={content} />;
+  return <SeoLandingPage pageId="africanLegalLibraryAi" />;
 }
