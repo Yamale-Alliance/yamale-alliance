@@ -34,48 +34,30 @@ export function inferLawDocumentLanguage(law: LawLanguagePreferenceInput): Prefe
   return null;
 }
 
-/** Higher score = better match for retrieval ranking and duplicate picking. */
+/**
+ * Tie-break bonus when deduping EN/FR duplicates — never penalize the other language,
+ * so French queries still retrieve English library rows when no French copy exists.
+ */
 export function lawDocumentLanguageScore(
   law: LawLanguagePreferenceInput,
   preferred: PreferredDocumentLanguage
 ): number {
   const code = normalizeLawDocumentLanguageCode(law.language_code ?? null);
-  if (code === preferred) return 120;
-  if (code && code !== preferred && code !== "other") return -80;
+  if (code === preferred) return 48;
+  if (code && code !== preferred && code !== "other") return 0;
 
   const inferred = inferLawDocumentLanguage(law);
-  if (inferred === preferred) return 55;
-  if (inferred && inferred !== preferred) return -35;
+  if (inferred === preferred) return 24;
   return 0;
 }
 
-/** When strict, drop library rows that clearly belong to another document language. */
+/** Language preference is ranking-only; never drop a law because the document is in another language. */
 export function shouldIncludeLawForPreferredLanguage(
-  law: LawLanguagePreferenceInput,
-  preferred: PreferredDocumentLanguage | null,
-  options?: { strict?: boolean }
+  _law: LawLanguagePreferenceInput,
+  _preferred: PreferredDocumentLanguage | null,
+  _options?: { strict?: boolean }
 ): boolean {
-  if (!preferred || !options?.strict) return true;
-
-  const prefScore = lawDocumentLanguageScore(law, preferred);
-  if (prefScore >= 55) return true;
-
-  const title = String(law.title ?? "");
-  if (preferred === "fr") {
-    if (/\buniform act on\b|\buniform act relating\b|\bohada uniform act on\b/i.test(title)) return false;
-    if (/\bacte uniforme\b/i.test(title)) return true;
-  }
-  if (preferred === "en") {
-    if (/\bacte uniforme\b/i.test(title)) return false;
-    if (/\buniform act on\b|\buniform act relating\b|\bohada uniform act on\b/i.test(title)) return true;
-  }
-
-  const frScore = lawDocumentLanguageScore(law, "fr");
-  const enScore = lawDocumentLanguageScore(law, "en");
-  const opposing = preferred === "fr" ? enScore : preferred === "en" ? frScore : 0;
-  if (opposing >= 55 && opposing > prefScore) return false;
-
-  return prefScore >= 0;
+  return true;
 }
 
 export function filterLawsByPreferredDocumentLanguage<T extends LawLanguagePreferenceInput>(
