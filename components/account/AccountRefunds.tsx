@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Loader2, RotateCcw } from "lucide-react";
 
 type Eligible = {
@@ -21,15 +22,11 @@ type RequestRow = {
   created_at: string;
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  pending: "Pending review",
-  processing: "Processing refund",
-  completed: "Refunded",
-  rejected: "Declined",
-  failed: "Failed — contact support",
-};
+const STATUS_KEYS = ["pending", "processing", "completed", "rejected", "failed"] as const;
 
 export function AccountRefunds() {
+  const t = useTranslations("accountRefunds");
+  const locale = useLocale();
   const [eligible, setEligible] = useState<Eligible[]>([]);
   const [requests, setRequests] = useState<RequestRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +35,13 @@ export function AccountRefunds() {
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const statusLabel = (status: string) => {
+    if ((STATUS_KEYS as readonly string[]).includes(status)) {
+      return t(`status.${status as (typeof STATUS_KEYS)[number]}`);
+    }
+    return status;
+  };
 
   const load = () => {
     setLoading(true);
@@ -49,12 +53,13 @@ export function AccountRefunds() {
         setEligible(Array.isArray(el.purchases) ? el.purchases : []);
         setRequests(Array.isArray(req.requests) ? req.requests : []);
       })
-      .catch(() => setError("Failed to load refund data"))
+      .catch(() => setError(t("loadFailed")))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -63,7 +68,7 @@ export function AccountRefunds() {
     setError(null);
     const item = eligible.find((p) => p.purchase_row_id === selected);
     if (!item) {
-      setError("Select a purchase to refund.");
+      setError(t("selectPurchaseError"));
       return;
     }
     setSubmitting(true);
@@ -80,15 +85,15 @@ export function AccountRefunds() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Could not submit request");
+        setError(data.error || t("submitFailed"));
         return;
       }
-      setMessage("Your refund request was submitted. Our team will review it shortly.");
+      setMessage(t("submitted"));
       setReason("");
       setSelected("");
       load();
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(t("somethingWrong"));
     } finally {
       setSubmitting(false);
     }
@@ -107,20 +112,17 @@ export function AccountRefunds() {
       <section className="rounded-xl border border-border bg-card p-6">
         <div className="flex items-center gap-2">
           <RotateCcw className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold text-foreground">Request a refund</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t("requestTitle")}</h2>
         </div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Choose a recent purchase and explain why you are requesting a refund. An admin will review your request before
-          any money is returned via Lomi or mobile money (pawaPay).
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">{t("requestDesc")}</p>
 
         {eligible.length === 0 ? (
-          <p className="mt-4 text-sm text-muted-foreground">No eligible purchases found, or you already have open requests.</p>
+          <p className="mt-4 text-sm text-muted-foreground">{t("noEligible")}</p>
         ) : (
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
             <div>
               <label htmlFor="refund-purchase" className="block text-sm font-medium text-foreground">
-                Purchase
+                {t("purchaseLabel")}
               </label>
               <select
                 id="refund-purchase"
@@ -129,17 +131,17 @@ export function AccountRefunds() {
                 className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                 required
               >
-                <option value="">Select an item…</option>
+                <option value="">{t("selectItem")}</option>
                 {eligible.map((p) => (
                   <option key={p.purchase_row_id} value={p.purchase_row_id}>
-                    {p.item_title} — {new Date(p.purchased_at).toLocaleDateString()}
+                    {p.item_title} — {new Date(p.purchased_at).toLocaleDateString(locale)}
                   </option>
                 ))}
               </select>
             </div>
             <div>
               <label htmlFor="refund-reason" className="block text-sm font-medium text-foreground">
-                Reason for refund
+                {t("reasonLabel")}
               </label>
               <textarea
                 id="refund-reason"
@@ -147,7 +149,7 @@ export function AccountRefunds() {
                 onChange={(e) => setReason(e.target.value)}
                 rows={4}
                 className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                placeholder="Describe what went wrong or why you need a refund (at least 10 characters)."
+                placeholder={t("reasonPlaceholder")}
                 required
                 minLength={10}
               />
@@ -160,16 +162,16 @@ export function AccountRefunds() {
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              Submit refund request
+              {t("submit")}
             </button>
           </form>
         )}
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold text-foreground">Your refund requests</h2>
+        <h2 className="text-lg font-semibold text-foreground">{t("yourRequests")}</h2>
         {requests.length === 0 ? (
-          <p className="mt-2 text-sm text-muted-foreground">No refund requests yet.</p>
+          <p className="mt-2 text-sm text-muted-foreground">{t("noRequests")}</p>
         ) : (
           <ul className="mt-4 space-y-3">
             {requests.map((r) => (
@@ -177,18 +179,20 @@ export function AccountRefunds() {
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <span className="font-medium text-foreground">{r.item_title}</span>
                   <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                    {STATUS_LABEL[r.status] ?? r.status}
+                    {statusLabel(r.status)}
                   </span>
                 </div>
                 <p className="mt-2 text-muted-foreground">{r.reason}</p>
                 {r.admin_notes && (
                   <p className="mt-2 border-t border-border pt-2 text-muted-foreground">
-                    <span className="font-medium text-foreground">Admin: </span>
+                    <span className="font-medium text-foreground">{t("adminNotes")} </span>
                     {r.admin_notes}
                   </p>
                 )}
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Submitted {new Date(r.created_at).toLocaleString()}
+                  {t("submittedOn", {
+                    date: new Date(r.created_at).toLocaleString(locale),
+                  })}
                 </p>
               </li>
             ))}
