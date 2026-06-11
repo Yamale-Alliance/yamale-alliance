@@ -7,7 +7,7 @@ import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
 import { loadImageAsDataUrl } from "@/lib/afcfta-report-pdf";
 import { plainTextForAiChatExport } from "@/lib/ai-chat-plain-text";
-import { humanizeDocMarkersInAnswer, type DocTitleBySlot } from "@/lib/ai-citation-verify";
+import { formatAssistantAnswerForDisplay, type DocTitleBySlot } from "@/lib/ai-citation-verify";
 import { parseLawBodyBlocks } from "@/lib/library/law-body-blocks";
 import { plainTextFromMarkdownish } from "@/lib/library/law-document-pdf";
 import {
@@ -271,7 +271,7 @@ function drawMessageBlock(
   if (!content?.trim() && (!sources || sources.length === 0)) return y;
 
   const bodyContent =
-    role === "assistant" ? humanizeDocMarkersInAnswer(content, sourceCards) : content;
+    role === "assistant" ? formatAssistantAnswerForDisplay(content, sourceCards) : content;
 
   const blockPad = 4;
   const innerW = CONTENT_W - blockPad * 2 - 3;
