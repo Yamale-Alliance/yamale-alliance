@@ -17,9 +17,17 @@ export type AiChatDonePayload = {
   outputConfidence?: "high" | "medium" | "low";
 };
 
+export type AiCitationLookupCard = {
+  docSlot: number;
+  title: string;
+  lawId?: string;
+};
+
 export type AiChatSseHandlers = {
   onStatus?: (phase: string) => void;
   onProcess?: (payload: AiProcessSsePayload) => void;
+  /** Retrieved instrument titles by [doc:N] slot — arrives before text deltas. */
+  onCitationLookup?: (cards: AiCitationLookupCard[]) => void;
   onDelta: (text: string) => void;
 };
 
@@ -58,6 +66,12 @@ function handleSseBlock(block: string, handlers: AiChatSseHandlers): AiChatDoneP
       detail: typeof p.detail === "string" ? p.detail : undefined,
       status: p.status === "done" ? "done" : "active",
     });
+  } else if (event === "sources" && Array.isArray(p?.citationCards)) {
+    handlers.onCitationLookup?.(
+      (p.citationCards as AiCitationLookupCard[]).filter(
+        (c) => typeof c?.title === "string" && typeof c?.docSlot === "number"
+      )
+    );
   } else if (event === "delta" && typeof p?.text === "string") {
     handlers.onDelta(p.text);
   } else if (event === "done") {
