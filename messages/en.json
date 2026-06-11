@@ -2234,6 +2234,27 @@
     "signInRequired": "Sign in to use AI Legal Research.",
     "availableOnPlans": "Available on Basic, Pro, and Team plans.",
     "viewPlans": "View plans",
+    "landing": {
+      "eyebrow": "Yamalé AI Legal Research",
+      "h1": "AI Legal Search in Africa — Answers Grounded in Primary Sources",
+      "heroSubtitleSignedOut": "Sign in to subscribe or purchase a single AI query. Plans include monthly AI research credits grounded in the Yamalé African legal library.",
+      "heroSubtitle": "Subscribe for monthly AI research credits, or buy a single query — answers grounded in African statutes and regional instruments.",
+      "choosePlan": "Choose a plan",
+      "browseLibrary": "Browse the library",
+      "pricingTitle": "Plans with AI legal research",
+      "pricingSubtitle": "Basic, Pro, and Team include monthly AI queries on top of full library access. Upgrade anytime from your account.",
+      "monthly": "Monthly",
+      "annual": "Annual",
+      "mostPopular": "Most popular",
+      "redirecting": "Redirecting…",
+      "paygTitle": "Just need one query?",
+      "paygBody": "Purchase a single AI research query for {price} — no subscription required.",
+      "paygCta": "Buy one query ({price})",
+      "paygCheckoutTitle": "Purchase AI query",
+      "paygCheckoutDesc": "Choose mobile money or card, then continue to checkout.",
+      "paygCheckoutContinue": "Continue to payment · {price}",
+      "fullPricing": "Compare all plans"
+    },
     "researchHistory": "Research history",
     "closeChatList": "Close chat list",
     "newQuery": "New research query",
@@ -2314,6 +2335,32 @@
       "basic": "Choose Basic",
       "pro": "Choose Pro",
       "team": "Choose Team"
+    },
+    "planFeatures": {
+      "basic": [
+        "Unlimited browsing of full texts of laws",
+        "<strong>10 AI queries/month</strong>",
+        "AfCFTA Passport (coming soon)",
+        "Lawyers network (coming soon)",
+        "Browse The Yamalé Vault"
+      ],
+      "pro": [
+        "Unlimited browsing of full texts of laws",
+        "<strong>50 AI queries/month</strong>",
+        "AfCFTA Passport (coming soon)",
+        "Lawyers network (coming soon)",
+        "Browse The Yamalé Vault",
+        "Download AI conversation"
+      ],
+      "team": [
+        "<strong>5 user seats included</strong>",
+        "<strong>Unlimited AI queries per user/month</strong>",
+        "AfCFTA Passport (coming soon)",
+        "Lawyers network (coming soon)",
+        "Browse The Yamalé Vault",
+        "Download AI conversation",
+        "<strong>Additional user: $6/month each</strong>"
+      ]
     }
   },
   "afcfta": {
