@@ -4,7 +4,7 @@ import { useCallback, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 import Link from "next/link";
-import Image from "next/image";
+import { VaultCoverImage } from "@/components/marketplace/VaultCoverImage";
 import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, Eye, Star, ShoppingCart, Zap, X } from "lucide-react";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
@@ -590,7 +590,12 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
                 }}
               >
                 {item.image_url ? (
-                  <Image src={item.image_url} alt="" fill className="object-cover" sizes="112px" />
+                  <VaultCoverImage
+                    src={item.image_url}
+                    variant="thumb"
+                    className="absolute inset-0 h-full w-full object-cover"
+                    priority
+                  />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-white/95">
                     <TypeIcon type={item.type} />
