@@ -7,7 +7,10 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Search, Star, Loader2, Lock, AlertCircle, Quote, CheckSquare, Smartphone, CreditCard } from "lucide-react";
-import type { CheckoutPaymentProvider } from "@/components/checkout/PaymentMethodPicker";
+import {
+  defaultCheckoutPaymentProvider,
+  type CheckoutPaymentProvider,
+} from "@/components/checkout/PaymentMethodPicker";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
 import { MarketingDiscountPrice } from "@/components/pricing/MarketingDiscountPrice";
 import { confirmDayPassPayment } from "@/lib/day-pass-checkout-confirm";
@@ -98,7 +101,9 @@ export default function LawyersPage() {
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [dayPassConfirmError, setDayPassConfirmError] = useState<string | null>(null);
   const [dayPassConfirmSuccess, setDayPassConfirmSuccess] = useState(false);
-  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
+  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>(
+    defaultCheckoutPaymentProvider()
+  );
   const [showPaymentChoice, setShowPaymentChoice] = useState(false);
   const [showPawapayCountryPrompt, setShowPawapayCountryPrompt] = useState(false);
   const [pawapayCountry, setPawapayCountry] = useState<string>(PAWAPAY_SUPPORTED_COUNTRIES[0]);
