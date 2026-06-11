@@ -92,6 +92,12 @@ function titleFromFilename(file) {
   const base = basename(file, extname(file));
   const country = countryFromDeepDiveFilename(basename(file));
   if (country) return `${country} Legal System Deep Dive`;
+  if (
+    /^brain$/i.test(base) ||
+    /jurisdictional.*foundations|pan.african.*brain/i.test(base)
+  ) {
+    return "Yamalé AI Contextual Brain — Jurisdictional Foundations";
+  }
   if (/contextual_brain/i.test(base)) return "Yamalé AI Contextual Brain v2";
   const brainModule = base.match(/^yamale_ai_brain_(.+)$/i);
   if (brainModule) {
