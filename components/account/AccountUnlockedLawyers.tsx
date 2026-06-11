@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { Loader2, Mail, Phone } from "lucide-react";
 import { normalizeExpertiseField } from "@/lib/lawyer-expertise";
 
@@ -19,6 +20,7 @@ type UnlockedLawyer = {
 };
 
 export function AccountUnlockedLawyers() {
+  const t = useTranslations("accountUnlockedLawyers");
   const [loading, setLoading] = useState(true);
   const [lawyers, setLawyers] = useState<UnlockedLawyer[]>([]);
 
@@ -47,9 +49,9 @@ export function AccountUnlockedLawyers() {
     return (
       <div className="rounded-xl border border-dashed border-border bg-muted/20 px-6 py-10 text-center">
         <p className="text-sm text-muted-foreground">
-          No unlocked lawyers yet. Unlock a profile from the{" "}
+          {t("emptyBefore")}{" "}
           <Link href="/lawyers" className="font-medium text-primary underline-offset-4 hover:underline">
-            lawyers directory
+            {t("directoryLink")}
           </Link>
           .
         </p>
@@ -79,14 +81,19 @@ export function AccountUnlockedLawyers() {
               <p className="mt-0.5 text-sm text-muted-foreground">
                 {normalizeExpertiseField(lawyer.expertise)}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">{lawyer.country || "Country not specified"}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {lawyer.country || t("countryNotSpecified")}
+              </p>
             </div>
           </div>
           <div className="mt-4 space-y-2 text-sm">
             {lawyer.email && (
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <a href={`mailto:${lawyer.email}`} className="font-medium text-primary underline-offset-4 hover:underline">
+                <a
+                  href={`mailto:${lawyer.email}`}
+                  className="font-medium text-primary underline-offset-4 hover:underline"
+                >
                   {lawyer.email}
                 </a>
               </div>
@@ -101,7 +108,7 @@ export function AccountUnlockedLawyers() {
             )}
             {lawyer.contacts && (
               <p className="text-foreground">
-                <span className="font-medium">Other contacts: </span>
+                <span className="font-medium">{t("otherContacts")} </span>
                 <span className="whitespace-pre-wrap text-muted-foreground">{lawyer.contacts}</span>
               </p>
             )}
@@ -112,7 +119,7 @@ export function AccountUnlockedLawyers() {
                 rel="noreferrer"
                 className="inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline"
               >
-                LinkedIn profile
+                {t("linkedin")}
               </a>
             )}
           </div>
