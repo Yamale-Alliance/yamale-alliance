@@ -1,11 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { escapeIlikePattern } from "@/lib/law-country-scope";
 import { LAW_HAS_BODY_OR_FILTER, filterLawsWithReadableBody } from "@/lib/law-readable-body";
-import {
-  type PreferredDocumentLanguage,
-  filterLawsByPreferredDocumentLanguage,
-  lawDocumentLanguageScore,
-} from "@/lib/law-language-preference";
+import { type PreferredDocumentLanguage, lawDocumentLanguageScore } from "@/lib/law-language-preference";
 import { applyLawRagApprovalFilter } from "@/lib/law-rag-approval";
 import { isOhadaInstrument } from "@/lib/ohada-commercial-companies-retrieval";
 
@@ -136,11 +132,10 @@ export function finalizeOhadaUniformActCatalog<T extends { title?: string | null
   laws: T[],
   preferredLanguage?: PreferredDocumentLanguage | null
 ): T[] {
-  const deduped = dedupeOhadaUniformActsByInstrumentKey(
+  return dedupeOhadaUniformActsByInstrumentKey(
     laws.filter((law) => isOhadaInstrument(law)),
     preferredLanguage
   );
-  return filterLawsByPreferredDocumentLanguage(deduped, preferredLanguage ?? null, { strict: true });
 }
 
 export async function fetchOhadaUniformActCatalogCandidates(
