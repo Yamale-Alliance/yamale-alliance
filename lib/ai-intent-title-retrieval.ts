@@ -71,6 +71,16 @@ export function buildIntentTitleSearchTerms(
       "code investissement"
     );
   }
+  if (resolvedIntent.matchedIds.includes("investment_treaty")) {
+    terms.push(
+      "bilateral investment",
+      "investment treaty",
+      "promotion and protection",
+      "reciprocal promotion",
+      "agreement between the government",
+      "bit"
+    );
+  }
   if (resolvedIntent.matchedIds.includes("intellectual_property")) {
     terms.push(
       "intellectual property",
@@ -300,6 +310,13 @@ const SLOT_TITLE_SEARCH_TERMS: Record<string, string[]> = {
   commercial_code: ["commercial code", "code de commerce", "business names act"],
   beneficial_ownership: ["beneficial ownership"],
   investment_code: ["investissement", "investments", "investment code", "code investissement"],
+  country_bit: [
+    "bilateral investment",
+    "investment treaty",
+    "promotion and protection",
+    "reciprocal promotion",
+    "agreement between the government",
+  ],
   ip_national: [
     "copyright",
     "copyright and performance",
@@ -352,6 +369,7 @@ const SLOT_TITLE_SEARCH_TERMS: Record<string, string[]> = {
 const MANDATORY_INTENT_IDS = [
   "registration",
   "investment_domestic",
+  "investment_treaty",
   "intellectual_property",
   "dispute_resolution",
   "tax",
@@ -378,6 +396,15 @@ const INTENT_TOPIC_SLOTS: Record<string, TopicSlot[]> = {
       titleTest: (t) =>
         /\b(investment|investissement|investissements)\b/i.test(t) &&
         !/\b(treaty|bilateral|bit)\b/i.test(t),
+    },
+  ],
+  investment_treaty: [
+    {
+      label: "country_bit",
+      titleTest: (t) =>
+        /\b(bilateral|bits?|promotion\s+and\s+(reciprocal\s+)?protection|reciprocal\s+promotion|agreement\s+between\s+the\s+government)\b/i.test(
+          t
+        ) && /\binvest/i.test(t),
     },
   ],
   intellectual_property: [
