@@ -7,7 +7,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { useAlertDialog } from "@/components/ui/use-confirm";
-import { PaymentMethodPicker, type CheckoutPaymentProvider } from "@/components/checkout/PaymentMethodPicker";
+import {
+  PaymentMethodPicker,
+  defaultCheckoutPaymentProvider,
+  isLomiCheckoutAvailable,
+  type CheckoutPaymentProvider,
+} from "@/components/checkout/PaymentMethodPicker";
 import { DayPassCheckoutConfirm } from "@/components/checkout/DayPassCheckoutConfirm";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
@@ -146,13 +151,13 @@ export default function PricingPage() {
   const [billing, setBilling] = useState<BillingInterval>("monthly");
   const [tiers, setTiers] = useState<Tier[]>(FALLBACK_TIERS);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
-  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
+  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>(
+    defaultCheckoutPaymentProvider()
+  );
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const isAnnual = billing === "annual";
   const { alert: showAlert, alertDialog } = useAlertDialog();
-  const lomiAvailable =
-    process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
-    Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
+  const lomiAvailable = isLomiCheckoutAvailable();
   const lomiComingSoon = false;
   const { lawPrintPriceUsdCents, dayPassPriceUsdCents, aiQueryPriceUsdCents } = usePlatformSettings();
   /** Subscription checkout happens under Account (plan, billing period, payment method). */
@@ -284,7 +289,11 @@ export default function PricingPage() {
     const dayPass = params.get("day_pass");
     const providerParam = params.get("provider");
     const provider: CheckoutPaymentProvider =
-      providerParam === "lomi" && lomiAvailable && !lomiComingSoon ? "lomi" : "pawapay";
+      providerParam === "pawapay"
+        ? "pawapay"
+        : providerParam === "lomi" && lomiAvailable && !lomiComingSoon
+          ? "lomi"
+          : defaultCheckoutPaymentProvider();
 
     setPaymentProvider(provider);
 
