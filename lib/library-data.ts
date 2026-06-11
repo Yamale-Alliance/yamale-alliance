@@ -1,13 +1,9 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { librarySearchMatchPlan, lawRowMatchesLibrarySearch } from "@/lib/library-client-search";
-import {
-  escapeIlikePattern,
-  lawsCountryGlobalOrScopedIds,
-  postgrestIlikePattern,
-} from "@/lib/law-country-scope";
-import { POSTGREST_MAX_OR_FILTER_LEN } from "@/lib/postgrest-ilike-tokens";
+import { applyLibraryTextSearchFilter } from "@/lib/library-text-search-filter";
+import { escapeIlikePattern, lawsCountryGlobalOrScopedIds } from "@/lib/law-country-scope";
+import { fetchValidLawIdsForCountryScope } from "@/lib/law-country-scope-ids";
 import { fetchLawIdsForCategory } from "@/lib/law-categories-sync";
-import { fetchLawIdsForCountryScope } from "@/lib/law-country-scope-ids";
 import {
   excludeInternalCategoryFromLawsQuery,
   filterPublicLibraryCategories,
@@ -91,53 +87,31 @@ function sortCountriesAlphabetically(countries: LibraryCountry[]): LibraryCountr
   );
 }
 
-function buildSearchOrFilter(query: string): string | null {
-  const plan = librarySearchMatchPlan(query);
-  if (plan.strictTitleMatch) return null;
-  const parts: string[] = [];
-  const tryAdd = (clause: string): boolean => {
-    const next = parts.length === 0 ? clause : `${parts.join(",")},${clause}`;
-    if (next.length > POSTGREST_MAX_OR_FILTER_LEN) return false;
-    parts.push(clause);
-    return true;
-  };
-  // Title tokens only — PostgREST rejects `categories.name` inside `.or()` on `laws`
-  // (PGRST100). Category hints are still applied client-side via lawRowMatchesLibrarySearch.
-  for (const t of plan.matchTokens.slice(0, 8)) {
-    if (!tryAdd(`title.ilike.%${postgrestIlikePattern(t)}%`)) break;
+function reconcilePaginatedLawCount(
+  lawCount: number,
+  page: number,
+  pageSize: number,
+  rowsOnPage: number
+): number {
+  if (rowsOnPage === 0) {
+    if (page <= 1) return 0;
+    return Math.min(lawCount, (page - 1) * pageSize);
   }
-  if (parts.length === 0) return null;
-  return parts.join(",");
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function applyLibraryTextSearchFilter(query: any, searchQuery: string): any {
-  const trimmed = searchQuery.trim();
-  if (!trimmed) return query;
-
-  const plan = librarySearchMatchPlan(trimmed);
-  if (plan.strictTitleMatch) {
-    const tokens =
-      plan.strictTitleTokens.length > 0 ? plan.strictTitleTokens : plan.primaryTokens;
-    let q = query;
-    for (const t of tokens.slice(0, 10)) {
-      q = q.ilike("title", `%${postgrestIlikePattern(t)}%`);
-    }
-    return q;
-  }
-
-  const orFilter = buildSearchOrFilter(trimmed);
-  if (orFilter) return query.or(orFilter);
-  return query.ilike("title", `%${escapeIlikePattern(trimmed)}%`);
+  const minTotal = (page - 1) * pageSize + rowsOnPage;
+  if (lawCount < minTotal) return minTotal;
+  if (page === 1 && rowsOnPage < pageSize) return rowsOnPage;
+  return lawCount;
 }
 
 function sanitizeLibraryDataForPublic(
   data: LibraryData,
-  internalCategoryId: string | null
+  internalCategoryId: string | null,
+  options?: { paginated?: boolean }
 ): LibraryData {
   const laws = filterPublicLibraryLawRows(data.laws, internalCategoryId);
   const removed = data.laws.length - laws.length;
-  const lawCount = removed > 0 ? Math.max(0, data.lawCount - removed) : data.lawCount;
+  const adjustCount = !options?.paginated && removed > 0;
+  const lawCount = adjustCount ? Math.max(0, data.lawCount - removed) : data.lawCount;
   return {
     countries: data.countries,
     categories: filterPublicLibraryCategories(data.categories),
@@ -420,9 +394,9 @@ async function sumExactLawCountsInIdChunks(
       }
       if (filters?.status) q = q.eq("status", filters.status);
       if (filters?.q?.trim()) {
-        const term = escapeIlikePattern(filters.q.trim());
-        q = q.ilike("title", `%${term}%`);
+        q = applyLibraryTextSearchFilter(q, filters.q);
       }
+      q = applyScalarLibraryFilters(q, filters);
       const { count, error } = await q;
       if (error) throw error;
       return typeof count === "number" ? count : 0;
@@ -455,9 +429,9 @@ async function fetchLawsRowsInIdChunks(
       }
       if (filters?.status) q = q.eq("status", filters.status);
       if (filters?.q?.trim()) {
-        const term = escapeIlikePattern(filters.q.trim());
-        q = q.ilike("title", `%${term}%`);
+        q = applyLibraryTextSearchFilter(q, filters.q);
       }
+      q = applyScalarLibraryFilters(q, filters);
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as LibraryLawRow[];
@@ -513,8 +487,9 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
       };
     }
 
-    const scopedCountryLawIds =
-      filters?.countryId ? await fetchLawIdsForCountryScope(supabase, filters.countryId) : [];
+    const scopedCountryLawIds = filters?.countryId
+      ? await fetchValidLawIdsForCountryScope(supabase, filters.countryId, internalCategoryId)
+      : [];
     let categoryLawIds: string[] | null = null;
     let useLegacyCategoryColumn = false;
     const paginated = isPaginatedRequest(filters);
@@ -591,10 +566,22 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
         ),
       ]);
     } else {
-      // `count: "exact"` can be expensive on larger datasets and was causing
-      // transient 20s timeouts. `planned` is much faster and good enough for UI totals.
+      // Use exact counts for filtered/paginated browse — `planned` inflates totals (e.g. Benin 116 vs 96 rows).
+      const preferExactCount =
+        paginated ||
+        Boolean(filters?.countryId) ||
+        Boolean(filters?.categoryId) ||
+        Boolean(filters?.q?.trim()) ||
+        Boolean(filters?.status) ||
+        Boolean(filters?.yearFrom) ||
+        Boolean(filters?.yearTo) ||
+        Boolean(filters?.treatyType) ||
+        Boolean(filters?.documentType);
       let countQuery = excludeInternalCategoryFromLawsQuery(
-        supabase.from("laws").select("id", { count: "planned", head: true }),
+        supabase.from("laws").select("id", {
+          count: preferExactCount ? "exact" : "planned",
+          head: true,
+        }),
         internalCategoryId
       );
       if (filters?.countryId) {
@@ -641,7 +628,12 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
         if (countriesRes.error) throw countriesRes.error;
         if (categoriesRes.error) throw categoriesRes.error;
         if (countRes.error) throw countRes.error;
-        lawCount = typeof countRes.count === "number" ? countRes.count : pageLaws.length;
+        lawCount = reconcilePaginatedLawCount(
+          typeof countRes.count === "number" ? countRes.count : pageLaws.length,
+          page,
+          pageSize,
+          pageLaws.length
+        );
         rawLaws = pageLaws;
       } else {
       const [cRes, catRes, countRes, paginatedLaws] = await Promise.all([
@@ -688,7 +680,8 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
         laws,
         lawCount,
       },
-      internalCategoryId
+      internalCategoryId,
+      { paginated }
     );
 
     const isFullUnfilteredCache =
