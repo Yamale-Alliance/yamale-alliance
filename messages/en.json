@@ -2137,7 +2137,7 @@
     "choosePlan": "Choose a plan",
     "billedAnnually": "${total} billed annually",
     "paymentMethod": "Payment method",
-    "paymentMethodDesc": "Mobile money or card / wallets via Lomi — choose before paying.",
+    "paymentMethodDesc": "Card / wallets via Lomi or mobile money — choose before paying.",
     "mobileMoneyCountry": "Mobile money country",
     "continueToPayment": "Continue to payment",
     "startingCheckout": "Starting checkout…",
