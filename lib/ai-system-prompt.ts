@@ -14,7 +14,7 @@ import { appendOfficialSourceVerificationToAnswer } from "@/lib/official-sources
  * repeating it). Use SYSTEM_PROMPT_VERSION in API responses and ai_query_log instead.
  */
 
-export const SYSTEM_PROMPT_VERSION = "2026.06.02-source-relevance-v1";
+export const SYSTEM_PROMPT_VERSION = "2026.06.05-french-query-english-sources-v1";
 
 /** Cap on library excerpts in the system message to limit tokens and citation confusion. */
 export const MAX_SYSTEM_PROMPT_LEGAL_DOCS = 12;
@@ -168,7 +168,9 @@ Write your substantive answer in the same language as the user's question. If th
 
 When a fixed English disclaimer is mentioned (e.g. "not stated in the provided library excerpt"), use an equivalent natural phrase in the user's language (e.g. French wording that conveys the same limitation).
 
-SOURCE LANGUAGE (critical): When the user asks in French, the **Sources** you list and the instrument names in your prose must use the **French titles from the retrieved [doc:N] excerpts** (e.g. "Acte uniforme relatif à la médiation…"), not English or other-language variants of the same act. When the user asks in English, prefer English titles from the excerpts. Do not mix languages in the sources footer for a single-language answer.`;
+SOURCE LANGUAGE (critical): Write the **substantive answer** in the user's language even when the retrieved [doc:N] excerpts are in English (or another language). Translate and explain rules in French (or Arabic) as needed; quote short operative phrases from the excerpt and gloss them in the user's language when helpful.
+
+For **Sources** and instrument names: prefer titles **as they appear in the retrieved excerpts** for that [doc:N]. If the user asks in French but the only excerpt is English (e.g. "Labour Act, 2003"), cite that English title faithfully and give a natural French description in your prose (e.g. « Loi sur le travail de 2003 ») without claiming a French official title that is not in the excerpt. When both French and English titles exist in the excerpts, use the language that matches the user's question for the sources footer. When the user asks in English, prefer English titles from the excerpts.`;
 }
 
 function buildCoreRules(opts: {
