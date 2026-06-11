@@ -12,6 +12,11 @@ import { displayVaultProductTitle } from "@/lib/marketplace-display";
 import type { MarketplaceSeriesOffer } from "@/lib/marketplace-series-offers";
 import type { MarketplaceItemPackOffer } from "@/lib/marketplace-item-packs";
 import { formatUsdPrice } from "@/lib/content-pricing";
+import {
+  dialogPanelBaseClass,
+  dialogScrollViewportClass,
+  dialogScrollViewportInnerClass,
+} from "@/components/ui/dialog-shell-classes";
 
 export type MarketplaceVaultCheckoutChoice = "item" | "pack" | "series";
 
@@ -83,7 +88,9 @@ export function MarketplaceVaultCheckoutDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-[101] flex max-h-[min(90vh,720px)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-border bg-card shadow-2xl focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+        <div className={`${dialogScrollViewportClass} z-[101]`}>
+          <div className={dialogScrollViewportInnerClass}>
+            <Dialog.Content className={`${dialogPanelBaseClass} max-w-lg`}>
           <div className="border-b border-border px-5 py-4 pr-12">
             <Dialog.Title className="text-lg font-semibold tracking-tight text-foreground">
               Choose what to purchase
@@ -294,7 +301,9 @@ export function MarketplaceVaultCheckoutDialog({
               <X className="h-4 w-4" />
             </button>
           </Dialog.Close>
-        </Dialog.Content>
+            </Dialog.Content>
+          </div>
+        </div>
       </Dialog.Portal>
     </Dialog.Root>
   );
