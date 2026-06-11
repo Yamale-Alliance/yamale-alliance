@@ -33,6 +33,8 @@ import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { useAlertDialog } from "@/components/ui/use-confirm";
 import {
   PaymentMethodPicker,
+  defaultCheckoutPaymentProvider,
+  isLomiCheckoutAvailable,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
@@ -377,13 +379,11 @@ export function LibraryView({
   const [libraryDocCheckoutLawId, setLibraryDocCheckoutLawId] = useState<string | null>(null);
   const [libraryPrintCheckoutOpen, setLibraryPrintCheckoutOpen] = useState(false);
   const [libraryPrintCheckoutProvider, setLibraryPrintCheckoutProvider] =
-    useState<CheckoutPaymentProvider>("pawapay");
+    useState<CheckoutPaymentProvider>(defaultCheckoutPaymentProvider());
   /** Default to Kenya on library grid checkout (common M-Pesa / sandbox testing); user can change in the dialog. */
   const [libraryPawapayCountry, setLibraryPawapayCountry] = useState("Kenya");
   const [paidLawIds, setPaidLawIds] = useState<Set<string>>(() => new Set());
-  const lomiAvailable =
-    process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
-    Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
+  const lomiAvailable = isLomiCheckoutAvailable();
   const lomiComingSoon = false;
   const isAdmin = (user?.publicMetadata?.role as string | undefined) === "admin";
   const { lawPrintPriceUsdCents } = usePlatformSettings();
