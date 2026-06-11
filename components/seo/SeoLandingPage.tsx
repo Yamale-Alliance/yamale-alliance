@@ -1,6 +1,13 @@
+"use client";
+
 import Link from "next/link";
 import { ArrowLeft, Search } from "lucide-react";
-import type { SeoLandingPageContent } from "@/lib/seo-ai-research-content";
+import { useLocale } from "next-intl";
+import {
+  getSeoLandingPageContent,
+  getSeoLandingPageUi,
+} from "@/lib/i18n/ai-research-guides";
+import type { SeoLandingPageId } from "@/lib/i18n/ai-research-guides/types";
 import {
   prototypeHeroEyebrowClass,
   prototypeNavyHeroSectionClass,
@@ -9,10 +16,14 @@ import {
 import { FaqJsonLd } from "@/components/seo/FaqJsonLd";
 
 type Props = {
-  content: SeoLandingPageContent;
+  pageId: SeoLandingPageId;
 };
 
-export function SeoLandingPage({ content }: Props) {
+export function SeoLandingPage({ pageId }: Props) {
+  const locale = useLocale();
+  const content = getSeoLandingPageContent(locale, pageId);
+  const ui = getSeoLandingPageUi(locale);
+
   return (
     <div className="min-h-screen bg-background">
       <FaqJsonLd faqs={content.faqs} />
@@ -29,7 +40,7 @@ export function SeoLandingPage({ content }: Props) {
             className="inline-flex items-center gap-1.5 text-sm font-medium text-white/70 transition hover:text-white"
           >
             <ArrowLeft className="h-4 w-4" />
-            Yamalé Legal Platform
+            {ui.backToPlatform}
           </Link>
           <p className={`mt-8 ${prototypeHeroEyebrowClass}`}>{content.eyebrow}</p>
           <h1 className="heading mt-5 text-3xl font-bold leading-tight tracking-tight text-white sm:text-4xl md:text-[2.75rem]">
@@ -41,13 +52,13 @@ export function SeoLandingPage({ content }: Props) {
               className="inline-flex items-center gap-2 rounded-[6px] bg-[#C8922A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#b07e22]"
             >
               <Search className="h-4 w-4" />
-              Try AI Research
+              {ui.tryAiResearch}
             </Link>
             <Link
               href="/library"
               className="inline-flex items-center gap-2 rounded-[6px] border border-white/35 px-5 py-2.5 text-sm font-semibold text-white transition hover:border-white hover:bg-white/10"
             >
-              Browse the library
+              {ui.browseLibrary}
             </Link>
           </div>
         </div>
@@ -62,9 +73,7 @@ export function SeoLandingPage({ content }: Props) {
           ))}
         </div>
 
-        <h2 className="heading mt-12 text-2xl font-semibold tracking-tight text-foreground">
-          Why teams use Yamalé
-        </h2>
+        <h2 className="heading mt-12 text-2xl font-semibold tracking-tight text-foreground">{ui.whyTeams}</h2>
         <ul className="mt-6 grid gap-4 sm:grid-cols-2">
           {content.features.map((feature) => (
             <li
@@ -77,9 +86,7 @@ export function SeoLandingPage({ content }: Props) {
           ))}
         </ul>
 
-        <h2 className="heading mt-12 text-2xl font-semibold tracking-tight text-foreground">
-          Frequently asked questions
-        </h2>
+        <h2 className="heading mt-12 text-2xl font-semibold tracking-tight text-foreground">{ui.faqTitle}</h2>
         <dl className="mt-6 space-y-6">
           {content.faqs.map((faq) => (
             <div key={faq.question} className="border-b border-border pb-6 last:border-0">
@@ -90,10 +97,8 @@ export function SeoLandingPage({ content }: Props) {
         </dl>
 
         {content.relatedLinks.length > 0 ? (
-          <nav className="mt-12 rounded-xl border border-border bg-muted/30 p-6" aria-label="Related pages">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Related
-            </h2>
+          <nav className="mt-12 rounded-xl border border-border bg-muted/30 p-6" aria-label={ui.relatedAria}>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{ui.related}</h2>
             <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
               {content.relatedLinks.map((link) => (
                 <li key={link.href}>
@@ -114,13 +119,13 @@ export function SeoLandingPage({ content }: Props) {
             href="/pricing"
             className="inline-flex items-center rounded-[6px] bg-[#0D1B2A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#162436]"
           >
-            View pricing
+            {ui.viewPricing}
           </Link>
           <Link
             href="/contact"
             className="inline-flex items-center rounded-[6px] border border-border px-5 py-2.5 text-sm font-semibold text-foreground transition hover:bg-muted"
           >
-            Contact us
+            {ui.contactUs}
           </Link>
         </div>
       </article>
