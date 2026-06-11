@@ -2194,6 +2194,27 @@
     "signInRequired": "Inicie sessão para usar a pesquisa jurídica IA.",
     "availableOnPlans": "Disponível nos planos Basic, Pro e Team.",
     "viewPlans": "Ver planos",
+    "landing": {
+      "eyebrow": "Pesquisa jurídica IA Yamalé",
+      "h1": "Pesquisa jurídica por IA na África — respostas fundamentadas em fontes primárias",
+      "heroSubtitleSignedOut": "Inicie sessão para subscrever ou comprar uma consulta IA individual. Os planos incluem créditos mensais de pesquisa jurídica por IA fundamentados na biblioteca jurídica africana Yamalé.",
+      "heroSubtitle": "Subscreva para créditos mensais de pesquisa IA, ou compre uma consulta avulsa — respostas baseadas em estatutos africanos e instrumentos regionais.",
+      "choosePlan": "Escolher um plano",
+      "browseLibrary": "Explorar a biblioteca",
+      "pricingTitle": "Planos com pesquisa jurídica IA",
+      "pricingSubtitle": "Basic, Pro e Team incluem consultas IA mensais além do acesso completo à biblioteca. Atualize o plano a qualquer momento na sua conta.",
+      "monthly": "Mensal",
+      "annual": "Anual",
+      "mostPopular": "Mais popular",
+      "redirecting": "A redirecionar…",
+      "paygTitle": "Só precisa de uma consulta?",
+      "paygBody": "Compre uma consulta de pesquisa IA por {price} — sem subscrição.",
+      "paygCta": "Comprar uma consulta ({price})",
+      "paygCheckoutTitle": "Comprar consulta IA",
+      "paygCheckoutDesc": "Escolha mobile money ou cartão e continue para o pagamento.",
+      "paygCheckoutContinue": "Continuar para pagamento · {price}",
+      "fullPricing": "Comparar todos os planos"
+    },
     "researchHistory": "Histórico de pesquisa",
     "closeChatList": "Fechar lista de conversas",
     "newQuery": "Nova consulta",
@@ -2274,6 +2295,32 @@
       "basic": "Escolher Basic",
       "pro": "Escolher Pro",
       "team": "Escolher Team"
+    },
+    "planFeatures": {
+      "basic": [
+        "Navegação ilimitada nos textos integrais das leis",
+        "<strong>10 consultas IA/mês</strong>",
+        "Passaporte AfCFTA (em breve)",
+        "Rede de advogados (em breve)",
+        "Explorar o Yamalé Vault"
+      ],
+      "pro": [
+        "Navegação ilimitada nos textos integrais das leis",
+        "<strong>50 consultas IA/mês</strong>",
+        "Passaporte AfCFTA (em breve)",
+        "Rede de advogados (em breve)",
+        "Explorar o Yamalé Vault",
+        "Descarregar a conversa IA"
+      ],
+      "team": [
+        "<strong>5 lugares de utilizador incluídos</strong>",
+        "<strong>Consultas IA ilimitadas por utilizador/mês</strong>",
+        "Passaporte AfCFTA (em breve)",
+        "Rede de advogados (em breve)",
+        "Explorar o Yamalé Vault",
+        "Descarregar a conversa IA",
+        "<strong>Utilizador adicional: 6 $/mês cada</strong>"
+      ]
     }
   },
   "afcfta": {
