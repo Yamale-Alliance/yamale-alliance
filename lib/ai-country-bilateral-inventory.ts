@@ -1,4 +1,5 @@
 import { isValidLawYear } from "@/lib/admin-law-utils";
+import { detectCountryInvestmentOverviewQuery } from "@/lib/ai-country-investment-retrieval";
 import { isMultiInstrumentListQuery } from "@/lib/ai-rag-context-budget";
 import { detectGermanyAfricaBitQuery } from "@/lib/ai-germany-africa-bit-retrieval";
 import { detectLatinAmericaTreatyDiscoveryQuery } from "@/lib/ai-latin-america-treaty-retrieval";
@@ -45,6 +46,7 @@ export function detectCountryBilateralInventoryQuery(
   }
   const q = raw.trim().toLowerCase();
   if (q.length < 12) return false;
+  if (detectCountryInvestmentOverviewQuery(raw, countryName)) return true;
   if (!BILATERAL_INSTRUMENT.test(q)) return false;
 
   return (
@@ -282,7 +284,7 @@ export function buildCountryBilateralInventoryPromptBlock(
 
   let body = `AUTHORITATIVE INVENTORY — Bilateral / cross-border trade & investment instruments for **${countryName}** in Yamalé (${rows.length} non-repealed titles in the live database):
 
-Use this list as the **complete inventory** for list / coverage questions. Do **not** tell the user to browse /library to discover what is already listed here. Quote operative clauses only from RETRIEVED document bodies below; for metadata (counterparty, year, status) use this block.
+Use this list as the **complete inventory** for list / coverage questions. Do **not** tell the user Yamalé has "only one treaty" or "no library content" when multiple titles appear here. For investment overview questions, also cover the national investment code and any **regional** instruments in the RETRIEVED blocks (e.g. ECOWAS, AfCFTA, SADC) — not only one bilateral treaty. Do **not** tell the user to browse /library to discover what is already listed here. Quote operative clauses only from RETRIEVED document bodies below; for metadata (counterparty, year, status) use this block.
 
 Columns: Counterparty | Title | Category | Year | Status
 
