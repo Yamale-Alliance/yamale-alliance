@@ -44,6 +44,8 @@ import { LawFlagDialog } from "@/components/library/LawFlagDialog";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import {
   PaymentMethodPicker,
+  defaultCheckoutPaymentProvider,
+  isLomiCheckoutAvailable,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
@@ -765,7 +767,9 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
   const [pdfLoading, setPdfLoading] = useState(false);
   const [exportPreviewOpen, setExportPreviewOpen] = useState(false);
   const [printCheckoutOpen, setPrintCheckoutOpen] = useState(false);
-  const [printCheckoutProvider, setPrintCheckoutProvider] = useState<CheckoutPaymentProvider>("pawapay");
+  const [printCheckoutProvider, setPrintCheckoutProvider] = useState<CheckoutPaymentProvider>(
+    defaultCheckoutPaymentProvider()
+  );
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const { isSignedIn, user } = useAppUser();
   const searchParams = useSearchParams();
@@ -797,9 +801,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
   }, [resolvedId]);
   const { confirm, confirmDialog } = useConfirm();
   const { alert: showAlert, alertDialog } = useAlertDialog();
-  const lomiAvailable =
-    process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
-    Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
+  const lomiAvailable = isLomiCheckoutAvailable();
   const lomiComingSoon = false;
 
   const { logoUrl: platformLogoUrl, lawPrintPriceUsdCents } = usePlatformSettings();
