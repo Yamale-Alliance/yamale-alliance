@@ -50,6 +50,13 @@ const isPublicRoute = createRouteMatcher([
 const isAdminPanelPage = createRouteMatcher(["/admin-panel(.*)"]);
 const isAdminApiRoute = createRouteMatcher(["/api/admin(.*)"]);
 
+/** Public catalog GET — skip Clerk session probe in middleware (saves ~1s); route/page call auth() when needed. */
+function isPublicMarketplaceCatalogGet(request: Request): boolean {
+  if (request.method !== "GET") return false;
+  const pathname = new URL(request.url).pathname;
+  return pathname === "/api/marketplace" || pathname === "/api/pricing";
+}
+
 // Basic HTTP Authentication
 function checkBasicAuth(request: Request): boolean {
   const authHeader = request.headers.get("authorization");
@@ -78,8 +85,9 @@ export default clerkMiddleware(async (auth, request) => {
     return NextResponse.redirect(dest, 308);
   }
 
-  const authState = await auth();
-  const { userId } = authState;
+  const skipClerkSessionProbe = isPublicMarketplaceCatalogGet(request);
+  const authState = skipClerkSessionProbe ? null : await auth();
+  const userId = authState?.userId ?? null;
 
   if (isBlockedAiScraperRequest(request)) {
     const forbidden = new NextResponse(
@@ -142,6 +150,10 @@ export default clerkMiddleware(async (auth, request) => {
 
   const needsAdminAccess = isAdminPanelPage(request) || isAdminApiRoute(request);
   if (needsAdminAccess) {
+    if (!authState) {
+      const forbidden = NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return applySecurityHeaders(attachRateLimitHeaders(forbidden, rateLimit));
+    }
     const isAdmin = await userHasAdminAccess(authState);
     if (isAdminPanelPage(request) && !isAdmin) {
       return applySecurityHeaders(
