@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin";
 import { uploadToCloudinary } from "@/lib/cloudinary";
-import { scanFile } from "@/lib/uploads/scanner";
+import { scanAdminImageFile } from "@/lib/uploads/scanner";
 
 /** Normalized MIME types we accept (plus image/jpg → jpeg). */
 const ALLOWED_MIMES = new Set([
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
   const displayName =
     file instanceof File && file.name ? file.name : "photo.jpg";
   const buffer = Buffer.from(await file.arrayBuffer());
-  const scan = await scanFile(buffer, displayName);
+  const scan = await scanAdminImageFile(buffer, displayName);
   if (!scan.clean) {
     console.error("Lawyer image upload rejected by VirusTotal:", {
       filename: displayName,
