@@ -104,6 +104,25 @@ async function pollAnalysis(analysisId: string, key: string, filename: string): 
 }
 
 /**
+ * Fast scan for trusted admin image uploads (Vault covers, lawyer photos).
+ * Uses VT hash lookup only — rejects known malware instantly without uploading
+ * the file or polling for minutes. Unknown hashes are allowed; use `scanFile` for PDFs/ZIPs.
+ */
+export async function scanAdminImageFile(fileBuffer: Buffer, filename: string): Promise<VirusScanResult> {
+  const key = apiKey();
+  if (!key) {
+    console.warn("VIRUSTOTAL_API_KEY not set — skipping malware scan for", filename);
+    return { clean: true, status: "skipped" };
+  }
+
+  const hash = sha256Hex(fileBuffer);
+  const cached = await lookupByHash(hash, key);
+  if (cached) return cached;
+
+  return { clean: true, status: "hash_miss_allowed" };
+}
+
+/**
  * Scan a file buffer with VirusTotal API v3 before storage/OCR processing.
  * When VIRUSTOTAL_API_KEY is unset, returns clean (dev only — set key in production).
  */
