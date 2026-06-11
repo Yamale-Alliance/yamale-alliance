@@ -1,7 +1,7 @@
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { adminHasValidStepUpCookie, readAdminMfaGateState } from "@/lib/admin-mfa-gate";
-import { adminAuthFromClerk } from "@/lib/admin-session";
+import { adminAuthFromClerk, userHasAdminAccess } from "@/lib/admin-session";
 
 export type AdminAuth = { userId: string; role: "admin"; email: string | null };
 
@@ -19,9 +19,8 @@ export async function requireAdmin(options?: RequireAdminOptions): Promise<Admin
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const user = await currentUser();
-  const role = user?.publicMetadata?.role as string | undefined;
-  if (role !== "admin") {
+  const hasAdmin = await userHasAdminAccess(authState);
+  if (!hasAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -38,8 +37,8 @@ export async function requireAdmin(options?: RequireAdminOptions): Promise<Admin
     }
   }
 
-  const u = user as { emailAddresses?: { emailAddress: string }[] } | undefined;
-  const email = u?.emailAddresses?.[0]?.emailAddress ?? null;
+  const claims = authState.sessionClaims as { email?: string } | undefined;
+  const email = typeof claims?.email === "string" ? claims.email : null;
   return { userId, role: "admin", email };
 }
 
