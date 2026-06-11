@@ -217,6 +217,41 @@ function groupMatchesQuery(group: readonly string[], normalizedQuery: string, to
 }
 
 /**
+ * French statutory phrases → English title/body tokens (library rows are often English).
+ * Used when the user asks in French so ILIKE and ranking still hit English instruments.
+ */
+const FRENCH_STATUTE_PHRASE_TO_ENGLISH_TOKENS: readonly (readonly [string, readonly string[]])[] = [
+  ["code du travail", ["labour", "labor", "employment", "act"]],
+  ["droit du travail", ["labour", "labor", "employment"]],
+  ["licenciement", ["dismissal", "termination", "employment", "labour"]],
+  ["convention collective", ["collective", "bargaining", "labour", "employment"]],
+  ["code fiscal", ["tax", "fiscal", "revenue", "act"]],
+  ["impot sur les societes", ["corporate", "tax", "income"]],
+  ["impot sur le revenu", ["income", "tax", "revenue"]],
+  ["code penal", ["penal", "criminal", "offences", "offenses"]],
+  ["code pénal", ["penal", "criminal", "offences", "offenses"]],
+  ["loi sur les societes", ["companies", "corporate", "act"]],
+  ["loi sur les sociétés", ["companies", "corporate", "act"]],
+  ["societes commerciales", ["commercial", "companies", "corporate"]],
+  ["sociétés commerciales", ["commercial", "companies", "corporate"]],
+  ["acte uniforme", ["uniform", "act", "ohada"]],
+  ["actes uniformes", ["uniform", "act", "ohada"]],
+  ["propriete intellectuelle", ["intellectual", "property", "trademark", "patent"]],
+  ["propriété intellectuelle", ["intellectual", "property", "trademark", "patent"]],
+  ["code des investissements", ["investment", "code", "act"]],
+  ["loi sur les investissements", ["investment", "act", "code"]],
+  ["code foncier", ["land", "property", "act"]],
+  ["code minier", ["mining", "minerals", "act"]],
+  ["protection des donnees", ["data", "protection", "privacy"]],
+  ["protection des données", ["data", "protection", "privacy"]],
+  ["marques", ["trademark", "trade", "mark"]],
+  ["loi de finances", ["finance", "budget", "tax", "fiscal"]],
+  ["registre du commerce", ["companies", "registration", "commercial", "act"]],
+  ["creation de societe", ["companies", "incorporation", "registration"]],
+  ["création de société", ["companies", "incorporation", "registration"]],
+];
+
+/**
  * Extra lowercase tokens to merge into library search / ranking when the user
  * writes in French (or English) so equivalent questions retrieve the same acts.
  */
@@ -233,7 +268,24 @@ export function crossLanguageRetrievalTokens(query: string): string[] {
       out.add(t);
     }
   }
-  return Array.from(out).slice(0, 28);
+  for (const token of englishLibraryTokensFromFrenchQuery(query)) {
+    out.add(token);
+  }
+  return Array.from(out).slice(0, 32);
+}
+
+/** English ILIKE/ranking tokens derived from French law phrases in the user's question. */
+export function englishLibraryTokensFromFrenchQuery(query: string): string[] {
+  const normalized = normalizeQueryForLibrarySearch(query).toLowerCase();
+  if (!normalized.trim()) return [];
+  const out = new Set<string>();
+  for (const [phrase, englishTokens] of FRENCH_STATUTE_PHRASE_TO_ENGLISH_TOKENS) {
+    if (!phraseMatchesQuery(phrase, normalized)) continue;
+    for (const token of englishTokens) {
+      out.add(token.toLowerCase());
+    }
+  }
+  return Array.from(out).slice(0, 24);
 }
 
 /** Rough UI language hint for logging / future use (not authoritative). */
