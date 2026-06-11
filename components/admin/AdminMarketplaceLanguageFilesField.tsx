@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { FileText, Loader2, Plus, Upload, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { AdminLawLanguageSelect } from "@/components/admin/AdminLawLanguageSelect";
@@ -59,6 +59,7 @@ export function AdminMarketplaceLanguageFilesField({
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
   const [uploadingFileName, setUploadingFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingUploadIndex = useRef<number | null>(null);
 
@@ -82,9 +83,8 @@ export function AdminMarketplaceLanguageFilesField({
     onChange([...files, { language_code: nextAvailableLanguage(files), removed: false }]);
   };
 
-  const triggerUpload = (index: number) => {
+  const armUploadForRow = (index: number) => {
     pendingUploadIndex.current = index;
-    inputRef.current?.click();
   };
 
   const handleFileSelected = async (file: File) => {
@@ -160,13 +160,15 @@ export function AdminMarketplaceLanguageFilesField({
 
       <input
         ref={inputRef}
+        id={inputId}
         type="file"
         accept={MARKETPLACE_FILE_ACCEPT}
-        className="hidden"
+        className="sr-only"
+        disabled={disabled || uploadingIndex != null}
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) void handleFileSelected(f);
           e.target.value = "";
+          if (f) void handleFileSelected(f);
         }}
       />
 
@@ -205,21 +207,23 @@ export function AdminMarketplaceLanguageFilesField({
                   <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 truncate">{label}</span>
                   {fmt ? <span className="text-muted-foreground">(.{fmt})</span> : null}
-                  <button
-                    type="button"
-                    disabled={disabled || rowUploading}
-                    onClick={() => triggerUpload(index)}
-                    className="ml-auto text-xs font-medium text-primary hover:underline disabled:opacity-50"
+                  <label
+                    htmlFor={inputId}
+                    onMouseDown={() => armUploadForRow(index)}
+                    className={`ml-auto text-xs font-medium text-primary hover:underline ${
+                      disabled || rowUploading ? "pointer-events-none opacity-50" : "cursor-pointer"
+                    }`}
                   >
                     {t("replaceFile")}
-                  </button>
+                  </label>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  disabled={disabled || rowUploading}
-                  onClick={() => triggerUpload(index)}
-                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border px-3 py-3 text-sm text-muted-foreground transition hover:border-primary hover:text-foreground disabled:opacity-50"
+                <label
+                  htmlFor={inputId}
+                  onMouseDown={() => armUploadForRow(index)}
+                  className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border px-3 py-3 text-sm text-muted-foreground transition hover:border-primary hover:text-foreground ${
+                    disabled || rowUploading ? "pointer-events-none opacity-50" : "cursor-pointer"
+                  }`}
                 >
                   {rowUploading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -227,7 +231,7 @@ export function AdminMarketplaceLanguageFilesField({
                     <Upload className="h-4 w-4" />
                   )}
                   {rowUploading ? t("uploading") : t("uploadForLanguage")}
-                </button>
+                </label>
               )}
             </li>
           );
