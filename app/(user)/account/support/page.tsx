@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { Loader2, Plus } from "lucide-react";
+import { AccountBackLink } from "@/components/account/AccountBackLink";
 import { SupportComingSoon } from "@/components/support/SupportComingSoon";
 
 const SUPPORT_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
@@ -16,6 +18,9 @@ type TicketRow = {
 };
 
 export default function AccountSupportListPage() {
+  const t = useTranslations("accountSupport");
+  const tAccount = useTranslations("account");
+  const locale = useLocale();
   const [loading, setLoading] = useState(true);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
 
@@ -34,9 +39,7 @@ export default function AccountSupportListPage() {
   if (!SUPPORT_LIVE) {
     return (
       <div>
-        <Link href="/account" className="text-sm font-medium text-primary hover:underline">
-          ← Account
-        </Link>
+        <AccountBackLink />
         <div className="mt-4">
           <SupportComingSoon />
         </div>
@@ -48,17 +51,16 @@ export default function AccountSupportListPage() {
     <div>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="heading text-2xl font-bold text-foreground">Support</h1>
-          <p className="mt-2 max-w-xl text-muted-foreground">
-            Tell us what went wrong — our team replies by email and you can follow the thread here.
-          </p>
+          <AccountBackLink />
+          <h1 className="heading mt-4 text-2xl font-bold text-foreground">{tAccount("supportTitle")}</h1>
+          <p className="mt-2 max-w-xl text-muted-foreground">{t("listDesc")}</p>
         </div>
         <Link
           href="/account/support/new"
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
         >
           <Plus className="h-4 w-4" />
-          New request
+          {t("newRequest")}
         </Link>
       </div>
 
@@ -68,16 +70,25 @@ export default function AccountSupportListPage() {
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : tickets.length === 0 ? (
-          <p className="px-4 py-12 text-center text-muted-foreground">No tickets yet. Create one if you need help.</p>
+          <p className="px-4 py-12 text-center text-muted-foreground">{t("noTickets")}</p>
         ) : (
           <ul className="divide-y divide-border">
-            {tickets.map((t) => (
-              <li key={t.id}>
-                <Link href={`/account/support/${t.id}`} className="flex flex-col gap-1 px-4 py-4 transition hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between">
-                  <span className="font-medium text-foreground">{t.title}</span>
+            {tickets.map((ticket) => (
+              <li key={ticket.id}>
+                <Link
+                  href={`/account/support/${ticket.id}`}
+                  className="flex flex-col gap-1 px-4 py-4 transition hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <span className="font-medium text-foreground">{ticket.title}</span>
                   <span className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                    <span className="rounded-full bg-muted px-2 py-0.5 capitalize">{t.status.replace("_", " ")}</span>
-                    <span>Updated {new Date(t.last_activity_at).toLocaleString()}</span>
+                    <span className="rounded-full bg-muted px-2 py-0.5 capitalize">
+                      {ticket.status.replace("_", " ")}
+                    </span>
+                    <span>
+                      {t("updated", {
+                        date: new Date(ticket.last_activity_at).toLocaleString(locale),
+                      })}
+                    </span>
                   </span>
                 </Link>
               </li>
