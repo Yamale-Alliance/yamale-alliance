@@ -99,6 +99,28 @@ function isContextualBrainTitle(title: string): boolean {
   return /contextual\s+brain/i.test(title);
 }
 
+function contextualBrainPriority(title: string): number {
+  if (/jurisdictional\s+foundations/i.test(title)) return 0;
+  if (/\bv2\b/i.test(title)) return 1;
+  return 2;
+}
+
+/** Load foundational brain first, then v2, up to the remaining methodology budget. */
+function pickContextualBrainRows(
+  rows: ReadonlyArray<Record<string, unknown>>,
+  maxRows: number
+): Record<string, unknown>[] {
+  if (rows.length === 0 || maxRows <= 0) return [];
+  return [...rows]
+    .filter((row) => isContextualBrainTitle(String(row.title ?? "")))
+    .sort(
+      (a, b) =>
+        contextualBrainPriority(String(a.title ?? "")) -
+        contextualBrainPriority(String(b.title ?? ""))
+    )
+    .slice(0, maxRows);
+}
+
 function isPracticeModuleTitle(title: string): boolean {
   return PRACTICE_MODULE_RE.test(title);
 }
@@ -206,11 +228,17 @@ export async function fetchAiMethodologyContext(
       .eq("category_id", categoryId)
       .ilike("title", "%contextual brain%")
       .neq("status", "Repealed")
-      .limit(1);
+      .limit(12);
 
-    if (Array.isArray(brainRows) && brainRows[0]) {
-      const doc = rowToDoc(brainRows[0] as Record<string, unknown>, maxCharsPerDoc);
-      if (doc) {
+    const pickedBrains = pickContextualBrainRows(
+      Array.isArray(brainRows) ? (brainRows as Record<string, unknown>[]) : [],
+      maxDocs
+    );
+
+    for (const brainRow of pickedBrains) {
+      if (out.length >= maxDocs) break;
+      const doc = rowToDoc(brainRow, maxCharsPerDoc);
+      if (doc && !used.has(doc.id)) {
         out.push(doc);
         used.add(doc.id);
       }
