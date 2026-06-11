@@ -10,7 +10,7 @@ import {
 type Props = {
   code: string | null | undefined;
   className?: string;
-  /** Compact pill for library cards; hero pill on law detail. */
+  /** Compact pill for library and vault cards; hero pill on law detail. */
   variant?: "compact" | "hero";
 };
 
