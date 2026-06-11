@@ -12,5 +12,5 @@ export const metadata = createPageMetadata({
 });
 
 export default function OhadaAiLegalResearchPage() {
-  return <SeoLandingPage content={content} />;
+  return <SeoLandingPage pageId="ohada" />;
 }
