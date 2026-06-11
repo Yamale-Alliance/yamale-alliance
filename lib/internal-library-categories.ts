@@ -1,7 +1,7 @@
 /**
- * Categories whose law bodies are for AI reasoning only — hidden from the public library UI/API.
- * AI chat still retrieves them via `fetchAiMethodologyContext` and the contextual brain block,
- * and lists them in AI research source cards as methodology (not as browsable laws).
+ * Categories whose law bodies are for AI reasoning only — hidden from the public library UI/API,
+ * law detail pages, sitemap, and AI Research source cards. AI chat still retrieves them internally
+ * via `fetchAiMethodologyContext` / `methodologyReferenceBlock` (never shown as user sources).
  */
 import { AI_LEGAL_METHODOLOGY_CATEGORY } from "@/lib/ai-contextual-brain";
 
@@ -13,6 +13,7 @@ const INTERNAL_CATEGORY_NAMES = new Set<string>([AI_LEGAL_METHODOLOGY_CATEGORY])
 const INTERNAL_LIBRARY_TITLE_PATTERNS: RegExp[] = [
   /yamal[eé]\s+ai\s+brain/i,
   /contextual\s+brain/i,
+  /jurisdictional\s+foundations/i,
   /ai\s+brain.*\bconfidential\b/i,
   /\bconfidential\b.*ai\s+brain/i,
   /legal\s+system\s+deep\s+dive/i,
