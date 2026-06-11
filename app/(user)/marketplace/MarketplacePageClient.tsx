@@ -34,7 +34,10 @@ import {
   MarketplaceVaultCheckoutDialog,
   type MarketplaceVaultCheckoutChoice,
 } from "@/components/marketplace/MarketplaceVaultCheckoutDialog";
-import type { CheckoutPaymentProvider } from "@/components/checkout/PaymentMethodPicker";
+import {
+  defaultCheckoutPaymentProvider,
+  type CheckoutPaymentProvider,
+} from "@/components/checkout/PaymentMethodPicker";
 import {
   VAULT_BROWSE_FREE,
   compareVaultSeriesOrder,
@@ -211,7 +214,9 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
   const [selectedTopic, setSelectedTopic] = useState<"all" | TopicId>("all");
   const { isSignedIn } = useAppUser();
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
-  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
+  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>(
+    defaultCheckoutPaymentProvider()
+  );
   const [buyModalProduct, setBuyModalProduct] = useState<Product | null>(null);
   const [buyModalSeriesOffer, setBuyModalSeriesOffer] = useState<MarketplaceSeriesOffer | null>(null);
   const [buyModalPackOffer, setBuyModalPackOffer] = useState<MarketplaceItemPackOffer | null>(null);
