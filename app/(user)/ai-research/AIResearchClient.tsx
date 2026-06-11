@@ -25,7 +25,6 @@ import {
   Send,
   Square,
   Pencil,
-  Lock,
   Plus,
   Search,
   Menu,
@@ -45,7 +44,10 @@ import {
 } from "lucide-react";
 import { canShareByEmail, canDownloadConversations } from "@/lib/plan-limits";
 import { plainTextForAiChatExport } from "@/lib/ai-chat-plain-text";
-import { humanizeDocMarkersInAnswer } from "@/lib/ai-citation-verify";
+import {
+  formatAssistantAnswerForDisplay,
+  type DocTitleBySlot,
+} from "@/lib/ai-citation-verify";
 import { downloadAiResearchChatPdf } from "@/lib/ai-research-chat-pdf";
 import { AIResearchChatExportPreviewDialog } from "@/components/ai-research/AIResearchChatExportPreviewDialog";
 import { SubscriptionCheckoutConfirm } from "@/components/checkout/SubscriptionCheckoutConfirm";
@@ -63,6 +65,7 @@ import {
 } from "@/lib/ai-chat-process";
 import { AiResearchProcessPanel } from "@/components/ai-research/AiResearchProcessPanel";
 import { AiResearchMessageFootnotes } from "@/components/ai-research/AiResearchMessageFootnotes";
+import { AiResearchPlanLanding } from "@/components/ai-research/AiResearchPlanLanding";
 import {
   resolveAiResearchContentGap,
   type AiResearchContentGap,
@@ -136,7 +139,15 @@ type Message = {
   processStartedAt?: number;
   processCompletedAt?: number;
   outputConfidence?: "high" | "medium" | "low";
+  /** Instrument titles by [doc:N] slot — set when the stream opens, before text deltas. */
+  citationLookupCards?: DocTitleBySlot[];
 };
+
+function citationLookupForMessage(msg: Message): DocTitleBySlot[] | undefined {
+  if (msg.citationLookupCards?.length) return msg.citationLookupCards;
+  const fromSourceCards = filterAiResearchSourceCardsForDisplay(msg.sourceCards);
+  return fromSourceCards.length > 0 ? fromSourceCards : undefined;
+}
 
 type NegativeFeedbackModalState = {
   messageId: string;
@@ -773,7 +784,7 @@ export default function AIResearchClient() {
         const text =
           m.role === "assistant"
             ? plainTextForAiChatExport(
-                humanizeDocMarkersInAnswer(m.content, filterAiResearchSourceCardsForDisplay(m.sourceCards))
+                formatAssistantAnswerForDisplay(m.content, citationLookupForMessage(m))
               )
             : m.content;
         return `${label}: ${text}`;
@@ -816,10 +827,14 @@ export default function AIResearchClient() {
       const plain =
         role === "assistant"
           ? plainTextForAiChatExport(
-              humanizeDocMarkersInAnswer(
+              formatAssistantAnswerForDisplay(
                 text,
-                filterAiResearchSourceCardsForDisplay(
-                  currentSession?.messages.find((m) => m.id === messageId)?.sourceCards
+                citationLookupForMessage(
+                  currentSession?.messages.find((m) => m.id === messageId) ?? {
+                    id: messageId,
+                    role: "assistant",
+                    content: text,
+                  }
                 )
               )
             )
@@ -959,6 +974,20 @@ export default function AIResearchClient() {
       const sessionId = sessionIdToUpdate;
 
       const streamHandlers = {
+        onCitationLookup: (cards: DocTitleBySlot[]) => {
+          setSessions((prev) =>
+            prev.map((s) => {
+              if (s.id !== sessionId) return s;
+              return {
+                ...s,
+                messages: s.messages.map((m) =>
+                  m.id === assistantId ? { ...m, citationLookupCards: cards } : m
+                ),
+                updatedAt: Date.now(),
+              };
+            })
+          );
+        },
         onProcess: (payload: AiProcessSsePayload) => {
           setSessions((prev) =>
             prev.map((s) => {
@@ -1293,12 +1322,9 @@ export default function AIResearchClient() {
     );
   }
 
+  // Signed-out visitors see the server-rendered marketing landing below this component.
   if (!user) {
-    return (
-      <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center bg-background px-4">
-        <p className="text-sm text-muted-foreground">{t("signInRequired")}</p>
-      </div>
-    );
+    return null;
   }
 
   const isSubscriptionCheckoutReturn =
@@ -1325,25 +1351,7 @@ export default function AIResearchClient() {
 
   // Allow free tier users if they have pay-as-you-go purchases
   if (tier === "free" && !canQuery && payAsYouGoCount === 0) {
-    return (
-      <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center bg-background px-4 py-12">
-        <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-lg shadow-[rgba(13,27,42,0.06)]">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-primary/25 bg-primary/10">
-            <Lock className="h-7 w-7 text-primary" />
-          </div>
-          <h2 className="heading mt-6 text-xl font-semibold tracking-tight text-card-foreground">{t("title")}</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {t("availableOnPlans")}
-          </p>
-          <Link
-            href="/pricing"
-            className="mt-6 inline-flex items-center gap-2 rounded-[6px] bg-[#0D1B2A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#162436]"
-          >
-            {t("viewPlans")}
-          </Link>
-        </div>
-      </div>
-    );
+    return <AiResearchPlanLanding />;
   }
 
   const planUsageLabel =
@@ -1769,9 +1777,10 @@ export default function AIResearchClient() {
                                 ),
                               }}
                             >
-                              {humanizeDocMarkersInAnswer(
+                              {formatAssistantAnswerForDisplay(
                                 msg.content,
-                                filterAiResearchSourceCardsForDisplay(msg.sourceCards)
+                                citationLookupForMessage(msg),
+                                { streaming: isAssistantTurnInProgress }
                               )}
                             </ReactMarkdown>
                           </div>
