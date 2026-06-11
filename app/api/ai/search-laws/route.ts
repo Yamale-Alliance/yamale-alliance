@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  escapeIlikePattern,
-  lawTextIlikeOr,
-  lawsCountryGlobalOrScopedIds,
-  lawsCountryOrGlobalWithTextSearch,
-} from "@/lib/law-country-scope";
+import { escapeIlikePattern, lawTextIlikeOr } from "@/lib/law-country-scope";
+import { applyCountryScopedTextSearch, resolveCountryLibraryScope } from "@/lib/law-country-scope-query";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { fetchLawIdsForCategory } from "@/lib/law-categories-sync";
-import { fetchLawIdsForCountryScope } from "@/lib/law-country-scope-ids";
 import { chunkLawContent } from "@/lib/embeddings/chunking";
 import { resolveUserCountryNameToDbName } from "@/lib/country-db-name-aliases";
 import { tokenizeLibrarySearchQuery } from "@/lib/ai-multilingual-search";
@@ -113,14 +108,16 @@ export async function POST(request: NextRequest) {
     const searchTerms = query.trim().toLowerCase();
     const escapedTerms = escapeIlikePattern(searchTerms);
     const countryCatalogRequest = Boolean(countryId) && isCountryCatalogLawRequest(query);
-    const scopedCountryLawIds = countryId ? await fetchLawIdsForCountryScope(supabase, countryId) : [];
-    const countryScopeOr = countryId
-      ? lawsCountryGlobalOrScopedIds(countryId, scopedCountryLawIds)
-      : null;
+    const { countryScopeOr } = await resolveCountryLibraryScope(supabase, countryId);
     if (countryCatalogRequest && countryScopeOr) {
       lawsQuery = lawsQuery.or(countryScopeOr);
     } else if (countryId) {
-      lawsQuery = lawsQuery.or(lawsCountryOrGlobalWithTextSearch(countryId, escapedTerms));
+      lawsQuery = applyCountryScopedTextSearch(
+        lawsQuery,
+        countryId,
+        countryScopeOr,
+        [escapedTerms]
+      );
     } else {
       lawsQuery = lawsQuery.or(`or(${lawTextIlikeOr(escapedTerms)})`);
     }
