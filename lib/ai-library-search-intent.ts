@@ -22,6 +22,7 @@ import {
   RE_ENVIRONMENT,
   RE_INVESTMENT_TREATY,
   RE_NATIONAL_INVESTMENT,
+  RE_COUNTRY_INVESTMENT_OVERVIEW,
   RE_INTELLECTUAL_PROPERTY,
   RE_DISPUTE_RESOLUTION,
   RE_LABOR,
@@ -664,7 +665,9 @@ const INTENTS: IntentDef[] = [
   {
     id: "investment_domestic",
     specificity: 86,
-    test: (q) => RE_NATIONAL_INVESTMENT.test(q) && !RE_INVESTMENT_TREATY.test(q),
+    test: (q) =>
+      (RE_NATIONAL_INVESTMENT.test(q) || RE_COUNTRY_INVESTMENT_OVERVIEW.test(q)) &&
+      !RE_INVESTMENT_TREATY.test(q),
     lexiconExtra: [
       "investment",
       "investissement",
