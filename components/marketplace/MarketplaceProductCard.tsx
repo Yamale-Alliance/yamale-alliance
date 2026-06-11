@@ -14,6 +14,8 @@ import { advisoryCourseHref, isMarketplaceCourseItem } from "@/lib/marketplace-c
 import {
   shouldShowLawFirmPackageMarketingDiscount,
 } from "@/lib/law-firm-package-marketing";
+import { VaultCoverImage } from "@/components/marketplace/VaultCoverImage";
+import { VaultLanguageBadges } from "@/components/marketplace/VaultLanguageBadges";
 import styles from "./MarketplaceProductCard.module.css";
 
 const BRAND = {
@@ -54,6 +56,7 @@ export type MarketplaceProductCardProduct = {
   vault_subcategory?: string | null;
   focus_country?: string | null;
   is_course?: boolean;
+  language_codes?: string[];
 };
 
 type MarketplaceProductCardProps = {
@@ -92,6 +95,8 @@ type MarketplaceProductCardProps = {
   onBuySeries?: (e: React.MouseEvent) => void;
   /** From GET /api/marketplace — server reads ADVISORY_WORKSPACE_PREVIEW env. */
   advisoryWorkspacePreview?: boolean;
+  /** Eager-load cover for first visible grid row */
+  coverPriority?: boolean;
 };
 
 function CategoryIcon({ type, className }: { type: string; className?: string }) {
@@ -147,12 +152,16 @@ export function MarketplaceProductCard({
   paidSeriesSummary,
   onBuySeries,
   advisoryWorkspacePreview = false,
+  coverPriority = false,
 }: MarketplaceProductCardProps) {
   const t = useTranslations("advisory");
   const router = useRouter();
   const [coverFailed, setCoverFailed] = useState(false);
 
   const priceLabel = product.price_cents === 0 ? "Free" : formatUsd(product.price_cents);
+  const languageCodes = product.language_codes ?? [];
+  const hasLanguageBadge = languageCodes.length > 0;
+  const isOwnedBadge = Boolean(product.owned || paidSeriesSummary?.fullyOwned);
   const showLawFirmDiscount = shouldShowLawFirmPackageMarketingDiscount(product);
   const isCollectionCard =
     isCollection || Boolean(collectionHref && collectionCount && collectionLabel);
@@ -196,11 +205,7 @@ export function MarketplaceProductCard({
   const tagLabel = isCollectionCard ? "Collection" : seriesLabel || typeBadgeLabel;
   const fileLabel = product.file_format ? `.${product.file_format.replace(/^\./, "")}` : null;
 
-  const metaParts = (
-    showLawFirmDiscount || isCollectionCard
-      ? [topicLabel, typeBadgeLabel, fileLabel]
-      : [topicLabel, typeBadgeLabel, priceLabel, fileLabel]
-  ).filter(Boolean);
+  const metaParts = [topicLabel, typeBadgeLabel, fileLabel].filter(Boolean);
 
   const showCartActions =
     !isCollectionCard && !product.owned && product.price_cents > 0 && !isMarketplaceZip(product);
@@ -254,14 +259,11 @@ export function MarketplaceProductCard({
     >
       <div className={styles.media}>
         {hasCustomCover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <VaultCoverImage
             key={product.image_url!}
             src={product.image_url!}
-            alt=""
             className={styles.cover}
-            loading="lazy"
-            decoding="async"
+            priority={coverPriority}
             onError={() => setCoverFailed(true)}
           />
         ) : showCountryMap ? (
@@ -281,30 +283,14 @@ export function MarketplaceProductCard({
             </span>
           </div>
         ) : null}
-        {product.owned || paidSeriesSummary?.fullyOwned ? (
-          <span className={styles.badgeOwned}>
-            <Check className="h-3 w-3" aria-hidden />
-            Owned
-          </span>
-        ) : paidSeriesSummary && isCollectionCard ? (
-          <span className={`${styles.badgePrice}${hasSeriesBundleDiscount ? ` ${styles.badgePriceDiscount}` : ""}`}>
-            {hasSeriesBundleDiscount && paidSeriesSummary.ownedCount === 0 ? (
-              <>
-                <span className="text-muted-foreground line-through">{formatUsd(seriesListCents, 0)}</span>
-                <span>{formatUsd(seriesChargeCents)}</span>
-                <span className="font-semibold"> series</span>
-              </>
-            ) : (
-              <>{formatUsd(seriesChargeCents)} series</>
-            )}
-          </span>
-        ) : showLawFirmDiscount ? (
-          <span className={`${styles.badgePrice} ${styles.badgePriceDiscount}`}>
-            <LawFirmPackageDiscountPrice saleCents={product.price_cents} size="compact" />
-          </span>
-        ) : (
-          <span className={styles.badgePrice}>{priceLabel}</span>
-        )}
+        {isOwnedBadge ? (
+          <div className={styles.mediaBadges}>
+            <span className={styles.badgeOwned}>
+              <Check className="h-3 w-3" aria-hidden />
+              Owned
+            </span>
+          </div>
+        ) : null}
       </div>
 
       <div className={styles.body}>
@@ -321,16 +307,16 @@ export function MarketplaceProductCard({
 
         <p className={styles.description}>{description}</p>
 
+        {hasLanguageBadge ? (
+          <div className={styles.languageRow}>
+            <VaultLanguageBadges languageCodes={languageCodes} variant="compact" />
+          </div>
+        ) : null}
+
         <div className={styles.footer}>
           <p className={styles.meta}>
             {metaParts.join(" · ")}
-            {showLawFirmDiscount ? (
-              <>
-                {metaParts.length > 0 ? " · " : null}
-                <LawFirmPackageDiscountPrice saleCents={product.price_cents} size="inline" />
-              </>
-            ) : null}
-            {formatHint ? `${metaParts.length > 0 || showLawFirmDiscount ? " · " : ""}${formatHint}` : null}
+            {formatHint ? `${metaParts.length > 0 ? " · " : ""}${formatHint}` : null}
           </p>
           {tagLabel ? <span className={styles.tag}>{tagLabel}</span> : null}
         </div>
@@ -457,7 +443,18 @@ export function MarketplaceProductCard({
               }}
               className={styles.actionBtnPrimary}
             >
-              Buy
+              {showLawFirmDiscount ? (
+                <span className="inline-flex items-center justify-center gap-1.5">
+                  Buy ·{" "}
+                  <LawFirmPackageDiscountPrice
+                    saleCents={product.price_cents}
+                    size="inline"
+                    className="text-inherit [&_span:first-child]:text-white/70 [&_span:nth-child(2)]:text-inherit"
+                  />
+                </span>
+              ) : (
+                `Buy · ${priceLabel}`
+              )}
             </button>
           </div>
         ) : null}
