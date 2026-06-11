@@ -2,6 +2,7 @@
 
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { VaultCoverImage } from "@/components/marketplace/VaultCoverImage";
 import styles from "./VaultTiles.module.css";
 
 export interface VaultTile {
@@ -124,8 +125,12 @@ function VaultTileCard({
       <div className={styles.flipStage}>
         <div className={styles.flipper}>
           <div className={`${styles.face} ${styles.faceFront}`}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className={styles.image} src={tile.image} alt="" />
+            <VaultCoverImage
+              src={tile.image}
+              className={styles.image}
+              variant="tile"
+              priority={tile.active}
+            />
           </div>
 
           <div className={`${styles.face} ${styles.faceBack}`} style={{ background: backGradient }}>
