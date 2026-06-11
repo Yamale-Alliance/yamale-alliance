@@ -2097,7 +2097,7 @@
     "choosePlan": "Escolher um plano",
     "billedAnnually": "${total} faturados anualmente",
     "paymentMethod": "Método de pagamento",
-    "paymentMethodDesc": "Mobile money ou cartão / carteiras via Lomi — escolha antes de pagar.",
+    "paymentMethodDesc": "Cartão / carteiras via Lomi ou mobile money — escolha antes de pagar.",
     "mobileMoneyCountry": "País para mobile money",
     "continueToPayment": "Continuar para pagamento",
     "startingCheckout": "A iniciar pagamento…",
