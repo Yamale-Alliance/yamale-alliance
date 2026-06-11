@@ -8,7 +8,12 @@ import { useLocale, useTranslations } from "next-intl";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { Check, Loader2 } from "lucide-react";
 import { useAlertDialog, useConfirm } from "@/components/ui/use-confirm";
-import { PaymentMethodPicker, type CheckoutPaymentProvider } from "@/components/checkout/PaymentMethodPicker";
+import {
+  PaymentMethodPicker,
+  defaultCheckoutPaymentProvider,
+  isLomiCheckoutAvailable,
+  type CheckoutPaymentProvider,
+} from "@/components/checkout/PaymentMethodPicker";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import type { SubscriptionPublicState } from "@/lib/subscription-state";
@@ -80,13 +85,13 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
+  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>(
+    defaultCheckoutPaymentProvider()
+  );
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
 
   const isAnnual = billing === "annual";
-  const lomiAvailable =
-    process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
-    Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
+  const lomiAvailable = isLomiCheckoutAvailable();
 
   const refreshSubscription = useCallback(async () => {
     const res = await fetch("/api/subscription", { credentials: "include" });
