@@ -111,12 +111,16 @@
   height: 100%;
 }
 
-.badgePrice,
-.badgeOwned {
+.mediaBadges {
   position: absolute;
   top: 8px;
   right: 8px;
   z-index: 1;
+  max-width: calc(100% - 16px);
+}
+
+.badgePrice,
+.badgeOwned {
   border-radius: 999px;
   padding: 3px 10px;
   font-size: 0.75rem;
@@ -126,19 +130,27 @@
 }
 
 .badgePrice {
+  display: inline-flex;
   background: rgba(255, 255, 255, 0.96);
   color: #1c1d1f;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .badgePriceDiscount {
-  display: inline-flex;
-  max-width: calc(100% - 12px);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 2px 4px;
   padding: 4px 8px;
+}
+
+.badgeSeriesPrice {
+  white-space: nowrap;
+}
+
+.badgeSeriesLabel {
+  font-weight: 600;
+  opacity: 0.85;
 }
 
 .badgeOwned {
@@ -147,6 +159,14 @@
   gap: 3px;
   background: rgba(22, 101, 52, 0.95);
   color: #fff;
+}
+
+.languageRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
 }
 
 .body {
