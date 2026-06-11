@@ -15,6 +15,8 @@ import {
 import { useConfirm } from "@/components/ui/use-confirm";
 import {
   PaymentMethodPicker,
+  defaultCheckoutPaymentProvider,
+  isLomiCheckoutAvailable,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
 import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
@@ -38,11 +40,11 @@ export default function ManageTeamPage() {
   const [extraSeats, setExtraSeats] = useState(1);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
-  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>("pawapay");
+  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>(
+    defaultCheckoutPaymentProvider()
+  );
   const [confirming, setConfirming] = useState(false);
-  const lomiAvailable =
-    process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
-    Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
+  const lomiAvailable = isLomiCheckoutAvailable();
   const confirmedRef = useRef<string | null>(null);
   const { confirm, confirmDialog } = useConfirm();
 
