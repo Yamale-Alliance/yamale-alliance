@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Check, CreditCard, Smartphone } from "lucide-react";
 
 export type CheckoutPaymentProvider = "pawapay" | "lomi";
@@ -12,6 +13,8 @@ type Props = {
   /** When true, keep Lomi visible but block selection and show "coming soon" messaging. */
   lomiComingSoon?: boolean;
   onLomiComingSoonClick?: () => void;
+  /** When true, omit the section label (parent already shows a heading). */
+  hideLabel?: boolean;
 };
 
 /**
@@ -24,10 +27,13 @@ export function PaymentMethodPicker({
   lomiAvailable = true,
   lomiComingSoon = false,
   onLomiComingSoonClick,
+  hideLabel = false,
 }: Props) {
+  const t = useTranslations("checkout.paymentMethod");
+
   return (
     <div className="w-full min-w-0 space-y-3">
-      <p className="text-sm font-medium text-foreground">Payment method</p>
+      {!hideLabel ? <p className="text-sm font-medium text-foreground">{t("label")}</p> : null}
       <div className="grid grid-cols-1 gap-3">
         <button
           type="button"
@@ -41,7 +47,7 @@ export function PaymentMethodPicker({
         >
           {value === "pawapay" ? (
             <>
-              <span className="sr-only">Selected payment method</span>
+              <span className="sr-only">{t("selectedSr")}</span>
               <span
                 className="pointer-events-none absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm dark:bg-emerald-500"
                 aria-hidden
@@ -57,10 +63,10 @@ export function PaymentMethodPicker({
             />
             <div className={`min-w-0 flex-1 ${value === "pawapay" ? "pr-10" : ""}`}>
               <span className="block text-lg font-bold tracking-tight text-emerald-700 dark:text-emerald-400">
-                Mobile Money
+                {t("mobileMoney")}
               </span>
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground break-words">
-                Pay with mobile money where supported.
+                {t("mobileMoneyDesc")}
               </p>
             </div>
           </div>
@@ -87,7 +93,7 @@ export function PaymentMethodPicker({
         >
           {!lomiComingSoon && value === "lomi" ? (
             <>
-              <span className="sr-only">Selected payment method</span>
+              <span className="sr-only">{t("selectedSr")}</span>
               <span
                 className="pointer-events-none absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-[#2d6a4f] text-white shadow-sm"
                 aria-hidden
@@ -99,16 +105,12 @@ export function PaymentMethodPicker({
           <div className="flex gap-3">
             <CreditCard className="mt-0.5 h-7 w-7 shrink-0 text-[#2d6a4f]" aria-hidden />
             <div className={`min-w-0 flex-1 ${!lomiComingSoon && value === "lomi" ? "pr-10" : ""}`}>
-              <span className="block text-lg font-bold tracking-tight text-[#2d6a4f]">Card & wallets</span>
+              <span className="block text-lg font-bold tracking-tight text-[#2d6a4f]">{t("cardWallets")}</span>
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground break-words">
-                {lomiComingSoon
-                  ? "Credit card payments coming soon. For now, please try Mobile Money."
-                  : "Pay on Lomi’s hosted checkout (cards and regional wallets)."}
+                {lomiComingSoon ? t("cardWalletsComingSoon") : t("cardWalletsDesc")}
               </p>
               {!lomiAvailable && (
-                <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-400">
-                  Enable hosted checkout with NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED=1 (and LOMI_API_KEY on the server).
-                </p>
+                <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-400">{t("lomiEnableHint")}</p>
               )}
             </div>
           </div>
