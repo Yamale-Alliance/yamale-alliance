@@ -2194,6 +2194,27 @@
     "signInRequired": "Connectez-vous pour utiliser la recherche juridique IA.",
     "availableOnPlans": "Disponible avec les forfaits Basic, Pro et Team.",
     "viewPlans": "Voir les forfaits",
+    "landing": {
+      "eyebrow": "Recherche juridique IA Yamalé",
+      "h1": "Recherche juridique par IA en Afrique — des réponses fondées sur les sources primaires",
+      "heroSubtitleSignedOut": "Connectez-vous pour vous abonner ou acheter une requête IA à l'unité. Les formules incluent des crédits mensuels de recherche juridique par IA fondés sur la bibliothèque juridique africaine Yamalé.",
+      "heroSubtitle": "Abonnez-vous pour des crédits de recherche IA mensuels, ou achetez une requête unique — des réponses fondées sur les textes africains et les instruments régionaux.",
+      "choosePlan": "Choisir un forfait",
+      "browseLibrary": "Parcourir la bibliothèque",
+      "pricingTitle": "Forfaits avec recherche juridique IA",
+      "pricingSubtitle": "Basic, Pro et Team incluent des requêtes IA mensuelles en plus de l'accès complet à la bibliothèque. Changez de forfait à tout moment depuis votre compte.",
+      "monthly": "Mensuel",
+      "annual": "Annuel",
+      "mostPopular": "Le plus populaire",
+      "redirecting": "Redirection…",
+      "paygTitle": "Besoin d'une seule requête ?",
+      "paygBody": "Achetez une requête de recherche IA pour {price} — sans abonnement.",
+      "paygCta": "Acheter une requête ({price})",
+      "paygCheckoutTitle": "Acheter une requête IA",
+      "paygCheckoutDesc": "Choisissez mobile money ou carte, puis continuez vers le paiement.",
+      "paygCheckoutContinue": "Continuer vers le paiement · {price}",
+      "fullPricing": "Comparer tous les forfaits"
+    },
     "researchHistory": "Historique de recherche",
     "closeChatList": "Fermer la liste des conversations",
     "newQuery": "Nouvelle requête",
@@ -2274,6 +2295,32 @@
       "basic": "Choisir Basic",
       "pro": "Choisir Pro",
       "team": "Choisir Team"
+    },
+    "planFeatures": {
+      "basic": [
+        "Navigation illimitée dans les textes intégraux des lois",
+        "<strong>10 requêtes IA/mois</strong>",
+        "Passeport ZLECAf (bientôt disponible)",
+        "Réseau d'avocats (bientôt disponible)",
+        "Parcourir le Yamalé Vault"
+      ],
+      "pro": [
+        "Navigation illimitée dans les textes intégraux des lois",
+        "<strong>50 requêtes IA/mois</strong>",
+        "Passeport ZLECAf (bientôt disponible)",
+        "Réseau d'avocats (bientôt disponible)",
+        "Parcourir le Yamalé Vault",
+        "Télécharger la conversation IA"
+      ],
+      "team": [
+        "<strong>5 sièges utilisateur inclus</strong>",
+        "<strong>Requêtes IA illimitées par utilisateur/mois</strong>",
+        "Passeport ZLECAf (bientôt disponible)",
+        "Réseau d'avocats (bientôt disponible)",
+        "Parcourir le Yamalé Vault",
+        "Télécharger la conversation IA",
+        "<strong>Utilisateur supplémentaire : 6 $/mois chacun</strong>"
+      ]
     }
   },
   "afcfta": {
