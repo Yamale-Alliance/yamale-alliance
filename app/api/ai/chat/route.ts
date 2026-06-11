@@ -2,15 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   escapeIlikePattern,
   lawsOrGlobalForCountry,
-  lawsCountryGlobalOrScopedIds,
   lawTextIlikeOr,
   lawsCountryOrGlobalWithAnyEscapedTerms,
   lawsCountryOrGlobalWithTitleContentTerms,
   lawsCountryOrGlobalWithTextSearch,
-  lawsCountryOrGlobalWithTitleTerms,
   lawsGlobalTextIlikeOrTerms,
 } from "@/lib/law-country-scope";
-import { fetchLawIdsForCountryScope } from "@/lib/law-country-scope-ids";
+import {
+  applyCountryScopedTextSearch,
+  applyCountryScopedTitleSearch,
+  resolveCountryLibraryScope,
+} from "@/lib/law-country-scope-query";
 import {
   dedupeLawsByNormalizedTitle,
   dedupeSourceCardsByTitle,
@@ -1723,8 +1725,10 @@ async function searchLegalLibraryFull(
       countryId = countryRow?.id ?? null;
     }
 
-    const scopedCountryLawIds = countryId ? await fetchLawIdsForCountryScope(supabase, countryId) : [];
-    const countryScopeOr = countryId ? lawsCountryGlobalOrScopedIds(countryId, scopedCountryLawIds) : null;
+    const { scopedLawIds: scopedCountryLawIds, countryScopeOr } = await resolveCountryLibraryScope(
+      supabase,
+      countryId
+    );
 
     const qForTokens = normalizeSearchQueryForAi(query);
     const resolvedIntent = resolveLibrarySearchIntent(qForTokens);
@@ -1873,11 +1877,10 @@ async function searchLegalLibrary(
       detectCountryBilateralInventoryQuery(query, searchCountry);
     const rawTokens = extractSearchTokens(qForTokens);
     const countryCatalogRequest = Boolean(countryId) && isCountryCatalogLawRequest(query);
-    const scopedCountryLawIds =
-      countryId ? await fetchLawIdsForCountryScope(supabase, countryId) : [];
-    const countryScopeOr = countryId
-      ? lawsCountryGlobalOrScopedIds(countryId, scopedCountryLawIds)
-      : null;
+    const { scopedLawIds: scopedCountryLawIds, countryScopeOr } = await resolveCountryLibraryScope(
+      supabase,
+      countryId
+    );
     perfStep(perf, "country_scope_ids", { scopedIds: scopedCountryLawIds.length });
 
     // ── Metadata-aware retrieval (title-first) ────────────────────────────────
@@ -2088,7 +2091,7 @@ async function searchLegalLibrary(
           internalCategoryId
         );
         if (countryId) {
-          sq = sq.or(lawsCountryOrGlobalWithTitleTerms(countryId, specificTokens));
+          sq = applyCountryScopedTitleSearch(sq, countryId, countryScopeOr, specificTokens);
         } else {
           for (const t of specificTokens) {
             sq = sq.ilike("title", `%${escapeIlikePattern(t)}%`);
@@ -2153,7 +2156,12 @@ async function searchLegalLibrary(
           .map((t) => `title.ilike.%${escapeIlikePattern(t)}%`)
           .join(",");
         if (countryId && specificTokens.length > 0) {
-          lawsQuery = lawsQuery.or(lawsCountryOrGlobalWithTitleTerms(countryId, specificTokens));
+          lawsQuery = applyCountryScopedTitleSearch(
+            lawsQuery,
+            countryId,
+            countryScopeOr,
+            specificTokens
+          );
         } else if (countryId && countryScopeOr) {
           lawsQuery = lawsQuery.or(countryScopeOr);
         } else {
@@ -2164,26 +2172,33 @@ async function searchLegalLibrary(
         if (countryCatalogRequest && countryScopeOr) {
           lawsQuery = lawsQuery.or(countryScopeOr);
         } else if (countryId) {
-          const orFilter =
-            primaryTokenEscList.length > 0
-              ? lawsCountryOrGlobalWithTitleContentTerms(countryId, primaryTokenEscList)
-              : "";
-          if (orFilter) {
+          if (primaryTokenEscList.length > 0) {
             if (process.env.AI_PERF_LOG?.trim() !== "0") {
               console.log(
-                "[DEBUG] primary orFilter",
+                "[DEBUG] primary scoped text search",
                 JSON.stringify({
                   countryId,
                   countryCatalogRequest,
                   primaryTokens: primaryTokenEscList,
                   primaryTitleTerms,
                   searchWords: postgrestSearchWords.slice(0, 6),
-                  orFilterLen: orFilter.length,
-                  orFilterPreview: orFilter.slice(0, 280),
+                  scopedIds: scopedCountryLawIds.length,
                 })
               );
             }
-            lawsQuery = lawsQuery.or(orFilter);
+            lawsQuery = applyCountryScopedTextSearch(
+              lawsQuery,
+              countryId,
+              countryScopeOr,
+              primaryTokenEscList
+            );
+          } else if (query.trim() && postgrestSearchWords.length > 0) {
+            lawsQuery = applyCountryScopedTitleSearch(
+              lawsQuery,
+              countryId,
+              countryScopeOr,
+              postgrestSearchWords.slice(0, 6)
+            );
           } else if (query.trim() && countryScopeOr) {
             lawsQuery = lawsQuery.or(countryScopeOr);
           }
