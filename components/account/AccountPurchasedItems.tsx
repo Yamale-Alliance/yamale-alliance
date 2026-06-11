@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Package, Loader2, Eye, BookOpen, GraduationCap, FileText, Check, ExternalLink } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
-import { useTranslations } from "next-intl";
 import { advisoryCourseHref, isMarketplaceCourseItem } from "@/lib/marketplace-course";
 import { marketplaceItemDetailHref } from "@/lib/marketplace-public-url";
 import { displayVaultProductTitle } from "@/lib/marketplace-display";
@@ -44,8 +44,8 @@ function CategoryIcon({ type, className }: { type: string; className?: string })
   }
 }
 
-function formatPurchaseDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString("en-US", {
+function formatPurchaseDate(dateString: string, locale: string) {
+  return new Date(dateString).toLocaleDateString(locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -63,7 +63,10 @@ export function AccountPurchasedItems({
   afterSignInReturnPath = "/account/purchases",
   hideVaultFooterLink = false,
 }: AccountPurchasedItemsProps) {
-  const t = useTranslations("advisory");
+  const t = useTranslations("accountPurchases");
+  const tAdvisory = useTranslations("advisory");
+  const tCommon = useTranslations("common");
+  const locale = useLocale();
   const { isSignedIn, isLoaded } = useAppUser();
   const [items, setItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +76,7 @@ export function AccountPurchasedItems({
     if (!isLoaded) return;
 
     if (!isSignedIn) {
-      setError("Sign in to view your purchased items");
+      setError(t("signInRequired"));
       setLoading(false);
       return;
     }
@@ -84,8 +87,9 @@ export function AccountPurchasedItems({
         if (data.error) setError(data.error);
         else setItems(Array.isArray(data.items) ? data.items : []);
       })
-      .catch(() => setError("Failed to load purchased items"))
+      .catch(() => setError(t("loadFailed")))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSignedIn, isLoaded]);
 
   if (!isLoaded) {
@@ -99,12 +103,12 @@ export function AccountPurchasedItems({
   if (!isSignedIn) {
     return (
       <div className="rounded-xl border border-border bg-card p-6 text-center">
-        <p className="text-sm text-muted-foreground">Sign in to view your purchased items.</p>
+        <p className="text-sm text-muted-foreground">{t("signInRequired")}</p>
         <Link
           href={`/sign-in?redirect_url=${encodeURIComponent(afterSignInReturnPath)}`}
           className="mt-4 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
         >
-          Sign in
+          {tCommon("signIn")}
         </Link>
       </div>
     );
@@ -132,15 +136,13 @@ export function AccountPurchasedItems({
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
           <Package className="h-7 w-7 text-primary" aria-hidden />
         </div>
-        <h2 className="heading text-lg font-semibold text-foreground">No purchased items yet</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          When you buy from The Yamalé Vault, your resources will show up here.
-        </p>
+        <h2 className="heading text-lg font-semibold text-foreground">{t("emptyTitle")}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">{t("emptyDesc")}</p>
         <Link
           href="/marketplace"
           className="mt-5 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
         >
-          Browse The Yamalé Vault
+          {t("browseVault")}
         </Link>
       </div>
     );
@@ -149,8 +151,9 @@ export function AccountPurchasedItems({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        <span className="font-medium text-foreground">{items.length}</span>{" "}
-        {items.length === 1 ? "item" : "items"} in your library
+        {items.length === 1
+          ? t("oneItemInLibrary")
+          : t("itemsInLibrary", { count: items.length })}
       </p>
 
       <ul className="grid gap-3 sm:grid-cols-1 lg:grid-cols-2">
@@ -181,24 +184,33 @@ export function AccountPurchasedItems({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="vault-product-title line-clamp-2 font-sans text-sm font-semibold leading-snug text-foreground" title={product.title}>
+                    <h3
+                      className="vault-product-title line-clamp-2 font-sans text-sm font-semibold leading-snug text-foreground"
+                      title={product.title}
+                    >
                       {displayVaultProductTitle(product.title)}
                     </h3>
                     <span className="inline-flex items-center gap-1 rounded-full border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-green-700 dark:text-green-300">
                       <Check className="h-3 w-3" aria-hidden />
-                      Owned
+                      {t("owned")}
                     </span>
                     <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium capitalize text-muted-foreground">
                       {product.type}
                     </span>
                   </div>
                   {product.author ? (
-                    <p className="mt-1 text-xs text-muted-foreground">by {product.author}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {t("byAuthor", { author: product.author })}
+                    </p>
                   ) : null}
                   {product.description ? (
                     <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{product.description}</p>
                   ) : null}
-                  <p className="mt-2 text-xs text-muted-foreground">Purchased {formatPurchaseDate(product.purchased_at)}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {t("purchasedOn", {
+                      date: formatPurchaseDate(product.purchased_at, locale),
+                    })}
+                  </p>
                 </div>
               </Link>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/80 px-4 pb-3 pt-2">
@@ -208,7 +220,7 @@ export function AccountPurchasedItems({
                     className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:opacity-90"
                   >
                     <GraduationCap className="h-3.5 w-3.5" aria-hidden />
-                    {t("viewCourse")}
+                    {tAdvisory("viewCourse")}
                   </Link>
                 ) : null}
                 {product.has_file ? (
@@ -218,7 +230,7 @@ export function AccountPurchasedItems({
                       className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
                     >
                       <Eye className="h-3.5 w-3.5" aria-hidden />
-                      View & download
+                      {t("viewDownload")}
                     </Link>
                     {product.language_codes && product.language_codes.length > 0 ? (
                       <VaultLanguageBadges languageCodes={product.language_codes} />
@@ -230,7 +242,7 @@ export function AccountPurchasedItems({
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
                   >
                     <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-                    Open details
+                    {t("openDetails")}
                   </Link>
                 )}
               </div>
@@ -242,7 +254,7 @@ export function AccountPurchasedItems({
       {!hideVaultFooterLink && (
         <p className="text-center text-xs text-muted-foreground">
           <Link href="/marketplace" className="font-medium text-primary underline-offset-4 hover:underline">
-            Back to The Yamalé Vault
+            {t("backToVault")}
           </Link>
         </p>
       )}
