@@ -2097,7 +2097,7 @@
     "choosePlan": "Choisir un forfait",
     "billedAnnually": "{total} $ facturés annuellement",
     "paymentMethod": "Mode de paiement",
-    "paymentMethodDesc": "Mobile money ou carte / portefeuilles via Lomi — choisissez avant de payer.",
+    "paymentMethodDesc": "Carte / portefeuilles via Lomi ou mobile money — choisissez avant de payer.",
     "mobileMoneyCountry": "Pays pour mobile money",
     "continueToPayment": "Continuer vers le paiement",
     "startingCheckout": "Démarrage du paiement…",
