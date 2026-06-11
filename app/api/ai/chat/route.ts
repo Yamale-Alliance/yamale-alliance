@@ -83,6 +83,10 @@ import {
   titleLikelyCountryBilateralTreaty,
 } from "@/lib/ai-country-bilateral-inventory";
 import {
+  enrichResolvedIntentForCountryInvestment,
+  mergeSupranationalFrameworksForCountryInvestment,
+} from "@/lib/ai-country-investment-retrieval";
+import {
   isBilateralOrInvestmentTreatyTitle,
   isCoreLaborStatuteTitle,
   isOffTopicInvestmentTreatyForNationalLawQuery,
@@ -187,9 +191,11 @@ import {
   prependMethodologyContext,
 } from "@/lib/ai-methodology-retrieval";
 import {
+  buildCitationLookupCardsFromLegalContext,
   citedSlotsAsUsedFlags,
   extractCitedDocIndices,
   mergeUsedFlagsFromTitleMentions,
+  stripDocMarkersFromAnswer,
 } from "@/lib/ai-citation-verify";
 import { insertAiQueryLog } from "@/lib/ai-query-log";
 import { estimateClaudeCostUsd } from "@/lib/ai-query-cost";
@@ -623,6 +629,7 @@ function extractQueryHints(query: string): { country?: string; category?: string
     "sierra leone": "Sierra Leone",
     "togo": "Togo",
     "liberia": "Liberia",
+    "guinea": "Guinea",
     // After "nigeria" so queries mentioning Nigeria do not match the "niger" substring first
     "niger": "Niger",
     "cape verde": "Cabo Verde",
@@ -1852,7 +1859,8 @@ async function searchLegalLibrary(
     const specificLawHint = extractSpecificLawHint(query);
     const qForTokens = normalizeSearchQueryForAi(query);
     const preferredDocumentLanguage = resolvePreferredDocumentLanguage(query);
-    const resolvedIntent = resolveLibrarySearchIntent(qForTokens);
+    let resolvedIntent = resolveLibrarySearchIntent(qForTokens);
+    resolvedIntent = enrichResolvedIntentForCountryInvestment(resolvedIntent, query, searchCountry);
     perfStep(perf, "intent", {
       primaryId: resolvedIntent.primaryId,
       matched: resolvedIntent.matchedIds,
@@ -1893,7 +1901,12 @@ async function searchLegalLibrary(
     //       counterparties (Netherlands, Germany, Japan, Turkey, …) still match.
     // These rows are merged into the candidate set and given a strong ranking
     // boost so they outrank loose keyword matches like Berne / unrelated treaties.
-    const supranationalMatches = detectSupranationalFrameworks(query);
+    const supranationalMatches = mergeSupranationalFrameworksForCountryInvestment(
+      query,
+      searchCountry,
+      detectSupranationalFrameworks(query),
+      SUPRANATIONAL_FRAMEWORKS
+    );
     const countriesInQuery = await findAllCountriesInQuery(query);
     const treatyHyphenatedHints = extractHyphenatedProperNounPairs(query);
     const bilateralTitleTokens = Array.from(
@@ -2306,6 +2319,7 @@ async function searchLegalLibrary(
     const intentHydrationIds = [
       "registration",
       "investment_domestic",
+      "investment_treaty",
       "intellectual_property",
       "dispute_resolution",
       "tax",
@@ -3267,10 +3281,7 @@ async function finalizeAssistantTurn(opts: {
   const outputValidation = validateResponse(assistantTextRaw, retrievedLawIds);
   let outputConfidence: OutputValidationConfidence = outputValidation.confidence;
 
-  let content = assistantTextRaw
-    .replace(/\s*\[(?=[^\]]*\bdoc:\s*\d+)[^\]]+\]/gi, "")
-    .replace(/[ \t]{2,}/g, " ")
-    .trim();
+  let content = stripDocMarkersFromAnswer(assistantTextRaw).replace(/[ \t]{2,}/g, " ").trim();
 
   if (!outputValidation.valid) {
     content = OUTPUT_VALIDATION_USER_MESSAGE;
@@ -3636,7 +3647,12 @@ export async function POST(request: NextRequest) {
     const countryLawCountIntent = isCountryLawCountRequest(userQuery);
     const globalLawCountIntent = isGlobalLawCountRequest(userQuery);
     const allCountriesBreakdownIntent = isAllCountriesBreakdownRequest(userQuery);
-    const supranationalFrameworksInQuery = detectSupranationalFrameworks(userQuery);
+    const supranationalFrameworksInQuery = mergeSupranationalFrameworksForCountryInvestment(
+      userQuery,
+      effectiveHints.country,
+      detectSupranationalFrameworks(userQuery),
+      SUPRANATIONAL_FRAMEWORKS
+    );
     const allCountriesInUserQuery = await findAllCountriesInQuery(userQuery);
     const treatyHyphenatedHintsInUserQuery = extractHyphenatedProperNounPairs(userQuery);
     const bilateralTitleTokensInUserQuery = Array.from(
@@ -4266,6 +4282,11 @@ export async function POST(request: NextRequest) {
               step: "web",
               message: "Checked supplemental web context",
               status: "done",
+            });
+          }
+          if (legalContext.length > 0) {
+            push("sources", {
+              citationCards: buildCitationLookupCardsFromLegalContext(legalContext),
             });
           }
           pushProcess({ step: "generating", message: "Drafting your answer…", status: "active" });
