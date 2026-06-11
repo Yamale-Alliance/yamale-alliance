@@ -31,6 +31,11 @@ import {
   isBuiltinCatalogOnlySeries,
   isBuiltinVaultSeriesId,
 } from "@/lib/marketplace-vault-categories-fallback";
+import {
+  prefetchMarketplaceCoverUploadSignature,
+  uploadMarketplaceCoverToCloudinaryDirect,
+} from "@/lib/marketplace-cover-cloudinary-client";
+import { prepareMarketplaceCoverFile } from "@/lib/marketplace-cover-client-prepare";
 import { isValidMarketplaceCoverUrl } from "@/lib/marketplace-cover-url";
 import {
   buildItemPackageOffersFromForm,
@@ -262,24 +267,15 @@ export default function AdminMarketplacePage() {
     setImageUploading(true);
     setError(null);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch(`${origin}/api/admin/marketplace/upload-image`, {
-        method: "POST",
-        credentials: "include",
-        body: form,
-      });
-      const data = await parseJsonSafe(res);
-      if (!res.ok) {
-        setError(data.error ?? tp("errors.imageUploadFailed"));
-        return;
+      let uploadFile = file;
+      try {
+        uploadFile = await prepareMarketplaceCoverFile(file);
+      } catch {
+        uploadFile = file;
       }
-      if (data.url) {
-        setPendingImageUrl(data.url);
-        setCoverImageCleared(false);
-      } else {
-        setError(tp("errors.uploadedNoImageUrl"));
-      }
+      const url = await uploadMarketplaceCoverToCloudinaryDirect(origin, uploadFile);
+      setPendingImageUrl(url);
+      setCoverImageCleared(false);
     } catch {
       setError(tp("errors.imageUploadNetwork"));
     }
@@ -330,6 +326,13 @@ export default function AdminMarketplacePage() {
     fetchPurchases();
     refreshVaultSeriesRegistry();
   }, [origin]);
+
+  useEffect(() => {
+    if (!origin) return;
+    if (adding || editing || seriesEditorId) {
+      prefetchMarketplaceCoverUploadSignature(origin);
+    }
+  }, [origin, adding, editing, seriesEditorId]);
 
   useEffect(() => {
     if (editing) setEditLandingHtml(editing.landing_page_html ?? "");
