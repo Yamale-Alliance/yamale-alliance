@@ -33,7 +33,7 @@ import {
 } from "@/lib/marketplace-payment-return";
 import { shouldUseVaultPackagePage } from "@/lib/marketplace-zip-package";
 import { marketplaceItemDetailHref } from "@/lib/marketplace-public-url";
-import { displayVaultProductTitle } from "@/lib/marketplace-display";
+import { displayVaultProductTitle, displayVaultPublisher } from "@/lib/marketplace-display";
 import { isPaidVaultSubcategory, type VaultSubcategoryId } from "@/lib/marketplace-vault-categories";
 import type { MarketplaceSeriesOffer } from "@/lib/marketplace-series-offers";
 import type { MarketplaceItemPackOffer } from "@/lib/marketplace-item-packs";
@@ -612,7 +612,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
                   {displayVaultProductTitle(item.title)}
                 </h1>
                 {item.author && (
-                  <p className="mt-1 text-muted-foreground">by {item.author}</p>
+                  <p className="mt-1 text-muted-foreground">by {displayVaultPublisher(item.author)}</p>
                 )}
                 {reviews.totalReviews > 0 && reviews.averageRating !== null && (
                   <div className="mt-2 flex items-center gap-1">
