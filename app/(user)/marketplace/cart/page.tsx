@@ -16,6 +16,7 @@ import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { useAlertDialog } from "@/components/ui/use-confirm";
 import { notifyMarketplaceCartUpdated } from "@/lib/marketplace-cart-events";
+import { displayVaultPublisher } from "@/lib/marketplace-display";
 
 const BRAND = {
   dark: "#221913",
@@ -226,7 +227,9 @@ export default function CartPage() {
                               {item.item.title}
                             </h3>
                             {item.item.author && (
-                              <p className="mt-0.5 text-xs text-muted-foreground">by {item.item.author}</p>
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                by {displayVaultPublisher(item.item.author)}
+                              </p>
                             )}
                             <div className="mt-2 flex items-center justify-between">
                               <span className="text-sm font-semibold text-foreground">
