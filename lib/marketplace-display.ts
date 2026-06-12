@@ -33,6 +33,15 @@ export function isMostlyUppercaseTitle(title: string): boolean {
  * Readable vault title for cards and headers: normalizes whitespace and
  * softens SHOUTING_CASE without changing stored product data.
  */
+const DEFAULT_VAULT_PUBLISHER = "Yamalé";
+
+/** Normalize stored author for vault cards (default publisher is Yamalé, not Yamalé Alliance). */
+export function displayVaultPublisher(author?: string | null): string {
+  const trimmed = author?.trim();
+  if (!trimmed || /^yamal[eé]\s+alliance$/i.test(trimmed)) return DEFAULT_VAULT_PUBLISHER;
+  return trimmed;
+}
+
 export function displayVaultProductTitle(title: string): string {
   const normalized = title.trim().replace(/\s+/g, " ");
   if (!normalized || !isMostlyUppercaseTitle(normalized)) return normalized;
