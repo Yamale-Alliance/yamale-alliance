@@ -9,7 +9,7 @@ import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
 import { advisoryCourseHref, isMarketplaceCourseItem } from "@/lib/marketplace-course";
 import { marketplaceItemDetailHref } from "@/lib/marketplace-public-url";
-import { displayVaultProductTitle } from "@/lib/marketplace-display";
+import { displayVaultProductTitle, displayVaultPublisher } from "@/lib/marketplace-display";
 import { VaultLanguageBadges } from "@/components/marketplace/VaultLanguageBadges";
 
 type Product = {
@@ -200,7 +200,7 @@ export function AccountPurchasedItems({
                   </div>
                   {product.author ? (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {t("byAuthor", { author: product.author })}
+                      {t("byAuthor", { author: displayVaultPublisher(product.author) })}
                     </p>
                   ) : null}
                   {product.description ? (
