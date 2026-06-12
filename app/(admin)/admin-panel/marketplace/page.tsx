@@ -15,6 +15,10 @@ import { AdminVaultSubcategorySelect } from "@/components/admin/AdminVaultSubcat
 import { AdminVaultFocusCountrySelect } from "@/components/admin/AdminVaultFocusCountrySelect";
 import { AdminVaultSeriesEditor } from "@/components/admin/AdminVaultSeriesEditor";
 import {
+  siteModalBottomSheetOverlayClass,
+  siteModalPanelMaxHeightClass,
+} from "@/components/layout/prototype-nav-styles";
+import {
   buildLanguageFilesPayload,
   defaultMarketplaceLanguageFileDrafts,
   draftsFromMarketplaceItemFiles,
@@ -1134,12 +1138,12 @@ export default function AdminMarketplacePage() {
       </div>
 
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
+        <div className={siteModalBottomSheetOverlayClass}>
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="edit-vault-item-title"
-            className="flex max-h-[min(92vh,100dvh)] w-full max-w-3xl flex-col rounded-t-xl border border-border bg-card shadow-xl sm:max-h-[90vh] sm:rounded-xl"
+            className={`flex w-full max-w-3xl flex-col rounded-t-xl border border-border bg-card shadow-xl sm:rounded-xl ${siteModalPanelMaxHeightClass}`}
           >
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-6">
               <h2 id="edit-vault-item-title" className="text-lg font-medium">
