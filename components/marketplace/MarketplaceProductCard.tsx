@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { BookOpen, Check, Eye, GraduationCap, LayoutTemplate, Loader2 } from "lucide-react";
 import { VaultCountryMapIcon } from "@/components/marketplace/VaultCountryMapIcon";
 import { LawFirmPackageDiscountPrice } from "@/components/marketplace/LawFirmPackageDiscountPrice";
-import { displayVaultProductTitle } from "@/lib/marketplace-display";
+import { displayVaultProductTitle, displayVaultPublisher } from "@/lib/marketplace-display";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
 import { marketplaceItemDetailHref } from "@/lib/marketplace-public-url";
 import { canUseLawFirmAdvisoryWorkspace } from "@/lib/law-firm-advisory-preview";
@@ -180,7 +180,7 @@ export function MarketplaceProductCard({
   const displayTitle = isCollectionCard ? (collectionLabel as string) : displayVaultProductTitle(product.title);
   const publisher = isCollectionCard
     ? `${collectionCount} resources`
-    : product.author?.trim() || "Yamalé Alliance";
+    : displayVaultPublisher(product.author);
   const description = isCollectionCard
     ? paidSeriesSummary
       ? hasSeriesBundleDiscount
