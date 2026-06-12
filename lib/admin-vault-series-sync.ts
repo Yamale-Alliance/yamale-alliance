@@ -264,7 +264,7 @@ export async function saveVaultSeriesBundle(
     const row = {
       type: itemType,
       title,
-      author: item.author?.trim() || "Yamalé Alliance",
+      author: item.author?.trim() || "Yamalé",
       description: item.description?.trim() || null,
       price_cents: price,
       currency: "usd",
