@@ -38,14 +38,24 @@ Run migration `005_rag_embeddings.sql` to enable vector search:
 CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
-**Note**: Currently using full-text search. Vector embeddings can be added later for semantic similarity.
+**Note**: Production chat uses **hybrid retrieval** when embeddings are configured (see Vector embeddings below). Lexical search always runs; vector pass merges in automatically when `law_embeddings` is populated.
 
 ### Current Implementation
 
-- Uses PostgreSQL full-text search (`GIN` index on `laws` table)
+- **Orchestrated retrieval** (`lib/ai-rag-orchestrator.ts`): one billed user query runs up to **3 internal passes** — primary lexical, optional vector hybrid, expanded lexical/OHADA instrument fetch. Query count increments once.
+- Uses PostgreSQL full-text / ILIKE search plus intent ranking (`lib/ai-library-search-intent.ts`)
 - Filters by country and category when detected in query
 - **Chunking strategy**: Law content is split into semantic chunks before being sent to the AI (see below)
 - Passes context to Claude AI
+
+### Vector embeddings (hybrid RAG)
+
+1. Run `docs/sql/law-embeddings-pgvector.sql` in Supabase (pgvector + `law_embeddings` + `match_law_embedding_chunks` RPC).
+2. Set `VOYAGE_API_KEY` (recommended: `voyage-law-2`, 1024 dims) in `.env`.
+3. Backfill: `npm run embeddings:backfill` (or `node --env-file=.env scripts/backfill-law-embeddings.mjs`).
+4. Optional: `AI_EMBEDDINGS_ENABLED=1` (default on when a key exists; set `0` to disable vector pass).
+
+Code: `lib/embeddings/embedding-client.ts`, `lib/embeddings/vector-search.ts`. Vector search is skipped gracefully when the index is empty or keys are missing — lexical-only RAG still works.
 
 ### Chunking Strategy
 
