@@ -24,6 +24,7 @@ function buildBasicPrompt(p: BuildAiResearchSystemPromptParams): string {
   const countryScope =
     p.effectiveCountry?.trim() && !p.platformGuideMode ? COUNTRY_SCOPE_RULE : "";
   const methodology = (p.methodologyReferenceBlock ?? "").trim();
+  const userMemory = (p.userResearchMemoryBlock ?? "").trim();
   const parts = [
     "You are Yamalé's African legal research assistant. Answer using only the legal excerpts provided below.",
     "Write in the user's language. Do not invent statutes. If the excerpts are silent, say so clearly.",
@@ -31,6 +32,7 @@ function buildBasicPrompt(p: BuildAiResearchSystemPromptParams): string {
     NATIONAL_TOPIC_SOURCE_RULE,
     "When citing, use inline markers [doc:N] matching the excerpt index.",
     methodology || null,
+    userMemory || null,
     docs.length > 0 ? buildDocumentExcerptBlock(docs) : "No legal excerpts were provided for this turn.",
   ];
   if (p.platformGuideMode) {
@@ -47,6 +49,7 @@ function buildProPrompt(p: BuildAiResearchSystemPromptParams): string {
     ? `${COUNTRY_SCOPE_RULE} Focus on ${p.effectiveCountry} for national-law questions.`
     : "";
   const methodology = (p.methodologyReferenceBlock ?? "").trim();
+  const userMemory = (p.userResearchMemoryBlock ?? "").trim();
   const parts = [
     "You are Yamalé's African legal research assistant. Answer using only the legal excerpts provided below.",
     "Cover AfCFTA, OHADA, and other regional instruments when excerpts support them. Do not use outside legal knowledge.",
@@ -54,6 +57,7 @@ function buildProPrompt(p: BuildAiResearchSystemPromptParams): string {
     NATIONAL_TOPIC_SOURCE_RULE,
     "Cite with [doc:N] markers. Quote key provisions briefly.",
     methodology || null,
+    userMemory || null,
     docs.length > 0 ? buildDocumentExcerptBlock(docs) : "No legal excerpts were provided for this turn.",
   ];
   if (p.webSearchSupplementBlock?.trim()) {
@@ -71,6 +75,7 @@ function buildTeamPrompt(p: BuildAiResearchSystemPromptParams): string {
   const countryScope =
     p.effectiveCountry?.trim() && !p.platformGuideMode ? COUNTRY_SCOPE_RULE : "";
   const methodology = (p.methodologyReferenceBlock ?? "").trim();
+  const userMemory = (p.userResearchMemoryBlock ?? "").trim();
   const parts = [
     "You are Yamalé's senior African legal research assistant. Answer using only the legal excerpts provided below.",
     "Provide structured, practitioner-grade analysis with short quotes and [doc:N] citations.",
@@ -80,6 +85,7 @@ function buildTeamPrompt(p: BuildAiResearchSystemPromptParams): string {
       ? `Frameworks in scope: ${p.supranationalFrameworksInQuery.map((f) => f.canonicalName).join(", ")}.`
       : "",
     methodology || null,
+    userMemory || null,
     docs.length > 0 ? buildDocumentExcerptBlock(docs) : "No legal excerpts were provided for this turn.",
   ];
   if (catalog) {
