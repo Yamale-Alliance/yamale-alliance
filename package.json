@@ -14,6 +14,7 @@
     "scan-law-copyright-glyphs": "node --env-file=.env scripts/scan-law-copyright-glyphs.mjs",
     "ingest:ai-context": "node --env-file=.env scripts/ingest-ai-context.mjs",
     "ingest:ai-context:dry-run": "node --env-file=.env scripts/ingest-ai-context.mjs --dry-run",
+    "embeddings:backfill": "node --env-file=.env scripts/backfill-law-embeddings.mjs",
     "eval:golden": "node --env-file=.env scripts/run-ai-golden-batch.mjs",
     "eval:golden:dry-run": "node --env-file=.env scripts/run-ai-golden-batch.mjs --dry-run",
     "eval:parse-report": "node scripts/parse-eval-report-pdf.mjs",
