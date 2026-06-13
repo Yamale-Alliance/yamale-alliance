@@ -85,6 +85,155 @@ export function normalizeOhadaUniformActKey(title: string): string {
     .slice(0, 72);
 }
 
+function normalizeOhadaMatchText(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Title tokens that appear in almost every OHADA uniform act — too weak for OR search. */
+const OHADA_TITLE_BOILERPLATE = new Set([
+  "ohada",
+  "acte",
+  "uniforme",
+  "uniform",
+  "act",
+  "acts",
+  "actes",
+  "portant",
+  "relatif",
+  "relating",
+  "on",
+  "the",
+  "au",
+  "a",
+  "des",
+  "de",
+  "du",
+  "le",
+  "la",
+  "les",
+  "et",
+  "and",
+  "or",
+  "sur",
+  "droit",
+  "law",
+]);
+
+/** Bilingual title phrase groups for strict library search (each inner array is OR; outer arrays are AND). */
+const OHADA_BUCKET_TITLE_FILTERS: Record<string, readonly (readonly string[])[]> = {
+  commercial_companies: [
+    ["sociétés commerciales", "societes commerciales", "commercial companies"],
+    ["acte uniforme", "uniform act"],
+  ],
+  insolvency: [
+    ["procédures collectives", "procedures collectives", "collective proceedings"],
+    ["apurement du passif", "clearing debts", "insolvency"],
+  ],
+  mediation: [["médiation", "mediation", "conciliation"]],
+  arbitration: [["arbitrage", "arbitration"]],
+  general_commercial_law: [
+    ["droit commercial général", "droit commercial general", "general commercial law"],
+  ],
+  cooperatives: [["coopératives", "cooperatives"]],
+  simplified_recovery: [
+    ["recouvrement", "simplified recovery", "voies d exécution", "enforcement measures"],
+  ],
+  security_interests: [["sûretés", "suretes", "security interests", "valeurs mobili"]],
+  transport: [["transport de marchandises", "carriage of goods", "droit des transports"]],
+  accounting_syscohada: [["syscohada", "comptabilité", "accounting", "harmonization of corporate accounting"]],
+  accounting_nonprofit: [["but non lucratif", "non-profit", "nonprofit"]],
+  organization_harmonization: [
+    ["organisation et harmonisation", "organization and harmonization", "corporate governance"],
+  ],
+};
+
+export type OhadaUniformActTitleFilter = {
+  bucketKey: string;
+  /** Each group matches if any phrase hits the title (AND across groups). */
+  titlePhraseGroups: readonly (readonly string[])[];
+};
+
+/** User pasted or typed a specific OHADA uniform act title (FR or EN), not a broad "list OHADA laws" query. */
+export function isOhadaUniformActTitleQuery(freeText: string, tokens: string[]): boolean {
+  const norm = normalizeOhadaMatchText(freeText);
+  const hasUniformAct = /\b(acte\s+uniforme|uniform\s+act|actes\s+uniformes|uniform\s+acts)\b/.test(norm);
+  const hasOhada = /\bohada\b/.test(norm);
+  if (!hasUniformAct && !hasOhada) return false;
+  if (detectOhadaUniformActInventoryQuery(freeText)) return false;
+  const distinctive = ohadaUniformActDistinctiveTitleTokens(tokens, freeText);
+  if (hasUniformAct && distinctive.length >= 1) return true;
+  return hasOhada && distinctive.length >= 2;
+}
+
+/** Distinctive title tokens for AND matching (excludes OHADA boilerplate). */
+export function ohadaUniformActDistinctiveTitleTokens(tokens: string[], freeText: string): string[] {
+  const distinctive = tokens.filter((t) => {
+    const x = t.trim().toLowerCase();
+    return x.length >= 3 && !OHADA_TITLE_BOILERPLATE.has(x);
+  });
+  if (distinctive.length >= 2) return distinctive.slice(0, 8);
+  const norm = normalizeOhadaMatchText(freeText);
+  const fallback: string[] = [];
+  for (const word of norm.split(/\s+/)) {
+    if (word.length >= 4 && !OHADA_TITLE_BOILERPLATE.has(word)) fallback.push(word);
+  }
+  return [...new Set(fallback)].slice(0, 8);
+}
+
+/** True when two titles refer to the same OHADA uniform act (handles EN/FR naming differences). */
+export function ohadaUniformActTitlesMatch(title: string, queryPhrase: string): boolean {
+  const titleKey = normalizeOhadaUniformActKey(title);
+  const queryKey = normalizeOhadaUniformActKey(queryPhrase);
+  if (!titleKey || !queryKey) return false;
+  if (titleKey === queryKey) return true;
+  if (titleKey.length >= 8 && queryKey.length >= 8) {
+    return titleKey.includes(queryKey) || queryKey.includes(titleKey);
+  }
+  return false;
+}
+
+/** Resolve bilingual PostgREST title filters for a pasted OHADA uniform act title. */
+export function resolveOhadaUniformActTitleFilter(query: string): OhadaUniformActTitleFilter | null {
+  const bucketKey = normalizeOhadaUniformActKey(query);
+  const groups = OHADA_BUCKET_TITLE_FILTERS[bucketKey];
+  if (groups?.length) {
+    return { bucketKey, titlePhraseGroups: groups };
+  }
+  const distinctive = ohadaUniformActDistinctiveTitleTokens(
+    normalizeOhadaMatchText(query).split(/\s+/).filter((t) => t.length >= 2),
+    query
+  );
+  if (distinctive.length >= 2) {
+    return {
+      bucketKey,
+      titlePhraseGroups: [distinctive.map((t) => t)],
+    };
+  }
+  return null;
+}
+
+/** English/French search tokens to merge into AI retrieval for OHADA uniform act titles. */
+export function ohadaUniformActRetrievalAliases(query: string): string[] {
+  const bucketKey = normalizeOhadaUniformActKey(query);
+  const filter = OHADA_BUCKET_TITLE_FILTERS[bucketKey];
+  if (!filter) return [];
+  const out = new Set<string>();
+  for (const group of filter) {
+    for (const phrase of group) {
+      for (const token of normalizeOhadaMatchText(phrase).split(/\s+/)) {
+        if (token.length >= 4) out.add(token);
+      }
+    }
+  }
+  return [...out].slice(0, 16);
+}
+
 export function pickPreferredOhadaUniformActRow<T extends { title?: string | null; language_code?: string | null }>(
   group: T[],
   preferredLanguage?: PreferredDocumentLanguage | null
