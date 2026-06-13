@@ -145,6 +145,7 @@ import {
   lawDocumentLanguageScore,
 } from "@/lib/law-language-preference";
 import { englishLibraryTokensFromFrenchQuery } from "@/lib/ai-query-language-parity";
+import { orchestrateLegalLibrarySearch } from "@/lib/ai-rag-orchestrator";
 import {
   AI_CHAT_SSE_HEADERS,
   encodeSseEvent,
@@ -3870,7 +3871,22 @@ export async function POST(request: NextRequest) {
           }).then((docs) => docs as LegalLibrarySearchResult)
         : useFullLibraryContext
           ? searchLegalLibraryFull(userQuery, searchCountry, perf)
-          : searchLegalLibrary(userQuery, searchCountry, detailedMode, perf);
+          : (async () => {
+              const vectorCountryId = searchCountry
+                ? await resolveCountryIdCached(searchCountry)
+                : null;
+              const { docs, passes } = await orchestrateLegalLibrarySearch({
+                userQuery,
+                searchCountry,
+                countryId: vectorCountryId,
+                detailedMode,
+                supabase: supabaseForTurn,
+                lexicalSearch: (q, c) => searchLegalLibrary(q, c, detailedMode, perf),
+                quickFallback: (q, c) => searchLegalLibraryQuickFallback(q, c),
+              });
+              perfStep(perf, "rag_orchestrator", { passes: passes.join("+"), docs: docs.length });
+              return docs;
+            })();
 
     const methodologyPromise =
       !platformGuideMeta && !assistantWorkflowMeta && isLikelyLegalQuestion(userQuery)
