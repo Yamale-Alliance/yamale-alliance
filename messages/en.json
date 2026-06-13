@@ -342,11 +342,12 @@
         "team": "Team (unlimited AI)"
       },
       "export": {
-        "documentTitle": "Users export – Yamalé Alliance",
+        "documentTitle": "Users export – Yamalé",
         "tagline": "AI legal search & research platform",
         "reportTitle": "Users export",
         "generated": "Generated {date}",
-        "footer": "Yamalé Alliance – Confidential. This report was generated from the admin panel."
+        "summary": "{count, plural, one {# user} other {# users}}",
+        "footer": "Yamalé – Confidential. This report was generated from the admin panel."
       }
     },
     "aiUsage": {
