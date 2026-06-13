@@ -3,6 +3,11 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2, Gift, Download } from "lucide-react";
+import {
+  buildAdminPrintExportHtml,
+  openAdminPrintExport,
+  resolveAdminExportLogoDataUrl,
+} from "@/lib/admin-print-export";
 
 type UserRow = {
   id: string;
@@ -21,6 +26,7 @@ export default function AdminUsersPage() {
   const tc = useTranslations("admin.common");
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [updating, setUpdating] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,56 +88,49 @@ export default function AdminUsersPage() {
     setUpdating(null);
   };
 
-  const exportPdf = () => {
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) {
-      setError(tc("popupBlocked"));
-      return;
+  const exportPdf = async () => {
+    if (exportingPdf) return;
+    setExportingPdf(true);
+    setError(null);
+    try {
+      const logoDataUrl = await resolveAdminExportLogoDataUrl();
+      const name = (u: UserRow) => [u.firstName, u.lastName].filter(Boolean).join(" ") || "—";
+      const esc = (s: string) =>
+        String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      const generated = new Date().toLocaleString(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+      const html = buildAdminPrintExportHtml({
+        documentTitle: t("export.documentTitle"),
+        reportTitle: t("export.reportTitle"),
+        generatedLabel: t("export.generated", { date: generated }),
+        footer: t("export.footer"),
+        tagline: t("export.tagline"),
+        logoDataUrl,
+        summaryLabel: t("export.summary", { count: users.length }),
+        tableHeadHtml: `<tr><th>${esc(tc("name"))}</th><th>${esc(tc("email"))}</th><th>${esc(tc("role"))}</th><th>${esc(tc("accessTier"))}</th></tr>`,
+        tableBodyHtml: users
+          .map(
+            (u) =>
+              `<tr><td>${esc(name(u))}</td><td>${esc(u.email ?? "—")}</td><td>${esc(u.role ?? "—")}</td><td>${esc(u.tier)}</td></tr>`
+          )
+          .join(""),
+      });
+      openAdminPrintExport(html);
+    } catch (err) {
+      if (err instanceof Error && err.message === "popup_blocked") {
+        setError(tc("popupBlocked"));
+      } else {
+        setError(tc("networkError"));
+      }
+    } finally {
+      setExportingPdf(false);
     }
-    const name = (u: UserRow) => [u.firstName, u.lastName].filter(Boolean).join(" ") || "—";
-    const esc = (s: string) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-    const generated = new Date().toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html><head><title>${esc(t("export.documentTitle"))}</title>
-      <meta charset="utf-8">
-      <style>
-        * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; margin: 0; padding: 32px 40px; color: #1a1a1a; font-size: 14px; }
-        .header { border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 24px; }
-        .company { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: #0f172a; }
-        .tagline { font-size: 12px; color: #64748b; margin-top: 2px; }
-        .report-title { font-size: 18px; font-weight: 600; margin: 0 0 4px 0; color: #0f172a; }
-        .report-meta { font-size: 12px; color: #64748b; margin-bottom: 20px; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { padding: 10px 14px; text-align: left; border: 1px solid #e2e8f0; }
-        th { background: #0f172a; color: #fff; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
-        tr:nth-child(even) { background: #f8fafc; }
-        tr:hover { background: #f1f5f9; }
-        .footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #64748b; }
-      </style>
-      </head><body>
-      <div class="header">
-        <div class="company">Yamalé Alliance</div>
-        <div class="tagline">${esc(t("export.tagline"))}</div>
-      </div>
-      <h1 class="report-title">${esc(t("export.reportTitle"))}</h1>
-      <p class="report-meta">${esc(t("export.generated", { date: generated }))}</p>
-      <table>
-        <thead><tr><th>${esc(tc("name"))}</th><th>${esc(tc("email"))}</th><th>${esc(tc("role"))}</th><th>${esc(tc("accessTier"))}</th></tr></thead>
-        <tbody>
-          ${users.map((u) => `<tr><td>${esc(name(u))}</td><td>${esc(u.email ?? "—")}</td><td>${esc(u.role ?? "—")}</td><td>${esc(u.tier)}</td></tr>`).join("")}
-        </tbody>
-      </table>
-      <div class="footer">${esc(t("export.footer"))}</div>
-      </body></html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 250);
   };
 
   return (
@@ -143,10 +142,15 @@ export default function AdminUsersPage() {
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={exportPdf}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent"
+            onClick={() => void exportPdf()}
+            disabled={exportingPdf}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent disabled:opacity-60"
           >
-            <Download className="h-4 w-4" />
+            {exportingPdf ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
             {tc("exportPdf")}
           </button>
         </div>
