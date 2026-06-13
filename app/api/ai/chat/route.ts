@@ -190,6 +190,7 @@ import {
   buildMethodologyReferencePromptBlock,
   prependMethodologyContext,
 } from "@/lib/ai-methodology-retrieval";
+import { fetchUserResearchMemoryPromptBlock } from "@/lib/ai-user-research-memory-server";
 import {
   buildCitationLookupCardsFromLegalContext,
   citedSlotsAsUsedFlags,
@@ -3571,10 +3572,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { messages, attachments, model: requestedModel } = body as {
+    const { messages, attachments, model: requestedModel, sessionId: currentSessionId } = body as {
       messages: Array<{ role: "user" | "assistant"; content: string }>;
       attachments?: Array<{ type: string; data: string; name?: string }>;
       model?: string | null;
+      sessionId?: string | null;
     };
 
     const payloadCheck = validateAiChatRequest(messages, attachments);
@@ -3886,12 +3888,19 @@ export async function POST(request: NextRequest) {
       platformGuideMeta,
     });
 
+    const userResearchMemoryPromise =
+      !platformGuideMeta && !assistantWorkflowMeta && !isEvalBatch
+        ? fetchUserResearchMemoryPromptBlock(supabaseForTurn, userId, currentSessionId ?? null)
+        : Promise.resolve(null);
+
     const parallelStartedAt = Date.now();
-    let [legalContext, methodology, lawTitleCatalogText, webResult] = await Promise.all([
+    let [legalContext, methodology, lawTitleCatalogText, webResult, userResearchMemoryBlock] =
+      await Promise.all([
       libraryPromise,
       methodologyPromise,
       catalogPromise,
       webPromise,
+      userResearchMemoryPromise,
     ]);
     perfStep(perf, "parallel_retrieval", {
       ms: Date.now() - parallelStartedAt,
@@ -3899,6 +3908,7 @@ export async function POST(request: NextRequest) {
       methodology: methodology.length,
       catalogChars: lawTitleCatalogText.length,
       web: Boolean(webResult.block),
+      userResearchMemory: Boolean(userResearchMemoryBlock),
       fullLibrary: useFullLibraryContext,
       skippedCatalog: !needsTitleCatalog,
     });
@@ -4130,6 +4140,8 @@ export async function POST(request: NextRequest) {
         !platformGuideMeta && !assistantWorkflowMeta
           ? buildMethodologyReferencePromptBlock(methodology)
           : null,
+      userResearchMemoryBlock:
+        !platformGuideMeta && !assistantWorkflowMeta ? userResearchMemoryBlock : null,
       legalContextMaxDocs: useFullLibraryContext
         ? Math.max(1, legalContext.length)
         : latinAmericaTreatyCatalog
