@@ -1,5 +1,10 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { librarySearchMatchPlan, lawRowMatchesLibrarySearch } from "@/lib/library-client-search";
+import {
+  librarySearchMatchPlan,
+  lawRowMatchesLibrarySearch,
+  buildLibrarySearchHaystack,
+  scoreLibrarySearchEntry,
+} from "@/lib/library-client-search";
 import { applyLibraryTextSearchFilter } from "@/lib/library-text-search-filter";
 import { escapeIlikePattern, lawsCountryGlobalOrScopedIds } from "@/lib/law-country-scope";
 import { fetchValidLawIdsForCountryScope } from "@/lib/law-country-scope-ids";
@@ -252,6 +257,69 @@ function applyLibrarySort(query: any, sort?: LibrarySortOption): any {
   }
 }
 
+function resolveLibraryFetchSort(filters?: LibraryFilters): LibrarySortOption | "relevance" {
+  if (filters?.q?.trim() && (!filters.sort || filters.sort === "title-asc")) {
+    return "relevance";
+  }
+  return filters?.sort ?? "title-asc";
+}
+
+const LIBRARY_RELEVANCE_POOL = 2500;
+
+/** Score and paginate in memory when keyword search is active (PostgREST cannot rank by relevance). */
+async function fetchLibraryLawPageByRelevance(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  applyLawRowFilters: (query: any) => any,
+  page: number,
+  pageSize: number,
+  searchQuery: string
+): Promise<LibraryLawRow[]> {
+  const plan = librarySearchMatchPlan(searchQuery);
+  let base = supabase.from("laws").select(LAWS_SELECT_FIELDS);
+  base = applyLawRowFilters(base);
+  const { data, error } = await base.limit(LIBRARY_RELEVANCE_POOL);
+  if (error) throw error;
+
+  const scored = ((data ?? []) as LibraryLawRow[])
+    .map((law) => {
+      const title = law.title ?? "";
+      const category = law.categories?.name ?? "";
+      const country = law.countries?.name ?? "";
+      const sourceName = law.source_name;
+      if (
+        !lawRowMatchesLibrarySearch({ title, category, country, sourceName }, plan)
+      ) {
+        return null;
+      }
+      const entry = buildLibrarySearchHaystack({
+        title,
+        category,
+        country,
+        documentType: "",
+        treatyType: "",
+        sourceName,
+      });
+      const score = scoreLibrarySearchEntry(entry, plan.matchTokens, {
+        categoryHints: plan.categoryHints,
+        primaryTokens: plan.primaryTokens,
+        phraseLower: plan.phraseLower,
+      });
+      return score > 0 ? { law, score } : null;
+    })
+    .filter((row): row is { law: LibraryLawRow; score: number } => row != null)
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        (a.law.title ?? "").localeCompare(b.law.title ?? "", undefined, { sensitivity: "base" })
+    );
+
+  const safePage = Math.max(1, page);
+  const offset = (safePage - 1) * pageSize;
+  return scored.slice(offset, offset + pageSize).map((row) => row.law);
+}
+
 /** Fetch a single page of law rows (PostgREST range). */
 async function fetchLibraryLawPage(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -260,13 +328,23 @@ async function fetchLibraryLawPage(
   applyLawRowFilters: (query: any) => any,
   page: number,
   pageSize: number,
-  sort?: LibrarySortOption
+  sort?: LibrarySortOption | "relevance",
+  searchQuery?: string
 ): Promise<LibraryLawRow[]> {
+  if (sort === "relevance" && searchQuery?.trim()) {
+    return fetchLibraryLawPageByRelevance(
+      supabase,
+      applyLawRowFilters,
+      page,
+      pageSize,
+      searchQuery
+    );
+  }
   const safePage = Math.max(1, page);
   const offset = (safePage - 1) * pageSize;
   let base = supabase.from("laws").select(LAWS_SELECT_FIELDS);
   base = applyLawRowFilters(base);
-  base = applyLibrarySort(base, sort);
+  base = applyLibrarySort(base, sort === "relevance" ? undefined : sort);
   const { data, error } = await base.range(offset, offset + pageSize - 1);
   if (error) throw error;
   return (data ?? []) as LibraryLawRow[];
@@ -621,7 +699,14 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
           countriesPromise,
           categoriesPromise,
           countQuery,
-          fetchLibraryLawPage(supabase, applyLawRowFilters, page, pageSize, filters?.sort),
+          fetchLibraryLawPage(
+            supabase,
+            applyLawRowFilters,
+            page,
+            pageSize,
+            resolveLibraryFetchSort(filters),
+            filters?.q
+          ),
         ]);
         countriesRes = cRes;
         categoriesRes = catRes;
