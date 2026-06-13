@@ -7,6 +7,11 @@ import {
   CATEGORY_HINT_KEYWORDS,
   type YamaleLawCategory,
 } from "@/lib/ai-canonical-categories";
+import {
+  isOhadaUniformActTitleQuery,
+  ohadaUniformActDistinctiveTitleTokens,
+  ohadaUniformActTitlesMatch,
+} from "@/lib/ohada-uniform-act-catalog";
 
 const SEARCH_STOPWORDS = new Set([
   "a",
@@ -383,18 +388,37 @@ export function scoreLibrarySearchEntry(
 
 /** Statute-style query (e.g. "Employment Code Act No. 3 of 2019") — use AND on title tokens, not OR. */
 export function isSpecificInstrumentTitleQuery(freeText: string, tokens: string[]): boolean {
+  if (isOhadaUniformActTitleQuery(freeText, tokens)) return true;
   if (tokens.length < 2) return false;
   const lower = freeText.toLowerCase();
   const hasInstrumentMarker =
     /\b(acts?|codes?|regulations?|statutes?|proclamation|decree|order|rules?|chapter|cap\.?)\b/i.test(
       lower
-    ) || /\bno\.?\s*\d+/i.test(lower);
+    ) ||
+    /\b(acte\s+uniforme|uniform\s+act|actes\s+uniformes)\b/i.test(lower) ||
+    /\bno\.?\s*\d+/i.test(lower);
   if (!hasInstrumentMarker) return false;
   if (tokens.length >= 3) return true;
   return tokens.some((t) => t.length >= 5);
 }
 
-const STRICT_TITLE_TOKEN_SKIP = new Set(["no", "nr", "of", "the", "and", "or"]);
+const STRICT_TITLE_TOKEN_SKIP = new Set([
+  "no",
+  "nr",
+  "of",
+  "the",
+  "and",
+  "or",
+  "des",
+  "de",
+  "du",
+  "le",
+  "la",
+  "les",
+  "au",
+  "aux",
+  "a",
+]);
 
 /**
  * Normalize statute citations so equivalent forms match, e.g.
@@ -430,12 +454,17 @@ export function librarySearchMatchPlan(query: string): {
   primaryTokens: string[];
   strictTitleMatch: boolean;
   strictTitleTokens: string[];
+  ohadaUniformActMatch: boolean;
 } {
   const parsed = parseLibrarySearchQuery(query);
   const expanded = expandLibrarySearchFromQuery(parsed.freeText, parsed.tokens);
-  const strictTitleMatch = isSpecificInstrumentTitleQuery(parsed.freeText, parsed.tokens);
+  const ohadaUniformActMatch = isOhadaUniformActTitleQuery(parsed.freeText, parsed.tokens);
+  const strictTitleMatch =
+    ohadaUniformActMatch || isSpecificInstrumentTitleQuery(parsed.freeText, parsed.tokens);
   const strictTitleTokens = strictTitleMatch
-    ? strictInstrumentTitleTokens(parsed.tokens, parsed.freeText)
+    ? ohadaUniformActMatch
+      ? ohadaUniformActDistinctiveTitleTokens(parsed.tokens, parsed.freeText)
+      : strictInstrumentTitleTokens(parsed.tokens, parsed.freeText)
     : [];
   return {
     matchTokens: expanded.matchTokens,
@@ -444,6 +473,7 @@ export function librarySearchMatchPlan(query: string): {
     primaryTokens: parsed.tokens,
     strictTitleMatch,
     strictTitleTokens,
+    ohadaUniformActMatch,
   };
 }
 
@@ -460,6 +490,10 @@ export function lawRowMatchesLibrarySearch(
 
   const normTitle = normalizeLibraryMatchText(fields.title);
   const phraseNorm = normalizeLibraryMatchText(plan.phraseLower);
+
+  if (plan.ohadaUniformActMatch && ohadaUniformActTitlesMatch(fields.title, plan.phraseLower)) {
+    return true;
+  }
 
   if (plan.strictTitleMatch) {
     const normQueryCitation = normalizeInstrumentCitationForMatch(plan.phraseLower);
