@@ -4,6 +4,7 @@
  */
 
 import { normalizeQueryForLibrarySearch, phraseMatchesQuery } from "@/lib/ai-multilingual-search";
+import { ohadaUniformActRetrievalAliases } from "@/lib/ohada-uniform-act-catalog";
 
 /**
  * Synonym groups: if any term in a group matches the query, all single-word terms
@@ -56,6 +57,18 @@ const RETRIEVAL_SYNONYM_GROUPS: readonly (readonly string[])[] = [
     "ohada",
     "acte uniforme",
     "creer une societe",
+    "sarl",
+    "associé",
+    "associe",
+    "minoritaire",
+    "augmentation",
+    "capital",
+    "souscription",
+    "quorum",
+    "majorité",
+    "majorite",
+    "parts",
+    "sociales",
   ],
   [
     "mining",
@@ -249,6 +262,39 @@ const FRENCH_STATUTE_PHRASE_TO_ENGLISH_TOKENS: readonly (readonly [string, reado
   ["registre du commerce", ["companies", "registration", "commercial", "act"]],
   ["creation de societe", ["companies", "incorporation", "registration"]],
   ["création de société", ["companies", "incorporation", "registration"]],
+  ["droit des sociétés", ["commercial", "companies", "corporate", "uniform"]],
+  ["droit des societes", ["commercial", "companies", "corporate", "uniform"]],
+  [
+    "acte uniforme relatif au droit des societes commerciales",
+    ["commercial", "companies", "uniform", "act", "ohada", "auscgie"],
+  ],
+  [
+    "acte uniforme relatif au droit des sociétés commerciales",
+    ["commercial", "companies", "uniform", "act", "ohada", "auscgie"],
+  ],
+  [
+    "acte uniforme portant organisation des procedures collectives",
+    ["collective", "proceedings", "insolvency", "clearing", "debts"],
+  ],
+  [
+    "acte uniforme portant organisation des procédures collectives",
+    ["collective", "proceedings", "insolvency", "clearing", "debts"],
+  ],
+  [
+    "procedures collectives d apurement du passif",
+    ["collective", "proceedings", "insolvency", "clearing", "debts", "apurement"],
+  ],
+  [
+    "procédures collectives d apurement du passif",
+    ["collective", "proceedings", "insolvency", "clearing", "debts", "apurement"],
+  ],
+  ["associé minoritaire", ["minority", "shareholder", "partner"]],
+  ["associés minoritaires", ["minority", "shareholders", "partners"]],
+  ["augmentation de capital", ["capital", "increase", "subscription"]],
+  ["droit préférentiel", ["pre-emptive", "subscription", "preferential"]],
+  ["droit preférentiel", ["pre-emptive", "subscription", "preferential"]],
+  ["droit de retrait", ["withdrawal", "buyout", "minority"]],
+  ["parts sociales", ["shares", "capital", "subscription"]],
 ];
 
 /**
@@ -269,6 +315,9 @@ export function crossLanguageRetrievalTokens(query: string): string[] {
     }
   }
   for (const token of englishLibraryTokensFromFrenchQuery(query)) {
+    out.add(token);
+  }
+  for (const token of ohadaUniformActRetrievalAliases(query)) {
     out.add(token);
   }
   return Array.from(out).slice(0, 32);
