@@ -983,6 +983,7 @@ export default function AIResearchClient() {
         body: JSON.stringify({
           messages: apiMessages,
           model: effectiveModelId ?? undefined,
+          sessionId: sessionIdToUpdate ?? undefined,
         }),
       }).finally(() => clearTimeout(chatTimeout));
 
