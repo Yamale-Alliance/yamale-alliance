@@ -342,11 +342,12 @@
         "team": "Team (IA illimitée)"
       },
       "export": {
-        "documentTitle": "Export utilisateurs – Yamalé Alliance",
+        "documentTitle": "Export utilisateurs – Yamalé",
         "tagline": "Plateforme de recherche et d'étude juridique IA",
         "reportTitle": "Export utilisateurs",
         "generated": "Généré le {date}",
-        "footer": "Yamalé Alliance – Confidentiel. Ce rapport a été généré depuis le panneau admin."
+        "summary": "{count, plural, one {# utilisateur} other {# utilisateurs}}",
+        "footer": "Yamalé – Confidentiel. Ce rapport a été généré depuis le panneau admin."
       }
     },
     "aiUsage": {
