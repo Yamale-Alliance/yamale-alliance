@@ -14,7 +14,7 @@ import { appendOfficialSourceVerificationToAnswer } from "@/lib/official-sources
  * repeating it). Use SYSTEM_PROMPT_VERSION in API responses and ai_query_log instead.
  */
 
-export const SYSTEM_PROMPT_VERSION = "2026.06.05-french-query-english-sources-v1";
+export const SYSTEM_PROMPT_VERSION = "2026.06.05-user-research-memory-v1";
 
 /** Cap on library excerpts in the system message to limit tokens and citation confusion. */
 export const MAX_SYSTEM_PROMPT_LEGAL_DOCS = 12;
@@ -82,6 +82,11 @@ export type BuildAiResearchSystemPromptParams = {
   subscriptionTier?: AiSubscriptionTier;
   /** Internal brain / methodology excerpts — never numbered [doc:N] or user-facing sources. */
   methodologyReferenceBlock?: string | null;
+  /**
+   * Cross-chat orientation from the user's saved prior AI Research sessions (not operative law).
+   * Helps disambiguate brief follow-ups in a new thread.
+   */
+  userResearchMemoryBlock?: string | null;
 };
 
 export type SystemPromptValidationResult = {
@@ -170,7 +175,9 @@ When a fixed English disclaimer is mentioned (e.g. "not stated in the provided l
 
 SOURCE LANGUAGE (critical): Write the **substantive answer** in the user's language even when the retrieved [doc:N] excerpts are in English (or another language). Translate and explain rules in French (or Arabic) as needed; quote short operative phrases from the excerpt and gloss them in the user's language when helpful.
 
-For **Sources** and instrument names: prefer titles **as they appear in the retrieved excerpts** for that [doc:N]. If the user asks in French but the only excerpt is English (e.g. "Labour Act, 2003"), cite that English title faithfully and give a natural French description in your prose (e.g. « Loi sur le travail de 2003 ») without claiming a French official title that is not in the excerpt. When both French and English titles exist in the excerpts, use the language that matches the user's question for the sources footer. When the user asks in English, prefer English titles from the excerpts.`;
+For **Sources** and instrument names: prefer titles **as they appear in the retrieved excerpts** for that [doc:N]. If the user asks in French but the only excerpt is English (e.g. "Labour Act, 2003"), cite that English title faithfully and give a natural French description in your prose (e.g. « Loi sur le travail de 2003 ») without claiming a French official title that is not in the excerpt. When both French and English titles exist in the excerpts, use the language that matches the user's question for the sources footer. When the user asks in English, prefer English titles from the excerpts.
+
+FRENCH LEGAL PROSE: Write polished French juridique—not word-for-word English. Prefer established French terms (e.g. « augmentation de capital », « associé minoritaire », « droit préférentiel de souscription »). Avoid unsupported anglicisms in headings (e.g. do not use « dilutive » alone; prefer « créant une dilution » or « dilutive » only if the user used it). For OHADA company law, distinguish **AUDCG** (droit commercial général) from **AUSCGIE** — « Acte uniforme relatif au droit des sociétés commerciales et du groupement d'intérêt économique »; do not abbreviate as « AUSC » alone. Do **not** state that an act is absent from Yamalé's library unless no retrieved [doc:N] matches it; if only AUDCG was attached for a SARL/shareholder/capital question, say the **companies act (AUSCGIE) was not attached this turn**—not that it is wholly missing from the library.`;
 }
 
 function buildCoreRules(opts: {
@@ -465,6 +472,10 @@ export function buildAiResearchSystemPrompt(p: BuildAiResearchSystemPromptParams
     buildBilateralBlock(params.bilateralPartiesSummary, params.supranationalFrameworksInQuery.length),
     buildCountryScope(params.effectiveCountry, params.strictCountryMode)
   );
+  const userResearchMemory = (params.userResearchMemoryBlock ?? "").trim();
+  if (!platform && userResearchMemory) {
+    blocks.push(userResearchMemory);
+  }
 
   if (assistantWorkflow) {
     blocks.push(buildPlatformGuide());
