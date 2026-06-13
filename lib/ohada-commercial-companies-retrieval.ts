@@ -9,26 +9,43 @@ import { LAW_HAS_BODY_OR_FILTER, filterLawsWithReadableBody } from "@/lib/law-re
 const LAWS_AI_SELECT =
   "id, title, content, content_plain, year, status, metadata, source_name, country_id, applies_to_all_countries, category_id, countries(name), categories!laws_category_id_fkey(name)";
 
+function isOhadaGeneralCommercialLawTitle(title: string): boolean {
+  return /(droit\s+commercial\s+g[eé]n[eé]ral|general\s+commercial\s+law|\baudcg\b)/i.test(title);
+}
+
 /** User asks about OHADA company law (SARL/SA/SAS, LP/SCS, joint venture, AUSCGIE, etc.). */
 export function isOhadaCommercialCompaniesQuery(query: string): boolean {
   const q = normalizeQueryForLibrarySearch(query).toLowerCase();
+
+  const frenchCorporateGovernance =
+    /\b(associ[eé]\s+minoritaire|associ[eé]s?\s+minoritaires|augmentation\s+de\s+capital|droit\s+pr[eé]f[eé]rentiel|droit\s+de\s+(retrait|rachat)|quorum|majorit[eé]\s+requis|parts\s+sociales|g[eé]rance)\b/.test(
+      q
+    );
+  const companyForm =
+    /\b(sarl|sas|\bs\.?a\.?\b|soci[eé]t[eé]\s+anonyme|soci[eé]t[eé]\s+[aà]\s+responsabilit[eé]\s+limit[eé]e|capital\s+social|company\s+formation|constitution\s+de\s+soci[eé]t[eé])\b/.test(
+      q
+    );
+
+  if (companyForm && frenchCorporateGovernance) return true;
+
+  const acteUniformeCompanies =
+    /\b(acte\s+uniforme|uniform\s+act)\b/.test(q) &&
+    /\b(soci[eé]t[eé]s?\s+commerciales?|droit\s+des\s+soci[eé]t[eé]s|commercial\s+compan)/.test(q);
+  if (acteUniformeCompanies) return true;
+
   if (!/\bohada\b/.test(q)) return false;
 
   if (
-    /\b(commercial\s+compan|soci[eé]t[eé]s?\s+commerciales?|acte\s+uniforme.*soci[eé]t[eé]|uniform\s+act.*commercial\s+compan|auscgie|groupement\s+d['']?int[eé]r[eê]t\s+[eé]conomique|economic\s+interest\s+group)\b/.test(
+    /\b(commercial\s+compan|soci[eé]t[eé]s?\s+commerciales?|droit\s+des\s+soci[eé]t[eé]s|acte\s+uniforme.*soci[eé]t[eé]|uniform\s+act.*commercial\s+compan|\bausc\b|\bauscgie\b|groupement\s+d['']?int[eé]r[eê]t\s+[eé]conomique|economic\s+interest\s+group)\b/.test(
       q
     )
   ) {
     return true;
   }
 
-  if (
-    /\b(sarl|sas|\bs\.?a\.?\b|soci[eé]t[eé]\s+anonyme|soci[eé]t[eé]\s+[aà]\s+responsabilit[eé]\s+limit[eé]e|capital\s+social|company\s+formation|constitution\s+de\s+soci[eé]t[eé])\b/.test(
-      q
-    )
-  ) {
-    return true;
-  }
+  if (frenchCorporateGovernance) return true;
+
+  if (companyForm) return true;
 
   if (
     /\b(limited\s+partnership|\blp\b|scs|soci[eé]t[eé]\s+en\s+commandite|commandit|commanditaires?|associ[eé]s?\s+commandit)\b/.test(
@@ -86,6 +103,7 @@ export function isOffTopicForOhadaCommercialCompanies(law: {
   if (/(transport|carriage\s+of\s+goods|droit\s+des\s+transports)/i.test(blob)) return true;
   if (/(securities|valeurs\s+mobili|simplified\s+recovery|recouvrement\s+des\s+cr[eé]ances)/i.test(blob)) return true;
   if (/(organisation\s+and\s+harmonization|corporate\s+governance\s+and\s+accounting)/i.test(blob)) return true;
+  if (isOhadaGeneralCommercialLawTitle(title)) return true;
 
   return false;
 }
@@ -105,7 +123,9 @@ export function isLikelyOhadaCommercialCompaniesLaw(law: {
   const offTopicSignals =
     /(droit du travail|labou?r|m[eé]diation|mediation|arbitrage|arbitration|dispute|proc[eé]dures?\s+collectives?|apurement\s+du\s+passif|coop[eé]ratives?|comptab|syscohada|accounting|transport|securities|recouvrement)/i;
 
-  const categoryLooksCorporate = /corporate|company|commercial/.test(category);
+  if (isOhadaGeneralCommercialLawTitle(title)) return false;
+
+  const categoryLooksCorporate = /corporate|company/.test(category);
   return (titleSignals.test(title) || partnershipSignals.test(title) || categoryLooksCorporate) && !offTopicSignals.test(title);
 }
 
@@ -117,6 +137,8 @@ const OHADA_CC_TITLE_TERMS = [
   "groupement d'intérêt économique",
   "acte uniforme relatif au droit des sociétés",
   "uniform act relating to commercial companies",
+  "uniform act on commercial companies",
+  "droit des sociétés commerciales",
   "commandite",
 ];
 
@@ -185,6 +207,26 @@ export function buildOhadaCommercialCompaniesExcerptAnchors(query: string): stri
   }
   if (/\bsarl\b|responsabilit[eé]\s+limit[eé]e/.test(q)) {
     anchors.push("société à responsabilité limitée", "capital social", "parts sociales", "gérance");
+  }
+  if (
+    /\b(associ[eé]\s+minoritaire|augmentation\s+de\s+capital|droit\s+pr[eé]f[eé]rentiel|droit\s+de\s+retrait|quorum|majorit[eé])\b/.test(
+      q
+    )
+  ) {
+    anchors.push(
+      "associé minoritaire",
+      "augmentation du capital",
+      "augmentation de capital",
+      "droit préférentiel de souscription",
+      "droit de retrait",
+      "quorum",
+      "majorité",
+      "parts sociales",
+      "assemblée générale",
+      "minority shareholder",
+      "capital increase",
+      "pre-emptive"
+    );
   }
   if (/\bsas\b/.test(q)) {
     anchors.push("société par actions simplifiée", "statuts", "président");
