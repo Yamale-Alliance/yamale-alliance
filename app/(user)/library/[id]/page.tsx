@@ -47,9 +47,6 @@ export async function generateMetadata({ params }: PageProps) {
 }
 
 export default async function LawDetailPage({ params }: PageProps) {
-  const { userId } = await auth();
-  if (!userId) return null;
-
   const { id: slugOrId } = await params;
   const meta = await resolveLawForPublicPage(slugOrId);
   if (!meta) notFound();
