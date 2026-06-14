@@ -4,7 +4,6 @@ import {
   LIBRARY_PAGE_SIZE,
   type LibrarySortOption,
 } from "@/lib/library-data";
-import { requireLibraryApiSession } from "@/lib/library-api-auth";
 
 const SORT_OPTIONS: LibrarySortOption[] = [
   "title-asc",
@@ -30,11 +29,9 @@ function parseSort(raw: string | null): LibrarySortOption | undefined {
   return SORT_OPTIONS.includes(raw as LibrarySortOption) ? (raw as LibrarySortOption) : undefined;
 }
 
+/** Public read for library browse; writes still require auth on other routes. */
 export async function GET(request: NextRequest) {
   try {
-    const session = await requireLibraryApiSession();
-    if (session instanceof NextResponse) return session;
-
     const { searchParams } = new URL(request.url);
     const metaOnly = searchParams.get("metaOnly") === "1";
     const countryId = searchParams.get("countryId") ?? undefined;
