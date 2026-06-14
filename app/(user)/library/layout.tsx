@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { LibraryAuthGate } from "@/components/library/LibraryAuthGate";
 import { createPageMetadata } from "@/lib/site-seo";
 
 export const metadata = createPageMetadata({
@@ -16,5 +15,5 @@ export const metadata = createPageMetadata({
 });
 
 export default function LibraryLayout({ children }: { children: ReactNode }) {
-  return <LibraryAuthGate>{children}</LibraryAuthGate>;
+  return children;
 }
