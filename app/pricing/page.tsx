@@ -124,24 +124,13 @@ const FALLBACK_TIERS: Tier[] = [
 
 const INSTITUTIONAL_SALES_MAILTO = platformBusinessMailto("Institutional Plans enquiry");
 
-const FAQ_ITEMS = [
-  {
-    q: "How does pay-as-you-go work?",
-    a: "All users (including free) can purchase additional documents and AI queries at the rates shown above. AfCFTA Passport and the lawyers network are coming soon. Subscribers get lower rates and included usage each month.",
-  },
-  {
-    q: "Can I change plans anytime?",
-    a: "Yes! Upgrade or downgrade at any time. When upgrading, you pay the prorated difference. When downgrading, the change takes effect at your next billing cycle.",
-  },
-  {
-    q: "What payment methods do you accept?",
-    a: "We accept credit cards, debit cards, mobile money (M-Pesa, Orange Money, MTN, Airtel), and bank transfers for institutional accounts.",
-  },
-  {
-    q: "What happens after I use my included amount?",
-    a: "You can purchase additional usage at the pay-as-you-go rates shown for your tier, or upgrade to a higher tier for more included usage.",
-  },
-];
+const FAQ_KEYS = ["payg", "changePlans", "paymentMethods", "includedAmount"] as const;
+
+type PlanTierId = "free" | "basic" | "pro" | "team";
+
+function isPlanTierId(id: string): id is PlanTierId {
+  return id === "free" || id === "basic" || id === "pro" || id === "team";
+}
 
 export default function PricingPage() {
   const t = useTranslations("pricing");
@@ -325,6 +314,11 @@ export default function PricingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded, isSignedIn]);
 
+  const getLocalizedFeatures = (tierId: string): string[] => {
+    if (!isPlanTierId(tierId)) return [];
+    return t.raw(`planFeatures.${tierId}`) as string[];
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {alertDialog}
@@ -378,7 +372,7 @@ export default function PricingPage() {
         <div className="mb-10 rounded-[10px] border-l-4 border-[#C8922A] bg-muted px-6 py-5">
           <p className="flex items-start gap-3">
             <span className="text-3xl leading-none text-[#C8922A]">&ldquo;</span>
-            <span className="heading text-2xl text-foreground">Everything you need to do business in Africa — in one place.</span>
+            <span className="heading text-2xl text-foreground">{t("quoteBusinessAfrica")}</span>
           </p>
         </div>
 
@@ -390,10 +384,13 @@ export default function PricingPage() {
                 : isAnnual
                   ? tier.priceAnnualPerMonth
                   : tier.priceMonthly;
-            const period = tier.priceMonthly === 0 ? "/forever" : "/month";
+            const period = tier.priceMonthly === 0 ? t("forever") : t("perMonth");
             const annualNote =
               tier.priceMonthly > 0 && isAnnual
-                ? `billed annually as $${tier.priceAnnualTotal}/year (save $${tier.priceMonthly * 12 - tier.priceAnnualTotal})`
+                ? t("billedAnnually", {
+                    total: tier.priceAnnualTotal,
+                    amount: tier.priceMonthly * 12 - tier.priceAnnualTotal,
+                  })
                 : tier.subtitle || null;
 
             return (
@@ -407,12 +404,12 @@ export default function PricingPage() {
               >
                 {tier.highlighted && (
                   <div className="absolute -top-3 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#C8922A] px-4 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-lg">
-                    Most Popular
+                    {t("mostPopular")}
                   </div>
                 )}
                 <div className="p-6 sm:p-7 flex-1 flex flex-col">
                   <h3 className={`heading text-xl font-bold mb-2 sm:text-2xl ${tier.highlighted ? "text-white" : "text-foreground"}`}>
-                    {tier.name}
+                    {isPlanTierId(tier.id) ? t(`tiers.${tier.id}`) : tier.name}
                   </h3>
                   <div className="mb-4">
                     <MarketingDiscountSubscriptionPrice
@@ -439,16 +436,20 @@ export default function PricingPage() {
                         : "border border-border bg-background text-foreground hover:border-[#d8c5a1]"
                     }`}
                   >
-                    {checkoutLoading === tier.id ? "Redirecting…" : tier.cta}
+                    {checkoutLoading === tier.id
+                      ? t("redirecting")
+                      : isPlanTierId(tier.id)
+                        ? t(`cta.${tier.id}`)
+                        : tier.cta}
                   </button>
                 </div>
 
                 <div className={`px-6 sm:px-7 pb-6 sm:pb-7 border-t ${tier.highlighted ? "border-white/10" : "border-border/70"}`}>
                   <div className={`text-sm font-semibold mb-4 mt-5 ${tier.highlighted ? "text-white/70" : "text-muted-foreground"}`}>
-                    What is included:
+                    {t("whatIsIncluded")}
                   </div>
                   <ul className="space-y-2.5 text-sm">
-                    {tier.features.map((feature, i) => (
+                    {(isPlanTierId(tier.id) ? getLocalizedFeatures(tier.id) : tier.features).map((feature, i) => (
                       <li key={i} className="flex items-start gap-3">
                         <Check className={`h-5 w-5 shrink-0 mt-0.5 ${tier.highlighted ? "text-[#E8B84B]" : "text-primary"}`} strokeWidth={3} />
                         <span
@@ -469,13 +470,13 @@ export default function PricingPage() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
               <h3 className="heading text-xl font-bold mb-2 text-foreground sm:text-2xl">
-                Institutional Plans
+                {t("institutional.title")}
               </h3>
               <p className="text-muted-foreground mb-2">
-                For universities, governments, and large organizations
+                {t("institutional.subtitle")}
               </p>
               <p className="text-sm text-[#C8922A] font-medium">
-                Starting at $1,000/year • Custom training
+                {t("institutional.startingAt")}
               </p>
             </div>
             <a
@@ -484,25 +485,25 @@ export default function PricingPage() {
               rel={PLATFORM_MAIL_LINK_REL}
               className="inline-flex items-center justify-center whitespace-nowrap rounded-[6px] bg-[#0D1B2A] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#162436] sm:px-8 sm:py-4 sm:text-lg"
             >
-              Contact Sales
+              {t("institutional.contactSales")}
             </a>
           </div>
         </div>
 
         <div className="mt-4 rounded-[14px] border border-border bg-card px-7 py-5">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-[170px_1fr_1fr_1fr] md:items-start md:gap-5">
-            <div className="pt-1 text-[12px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Payment Methods</div>
+            <div className="pt-1 text-[12px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{t("paymentMethods.title")}</div>
             <div>
-              <div className="text-[18px] font-semibold leading-tight text-foreground">Mobile Money</div>
-              <div className="mt-1 text-[14px] text-muted-foreground">M-Pesa · Orange Money · MTN · Airtel · Wave</div>
+              <div className="text-[18px] font-semibold leading-tight text-foreground">{t("paymentMethods.mobileMoney")}</div>
+              <div className="mt-1 text-[14px] text-muted-foreground">{t("paymentMethods.mobileMoneyProviders")}</div>
             </div>
             <div>
-              <div className="text-[18px] font-semibold leading-tight text-foreground">Credit / debit card</div>
-              <div className="mt-1 text-[14px] text-muted-foreground">Visa · Mastercard</div>
+              <div className="text-[18px] font-semibold leading-tight text-foreground">{t("paymentMethods.card")}</div>
+              <div className="mt-1 text-[14px] text-muted-foreground">{t("paymentMethods.cardProviders")}</div>
             </div>
             <div>
-              <div className="text-[18px] font-semibold leading-tight text-foreground">Bank transfer</div>
-              <div className="mt-1 text-[14px] text-muted-foreground">Invoice-ready for institutions</div>
+              <div className="text-[18px] font-semibold leading-tight text-foreground">{t("paymentMethods.bankTransfer")}</div>
+              <div className="mt-1 text-[14px] text-muted-foreground">{t("paymentMethods.bankTransferNote")}</div>
             </div>
           </div>
         </div>
@@ -512,16 +513,16 @@ export default function PricingPage() {
       <section className="border-t border-border bg-background py-14 sm:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mx-auto mb-8 max-w-2xl text-center">
-            <p className={prototypeHeroEyebrowClass}>Pay-as-you-go</p>
-            <h2 className="heading mt-2 text-2xl font-bold text-foreground sm:text-3xl">Add what you need, when you need it.</h2>
+            <p className={prototypeHeroEyebrowClass}>{t("payg.eyebrow")}</p>
+            <h2 className="heading mt-2 text-2xl font-bold text-foreground sm:text-3xl">{t("payg.title")}</h2>
             <p className="mt-2 text-sm text-muted-foreground sm:text-[15px]">
-              No subscription? No problem. Use these on the Free tier - or top up any plan.
+              {t("payg.subtitle")}
             </p>
           </div>
 
           <div className="mx-auto mb-8 max-w-2xl rounded-xl border border-border bg-card p-4">
-            <p className="text-sm font-medium text-foreground">Pay-as-you-go payment method</p>
-            <p className="mt-1 text-xs text-muted-foreground">Used for one-off purchases below (not for subscription plans).</p>
+            <p className="text-sm font-medium text-foreground">{t("payg.paymentMethodTitle")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("payg.paymentMethodHint")}</p>
             <div className="mt-4">
               <PaymentMethodPicker
                 value={paymentProvider}
@@ -530,8 +531,8 @@ export default function PricingPage() {
                 lomiComingSoon={lomiComingSoon}
                 onLomiComingSoonClick={() => {
                   void showAlert(
-                    "Credit card payments are coming soon. For now, please use Mobile Money.",
-                    "Coming soon"
+                    t("payg.lomiComingSoonAlert"),
+                    t("payg.lomiComingSoonTitle")
                   );
                 }}
               />
@@ -540,7 +541,7 @@ export default function PricingPage() {
               <div className="mt-4">
                 <PawapayCountrySelect
                   id="pricing-pawapay-country"
-                  label="Mobile money country"
+                  label={t("payg.mobileMoneyCountry")}
                   value={pawapayPaymentCountry}
                   onChange={setPawapayPaymentCountry}
                 />
@@ -556,25 +557,25 @@ export default function PricingPage() {
               className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
             >
               <div className="pr-4 sm:pr-6">
-                <div className="text-xl font-semibold leading-tight text-foreground sm:text-[28px]">Print a law</div>
+                <div className="text-xl font-semibold leading-tight text-foreground sm:text-[28px]">{t("payg.printLaw.title")}</div>
                 <div className="mt-1 text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
-                  Download a full law as a clean, print-ready PDF - including amendments and metadata.
+                  {t("payg.printLaw.description")}
                 </div>
               </div>
-              <MarketingDiscountPrice currentCents={lawPrintPriceUsdCents} size="hero" suffix="per law" />
+              <MarketingDiscountPrice currentCents={lawPrintPriceUsdCents} size="hero" suffix={t("payg.printLaw.suffix")} />
             </button>
 
             <div className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left">
               <div className="pr-4 sm:pr-6">
                 <div className="text-xl font-semibold leading-tight text-foreground sm:text-[28px]">
-                  Lawyers network
+                  {t("payg.lawyersNetwork.title")}
                 </div>
                 <div className="mt-1 text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
-                  Curated directory search and contact unlock — coming soon.
+                  {t("payg.lawyersNetwork.description")}
                 </div>
               </div>
               <span className="shrink-0 rounded-lg border border-amber-300/80 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100">
-                Coming soon
+                {t("payg.comingSoon")}
               </span>
             </div>
 
@@ -585,25 +586,25 @@ export default function PricingPage() {
               className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
             >
               <div className="pr-4 sm:pr-6">
-                <div className="text-xl font-semibold leading-tight text-foreground sm:text-[28px]">Daily pass</div>
+                <div className="text-xl font-semibold leading-tight text-foreground sm:text-[28px]">{t("payg.dayPass.title")}</div>
                 <div className="mt-1 text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
-                  Full platform access for 24 hours with expanded usage across the platform.
+                  {t("payg.dayPass.description")}
                 </div>
               </div>
-              <MarketingDiscountPrice currentCents={dayPassPriceUsdCents} size="hero" suffix="per day" />
+              <MarketingDiscountPrice currentCents={dayPassPriceUsdCents} size="hero" suffix={t("payg.dayPass.suffix")} />
             </button>
 
             <div className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left">
               <div className="pr-4 sm:pr-6">
                 <div className="text-xl font-semibold leading-tight text-foreground sm:text-[28px]">
-                  AfCFTA Passport
+                  {t("payg.afcftaPassport.title")}
                 </div>
                 <div className="mt-1 text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
-                  Cross-border trade compliance routes — coming soon.
+                  {t("payg.afcftaPassport.description")}
                 </div>
               </div>
               <span className="shrink-0 rounded-lg border border-amber-300/80 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100">
-                Coming soon
+                {t("payg.comingSoon")}
               </span>
             </div>
 
@@ -614,12 +615,12 @@ export default function PricingPage() {
               className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm disabled:opacity-70"
             >
               <div className="pr-4 sm:pr-6">
-                <div className="text-xl font-semibold leading-tight text-foreground sm:text-[28px]">AI research query pack</div>
+                <div className="text-xl font-semibold leading-tight text-foreground sm:text-[28px]">{t("payg.aiQuery.title")}</div>
                 <div className="mt-1 text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
-                  Additional AI research query with citations back to the Yamalé Legal Library.
+                  {t("payg.aiQuery.description")}
                 </div>
               </div>
-              <MarketingDiscountPrice currentCents={aiQueryPriceUsdCents} size="hero" suffix="per query" />
+              <MarketingDiscountPrice currentCents={aiQueryPriceUsdCents} size="hero" suffix={t("payg.aiQuery.suffix")} />
             </button>
           </div>
         </div>
@@ -629,24 +630,23 @@ export default function PricingPage() {
       <section className="border-t border-border bg-background py-14 sm:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="heading mb-8 text-3xl font-bold text-foreground sm:text-4xl">
-            Frequently asked
+            {t("faq.title")}
           </h2>
           <div className="grid gap-4 md:grid-cols-2">
-            {FAQ_ITEMS.map((item, i) => (
+            {FAQ_KEYS.map((key) => (
               <div
-                key={i}
+                key={key}
                 className="rounded-[8px] border border-border bg-card p-5 shadow-sm transition hover:shadow-md sm:p-6"
               >
                 <h3 className="font-bold text-base mb-2 text-muted-foreground sm:text-lg">
-                  {item.q}
+                  {t(`faq.${key}.q`)}
                 </h3>
-                <p className="text-sm text-foreground sm:text-base">{item.a}</p>
+                <p className="text-sm text-foreground sm:text-base">{t(`faq.${key}.a`)}</p>
               </div>
             ))}
           </div>
           <div className="mt-8 rounded-[8px] border border-border bg-muted px-5 py-4 text-[13px] leading-relaxed text-muted-foreground">
-            Prices shown are in USD. Subscriptions renew automatically unless canceled. Yamalé Alliance reserves the
-            right to modify pricing with notice. The platform is provided as-is and does not constitute legal advice.
+            {t("faq.disclaimer")}
           </div>
         </div>
       </section>
