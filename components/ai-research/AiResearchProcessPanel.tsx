@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { AiProcessStep } from "@/lib/ai-chat-process";
-import { summarizeProcessLog } from "@/lib/ai-chat-process";
 
 type Props = {
   steps: AiProcessStep[];
@@ -21,6 +21,7 @@ export function AiResearchProcessPanel({
   completedAt = null,
   defaultExpanded = false,
 }: Props) {
+  const t = useTranslations("aiResearch.process");
   const [expanded, setExpanded] = useState(defaultExpanded);
   const isComplete = completedAt != null;
   const showSpinner = isActive && !isComplete;
@@ -33,10 +34,18 @@ export function AiResearchProcessPanel({
   }, [showSpinner]);
 
   const elapsedMs = isComplete ? completedAt - startedAt : Date.now() - startedAt;
-  const summary = useMemo(
-    () => summarizeProcessLog(steps, elapsedMs, isComplete),
-    [steps, elapsedMs, isComplete, tick]
-  );
+  const summary = useMemo(() => {
+    const sec = Math.max(1, Math.round(elapsedMs / 1000));
+    if (steps.length === 0) return t("summarySeconds", { sec });
+    const doneSteps = steps.filter((s) => s.status === "done");
+    const tail =
+      isComplete && doneSteps.length > 0
+        ? doneSteps[doneSteps.length - 1]!.message
+        : doneSteps.length > 0
+          ? doneSteps[doneSteps.length - 1]!.message
+          : (steps[steps.length - 1]?.message ?? t("processingFallback"));
+    return t("summaryWithStep", { sec, step: tail });
+  }, [steps, elapsedMs, isComplete, tick, t]);
 
   if (steps.length === 0 && !showSpinner) return null;
 
@@ -64,7 +73,7 @@ export function AiResearchProcessPanel({
             {showSpinner ? (
               <Loader2 className="h-3 w-3 shrink-0 animate-spin text-[#C8922A]" aria-hidden />
             ) : null}
-            <span className="text-foreground/80">{showSpinner ? "Working…" : "Worked"}</span>
+            <span className="text-foreground/80">{showSpinner ? t("working") : t("worked")}</span>
             <span className="font-normal text-muted-foreground">{summary}</span>
           </span>
           {!expanded && previewStep ? (
