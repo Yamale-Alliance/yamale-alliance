@@ -9,7 +9,10 @@ import { lawEmbeddingsIndexReady, searchLawsByVectorSimilarity } from "@/lib/emb
 import { ohadaUniformActRetrievalAliases } from "@/lib/ohada-uniform-act-catalog";
 import {
   fetchOhadaCommercialCompaniesInstrumentLaws,
+  isLikelyOhadaCommercialCompaniesLaw,
+  isOffTopicForOhadaCommercialCompanies,
   isOhadaCommercialCompaniesQuery,
+  isOhadaInstrument,
 } from "@/lib/ohada-commercial-companies-retrieval";
 import { lawCountryDisplayName } from "@/lib/law-source-display";
 import { selectInstrumentContentForReview } from "@/lib/ai-law-full-content";
@@ -39,8 +42,18 @@ function topRetrievalScore(docs: AiLegalLibrarySearchResult): number {
   return Math.max(...docs.map((d) => d.retrievalScore ?? 0));
 }
 
+/** Heuristic: primary lexical pass already found strong matches — vector adds latency/noise. */
+export function lexicalRetrievalStrong(docs: AiLegalLibrarySearchResult): boolean {
+  if (docs.length === 0) return false;
+  const top = topRetrievalScore(docs);
+  if (top >= 50) return true;
+  if (docs.length >= 2 && top >= 35) return true;
+  return false;
+}
+
 /** Heuristic: first lexical pass did not surface strong matches — run internal follow-up searches. */
 export function needsExpandedRetrievalPass(docs: AiLegalLibrarySearchResult): boolean {
+  if (lexicalRetrievalStrong(docs)) return false;
   if (docs.length === 0) return true;
   const top = topRetrievalScore(docs);
   if (top < 28) return true;
@@ -80,6 +93,35 @@ function mapOhadaRowsToLegalContext(rows: unknown[], userQuery: string): AiLegal
   return out;
 }
 
+function filterVectorHitsForQuery(
+  userQuery: string,
+  hits: AiLegalLibrarySearchResult
+): AiLegalLibrarySearchResult {
+  if (!isOhadaCommercialCompaniesQuery(userQuery)) return hits;
+  return hits.filter((doc) => {
+    const law = { title: doc.title, categories: { name: doc.category } };
+    if (isLikelyOhadaCommercialCompaniesLaw(law)) return true;
+    if (!isOhadaInstrument({ title: doc.title })) return false;
+    return !isOffTopicForOhadaCommercialCompanies(law);
+  });
+}
+
+function shouldAwaitVectorMerge(
+  userQuery: string,
+  lexicalDocs: AiLegalLibrarySearchResult
+): boolean {
+  if (lexicalRetrievalStrong(lexicalDocs)) return false;
+  if (
+    isOhadaCommercialCompaniesQuery(userQuery) &&
+    lexicalDocs.some((doc) =>
+      isLikelyOhadaCommercialCompaniesLaw({ title: doc.title, categories: { name: doc.category } })
+    )
+  ) {
+    return false;
+  }
+  return true;
+}
+
 /**
  * One billed user query → up to 3 internal retrieval passes (lexical, vector, expanded/OHADA).
  * All passes share the same user turn; query_count increments once in the chat route.
@@ -89,23 +131,36 @@ export async function orchestrateLegalLibrarySearch(
 ): Promise<OrchestratedRetrievalResult> {
   const maxPasses = Math.min(3, Math.max(1, options.maxInternalPasses ?? 3));
   const passes: OrchestratedRetrievalPass[] = [];
-  let docs: AiLegalLibrarySearchResult = [];
-
-  // Pass 1 — primary lexical (existing ranked ILIKE / intent pipeline).
-  docs = await options.lexicalSearch(options.userQuery, options.searchCountry);
-  passes.push("lexical_primary");
-
   const rankTokens = tokenizeLibrarySearchQuery(normalizeSearchQueryForAi(options.userQuery), 12);
+
   const vectorEligible =
     maxPasses >= 2 && isAiEmbeddingsEnabled() && (await lawEmbeddingsIndexReady(options.supabase));
 
-  // Pass 2 — vector hybrid (parallel-quality merge; skipped when index empty or disabled).
-  if (vectorEligible) {
-    const vectorHits = await searchLawsByVectorSimilarity(options.supabase, options.userQuery, {
-      countryId: options.countryId ?? null,
-      matchCount: 20,
-      rankTokens,
-    });
+  // Pass 1 (+ optional 2) — start vector alongside lexical; skip awaiting vector when lexical is already strong.
+  const lexicalPromise = options.lexicalSearch(options.userQuery, options.searchCountry);
+  const vectorPromise = vectorEligible
+    ? searchLawsByVectorSimilarity(options.supabase, options.userQuery, {
+        countryId: options.countryId ?? null,
+        matchCount: 12,
+        rankTokens,
+      })
+    : null;
+
+  const lexicalDocs = await lexicalPromise;
+  let docs = lexicalDocs;
+  passes.push("lexical_primary");
+
+  let rawVectorHits: AiLegalLibrarySearchResult = [];
+  if (vectorPromise) {
+    if (shouldAwaitVectorMerge(options.userQuery, lexicalDocs)) {
+      rawVectorHits = await vectorPromise;
+    } else {
+      void vectorPromise.catch(() => {});
+    }
+  }
+
+  if (rawVectorHits.length > 0) {
+    const vectorHits = filterVectorHitsForQuery(options.userQuery, rawVectorHits);
     if (vectorHits.length > 0) {
       passes.push("vector_hybrid");
       docs = mergeLegalContextDeduped(docs, vectorHits) as AiLegalLibrarySearchResult;
