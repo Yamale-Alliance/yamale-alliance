@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import {
@@ -40,11 +40,17 @@ import {
   isRequirementsCountry,
   type CountryRequirementsPublic,
 } from "@/lib/afcfta-country-requirements";
+import {
+  getAfcftaComplianceSteps,
+  getBarriersForDestinationI18n,
+  getChecklistSectionTitleI18n,
+  getContinentLabel,
+  AFCFTA_CONTINENT_KEYS,
+  type AfcftaStepId,
+} from "@/lib/i18n/afcfta-compliance-check";
 
 /** Full journey is visible for orientation; inputs, downloads, and reset stay disabled until launch. */
 const AFCFTA_COMING_SOON_READ_ONLY = true;
-
-const CONTINENTS = ["Africa", "Asia", "Europe", "Americas", "Oceania"];
 
 const COUNTRIES_BY_CONTINENT: Record<string, string[]> = {
   Africa: [
@@ -72,25 +78,6 @@ const ORG_ACCENT = "#603b1c";
 const ORG_PRIMARY = "#c18c43";
 const JOURNEY_STORAGE_KEY = "yamale-afcfta-journey-v1";
 
-type StepId = "start" | "production" | "origin" | "ntb" | "tariff" | "checklist";
-
-const STEPS: Array<{ id: StepId; label: string; icon: typeof Table }> = [
-  { id: "start", label: "Start", icon: Table },
-  { id: "production", label: "Production", icon: Calculator },
-  { id: "origin", label: "Origin Check", icon: Calculator },
-  { id: "ntb", label: "Barriers", icon: Shield },
-  { id: "tariff", label: "Savings", icon: TrendingDown },
-  { id: "checklist", label: "Checklist", icon: CheckSquare },
-];
-const STEP_SUBLABELS: Record<StepId, string> = {
-  start: "Product & route",
-  production: "Cost breakdown",
-  origin: "Rules of origin",
-  ntb: "Non-tariff barriers",
-  tariff: "Tariff savings",
-  checklist: "Final checklist",
-};
-
 /** Tariff row from API for Savings step (by country + HS code) */
 type SavingsTariffRow = {
   mfn_rate_percent: number | null;
@@ -99,59 +86,14 @@ type SavingsTariffRow = {
   afcfta_2035_percent: number | null;
 };
 
-/** Barrier check item: type drives colour/icon; text can use {destCountry} and {originCountry} placeholders */
-type BarrierItem = {
-  id: string;
-  type: "required" | "compliant" | "optional";
-  title: string;
-  description: string;
-  howToGet?: string;
+type ChecklistFallbackCopy = {
+  registration: { title: string; sub: string };
+  phytosanitary: { title: string; sub: string };
+  cooApplication: { title: string; sub: string };
+  productionCosts: { title: string; sub: string };
+  commercialInvoice: { title: string; sub: string };
+  customsDeclaration: { title: string; sub: string };
 };
-
-/** Returns barrier checks specific to exporting from originCountry to destCountry. */
-function getBarriersForDestination(destCountry: string, originCountry: string): BarrierItem[] {
-  const dest = destCountry.trim() || "your destination";
-  const origin = originCountry.trim() || "your country";
-
-  const barriers: BarrierItem[] = [
-    {
-      id: "sps",
-      type: "required",
-      title: "Phytosanitary / SPS certificate",
-      description: `Agricultural and food products need health certification for export to ${dest}.`,
-      howToGet: `Contact the Plant Protection Service (or equivalent) in ${origin}. Time: 3–5 business days | Cost: typically $50–150.`,
-    },
-    {
-      id: "coo",
-      type: "required",
-      title: "Certificate of origin (AfCFTA template)",
-      description: `Mandatory for preferential tariff treatment when exporting to ${dest}.`,
-      howToGet: `Obtain from your chamber of commerce or designated authority in ${origin}. Use the AfCFTA template.`,
-    },
-    {
-      id: "import-permit",
-      type: "optional",
-      title: "Import permit (if required by destination)",
-      description: `${dest} may require an import permit or licence for certain products. Check the destination country's trade authority.`,
-      howToGet: `Apply via the relevant ministry or agency in ${dest} (importer applies). Allow 1–4 weeks.`,
-    },
-    {
-      id: "customs",
-      type: "required",
-      title: "Customs declaration",
-      description: `Must be filed with the correct HS code for clearance in ${dest}.`,
-      howToGet: `Submit through your customs broker or ${dest} customs portal. Required for all shipments.`,
-    },
-    {
-      id: "standards",
-      type: "compliant",
-      title: "Product standards – compliant",
-      description: "Your product meets AfCFTA quality standards. No additional testing needed for this category.",
-    },
-  ];
-
-  return barriers;
-}
 
 /** Checklist section: title uses {origin} / {dest} placeholders; items have optional subLabel */
 type ChecklistSection = {
@@ -166,7 +108,8 @@ function getChecklistSectionsForRoute(
   destCountry: string,
   hsCode: string,
   productName: string,
-  requirementsList: CountryRequirementsPublic[] | null = null
+  requirementsList: CountryRequirementsPublic[] | null = null,
+  fallbacks: ChecklistFallbackCopy
 ): ChecklistSection[] {
   const productCategory = getProductCategory(hsCode, productName);
   const exportReqs =
@@ -188,13 +131,13 @@ function getChecklistSectionsForRoute(
         ...exportReqs.regulatory.map((r, i) => ({ id: `reg-${i}`, title: r })),
       ]
     : [
-        { id: "registration", title: "Business Registration Certificate", subLabel: "Valid until Dec 2026" },
-        { id: "phytosanitary", title: "Phytosanitary Certificate", subLabel: "From Plant Protection Service (3-5 days)" },
+        { id: "registration", title: fallbacks.registration.title, subLabel: fallbacks.registration.sub },
+        { id: "phytosanitary", title: fallbacks.phytosanitary.title, subLabel: fallbacks.phytosanitary.sub },
       ];
 
   const afcftaItems = [
-    { id: "coo-application", title: "Certificate of Origin Application", subLabel: "Submit to authorized agency" },
-    { id: "production-costs", title: "Production Cost Records", subLabel: "Keep invoices and receipts for 5 years" },
+    { id: "coo-application", title: fallbacks.cooApplication.title, subLabel: fallbacks.cooApplication.sub },
+    { id: "production-costs", title: fallbacks.productionCosts.title, subLabel: fallbacks.productionCosts.sub },
   ];
 
   const atImportItems: { id: string; title: string; subLabel?: string }[] = importReqs
@@ -203,8 +146,8 @@ function getChecklistSectionsForRoute(
         ...importReqs.regulatory.map((r, i) => ({ id: `reg-${i}`, title: r })),
       ]
     : [
-        { id: "commercial-invoice", title: "Commercial Invoice", subLabel: "With HS code and AfCFTA claim" },
-        { id: "customs-declaration", title: "Customs Declaration", subLabel: "Filed at port of entry" },
+        { id: "commercial-invoice", title: fallbacks.commercialInvoice.title, subLabel: fallbacks.commercialInvoice.sub },
+        { id: "customs-declaration", title: fallbacks.customsDeclaration.title, subLabel: fallbacks.customsDeclaration.sub },
       ];
 
   return [
@@ -230,14 +173,39 @@ function getFilteredCountries(continent: string): string[] {
 
 export default function ComplianceCheckPage() {
   const t = useTranslations("afcfta");
+  const tJourney = useTranslations("afcfta.journey");
+  const tCheck = useTranslations("afcfta.complianceCheck");
   const tCommon = useTranslations("common");
+  const steps = useMemo(
+    () =>
+      getAfcftaComplianceSteps(tCheck, {
+        start: Table,
+        production: Calculator,
+        origin: Calculator,
+        ntb: Shield,
+        tariff: TrendingDown,
+        checklist: CheckSquare,
+      }),
+    [tCheck]
+  );
+  const checklistFallbacks = useMemo<ChecklistFallbackCopy>(
+    () => ({
+      registration: { title: tCheck("checklist.fallbackRegistration"), sub: tCheck("checklist.fallbackRegistrationSub") },
+      phytosanitary: { title: tCheck("checklist.fallbackPhytosanitary"), sub: tCheck("checklist.fallbackPhytosanitarySub") },
+      cooApplication: { title: tCheck("checklist.fallbackCooApplication"), sub: tCheck("checklist.fallbackCooApplicationSub") },
+      productionCosts: { title: tCheck("checklist.fallbackProductionCosts"), sub: tCheck("checklist.fallbackProductionCostsSub") },
+      commercialInvoice: { title: tCheck("checklist.fallbackCommercialInvoice"), sub: tCheck("checklist.fallbackCommercialInvoiceSub") },
+      customsDeclaration: { title: tCheck("checklist.fallbackCustomsDeclaration"), sub: tCheck("checklist.fallbackCustomsDeclarationSub") },
+    }),
+    [tCheck]
+  );
   const { user } = useAppUser();
   const tier = ((user?.publicMetadata?.tier ?? user?.publicMetadata?.subscriptionTier) as string) || "free";
   const isFreeTier = tier === "free";
   const inputsLocked = isFreeTier || AFCFTA_COMING_SOON_READ_ONLY;
   /** Step-to-step navigation (header + footer) allowed for preview when coming soon, or when user is on a paid tier. */
   const canBrowseSteps = AFCFTA_COMING_SOON_READ_ONLY || !isFreeTier;
-  const [activeStep, setActiveStep] = useState<StepId>("start");
+  const [activeStep, setActiveStep] = useState<AfcftaStepId>("start");
   const [hsCode, setHsCode] = useState("");
   const [productName, setProductName] = useState("");
   const [originContinent, setOriginContinent] = useState("Africa");
@@ -298,7 +266,7 @@ export default function ComplianceCheckPage() {
       const raw = window.localStorage.getItem(JOURNEY_STORAGE_KEY);
       if (!raw) return;
       const data = JSON.parse(raw) as Partial<{
-        activeStep: StepId;
+        activeStep: AfcftaStepId;
         hsCode: string;
         productName: string;
         originContinent: string;
@@ -311,7 +279,7 @@ export default function ComplianceCheckPage() {
       }> | null;
       if (!data) return;
 
-      if (data.activeStep && STEPS.some((s) => s.id === data.activeStep)) {
+      if (data.activeStep && steps.some((s) => s.id === data.activeStep)) {
         setActiveStep(data.activeStep);
       }
       if (typeof data.hsCode === "string") setHsCode(data.hsCode);
@@ -330,7 +298,7 @@ export default function ComplianceCheckPage() {
     } catch {
       // ignore hydration errors
     }
-  }, []);
+  }, [steps]);
 
   // Persist journey state whenever key inputs change
   useEffect(() => {
@@ -451,8 +419,8 @@ export default function ComplianceCheckPage() {
       .catch(() => setReportUsage(null));
   }, [activeStep]);
 
-  const stepIndex = STEPS.findIndex((s) => s.id === activeStep);
-  const progressPercent = ((stepIndex + 1) / STEPS.length) * 100;
+  const stepIndex = steps.findIndex((s) => s.id === activeStep);
+  const progressPercent = ((stepIndex + 1) / steps.length) * 100;
 
   const isStartValid =
     Boolean(hsCode.trim()) &&
@@ -536,11 +504,18 @@ export default function ComplianceCheckPage() {
       ? (shipmentNum * savingsRateForCurrentYear) / 100
       : 0;
 
-  const checklistSections = getChecklistSectionsForRoute(originCountry, destCountry, hsCode, productName, requirementsFromApi);
+  const checklistSections = getChecklistSectionsForRoute(
+    originCountry,
+    destCountry,
+    hsCode,
+    productName,
+    requirementsFromApi,
+    checklistFallbacks
+  );
   const checklistFlatItems = checklistSections.flatMap((sec) =>
     sec.items.map((item) => ({ sectionId: sec.id, sectionTitleKey: sec.titleKey, itemId: item.id, title: item.title, subLabel: item.subLabel, key: `${sec.id}-${item.id}` }))
   );
-  const barrierItems = getBarriersForDestination(destCountry, originCountry);
+  const barrierItems = getBarriersForDestinationI18n(destCountry, originCountry, tCheck);
   const barrierKeys = barrierItems.map((item) => `ntb-barrier-${item.id}`);
   const checklistTotal = checklistFlatItems.length + barrierKeys.length;
   const checklistCompleted =
@@ -548,11 +523,8 @@ export default function ComplianceCheckPage() {
     barrierKeys.filter((key) => checklistProgress[key]).length;
   const checklistPercent = checklistTotal > 0 ? (checklistCompleted / checklistTotal) * 100 : 0;
 
-  const getChecklistSectionTitle = (key: "before_export" | "afcfta_docs" | "at_import") => {
-    if (key === "before_export") return `Before Export (in ${originCountry || "your country"})`;
-    if (key === "at_import") return `At Import (in ${destCountry || "destination"})`;
-    return "AfCFTA Documentation";
-  };
+  const getChecklistSectionTitle = (key: "before_export" | "afcfta_docs" | "at_import") =>
+    getChecklistSectionTitleI18n(key, originCountry, destCountry, tCheck);
 
   const toggleChecklist = (key: string) => {
     setChecklistProgress((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -568,7 +540,11 @@ export default function ComplianceCheckPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setReportError(data.error === "limit_reached" ? "Report limit reached for your plan. Upgrade or purchase a report to download." : "Could not download report.");
+        setReportError(
+          data.error === "limit_reached"
+            ? tCheck("common.reportLimitReachedPlan")
+            : tCheck("common.couldNotDownloadReport")
+        );
         setReportDownloadStatus("error");
         fetch("/api/afcfta/report/usage", { credentials: "include" })
           .then((r) => r.ok && r.json())
@@ -596,7 +572,7 @@ export default function ComplianceCheckPage() {
         totalCost,
         rvcPercent,
         rvcMeetsThreshold,
-        barriers: getBarriersForDestination(destCountry, originCountry),
+        barriers: barrierItems,
         mfnRate: savingsMfnRate,
         afcfta2026: savingsAfcfta2026,
         afcfta2030: savingsAfcfta2030,
@@ -631,13 +607,13 @@ export default function ComplianceCheckPage() {
 
   const goNext = () => {
     if (activeStep === "start" && !isStartValid) return;
-    const next = Math.min(STEPS.length - 1, stepIndex + 1);
-    setActiveStep(STEPS[next].id);
+    const next = Math.min(steps.length - 1, stepIndex + 1);
+    setActiveStep(steps[next].id);
   };
 
   const goPrev = () => {
     const prev = Math.max(0, stepIndex - 1);
-    setActiveStep(STEPS[prev].id);
+    setActiveStep(steps[prev].id);
   };
 
   const resetJourney = () => {
@@ -783,22 +759,22 @@ export default function ComplianceCheckPage() {
           <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl px-5 py-3 shadow-md border border-border/50" style={{ background: `linear-gradient(135deg, ${ORG_PRIMARY}44, ${ORG_PRIMARY}22 50%, var(--muted) 100%)` }}>
             {productName && (
               <span className="text-sm text-foreground">
-                <span className="text-muted-foreground">Product:</span> <span className="font-bold text-foreground">{productName}</span>
+                <span className="text-muted-foreground">{t("product")}</span> <span className="font-bold text-foreground">{productName}</span>
               </span>
             )}
             {hsCode && (
               <span className="text-sm text-foreground">
-                <span className="text-muted-foreground">HS Code:</span> <span className="font-bold text-foreground">{hsCode}</span>
+                <span className="text-muted-foreground">{t("hsCode")}</span> <span className="font-bold text-foreground">{hsCode}</span>
               </span>
             )}
             {originCountry && (
               <span className="text-sm text-foreground">
-                <span className="text-muted-foreground">From:</span> <span className="font-bold text-foreground">{originCountry}</span>
+                <span className="text-muted-foreground">{t("from")}</span> <span className="font-bold text-foreground">{originCountry}</span>
               </span>
             )}
             {destCountry && (
               <span className="text-sm text-foreground">
-                <span className="text-muted-foreground">To:</span> <span className="font-bold text-foreground">{destCountry}</span>
+                <span className="text-muted-foreground">{t("to")}</span> <span className="font-bold text-foreground">{destCountry}</span>
               </span>
             )}
           </div>
@@ -806,9 +782,9 @@ export default function ComplianceCheckPage() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start">
           <aside className="rounded-2xl border border-border bg-card p-5 shadow-sm lg:sticky lg:top-24">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">Compliance journey</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">{tCheck("sidebarTitle")}</p>
             <div className="mt-4 space-y-2">
-              {STEPS.map((step, idx) => {
+              {steps.map((step, idx) => {
                 const isActive = activeStep === step.id;
                 const isCompleted = idx < stepIndex;
                 const canJump = AFCFTA_COMING_SOON_READ_ONLY || idx <= stepIndex + 1;
@@ -839,7 +815,7 @@ export default function ComplianceCheckPage() {
                     </span>
                     <span className="min-w-0">
                       <span className="block text-base font-semibold text-foreground">{step.label}</span>
-                      <span className="block text-sm text-muted-foreground">{STEP_SUBLABELS[step.id]}</span>
+                      <span className="block text-sm text-muted-foreground">{step.subLabel}</span>
                     </span>
                   </button>
                 );
@@ -852,33 +828,32 @@ export default function ComplianceCheckPage() {
           {activeStep === "start" && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="rounded-xl border border-border bg-card p-6 shadow-md">
-                <h2 className="text-2xl font-bold text-foreground">Start Your Compliance Check</h2>
+                <h2 className="text-2xl font-bold text-foreground">{t("startComplianceCheck")}</h2>
                 {isFreeTier && !AFCFTA_COMING_SOON_READ_ONLY && (
                   <div className="mt-3 rounded-lg border border-amber-300/70 bg-amber-50 px-4 py-3 text-xs text-amber-900 sm:text-sm">
-                    <p className="font-semibold mb-1">Read-only for Free plan</p>
+                    <p className="font-semibold mb-1">{tCheck("start.freeTierTitle")}</p>
                     <p>
-                      You can explore the AfCFTA compliance steps here, but interactive inputs and downloadable
-                      reports are only available on paid plans.{" "}
+                      {tCheck("start.freeTierBody")}{" "}
                       <a href="/pricing" className="font-semibold underline">
-                        View pricing
+                        {tCheck("start.viewPricing")}
                       </a>
                       .
                     </p>
                   </div>
                 )}
                 <div className="mt-4 rounded-lg border-l-4 border-l-amber-400 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                  Welcome! Let&apos;s check if your product qualifies for{" "}
+                  {tCheck("start.welcomeIntro")}{" "}
                   <span className="inline-flex items-center align-middle">
-                    <InfoIcon content="Preferential (lower or zero) tariffs under the AfCFTA agreement when your product meets rules of origin and other requirements." />
+                    <InfoIcon content={tCheck("start.infoPreferentialTariffs")} />
                   </span>{" "}
-                  <strong className="text-foreground">AfCFTA preferential tariffs</strong>. This should take about 5 minutes.
+                  <strong className="text-foreground">{tCheck("start.welcomePreferential")}</strong>. {tCheck("start.welcomeOutro")}
                 </div>
 
                 <div className="mt-6 space-y-5">
                   <div>
                     <label className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                      HS Code
-                      <InfoIcon content="Harmonized System code: international product classification used for customs and tariffs (e.g. 0101.21 for live horses)." />
+                      {tCheck("start.hsCodeLabel")}
+                      <InfoIcon content={tCheck("start.infoHsCode")} />
                       <span className="text-destructive">*</span>
                     </label>
                     <input
@@ -894,7 +869,7 @@ export default function ComplianceCheckPage() {
                         if (inputsLocked) return;
                         lookupProductByHsCode(hsCode);
                       }}
-                      placeholder="e.g. 012222"
+                      placeholder={tCheck("start.hsCodePlaceholder")}
                       readOnly={inputsLocked}
                       className={`w-full rounded-lg border border-input px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 ${
                         inputsLocked
@@ -902,64 +877,64 @@ export default function ComplianceCheckPage() {
                           : "bg-background text-foreground placeholder:text-muted-foreground"
                       }`}
                     />
-                    <p className="mt-1 text-xs text-muted-foreground">Enter the 6-digit code for your product</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{tCheck("start.hsCodeHint")}</p>
                     {hsLookupStatus === "loading" && (
-                      <p className="mt-1 text-xs text-muted-foreground">Looking up product…</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{tCheck("start.lookingUpProduct")}</p>
                     )}
                     {hsLookupStatus === "found" && (
                       <p className="mt-1 text-xs text-green-700 dark:text-green-400">
-                        Product loaded from AfCFTA tariff schedule.
+                        {tCheck("start.productLoaded")}
                       </p>
                     )}
                     {hsLookupStatus === "not-found" && (
                       <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-                        No tariff data found for this HS code yet.
+                        {tCheck("start.noTariffData")}
                       </p>
                     )}
                     {hsLookupStatus === "unauthenticated" && (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Please{" "}
+                        {tCheck("start.signInPromptPrefix")}{" "}
                         <a
                           href={`/sign-in?redirect_url=${encodeURIComponent("/afcfta/compliance-check")}`}
                           className="text-blue-600 underline"
                         >
-                          sign in
+                          {tCheck("start.signIn")}
                         </a>{" "}
-                        or{" "}
+                        {tCheck("start.signInPromptMiddle")}{" "}
                         <a
                           href={`/sign-up?redirect_url=${encodeURIComponent("/afcfta/compliance-check")}`}
                           className="text-blue-600 underline"
                         >
-                          sign up
+                          {tCheck("start.signUp")}
                         </a>{" "}
-                        to look up HS codes for your products.
+                        {tCheck("start.signInPromptSuffix")}
                       </p>
                     )}
                     {hsLookupStatus === "error" && (
                       <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                        Could not look up this HS code right now.
+                        {tCheck("start.hsLookupError")}
                       </p>
                     )}
                   </div>
 
                   <div>
                     <label className="mb-1.5 block text-sm font-semibold text-foreground">
-                      Product Description <span className="text-destructive">*</span>
+                      {tCheck("start.productDescriptionLabel")} <span className="text-destructive">*</span>
                     </label>
                     <input
                       type="text"
                       readOnly
                       value={productName}
-                      placeholder="Enter an HS code above and blur to load from tariff schedule"
+                      placeholder={tCheck("start.productDescriptionPlaceholder")}
                       className="w-full rounded-lg border border-input bg-white px-4 py-3 text-sm text-[#0D1B2A] placeholder:text-[#6B7280] cursor-not-allowed focus:outline-none"
                     />
-                    <p className="mt-1 text-xs text-muted-foreground">Filled automatically when the HS code is found in the AfCFTA tariff schedule.</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{tCheck("start.productDescriptionHint")}</p>
                   </div>
 
                   <div>
                     <label className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                      Exporting From (Country of Origin)
-                      <InfoIcon content="The country where your product was produced or where the last substantial transformation took place. This is used for rules of origin and certificates of origin." />
+                      {tCheck("start.exportingFromLabel")}
+                      <InfoIcon content={tCheck("start.infoExportingFrom")} />
                       <span className="text-destructive">*</span>
                     </label>
                     <div className="grid grid-cols-2 gap-2">
@@ -973,9 +948,9 @@ export default function ComplianceCheckPage() {
                         disabled={inputsLocked}
                         className="rounded-lg border border-input bg-background px-4 py-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                       >
-                        <option value="">Continent</option>
-                        {CONTINENTS.map((c) => (
-                          <option key={c} value={c}>{c}</option>
+                        <option value="">{tCheck("common.continent")}</option>
+                        {AFCFTA_CONTINENT_KEYS.map((c) => (
+                          <option key={c} value={c}>{getContinentLabel(c, tCheck)}</option>
                         ))}
                       </select>
                       <select
@@ -987,7 +962,7 @@ export default function ComplianceCheckPage() {
                         disabled={inputsLocked || !originContinent}
                         className="rounded-lg border border-input bg-background px-4 py-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                       >
-                        <option value="">Country</option>
+                        <option value="">{tCheck("common.country")}</option>
                         {getFilteredCountries(originContinent).map((c) => (
                           <option key={c} value={c}>{c}</option>
                         ))}
@@ -997,7 +972,7 @@ export default function ComplianceCheckPage() {
 
                   <div>
                     <label className="mb-1.5 block text-sm font-semibold text-foreground">
-                      Exporting To (Destination Country) <span className="text-destructive">*</span>
+                      {tCheck("start.exportingToLabel")} <span className="text-destructive">*</span>
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                       <select
@@ -1010,9 +985,9 @@ export default function ComplianceCheckPage() {
                         disabled={inputsLocked}
                         className="rounded-lg border border-input bg-background px-4 py-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                       >
-                        <option value="">Continent</option>
-                        {CONTINENTS.map((c) => (
-                          <option key={c} value={c}>{c}</option>
+                        <option value="">{tCheck("common.continent")}</option>
+                        {AFCFTA_CONTINENT_KEYS.map((c) => (
+                          <option key={c} value={c}>{getContinentLabel(c, tCheck)}</option>
                         ))}
                       </select>
                       <select
@@ -1024,13 +999,13 @@ export default function ComplianceCheckPage() {
                         disabled={inputsLocked || !destContinent}
                         className="rounded-lg border border-input bg-background px-4 py-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
                       >
-                        <option value="">Country</option>
+                        <option value="">{tCheck("common.country")}</option>
                         {getFilteredCountries(destContinent).map((c) => (
                           <option key={c} value={c}>{c}</option>
                         ))}
                       </select>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">Where are you sending your products?</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{tCheck("start.exportingToHint")}</p>
                   </div>
 
                   <button
@@ -1039,12 +1014,12 @@ export default function ComplianceCheckPage() {
                     disabled={!AFCFTA_COMING_SOON_READ_ONLY && !isStartValid}
                     title={
                       !AFCFTA_COMING_SOON_READ_ONLY && !isStartValid
-                        ? "Fill in HS Code, Product Description, Exporting From, and Exporting To to continue"
+                        ? tCheck("start.startButtonTitle")
                         : undefined
                     }
                     className="w-full rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#c99d2e] px-6 py-3 text-sm font-semibold text-[#1a1a1a] shadow-md transition hover:opacity-95 hover:shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:opacity-50"
                   >
-                    Start Compliance Check
+                    {tCheck("start.startButton")}
                     <ChevronRight className="h-4 w-4" />
                   </button>
                 </div>
@@ -1056,45 +1031,41 @@ export default function ComplianceCheckPage() {
           {activeStep === "production" && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="rounded-xl border border-border bg-card p-6 shadow-md">
-                <h2 className="text-2xl font-bold text-foreground">Production Cost Breakdown</h2>
+                <h2 className="text-2xl font-bold text-foreground">{tCheck("production.title")}</h2>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Enter the costs of making your product. We&apos;ll calculate how much comes from AfCFTA countries. You need at least {RVC_THRESHOLD}% to qualify for preferential tariffs.
+                  {tCheck("production.intro", { threshold: RVC_THRESHOLD })}
                 </p>
 
-                {/* What's this for? — light blue box (matches info icon reference) */}
                 <div className="mt-6 rounded-xl border border-sky-200/80 bg-sky-50/90 p-4 dark:border-sky-800/40 dark:bg-sky-950/30 shadow-sm">
                   <p className="text-sm text-sky-900 dark:text-sky-100">
-                    <span className="font-semibold">What&apos;s this for?</span> To qualify for{" "}
-                    <span className="inline-flex items-center gap-0.5">
-                      AfCFTA tariff benefits
-                      <InfoIcon
-                        content="Preferential (lower or zero) tariffs when trading under the AfCFTA agreement, subject to rules of origin."
-                      />
+                    <span className="font-semibold">{tCheck("production.whatsThisForTitle")}</span>{" "}
+                    {tCheck("production.whatsThisForPrefix")}{" "}
+                    <span className="inline-flex items-center gap-0.5 align-middle">
+                      {tCheck("production.tariffBenefitsLabel")}
+                      <InfoIcon content={tCheck("production.infoTariffBenefits")} />
                     </span>
-                    , at least {RVC_THRESHOLD}% of your production costs must come from AfCFTA member countries.
+                    , {tCheck("production.whatsThisForSuffix", { threshold: RVC_THRESHOLD })}
                   </p>
                 </div>
 
-                {/* Upload invoices — yellow box */}
                 <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800/50 dark:bg-amber-950/30">
                   <p className="flex items-start gap-2 text-sm text-amber-900 dark:text-amber-100">
                     <Paperclip className="h-4 w-4 shrink-0 mt-0.5" />
                     <span>
-                      <strong>Upload invoices:</strong> For each input, please upload the supplier invoice (PDF, JPG, or PNG). Our OCR technology will automatically verify the details and help speed up customs clearance.
+                      <strong>{tCheck("production.uploadInvoicesTitle")}</strong> {tCheck("production.uploadInvoicesBody")}
                     </span>
                   </p>
                 </div>
 
-                {/* Input / material table — dark green header like screenshot */}
                 <div className="mt-6 overflow-x-auto rounded-lg border border-border">
                   <table className="w-full border-collapse text-sm">
                     <thead>
                       <tr style={{ backgroundColor: ORG_ACCENT }}>
-                        <th className="text-left p-3 font-bold text-white">Input/Material</th>
-                        <th className="text-left p-3 font-bold text-white">Source Country</th>
-                        <th className="text-right p-3 font-bold text-white">Cost (USD)</th>
-                        <th className="text-left p-3 font-bold text-white">Invoice Upload</th>
-                        <th className="text-center p-3 font-bold text-white">AfCFTA?</th>
+                        <th className="text-left p-3 font-bold text-white">{tCheck("production.tableInputMaterial")}</th>
+                        <th className="text-left p-3 font-bold text-white">{tCheck("production.tableSourceCountry")}</th>
+                        <th className="text-right p-3 font-bold text-white">{tCheck("production.tableCostUsd")}</th>
+                        <th className="text-left p-3 font-bold text-white">{tCheck("production.tableInvoiceUpload")}</th>
+                        <th className="text-center p-3 font-bold text-white">{tCheck("production.tableAfcfta")}</th>
                         <th className="w-24 p-3" />
                       </tr>
                     </thead>
@@ -1112,7 +1083,7 @@ export default function ComplianceCheckPage() {
                                   if (inputsLocked) return;
                                   updateProductionRow(row.id, "description", e.target.value);
                                 }}
-                                placeholder="e.g. Coffee Beans"
+                                placeholder={tCheck("production.placeholderCoffeeBeans")}
                                 className={`w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow ${
                                   inputsLocked
                                     ? "cursor-not-allowed bg-white text-[#0D1B2A] placeholder:text-[#6B7280]"
@@ -1130,7 +1101,7 @@ export default function ComplianceCheckPage() {
                                 }}
                                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow disabled:cursor-not-allowed disabled:opacity-60"
                               >
-                                <option value="">Select country</option>
+                                <option value="">{tCheck("common.selectCountry")}</option>
                                 {AFCFTA_COUNTRIES.map((c) => (
                                   <option key={c} value={c}>{c}</option>
                                 ))}
@@ -1182,22 +1153,22 @@ export default function ComplianceCheckPage() {
                                     if (f) updateProductionRow(row.id, "fileName", f.name);
                                   }}
                                 />
-                                <span className="text-sm">Choose File</span>
+                                <span className="text-sm">{tCheck("common.chooseFile")}</span>
                                 {row.fileName ? (
                                   <>
                                     <span className="truncate max-w-[8rem] text-xs">{row.fileName}</span>
                                     <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
                                   </>
                                 ) : (
-                                  <span className="text-xs text-muted-foreground">No file chosen</span>
+                                  <span className="text-xs text-muted-foreground">{tCheck("common.noFileChosen")}</span>
                                 )}
                               </label>
                             </td>
                             <td className="p-2 text-center">
                               {isAfcfta ? (
-                                <CheckCircle2 className="mx-auto h-5 w-5 text-green-600 dark:text-green-400" aria-label="AfCFTA eligible" />
+                                <CheckCircle2 className="mx-auto h-5 w-5 text-green-600 dark:text-green-400" aria-label={tCheck("common.ariaAfcftaEligible")} />
                               ) : (
-                                <X className="mx-auto h-5 w-5 text-gray-400 dark:text-gray-500" aria-label="Not AfCFTA" strokeWidth={2.5} />
+                                <X className="mx-auto h-5 w-5 text-gray-400 dark:text-gray-500" aria-label={tCheck("common.ariaNotAfcfta")} strokeWidth={2.5} />
                               )}
                             </td>
                             <td className="p-2">
@@ -1207,7 +1178,7 @@ export default function ComplianceCheckPage() {
                                 disabled={productionRows.length <= 1 || inputsLocked}
                                 className="rounded bg-destructive/90 px-3 py-1.5 text-xs font-medium text-white hover:bg-destructive disabled:opacity-30 disabled:pointer-events-none"
                               >
-                                Remove
+                                {tCheck("common.remove")}
                               </button>
                             </td>
                           </tr>
@@ -1225,29 +1196,29 @@ export default function ComplianceCheckPage() {
                   style={{ backgroundColor: ORG_ACCENT }}
                 >
                   <Plus className="h-4 w-4" />
-                  Add Another Input
+                  {tCheck("production.addAnotherInput")}
                 </button>
 
                 {/* Cost summary */}
                 <div className="mt-6 space-y-3 rounded-lg border border-border bg-muted/30 p-4">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Total Production Cost:</span>
+                    <span className="text-muted-foreground">{tCheck("production.totalProductionCost")}</span>
                     <span className="font-semibold">${totalCost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
-                      AfCFTA Content:
+                      {tCheck("production.afcftaContent")}
                       <InfoIcon
-                        content="Sum of costs from inputs sourced in AfCFTA member countries. Used to calculate Regional Value Content (RVC)."
+                        content={tCheck("production.infoAfcftaContent")}
                       />
                     </span>
                     <span className="font-semibold">${totalAfcfta.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
-                      Regional Value Content (RVC):
+                      {tCheck("production.rvcLabel")}
                       <InfoIcon
-                        content="AfCFTA content ÷ total cost × 100%. You need at least 40% RVC to qualify for AfCFTA preferential tariffs."
+                        content={tCheck("production.infoRvc")}
                       />
                     </span>
                     <span className={`font-bold ${rvcMeetsThreshold ? "text-green-600 dark:text-green-400" : "text-foreground"}`}>
@@ -1263,9 +1234,9 @@ export default function ComplianceCheckPage() {
           {activeStep === "origin" && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="rounded-xl border border-border bg-card p-6 shadow-md">
-                <h2 className="text-2xl font-bold text-foreground">Rules of Origin Check</h2>
+                <h2 className="text-2xl font-bold text-foreground">{tCheck("origin.title")}</h2>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Let&apos;s see if your product qualifies for AfCFTA preferential tariffs based on where it&apos;s made.
+                  {tCheck("origin.intro")}
                 </p>
 
                 {/* Outcome message — Good News / Notice */}
@@ -1278,23 +1249,29 @@ export default function ComplianceCheckPage() {
                 >
                   {rvcMeetsThreshold ? (
                     <p className="text-sm font-medium text-green-900 dark:text-green-100">
-                      <span className="font-bold">Good News!</span> Your product qualifies for AfCFTA preferential tariffs. Your Regional Value Content (RVC) is <strong>{totalCost > 0 ? rvcPercent.toFixed(1) : "0"}%</strong>, which meets the required {RVC_THRESHOLD}%.
+                      {tCheck("origin.goodNews", {
+                        rvc: totalCost > 0 ? rvcPercent.toFixed(1) : "0",
+                        threshold: RVC_THRESHOLD,
+                      })}
                     </p>
                   ) : (
                     <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                      Your product does not yet meet the RVC threshold. Your Regional Value Content (RVC) is <strong>{totalCost > 0 ? rvcPercent.toFixed(1) : "0"}%</strong>; you need at least {RVC_THRESHOLD}%. Increase AfCFTA-sourced inputs to qualify.
+                      {tCheck("origin.notYetMet", {
+                        rvc: totalCost > 0 ? rvcPercent.toFixed(1) : "0",
+                        threshold: RVC_THRESHOLD,
+                      })}
                     </p>
                   )}
                 </div>
 
                 {/* What this means */}
-                <h3 className="mt-6 text-sm font-semibold text-foreground">What this means:</h3>
+                <h3 className="mt-6 text-sm font-semibold text-foreground">{tCheck("origin.whatThisMeans")}</h3>
                 <ul className="mt-3 space-y-3">
                   {rvcMeetsThreshold && destCountry && (
                     <li className="flex items-start gap-3">
                       <CheckCircle2 className="h-5 w-5 shrink-0 text-green-600 dark:text-green-400 mt-0.5" />
                       <span className="text-sm text-foreground">
-                        You can claim reduced tariffs when exporting to {destCountry}
+                        {tCheck("origin.canClaimReduced", { dest: destCountry })}
                       </span>
                     </li>
                   )}
@@ -1302,22 +1279,22 @@ export default function ComplianceCheckPage() {
                     <li className="flex items-start gap-3">
                       <FileText className="h-5 w-5 shrink-0 text-muted-foreground mt-0.5" />
                       <span className="text-sm text-foreground flex items-center gap-1.5 flex-wrap">
-                        You&apos;ll need a Certificate of Origin
-                        <InfoIcon content="Official document proving your product meets AfCFTA rules of origin. Required by customs for preferential tariff treatment. Use the AfCFTA template." />
+                        {tCheck("origin.needCertificateOfOrigin")}
+                        <InfoIcon content={tCheck("origin.infoCertificateOfOrigin")} />
                       </span>
                     </li>
                   )}
                   <li className="flex items-start gap-3">
                     <FileText className="h-5 w-5 shrink-0 text-muted-foreground mt-0.5" />
                     <span className="text-sm text-foreground">
-                      Keep records of your production costs for at least 5 years
+                      {tCheck("origin.keepRecords")}
                     </span>
                   </li>
                 </ul>
 
                 {!rvcMeetsThreshold && (
                   <p className="mt-4 text-xs text-muted-foreground">
-                    AfCFTA-sourced cost ÷ total cost × 100 = RVC. Threshold: {RVC_THRESHOLD}%. Go back to Production to adjust inputs.
+                    {tCheck("origin.rvcFormula", { threshold: RVC_THRESHOLD })}
                   </p>
                 )}
               </div>
@@ -1334,30 +1311,28 @@ export default function ComplianceCheckPage() {
                   style={{ background: `linear-gradient(135deg, ${ORG_ACCENT} 0%, ${ORG_PRIMARY} 100%)` }}
                 >
                   <p className="text-xs font-medium uppercase tracking-wider text-white/90">
-                    Non-Tariff Barrier Check
+                    {tCheck("ntb.heroTitle")}
                   </p>
                   {destCountry || originCountry ? (
                     <p className="mt-1 text-lg font-semibold">
                       {originCountry ? `${originCountry} → ` : ""}
-                      {destCountry || "Select destination"}
+                      {destCountry || tCheck("common.selectDestination")}
                     </p>
                   ) : (
-                    <p className="mt-1 text-lg font-semibold">Select your route in Start to see requirements</p>
+                    <p className="mt-1 text-lg font-semibold">{tCheck("ntb.selectRoutePrompt")}</p>
                   )}
                 </div>
                 <div className="px-6 py-4 bg-muted/30 border-t border-border">
                   <p className="text-sm text-muted-foreground flex items-center gap-2">
-                    <InfoIcon content="Non-tariff barriers are rules, procedures, or standards (e.g. licences, SPS certificates, quality standards) that affect trade without being a customs tariff. They must be met for your goods to enter the destination market." />
-                    <span>
-                      <strong className="text-foreground">Non-tariff barriers</strong> are licences, certificates, and standards you must meet for your goods to enter the destination market.
-                    </span>
+                    <InfoIcon content={tCheck("ntb.infoNtb")} />
+                    <span>{tCheck("ntb.ntbIntro")}</span>
                   </p>
                 </div>
               </div>
 
               {!destCountry ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-6 py-4 text-sm text-amber-900 dark:text-amber-100">
-                  Select a <strong>destination country</strong> in the Start step to see import requirements for your export market. Your actionable checklist is on the last step.
+                  {tCheck("ntb.selectDestBanner")}
                 </div>
               ) : null}
 
@@ -1372,15 +1347,15 @@ export default function ComplianceCheckPage() {
                 return (
                   <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-border text-white" style={{ backgroundColor: ORG_PRIMARY }}>
-                      <h3 className="text-lg font-semibold">Export Requirements ({originCountry})</h3>
+                      <h3 className="text-lg font-semibold">{tCheck("ntb.exportRequirements", { country: originCountry })}</h3>
                       {productCategory !== "general" && (
-                        <p className="mt-0.5 text-sm text-white/90">Product category: {productCategory}</p>
+                        <p className="mt-0.5 text-sm text-white/90">{tCheck("common.productCategory", { category: productCategory })}</p>
                       )}
                     </div>
                     <div className="px-6 py-5 space-y-5 text-sm">
                       <div>
-                        <h4 className="font-semibold text-foreground mb-1">Documents</h4>
-                        <p className="text-xs text-muted-foreground mb-2">Papers you must have to clear goods for export from {originCountry}.</p>
+                        <h4 className="font-semibold text-foreground mb-1">{tCheck("common.documents")}</h4>
+                        <p className="text-xs text-muted-foreground mb-2">{tCheck("ntb.documentsExportHint", { country: originCountry })}</p>
                         <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
                           {exportReqs.documents.map((d, i) => (
                             <li key={i}>{d}</li>
@@ -1389,8 +1364,8 @@ export default function ComplianceCheckPage() {
                       </div>
                       {exportReqs.regulatory.length > 0 && (
                         <div>
-                          <h4 className="font-semibold text-foreground mb-1">Regulatory requirements</h4>
-                          <p className="text-xs text-muted-foreground mb-2">Permits, licences or certificates that may be required by law.</p>
+                          <h4 className="font-semibold text-foreground mb-1">{tCheck("common.regulatoryRequirements")}</h4>
+                          <p className="text-xs text-muted-foreground mb-2">{tCheck("ntb.regulatoryExportHint")}</p>
                           <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
                             {exportReqs.regulatory.map((r, i) => (
                               <li key={i}>{r}</li>
@@ -1399,8 +1374,8 @@ export default function ComplianceCheckPage() {
                         </div>
                       )}
                       <div>
-                        <h4 className="font-semibold text-foreground mb-1">Compliance notes</h4>
-                        <p className="text-xs text-muted-foreground mb-2">Things to keep in mind when exporting from {originCountry}.</p>
+                        <h4 className="font-semibold text-foreground mb-1">{tCheck("common.complianceNotes")}</h4>
+                        <p className="text-xs text-muted-foreground mb-2">{tCheck("ntb.complianceExportHint", { country: originCountry })}</p>
                         <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
                           {exportReqs.complianceNotes.map((n, i) => (
                             <li key={i}>{n}</li>
@@ -1423,15 +1398,15 @@ export default function ComplianceCheckPage() {
                 return (
                   <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-border text-white" style={{ backgroundColor: ORG_ACCENT }}>
-                      <h3 className="text-lg font-semibold">Import Requirements ({destCountry})</h3>
+                      <h3 className="text-lg font-semibold">{tCheck("ntb.importRequirements", { country: destCountry })}</h3>
                       {productCategory !== "general" && (
-                        <p className="mt-0.5 text-sm text-white/90">Product category: {productCategory}</p>
+                        <p className="mt-0.5 text-sm text-white/90">{tCheck("common.productCategory", { category: productCategory })}</p>
                       )}
                     </div>
                     <div className="px-6 py-5 space-y-5 text-sm">
                       <div>
-                        <h4 className="font-semibold text-foreground mb-1">Documents</h4>
-                        <p className="text-xs text-muted-foreground mb-2">Papers required by {destCountry} customs to clear your shipment at arrival.</p>
+                        <h4 className="font-semibold text-foreground mb-1">{tCheck("common.documents")}</h4>
+                        <p className="text-xs text-muted-foreground mb-2">{tCheck("ntb.documentsImportHint", { country: destCountry })}</p>
                         <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
                           {importReqs.documents.map((d, i) => (
                             <li key={i}>{d}</li>
@@ -1440,8 +1415,8 @@ export default function ComplianceCheckPage() {
                       </div>
                       {importReqs.regulatory.length > 0 && (
                         <div>
-                          <h4 className="font-semibold text-foreground mb-1">Regulatory requirements</h4>
-                          <p className="text-xs text-muted-foreground mb-2">Permits, health certificates or approvals that may be required by {destCountry}.</p>
+                          <h4 className="font-semibold text-foreground mb-1">{tCheck("common.regulatoryRequirements")}</h4>
+                          <p className="text-xs text-muted-foreground mb-2">{tCheck("ntb.regulatoryImportHint", { country: destCountry })}</p>
                           <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
                             {importReqs.regulatory.map((r, i) => (
                               <li key={i}>{r}</li>
@@ -1450,8 +1425,8 @@ export default function ComplianceCheckPage() {
                         </div>
                       )}
                       <div>
-                        <h4 className="font-semibold text-foreground mb-1">Compliance notes</h4>
-                        <p className="text-xs text-muted-foreground mb-2">Things to keep in mind when importing into {destCountry}.</p>
+                        <h4 className="font-semibold text-foreground mb-1">{tCheck("common.complianceNotes")}</h4>
+                        <p className="text-xs text-muted-foreground mb-2">{tCheck("ntb.complianceImportHint", { country: destCountry })}</p>
                         <ol className="list-decimal list-inside space-y-1.5 text-muted-foreground">
                           {importReqs.complianceNotes.map((n, i) => (
                             <li key={i}>{n}</li>
@@ -1470,22 +1445,22 @@ export default function ComplianceCheckPage() {
           {activeStep === "tariff" && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="rounded-xl border border-border bg-card p-6 shadow-md">
-                <h2 className="text-2xl font-bold text-foreground">Your Tariff Savings</h2>
+                <h2 className="text-2xl font-bold text-foreground">{tCheck("tariff.title")}</h2>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Here&apos;s how much you can save on tariffs over time with AfCFTA preferential rates.
+                  {tCheck("tariff.intro")}
                 </p>
 
                 {savingsTariffStatus === "loading" && (
-                  <p className="mt-4 text-sm text-muted-foreground">Loading tariff rates for your product and destination…</p>
+                  <p className="mt-4 text-sm text-muted-foreground">{tCheck("tariff.loadingRates")}</p>
                 )}
                 {savingsTariffStatus === "not-found" && (
                   <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-                    No tariff schedule found for this HS code and destination country. Complete the Start step with an HS code and &quot;Exporting To&quot; that exist in the tariff schedule.
+                    {tCheck("tariff.notFound")}
                   </p>
                 )}
                 {savingsTariffStatus === "error" && (
                   <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200">
-                    Could not load tariff rates. Try again later.
+                    {tCheck("tariff.loadError")}
                   </p>
                 )}
 
@@ -1494,33 +1469,33 @@ export default function ComplianceCheckPage() {
                     <div className="mt-6 space-y-2">
                       <div className="flex items-center justify-between rounded-lg bg-green-100 dark:bg-green-950/40 px-4 py-3">
                         <span className="flex items-center gap-1.5 text-sm text-foreground">
-                          Standard MFN Tariff
-                          <InfoIcon content="Most Favoured Nation rate: the standard tariff applied to imports from non-preferential trading partners." />
+                          {tCheck("tariff.standardMfnTariff")}
+                          <InfoIcon content={tCheck("tariff.infoMfn")} />
                         </span>
                         <span className="font-semibold text-foreground">
                           {savingsMfnRate != null ? `${savingsMfnRate}%` : "—"}
                         </span>
                       </div>
                       <div className="flex items-center justify-between rounded-lg bg-green-100 dark:bg-green-950/40 px-4 py-3">
-                        <span className="text-sm text-foreground">AfCFTA Rate (2026)</span>
+                        <span className="text-sm text-foreground">{tCheck("tariff.afcftaRate2026")}</span>
                         <span className="font-semibold text-foreground">
                           {savingsAfcfta2026 != null ? `${savingsAfcfta2026}%` : "—"}
                         </span>
                       </div>
                       <div className="flex items-center justify-between rounded-lg bg-green-100 dark:bg-green-950/40 px-4 py-3">
-                        <span className="text-sm text-foreground">AfCFTA Rate (2030)</span>
+                        <span className="text-sm text-foreground">{tCheck("tariff.afcftaRate2030")}</span>
                         <span className="font-semibold text-foreground">
                           {savingsAfcfta2030 != null ? `${savingsAfcfta2030}%` : "—"}
                         </span>
                       </div>
                       <div className="flex items-center justify-between rounded-lg bg-green-100 dark:bg-green-950/40 px-4 py-3">
-                        <span className="text-sm text-foreground">AfCFTA Rate (2035)</span>
+                        <span className="text-sm text-foreground">{tCheck("tariff.afcftaRate2035")}</span>
                         <span className="font-semibold text-foreground">
                           {savingsAfcfta2035 != null ? `${savingsAfcfta2035}%` : "—"}
                         </span>
                       </div>
                       <div className="flex items-center justify-between rounded-lg bg-green-100 dark:bg-green-950/40 px-4 py-3">
-                        <span className="text-sm font-semibold text-foreground">Total Savings by 2035</span>
+                        <span className="text-sm font-semibold text-foreground">{tCheck("tariff.totalSavingsBy2035")}</span>
                         <span className="font-bold text-green-800 dark:text-green-400">
                           {totalSavingsBy2035 != null ? `${totalSavingsBy2035}%` : "—"}
                         </span>
@@ -1529,7 +1504,7 @@ export default function ComplianceCheckPage() {
 
                     <div className="mt-8">
                       <p className="mb-2 text-sm font-medium text-foreground">
-                        Calculate your savings: What is your typical shipment value?
+                        {tCheck("tariff.shipmentValuePrompt")}
                       </p>
                       <input
                         type="text"
@@ -1540,7 +1515,7 @@ export default function ComplianceCheckPage() {
                           if (inputsLocked) return;
                           setShipmentValue(e.target.value.replace(/[^0-9,]/g, ""));
                         }}
-                        placeholder="e.g., 50000"
+                        placeholder={tCheck("tariff.shipmentPlaceholder")}
                         className={`w-full max-w-xs rounded-lg border border-input px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 ${
                           inputsLocked
                             ? "cursor-not-allowed bg-white text-[#0D1B2A] placeholder:text-[#6B7280]"
@@ -1549,14 +1524,17 @@ export default function ComplianceCheckPage() {
                       />
                       <div className="mt-4 rounded-lg bg-green-100 dark:bg-green-950/40 px-4 py-4">
                         <p className="text-sm text-foreground">
-                          Estimated Annual Savings (by {currentYear}):
+                          {tCheck("tariff.estimatedAnnualSavings", { year: currentYear })}
                         </p>
                         <p className="mt-1 text-2xl font-bold text-green-800 dark:text-green-400">
                           ${estimatedAnnualSavingsForCurrentYear.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                         </p>
                         {savingsRateForCurrentYear != null && (
                           <p className="mt-1 text-xs text-muted-foreground">
-                            Based on {Number(savingsRateForCurrentYear.toFixed(2))}% savings vs MFN for {applicablePhaseYear} rate.
+                            {tCheck("tariff.savingsBasis", {
+                              rate: Number(savingsRateForCurrentYear.toFixed(2)),
+                              phase: applicablePhaseYear,
+                            })}
                           </p>
                         )}
                       </div>
@@ -1571,17 +1549,16 @@ export default function ComplianceCheckPage() {
           {activeStep === "checklist" && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="rounded-xl border border-border bg-card p-6 shadow-md">
-                <h2 className="text-2xl font-bold text-foreground">Your Compliance Checklist</h2>
+                <h2 className="text-2xl font-bold text-foreground">{tCheck("checklist.title")}</h2>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Here are the documents and steps you need to complete.
-                  {inputsLocked ? " Preview only — checklist interaction is disabled." : " Click each item when done."}
+                  {inputsLocked ? tCheck("checklist.introPreview") : tCheck("checklist.introInteractive")}
                 </p>
 
                 <div className="mt-6 rounded-xl bg-green-100 dark:bg-green-950/40 px-6 py-5 text-center">
                   <p className="text-4xl font-bold text-green-800 dark:text-green-400">
                     {Math.round(checklistPercent)}%
                   </p>
-                  <p className="mt-1 text-sm text-muted-foreground">Complete</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{tCheck("common.complete")}</p>
                 </div>
 
                 <div className="mt-8 space-y-8">
@@ -1637,16 +1614,18 @@ export default function ComplianceCheckPage() {
                   <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-border bg-muted/20">
                       <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground">
-                        Requirements checklist
+                        {tCheck("common.requirementsChecklist")}
                       </h3>
                       <p className="mt-0.5 text-sm text-muted-foreground">
                         {destCountry
-                          ? `Exporting to ${destCountry}${originCountry ? ` from ${originCountry}` : ""}`
-                          : "General requirements"}
+                          ? originCountry
+                            ? tCheck("common.exportingToFrom", { dest: destCountry, origin: originCountry })
+                            : tCheck("common.exportingTo", { dest: destCountry })
+                          : tCheck("common.generalRequirements")}
                       </p>
                     </div>
                     <ul className="divide-y divide-border">
-                      {getBarriersForDestination(destCountry, originCountry).map((item) => {
+                      {getBarriersForDestinationI18n(destCountry, originCountry, tCheck).map((item) => {
                         const key = `ntb-barrier-${item.id}`;
                         const isSystemChecked = item.id === "standards" && rvcMeetsThreshold;
                         const checked = isSystemChecked || !!checklistProgress[key];
@@ -1661,7 +1640,7 @@ export default function ComplianceCheckPage() {
                                   checked ? "border-emerald-600 bg-emerald-600 text-white" : "border-input bg-background"
                                 } ${isSystemChecked ? "cursor-default opacity-100" : ""}`}
                                 aria-pressed={checked}
-                                title={isSystemChecked ? "Checked by system – your product meets AfCFTA RVC" : undefined}
+                                title={isSystemChecked ? tCheck("common.checkedBySystem") : undefined}
                               >
                                 {checked && <CheckCircle2 className="h-4 w-4" />}
                               </button>
@@ -1674,14 +1653,18 @@ export default function ComplianceCheckPage() {
                                       : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
                                 }`}
                               >
-                                {item.type === "required" ? "Required" : item.type === "compliant" ? "Compliant" : "If required"}
+                                {item.type === "required"
+                                  ? tCheck("common.required")
+                                  : item.type === "compliant"
+                                    ? tCheck("common.compliant")
+                                    : tCheck("common.ifRequired")}
                               </span>
                               <div className="min-w-0 flex-1">
                                 <h4 className={`font-semibold ${checked ? "text-muted-foreground line-through" : "text-foreground"}`}>{item.title}</h4>
                                 <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{item.description}</p>
                                 {item.howToGet && (
                                   <p className="mt-3 text-sm text-muted-foreground/90 pl-3 border-l-2 border-muted-foreground/30">
-                                    <span className="font-medium text-foreground">How to get it:</span> {item.howToGet}
+                                    <span className="font-medium text-foreground">{tCheck("common.howToGetIt")}</span> {item.howToGet}
                                   </p>
                                 )}
                               </div>
@@ -1708,41 +1691,43 @@ export default function ComplianceCheckPage() {
               style={{ backgroundColor: ORG_ACCENT }}
             >
               <ChevronLeft className="h-4 w-4" />
-              Back
+              {tJourney("back")}
             </button>
             <span className="text-sm text-muted-foreground">
-              Step {stepIndex + 1} of {STEPS.length}
+              {tJourney("stepOf", { current: stepIndex + 1, total: steps.length })}
             </span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={resetJourney}
                 disabled={AFCFTA_COMING_SOON_READ_ONLY}
-                title={AFCFTA_COMING_SOON_READ_ONLY ? "Reset is disabled in preview mode" : undefined}
+                title={AFCFTA_COMING_SOON_READ_ONLY ? tJourney("resetDisabledTitle") : undefined}
                 className="flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <RotateCcw className="h-4 w-4" />
-                Reset journey
+                {tJourney("resetJourney")}
               </button>
               {activeStep === "checklist" ? (
                 <div className="flex flex-col items-end gap-2">
                   {reportError && (
                     <p className="text-sm text-red-600 dark:text-red-400 text-right max-w-xs">
                       {reportError}
-                      <a href="/pricing" className="ml-1 underline">Upgrade or buy a report</a>
+                      <a href="/pricing" className="ml-1 underline">{tCheck("common.upgradeOrBuyReport")}</a>
                     </p>
                   )}
                   {reportUsage != null && reportUsage.canDownload && (
                     <p className="text-xs text-muted-foreground">
                       {reportUsage.remaining === null
-                        ? "Unlimited reports"
-                        : `${reportUsage.remaining} report${reportUsage.remaining !== 1 ? "s" : ""} remaining this month`}
-                      {reportUsage.payAsYouGoCount > 0 && ` · ${reportUsage.payAsYouGoCount} pay-as-you-go`}
+                        ? tCheck("common.unlimitedReports")
+                        : tCheck("common.reportsRemaining", { count: reportUsage.remaining })}
+                      {reportUsage.payAsYouGoCount > 0 &&
+                        tCheck("common.payAsYouGoSuffix", { count: reportUsage.payAsYouGoCount })}
                     </p>
                   )}
                   {reportUsage != null && !reportUsage.canDownload && (
                     <p className="text-xs text-amber-600 dark:text-amber-400">
-                      Report limit reached. <a href="/pricing" className="underline">Upgrade or purchase a report</a>
+                      {tCheck("common.reportLimitReached")}{" "}
+                      <a href="/pricing" className="underline">{tCheck("common.upgradeOrPurchaseReport")}</a>
                     </p>
                   )}
                   <button
@@ -1754,10 +1739,10 @@ export default function ComplianceCheckPage() {
                       reportUsage === null ||
                       (reportUsage != null && !reportUsage.canDownload)
                     }
-                    title={AFCFTA_COMING_SOON_READ_ONLY ? "Report download is coming soon" : undefined}
+                    title={AFCFTA_COMING_SOON_READ_ONLY ? tCheck("common.reportDownloadComingSoon") : undefined}
                     className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#c99d2e] px-4 py-2 text-sm font-semibold text-[#1a1a1a] transition-all hover:scale-[1.02] hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                   >
-                    {reportDownloadStatus === "loading" ? "Preparing…" : "Download Full Report"}
+                    {reportDownloadStatus === "loading" ? tCheck("common.preparing") : tCheck("common.downloadFullReport")}
                     <Download className="h-4 w-4" />
                   </button>
                 </div>
@@ -1767,27 +1752,27 @@ export default function ComplianceCheckPage() {
                     onClick={canBrowseSteps ? goNext : undefined}
                     disabled={
                       !canBrowseSteps ||
-                      stepIndex === STEPS.length - 1 ||
+                      stepIndex === steps.length - 1 ||
                       (activeStep === "start" && !isStartValid && !AFCFTA_COMING_SOON_READ_ONLY)
                     }
                     title={
                       !canBrowseSteps
-                        ? "Upgrade your plan to run an interactive AfCFTA compliance check"
+                        ? tCheck("common.upgradePlanTitle")
                         : activeStep === "start" && !isStartValid && !AFCFTA_COMING_SOON_READ_ONLY
-                          ? "Fill in all required fields on the Start step to continue"
+                          ? tCheck("common.fillStartFieldsTitle")
                           : undefined
                     }
                     className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#c99d2e] px-4 py-2 text-sm font-semibold text-[#1a1a1a] transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] hover:shadow-lg"
                   >
                     {activeStep === "production"
-                      ? "Continue to Origin Check"
+                      ? tJourney("continueToOriginCheck")
                       : activeStep === "origin"
-                      ? "Continue to Barrier Check"
+                      ? tJourney("continueToBarrierCheck")
                       : activeStep === "ntb"
-                      ? "Continue to Tariff Savings"
+                      ? tJourney("continueToTariffSavings")
                       : activeStep === "tariff"
-                      ? "View Compliance Checklist"
-                      : "Next"}
+                      ? tJourney("viewComplianceChecklist")
+                      : tJourney("nextLabel")}
                     <ChevronRight className="h-4 w-4" />
                   </button>
               )}
