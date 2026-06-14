@@ -19,6 +19,7 @@ import {
   Award,
 } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { InfoIcon } from "@/components/ui/InfoIcon";
 
 /** Show full journey; form controls inside the main area are disabled until launch. */
@@ -165,6 +166,7 @@ const STEPS: Array<{ id: Step; label: string; icon: typeof Table }> = [
 ];
 
 export default function ComplianceJourneyPage() {
+  const t = useTranslations("afcfta.journey");
   const [activeStep, setActiveStep] = useState<Step>("tariff");
   const [countryA, setCountryA] = useState("");
   const [countryB, setCountryB] = useState("");
@@ -250,7 +252,7 @@ export default function ComplianceJourneyPage() {
               href="/afcfta/compliance-check"
               className="text-sm text-white/80 hover:text-white transition-colors"
             >
-              ← Back to Tools
+              {t("backToTools")}
             </Link>
           </div>
         </div>
@@ -768,10 +770,10 @@ export default function ComplianceJourneyPage() {
               disabled={currentStepIndex === 0}
               className="flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent"
             >
-              ← Previous
+              {t("previous")}
             </button>
             <div className="text-sm text-muted-foreground">
-              Step {currentStepIndex + 1} of {STEPS.length}
+              {t("stepOf", { current: currentStepIndex + 1, total: STEPS.length })}
             </div>
             <button
               type="button"
@@ -782,7 +784,7 @@ export default function ComplianceJourneyPage() {
               disabled={currentStepIndex === STEPS.length - 1}
               className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#c99d2e] px-4 py-2 text-sm font-semibold text-[#1a1a1a] transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] hover:shadow-lg"
             >
-              Next →
+              {t("next")}
             </button>
           </div>
       </div>
