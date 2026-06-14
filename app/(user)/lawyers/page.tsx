@@ -49,18 +49,18 @@ type Lawyer = {
 
 const SEARCH_STATE_STORAGE_KEY = "lawyers:lastSearchState";
 
-const LANGUAGE_OPTIONS = [
-  "All Languages",
-  "English",
-  "French",
-  "Arabic",
-  "Portuguese",
-  "Swahili",
-  "Kinyarwanda",
-  "Yoruba",
-  "Wolof",
-  "Twi",
-];
+const LANGUAGE_OPTION_VALUES = [
+  { value: "all", messageKey: "allLanguages" },
+  { value: "English", messageKey: "languageOptions.english" },
+  { value: "French", messageKey: "languageOptions.french" },
+  { value: "Arabic", messageKey: "languageOptions.arabic" },
+  { value: "Portuguese", messageKey: "languageOptions.portuguese" },
+  { value: "Swahili", messageKey: "languageOptions.swahili" },
+  { value: "Kinyarwanda", messageKey: "languageOptions.kinyarwanda" },
+  { value: "Yoruba", messageKey: "languageOptions.yoruba" },
+  { value: "Wolof", messageKey: "languageOptions.wolof" },
+  { value: "Twi", messageKey: "languageOptions.twi" },
+] as const;
 
 // All African countries for search (user can select any; we show a message if none in directory).
 const AFRICAN_COUNTRIES = [
@@ -125,6 +125,10 @@ export default function LawyersPage() {
   const searchPrice = (
     <MarketingDiscountPrice currentCents={lawyerSearchUnlockPriceUsdCents} size="inline" />
   );
+  const richTags = {
+    strong: (chunks: React.ReactNode) => <strong>{chunks}</strong>,
+    price: () => searchPrice,
+  };
 
   const persistSearchState = (next?: {
     country?: string;
@@ -431,9 +435,9 @@ export default function LawyersPage() {
       {dayPassConfirmSuccess && (
         <div className="border-b border-emerald-500/30 bg-emerald-50 px-4 py-3 dark:bg-emerald-950/30">
           <p className="mx-auto max-w-7xl text-sm font-medium text-emerald-900 dark:text-emerald-100">
-            Day pass active — full platform access for 24 hours.{" "}
+            {t("dayPassActiveBanner")}{" "}
             <Link href="/ai-research" className="underline">
-              Open AI Legal Research
+              {t("openAiResearch")}
             </Link>
           </p>
         </div>
@@ -493,14 +497,14 @@ export default function LawyersPage() {
               </div>
               <div>
                 <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
-                  Area of expertise *
+                  {t("areaOfExpertise")}
                 </label>
                 <select
                   className="w-full rounded-[6px] border border-white/20 bg-[#13263a] px-3 py-2 text-sm text-white outline-none"
                   value={selectedExpertise}
                   onChange={(e) => setSelectedExpertise(e.target.value)}
                 >
-                  <option value="all">All practice areas</option>
+                  <option value="all">{t("allPracticeAreas")}</option>
                   {expertiseList.map((e) => (
                     <option key={e} value={e}>
                       {e}
@@ -510,11 +514,11 @@ export default function LawyersPage() {
               </div>
               <div>
                 <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
-                  Search by name
+                  {t("searchByName")}
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Lagos, arbitration…"
+                  placeholder={t("searchByNamePlaceholder")}
                   className="w-full rounded-[6px] border border-white/20 bg-[#13263a] px-3 py-2 text-sm text-white placeholder:text-white/45 outline-none"
                   value={selectedCity}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedCity(e.target.value)}
@@ -522,16 +526,16 @@ export default function LawyersPage() {
               </div>
               <div>
                 <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
-                  Language
+                  {t("language")}
                 </label>
                 <select
                   className="w-full rounded-[6px] border border-white/20 bg-[#13263a] px-3 py-2 text-sm text-white outline-none"
                   value={selectedLanguage}
                   onChange={(e) => setSelectedLanguage(e.target.value)}
                 >
-                  {LANGUAGE_OPTIONS.map((lang) => (
-                    <option key={lang} value={lang === "All Languages" ? "all" : lang}>
-                      {lang}
+                  {LANGUAGE_OPTION_VALUES.map(({ value, messageKey }) => (
+                    <option key={value} value={value}>
+                      {t(messageKey)}
                     </option>
                   ))}
                 </select>
@@ -541,11 +545,11 @@ export default function LawyersPage() {
                   type="button"
                   onClick={runSearch}
                   disabled={!searchEnabled || expertiseRequired || countryRequired}
-                  title={!searchEnabled ? "Search and unlock are coming soon" : undefined}
+                  title={!searchEnabled ? t("searchComingSoonTitle") : undefined}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-[6px] bg-[#0D1B2A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#162436] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Search className="h-4 w-4" />
-                  {searchEnabled ? "Search" : "Search (coming soon)"}
+                  {searchEnabled ? t("search") : t("searchComingSoon")}
                 </button>
               </div>
             </div>
@@ -564,8 +568,7 @@ export default function LawyersPage() {
           <div className="mb-5 flex items-start gap-2 rounded-[8px] border border-border bg-card px-4 py-3 text-[16px] text-foreground">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             <p>
-              Select a <strong>country</strong> and <strong>practice area</strong> to search. One search costs {searchPrice} and
-              unlocks contact details for all matching lawyers.
+              {t.rich("infoSelectCountryPractice", richTags)}
             </p>
           </div>
 
@@ -573,7 +576,7 @@ export default function LawyersPage() {
             <p className="flex items-center gap-4 font-serif text-[44px] text-[#C8922A]">
               <Quote className="h-6 w-6 fill-current" />
               <span className="text-[44px] leading-tight text-foreground">
-                The platform brings mandates to you — so you do not have to market yourself.
+                {t("quoteMandates")}
               </span>
             </p>
           </div>
@@ -581,8 +584,9 @@ export default function LawyersPage() {
           <div className="mb-8 flex items-start gap-3 rounded-[8px] border border-border bg-card px-5 py-4 text-[16px] leading-relaxed text-muted-foreground">
             <CheckSquare className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
             <p>
-              Lawyers listed in the Yamalé directory have been invited based on their professional credentials and stated
-              expertise. <strong>Yamalé Alliance does not certify, endorse, or guarantee the services of any listed lawyer.</strong>
+              {t.rich("disclaimerDirectory", {
+                strong: (chunks) => <strong>{chunks}</strong>,
+              })}
             </p>
           </div>
 
@@ -590,13 +594,12 @@ export default function LawyersPage() {
             <div className="mb-8">
               {expertiseRequired && (
                 <p className="text-xs text-amber-700 dark:text-amber-400">
-                  Please select a practice area. Country + practice area are required so your {searchPrice} unlock
-                  applies to a specific search.
+                  {t.rich("validationPracticeArea", richTags)}
                 </p>
               )}
               {!expertiseRequired && countryRequired && (
                 <p className="text-xs text-amber-700 dark:text-amber-400">
-                  Please select one country and one practice area before searching.
+                  {t("validationCountryAndArea")}
                 </p>
               )}
             </div>
@@ -606,17 +609,9 @@ export default function LawyersPage() {
           {!hasSearched && (
             <div className="rounded-2xl border border-dashed border-border/80 bg-card/90 p-8 text-center shadow-sm">
               <p className="text-sm text-muted-foreground">
-                {searchEnabled ? (
-                  <>
-                    Select <strong>country</strong> and <strong>practice area</strong>, then click{" "}
-                    <strong>Search</strong> to see matching lawyers.
-                  </>
-                ) : (
-                  <>
-                    Search and contact unlock are <strong>coming soon</strong>. You can explore the filters above to
-                    preview how the directory will work.
-                  </>
-                )}
+                {searchEnabled
+                  ? t.rich("promptBeforeSearch", richTags)
+                  : t.rich("promptBeforeSearchComingSoon", richTags)}
               </p>
             </div>
           )}
@@ -917,9 +912,7 @@ export default function LawyersPage() {
 
         {lawyers.length > 0 && (
           <p className="mt-8 text-center text-xs text-muted-foreground sm:text-sm">
-            <strong>{searchPrice} per search</strong> (country + practice area). Your payment unlocks contact details
-            for the lawyers in that search. Different country or practice area = a new search. Payments are processed
-            securely via mobile money.
+            {t.rich("perSearchFooter", richTags)}
           </p>
         )}
         </div>
