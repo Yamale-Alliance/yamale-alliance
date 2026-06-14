@@ -127,20 +127,34 @@ export async function searchLawsByVectorSimilarity(
 }
 
 /** True when the law_embeddings table has at least one row for the active model. */
+let embeddingsIndexReadyCache: { model: string; ready: boolean; checkedAt: number } | null = null;
+const EMBEDDINGS_INDEX_READY_TTL_MS = 60_000;
+
 export async function lawEmbeddingsIndexReady(
   supabase: { from: (t: string) => unknown },
   model?: string
 ): Promise<boolean> {
   const activeModel = model ?? embeddingModelFromEnv();
+  const now = Date.now();
+  if (
+    embeddingsIndexReadyCache &&
+    embeddingsIndexReadyCache.model === activeModel &&
+    now - embeddingsIndexReadyCache.checkedAt < EMBEDDINGS_INDEX_READY_TTL_MS
+  ) {
+    return embeddingsIndexReadyCache.ready;
+  }
+
   try {
     const { count, error } = await (supabase as any)
       .from("law_embeddings")
       .select("id", { count: "exact", head: true })
       .eq("embedding_model", activeModel)
       .limit(1);
-    if (error) return false;
-    return typeof count === "number" && count > 0;
+    const ready = !error && typeof count === "number" && count > 0;
+    embeddingsIndexReadyCache = { model: activeModel, ready, checkedAt: now };
+    return ready;
   } catch {
+    embeddingsIndexReadyCache = { model: activeModel, ready: false, checkedAt: now };
     return false;
   }
 }
