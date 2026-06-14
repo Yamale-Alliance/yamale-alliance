@@ -4,6 +4,7 @@ import { useCallback, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { VaultCoverImage } from "@/components/marketplace/VaultCoverImage";
 import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, Eye, Star, ShoppingCart, Zap, X } from "lucide-react";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
@@ -109,6 +110,9 @@ function getYouTubeEmbedUrl(url: string | null | undefined): string | null {
 }
 
 export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: string }) {
+  const t = useTranslations("marketplace");
+  const tItem = useTranslations("marketplace.itemPage");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const searchParams = useClientSearchParams();
   const { isLoaded, isSignedIn } = useAppUser();
@@ -162,9 +166,9 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
       const r = await fetch(`${origin}/api/marketplace/${id}`, { credentials: "include" });
       const data = (await r.json()) as { item?: Item };
       if (data.item) setItem(data.item);
-      else setError("Item not found");
+      else setError(tItem("itemNotFound"));
     } catch {
-      setError("Failed to load");
+      setError(tItem("failedToLoad"));
     }
   }, [id]);
 
@@ -193,7 +197,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
       const { url } = await fetchMarketplaceFileUrl(item.id, activeLanguage);
       setViewerUrl(url);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
+      setError(e instanceof Error ? e.message : tItem("failedToLoad"));
     } finally {
       setViewing(false);
     }
@@ -216,7 +220,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
       );
       await saveMarketplaceFile(url, downloadName);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not download");
+      setError(e instanceof Error ? e.message : tItem("couldNotDownload"));
     } finally {
       setDownloading(false);
     }
@@ -231,7 +235,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
     if (!id) return;
     setLoading(true);
     void refetchItem().finally(() => setLoading(false));
-  }, [id, refetchItem]);
+  }, [id, refetchItem, tItem]);
 
   useEffect(() => {
     if (loading || !item?.has_file) return;
@@ -361,13 +365,13 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
       );
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Checkout failed");
+        setError(data.error ?? t("checkoutFailed"));
         setPurchasing(false);
         return;
       }
       if (data.url) window.location.href = data.url;
     } catch {
-      setError("Something went wrong");
+      setError(tItem("failedToLoad"));
     }
     setPurchasing(false);
   };
@@ -390,13 +394,13 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
       });
       if (!res.ok) {
         const data = await res.json();
-        setError(data.error ?? "Failed to add to cart");
+        setError(data.error ?? t("failedAddToCart"));
       } else {
         setIsInCart(true);
         notifyMarketplaceCartUpdated();
       }
     } catch {
-      setError("Something went wrong");
+      setError(tItem("failedToLoad"));
     } finally {
       setAddingToCart(false);
     }
@@ -413,13 +417,13 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
       });
       if (!res.ok) {
         const data = await res.json();
-        setError(data.error ?? "Failed to remove from cart");
+        setError(data.error ?? t("failedRemoveFromCart"));
       } else {
         setIsInCart(false);
         notifyMarketplaceCartUpdated();
       }
     } catch {
-      setError("Something went wrong");
+      setError(tItem("failedToLoad"));
     } finally {
       setAddingToCart(false);
     }
@@ -443,13 +447,13 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Failed to claim");
+        setError(data.error ?? tItem("failedToClaim"));
         setPurchasing(false);
         return;
       }
       setItem((prev) => (prev ? { ...prev, purchased: true } : null));
     } catch {
-      setError("Something went wrong");
+      setError(tItem("failedToLoad"));
     }
     setPurchasing(false);
   };
@@ -477,7 +481,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
       });
       const data = await res.json();
       if (!res.ok) {
-        setRatingError(data.error || "Failed to save rating");
+        setRatingError(data.error || tItem("failedToSaveRating"));
         return;
       }
       // Refresh summary after saving
@@ -493,7 +497,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
         )
         .catch(() => {});
     } catch {
-      setRatingError("Failed to save rating");
+      setRatingError(tItem("failedToSaveRating"));
     } finally {
       setSavingRating(false);
     }
@@ -512,7 +516,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
       <div className="mx-auto max-w-2xl px-4 py-12 text-center">
         <p className="text-muted-foreground">{error}</p>
         <Link href="/marketplace" className="mt-4 inline-block text-primary hover:underline">
-          ← Back to The Yamalé Vault
+          ← {t("backToVault")}
         </Link>
       </div>
     );
@@ -522,7 +526,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
 
   const owned = item.purchased;
   const free = Number(item.price_cents) === 0 || item.price_cents == 0;
-  const priceDisplay = free ? "Free" : `$${(item.price_cents / 100).toFixed(2)}`;
+  const priceDisplay = free ? t("free") : `$${(item.price_cents / 100).toFixed(2)}`;
 
   const fileFmt = item.file_format?.toLowerCase() ?? "";
   const fileNameLower = item.file_name?.toLowerCase() ?? "";
@@ -533,7 +537,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
     return (
       <div className="flex min-h-[50vh] items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <span className="sr-only">Opening package…</span>
+        <span className="sr-only">{tItem("openingPackage")}</span>
       </div>
     );
   }
@@ -565,8 +569,8 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
               className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4 shrink-0" />{" "}
-              <span className="hidden sm:inline">Back to The Yamalé Vault</span>
-              <span className="sm:hidden">Vault</span>
+              <span className="hidden sm:inline">{t("backToVault")}</span>
+              <span className="sm:hidden">{t("vaultShort")}</span>
             </Link>
             <span className="min-w-0 truncate font-sans text-sm text-muted-foreground" title={item.title}>
               {displayVaultProductTitle(item.title)}
@@ -580,7 +584,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
               href="/marketplace"
               className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
             >
-              <ArrowLeft className="h-4 w-4" /> Back to The Yamalé Vault
+              <ArrowLeft className="h-4 w-4" /> {t("backToVault")}
             </Link>
             <div className="flex items-start gap-4">
               <div
@@ -619,7 +623,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
                     <Star className="h-4 w-4 text-yellow-500 fill-current" />
                     <span className="text-sm font-medium">{reviews.averageRating.toFixed(1)}</span>
                     <span className="text-sm text-muted-foreground">
-                      ({reviews.totalReviews} review{reviews.totalReviews !== 1 ? "s" : ""})
+                      ({tItem("reviews", { count: reviews.totalReviews })})
                     </span>
                   </div>
                 )}
@@ -634,22 +638,22 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
       <div className="mx-auto max-w-3xl px-4 py-8">
         {paymentVerifyInProgress && (
           <div className="mb-6 rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
-            Confirming payment…
+            {tCommon("confirmingPayment")}
           </div>
         )}
         {showVerifiedPaymentSuccess && (
           <div className="mb-6 rounded-lg border border-green-500/50 bg-green-500/10 px-4 py-3 text-sm text-green-700 dark:text-green-400">
-            Payment successful. You now have access to this item.
+            {tItem("paymentSuccessItem")}
           </div>
         )}
         {showPaymentNotCompleted && !showVerifiedPaymentSuccess && (
           <div className="mb-6 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
-            Payment was not completed. If you already paid, wait a moment and refresh the page, or contact support.
+            {tItem("paymentNotCompleted")}
           </div>
         )}
         {checkoutCancelled && !showVerifiedPaymentSuccess && !showPaymentNotCompleted && (
           <div className="mb-6 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
-            Checkout was cancelled.
+            {tItem("checkoutCancelled")}
           </div>
         )}
 
@@ -660,7 +664,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
               <div className="relative w-full pt-[56.25%]">
                 <iframe
                   src={getYouTubeEmbedUrl(item.video_url ?? null) ?? ""}
-                  title="Product video"
+                  title={tItem("productVideo")}
                   className="absolute inset-0 h-full w-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
@@ -672,7 +676,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
 
         {item.description && (
           <section className="mb-8">
-            <h2 className="text-lg font-semibold">Description</h2>
+            <h2 className="text-lg font-semibold">{tItem("description")}</h2>
             <div className="mt-2 whitespace-pre-wrap text-muted-foreground">
               {item.description}
             </div>
@@ -681,9 +685,9 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
 
         {owned && (
           <section className="mb-8">
-            <h2 className="text-lg font-semibold">Rate this product</h2>
+            <h2 className="text-lg font-semibold">{tItem("rateProduct")}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Share your experience to help other practitioners decide if this resource is useful.
+              {tItem("rateProductHint")}
             </p>
             <div className="mt-3 flex items-center gap-2">
               {[1, 2, 3, 4, 5].map((value) => {
@@ -697,7 +701,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
                     onClick={() => handleSetRating(value)}
                     disabled={savingRating}
                     className="p-0.5 text-yellow-500 disabled:opacity-50"
-                    aria-label={`Rate ${value} star${value > 1 ? "s" : ""}`}
+                    aria-label={tItem("rateStars", { count: value })}
                   >
                     <Star
                       className={`h-6 w-6 ${active ? "fill-current" : "stroke-current"}`}
@@ -706,7 +710,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
                 );
               })}
               <span className="ml-2 text-xs text-muted-foreground">
-                {myRating ? `You rated this ${myRating}/5` : "Click to rate (1–5 stars)"}
+                {myRating ? tItem("youRated", { rating: myRating }) : tItem("clickToRate")}
               </span>
             </div>
             {ratingError && (
@@ -723,12 +727,12 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
               <p className="text-2xl font-semibold">{priceDisplay}</p>
               <p className="text-sm text-muted-foreground">
                 {owned
-                  ? "You own this item"
+                  ? tItem("youOwnItem")
                   : free
-                    ? "Get instant access"
+                    ? tItem("getInstantAccess")
                     : lomiAvailable
-                      ? "Choose mobile money or card, then continue to pay."
-                      : "One-time payment via mobile money."}
+                      ? tItem("choosePayment")
+                      : tItem("oneTimeMobileMoney")}
               </p>
             </div>
             {!owned && (
@@ -760,7 +764,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
                     disabled={purchasing}
                     className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
                   >
-                    {purchasing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Get for free"}
+                    {purchasing ? <Loader2 className="h-4 w-4 animate-spin" /> : t("getForFree")}
                   </button>
                 ) : (
                   <>
@@ -776,7 +780,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
                         ) : (
                           <>
                             <X className="h-4 w-4" />
-                            Remove from Cart
+                            {t("removeFromCart")}
                           </>
                         )}
                       </button>
@@ -792,7 +796,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
                         ) : (
                           <>
                             <ShoppingCart className="h-4 w-4" />
-                            Add to Cart
+                            {t("addToCart")}
                           </>
                         )}
                       </button>
@@ -809,7 +813,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
                       ) : (
                         <>
                           <Zap className="h-4 w-4" />
-                          Buy Now
+                          {t("buyNow")}
                         </>
                       )}
                     </button>
@@ -833,7 +837,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
                 ) : (
                   <Eye className="h-4 w-4" />
                 )}
-                View & download
+                {tItem("viewAndDownload")}
               </button>
               {item.language_codes && item.language_codes.length > 0 ? (
                 <VaultLanguageBadges languageCodes={item.language_codes} />
@@ -846,7 +850,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
           )}
           {(owned || free) && !item.has_file && (
             <p className="mt-6 border-t border-border pt-6 text-sm text-muted-foreground">
-              No file is attached to this item. Contact support if you expected a download.
+              {tItem("noFileAttached")}
             </p>
           )}
         </section>
