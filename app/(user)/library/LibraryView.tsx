@@ -47,6 +47,7 @@ import { platformBusinessMailto } from "@/lib/platform-emails";
 import { lawDetailHref } from "@/lib/law-public-url";
 import { LawLastVerifiedLabel } from "@/components/library/LawLastVerifiedLabel";
 import { LawLanguageBadge } from "@/components/library/LawLanguageBadge";
+import { LibrarySignInDialog } from "@/components/library/LibrarySignInDialog";
 
 const PAGE_SIZE = LIBRARY_PAGE_SIZE;
 const SUPPORT_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
@@ -113,18 +114,19 @@ type LawFlairsProps = {
 };
 
 function LawFlairs({ law, isBookmarked, isRecentlyOpened, isAdmin }: LawFlairsProps) {
+  const t = useTranslations("library");
   const recentlyAdded = isRecent(law.created_at, RECENTLY_ADDED_DAYS);
   const recentlyUpdated =
     wasUpdatedAfterCreate(law.created_at, law.updated_at) && isRecent(law.updated_at, RECENTLY_UPDATED_DAYS);
 
   const flairs: { label: string; icon: React.ReactNode; className: string }[] = [];
-  if (isBookmarked) flairs.push({ label: "Bookmarked", icon: <Bookmark className="h-3 w-3" />, className: "bg-primary/15 text-primary border-primary/30" });
-  if (isRecentlyOpened) flairs.push({ label: "Recently opened", icon: <Eye className="h-3 w-3" />, className: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30" });
-  if (recentlyAdded && isAdmin) flairs.push({ label: "Recently added", icon: <Sparkles className="h-3 w-3" />, className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" });
-  if (recentlyUpdated && isAdmin) flairs.push({ label: "Updated", icon: <Calendar className="h-3 w-3" />, className: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/30" });
+  if (isBookmarked) flairs.push({ label: t("flairs.bookmarked"), icon: <Bookmark className="h-3 w-3" />, className: "bg-primary/15 text-primary border-primary/30" });
+  if (isRecentlyOpened) flairs.push({ label: t("flairs.recentlyOpened"), icon: <Eye className="h-3 w-3" />, className: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30" });
+  if (recentlyAdded && isAdmin) flairs.push({ label: t("flairs.recentlyAdded"), icon: <Sparkles className="h-3 w-3" />, className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" });
+  if (recentlyUpdated && isAdmin) flairs.push({ label: t("flairs.updated"), icon: <Calendar className="h-3 w-3" />, className: "bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/30" });
   if (law.is_linked_shared_law && isAdmin) {
     flairs.push({
-      label: "Linked law",
+      label: t("flairs.linkedLaw"),
       icon: <Link2 className="h-3 w-3" />,
       className: "bg-sky-500/15 text-sky-800 dark:text-sky-300 border-sky-500/30",
     });
@@ -147,17 +149,23 @@ function LawFlairs({ law, isBookmarked, isRecentlyOpened, isAdmin }: LawFlairsPr
 }
 
 function StatusBadge({ status }: { status: LawStatus }) {
+  const t = useTranslations("library");
   const styles = {
     "In force": "bg-green-500/15 text-green-700 dark:text-green-400",
     Amended: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
     Repealed: "bg-red-500/15 text-red-700 dark:text-red-400",
   };
-  const label = STATUSES.includes(status as LawStatus) ? status : "In force";
+  const statusKey: Record<LawStatus, string> = {
+    "In force": t("statuses.inForce"),
+    Amended: t("statuses.amended"),
+    Repealed: t("statuses.repealed"),
+  };
+  const resolved = STATUSES.includes(status as LawStatus) ? (status as LawStatus) : "In force";
   return (
     <span
-      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[label as LawStatus] ?? styles["In force"]}`}
+      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[resolved]}`}
     >
-      {label}
+      {statusKey[resolved]}
     </span>
   );
 }
@@ -370,6 +378,7 @@ export function LibraryView({
   initialSort = "title-asc",
 }: Props) {
   const t = useTranslations("library");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -383,6 +392,8 @@ export function LibraryView({
   /** Default to Kenya on library grid checkout (common M-Pesa / sandbox testing); user can change in the dialog. */
   const [libraryPawapayCountry, setLibraryPawapayCountry] = useState("Kenya");
   const [paidLawIds, setPaidLawIds] = useState<Set<string>>(() => new Set());
+  const [signInDialogOpen, setSignInDialogOpen] = useState(false);
+  const [signInReturnPath, setSignInReturnPath] = useState("/library");
   const lomiAvailable = isLomiCheckoutAvailable();
   const lomiComingSoon = false;
   const isAdmin = (user?.publicMetadata?.role as string | undefined) === "admin";
@@ -484,11 +495,11 @@ export function LibraryView({
       setSuggestError(null);
 
       if (!suggestLawTitle.trim() || suggestLawTitle.trim().length < 3) {
-        setSuggestError("Please add the law title (at least 3 characters).");
+        setSuggestError(t("suggestTitleError"));
         return;
       }
       if (!suggestCountry.trim()) {
-        setSuggestError("Please add a country.");
+        setSuggestError(t("suggestCountryError"));
         return;
       }
 
@@ -523,7 +534,7 @@ export function LibraryView({
           const message =
             typeof data.error === "string"
               ? data.error
-              : "Could not submit your law suggestion right now.";
+              : t("suggestSubmitError");
           setSuggestError(message);
           return;
         }
@@ -534,9 +545,9 @@ export function LibraryView({
         setSuggestSourceUrl("");
         setSuggestNotes("");
         setShowSuggestLawForm(false);
-        await showAlert("Thanks. Your law suggestion has been submitted to our team.", "Suggestion sent");
+        await showAlert(t("suggestSuccess"), t("suggestionSent"));
       } catch {
-        setSuggestError("Something went wrong. Please try again.");
+        setSuggestError(t("suggestGenericError"));
       } finally {
         setSuggestSubmitting(false);
       }
@@ -550,6 +561,7 @@ export function LibraryView({
       suggestName,
       suggestNotes,
       suggestSourceUrl,
+      t,
     ]
   );
 
@@ -774,8 +786,8 @@ export function LibraryView({
         if (cancelled) return;
         setError(
           err.message?.startsWith("HTTP")
-            ? "Could not load the legal library."
-            : "Check your connection."
+            ? t("loadErrorHttp")
+            : t("loadErrorNetwork")
         );
       })
       .finally(() => {
@@ -858,6 +870,21 @@ export function LibraryView({
     setCurrentPage(page);
     syncUrlFromState({ page });
   };
+
+  const openSignInForLaw = useCallback((returnPath: string) => {
+    setSignInReturnPath(returnPath);
+    setSignInDialogOpen(true);
+  }, []);
+
+  const handleLawLinkClick = useCallback(
+    (event: React.MouseEvent, href: string) => {
+      if (isSignedIn) return;
+      event.preventDefault();
+      openSignInForLaw(href);
+    },
+    [isSignedIn, openSignInForLaw]
+  );
+
   const clearFilters = () => {
     preserveScrollPosition();
     setCountry("");
@@ -893,13 +920,13 @@ export function LibraryView({
         return;
       }
       if (!isSignedIn) {
-        router.push("/sign-in?redirect_url=" + encodeURIComponent("/library"));
+        openSignInForLaw(lawPath);
         return;
       }
       setLibraryDocCheckoutLawId(lawId);
       setLibraryPrintCheckoutOpen(true);
     },
-    [isSignedIn, router, paidLawIds, laws]
+    [isSignedIn, router, paidLawIds, laws, openSignInForLaw]
   );
 
   const submitLibraryDocumentCheckout = useCallback(async () => {
@@ -1029,10 +1056,12 @@ export function LibraryView({
           <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
           <Dialog.Content className="fixed left-1/2 top-1/2 z-[101] flex max-h-[min(90vh,calc(100%-2rem))] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-2xl focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
             <Dialog.Title className="text-lg font-semibold tracking-tight text-foreground">
-              Unlock download
+              {t("unlockDownloadTitle")}
             </Dialog.Title>
             <Dialog.Description className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              A one-time <span className="font-medium text-foreground">{lawPrintPrice}</span> unlock for this law. Choose mobile money or card, then continue to checkout.
+              {t.rich("unlockDownloadDescription", {
+                price: () => <span className="font-medium text-foreground">{lawPrintPrice}</span>,
+              })}
             </Dialog.Description>
             <div className="mt-5 min-w-0 space-y-4">
               <PaymentMethodPicker
@@ -1042,14 +1071,14 @@ export function LibraryView({
                 lomiComingSoon={lomiComingSoon}
                 onLomiComingSoonClick={() => {
                   void showAlert(
-                    "Credit card payments are coming soon. For now, please use Mobile Money.",
-                    "Coming soon"
+                    t("lomiComingSoonMessage"),
+                    tCommon("comingSoon")
                   );
                 }}
               />
               {libraryPrintCheckoutProvider === "pawapay" && (
                 <PawapayCountrySelect
-                  label="Mobile money country"
+                  label={t("mobileMoneyCountry")}
                   value={libraryPawapayCountry}
                   onChange={setLibraryPawapayCountry}
                 />
@@ -1061,7 +1090,7 @@ export function LibraryView({
                   type="button"
                   className="inline-flex items-center justify-center rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                 >
-                  Cancel
+                  {tCommon("close")}
                 </button>
               </Dialog.Close>
               <button
@@ -1076,10 +1105,10 @@ export function LibraryView({
                 {printLoadingId ? (
                   <span className="inline-flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Preparing checkout…
+                    {t("preparingCheckout")}
                   </span>
                 ) : (
-                  "Proceed to checkout"
+                  t("proceedToCheckout")
                 )}
               </button>
             </div>
@@ -1087,7 +1116,7 @@ export function LibraryView({
               <button
                 type="button"
                 className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="Close"
+                aria-label={tCommon("close")}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1239,19 +1268,22 @@ export function LibraryView({
                   >
                     <Link
                       href={lawHref}
-                      onClick={() => {
-                        fetch("/api/search/analytics", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ event: "result_click", lawId: law.id, query: search.trim() || null }),
-                          keepalive: true,
-                        }).catch(() => {});
+                      onClick={(event) => {
+                        handleLawLinkClick(event, lawHref);
+                        if (isSignedIn) {
+                          fetch("/api/search/analytics", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ event: "result_click", lawId: law.id, query: search.trim() || null }),
+                            keepalive: true,
+                          }).catch(() => {});
+                        }
                       }}
                       className="flex min-w-0 flex-1 flex-col"
                     >
                       <h2 className="text-[15px] font-bold leading-[1.35] text-foreground">{law.name}</h2>
                       <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[12.5px] text-muted-foreground">
-                        <span>{law.country}</span>
+                        <span>{law.applies_globally ? t("allCountries") : law.country}</span>
                         <span>·</span>
                         <span>{law.category}</span>
                       </div>
@@ -1278,8 +1310,8 @@ export function LibraryView({
                           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
                           title={
                             paidLawIds.has(law.id)
-                              ? "Download PDF"
-                              : `Download (${lawPrintPricePlain}) — one-time unlock`
+                              ? t("downloadPdfTitle")
+                              : t("downloadUnlockTitle", { price: lawPrintPricePlain })
                           }
                         >
                           {printLoadingId === law.id ? (
@@ -1289,19 +1321,20 @@ export function LibraryView({
                           )}
                           <span className="inline-flex items-center gap-1">
                             {paidLawIds.has(law.id) ? (
-                              "Download"
+                              t("download")
                             ) : (
                               <>
-                                Download {lawPrintPrice}
+                                {t("download")} {lawPrintPrice}
                               </>
                             )}
                           </span>
                         </button>
                         <Link
                           href={lawHref}
+                          onClick={(event) => handleLawLinkClick(event, lawHref)}
                           className="inline-flex items-center gap-1 text-xs font-semibold text-[#C8922A] hover:underline"
                         >
-                          View
+                          {t("view")}
                           <ArrowRight className="h-3.5 w-3.5" />
                         </Link>
                       </div>
@@ -1312,23 +1345,21 @@ export function LibraryView({
             </div>
             {laws.length === 0 && (
               <p className="py-12 text-center text-muted-foreground">
-                No laws match your search. Try one or two keywords (e.g. &quot;patent Zambia&quot;) or clear filters.
+                {t("noResults")}
               </p>
             )}
             <aside className="mt-12 rounded-xl border border-border bg-muted px-5 py-5 sm:px-6">
               <div className="flex gap-3 sm:gap-4">
                 <Info className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
                 <div className="min-w-0 text-sm leading-relaxed text-muted-foreground">
-                  <p className="font-semibold text-foreground">About this library.</p>
+                  <p className="font-semibold text-foreground">{t("aboutTitle")}</p>
                   <p className="mt-2">
-                    The Yamalé Legal Library covers all 54 African countries across a growing range of legal domains and is
-                    continuously expanding. Content is provided for reference only and may not reflect the most current version of each
-                    law. Where coverage is incomplete, we indicate it clearly. Notice a missing law? Use the{" "}
+                    {t("aboutBodyStart")}{" "}
                     <button
                       type="button"
                       onClick={() => {
                         if (!SUPPORT_LIVE) {
-                          window.location.href = platformBusinessMailto("Suggest a law");
+                          window.location.href = platformBusinessMailto(t("suggestLaw"));
                           return;
                         }
                         setSuggestError(null);
@@ -1336,25 +1367,26 @@ export function LibraryView({
                       }}
                       className="font-medium text-foreground underline decoration-[#C8922A] underline-offset-2 hover:text-[#C8922A] dark:text-[#f3e5c8] dark:hover:text-[#e3ba65]"
                     >
-                      Suggest a law
+                      {t("suggestLaw")}
                     </button>{" "}
-                    feature, or open any law and use <strong className="font-medium text-foreground">Flag this law</strong> in the
-                    toolbar. Need help interpreting a specific law?{" "}
+                    {t("aboutBodyMiddle")}{" "}
+                    <strong className="font-medium text-foreground">{t("flagThisLaw")}</strong>{" "}
+                    {t("aboutBodyEnd")}{" "}
                     <Link
                       href="/lawyers"
                       className="font-semibold text-[#C8922A] underline decoration-[#C8922A] underline-offset-2 hover:text-[#b07e22]"
                     >
-                      Browse the Yamalé Lawyer Network →
+                      {t("browseLawyerNetwork")}
                     </Link>
                   </p>
                   {showSuggestLawForm && SUPPORT_LIVE && (
                     <form onSubmit={submitLawSuggestion} className="mt-4 space-y-3 rounded-lg border border-border bg-background p-4">
-                      <p className="text-sm font-semibold text-foreground">Suggest a missing law</p>
+                      <p className="text-sm font-semibold text-foreground">{t("suggestMissingLaw")}</p>
                       <div className="grid gap-3 sm:grid-cols-2">
                         <input
                           value={suggestName}
                           onChange={(e) => setSuggestName(e.target.value)}
-                          placeholder="Your name"
+                          placeholder={t("suggestNamePlaceholder")}
                           required
                           className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
                         />
@@ -1362,7 +1394,7 @@ export function LibraryView({
                           type="email"
                           value={suggestEmail}
                           onChange={(e) => setSuggestEmail(e.target.value)}
-                          placeholder="Your email"
+                          placeholder={t("suggestEmailPlaceholder")}
                           required
                           className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
                         />
@@ -1371,21 +1403,21 @@ export function LibraryView({
                         <input
                           value={suggestCountry}
                           onChange={(e) => setSuggestCountry(e.target.value)}
-                          placeholder="Country (required)"
+                          placeholder={t("suggestCountryPlaceholder")}
                           required
                           className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
                         />
                         <input
                           value={suggestCategory}
                           onChange={(e) => setSuggestCategory(e.target.value)}
-                          placeholder="Category (optional)"
+                          placeholder={t("suggestCategoryPlaceholder")}
                           className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
                         />
                       </div>
                       <input
                         value={suggestLawTitle}
                         onChange={(e) => setSuggestLawTitle(e.target.value)}
-                        placeholder="Law title (required)"
+                        placeholder={t("suggestTitlePlaceholder")}
                         required
                         minLength={3}
                         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
@@ -1393,13 +1425,13 @@ export function LibraryView({
                       <input
                         value={suggestSourceUrl}
                         onChange={(e) => setSuggestSourceUrl(e.target.value)}
-                        placeholder="Source URL (optional)"
+                        placeholder={t("suggestSourcePlaceholder")}
                         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
                       />
                       <textarea
                         value={suggestNotes}
                         onChange={(e) => setSuggestNotes(e.target.value)}
-                        placeholder="Notes (optional): why this law should be added, publication info, etc."
+                        placeholder={t("suggestNotesPlaceholder")}
                         rows={4}
                         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
                       />
@@ -1410,14 +1442,14 @@ export function LibraryView({
                           disabled={suggestSubmitting}
                           className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                         >
-                          {suggestSubmitting ? "Sending..." : "Submit suggestion"}
+                          {suggestSubmitting ? t("suggestSending") : t("submitSuggestion")}
                         </button>
                         <button
                           type="button"
                           onClick={() => setShowSuggestLawForm(false)}
                           className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
                         >
-                          Cancel
+                          {tCommon("close")}
                         </button>
                       </div>
                     </form>
@@ -1435,6 +1467,11 @@ export function LibraryView({
           </div>
         )}
       </div>
+      <LibrarySignInDialog
+        open={signInDialogOpen}
+        onOpenChange={setSignInDialogOpen}
+        returnPath={signInReturnPath}
+      />
     </div>
   );
 }
