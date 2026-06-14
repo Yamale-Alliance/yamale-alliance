@@ -1,4 +1,7 @@
+"use client";
+
 import { BadgeCheck } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { formatLawLastVerifiedLabel, formatLawLastVerifiedMonthYear } from "@/lib/law-last-verified";
 
 type Props = {
@@ -9,6 +12,7 @@ type Props = {
 };
 
 export function LawLastVerifiedLabel({ at, variant = "full", className = "" }: Props) {
+  const t = useTranslations("library");
   const full = formatLawLastVerifiedLabel(at);
   const monthYear = formatLawLastVerifiedMonthYear(at);
   if (!full || !monthYear) return null;
@@ -21,7 +25,7 @@ export function LawLastVerifiedLabel({ at, variant = "full", className = "" }: P
       title={full}
     >
       <BadgeCheck className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
-      <span>{variant === "compact" ? `Verified ${text}` : text}</span>
+      <span>{variant === "compact" ? t("verified", { date: text }) : text}</span>
     </span>
   );
 }
