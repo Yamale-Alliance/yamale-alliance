@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { InfoIcon } from "@/components/ui/InfoIcon";
 
@@ -33,6 +34,7 @@ const REGISTRATION_STORAGE_KEY = "afcfta_registration_completed";
 const REGISTRATION_DATA_KEY = "afcfta_registration_data";
 
 export default function AfCFTARegistrationPage() {
+  const t = useTranslations("afcfta.journey");
   const router = useRouter();
   const [businessName, setBusinessName] = useState("");
   const [country, setCountry] = useState("");
@@ -63,7 +65,7 @@ export default function AfCFTARegistrationPage() {
           className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground mb-8"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to AfCFTA Journey
+          {t("backToJourney")}
         </Link>
 
         <div className="rounded-2xl border border-border/60 bg-card p-6 sm:p-8 shadow-sm">
