@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
-import { auth } from "@clerk/nextjs/server";
 import { fetchLibraryData, LIBRARY_PAGE_SIZE, type LibrarySortOption } from "@/lib/library-data";
 import LibraryLoading from "./loading";
 
@@ -58,9 +57,6 @@ async function resolveLibraryParams(searchParams: SearchParams): Promise<Resolve
 }
 
 async function LibraryPageContent({ resolved }: { resolved: ResolvedLibraryParams }) {
-  const { userId } = await auth();
-  if (!userId) return null;
-
   const {
     country,
     category,
