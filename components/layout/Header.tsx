@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { Loader2 } from "lucide-react";
@@ -15,13 +15,10 @@ import {
   prototypeNavInnerClass,
   prototypeNavLinkClass,
   prototypeNavLinksRowClass,
-  prototypeNavSignInLinkClass,
-  prototypeNavSignUpClass,
 } from "./prototype-nav-styles";
 import { SiteNavLink } from "./SiteNavLink";
 import { LanguageToggle } from "./LanguageToggle";
 import { useTranslatedGuestNavLinks } from "./use-translated-nav";
-import { useTranslations } from "next-intl";
 
 function isActivePath(pathname: string | null, href: string): boolean {
   if (!pathname) return false;
@@ -31,21 +28,8 @@ function isActivePath(pathname: string | null, href: string): boolean {
 
 type UserRole = "user" | "lawyer" | "admin";
 
-function isFastPublicNav(pathname: string | null): boolean {
-  if (!pathname) return false;
-  return (
-    pathname.startsWith("/library") ||
-    pathname.startsWith("/lawyers") ||
-    pathname.startsWith("/afcfta") ||
-    pathname.startsWith("/marketplace") ||
-    pathname === "/pricing" ||
-    pathname === "/ai-research"
-  );
-}
-
-function HeaderNavSkeleton({ showAuthLinks = false }: { showAuthLinks?: boolean }) {
+function HeaderNavSkeleton({ preferSignedIn = false }: { preferSignedIn?: boolean }) {
   const pathname = usePathname();
-  const t = useTranslations("common");
   const links = useTranslatedGuestNavLinks();
 
   return (
@@ -67,15 +51,11 @@ function HeaderNavSkeleton({ showAuthLinks = false }: { showAuthLinks?: boolean 
         <div className={prototypeNavActionsClass}>
           <LanguageToggle compact />
           <ThemeToggle />
-          {showAuthLinks ? (
-            <div className="hidden items-center gap-1.5 lg:flex xl:gap-2">
-              <Link href="/sign-in" className={prototypeNavSignInLinkClass}>
-                {t("signIn")}
-              </Link>
-              <Link href="/signup" className={prototypeNavSignUpClass}>
-                {t("signUp")}
-              </Link>
-            </div>
+          {preferSignedIn ? (
+            <span
+              className="h-9 w-9 shrink-0 animate-pulse rounded-full border border-border/60 bg-muted/80"
+              aria-hidden
+            />
           ) : (
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted/80">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -88,22 +68,25 @@ function HeaderNavSkeleton({ showAuthLinks = false }: { showAuthLinks?: boolean 
 }
 
 const GuestHeader = dynamic(() => import("./GuestHeader").then((m) => ({ default: m.GuestHeader })), {
-  loading: () => <HeaderNavSkeleton showAuthLinks />,
+  loading: () => <HeaderNavSkeleton />,
 });
 const UserHeader = dynamic(() => import("./UserHeader").then((m) => ({ default: m.UserHeader })), {
-  loading: () => <HeaderNavSkeleton />,
+  loading: () => <HeaderNavSkeleton preferSignedIn />,
 });
 const AdminHeader = dynamic(() => import("./AdminHeader").then((m) => ({ default: m.AdminHeader })), {
-  loading: () => <HeaderNavSkeleton />,
+  loading: () => <HeaderNavSkeleton preferSignedIn />,
 });
 
 const CLERK_LOAD_TIMEOUT_MS = 2500;
 
 export function Header() {
-  const pathname = usePathname();
   const { isLoaded, isSignedIn, user } = useAppUser();
   const [loadTimedOut, setLoadTimedOut] = useState(false);
-  const fastPublic = isFastPublicNav(pathname);
+  const signedInHintRef = useRef(false);
+
+  if (isLoaded) {
+    signedInHintRef.current = Boolean(isSignedIn && user);
+  }
 
   useEffect(() => {
     if (isLoaded || !isClerkConfigured()) return;
@@ -116,10 +99,13 @@ export function Header() {
   }
 
   if (!isLoaded) {
-    return <HeaderNavSkeleton showAuthLinks={fastPublic} />;
+    return <HeaderNavSkeleton preferSignedIn={signedInHintRef.current} />;
   }
 
   if (!isSignedIn || !user) {
+    if (signedInHintRef.current) {
+      return <HeaderNavSkeleton preferSignedIn />;
+    }
     return <GuestHeader />;
   }
 
