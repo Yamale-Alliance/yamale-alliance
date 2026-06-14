@@ -9,12 +9,14 @@ type Props = {
   contentGap?: AiResearchContentGap | null;
   lawyerNudge?: AiResearchLawyerNudge | null;
   showAnswerFooter?: boolean;
+  answerFooter?: string;
 };
 
 export function AiResearchMessageFootnotes({
   contentGap,
   lawyerNudge,
   showAnswerFooter = true,
+  answerFooter = AI_RESEARCH_ANSWER_FOOTER,
 }: Props) {
   return (
     <>
@@ -90,7 +92,7 @@ export function AiResearchMessageFootnotes({
 
       {showAnswerFooter ? (
         <p className="mt-3 border-t border-border/60 pt-2.5 text-[11px] leading-relaxed text-muted-foreground dark:border-white/10">
-          {AI_RESEARCH_ANSWER_FOOTER}
+          {answerFooter}
         </p>
       ) : null}
     </>
