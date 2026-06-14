@@ -67,10 +67,15 @@ import { AiResearchProcessPanel } from "@/components/ai-research/AiResearchProce
 import { AiResearchMessageFootnotes } from "@/components/ai-research/AiResearchMessageFootnotes";
 import { AiResearchPlanLanding } from "@/components/ai-research/AiResearchPlanLanding";
 import {
+  translateAiProcessStepDetail,
+  translateAiProcessStepMessage,
+} from "@/lib/i18n/translate-ai-process-step";
+import {
   resolveAiResearchContentGap,
   type AiResearchContentGap,
   type AiResearchLawyerNudge,
 } from "@/lib/ai-research-user-messaging";
+import * as Dialog from "@radix-ui/react-dialog";
 
 type Tier = "free" | "basic" | "pro" | "team";
 
@@ -1505,13 +1510,13 @@ export default function AIResearchClient() {
               </button>
               <div className="min-w-0">
                 <h2 className="heading truncate text-[14px] font-semibold tracking-tight text-foreground md:text-[15px]">
-                  AI Legal Research
+                  {t("title")}
                 </h2>
                 <p className="hidden truncate text-[11px] leading-tight text-muted-foreground sm:block">
-                  Yamalé AI · African law and compliance
+                  {t("headerSubtitle")}
                 </p>
                 <p className="hidden text-[10px] leading-tight text-muted-foreground/90 sm:block">
-                  Indicative research only. Not legal advice.
+                  {t("headerDisclaimer")}
                 </p>
               </div>
             </div>
@@ -1751,7 +1756,13 @@ export default function AIResearchClient() {
                       <div className="min-w-0 max-w-[min(100%,560px)] flex-1 rounded-[10px] border border-border bg-card px-4 py-3 text-foreground shadow-sm">
                         {msg.role === "assistant" && msg.processLog && msg.processLog.length > 0 ? (
                           <AiResearchProcessPanel
-                            steps={msg.processLog}
+                            steps={msg.processLog.map((step) => ({
+                              ...step,
+                              message: translateAiProcessStepMessage(step.message, t),
+                              detail: step.detail
+                                ? translateAiProcessStepDetail(step.detail, t)
+                                : undefined,
+                            }))}
                             isActive={msg.id === streamingAssistantId && msg.processCompletedAt == null}
                             startedAt={msg.processStartedAt ?? Date.now()}
                             completedAt={msg.processCompletedAt}
@@ -1770,10 +1781,10 @@ export default function AIResearchClient() {
                             }`}
                           >
                             {msg.outputConfidence === "high"
-                              ? "Grounded"
+                              ? t("grounded")
                               : msg.outputConfidence === "medium"
-                                ? "Partially Grounded"
-                                : "Low Confidence — verify with source"}
+                                ? t("partiallyGrounded")
+                                : t("lowConfidence")}
                           </span>
                         ) : null}
                         {msg.role === "assistant" && msg.content.trim() ? (
@@ -1847,7 +1858,7 @@ export default function AIResearchClient() {
                                   </span>
                                 ) : (
                                   <span className="text-[10px] font-normal uppercase tracking-wide text-muted-foreground">
-                                    Retrieved
+                                    {t("retrievedBadge")}
                                   </span>
                                 )}
                               </p>
@@ -1887,7 +1898,7 @@ export default function AIResearchClient() {
                                     <details className="group mt-2 rounded-[8px] border border-border/60 bg-muted/20 p-2 dark:border-white/10 dark:bg-white/[0.04]">
                                       <summary className="cursor-pointer list-none text-[11px] font-medium text-muted-foreground marker:content-none [&::-webkit-details-marker]:hidden">
                                         <span className="underline-offset-2 group-open:underline">
-                                          Other documents retrieved this turn ({other.length})
+                                          {t("otherDocumentsRetrieved", { count: other.length })}
                                         </span>
                                       </summary>
                                       <div className="mt-2 space-y-2 border-t border-border/40 pt-2 dark:border-white/10">
@@ -1916,6 +1927,7 @@ export default function AIResearchClient() {
                           <AiResearchMessageFootnotes
                             contentGap={assistantContentGap}
                             lawyerNudge={msg.lawyerNudge ?? null}
+                            answerFooter={t("answerFooter")}
                           />
                         ) : null}
                         {msg.role === "assistant" && msg.citationVerification && !msg.citationVerification.allDocRefsValid ? (
@@ -2079,59 +2091,63 @@ export default function AIResearchClient() {
                 </p>
               </form>
               {negativeModal ? (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
-                  <div className="w-full max-w-2xl rounded-3xl border border-white/15 bg-[#1A1A1C] p-6 text-white shadow-2xl md:p-10">
-                    <h3 className="text-2xl font-semibold">Give negative feedback</h3>
-                    <p className="mt-6 text-sm text-white/70">What type of issue do you wish to report? (optional)</p>
-                    <div className="relative mt-2">
-                      <select
-                        value={negativeIssueCategory}
-                        onChange={(e) => setNegativeIssueCategory(e.target.value)}
-                        className="w-full appearance-none rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-lg text-white outline-none focus:border-white/35"
-                      >
-                        <option value="">Select…</option>
-                        <option value="wrong_sources">Wrong sources retrieved</option>
-                        <option value="missing_law_text">Missing/incomplete law text</option>
-                        <option value="incorrect_answer">Incorrect legal answer</option>
-                        <option value="citation_issue">Citation issue</option>
-                        <option value="ui_issue">UI issue</option>
-                        <option value="other">Other</option>
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/65" />
-                    </div>
+                <Dialog.Root open onOpenChange={(open) => !open && setNegativeModal(null)}>
+                  <Dialog.Portal>
+                    <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm print:hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+                    <Dialog.Content className="fixed left-1/2 top-1/2 z-[101] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-6 shadow-2xl print:hidden focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+                      <Dialog.Title className="text-lg font-semibold tracking-tight text-foreground">
+                        {t("feedback.negativeTitle")}
+                      </Dialog.Title>
+                      <p className="mt-4 text-sm text-muted-foreground">{t("feedback.issueTypeLabel")}</p>
+                      <div className="relative mt-2">
+                        <select
+                          value={negativeIssueCategory}
+                          onChange={(e) => setNegativeIssueCategory(e.target.value)}
+                          className="w-full appearance-none rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus:border-[#C8922A]/35 focus:ring-2 focus:ring-[#C8922A]/15"
+                        >
+                          <option value="">{t("feedback.selectPlaceholder")}</option>
+                          <option value="wrong_sources">{t("feedback.issueCategories.wrong_sources")}</option>
+                          <option value="missing_law_text">{t("feedback.issueCategories.missing_law_text")}</option>
+                          <option value="incorrect_answer">{t("feedback.issueCategories.incorrect_answer")}</option>
+                          <option value="citation_issue">{t("feedback.issueCategories.citation_issue")}</option>
+                          <option value="ui_issue">{t("feedback.issueCategories.ui_issue")}</option>
+                          <option value="other">{t("feedback.issueCategories.other")}</option>
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      </div>
 
-                    <p className="mt-8 text-sm text-white/70">Please provide details: (optional)</p>
-                    <textarea
-                      value={negativeIssueDetails}
-                      onChange={(e) => setNegativeIssueDetails(e.target.value)}
-                      rows={4}
-                      placeholder="What was unsatisfying about this response?"
-                      className="mt-2 w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-lg text-white outline-none placeholder:text-white/45 focus:border-white/35"
-                    />
+                      <p className="mt-5 text-sm text-muted-foreground">{t("feedback.detailsLabel")}</p>
+                      <textarea
+                        value={negativeIssueDetails}
+                        onChange={(e) => setNegativeIssueDetails(e.target.value)}
+                        rows={4}
+                        placeholder={t("feedbackPlaceholder")}
+                        className="mt-2 w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-[#C8922A]/35 focus:ring-2 focus:ring-[#C8922A]/15"
+                      />
 
-                    <p className="mt-6 text-sm italic text-white/55">
-                      Submitting this report will send the entire current conversation to the admin AI bug triage queue.
-                    </p>
+                      <p className="mt-4 text-sm italic text-muted-foreground">{t("feedback.submitNotice")}</p>
 
-                    <div className="mt-8 flex justify-end gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setNegativeModal(null)}
-                        className="rounded-2xl border border-white/20 px-6 py-3 text-sm font-medium text-white/90 hover:bg-white/10"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void submitNegativeFeedback()}
-                        disabled={negativeSubmitting}
-                        className="rounded-2xl bg-white px-6 py-3 text-lg font-semibold text-black disabled:opacity-60"
-                      >
-                        {negativeSubmitting ? "Submitting…" : "Submit"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                      <div className="mt-6 flex flex-wrap justify-end gap-2">
+                        <Dialog.Close asChild>
+                          <button
+                            type="button"
+                            className="inline-flex items-center justify-center rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                          >
+                            {t("feedback.cancel")}
+                          </button>
+                        </Dialog.Close>
+                        <button
+                          type="button"
+                          onClick={() => void submitNegativeFeedback()}
+                          disabled={negativeSubmitting}
+                          className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
+                        >
+                          {negativeSubmitting ? t("submitting") : t("submit")}
+                        </button>
+                      </div>
+                    </Dialog.Content>
+                  </Dialog.Portal>
+                </Dialog.Root>
               ) : null}
               {showPayAsYouGoPrompt && (
                 <div className="mt-3 rounded-[6px] border border-[#C8922A]/30 bg-[#FFFDF8] px-4 py-3 text-center">
