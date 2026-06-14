@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ShoppingCart, Trash2, Loader2, Check, Sparkles, Package } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { VaultCoverImage } from "@/components/marketplace/VaultCoverImage";
 import {
@@ -42,6 +43,9 @@ type CartItem = {
 };
 
 export default function CartPage() {
+  const t = useTranslations("marketplace");
+  const tCart = useTranslations("marketplace.cartPage");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAppUser();
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -81,7 +85,7 @@ export default function CartPage() {
       setCart((prev) => prev.filter((item) => item.marketplace_item_id !== itemId));
       notifyMarketplaceCartUpdated();
     } catch {
-      await showAlert("Failed to remove from cart", "Cart");
+      await showAlert(tCart("removeFailed"), t("cart"));
     } finally {
       setRemoving(null);
     }
@@ -104,11 +108,11 @@ export default function CartPage() {
       if (res.ok && data.url) {
         window.location.href = data.url;
       } else {
-        await showAlert(data.error ?? "Checkout failed", "Checkout");
+        await showAlert(data.error ?? t("checkoutFailed"), tCommon("checkout"));
         setCheckoutLoading(false);
       }
     } catch {
-      await showAlert("Something went wrong", "Checkout");
+      await showAlert(tCart("somethingWrong"), tCommon("checkout"));
       setCheckoutLoading(false);
     }
   };
@@ -145,18 +149,18 @@ export default function CartPage() {
             href="/marketplace"
             className="inline-flex items-center gap-2 rounded-xl border border-border/60 bg-background/80 px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:border-primary/60 hover:bg-primary/10 hover:text-foreground backdrop-blur mb-6"
           >
-            <ArrowLeft className="h-3.5 w-3.5" /> Back to The Yamalé Vault
+            <ArrowLeft className="h-3.5 w-3.5" /> {t("backToVault")}
           </Link>
           <div className="max-w-2xl">
             <p className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/90 backdrop-blur">
               <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              Your shopping cart
+              {tCart("eyebrow")}
             </p>
             <h1 className="heading mt-5 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-[2.5rem]">
-              Review & checkout
+              {tCart("title")}
             </h1>
             <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
-              Review your cart and choose how to pay: mobile money with pawaPay or hosted checkout with Lomi.
+              {tCart("subtitle")}
             </p>
           </div>
         </div>
@@ -180,16 +184,16 @@ export default function CartPage() {
                   <ShoppingCart className="h-8 w-8 text-primary" />
                 </div>
               </div>
-              <h2 className="text-xl font-semibold text-foreground sm:text-2xl">Your cart is empty</h2>
+              <h2 className="text-xl font-semibold text-foreground sm:text-2xl">{tCart("emptyTitle")}</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Add items from The Yamalé Vault to get started.
+                {tCart("emptyHint")}
               </p>
               <Link
                 href="/marketplace"
                 className="mt-6 inline-flex items-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-6 py-3 text-sm font-semibold text-foreground shadow-sm shadow-primary/20 transition hover:border-primary/60 hover:bg-primary/20 hover:shadow-md"
               >
                 <Sparkles className="h-4 w-4" />
-                Browse The Yamalé Vault
+                {tCart("browseVault")}
               </Link>
             </div>
           ) : (
@@ -200,7 +204,7 @@ export default function CartPage() {
                   <div className="mb-4 flex items-center gap-2">
                     <Package className="h-5 w-5 text-primary" />
                     <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                      Items ({cart.length})
+                      {tCart("itemsHeading", { count: cart.length })}
                     </h2>
                   </div>
                   <div className="space-y-3">
@@ -228,7 +232,7 @@ export default function CartPage() {
                             </h3>
                             {item.item.author && (
                               <p className="mt-0.5 text-xs text-muted-foreground">
-                                by {displayVaultPublisher(item.item.author)}
+                                {tCart("byAuthor", { author: displayVaultPublisher(item.item.author) })}
                               </p>
                             )}
                             <div className="mt-2 flex items-center justify-between">
@@ -240,7 +244,7 @@ export default function CartPage() {
                                 onClick={() => removeFromCart(item.marketplace_item_id)}
                                 disabled={removing === item.marketplace_item_id}
                                 className="rounded-xl border border-destructive/50 bg-destructive/10 p-2 text-destructive transition hover:border-destructive hover:bg-destructive/20 disabled:opacity-50"
-                                aria-label="Remove from cart"
+                                aria-label={tCart("removeFromCartAria")}
                               >
                                 {removing === item.marketplace_item_id ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -260,17 +264,17 @@ export default function CartPage() {
               {/* Order Summary */}
               <div className="min-w-0 lg:col-span-1">
                 <div className="sticky top-6 w-full min-w-0 rounded-2xl border border-border/70 bg-card/95 p-5 shadow-lg shadow-primary/10 backdrop-blur-xl sm:p-6">
-                  <h2 className="mb-4 text-lg font-semibold tracking-tight text-foreground">Order Summary</h2>
+                  <h2 className="mb-4 text-lg font-semibold tracking-tight text-foreground">{tCart("orderSummary")}</h2>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">
-                        Subtotal ({cart.length} item{cart.length !== 1 ? "s" : ""})
+                        {tCart("subtotal", { count: cart.length })}
                       </span>
                       <span className="font-semibold text-foreground">${(total / 100).toFixed(2)}</span>
                     </div>
                     <div className="border-t border-border/70 pt-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-base font-semibold text-foreground">Total</span>
+                        <span className="text-base font-semibold text-foreground">{tCart("total")}</span>
                         <span className="text-xl font-bold text-foreground">${(total / 100).toFixed(2)}</span>
                       </div>
                     </div>
@@ -281,16 +285,13 @@ export default function CartPage() {
                     lomiAvailable={lomiAvailable}
                     lomiComingSoon={lomiComingSoon}
                     onLomiComingSoonClick={() => {
-                      void showAlert(
-                        "Credit card payments are coming soon. For now, please use Mobile Money.",
-                        "Coming soon"
-                      );
+                      void showAlert(tCart("lomiComingSoonMessage"), tCommon("comingSoon"));
                     }}
                   />
                   {paymentProvider === "pawapay" && (
                     <div className="mt-4">
                       <PawapayCountrySelect
-                        label="Mobile money country"
+                        label={tCart("mobileMoneyCountry")}
                         value={pawapayPaymentCountry}
                         onChange={setPawapayPaymentCountry}
                       />
@@ -305,17 +306,17 @@ export default function CartPage() {
                     {checkoutLoading ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Processing...
+                        {tCart("processing")}
                       </>
                     ) : (
                       <>
                         <Check className="h-4 w-4" />
-                        Proceed to checkout
+                        {tCart("proceedToCheckout")}
                       </>
                     )}
                   </button>
                   <p className="mt-4 text-center text-xs text-muted-foreground">
-                    Secure checkout — you will confirm payment on the provider screen (mobile money or card).
+                    {tCart("secureCheckout")}
                   </p>
                 </div>
               </div>
