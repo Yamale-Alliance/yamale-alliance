@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   ChevronLeft,
   FileText,
@@ -58,6 +59,7 @@ import { useMediaQuery } from "@/lib/use-media-query";
 import { LawLastVerifiedLabel } from "@/components/library/LawLastVerifiedLabel";
 import { LawLanguageBadge } from "@/components/library/LawLanguageBadge";
 import { fetchDocumentExportUnlockLawIds } from "@/lib/library-document-export-unlocks-client";
+import { LibrarySignInDialog } from "@/components/library/LibrarySignInDialog";
 import {
   applyLawDocumentSearchHighlights,
   clearLawDocumentSearchHighlights,
@@ -750,6 +752,10 @@ function isPrimarilyArabic(text: string): boolean {
 }
 
 export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) {
+  const t = useTranslations("library.detail");
+  const tLib = useTranslations("library");
+  const tCommon = useTranslations("common");
+  const pathname = usePathname();
   const [law, setLaw] = useState<LawDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -771,7 +777,8 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
     defaultCheckoutPaymentProvider()
   );
   const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
-  const { isSignedIn, user } = useAppUser();
+  const { isSignedIn, user, isLoaded } = useAppUser();
+  const [signInDialogOpen, setSignInDialogOpen] = useState(false);
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
   const documentPaygSessionId =
@@ -899,11 +906,10 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
   const handleFixOcr = async () => {
     if (!law || fixOcrLoading) return;
     const ok = await confirm({
-      title: "Run AI cleanup",
-      description:
-        "OCR noise will be reduced and stored text will be replaced. Very large laws can take several minutes.",
-      confirmLabel: "Run cleanup",
-      cancelLabel: "Cancel",
+      title: t("fixOcrConfirmTitle"),
+      description: t("fixOcrConfirmDescription"),
+      confirmLabel: t("fixOcrConfirmLabel"),
+      cancelLabel: tCommon("close"),
       variant: "default",
     });
     if (!ok) return;
@@ -918,21 +924,23 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setFixOcrBanner(typeof data.error === "string" ? data.error : "Fix OCR failed.");
+        setFixOcrBanner(typeof data.error === "string" ? data.error : t("fixOcrFailed"));
         return;
       }
       const r2 = await fetch(`/api/laws/${law.id}`);
       if (!r2.ok) {
-        setFixOcrBanner("Saved, but could not reload the page text. Refresh the page.");
+        setFixOcrBanner(t("fixOcrReloadError"));
         return;
       }
       const fresh = (await r2.json()) as LawDetail;
       setLaw(fresh);
       setFixOcrBanner(
-        `Text updated (${typeof data.cleanedChars === "number" ? data.cleanedChars.toLocaleString() : "?"} characters).`
+        t("fixOcrSuccess", {
+          chars: typeof data.cleanedChars === "number" ? data.cleanedChars.toLocaleString() : "?",
+        })
       );
     } catch {
-      setFixOcrBanner("Network error. Try again.");
+      setFixOcrBanner(t("fixOcrNetworkError"));
     } finally {
       setFixOcrLoading(false);
     }
@@ -999,7 +1007,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
   const handlePreviewDownloadPdf = async () => {
     const input = buildLawPdfInput();
     if (!input || input.sections.length === 0) {
-      await showAlert("No document text is available to export.", "Export");
+      await showAlert(t("exportNoContent"), t("export"));
       return;
     }
     setPdfLoading(true);
@@ -1008,20 +1016,26 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
       await downloadLawDocumentPdf(input);
     } catch (e) {
       console.error(e);
-      await showAlert(
-        "Could not build the PDF. Check your connection and try again. If the problem continues, contact support.",
-        "Export"
-      );
+      await showAlert(t("exportPdfError"), t("export"));
     } finally {
       setPdfLoading(false);
     }
   };
 
+  const lawReturnPath = useMemo(() => {
+    const qs = searchParams.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  }, [pathname, searchParams]);
+
+  const openSignInDialog = useCallback(() => {
+    setSignInDialogOpen(true);
+  }, []);
+
   const handleDocumentExportClick = () => {
     if (!resolvedId) return;
     if (!hasPaidForThisLaw) {
       if (!isSignedIn) {
-        window.location.assign("/sign-in?redirect_url=" + encodeURIComponent(window.location.pathname));
+        openSignInDialog();
         return;
       }
       setPrintCheckoutOpen(true);
@@ -1029,7 +1043,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
     }
     const input = buildLawPdfInput();
     if (!input || input.sections.length === 0) {
-      void showAlert("No document text is available to export.", "Export");
+      void showAlert(t("exportNoContent"), t("export"));
       return;
     }
     setExportPreviewOpen(true);
@@ -1051,12 +1065,12 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
       });
       const data = await res.json();
       if (!res.ok) {
-        await showAlert(data.error || "Checkout failed", "Checkout");
+        await showAlert(data.error || t("checkoutFailed"), t("checkout"));
         return;
       }
       if (data.url) window.location.href = data.url;
     } catch {
-      await showAlert("Checkout failed", "Checkout");
+      await showAlert(t("checkoutFailed"), t("checkout"));
     } finally {
       setPrintLoading(false);
     }
@@ -1130,7 +1144,14 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
   }, [slugOrId]);
 
   useEffect(() => {
-    if (!resolvedId) return;
+    if (!resolvedId || !isLoaded) return;
+    if (!isSignedIn) {
+      setLoading(false);
+      setLaw(null);
+      setError(null);
+      setSignInDialogOpen(true);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -1151,9 +1172,9 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
           }
           return;
         }
-        if (!cancelled) setError("Could not load this law.");
+        if (!cancelled) setError(t("loadError"));
       } catch {
-        if (!cancelled) setError("Could not load this law.");
+        if (!cancelled) setError(t("loadError"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -1163,7 +1184,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
     return () => {
       cancelled = true;
     };
-  }, [resolvedId]);
+  }, [resolvedId, isSignedIn, isLoaded, t]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !law?.id) return;
@@ -1227,22 +1248,41 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
     return () => clearTimeout(t);
   }, [law, printRequested, hasPaidForThisLaw, resolvedId, sections]);
 
-  if (loading) {
+  if (!isLoaded || (isSignedIn && loading)) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
+
+  if (!isSignedIn) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-12 text-center">
+        <Link
+          href={returnTo && returnTo.startsWith("/library") ? returnTo : "/library"}
+          className="inline-flex items-center gap-2 text-primary hover:underline"
+        >
+          <ChevronLeft className="h-4 w-4" /> {t("backToLibrary")}
+        </Link>
+        <LibrarySignInDialog
+          open={signInDialogOpen}
+          onOpenChange={setSignInDialogOpen}
+          returnPath={lawReturnPath}
+        />
+      </div>
+    );
+  }
+
   if (error || !law) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-12 text-center">
-        <p className="text-muted-foreground">{error ?? "Law not found."}</p>
+        <p className="text-muted-foreground">{error ?? t("lawNotFound")}</p>
         <Link
           href={returnTo && returnTo.startsWith("/library") ? returnTo : "/library"}
           className="mt-4 inline-flex items-center gap-2 text-primary hover:underline"
         >
-          <ChevronLeft className="h-4 w-4" /> Back to Library
+          <ChevronLeft className="h-4 w-4" /> {t("backToLibrary")}
         </Link>
       </div>
     );
@@ -1266,7 +1306,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
             className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <ChevronLeft className="h-3.5 w-3.5" />
-            Library
+            {t("library")}
           </Link>
           <p className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground" title={law.title}>
             {law.title}
@@ -1278,7 +1318,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
               className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground lg:hidden"
             >
               <List className="h-3.5 w-3.5" />
-              Contents
+              {t("contents")}
             </button>
           )}
           <button
@@ -1287,7 +1327,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
             className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
           >
             <BookOpen className="h-3.5 w-3.5" />
-            Exit reading mode
+            {t("exitReadingMode")}
           </button>
         </div>
       ) : (
@@ -1303,18 +1343,16 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
               className="mb-5 flex flex-wrap items-center gap-3 rounded-lg border border-emerald-400/50 bg-emerald-950/70 px-4 py-3 text-sm text-emerald-50 shadow-md print:hidden"
               role="status"
             >
-              <span className="font-semibold text-emerald-200">Payment successful</span>
+              <span className="font-semibold text-emerald-200">{t("paymentSuccessful")}</span>
               <span className="min-w-0 flex-1 text-emerald-50/95">
-                {hasContent
-                  ? "Your PDF download for this law is unlocked. Use Download in the toolbar to preview or export."
-                  : "Your PDF download for this law is unlocked. When the document text is available, use Download in the toolbar to export."}
+                {hasContent ? t("paymentUnlockedWithContent") : t("paymentUnlockedNoContent")}
               </span>
               <button
                 type="button"
                 onClick={() => setDocumentPaymentSuccessVisible(false)}
                 className="shrink-0 rounded-md border border-emerald-400/50 px-2.5 py-1 text-xs font-medium text-emerald-100 hover:bg-emerald-900/50"
               >
-                Dismiss
+                {t("dismiss")}
               </button>
             </div>
           )}
@@ -1323,9 +1361,9 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
               <Link
                 href={returnTo && returnTo.startsWith("/library") ? returnTo : "/library"}
                 className="group inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-sm font-medium text-white/70 transition-all duration-200 hover:border-white/35 hover:bg-white/10 hover:text-white"
-                title="Back to the African Legal Library"
+                title={t("backToLibraryTitle")}
               >
-                <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" /> Back to Library
+                <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" /> {t("backToLibrary")}
               </Link>
               <div className="law-reading-hide-when-reading">
                 <h1 className="heading mt-6 text-2xl font-bold leading-[1.15] tracking-tight text-white sm:text-3xl md:text-4xl md:tracking-[-0.02em]">
@@ -1342,7 +1380,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
             <div className="mt-5 flex flex-wrap items-center gap-2">
               {(law.applies_to_all_countries || law.countries?.name) && (
                 <span className="rounded-full border border-[rgba(200,146,42,0.35)] bg-[rgba(200,146,42,0.12)] px-3.5 py-1.5 text-xs font-semibold tracking-wide text-[#E8B84B]">
-                  {law.applies_to_all_countries ? "All countries" : (law.countries?.name ?? "")}
+                  {law.applies_to_all_countries ? t("allCountries") : (law.countries?.name ?? "")}
                 </span>
               )}
               {law.categories?.name && (
@@ -1367,10 +1405,10 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
             >
               <div className="flex min-w-0 flex-1 flex-col gap-2">
                 <label htmlFor="law-doc-search" className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/55">
-                  Find in this document
+                  {t("findInDocument")}
                 </label>
                 <p className="text-[11px] leading-snug text-white/50">
-                  Type a word or phrase (at least 2 letters), then click Search. A bar at the bottom of the screen lets you jump between matches without scrolling back up.
+                  {t("findInDocumentHint")}
                 </p>
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <input
@@ -1386,7 +1424,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                         runDocSearch();
                       }
                     }}
-                    placeholder="e.g. registration, tax, article 12…"
+                    placeholder={t("searchPlaceholder")}
                     className="min-w-[10rem] flex-1 rounded-lg border border-white/20 bg-[#0d1b2a]/80 px-3 py-2 text-sm text-white placeholder:text-white/40 focus:border-[#E8B84B]/60 focus:outline-none focus:ring-1 focus:ring-[#E8B84B]/40"
                   />
                   <button
@@ -1395,7 +1433,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                     disabled={docSearchDraft.trim().length < 2}
                     className="shrink-0 rounded-lg bg-[#E8B84B] px-3.5 py-2 text-sm font-semibold text-[#0d1b2a] hover:bg-[#f0c55c] disabled:cursor-not-allowed disabled:opacity-45"
                   >
-                    Search
+                    {t("search")}
                   </button>
                   {docSearchSubmitted.length >= 2 ? (
                     <span
@@ -1403,8 +1441,8 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                       aria-live="polite"
                     >
                       {docSearchMatchCount === 0
-                        ? "No matches"
-                        : `${docSearchActiveIndex + 1} of ${docSearchMatchCount}`}
+                        ? t("noMatches")
+                        : t("matchOf", { current: docSearchActiveIndex + 1, total: docSearchMatchCount })}
                     </span>
                   ) : null}
                   <div className="flex shrink-0 items-center gap-1">
@@ -1413,8 +1451,8 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                       onClick={() => goDocSearchHit(-1)}
                       disabled={docSearchMatchCount === 0}
                       className="rounded-lg border border-white/20 p-2 text-white/80 hover:bg-white/10 disabled:opacity-40"
-                      aria-label="Previous match"
-                      title="Previous match"
+                      aria-label={t("previousMatch")}
+                      title={t("previousMatch")}
                     >
                       <ChevronUp className="h-4 w-4" />
                     </button>
@@ -1423,8 +1461,8 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                       onClick={() => goDocSearchHit(1)}
                       disabled={docSearchMatchCount === 0}
                       className="rounded-lg border border-white/20 p-2 text-white/80 hover:bg-white/10 disabled:opacity-40"
-                      aria-label="Next match"
-                      title="Next match"
+                      aria-label={t("nextMatch")}
+                      title={t("nextMatch")}
                     >
                       <ChevronDown className="h-4 w-4" />
                     </button>
@@ -1438,14 +1476,14 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                   className="inline-flex items-center gap-2 rounded-lg border border-white/25 px-3 py-2 text-xs font-semibold text-white/90 transition hover:bg-white/10"
                 >
                   <BookOpen className="h-4 w-4" />
-                  Reading mode
+                  {t("readingMode")}
                 </button>
               </div>
             </div>
           )}
           {law.translations && law.translations.length > 0 && (
             <div className="law-reading-hide-when-reading mt-3 flex flex-wrap items-center gap-2 text-xs text-white/80">
-              <span className="font-semibold">Translations:</span>
+              <span className="font-semibold">{t("translations")}</span>
               {law.translations.map((t) => (
                 <Link
                   key={t.id}
@@ -1470,10 +1508,10 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                 ) : (
                   <Sparkles className="h-4 w-4" />
                 )}
-                Fix OCR and clean noise
+                {t("fixOcrButton")}
               </button>
               <p className="text-xs text-white/55 sm:max-w-xl">
-                Admin only. Sends this law through Claude to tidy OCR errors and remove junk lines, then saves. Reloads the text below when done.
+                {t("fixOcrHint")}
               </p>
               {fixOcrBanner && (
                 <p className="w-full text-sm text-white/90 sm:order-last">{fixOcrBanner}</p>
@@ -1563,7 +1601,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
               <div className="rounded-2xl border border-border bg-muted/20 p-12 text-center shadow-sm">
                 <FileText className="mx-auto h-14 w-14 text-muted-foreground/70" />
                 <p className="mt-5 text-base text-muted-foreground">
-                  Full text for this law is not yet available.
+                  {t("noContent")}
                 </p>
               </div>
             )}
@@ -1657,7 +1695,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
             )}
           </main>
           {hasContent && sections.length >= 1 && contentsSidebarOpen ? (
-            <aside className="law-reading-toc flex min-h-0 flex-col print:hidden" aria-label="Document contents">
+            <aside className="law-reading-toc flex min-h-0 flex-col print:hidden" aria-label={t("documentContents")}>
               <LawContentsNav
                 items={contentsNavItems}
                 activeSectionId={activeSection}
@@ -1679,14 +1717,14 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
         <div
           className="fixed z-50 flex w-[min(calc(100vw-1.25rem),22rem)] items-center gap-2 rounded-2xl border border-border/80 bg-card/95 px-3 py-2 shadow-lg shadow-black/25 backdrop-blur-xl print:hidden max-sm:left-1/2 max-sm:-translate-x-1/2 max-sm:bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+4.5rem)] sm:bottom-5 sm:right-[4.85rem] sm:left-auto sm:w-auto sm:max-w-[min(calc(100vw-8rem),24rem)] sm:translate-x-0"
           role="search"
-          aria-label="Find in document — jump between matches"
+          aria-label={t("findInDocumentAria")}
         >
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
           <span className="min-w-0 truncate text-sm font-medium text-foreground" title={docSearchSubmitted}>
             {docSearchSubmitted}
           </span>
           <span className="shrink-0 rounded-md bg-muted px-2 py-1 text-xs font-semibold tabular-nums text-foreground" aria-live="polite">
-            {docSearchMatchCount === 0 ? "No matches" : `${docSearchActiveIndex + 1} / ${docSearchMatchCount}`}
+            {docSearchMatchCount === 0 ? t("noMatches") : t("matchSlash", { current: docSearchActiveIndex + 1, total: docSearchMatchCount })}
           </span>
           <div className="ml-auto flex shrink-0 items-center gap-0.5">
             <button
@@ -1694,8 +1732,8 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
               onClick={() => goDocSearchHit(-1)}
               disabled={docSearchMatchCount === 0}
               className="rounded-lg p-2 text-foreground hover:bg-accent disabled:opacity-40"
-              aria-label="Previous match"
-              title="Previous match (Shift+Enter)"
+              aria-label={t("previousMatch")}
+              title={t("previousMatchShift")}
             >
               <ChevronUp className="h-4 w-4" />
             </button>
@@ -1704,8 +1742,8 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
               onClick={() => goDocSearchHit(1)}
               disabled={docSearchMatchCount === 0}
               className="rounded-lg p-2 text-foreground hover:bg-accent disabled:opacity-40"
-              aria-label="Next match"
-              title="Next match (Enter)"
+              aria-label={t("nextMatch")}
+              title={t("nextMatchEnter")}
             >
               <ChevronDown className="h-4 w-4" />
             </button>
@@ -1714,8 +1752,8 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
             type="button"
             onClick={() => clearDocSearch()}
             className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-            aria-label="Clear search"
-            title="Clear search"
+            aria-label={t("clearSearch")}
+            title={t("clearSearch")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -1726,20 +1764,20 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
         <div
           className="fixed z-40 flex flex-col gap-1 rounded-2xl border border-border/80 bg-card/95 p-1.5 shadow-lg shadow-black/20 backdrop-blur-xl print:hidden max-sm:left-1/2 max-sm:max-w-[min(22rem,calc(100vw-1.25rem))] max-sm:-translate-x-1/2 max-sm:bottom-[max(0.75rem,env(safe-area-inset-bottom))] max-sm:flex-row max-sm:flex-wrap max-sm:justify-center max-sm:px-1.5 max-sm:py-1.5 sm:bottom-6 sm:right-4 sm:left-auto sm:translate-x-0 sm:min-w-[3.25rem] sm:flex-col sm:overflow-visible [&_svg]:h-4 [&_svg]:w-4 sm:[&_svg]:h-5 sm:[&_svg]:w-5"
           role="toolbar"
-          aria-label="Law page shortcuts"
+          aria-label={t("toolbarAria")}
         >
           {/* Back to Library */}
           <div className="relative group">
             <Link
               href={returnTo && returnTo.startsWith("/library") ? returnTo : "/library"}
               className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-muted-foreground hover:bg-accent hover:text-foreground"
-              aria-label="Back to Library"
-              title="Back to library"
+              aria-label={t("backToLibrary")}
+              title={t("backToLibraryTooltip")}
             >
               <ChevronLeft className="h-5 w-5" />
             </Link>
             <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
-              Back to Library
+              {t("backToLibrary")}
             </span>
           </div>
 
@@ -1749,13 +1787,13 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                 type="button"
                 onClick={() => setContentsOpen(true)}
                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="Contents"
-                title="Contents"
+                aria-label={t("contents")}
+                title={t("contents")}
               >
                 <List className="h-5 w-5" />
               </button>
               <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
-                Contents
+                {t("contents")}
               </span>
             </div>
           )}
@@ -1769,13 +1807,13 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                   document.getElementById("law-doc-search")?.scrollIntoView({ behavior: "smooth", block: "center" });
                 }}
                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="Find in this document"
-                title="Find in this document"
+                aria-label={t("findInDocument")}
+                title={t("findInDocument")}
               >
                 <Search className="h-5 w-5" />
               </button>
               <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
-                Find in document
+                {t("findInDocumentShort")}
               </span>
             </div>
           )}
@@ -1786,13 +1824,13 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                 type="button"
                 onClick={() => toggleReadingMode()}
                 className={`inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 ${readingMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
-                aria-label={readingMode ? "Exit reading mode" : "Reading mode"}
-                title={readingMode ? "Exit reading mode" : "Reading mode"}
+                aria-label={readingMode ? t("exitReadingMode") : t("readingMode")}
+                title={readingMode ? t("exitReadingMode") : t("readingMode")}
               >
                 <BookOpen className="h-5 w-5" />
               </button>
               <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
-                {readingMode ? "Exit reading mode" : "Reading mode"}
+                {readingMode ? t("exitReadingMode") : t("readingMode")}
               </span>
             </div>
           )}
@@ -1806,18 +1844,18 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                 disabled={printLoading}
                 title={
                   hasPaidForThisLaw
-                    ? "Download PDF"
+                    ? t("downloadPdf")
                     : isSignedIn
-                      ? `Unlock download (${lawPrintPricePlain})`
-                      : "Sign in to unlock download"
+                      ? t("unlockDownload", { price: lawPrintPricePlain })
+                      : t("signInToUnlock")
                 }
                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-[#C8922A] hover:bg-accent/80 hover:text-[#E8B84B] disabled:opacity-50"
                 aria-label={
                   hasPaidForThisLaw
-                    ? "Download"
+                    ? t("download")
                     : isSignedIn
-                      ? `Unlock download — ${lawPrintPricePlain} (opens checkout)`
-                      : `Sign in to unlock download (${lawPrintPricePlain})`
+                      ? t("unlockDownloadAria", { price: lawPrintPricePlain })
+                      : t("signInToUnlockAria", { price: lawPrintPricePlain })
                 }
               >
                 {printLoading ? (
@@ -1830,10 +1868,10 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
               </button>
               <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 max-w-[14rem] whitespace-normal rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
                 {hasPaidForThisLaw
-                  ? "Download"
+                  ? t("download")
                   : isSignedIn
-                    ? `Unlock — ${lawPrintPricePlain}`
-                    : "Sign in"}
+                    ? t("unlockPrice", { price: lawPrintPricePlain })
+                    : t("signIn")}
               </span>
             </div>
           )}
@@ -1844,13 +1882,13 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
               <Link
                 href={`/admin-panel/laws/${law.id}`}
                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-primary hover:bg-primary/10"
-                aria-label="Edit law"
-                title="Edit law (admin)"
+                aria-label={t("editLaw")}
+                title={t("editLawAdmin")}
               >
                 <FileEdit className="h-5 w-5" />
               </Link>
               <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
-                Edit law (admin)
+                {t("editLawAdmin")}
               </span>
             </div>
           )}
@@ -1862,14 +1900,14 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                 type="button"
                 onClick={() => void handleFixOcr()}
                 disabled={fixOcrLoading || !rawContent.trim()}
-                title="Fix OCR (admin)"
+                title={t("fixOcrTitle")}
                 className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-primary hover:bg-primary/10 disabled:opacity-50"
-                aria-label="Fix OCR and clean noise"
+                aria-label={t("fixOcr")}
               >
                 {fixOcrLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
               </button>
               <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
-                Fix OCR (admin)
+                {t("fixOcrAdmin")}
               </span>
             </div>
           )}
@@ -1887,11 +1925,11 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
           <div className="relative group">
             <button
               type="button"
-              onClick={isSignedIn ? toggleBookmark : () => window.location.assign("/sign-in?redirect_url=" + encodeURIComponent(window.location.pathname))}
+              onClick={isSignedIn ? toggleBookmark : openSignInDialog}
               disabled={bookmarkLoading}
-              title={isSignedIn ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Sign in to bookmark"}
+              title={isSignedIn ? (isBookmarked ? t("removeBookmark") : t("addBookmark")) : t("signInToBookmark")}
               className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
-              aria-label={isSignedIn ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Sign in to bookmark"}
+              aria-label={isSignedIn ? (isBookmarked ? t("removeBookmark") : t("addBookmark")) : t("signInToBookmark")}
             >
               {isSignedIn && isBookmarked ? (
                 <BookmarkCheck className="h-5 w-5 fill-current text-primary" />
@@ -1900,7 +1938,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
               )}
             </button>
             <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
-              {isSignedIn ? (isBookmarked ? "Remove bookmark" : "Add bookmark") : "Sign in to bookmark"}
+              {isSignedIn ? (isBookmarked ? t("removeBookmark") : t("addBookmark")) : t("signInToBookmark")}
             </span>
           </div>
 
@@ -1911,28 +1949,28 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
             <button
               type="button"
               onClick={scrollToTop}
-              title="Scroll to top"
-              aria-label="Scroll to top"
+              title={t("scrollToTop")}
+              aria-label={t("scrollToTop")}
               className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               <ArrowUp className="h-5 w-5" />
             </button>
             <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
-              Scroll to top
+              {t("scrollToTop")}
             </span>
           </div>
           <div className="relative group max-sm:hidden">
             <button
               type="button"
               onClick={scrollToBottom}
-              title="Scroll to bottom"
+              title={t("scrollToBottom")}
               className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg sm:size-11 text-muted-foreground hover:bg-accent hover:text-foreground"
-              aria-label="Scroll to bottom"
+              aria-label={t("scrollToBottom")}
             >
               <ArrowDown className="h-5 w-5" />
             </button>
             <span className="pointer-events-none absolute right-full mr-2 top-1/2 z-10 hidden sm:block -translate-y-1/2 rounded bg-black/80 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
-              Scroll to bottom
+              {t("scrollToBottom")}
             </span>
           </div>
         </div>
@@ -1956,10 +1994,12 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
           <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm print:hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
           <Dialog.Content className="fixed left-1/2 top-1/2 z-[101] flex max-h-[min(90vh,calc(100%-2rem))] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-2xl print:hidden focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
             <Dialog.Title className="text-lg font-semibold tracking-tight text-foreground">
-              Unlock download
+              {t("unlockDownloadDialogTitle")}
             </Dialog.Title>
             <Dialog.Description className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              A one-time <span className="font-medium text-foreground">{lawPrintPrice}</span> unlock lets you preview the document in the app and download it as a PDF. Choose a payment method to continue to checkout.
+              {t.rich("unlockDownloadDialogDescription", {
+                price: () => <span className="font-medium text-foreground">{lawPrintPrice}</span>,
+              })}
             </Dialog.Description>
             <div className="mt-5 min-w-0 space-y-4">
               <PaymentMethodPicker
@@ -1968,15 +2008,12 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                 lomiAvailable={lomiAvailable}
                 lomiComingSoon={lomiComingSoon}
                 onLomiComingSoonClick={() => {
-                  void showAlert(
-                    "Credit card payments are coming soon. For now, please use Mobile Money.",
-                    "Coming soon"
-                  );
+                  void showAlert(tLib("lomiComingSoonMessage"), tCommon("comingSoon"));
                 }}
               />
               {printCheckoutProvider === "pawapay" && (
                 <PawapayCountrySelect
-                  label="Mobile money country"
+                  label={tLib("mobileMoneyCountry")}
                   value={pawapayPaymentCountry}
                   onChange={setPawapayPaymentCountry}
                 />
@@ -1988,7 +2025,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                   type="button"
                   className="inline-flex items-center justify-center rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                 >
-                  Cancel
+                  {tCommon("close")}
                 </button>
               </Dialog.Close>
               <button
@@ -2003,10 +2040,10 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                 {printLoading ? (
                   <span className="inline-flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Preparing checkout…
+                    {tLib("preparingCheckout")}
                   </span>
                 ) : (
-                  "Proceed to checkout"
+                  tLib("proceedToCheckout")
                 )}
               </button>
             </div>
@@ -2014,7 +2051,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
               <button
                 type="button"
                 className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="Close"
+                aria-label={tCommon("close")}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -2025,6 +2062,11 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
 
       {confirmDialog}
       {alertDialog}
+      <LibrarySignInDialog
+        open={signInDialogOpen}
+        onOpenChange={setSignInDialogOpen}
+        returnPath={lawReturnPath}
+      />
     </div>
   );
 }
