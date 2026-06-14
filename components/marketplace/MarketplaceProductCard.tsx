@@ -115,8 +115,7 @@ function CategoryIcon({ type, className }: { type: string; className?: string })
   }
 }
 
-function plainDescription(raw: string | null): string {
-  const fallback = "View overview, contents, and download or purchase options.";
+function plainDescription(raw: string | null, fallback: string): string {
   if (!raw?.trim()) return fallback;
   const text = raw
     .replace(/<[^>]+>/g, " ")
@@ -154,11 +153,12 @@ export function MarketplaceProductCard({
   advisoryWorkspacePreview = false,
   coverPriority = false,
 }: MarketplaceProductCardProps) {
-  const t = useTranslations("advisory");
+  const t = useTranslations("marketplace");
+  const tAdvisory = useTranslations("advisory");
   const router = useRouter();
   const [coverFailed, setCoverFailed] = useState(false);
 
-  const priceLabel = product.price_cents === 0 ? "Free" : formatUsd(product.price_cents);
+  const priceLabel = product.price_cents === 0 ? t("free") : formatUsd(product.price_cents);
   const languageCodes = product.language_codes ?? [];
   const hasLanguageBadge = languageCodes.length > 0;
   const isOwnedBadge = Boolean(product.owned || paidSeriesSummary?.fullyOwned);
@@ -179,7 +179,7 @@ export function MarketplaceProductCard({
   const useInlineCollection = showSeriesToggle && isCollectionCard && Boolean(onCollectionToggle);
   const displayTitle = isCollectionCard ? (collectionLabel as string) : displayVaultProductTitle(product.title);
   const publisher = isCollectionCard
-    ? `${collectionCount} resources`
+    ? t("resourcesCount", { count: collectionCount ?? 0 })
     : displayVaultPublisher(product.author);
   const description = isCollectionCard
     ? paidSeriesSummary
@@ -187,7 +187,7 @@ export function MarketplaceProductCard({
         ? `${collectionCount} resources · save ${formatUsd(paidSeriesSummary!.bundleSavingsCents, 0)} vs buying separately`
         : `${collectionCount} resources in this series`
       : `Browse all ${collectionLabel} resources in one place.`
-    : plainDescription(product.description);
+    : plainDescription(product.description, t("cardDescriptionFallback"));
   const href =
     collectionHref ||
     marketplaceItemDetailHref({
@@ -202,7 +202,7 @@ export function MarketplaceProductCard({
   const showCountryMap =
     !hasCustomCover && (iconOnlyMedia || Boolean(product.focus_country?.trim()));
   const showTypePlaceholder = !hasCustomCover && !showCountryMap;
-  const tagLabel = isCollectionCard ? "Collection" : seriesLabel || typeBadgeLabel;
+  const tagLabel = isCollectionCard ? t("collection") : seriesLabel || typeBadgeLabel;
   const fileLabel = product.file_format ? `.${product.file_format.replace(/^\./, "")}` : null;
 
   const metaParts = [topicLabel, typeBadgeLabel, fileLabel].filter(Boolean);
@@ -279,7 +279,7 @@ export function MarketplaceProductCard({
           <div className={styles.collectionHover} aria-hidden>
             <Eye className="h-6 w-6" strokeWidth={1.75} />
             <span className={styles.collectionHoverLabel}>
-              {collectionExpanded ? "Hide series" : "Show series"}
+              {collectionExpanded ? t("hideSeries") : t("showSeries")}
             </span>
           </div>
         ) : null}
@@ -287,7 +287,7 @@ export function MarketplaceProductCard({
           <div className={styles.mediaBadges}>
             <span className={styles.badgeOwned}>
               <Check className="h-3 w-3" aria-hidden />
-              Owned
+              {t("owned")}
             </span>
           </div>
         ) : null}
@@ -333,14 +333,14 @@ export function MarketplaceProductCard({
               style={{ flex: "1 1 100%" }}
             >
               {paidSeriesSummary.ownedCount > 0 ? (
-                <>Buy remaining · {formatUsd(paidSeriesSummary.chargeCents)}</>
+                <>{t("buyRemaining", { price: formatUsd(paidSeriesSummary.chargeCents) })}</>
               ) : hasSeriesBundleDiscount ? (
                 <>
-                  Buy full series · {formatUsd(seriesChargeCents)}{" "}
+                  {t("buyFullSeries", { price: formatUsd(seriesChargeCents) })}{" "}
                   <span className="text-white/75 line-through">{formatUsd(seriesListCents, 0)}</span>
                 </>
               ) : (
-                <>Buy full series · {formatUsd(seriesChargeCents)}</>
+                <>{t("buyFullSeries", { price: formatUsd(seriesChargeCents) })}</>
               )}
             </button>
           </div>
@@ -356,7 +356,7 @@ export function MarketplaceProductCard({
               }}
               className={styles.actionBtn}
             >
-              View
+              {t("view")}
             </button>
             <button
               type="button"
@@ -366,7 +366,7 @@ export function MarketplaceProductCard({
               }}
               className={styles.actionBtnPrimary}
             >
-              {t("viewCourse")}
+              {tAdvisory("viewCourse")}
             </button>
           </div>
         ) : null}
@@ -383,10 +383,10 @@ export function MarketplaceProductCard({
               style={{ flex: "1 1 100%" }}
             >
               {product.price_cents === 0 ? (
-                "Get package"
+                t("getPackage")
               ) : showLawFirmDiscount ? (
                 <span className="inline-flex items-center justify-center gap-1.5">
-                  View ·{" "}
+                  {t("view")} ·{" "}
                   <LawFirmPackageDiscountPrice
                     saleCents={product.price_cents}
                     size="inline"
@@ -394,7 +394,7 @@ export function MarketplaceProductCard({
                   />
                 </span>
               ) : (
-                `View · ${priceLabel}`
+                `${t("view")} · ${priceLabel}`
               )}
             </button>
           </div>
@@ -415,7 +415,7 @@ export function MarketplaceProductCard({
                 {addingToCart === product.id ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  "Remove from cart"
+                  t("removeFromCart")
                 )}
               </button>
             ) : (
@@ -431,7 +431,7 @@ export function MarketplaceProductCard({
                 {addingToCart === product.id ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  "Add to cart"
+                  t("addToCart")
                 )}
               </button>
             )}
@@ -445,7 +445,7 @@ export function MarketplaceProductCard({
             >
               {showLawFirmDiscount ? (
                 <span className="inline-flex items-center justify-center gap-1.5">
-                  Buy ·{" "}
+                  {t("buy")} ·{" "}
                   <LawFirmPackageDiscountPrice
                     saleCents={product.price_cents}
                     size="inline"
@@ -453,7 +453,7 @@ export function MarketplaceProductCard({
                   />
                 </span>
               ) : (
-                `Buy · ${priceLabel}`
+                `${t("buy")} · ${priceLabel}`
               )}
             </button>
           </div>
