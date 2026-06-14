@@ -4246,7 +4246,7 @@ export async function POST(request: NextRequest) {
 
     const outputCapEnv = Number.parseInt(process.env.AI_CHAT_MAX_OUTPUT_TOKENS ?? "", 10);
     const detailedOutputCap =
-      Number.isFinite(outputCapEnv) && outputCapEnv > 0 ? outputCapEnv : 4_096;
+      Number.isFinite(outputCapEnv) && outputCapEnv > 0 ? outputCapEnv : 5_120;
     const maxTokens =
       latinAmericaTreatyCatalog || globalTreatyCatalog || germanyAfricaBitCatalog
         ? detailedMode
