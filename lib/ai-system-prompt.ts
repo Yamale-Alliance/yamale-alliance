@@ -14,7 +14,7 @@ import { appendOfficialSourceVerificationToAnswer } from "@/lib/official-sources
  * repeating it). Use SYSTEM_PROMPT_VERSION in API responses and ai_query_log instead.
  */
 
-export const SYSTEM_PROMPT_VERSION = "2026.06.05-user-research-memory-v1";
+export const SYSTEM_PROMPT_VERSION = "2026.06.05-detailed-multilingual-v1";
 
 /** Cap on library excerpts in the system message to limit tokens and citation confusion. */
 export const MAX_SYSTEM_PROMPT_LEGAL_DOCS = 12;
@@ -363,7 +363,7 @@ function buildAnswerStyleRules(
 ): string {
   const parts: string[] = [];
   parts.push(
-    "Trusted advisor delivery (always deep): Confident and direct—**lead with what governs** and what matters for the user's situation (e.g. \"Here's what applies…\", \"The key point is…\"). Use plain professional prose in the user's language (English, French, or Arabic as appropriate): prefer \"This section requires…\" / \"Cette disposition exige…\" over stiff formulations. Avoid passive hedging stacks (\"it may appear that potentially…\")—state what the text supports, then qualify if needed. **English vs French (or Arabic) must not change which rules you extract** from the same excerpts—only the language of exposition changes."
+    "Trusted advisor delivery (always deep): Confident and direct—**lead with what governs** and what matters for the user's situation (e.g. \"Here's what applies…\", \"The key point is…\"). Use plain professional prose in the user's language (English, French, Arabic, Portuguese, or other as appropriate): prefer \"This section requires…\" / \"Cette disposition exige…\" / equivalent natural phrasing over stiff formulations. Avoid passive hedging stacks (\"it may appear that potentially…\")—state what the text supports, then qualify if needed. **The user's language must not change which rules you extract** from the same excerpts—only the language of exposition changes."
   );
   parts.push(
     "Structure without sounding robotic: You must still cover, in order, these **substance** layers—(1) direct answer, (2) legal basis with short quotes, (3) conditions / exceptions, (4) practical application, (5) risks where relevant, (6) next steps, (7) excerpt limits—but present them as **natural prose with light section headings or bold labels**, not a textbook-style \"1. 2. 3.\" outline unless the user asked for numbered steps or the topic clearly needs a compliance checklist. Decision-useful depth, not a one-line brush-off—even if the user said \"briefly.\""
