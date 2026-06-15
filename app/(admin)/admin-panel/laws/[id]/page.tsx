@@ -24,6 +24,7 @@ type LawForEdit = {
   applies_to_all_countries?: boolean;
   category_id: string;
   category_ids?: string[];
+  country_ids?: string[];
   year: number | null;
   status: string;
   treaty_type: string;
@@ -34,6 +35,7 @@ type LawForEdit = {
 
 export default function AdminLawEditPage() {
   const t = useTranslations("admin.laws.edit");
+  const tAdd = useTranslations("admin.laws.add");
   const tc = useTranslations("admin.common");
   const params = useParams();
   const id = params?.id as string;
@@ -48,7 +50,8 @@ export default function AdminLawEditPage() {
   const [countries, setCountries] = useState<Country[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [title, setTitle] = useState("");
-  const [countryId, setCountryId] = useState("");
+  const [countryIds, setCountryIds] = useState<string[]>([]);
+  const [assignedCountryIds, setAssignedCountryIds] = useState<string[]>([]);
   const [appliesToAll, setAppliesToAll] = useState(false);
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [year, setYear] = useState("");
@@ -100,7 +103,13 @@ export default function AdminLawEditPage() {
         );
         setTitle(lawData.title ?? "");
         setAppliesToAll(!!lawData.applies_to_all_countries);
-        setCountryId(lawData.country_id ?? "");
+        const loadedCountryIds = Array.isArray(lawData.country_ids) && lawData.country_ids.length > 0
+          ? lawData.country_ids
+          : lawData.country_id
+            ? [lawData.country_id]
+            : [];
+        setCountryIds(loadedCountryIds);
+        setAssignedCountryIds(loadedCountryIds);
         setCategoryIds(
           Array.isArray(lawData.category_ids) && lawData.category_ids.length > 0
             ? lawData.category_ids
@@ -267,7 +276,7 @@ export default function AdminLawEditPage() {
       setError(t("errors.titleRequired"));
       return;
     }
-    if (!appliesToAll && !countryId.trim()) {
+    if (!appliesToAll && countryIds.length === 0) {
       setError(t("errors.countryRequired"));
       return;
     }
@@ -312,6 +321,8 @@ export default function AdminLawEditPage() {
     setSaving(true);
     setError(null);
     setStatusMsg(null);
+    const originalText = (law?.content_plain ?? law?.content ?? "").trim();
+    const contentDirty = text.trim() !== originalText;
     try {
       const res = await fetch(`/api/admin/laws/${id}`, {
         method: "PUT",
@@ -320,13 +331,13 @@ export default function AdminLawEditPage() {
         body: JSON.stringify({
           title: title.trim(),
           applies_to_all_countries: appliesToAll,
-          country_id: appliesToAll ? null : countryId.trim(),
+          country_ids: appliesToAll ? undefined : countryIds,
           category_ids: categoryIds,
           year: year.trim() ? Number(year.trim()) : null,
           status: status.trim() || "In force",
           treaty_type: treatyType,
           language_code: languageCode || null,
-          content: text,
+          ...(contentDirty ? { content: text } : {}),
         }),
       });
       const data = await res.json();
@@ -338,16 +349,25 @@ export default function AdminLawEditPage() {
       const propagated = Array.isArray(data.shared_link_propagation?.propagated_law_ids)
         ? data.shared_link_propagation.propagated_law_ids.length
         : 0;
-      setStatusMsg(
-        propagated > 0
-          ? t("messages.savedWithPropagation", { count: propagated })
-          : t("messages.saved")
-      );
+      const createdCount =
+        typeof data.country_expansion?.created_count === "number"
+          ? data.country_expansion.created_count
+          : 0;
+      if (createdCount > 0) {
+        setStatusMsg(t("messages.savedWithNewCountries", { count: createdCount }));
+      } else if (propagated > 0) {
+        setStatusMsg(t("messages.savedWithPropagation", { count: propagated }));
+      } else {
+        setStatusMsg(t("messages.saved"));
+      }
       if (data.law) {
-        const u = data.law as Partial<LawForEdit> & { category_ids?: string[] };
+        const u = data.law as Partial<LawForEdit> & { category_ids?: string[]; country_ids?: string[] };
         setLaw((prev) => (prev ? { ...prev, ...u } : null));
         if (typeof u.applies_to_all_countries === "boolean") setAppliesToAll(u.applies_to_all_countries);
-        if (u.country_id !== undefined) setCountryId(u.country_id ?? "");
+        if (Array.isArray(u.country_ids)) {
+          setCountryIds(u.country_ids);
+          setAssignedCountryIds(u.country_ids);
+        }
         if (Array.isArray(u.category_ids) && u.category_ids.length > 0) {
           setCategoryIds(u.category_ids);
         } else if (u.category_id) {
@@ -466,7 +486,7 @@ export default function AdminLawEditPage() {
                   onChange={(e) => {
                     const on = e.target.checked;
                     setAppliesToAll(on);
-                    if (on) setCountryId("");
+                    if (on) setCountryIds([]);
                   }}
                   className="mt-1 rounded border-input"
                 />
@@ -478,20 +498,74 @@ export default function AdminLawEditPage() {
                 </span>
               </label>
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-foreground">{t("country")}</label>
-              <select
-                value={countryId}
-                onChange={(e) => setCountryId(e.target.value)}
-                disabled={appliesToAll}
-                required={!appliesToAll}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-60"
-              >
-                <option value="">{t("selectCountry")}</option>
-                {countries.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                {tAdd("countries.label")}{!appliesToAll ? " *" : ""}
+              </label>
+              <p className="mb-2 text-xs text-muted-foreground">{t("countries.hint")}</p>
+              <div className="max-h-56 overflow-y-auto rounded-md border border-input bg-background p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    {appliesToAll ? tAdd("countries.disabledHint") : tAdd("countries.selectHint")}
+                  </span>
+                  {!appliesToAll && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCountryIds((prev) =>
+                          Array.from(new Set([...assignedCountryIds, ...countries.map((c) => c.id)]))
+                        )
+                      }
+                      className="text-xs text-primary hover:underline"
+                    >
+                      {tAdd("countries.selectAll")}
+                    </button>
+                  )}
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {countries.map((c) => {
+                    const isAssigned = assignedCountryIds.includes(c.id);
+                    const checked = countryIds.includes(c.id);
+                    return (
+                      <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={appliesToAll || isAssigned}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setCountryIds((prev) => (prev.includes(c.id) ? prev : [...prev, c.id]));
+                            } else if (!isAssigned) {
+                              setCountryIds((prev) => prev.filter((x) => x !== c.id));
+                            }
+                          }}
+                          className="h-4 w-4 rounded border-input disabled:opacity-60"
+                        />
+                        <span className={isAssigned ? "text-muted-foreground" : undefined}>
+                          {c.name}
+                          {isAssigned ? (
+                            <span className="ms-1.5 text-[10px] uppercase tracking-wide text-primary/80">
+                              ({t("countries.assigned")})
+                            </span>
+                          ) : null}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              {!appliesToAll && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {tAdd("countries.selectedCount", { count: countryIds.length })}
+                  {countryIds.length > assignedCountryIds.length ? (
+                    <span className="ms-1 text-primary">
+                      {t("countries.newOnSave", {
+                        count: countryIds.length - assignedCountryIds.length,
+                      })}
+                    </span>
+                  ) : null}
+                </p>
+              )}
             </div>
             <div className="sm:col-span-2">
               <label className="mb-1.5 block text-sm font-medium text-foreground">{t("categories.label")} *</label>
