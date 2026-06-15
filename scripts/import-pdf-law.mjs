@@ -12,6 +12,7 @@
  *   --year 2019                 (optional)
  *   --status "In force"         (default: "In force")
  *   --source-url "https://..."   (optional) — original PDF URL for reference
+ *   --language fr               (optional) — ISO 639-1 document language (e.g. en, fr, pt)
  *   --update                    Update existing law (match by title + category + country) instead of inserting
  *   --force-ocr                 Always run Tesseract OCR and use OCR text (for scanned PDFs)
  *
@@ -97,15 +98,22 @@ const VALID_COUNTRIES = [
 
 const VALID_CATEGORIES = [
   "AI Legal Methodology",
-  "Corporate Law",
-  "Tax Law",
-  "Labor/Employment Law",
-  "Intellectual Property Law",
-  "Data Protection and Privacy Law",
-  "International Trade Laws",
   "Anti-Bribery and Corruption Law",
+  "Banking and Finance",
+  "Constitution",
+  "Contract Law",
+  "Corporate Law",
+  "Criminal Law",
+  "Data Protection and Privacy Law",
   "Dispute Resolution",
   "Environmental",
+  "Intellectual Property Law",
+  "International Trade Laws",
+  "Labor/Employment Law",
+  "Land and Property",
+  "Mining Law",
+  "Oil & Gas Law",
+  "Tax Law",
 ];
 
 const pdfPath = args.find((a) => !a.startsWith("--"));
@@ -148,6 +156,7 @@ const category = getOpt("--category", "Corporate Law");
 const yearStr = getOpt("--year", null);
 const status = getOpt("--status", "In force");
 const sourceUrl = getOpt("--source-url", null);
+const languageCode = getOpt("--language", null);
 const doUpdate = args.includes("--update");
 const forceOcr = args.includes("--force-ocr");
 const year = yearStr ? parseInt(yearStr, 10) : null;
@@ -456,13 +465,15 @@ async function main() {
       console.error("No existing law found with that title and category. Run without --update to insert.");
       process.exit(1);
     }
+    const updatePayload = {
+      content: markdownTrimmed,
+      content_plain: plainTrimmed,
+      updated_at: new Date().toISOString(),
+    };
+    if (languageCode) updatePayload.language_code = languageCode;
     const { error: updateErr } = await supabase
       .from("laws")
-      .update({
-        content: markdownTrimmed,
-        content_plain: plainTrimmed,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", existing.id);
     if (updateErr) {
       console.error("Update failed:", updateErr.message);
@@ -482,6 +493,7 @@ async function main() {
     status,
     content: markdownTrimmed,
     content_plain: plainTrimmed,
+    ...(languageCode ? { language_code: languageCode } : {}),
   };
 
   const { data, error } = await supabase.from("laws").insert(row).select("id").single();
