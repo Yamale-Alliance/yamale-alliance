@@ -14,6 +14,25 @@ import {
   toSharedLawUpdates,
 } from "@/lib/law-shared-groups";
 import { normalizeLawDocumentLanguageCode } from "@/lib/law-document-language";
+import {
+  expandLawToAdditionalCountries,
+  fetchAssignedCountryIdsForLaw,
+} from "@/lib/admin-law-expand-countries";
+
+/** Large laws: country expansion + optional body sync can take several minutes. */
+export const maxDuration = 300;
+
+const SHAREABLE_UPDATE_KEYS = new Set([
+  "title",
+  "category_id",
+  "year",
+  "status",
+  "treaty_type",
+  "source_url",
+  "source_name",
+  "content",
+  "content_plain",
+]);
 
 type LawRow = Database["public"]["Tables"]["laws"]["Row"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -70,8 +89,11 @@ export async function GET(
         const shared_link_peer_count_legacy = sharedGroupLegacy
           ? Math.max(0, sharedGroupLegacy.lawIds.length - 1)
           : 0;
+        const country_ids_legacy = law.applies_to_all_countries
+          ? []
+          : await fetchAssignedCountryIdsForLaw(supabase, id, law);
         return NextResponse.json({
-          law: { ...law, category_ids },
+          law: { ...law, category_ids, country_ids: country_ids_legacy },
           warning: "Missing treaty_type column; run migration 064.",
           shared_link_peer_count: shared_link_peer_count_legacy,
           shared_group_id: sharedGroupLegacy?.groupId ?? null,
@@ -98,9 +120,12 @@ export async function GET(
 
     const sharedGroup = await fetchSharedGroupForLaw(supabase, id).catch(() => null);
     const shared_link_peer_count = sharedGroup ? Math.max(0, sharedGroup.lawIds.length - 1) : 0;
+    const country_ids = law.applies_to_all_countries
+      ? []
+      : await fetchAssignedCountryIdsForLaw(supabase, id, law);
 
     return NextResponse.json({
-      law: { ...law, category_ids },
+      law: { ...law, category_ids, country_ids },
       shared_link_peer_count,
       shared_group_id: sharedGroup?.groupId ?? null,
     });
@@ -127,6 +152,13 @@ export async function PUT(
     const body = await request.json().catch(() => ({}));
     const supabase = getSupabaseServer();
 
+    const { data: existingRow } = await supabase
+      .from("laws")
+      .select("title, year, status, treaty_type, source_url, source_name, content, content_plain, language_code")
+      .eq("id", id)
+      .maybeSingle();
+    const existingLaw = existingRow as LawRow | null;
+
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
     if (typeof body.title === "string") {
@@ -134,7 +166,9 @@ export async function PUT(
       if (!t) {
         return NextResponse.json({ error: "title cannot be empty" }, { status: 400 });
       }
-      updates.title = t;
+      if (t !== (existingLaw?.title ?? "").trim()) {
+        updates.title = t;
+      }
     }
     if (body.applies_to_all_countries === true) {
       updates.applies_to_all_countries = true;
@@ -144,14 +178,22 @@ export async function PUT(
         typeof body.country_id === "string" && body.country_id.trim()
           ? body.country_id.trim()
           : "";
-      if (!cid) {
+      const countryIdsFromBody = Array.isArray(body.country_ids)
+        ? (body.country_ids as unknown[])
+            .filter((v): v is string => typeof v === "string")
+            .map((v) => v.trim())
+            .filter(Boolean)
+        : [];
+      if (!cid && countryIdsFromBody.length === 0) {
         return NextResponse.json(
           { error: "Select a country, or enable “All countries” for treaties and regional instruments." },
           { status: 400 }
         );
       }
       updates.applies_to_all_countries = false;
-      updates.country_id = cid;
+      if (cid) {
+        updates.country_id = cid;
+      }
     } else if (body.country_id !== undefined) {
       const cid = body.country_id ? String(body.country_id).trim() : "";
       if (cid) {
@@ -162,38 +204,77 @@ export async function PUT(
     const categoryIdsPayload = Array.isArray(body.category_ids)
       ? (body.category_ids as unknown[]).filter((v): v is string => typeof v === "string").map((v) => v.trim()).filter(Boolean)
       : null;
+    const countryIdsPayload = Array.isArray(body.country_ids)
+      ? Array.from(
+          new Set(
+            (body.country_ids as unknown[])
+              .filter((v): v is string => typeof v === "string")
+              .map((v) => v.trim())
+              .filter(Boolean)
+          )
+        )
+      : null;
 
     if (body.category_id !== undefined && !(categoryIdsPayload && categoryIdsPayload.length > 0)) {
       updates.category_id = body.category_id || null;
     }
-    if (body.year !== undefined) updates.year = body.year ? Number(body.year) : null;
-    if (typeof body.status === "string") updates.status = body.status.trim() || "In force";
+    if (body.year !== undefined) {
+      const nextYear = body.year ? Number(body.year) : null;
+      const prevYear = existingLaw?.year ?? null;
+      if (nextYear !== prevYear) updates.year = nextYear;
+    }
+    if (typeof body.status === "string") {
+      const nextStatus = body.status.trim() || "In force";
+      if (nextStatus !== (existingLaw?.status ?? "In force")) updates.status = nextStatus;
+    }
     if (body.treaty_type !== undefined) {
       const treatyType = body.treaty_type ? String(body.treaty_type).trim() : "";
       if (!isLawTreatyType(treatyType)) {
         return NextResponse.json({ error: "Invalid treaty type" }, { status: 400 });
       }
-      updates.treaty_type = treatyType;
+      if (treatyType !== String(existingLaw?.treaty_type ?? "Not a treaty")) {
+        updates.treaty_type = treatyType;
+      }
     }
-    if (typeof body.source_url === "string") updates.source_url = body.source_url.trim() || null;
-    if (typeof body.source_name === "string") updates.source_name = body.source_name.trim() || null;
+    if (typeof body.source_url === "string") {
+      const next = body.source_url.trim() || null;
+      const prev = existingLaw?.source_url?.trim() || null;
+      if (next !== prev) updates.source_url = next;
+    }
+    if (typeof body.source_name === "string") {
+      const next = body.source_name.trim() || null;
+      const prev = existingLaw?.source_name?.trim() || null;
+      if (next !== prev) updates.source_name = next;
+    }
     if (body.language_code !== undefined) {
-      updates.language_code = normalizeLawDocumentLanguageCode(
+      const nextLang = normalizeLawDocumentLanguageCode(
         typeof body.language_code === "string" ? body.language_code : null
       );
+      const prevLang = normalizeLawDocumentLanguageCode(existingLaw?.language_code ?? null);
+      if (nextLang !== prevLang) {
+        updates.language_code = nextLang;
+      }
     }
 
     if (typeof body.content === "string") {
       const trimmed = body.content.trim() || null;
-      updates.content = trimmed;
-      updates.content_plain = trimmed;
+      const existingTrim =
+        (existingLaw?.content_plain ?? existingLaw?.content ?? "").trim() || null;
+      if (trimmed !== existingTrim) {
+        updates.content = trimmed;
+        updates.content_plain = trimmed;
+      }
     }
 
+    const hasShareableFieldUpdates = Object.keys(updates).some((k) => SHAREABLE_UPDATE_KEYS.has(k));
     const nonTsKeys = Object.keys(updates).filter((k) => k !== "updated_at" && k !== "last_verified_at");
     const hasLawColumnUpdates = nonTsKeys.length > 0;
     const hasCategorySync = Boolean(categoryIdsPayload && categoryIdsPayload.length > 0);
+    const hasCountryExpansionRequest =
+      Boolean(countryIdsPayload && countryIdsPayload.length > 0) &&
+      body.applies_to_all_countries !== true;
 
-    if (!hasLawColumnUpdates && !hasCategorySync) {
+    if (!hasLawColumnUpdates && !hasCategorySync && !hasCountryExpansionRequest) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }
 
@@ -214,7 +295,7 @@ export async function PUT(
         return NextResponse.json({ error: updateErr.message }, { status: 500 });
       }
 
-      if (otherLinkedLawIds.length > 0) {
+      if (otherLinkedLawIds.length > 0 && hasShareableFieldUpdates) {
         const sharedUpdates = toSharedLawUpdates(updates);
         await propagateSharedLawFields(
           supabase,
@@ -239,6 +320,34 @@ export async function PUT(
       }
     }
 
+    let country_expansion: Awaited<ReturnType<typeof expandLawToAdditionalCountries>> | null = null;
+    if (
+      countryIdsPayload &&
+      countryIdsPayload.length > 0 &&
+      body.applies_to_all_countries !== true &&
+      !updates.applies_to_all_countries
+    ) {
+      try {
+        country_expansion = await expandLawToAdditionalCountries(
+          supabase,
+          id,
+          countryIdsPayload,
+          categoryIdsPayload ?? []
+        );
+        if (country_expansion.created.length > 0 && hasShareableFieldUpdates) {
+          const sharedUpdates = toSharedLawUpdates(updates);
+          const newIds = country_expansion.created.map((c) => c.id);
+          await propagateSharedLawFields(supabase, id, newIds, sharedUpdates);
+          if (hasCategorySync && categoryIdsPayload) {
+            await propagateLawCategoriesAcrossSharedGroup(supabase, id, newIds);
+          }
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Failed to add law to additional countries";
+        return NextResponse.json({ error: msg }, { status: 500 });
+      }
+    }
+
     const { data, error } = await supabase
       .from("laws")
       .select(
@@ -259,6 +368,9 @@ export async function PUT(
     } catch {
       category_ids = lawRow.category_id ? [lawRow.category_id] : [];
     }
+    const country_ids = lawRow.applies_to_all_countries
+      ? []
+      : await fetchAssignedCountryIdsForLaw(supabase, id, lawRow);
 
     const slugFieldsChanged =
       updates.title !== undefined ||
@@ -306,11 +418,18 @@ export async function PUT(
 
     return NextResponse.json({
       ok: true,
-      law: { ...lawRow, category_ids },
+      law: { ...lawRow, category_ids, country_ids },
       shared_link_propagation: {
         group_id: sharedGroup?.groupId ?? null,
         propagated_law_ids: propagatedLawIds,
       },
+      country_expansion: country_expansion
+        ? {
+            created_count: country_expansion.created.length,
+            created_law_ids: country_expansion.created.map((c) => c.id),
+            skipped: country_expansion.skipped,
+          }
+        : null,
     });
   } catch (err) {
     console.error("Admin law PUT error:", err);
