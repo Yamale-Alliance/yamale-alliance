@@ -1338,6 +1338,7 @@
         "upload": {
           "label": "PDF file",
           "hint": "Text will be extracted and stored for the library. For scanned PDFs, enable OCR below.",
+          "sizeHint": "PDFs up to {maxMb} MB are supported. Files over 4 MB upload directly to storage to avoid server size limits.",
           "waitHint": "Large PDFs or OCR can take 1–2 minutes. Please wait and do not refresh."
         },
         "content": {
