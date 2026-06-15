@@ -5,6 +5,11 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, Loader2, FileUp, FileText, CheckCircle2, Link2 } from "lucide-react";
 import { LAW_YEAR_MIN, LAW_YEAR_MAX } from "@/lib/admin-law-utils";
+import {
+  ADMIN_LAW_PDF_MAX_MB,
+  isAdminLawPdfTooLarge,
+  shouldUseDirectLawPdfUpload,
+} from "@/lib/admin-law-upload-limits";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
 import {
   AdminVirusScanUploadBanner,
@@ -15,7 +20,33 @@ type Country = { id: string; name: string };
 type Category = { id: string; name: string };
 
 type InputMode = "upload" | "paste" | "url";
-const MAX_SINGLE_UPLOAD_MB = 95;
+
+async function uploadLawPdfViaStorage(file: File): Promise<string> {
+  const metaRes = await fetch(`${window.location.origin}/api/admin/laws/pdf-upload-url`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sizeBytes: file.size, filename: file.name }),
+  });
+  const meta = (await metaRes.json().catch(() => ({}))) as {
+    error?: string;
+    signedUrl?: string;
+    path?: string;
+  };
+  if (!metaRes.ok || !meta.signedUrl || !meta.path) {
+    throw new Error(meta.error ?? "Could not prepare large PDF upload");
+  }
+
+  const putRes = await fetch(meta.signedUrl, {
+    method: "PUT",
+    headers: { "Content-Type": "application/pdf" },
+    body: file,
+  });
+  if (!putRes.ok) {
+    throw new Error("Direct PDF upload failed. Check Supabase storage configuration.");
+  }
+  return meta.path;
+}
 
 export default function AdminLawsAddPage() {
   const t = useTranslations("admin.laws.add");
@@ -240,7 +271,7 @@ export default function AdminLawsAddPage() {
         setError(t("errors.fileMustBePdf"));
         return;
       }
-      if (file.size > MAX_SINGLE_UPLOAD_MB * 1024 * 1024) {
+      if (isAdminLawPdfTooLarge(file.size)) {
         setError(
           t("errors.pdfTooLarge", { sizeMb: (file.size / (1024 * 1024)).toFixed(1) })
         );
@@ -268,7 +299,18 @@ export default function AdminLawsAddPage() {
     if (languageCode) formData.set("languageCode", languageCode);
 
     if (mode === "upload" && file) {
-      formData.set("file", file);
+      if (shouldUseDirectLawPdfUpload(file.size)) {
+        try {
+          const storagePath = await uploadLawPdfViaStorage(file);
+          formData.set("pdfStoragePath", storagePath);
+        } catch (uploadErr) {
+          setError(uploadErr instanceof Error ? uploadErr.message : t("errors.uploadTooLarge"));
+          setSubmitting(false);
+          return;
+        }
+      } else {
+        formData.set("file", file);
+      }
       if (forceOcr) formData.set("forceOcr", "true");
     } else {
       formData.set("content", pastedContent.trim());
@@ -663,7 +705,7 @@ export default function AdminLawsAddPage() {
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:mr-4 file:rounded file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:text-primary-foreground"
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                {t("upload.hint")}
+                {t("upload.hint")} {t("upload.sizeHint", { maxMb: ADMIN_LAW_PDF_MAX_MB })}
               </p>
               <p className="mt-1 text-xs text-amber-600 dark:text-amber-500">
                 {t("upload.waitHint")}
