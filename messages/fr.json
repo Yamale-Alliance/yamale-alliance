@@ -1366,6 +1366,11 @@
         },
         "country": "Pays",
         "selectCountry": "Sélectionner un pays",
+        "countries": {
+          "hint": "Cochez des pays supplémentaires pour créer une copie de cette loi pour chacun à l'enregistrement. Les pays déjà assignés sont verrouillés ; supprimez une variante pays depuis la liste des lois si besoin.",
+          "assigned": "assigné",
+          "newOnSave": "· {count} nouveau(x) à l'enregistrement"
+        },
         "categories": {
           "label": "Catégories",
           "hint": "La loi est listée sous chaque catégorie sélectionnée. La première cochée est l'étiquette principale dans certaines vues.",
@@ -1426,6 +1431,7 @@
           "ocrCleanedRefresh": "OCR nettoyé. Actualisez si le texte de l'éditeur semble obsolète.",
           "ocrCleaned": "OCR nettoyé ({count} caractères).",
           "savedWithPropagation": "Modifications enregistrées. {count} variantes pays liées ont été mises à jour.",
+          "savedWithNewCountries": "Modifications enregistrées. Loi ajoutée à {count} {count, plural, one {pays supplémentaire} other {pays supplémentaires}}.",
           "saved": "Modifications enregistrées."
         },
         "errors": {
