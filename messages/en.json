@@ -1366,6 +1366,11 @@
         },
         "country": "Country",
         "selectCountry": "Select country",
+        "countries": {
+          "hint": "Tick additional countries to create a copy of this law for each one on save. Countries already assigned are locked; remove a country variant from the laws list if needed.",
+          "assigned": "assigned",
+          "newOnSave": "· {count} new on save"
+        },
         "categories": {
           "label": "Categories",
           "hint": "The law is listed under each selected category in the library. The first ticked is the primary label in some views.",
@@ -1426,6 +1431,7 @@
           "ocrCleanedRefresh": "OCR cleaned. Refresh if the editor text looks stale.",
           "ocrCleaned": "OCR cleaned ({count} characters).",
           "savedWithPropagation": "Changes saved. {count} linked country variants updated to match.",
+          "savedWithNewCountries": "Changes saved. Law added to {count} additional {count, plural, one {country} other {countries}}.",
           "saved": "Changes saved."
         },
         "errors": {
