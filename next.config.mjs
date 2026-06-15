@@ -25,8 +25,11 @@ const nextConfig = {
   experimental: {
     // Load CSS in import order so preloaded chunks are used when needed (reduces "preloaded but not used" warnings)
     cssChunking: "strict",
-    // Allow larger multipart uploads for admin PDF ingestion routes.
-    proxyClientMaxBodySize: 100 * 1024 * 1024, // 100MB
+    // Default proxy buffer is 10MB; raise for admin PDF uploads under ~4MB on the same request.
+    proxyClientMaxBodySize: "100mb",
+  },
+  serverActions: {
+    bodySizeLimit: "100mb",
   },
   images: {
     remotePatterns: [
