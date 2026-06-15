@@ -1366,6 +1366,11 @@
         },
         "country": "País",
         "selectCountry": "Selecionar país",
+        "countries": {
+          "hint": "Marque países adicionais para criar uma cópia desta lei em cada um ao guardar. Países já atribuídos ficam bloqueados; remova uma variante pelo separador de leis, se necessário.",
+          "assigned": "atribuído",
+          "newOnSave": "· {count} novo(s) ao guardar"
+        },
         "categories": {
           "label": "Categorias",
           "hint": "A lei é listada em cada categoria selecionada. A primeira marcada é o rótulo principal em algumas vistas.",
@@ -1426,6 +1431,7 @@
           "ocrCleanedRefresh": "OCR limpo. Atualize se o texto do editor parecer desatualizado.",
           "ocrCleaned": "OCR limpo ({count} caracteres).",
           "savedWithPropagation": "Alterações guardadas. {count} variantes de país ligadas foram atualizadas.",
+          "savedWithNewCountries": "Alterações guardadas. Lei adicionada a mais {count} {count, plural, one {país} other {países}}.",
           "saved": "Alterações guardadas."
         },
         "errors": {
