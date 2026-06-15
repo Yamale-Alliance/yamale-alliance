@@ -1338,6 +1338,7 @@
         "upload": {
           "label": "Fichier PDF",
           "hint": "Le texte sera extrait et stocké pour la bibliothèque. Pour les PDF scannés, activez OCR ci-dessous.",
+          "sizeHint": "PDF jusqu'à {maxMb} Mo acceptés. Au-delà de 4 Mo, l'envoi se fait directement vers le stockage pour éviter les limites du serveur.",
           "waitHint": "Les gros PDF ou OCR peuvent prendre 1 à 2 minutes. Veuillez patienter sans actualiser."
         },
         "content": {
