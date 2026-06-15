@@ -21,11 +21,70 @@ import {
 } from "@/lib/laws-rag-integrity";
 import { scanFile } from "@/lib/uploads/scanner";
 import { normalizeLawDocumentLanguageCode } from "@/lib/law-document-language";
+import {
+  deleteAdminLawPdfImport,
+  downloadAdminLawPdfBuffer,
+  isAllowedAdminLawImportPath,
+} from "@/lib/admin-law-pdf-import";
 
 // Allow up to 5 minutes for PDF extraction and OCR (large or scanned PDFs)
 export const maxDuration = 300;
 
 type LawInsert = Database["public"]["Tables"]["laws"]["Insert"];
+
+async function extractLawTextFromPdfUpload(options: {
+  file: File | null;
+  pdfStoragePath: string | null;
+  adminUserId: string;
+  forceOcr: boolean;
+}): Promise<string> {
+  const { file, pdfStoragePath, adminUserId, forceOcr } = options;
+  const supabase = getSupabaseServer();
+  let buffer: Buffer;
+  let filename: string;
+  let cleanupPath: string | null = null;
+
+  if (pdfStoragePath) {
+    if (!isAllowedAdminLawImportPath(pdfStoragePath, adminUserId)) {
+      throw new Error("Invalid uploaded PDF path");
+    }
+    buffer = await downloadAdminLawPdfBuffer(supabase, pdfStoragePath);
+    filename = pdfStoragePath.split("/").pop() ?? "upload.pdf";
+    cleanupPath = pdfStoragePath;
+  } else if (file && file.size > 0) {
+    if (file.type !== "application/pdf") {
+      throw new Error("File must be a PDF");
+    }
+    buffer = Buffer.from(await file.arrayBuffer());
+    filename = file.name || "upload.pdf";
+  } else {
+    throw new Error("MISSING_PDF");
+  }
+
+  const scan = await scanFile(buffer, filename);
+  if (!scan.clean) {
+    console.error("Admin laws upload rejected by VirusTotal:", {
+      filename,
+      detections: scan.detections,
+    });
+    throw new Error("MALWARE");
+  }
+
+  try {
+    const text = await extractTextFromPdf(buffer, { forceOcr });
+    if (cleanupPath) {
+      await deleteAdminLawPdfImport(supabase, cleanupPath).catch((err) => {
+        console.warn("Admin laws: failed to delete temp PDF import:", err);
+      });
+    }
+    return text;
+  } catch (e) {
+    if (cleanupPath) {
+      await deleteAdminLawPdfImport(supabase, cleanupPath).catch(() => {});
+    }
+    throw e;
+  }
+}
 
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin();
@@ -73,6 +132,7 @@ export async function POST(request: NextRequest) {
     const yearStr = formData.get("year") as string | null;
     const treatyTypeRaw = formData.get("treatyType");
     const file = formData.get("file") as File | null;
+    const pdfStoragePath = (formData.get("pdfStoragePath") as string | null)?.trim() || "";
     const content = formData.get("content") as string | null;
     const forceOcr = formData.get("forceOcr") === "true";
     const languageCode = normalizeLawDocumentLanguageCode(
@@ -115,29 +175,32 @@ export async function POST(request: NextRequest) {
     let text: string;
 
     if (content != null && content.trim().length > 0) {
-      // Pasted content: use as-is
       text = content.trim();
-    } else if (file && file.size > 0) {
-      // Upload: extract from PDF (with optional OCR)
-      if (file.type !== "application/pdf") {
-        return NextResponse.json({ error: "File must be a PDF" }, { status: 400 });
-      }
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const scan = await scanFile(buffer, file.name);
-      if (!scan.clean) {
-        console.error("Admin laws upload rejected by VirusTotal:", {
-          filename: file.name,
-          detections: scan.detections,
-        });
-        return NextResponse.json(
-          { error: "File failed malware scan and was rejected." },
-          { status: 422 }
-        );
-      }
+    } else if ((file && file.size > 0) || pdfStoragePath) {
       try {
-        text = await extractTextFromPdf(buffer, { forceOcr });
+        text = await extractLawTextFromPdfUpload({
+          file,
+          pdfStoragePath: pdfStoragePath || null,
+          adminUserId: admin.userId,
+          forceOcr,
+        });
       } catch (e) {
         const err = e as Error;
+        if (err.message === "MISSING_PDF") {
+          return NextResponse.json(
+            { error: "Provide either a PDF file or paste the law content in the text area." },
+            { status: 400 }
+          );
+        }
+        if (err.message === "MALWARE") {
+          return NextResponse.json(
+            { error: "File failed malware scan and was rejected." },
+            { status: 422 }
+          );
+        }
+        if (err.message === "File must be a PDF") {
+          return NextResponse.json({ error: err.message }, { status: 400 });
+        }
         return NextResponse.json(
           { error: `PDF extraction failed: ${err.message}` },
           { status: 400 }
