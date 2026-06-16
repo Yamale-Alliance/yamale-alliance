@@ -145,6 +145,33 @@
     "eyebrow": "The Yamalé Vault",
     "title": "The Yamalé Vault",
     "subtitle": "Premium legal education and practical resources built for African legal professionals. Learn, download, and apply with confidence in The Yamalé Vault.",
+    "landing": {
+      "headline": "Legal resources built for African practice",
+      "subheadline": "Courses, templates, guides, and books from practitioners who know the continent — browse, learn, and download with confidence.",
+      "searchPlaceholder": "What do you want to learn or download?",
+      "exploreCategories": "Browse by format",
+      "exploreCategoriesHint": "Pick a category to explore everything in that format.",
+      "resourceCount": "{count, plural, one {# resource} other {# resources}}",
+      "sectionFeatured": "Featured resources",
+      "sectionSeries": "Country & topic series",
+      "sectionFree": "Free resources",
+      "sectionCourses": "Courses",
+      "sectionTemplates": "Templates",
+      "sectionBooks": "Books",
+      "sectionGuides": "Guides",
+      "viewAll": "View all",
+      "backToBrowse": "Back to browse",
+      "showingCount": "{count, plural, one {# result} other {# results}}",
+      "clearSearch": "Clear search",
+      "searchResults": "Search results",
+      "exploreCollection": "Explore collection",
+      "statResources": "Resources",
+      "statFree": "Free",
+      "statSeries": "Series",
+      "seriesItemsTitle": "In this collection",
+      "seriesItemsHint": "Open any resource to preview, purchase, or download.",
+      "seriesSavings": "Save {amount} with the full series"
+    },
     "purchased": "Purchased",
     "cart": "Cart",
     "confirmingPayment": "Confirming your payment…",
@@ -167,6 +194,8 @@
       "allBlurb": "Everything in the vault",
       "free": "Free",
       "freeBlurb": "Complimentary resources",
+      "series": "Series",
+      "seriesBlurb": "Multi-country guides grouped by topic",
       "book": "Books",
       "bookBlurb": "Treatises & references",
       "course": "Courses",
@@ -202,6 +231,7 @@
       "default": "Reference material"
     },
     "backToVault": "Back to The Yamalé Vault",
+    "backToCollection": "Back to {name}",
     "vaultShort": "Vault",
     "view": "View",
     "buy": "Buy",
@@ -267,7 +297,38 @@
       "noFileAttached": "No file is attached to this item. Contact support if you expected a download.",
       "reviews": "{count, plural, one {# review} other {# reviews}}",
       "productVideo": "Product video",
-      "openingPackage": "Opening package…"
+      "openingPackage": "Opening package…",
+      "byAuthor": "by {author}",
+      "partOfCollection": "Part of {name}",
+      "instantDownload": "Instant download",
+      "instantDownloadHint": "Access your file immediately after purchase",
+      "languagesCount": "{count, plural, one {# language} other {# languages}}",
+      "languagesCountHint": "Choose your preferred version at download",
+      "fileFormat": "{format} document",
+      "fileFormatHint": "Ready to view or save offline",
+      "lifetimeAccess": "Lifetime access",
+      "lifetimeAccessFreeHint": "Free to claim — yours to keep",
+      "lifetimeAccessPaidHint": "One-time purchase — no subscription",
+      "whatsIncluded": "What's included",
+      "includedDownload": "Downloadable resource",
+      "includedDownloadDesc": "View in browser or save to your device",
+      "includedLanguages": "Available languages",
+      "includedFormat": "File format",
+      "includedUpdated": "Added to the Vault",
+      "aboutResource": "About this resource",
+      "seriesBundleTitle": "Save with the full {name}",
+      "seriesBundleHint": "Get all {count} guides for {price} at checkout",
+      "exploreCollectionTitle": "Explore the full {name}",
+      "exploreCollectionHint": "Browse every country guide in this collection — preview, purchase, or download.",
+      "valueExpertTitle": "Practitioner-ready",
+      "valueExpertDesc": "Structured legal intelligence for investors and counsel entering African markets.",
+      "valueLanguagesTitle": "Multi-language",
+      "valueLanguagesDesc": "Download the version that fits your team — switch languages anytime after purchase.",
+      "valueAccessTitle": "Yours to keep",
+      "valueAccessDesc": "One-time purchase with lifetime access to updates in your Yamalé Vault library.",
+      "checkoutSectionLabel": "Checkout",
+      "checkoutEyebrow": "Get this resource",
+      "checkoutOneTime": "One-time purchase — no subscription."
     }
   },
   "admin": {
@@ -733,8 +794,7 @@
           "onlineCourseTitle": "Purchasers get View course and the online implementation workspace"
         },
         "series": {
-          "vaultSeriesTitle": "Vault series",
-          "builtinCatalogTitle": "Built-in catalog series"
+          "vaultSeriesTitle": "Vault series"
         },
         "list": {
           "standaloneHintBefore": "Standalone vault items only. Items in a series are managed in",
@@ -806,7 +866,18 @@
         "uploadCoverImage": "Upload cover image",
         "pasteUrlPlaceholder": "Or paste Cloudinary image URL (https://res.cloudinary.com/…)",
         "useUrl": "Use URL",
-        "saveReadyHint": "Cover ready — save the item to publish on the Vault."
+        "saveReadyHint": "Cover ready — save the item to publish on the Vault.",
+        "framingTitle": "Card crop framing",
+        "framingHelp": "Adjust how the cover is cropped inside the 16:9 Vault card. Use Top for tall covers with titles near the top edge.",
+        "cardPreviewAlt": "Vault card crop preview",
+        "cardPreviewLabel": "16:9 card preview",
+        "framingHorizontal": "Horizontal focus",
+        "framingVertical": "Vertical focus",
+        "framingPreset": {
+          "top": "Top",
+          "center": "Center",
+          "bottom": "Bottom"
+        }
       },
       "focusCountrySelect": {
         "label": "Focus country (map on card)",
@@ -2136,7 +2207,7 @@
     "signInPrompt": {
       "title": "Sign in to browse the legal library",
       "body": "The African legal library is available to registered users. Sign in or create a free account to search statutes, regulations, and treaties across 54 jurisdictions.",
-      "dialogTitle": "Sign in to read this law",
+      "dialogTitle": "Sign in to read this law for <free>FREE</free>",
       "dialogBody": "You can browse the library for free. Sign in or create a free account to open full law texts and use bookmarks.",
       "signIn": "Sign in",
       "createAccount": "Create account"
