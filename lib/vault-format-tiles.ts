@@ -32,7 +32,7 @@ const FORMAT_DEFS: {
     tag: "Free",
     title: "Free collection",
     description:
-      "Downloadable guides, templates, and introductory materials at no cost — including the At a Glance series.",
+      "Downloadable guides, templates, and complimentary resources at no cost.",
     image: vaultTileSvgImage(["#1a4d2e", "#2d6a4f"]),
   },
   {
