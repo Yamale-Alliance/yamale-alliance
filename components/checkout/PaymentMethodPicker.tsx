@@ -27,6 +27,10 @@ type Props = {
   onLomiComingSoonClick?: () => void;
   /** When true, omit the section label (parent already shows a heading). */
   hideLabel?: boolean;
+  /** `default` = stacked cards; `segmented` = compact pill toggle (vault item page). */
+  variant?: "default" | "segmented";
+  /** Visual theme for segmented variant on dark panels. */
+  tone?: "light" | "dark";
 };
 
 /**
@@ -40,8 +44,80 @@ export function PaymentMethodPicker({
   lomiComingSoon = false,
   onLomiComingSoonClick,
   hideLabel = false,
+  variant = "default",
+  tone = "light",
 }: Props) {
   const t = useTranslations("checkout.paymentMethod");
+
+  if (variant === "segmented") {
+    const isDark = tone === "dark";
+    const labelClass = isDark ? "text-white/90" : "text-foreground";
+    const hintClass = isDark ? "text-white/55" : "text-muted-foreground";
+    const trackClass = isDark
+      ? "border-white/12 bg-white/8"
+      : "border-border bg-muted/40";
+    const activeClass = isDark
+      ? "bg-white/15 text-white shadow-sm ring-1 ring-white/20"
+      : "bg-background text-foreground shadow-sm ring-1 ring-border";
+    const idleClass = isDark
+      ? "text-white/65 hover:text-white/90"
+      : "text-muted-foreground hover:text-foreground";
+
+    const lomiActive = !lomiComingSoon && value === "lomi";
+    const pawapayActive = value === "pawapay";
+    const selectedHint = lomiActive
+      ? lomiComingSoon
+        ? t("cardWalletsComingSoon")
+        : t("cardWalletsDesc")
+      : t("mobileMoneyDesc");
+
+    return (
+      <div className="w-full min-w-0 space-y-2.5">
+        {!hideLabel ? <p className={`text-sm font-medium ${labelClass}`}>{t("label")}</p> : null}
+        <div
+          className={`flex w-full rounded-xl border p-1 ${trackClass}`}
+          role="group"
+          aria-label={t("label")}
+        >
+          <button
+            type="button"
+            disabled={!lomiAvailable && !lomiComingSoon}
+            onClick={() => {
+              if (lomiComingSoon) {
+                onLomiComingSoonClick?.();
+                return;
+              }
+              if (lomiAvailable) onChange("lomi");
+            }}
+            aria-pressed={lomiActive}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+              !lomiAvailable && !lomiComingSoon ? "cursor-not-allowed opacity-45" : ""
+            } ${lomiActive ? activeClass : idleClass}`}
+          >
+            <CreditCard className="h-4 w-4 shrink-0" aria-hidden />
+            <span className="truncate">{t("cardWallets")}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange("pawapay")}
+            aria-pressed={pawapayActive}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+              pawapayActive ? activeClass : idleClass
+            }`}
+          >
+            <Smartphone className="h-4 w-4 shrink-0" aria-hidden />
+            <span className="truncate">{t("mobileMoney")}</span>
+          </button>
+        </div>
+        <p className={`text-xs leading-relaxed ${hintClass}`}>{selectedHint}</p>
+        {!lomiAvailable && lomiComingSoon ? null : !lomiAvailable ? (
+          <p className={`text-[11px] ${isDark ? "text-amber-300/90" : "text-amber-700 dark:text-amber-400"}`}>
+            {t("lomiEnableHint")}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="w-full min-w-0 space-y-3">
