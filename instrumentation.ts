@@ -1,12 +1,7 @@
-/** True when Sentry DSN is configured (skip heavy edge bundle in local dev without DSN). */
-function sentryEnabled(): boolean {
-  return Boolean(
-    process.env.NEXT_PUBLIC_SENTRY_DSN?.trim() || process.env.SENTRY_DSN?.trim()
-  );
-}
+import { isSentryEnabled } from "@/lib/sentry-enabled";
 
 export async function register() {
-  if (!sentryEnabled()) return;
+  if (!isSentryEnabled()) return;
 
   if (process.env.NEXT_RUNTIME === "nodejs") {
     await import("./sentry.server.config");
@@ -17,14 +12,22 @@ export async function register() {
 }
 
 export async function onRequestError(
-  ...args: Parameters<
-    typeof import("@sentry/nextjs").captureRequestError
-  >
+  error: unknown,
+  request: {
+    path: string;
+    method: string;
+    headers: { [key: string]: string | string[] | undefined };
+  },
+  context: {
+    routerKind: "Pages Router" | "App Router";
+    routePath: string;
+    routeType: "render" | "route" | "action" | "proxy";
+  }
 ): Promise<void> {
-  if (!sentryEnabled()) {
-    console.error(args[0]);
+  if (!isSentryEnabled()) {
+    console.error(error);
     return;
   }
   const Sentry = await import("@sentry/nextjs");
-  return Sentry.captureRequestError(...args);
+  return Sentry.captureRequestError(error, request, context);
 }
