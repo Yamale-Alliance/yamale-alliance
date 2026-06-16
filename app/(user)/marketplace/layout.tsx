@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { VaultCartDock } from "@/components/marketplace/vault/VaultCartDock";
 import { createPageMetadata } from "@/lib/site-seo";
 
 export const metadata = createPageMetadata({
@@ -14,6 +15,7 @@ export default function MarketplaceLayout({ children }: { children: ReactNode })
     <>
       <link rel="preconnect" href="https://res.cloudinary.com" crossOrigin="anonymous" />
       {children}
+      <VaultCartDock />
     </>
   );
 }
