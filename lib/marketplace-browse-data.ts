@@ -14,6 +14,9 @@ import {
   type VaultSeriesRecord,
 } from "@/lib/marketplace-vault-series";
 import { getSupabaseServer } from "@/lib/supabase/server";
+import { MARKETPLACE_CATALOG_CACHE_TAG } from "@/lib/marketplace-catalog-cache";
+import { isMissingDbColumnError } from "@/lib/marketplace-item-db";
+import { DEFAULT_COVER_FOCAL } from "@/lib/marketplace-cover-framing";
 
 export type MarketplaceBrowseItem = {
   id: string;
@@ -25,6 +28,8 @@ export type MarketplaceBrowseItem = {
   price_cents: number;
   currency: string;
   image_url: string | null;
+  cover_focal_x?: number | null;
+  cover_focal_y?: number | null;
   sort_order: number;
   created_at: string;
   video_url: string | null;
@@ -84,15 +89,27 @@ async function listAllMarketplaceLanguageCodes(
 async function loadMarketplaceCatalogUncached(): Promise<CachedMarketplaceCatalog> {
   const supabase = getSupabaseServer();
 
-  const [itemsResult, seriesRows, languageCodesByItem] = await Promise.all([
-    supabase
+  const baseSelect =
+    "id, slug, type, title, author, description, price_cents, currency, image_url, sort_order, created_at, video_url, file_format, file_name, vault_subcategory, focus_country, is_course";
+  const selectWithFocal = `${baseSelect}, cover_focal_x, cover_focal_y`;
+
+  let itemsResult = await supabase
+    .from("marketplace_items")
+    .select(selectWithFocal)
+    .eq("published", true)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false });
+
+  if (itemsResult.error && isMissingDbColumnError(itemsResult.error, "cover_focal_x")) {
+    itemsResult = await supabase
       .from("marketplace_items")
-      .select(
-        "id, slug, type, title, author, description, price_cents, currency, image_url, sort_order, created_at, video_url, file_format, file_name, vault_subcategory, focus_country, is_course"
-      )
+      .select(baseSelect)
       .eq("published", true)
       .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: false }),
+      .order("created_at", { ascending: false });
+  }
+
+  const [seriesRows, languageCodesByItem] = await Promise.all([
     fetchVaultSeriesDbRows(supabase),
     listAllMarketplaceLanguageCodes(supabase),
   ]);
@@ -109,8 +126,12 @@ async function loadMarketplaceCatalogUncached(): Promise<CachedMarketplaceCatalo
 
   const itemsWithLanguages: MarketplaceBrowseItem[] = rows.map((item) => {
     const codes = languageCodesByItem.get(item.id) ?? [];
+    const focalX = "cover_focal_x" in item ? item.cover_focal_x : DEFAULT_COVER_FOCAL.x;
+    const focalY = "cover_focal_y" in item ? item.cover_focal_y : DEFAULT_COVER_FOCAL.y;
     return {
       ...item,
+      cover_focal_x: focalX ?? DEFAULT_COVER_FOCAL.x,
+      cover_focal_y: focalY ?? DEFAULT_COVER_FOCAL.y,
       owned: false,
       language_codes: codes.length > 0 ? sortMarketplaceLanguageCodes(codes) : [],
     };
@@ -126,7 +147,7 @@ async function loadMarketplaceCatalogUncached(): Promise<CachedMarketplaceCatalo
 const getCachedMarketplaceCatalog = unstable_cache(
   loadMarketplaceCatalogUncached,
   ["marketplace-catalog-v1"],
-  { revalidate: 120, tags: ["marketplace-catalog"] }
+  { revalidate: 120, tags: [MARKETPLACE_CATALOG_CACHE_TAG] }
 );
 
 async function fetchOwnedMarketplaceItemIds(
