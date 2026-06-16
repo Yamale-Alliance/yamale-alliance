@@ -1,31 +1,12 @@
 "use client";
 
-import { Fragment, useState, useEffect, useLayoutEffect, useMemo, useCallback } from "react";
-import Link from "next/link";
+import { useState, useEffect, useLayoutEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import {
-  Search,
-  BookOpen,
-  GraduationCap,
-  FileText,
-  Check,
-  Loader2,
-  ShoppingCart,
-  Package,
-  LayoutGrid,
-  Gift,
-} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 import { useAlertDialog } from "@/components/ui/use-confirm";
-import {
-  PROTOTYPE_HERO_GRID_PATTERN,
-  prototypeHeroEyebrowClass,
-  prototypeNavyHeroSectionClass,
-} from "@/components/layout/prototype-page-styles";
-import { sortMarketplaceLanguageCodes } from "@/lib/marketplace-item-files";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { useMarketplacePaymentReturn } from "@/components/marketplace/use-marketplace-payment-return";
@@ -40,26 +21,28 @@ import {
 } from "@/components/checkout/PaymentMethodPicker";
 import {
   VAULT_BROWSE_FREE,
-  compareVaultSeriesOrder,
+  VAULT_BROWSE_SERIES,
   listVaultSeries,
   setVaultSeriesRegistry,
   isFreeVaultItem,
   isPaidVaultSubcategory,
+  isVaultSeriesMemberItem,
   labelForVaultSubcategory,
   parseVaultSeriesParam,
-  vaultSubcategoryMeta,
-  shouldCollapseVaultSeries,
-  shouldGroupVaultItem,
-  vaultSeriesCoverImagePath,
-  vaultSeriesUsesPerCountryCovers,
   type VaultSubcategoryId,
 } from "@/lib/marketplace-vault-categories";
+import { vaultSeriesGroupKey, vaultSeriesPageHref } from "@/lib/marketplace-vault-series-display";
 import {
   computeSeriesOfferFromBrowseItems,
   type MarketplaceSeriesOffer,
 } from "@/lib/marketplace-series-offers";
 import type { MarketplaceItemPackOffer } from "@/lib/marketplace-item-packs";
-import { MarketplaceProductCard } from "@/components/marketplace/MarketplaceProductCard";
+import { VaultLandingHero } from "@/components/marketplace/vault/VaultLandingHero";
+import { VaultCategoryGrid } from "@/components/marketplace/vault/VaultCategoryGrid";
+import { VaultProductSection } from "@/components/marketplace/vault/VaultProductSection";
+import { VaultCatalogToolbar } from "@/components/marketplace/vault/VaultCatalogToolbar";
+import { VaultProductGrid } from "@/components/marketplace/vault/VaultProductGrid";
+import { buildVaultDisplayCards, isStandaloneVaultBrowseItem } from "@/lib/marketplace-vault-display-cards";
 import {
   VAULT_SORT_OPTIONS,
   buildMarketplaceSearchQuery,
@@ -73,25 +56,27 @@ import type {
   MarketplaceBrowsePayload,
 } from "@/lib/marketplace-browse-data";
 import { writeVaultBrowseClientCache } from "@/lib/marketplace-browse-client-cache";
+import type { VaultSeriesRecord } from "@/lib/marketplace-vault-series";
 import { collectMarketplaceCoverPreloadUrls } from "@/lib/marketplace-cover-preload";
 
-const BRAND = {
-  dark: "#221913",
-  medium: "#603b1c",
-  gradientStart: "#9a632a",
-  gradientEnd: "#c18c43",
-  accent: "#e3ba65",
-};
+const LANDING_SECTION_LIMIT = 8;
 
 type ProductCategory = "book" | "course" | "template" | "guide";
 
 type BrowseMode =
   | { kind: "all" }
   | { kind: "type"; type: ProductCategory }
-  | { kind: "free"; subcategory: string | null };
+  | { kind: "free"; subcategory: string | null }
+  | { kind: "series" };
+
+// Series whose member items should only be discoverable inside their collection page.
+const HIDE_MEMBER_ITEMS_FROM_CATALOG_SERIES_IDS = new Set<string>([
+  "quick_investment_guide",
+]);
 
 function parseBrowseMode(categoryParam: string | null, seriesParam: string | null): BrowseMode {
-  if (!categoryParam || categoryParam === "all" || categoryParam === "series") return { kind: "all" };
+  if (!categoryParam || categoryParam === "all") return { kind: "all" };
+  if (categoryParam === VAULT_BROWSE_SERIES || categoryParam === "series") return { kind: "series" };
   if (categoryParam === VAULT_BROWSE_FREE) {
     const sub = parseVaultSeriesParam(seriesParam);
     return { kind: "free", subcategory: sub && !isPaidVaultSubcategory(sub) ? sub : null };
@@ -104,62 +89,23 @@ function parseBrowseMode(categoryParam: string | null, seriesParam: string | nul
 
 type Product = MarketplaceBrowseItem;
 
-type DisplayProductCard = {
-  product: Product;
-  collectionHref?: string;
-  collectionCount?: number;
-  collectionLabel?: string;
-  /** Free vault subcategory slug for inline expand (e.g. at_a_glance). */
-  seriesKey?: string;
-};
-
-type FormatTileParam = "all" | ProductCategory | typeof VAULT_BROWSE_FREE;
+type FormatTileParam = "all" | ProductCategory | typeof VAULT_BROWSE_FREE | typeof VAULT_BROWSE_SERIES;
 
 type TopicId = "general" | "afcftaTrade" | "tax" | "labour" | "mining" | "compliance" | "corporate";
 
 const FORMAT_TILE_DEFS: {
   param: FormatTileParam;
-  labelKey: "all" | "free" | "book" | "course" | "template" | "guide";
-  icon: "all" | ProductCategory | "free";
+  labelKey: "all" | "free" | "series" | "book" | "course" | "template" | "guide";
+  icon: "all" | ProductCategory | "free" | "series";
 }[] = [
   { param: "all", labelKey: "all", icon: "all" },
   { param: VAULT_BROWSE_FREE, labelKey: "free", icon: "free" },
+  { param: VAULT_BROWSE_SERIES, labelKey: "series", icon: "series" },
   { param: "book", labelKey: "book", icon: "book" },
   { param: "course", labelKey: "course", icon: "course" },
   { param: "template", labelKey: "template", icon: "template" },
   { param: "guide", labelKey: "guide", icon: "guide" },
 ];
-
-function CategoryIcon({ type, className }: { type: string; className?: string }) {
-  switch (type) {
-    case "book":
-      return <BookOpen className={className ?? "h-5 w-5"} />;
-    case "course":
-      return <GraduationCap className={className ?? "h-5 w-5"} />;
-    case "template":
-      return <FileText className={className ?? "h-5 w-5"} />;
-    case "guide":
-      return <BookOpen className={className ?? "h-5 w-5"} />;
-    default:
-      return <FileText className={className ?? "h-5 w-5"} />;
-  }
-}
-
-function TileCategoryIcon({
-  icon,
-  className,
-}: {
-  icon: "all" | ProductCategory | "free";
-  className?: string;
-}) {
-  if (icon === "all") {
-    return <LayoutGrid className={className ?? "h-8 w-8"} />;
-  }
-  if (icon === "free") {
-    return <Gift className={className ?? "h-8 w-8"} />;
-  }
-  return <CategoryIcon type={icon} className={className ?? "h-8 w-8"} />;
-}
 
 function inferTopicId(product: Product): TopicId {
   const text = `${product.title} ${product.description ?? ""} ${product.author}`.toLowerCase();
@@ -174,17 +120,17 @@ function inferTopicId(product: Product): TopicId {
 
 function MarketplaceGridSkeleton() {
   return (
-    <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {Array.from({ length: 6 }, (_, i) => (
         <div
           key={i}
-          className="flex flex-col overflow-hidden rounded-[10px] border border-border bg-card"
+          className="flex flex-col overflow-hidden"
         >
-          <div className="aspect-[2/1] w-full animate-pulse bg-muted" />
-          <div className="p-3">
-            <div className="h-3 w-24 animate-pulse rounded bg-muted" />
-            <div className="mt-2 h-4 w-full animate-pulse rounded bg-muted" />
+          <div className="aspect-video w-full animate-pulse rounded bg-muted" />
+          <div className="px-0.5 pt-3">
+            <div className="h-4 w-full animate-pulse rounded bg-muted" />
             <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-muted" />
+            <div className="mt-3 h-4 w-16 animate-pulse rounded bg-muted" />
           </div>
         </div>
       ))}
@@ -198,7 +144,6 @@ type MarketplacePageClientProps = {
 
 export function MarketplacePageClient({ initialPayload }: MarketplacePageClientProps) {
   const t = useTranslations("marketplace");
-  const tAdvisory = useTranslations("advisory");
   const tCommon = useTranslations("common");
   const router = useRouter();
   const searchParams = useClientSearchParams();
@@ -224,9 +169,16 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
   const [checkoutChoice, setCheckoutChoice] = useState<MarketplaceVaultCheckoutChoice>("item");
   const [buyCheckoutLoading, setBuyCheckoutLoading] = useState(false);
   const [expandedSeriesKey, setExpandedSeriesKey] = useState<string | null>(null);
+  const [vaultSeriesList, setVaultSeriesList] = useState<VaultSeriesRecord[]>(() => {
+    if (initialPayload.vaultSeries.length > 0) {
+      setVaultSeriesRegistry(initialPayload.vaultSeries);
+    }
+    return initialPayload.vaultSeries;
+  });
   const [vaultSeriesRevision, setVaultSeriesRevision] = useState(
     initialPayload.vaultSeries.length > 0 ? 1 : 0
   );
+  const [pendingCategory, setPendingCategory] = useState<string | null>(null);
 
   const lomiAvailable =
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
@@ -241,16 +193,40 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
   const categoryQs = searchParams.get("category");
   const seriesQs = searchParams.get("series");
   const vaultSort = parseVaultSortParam(searchParams.get("sort"));
-  const browse = parseBrowseMode(categoryQs, seriesQs);
+
+  useEffect(() => {
+    if (pendingCategory && categoryQs === pendingCategory) {
+      setPendingCategory(null);
+    }
+  }, [categoryQs, pendingCategory]);
+
+  const activeCategoryParam = pendingCategory ?? categoryQs;
+  const browse = parseBrowseMode(activeCategoryParam, seriesQs);
+
+  const navigateBrowseCategory = useCallback(
+    (param: FormatTileParam) => {
+      const category = param === "all" ? null : param;
+      const qs = buildMarketplaceSearchQuery({
+        category,
+        series: null,
+        sort: vaultSort,
+      });
+      setPendingCategory(category);
+      setSelectedTopic("all");
+      setSearch("");
+      router.push(qs ? `/marketplace?${qs}` : "/marketplace", { scroll: false });
+    },
+    [router, vaultSort]
+  );
 
   const marketplaceQuery = useCallback(
     (overrides?: { category?: string | null; series?: string | null; sort?: typeof vaultSort }) =>
       buildMarketplaceSearchQuery({
-        category: overrides?.category !== undefined ? overrides.category : categoryQs,
+        category: overrides?.category !== undefined ? overrides.category : activeCategoryParam,
         series: overrides?.series !== undefined ? overrides.series : seriesQs,
         sort: overrides?.sort ?? vaultSort,
       }),
-    [categoryQs, seriesQs, vaultSort]
+    [activeCategoryParam, seriesQs, vaultSort]
   );
 
   const setVaultSort = useCallback(
@@ -288,15 +264,20 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
     [t]
   );
 
-  const countsByType = useMemo(() => {
-    const m = new Map<string, number>();
+  const freeItemCount = useMemo(
+    () => items.filter((p) => isFreeVaultItem(p.price_cents) && isStandaloneVaultBrowseItem(p)).length,
+    [items]
+  );
+
+  const seriesCollectionCount = useMemo(() => {
+    const keys = new Set<string>();
     for (const p of items) {
-      m.set(p.type, (m.get(p.type) ?? 0) + 1);
+      const key = vaultSeriesGroupKey(p);
+      if (key) keys.add(key);
     }
-    return m;
+    return keys.size;
   }, [items]);
 
-  const freeItemCount = useMemo(() => items.filter((p) => isFreeVaultItem(p.price_cents)).length, [items]);
   const ownedCourseItem = useMemo(
     () =>
       items.find(
@@ -311,7 +292,8 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
   const formatTileCount = (param: FormatTileParam) => {
     if (param === "all") return items.length;
     if (param === VAULT_BROWSE_FREE) return freeItemCount;
-    return countsByType.get(param) ?? 0;
+    if (param === VAULT_BROWSE_SERIES) return seriesCollectionCount;
+    return items.filter((p) => p.type === param && isStandaloneVaultBrowseItem(p)).length;
   };
 
   const freeSeriesCounts = useMemo(() => {
@@ -329,6 +311,7 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
     setItems(payload.items);
     setAdvisoryWorkspacePreview(payload.advisoryWorkspacePreview);
     if (payload.vaultSeries.length > 0) {
+      setVaultSeriesList(payload.vaultSeries);
       setVaultSeriesRegistry(payload.vaultSeries);
       setVaultSeriesRevision((n) => n + 1);
     }
@@ -353,20 +336,22 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
 
   useLayoutEffect(() => {
     if (initialPayload.vaultSeries.length > 0) {
+      setVaultSeriesList(initialPayload.vaultSeries);
       setVaultSeriesRegistry(initialPayload.vaultSeries);
+      setVaultSeriesRevision((n) => (n === 0 ? 1 : n));
     }
     writeVaultBrowseClientCache(initialPayload);
   }, [initialPayload]);
 
   useEffect(() => {
     if (items.length === 0) return;
-    const urls = collectMarketplaceCoverPreloadUrls(items, listVaultSeries(), 15);
+    const urls = collectMarketplaceCoverPreloadUrls(items, vaultSeriesList, 15);
     for (const url of urls) {
       const img = new window.Image();
       img.decoding = "async";
       img.src = url;
     }
-  }, [items, vaultSeriesRevision]);
+  }, [items, vaultSeriesRevision, vaultSeriesList]);
 
   const { paymentVerifyInProgress, showVerifiedPaymentSuccess } = useMarketplacePaymentReturn({
     mode: "cart",
@@ -414,6 +399,18 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
 
   const filtered = useMemo(() => {
     return items.filter((p) => {
+      const sub = p.vault_subcategory?.trim();
+      const hideFromCatalog =
+        sub && HIDE_MEMBER_ITEMS_FROM_CATALOG_SERIES_IDS.has(sub);
+      const inSeriesBrowse = browse.kind === "series";
+
+      // Hide certain series members from general catalog/search views.
+      // They still power collection cards on the landing page and dedicated
+      // series pages, but are not shown as standalone tiles in grid results.
+      if (hideFromCatalog && !inSeriesBrowse) {
+        return false;
+      }
+
       const matchSearch =
         !search ||
         p.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -421,10 +418,14 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
       const matchBrowse =
         browse.kind === "all"
           ? true
-          : browse.kind === "type"
-            ? p.type === browse.type
-            : isFreeVaultItem(p.price_cents) &&
-              (!browse.subcategory || p.vault_subcategory === browse.subcategory);
+          : browse.kind === "series"
+            ? isVaultSeriesMemberItem(p)
+            : browse.kind === "type"
+              ? p.type === browse.type && isStandaloneVaultBrowseItem(p)
+              : isFreeVaultItem(p.price_cents) &&
+                (browse.subcategory
+                  ? p.vault_subcategory === browse.subcategory
+                  : isStandaloneVaultBrowseItem(p));
       return matchSearch && matchBrowse;
     });
   }, [items, browse, search]);
@@ -445,73 +446,147 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
     [filteredByTopic, vaultSort]
   );
 
+  const catalogCardMode = useMemo(() => {
+    if (browse.kind === "series") return "series-only" as const;
+    if (browse.kind === "type") return "standalone" as const;
+    if (browse.kind === "free" && !browse.subcategory) return "standalone" as const;
+    return "default" as const;
+  }, [browse]);
+
   const { displayCards, seriesMembersByKey } = useMemo(() => {
     const freeSubcategory = browse.kind === "free" ? browse.subcategory : null;
-    const collapseSeries = shouldCollapseVaultSeries(
-      browse.kind === "free" ? "free" : browse.kind === "type" ? "type" : "all",
-      freeSubcategory
+    return buildVaultDisplayCards(
+      sortedProducts,
+      {
+        kind:
+          browse.kind === "all"
+            ? "all"
+            : browse.kind === "free"
+              ? "free"
+              : browse.kind === "series"
+                ? "series"
+                : "type",
+        type: browse.kind === "type" ? browse.type : undefined,
+        freeSubcategory,
+      },
+      t("seriesLabel"),
+      catalogCardMode,
+      vaultSeriesList
     );
+  }, [browse, sortedProducts, t, catalogCardMode, vaultSeriesList]);
 
-    if (!collapseSeries) {
+  const isLandingMode =
+    !pendingCategory &&
+    browse.kind === "all" &&
+    !search.trim() &&
+    selectedTopic === "all";
+
+  const categoryGridItems = useMemo(
+    () =>
+      formatTiles.map((tile) => ({
+        param: tile.param,
+        label: tile.label,
+        blurb: t(`formats.${tile.labelKey}Blurb`),
+        count: formatTileCount(tile.param),
+      })),
+    [formatTiles, t, items, freeItemCount, seriesCollectionCount]
+  );
+
+  const landingSections = useMemo(() => {
+    if (!isLandingMode) return [];
+
+    const section = (
+      titleKey: string,
+      products: Product[],
+      cardMode: "standalone" | "series-only",
+      viewAllParam: FormatTileParam | null,
+      sortOverride?: typeof vaultSort
+    ) => {
+      const { displayCards: cards, seriesMembersByKey: members } = buildVaultDisplayCards(
+        sortVaultProducts(products, sortOverride ?? vaultSort),
+        { kind: "all" },
+        t("seriesLabel"),
+        cardMode,
+        vaultSeriesList
+      );
+      const qs =
+        viewAllParam === null
+          ? null
+          : marketplaceQuery({
+              category: viewAllParam === "all" ? null : viewAllParam,
+              series: null,
+            });
       return {
-        displayCards: sortedProducts.map((product) => ({ product })) as DisplayProductCard[],
-        seriesMembersByKey: new Map<string, Product[]>(),
+        titleKey,
+        displayCards: cards.slice(0, LANDING_SECTION_LIMIT),
+        seriesMembersByKey: members,
+        viewAllHref: qs ? `/marketplace?${qs}` : viewAllParam === null ? undefined : "/marketplace",
       };
-    }
-
-    const membersByKey = new Map<string, Product[]>();
-    const regularProducts: Product[] = [];
-    const featuredProducts: Product[] = [];
-
-    for (const product of sortedProducts) {
-      if (isMarketplaceCourseItem(product)) {
-        featuredProducts.push(product);
-        continue;
-      }
-      const subcategory = product.vault_subcategory?.trim() ?? "";
-      if (shouldGroupVaultItem(product) && subcategory) {
-        const members = membersByKey.get(subcategory) ?? [];
-        members.push(product);
-        membersByKey.set(subcategory, members);
-      } else {
-        regularProducts.push(product);
-      }
-    }
-
-    const seriesCards: DisplayProductCard[] = Array.from(membersByKey.entries())
-      .sort(([a], [b]) => compareVaultSeriesOrder(a, b))
-      .map(([subcategory, members]) => {
-        const seriesCover = vaultSeriesCoverImagePath(subcategory);
-        const base = members.find((m) => m.image_url) ?? members[0];
-        const seriesLanguageCodes = sortMarketplaceLanguageCodes(
-          members.flatMap((m) => m.language_codes ?? [])
-        );
-        const coverProduct = seriesCover
-          ? {
-              ...base,
-              image_url: seriesCover,
-              title: labelForVaultSubcategory(subcategory) ?? base.title,
-              description:
-                vaultSubcategoryMeta(subcategory)?.blurb ?? base.description ?? null,
-              language_codes: seriesLanguageCodes,
-            }
-          : { ...base, language_codes: seriesLanguageCodes };
-        return {
-          product: coverProduct,
-          collectionLabel: labelForVaultSubcategory(subcategory) ?? t("seriesLabel"),
-          collectionCount: members.length,
-          seriesKey: subcategory,
-        };
-      });
-
-    const featuredCards: DisplayProductCard[] = featuredProducts.map((product) => ({ product }));
-    const regularCards: DisplayProductCard[] = regularProducts.map((product) => ({ product }));
-
-    return {
-      displayCards: [...featuredCards, ...seriesCards, ...regularCards],
-      seriesMembersByKey: membersByKey,
     };
-  }, [browse, sortedProducts, vaultSeriesRevision, t]);
+
+    return [
+      section(
+        "landing.sectionFeatured",
+        items.filter(isStandaloneVaultBrowseItem),
+        "standalone",
+        null,
+        "recent"
+      ),
+      section(
+        "landing.sectionSeries",
+        items.filter(isVaultSeriesMemberItem),
+        "series-only",
+        VAULT_BROWSE_SERIES
+      ),
+      section(
+        "landing.sectionFree",
+        items.filter((p) => isFreeVaultItem(p.price_cents) && isStandaloneVaultBrowseItem(p)),
+        "standalone",
+        VAULT_BROWSE_FREE
+      ),
+      section(
+        "landing.sectionCourses",
+        items.filter((p) => p.type === "course" && isStandaloneVaultBrowseItem(p)),
+        "standalone",
+        "course"
+      ),
+      section(
+        "landing.sectionTemplates",
+        items.filter((p) => p.type === "template" && isStandaloneVaultBrowseItem(p)),
+        "standalone",
+        "template"
+      ),
+      section(
+        "landing.sectionBooks",
+        items.filter((p) => p.type === "book" && isStandaloneVaultBrowseItem(p)),
+        "standalone",
+        "book"
+      ),
+      section(
+        "landing.sectionGuides",
+        items.filter((p) => p.type === "guide" && isStandaloneVaultBrowseItem(p)),
+        "standalone",
+        "guide"
+      ),
+    ].filter((s) => s.displayCards.length > 0);
+  }, [isLandingMode, items, vaultSort, marketplaceQuery, t, vaultSeriesList]);
+
+  const browseTitle =
+    browse.kind === "all"
+      ? t("formats.all")
+      : browse.kind === "series"
+        ? t("formats.series")
+        : browse.kind === "free"
+          ? browse.subcategory
+            ? (labelForVaultSubcategory(browse.subcategory) ?? t("formats.free"))
+            : t("formats.free")
+          : browse.kind === "type"
+            ? (formatTiles.find((tile) => tile.param === browse.type)?.label ?? browse.type)
+            : t("formats.all");
+
+  const catalogTitle = search.trim()
+    ? t("landing.searchResults")
+    : browseTitle;
 
   const toggleSeries = useCallback((seriesKey: string) => {
     setExpandedSeriesKey((prev) => (prev === seriesKey ? null : seriesKey));
@@ -521,14 +596,13 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
     setExpandedSeriesKey(null);
   }, [categoryQs, seriesQs]);
 
-  const browseTitle =
-    browse.kind === "all"
-      ? t("formats.all")
-      : browse.kind === "free"
-        ? browse.subcategory
-          ? (labelForVaultSubcategory(browse.subcategory) ?? t("formats.free"))
-          : t("formats.free")
-        : formatTiles.find((tile) => tile.param === browse.type)?.label ?? browse.type;
+  useEffect(() => {
+    if (pendingCategory) return;
+    const seriesId = parseVaultSeriesParam(seriesQs);
+    if (!seriesId) return;
+    const country = searchParams.get("country");
+    router.replace(vaultSeriesPageHref(seriesId, country), { scroll: true });
+  }, [seriesQs, searchParams, pendingCategory, router]);
 
   const closeBuyModal = () => {
     setBuyModalProduct(null);
@@ -704,64 +778,25 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
         loading={buyCheckoutLoading}
         onCheckout={() => void submitBuyCheckout()}
       />
-      <section className={`relative overflow-hidden ${prototypeNavyHeroSectionClass}`}>
-        <div
-          className="absolute inset-0 z-0"
-          style={{ backgroundImage: PROTOTYPE_HERO_GRID_PATTERN }}
-          aria-hidden
+      {isLandingMode ? (
+        <VaultLandingHero
+          search={search}
+          onSearchChange={setSearch}
+          isSignedIn={!!isSignedIn}
+          cartCount={cartCount}
+          ownsLawFirmWorkspace={ownsLawFirmWorkspace}
+          totalResources={items.length}
+          freeResources={freeItemCount}
+          seriesCount={seriesCollectionCount}
+          advisoryCourseHref={
+            ownedCourseItem
+              ? advisoryCourseHref(ownedCourseItem)
+              : ownsLawFirmWorkspace
+                ? "/advisory"
+                : undefined
+          }
         />
-        <div className="relative mx-auto max-w-7xl px-4 pb-14 pt-12 sm:px-6 sm:pt-14 lg:px-8">
-          <div className="flex flex-col items-start justify-between gap-8 md:flex-row md:items-end">
-            <div className="max-w-2xl">
-              <p className={prototypeHeroEyebrowClass}>
-                {t("eyebrow")}
-              </p>
-              <h1 className="heading mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-[2.6rem]">
-                {t("title")}
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/[0.7] sm:text-base">
-                {t("subtitle")}
-              </p>
-            </div>
-            {isSignedIn && (
-              <div className="flex flex-wrap items-center gap-3">
-                {ownsLawFirmWorkspace && (
-                  <Link
-                    href={
-                      ownedCourseItem
-                        ? advisoryCourseHref(ownedCourseItem)
-                        : "/advisory"
-                    }
-                    className="inline-flex items-center gap-2 rounded-[6px] border border-[#C18C43]/50 bg-[#C18C43]/20 px-4 py-2.5 text-sm font-semibold text-[#E8B84B] backdrop-blur transition hover:bg-[#C18C43]/30"
-                  >
-                    <GraduationCap className="h-5 w-5" aria-hidden />
-                    <span>{tAdvisory("viewCourse")}</span>
-                  </Link>
-                )}
-                <Link
-                  href="/marketplace/purchased"
-                  className="inline-flex items-center gap-2 rounded-[6px] border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15"
-                >
-                  <Package className="h-5 w-5 text-[#E8B84B]" />
-                  <span>{t("purchased")}</span>
-                </Link>
-                <Link
-                  href="/marketplace/cart"
-                  className="relative inline-flex items-center gap-2 rounded-[6px] border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15"
-                >
-                  <ShoppingCart className="h-5 w-5 text-[#E8B84B]" />
-                  <span>{t("cart")}</span>
-                  {cartCount > 0 && (
-                    <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[#C8922A] text-[10px] font-bold text-white">
-                      {cartCount > 9 ? "9+" : cartCount}
-                    </span>
-                  )}
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
+      ) : null}
       {(paymentVerifyInProgress || showVerifiedPaymentSuccess) && (
         <div className="border-b border-border bg-card px-4 py-3">
           <div className="mx-auto max-w-7xl text-sm">
@@ -776,258 +811,101 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
           </div>
         </div>
       )}
-      <section className="pb-16 pt-9">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{t("format")}</span>
-              {formatTiles.map((tile) => {
-                const active =
-                  (browse.kind === "all" && tile.param === "all") ||
-                  (browse.kind === "type" && tile.param === browse.type) ||
-                  (browse.kind === "free" && tile.param === VAULT_BROWSE_FREE && !browse.subcategory);
-                const qs = marketplaceQuery({
-                  category: tile.param === "all" ? null : tile.param,
-                  series: null,
-                });
-                return (
-                  <Link
-                    key={tile.param}
-                    href={qs ? `/marketplace?${qs}` : "/marketplace"}
-                    scroll={false}
-                    className={`rounded-[6px] border px-3 py-1.5 text-xs font-semibold transition ${
-                      active
-                        ? "border-[#C8922A] bg-[#C8922A] text-white"
-                        : "border-border bg-card text-muted-foreground hover:border-[#d8c5a1]"
-                    }`}
-                  >
-                    {tile.label}
-                    {formatTileCount(tile.param) > 0 ? ` (${formatTileCount(tile.param)})` : ""}
-                  </Link>
-                );
-              })}
-            </div>
 
-            {browse.kind === "free" && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  {t("series")}
-                </span>
-                <Link
-                  href={`/marketplace?${marketplaceQuery({ category: "free", series: null })}`}
-                  scroll={false}
-                  className={`rounded-[6px] border px-3 py-1.5 text-xs font-semibold transition ${
-                    !browse.subcategory
-                      ? "border-[#C8922A] bg-[#C8922A] text-white"
-                      : "border-border bg-card text-muted-foreground hover:border-[#d8c5a1]"
-                  }`}
-                >
-                  {t("allFree")}
-                  {freeItemCount > 0 ? ` (${freeItemCount})` : ""}
-                </Link>
-                {listVaultSeries().filter((s) => !s.paid).map((series) => {
-                  const count = freeSeriesCounts.get(series.id) ?? 0;
-                  const active = browse.subcategory === series.id;
-                  return (
-                    <Link
-                      key={series.id}
-                      href={`/marketplace?${marketplaceQuery({ category: "free", series: series.id })}`}
-                      scroll={false}
-                      className={`rounded-[6px] border px-3 py-1.5 text-xs font-semibold transition ${
-                        active
-                          ? "border-[#C8922A] bg-[#C8922A] text-white"
-                          : "border-border bg-card text-muted-foreground hover:border-[#d8c5a1]"
-                      }`}
-                    >
-                      {series.label}
-                      {count > 0 ? ` (${count})` : ""}
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{t("sort")}</span>
-              {vaultSortOptions.map((opt) => (
-                <button
-                  type="button"
-                  key={opt.value}
-                  onClick={() => setVaultSort(opt.value)}
-                  className={`rounded-[6px] border px-3 py-1.5 text-xs font-semibold transition ${
-                    vaultSort === opt.value
-                      ? "border-[#C8922A] bg-[#C8922A] text-white"
-                      : "border-border bg-card text-muted-foreground hover:border-[#d8c5a1]"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="min-w-[72px] text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">{t("topic")}</span>
-              {topicOptions.map((topic) => (
-                <button
-                  type="button"
-                  key={topic}
-                  onClick={() => setSelectedTopic(topic)}
-                  className={`rounded-[6px] border px-3 py-1.5 text-xs font-semibold transition ${
-                    selectedTopic === topic
-                      ? "border-[#C8922A] bg-[#C8922A] text-white"
-                      : "border-border bg-card text-muted-foreground hover:border-[#d8c5a1]"
-                  }`}
-                >
-                  {topicLabel(topic)}
-                </button>
-              ))}
-            </div>
-
-            <div className="relative max-w-xl">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="search"
-                placeholder={t("searchPlaceholder")}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-[8px] border border-border bg-card py-2.5 pl-10 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-[#C8922A]"
-              />
-            </div>
-          </div>
-
+      {isLandingMode ? (
+        <>
+          <VaultCategoryGrid
+            categories={categoryGridItems}
+            onSelectCategory={navigateBrowseCategory}
+          />
           {loading ? (
-            <MarketplaceGridSkeleton />
-          ) : displayCards.length === 0 ? (
-            <div className="mt-8 rounded-[10px] border border-dashed border-border bg-card px-8 py-12 text-center">
-              <h3 className="text-xl font-semibold text-foreground">{t("emptyTitle")}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{t("emptyHint")}</p>
+            <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+              <MarketplaceGridSkeleton />
             </div>
           ) : (
-            <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {displayCards.map((card, cardIndex) => {
-                const seriesKey = card.seriesKey;
-                const isInlineCollection = Boolean(seriesKey && card.collectionLabel);
-                const expanded = isInlineCollection && expandedSeriesKey === seriesKey;
-                const members =
-                  seriesKey && expanded ? (seriesMembersByKey.get(seriesKey) ?? []) : [];
-                const paidSeriesSummary =
-                  seriesKey && isInlineCollection && isPaidVaultSubcategory(seriesKey)
-                    ? (() => {
-                        const seriesMembers = seriesMembersByKey.get(seriesKey) ?? [];
-                        const offer = computeSeriesOfferFromBrowseItems(
-                          seriesKey as VaultSubcategoryId,
-                          seriesMembers
-                        );
-                        if (!offer) return null;
-                        return {
-                          chargeCents: offer.chargeCents,
-                          totalCents: offer.totalCents,
-                          bundleCents: offer.bundleCents,
-                          bundleSavingsCents: offer.bundleSavingsCents,
-                          ownedCount: offer.ownedCount,
-                          itemCount: offer.itemCount,
-                          fullyOwned: offer.fullyOwned,
-                        };
-                      })()
-                    : null;
-
-                const coverPriority = cardIndex < 9;
-
-                const renderProductCard = (
-                  product: Product,
-                  opts?: { iconOnlyMedia?: boolean; keySuffix?: string; seriesMember?: boolean }
-                ) => {
-                  const isSeriesMember = Boolean(opts?.seriesMember);
-                  const useCollectionChrome =
-                    isInlineCollection && !opts?.iconOnlyMedia && !isSeriesMember;
-                  return (
-                    <MarketplaceProductCard
-                      key={`${product.id}${opts?.keySuffix ?? ""}`}
-                      product={product}
-                      topicLabel={topicLabel(inferTopicId(product))}
-                      typeBadgeLabel={
-                        product.type === "course"
-                          ? t("typeBadges.course")
-                          : product.type === "guide"
-                            ? t("typeBadges.guide")
-                            : product.type === "template"
-                              ? t("typeBadges.template")
-                              : t("typeBadges.book")
-                      }
-                      formatHint={
-                        product.type === "course"
-                          ? t("formatHints.course")
-                          : product.type === "template"
-                            ? t("formatHints.template")
-                            : t("formatHints.default")
-                      }
-                      seriesLabel={
-                        opts?.iconOnlyMedia
-                          ? null
-                          : isSeriesMember
-                            ? labelForVaultSubcategory(product.vault_subcategory)
-                            : isFreeVaultItem(product.price_cents)
-                              ? labelForVaultSubcategory(product.vault_subcategory)
-                              : null
-                      }
-                      collectionHref={useCollectionChrome ? card.collectionHref : undefined}
-                      collectionCount={useCollectionChrome ? card.collectionCount : undefined}
-                      collectionLabel={useCollectionChrome ? card.collectionLabel : undefined}
-                      isCollection={useCollectionChrome}
-                      showSeriesToggle={useCollectionChrome}
-                      collectionExpanded={useCollectionChrome ? expanded : false}
-                      onCollectionToggle={
-                        useCollectionChrome ? () => toggleSeries(seriesKey!) : undefined
-                      }
-                      iconOnlyMedia={opts?.iconOnlyMedia}
-                      isSignedIn={!!isSignedIn}
-                      cartItemIds={cartItemIds}
-                      addingToCart={addingToCart}
-                      onAddToCart={handleAddToCart}
-                      onRemoveFromCart={handleRemoveFromCart}
-                      onBuy={(_, e) => openBuyModal(product, e)}
-                      advisoryWorkspacePreview={advisoryWorkspacePreview}
-                      paidSeriesSummary={useCollectionChrome ? paidSeriesSummary : undefined}
-                      onBuySeries={
-                        useCollectionChrome && paidSeriesSummary && seriesKey
-                          ? (e) => openSeriesBuyModal(seriesKey as VaultSubcategoryId, e)
-                          : undefined
-                      }
-                      coverPriority={coverPriority && !opts?.iconOnlyMedia}
-                    />
-                  );
-                };
-
-                if (isInlineCollection && expanded && members.length > 0) {
-                  return (
-                    <div
-                      key={seriesKey}
-                      className="col-span-full grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3"
-                    >
-                      {renderProductCard(card.product)}
-                      {members.map((member) =>
-                        renderProductCard(member, {
-                          iconOnlyMedia:
-                            vaultSeriesUsesPerCountryCovers(seriesKey) &&
-                            !member.image_url?.trim(),
-                          keySuffix: "-member",
-                          seriesMember: true,
-                        })
-                      )}
-                    </div>
-                  );
-                }
-
-                return (
-                  <Fragment key={seriesKey ?? card.product.id}>
-                    {renderProductCard(card.product)}
-                  </Fragment>
-                );
-              })}
-            </div>
+            landingSections.map((section, index) => (
+              <VaultProductSection
+                key={section.titleKey}
+                title={t(section.titleKey)}
+                viewAllHref={section.viewAllHref}
+                displayCards={section.displayCards}
+                seriesMembersByKey={section.seriesMembersByKey}
+                expandedSeriesKey={expandedSeriesKey}
+                onToggleSeries={toggleSeries}
+                layout="rail"
+                muted={index % 2 === 1}
+                variant={section.titleKey === "landing.sectionSeries" ? "series" : "default"}
+                isSignedIn={!!isSignedIn}
+                cartItemIds={cartItemIds}
+                addingToCart={addingToCart}
+                advisoryWorkspacePreview={advisoryWorkspacePreview}
+                onAddToCart={handleAddToCart}
+                onRemoveFromCart={handleRemoveFromCart}
+                onBuy={(product, e) => openBuyModal(product as Product, e)}
+                onBuySeries={openSeriesBuyModal}
+              />
+            ))
           )}
-        </div>
-      </section>
+        </>
+      ) : (
+        <>
+          <VaultCatalogToolbar
+            title={catalogTitle}
+            resultCount={displayCards.length}
+            search={search}
+            onSearchChange={setSearch}
+            vaultSort={vaultSort}
+            onSortChange={(sort) => setVaultSort(sort as typeof vaultSort)}
+            sortOptions={vaultSortOptions}
+            selectedTopic={selectedTopic}
+            onTopicChange={setSelectedTopic}
+            topicOptions={topicOptions}
+            topicLabel={topicLabel}
+            clearHref="/marketplace"
+            showFreeSeries={browse.kind === "free"}
+            allFreeHref={`/marketplace?${marketplaceQuery({ category: "free", series: null })}`}
+            allFreeActive={browse.kind === "free" && !browse.subcategory}
+            allFreeCount={freeItemCount}
+            freeSeriesLinks={listVaultSeries()
+              .filter((s) => !s.paid)
+              .map((series) => ({
+                id: series.id,
+                label: series.label,
+                href: vaultSeriesPageHref(series.id),
+                active: browse.kind === "free" && browse.subcategory === series.id,
+                count: freeSeriesCounts.get(series.id) ?? 0,
+              }))}
+          />
+          <section className="pb-16 pt-8">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              {loading ? (
+                <MarketplaceGridSkeleton />
+              ) : displayCards.length === 0 ? (
+                <div className="rounded-[10px] border border-dashed border-border bg-card px-8 py-12 text-center">
+                  <h3 className="text-xl font-semibold text-foreground">{t("emptyTitle")}</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{t("emptyHint")}</p>
+                </div>
+              ) : (
+                <VaultProductGrid
+                  displayCards={displayCards}
+                  seriesMembersByKey={seriesMembersByKey}
+                  expandedSeriesKey={expandedSeriesKey}
+                  onToggleSeries={toggleSeries}
+                  layout="grid"
+                  isSignedIn={!!isSignedIn}
+                  cartItemIds={cartItemIds}
+                  addingToCart={addingToCart}
+                  advisoryWorkspacePreview={advisoryWorkspacePreview}
+                  onAddToCart={handleAddToCart}
+                  onRemoveFromCart={handleRemoveFromCart}
+                  onBuy={(product, e) => openBuyModal(product as Product, e)}
+                  onBuySeries={openSeriesBuyModal}
+                />
+              )}
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 }
