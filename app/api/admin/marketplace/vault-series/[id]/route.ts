@@ -9,6 +9,7 @@ import {
   type VaultSeriesBundleInput,
 } from "@/lib/admin-vault-series-sync";
 import { isBuiltinVaultSeriesId } from "@/lib/marketplace-vault-categories-fallback";
+import { revalidateMarketplaceCatalogCache } from "@/lib/marketplace-catalog-cache";
 
 /** GET: series metadata + all items in the series. */
 export async function GET(
@@ -70,6 +71,8 @@ export async function PUT(
       details: { label: body.label, itemCount: body.items?.length ?? 0 },
     });
 
+    revalidateMarketplaceCatalogCache();
+
     return NextResponse.json(result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to save series";
@@ -115,14 +118,12 @@ export async function DELETE(
     }
 
     if (nothingRemoved && bundle) {
-      const builtin = isBuiltinVaultSeriesId(seriesId);
+      revalidateMarketplaceCatalogCache();
       return NextResponse.json({
         ok: true,
         ...result,
         noop: true,
-        message: builtin
-          ? `“${bundle.series.label}” is a built-in catalog name only (no database row or linked items). Use Configure to save metadata, or add items. It is not removed by Delete.`
-          : `“${bundle.series.label}” had nothing to remove (no database row or linked items).`,
+        message: `“${bundle.series.label}” had nothing to remove (no database row or linked items).`,
       });
     }
 
@@ -138,6 +139,8 @@ export async function DELETE(
         ...result,
       },
     });
+
+    revalidateMarketplaceCatalogCache();
 
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
