@@ -9,6 +9,8 @@ import { parseItemPackInput } from "@/lib/marketplace-item-packs";
 import { resolveVaultSubcategoryForSave } from "@/lib/marketplace-vault-categories";
 import { resolveFocusCountryForSave } from "@/lib/marketplace-vault-country";
 import { assignMarketplaceItemSlug } from "@/lib/content-slug-assign";
+import { revalidateMarketplaceCatalogCache } from "@/lib/marketplace-catalog-cache";
+import { DEFAULT_COVER_FOCAL, parseCoverFocalInput } from "@/lib/marketplace-cover-framing";
 import {
   legacyFieldsFromMarketplaceFiles,
   listMarketplaceItemFilesByItemIds,
@@ -86,6 +88,8 @@ export async function POST(request: NextRequest) {
       focus_country,
       is_course,
       language_files,
+      cover_focal_x,
+      cover_focal_y,
     } = body as {
       type?: string;
       title?: string;
@@ -107,6 +111,8 @@ export async function POST(request: NextRequest) {
       focus_country?: string | null;
       is_course?: boolean;
       language_files?: unknown;
+      cover_focal_x?: unknown;
+      cover_focal_y?: unknown;
     };
 
     let landingHtml: string | null = null;
@@ -133,6 +139,8 @@ export async function POST(request: NextRequest) {
         ? legacyFieldsFromMarketplaceFiles(parsedLanguageFiles)
         : null;
 
+    const focal = parseCoverFocalInput(cover_focal_x, cover_focal_y) ?? DEFAULT_COVER_FOCAL;
+
     const row: Insert = {
       type: type as (typeof VALID_TYPES)[number],
       title: title.trim(),
@@ -141,6 +149,8 @@ export async function POST(request: NextRequest) {
       price_cents: price,
       currency: typeof currency === "string" && currency ? currency : "usd",
       image_url: typeof image_url === "string" && image_url ? image_url : null,
+      cover_focal_x: focal.x,
+      cover_focal_y: focal.y,
       published: !!published,
       sort_order: typeof sort_order === "number" ? sort_order : 0,
       file_path:
@@ -191,6 +201,8 @@ export async function POST(request: NextRequest) {
       entityId: data?.id ?? null,
       details: { title: row.title, type: row.type },
     });
+
+    revalidateMarketplaceCatalogCache();
 
     return NextResponse.json({ item: data });
   } catch (err) {
