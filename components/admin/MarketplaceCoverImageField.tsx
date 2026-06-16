@@ -4,6 +4,8 @@ import { useId } from "react";
 import { Loader2, Upload, X } from "lucide-react";
 import { MARKETPLACE_COVER_MAX_MB } from "@/lib/marketplace-cover-limits";
 import { useTranslations } from "next-intl";
+import { MarketplaceCoverFramingField } from "@/components/admin/MarketplaceCoverFramingField";
+import { DEFAULT_COVER_FOCAL, type CoverFocal } from "@/lib/marketplace-cover-framing";
 
 type Props = {
   previewUrl: string | null;
@@ -13,6 +15,8 @@ type Props = {
   onPasteUrl?: (url: string) => void;
   /** Override the post-upload reminder (default: save the marketplace item). */
   saveReadyHint?: string;
+  focal?: CoverFocal;
+  onFocalChange?: (focal: CoverFocal) => void;
 };
 
 export function MarketplaceCoverImageField({
@@ -22,6 +26,8 @@ export function MarketplaceCoverImageField({
   onClear,
   onPasteUrl,
   saveReadyHint,
+  focal = DEFAULT_COVER_FOCAL,
+  onFocalChange,
 }: Props) {
   const t = useTranslations("admin.vault.marketplaceCoverImageField");
   const hint = saveReadyHint ?? t("saveReadyHint");
@@ -110,6 +116,13 @@ export function MarketplaceCoverImageField({
             {t("useUrl")}
           </button>
         </div>
+      ) : null}
+      {previewUrl && onFocalChange ? (
+        <MarketplaceCoverFramingField
+          previewUrl={previewUrl}
+          focal={focal}
+          onChange={onFocalChange}
+        />
       ) : null}
     </div>
   );
