@@ -244,6 +244,8 @@ export interface Database {
           price_cents: number;
           currency: string;
           image_url: string | null;
+          cover_focal_x: number;
+          cover_focal_y: number;
           published: boolean;
           sort_order: number;
           file_path: string | null;
@@ -269,6 +271,8 @@ export interface Database {
           price_cents?: number;
           currency?: string;
           image_url?: string | null;
+          cover_focal_x?: number;
+          cover_focal_y?: number;
           published?: boolean;
           sort_order?: number;
           file_path?: string | null;
