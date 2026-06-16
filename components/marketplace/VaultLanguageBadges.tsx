@@ -6,7 +6,7 @@ import { sortMarketplaceLanguageCodes } from "@/lib/marketplace-item-files";
 type Props = {
   languageCodes: string[];
   className?: string;
-  variant?: "compact" | "hero";
+  variant?: "compact" | "card" | "hero";
 };
 
 /** EN / FR flair pills for vault items with one or more downloadable language files. */
