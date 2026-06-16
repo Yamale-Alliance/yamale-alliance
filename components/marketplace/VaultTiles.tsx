@@ -87,7 +87,10 @@ function VaultTileCard({
   const showReadLess = isExpanded;
 
   const handleTileActivate = () => {
-    if (tile.href) router.push(tile.href, { scroll: false });
+    if (!tile.href) return;
+    const path = tile.href.split("?")[0]?.split("#")[0] ?? tile.href;
+    const samePage = path === window.location.pathname;
+    router.push(tile.href, { scroll: !samePage });
   };
 
   const handleTileClick = (e: React.MouseEvent) => {
