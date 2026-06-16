@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { LawReaderLink } from "@/components/library/LawReaderLink";
 
 function headingAnchorId(raw: ReactNode): string {
   if (typeof raw === "string") {
@@ -31,15 +32,13 @@ export function LawSectionMarkdown({ body }: Props) {
         remarkPlugins={[remarkGfm]}
         components={{
           a: ({ href, children, ...props }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="!text-blue-600 font-bold underline decoration-blue-600 break-words hover:decoration-blue-600"
-              {...props}
-            >
+            <LawReaderLink href={href} {...props}>
               {children}
-            </a>
+            </LawReaderLink>
+          ),
+          img: ({ alt, ...props }) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img {...props} alt={alt ?? ""} className="my-6 h-auto max-w-full rounded-lg" loading="lazy" />
           ),
           table: ({ children, ...props }) => (
             <div className="-mx-1 my-6 overflow-x-auto sm:mx-0">
