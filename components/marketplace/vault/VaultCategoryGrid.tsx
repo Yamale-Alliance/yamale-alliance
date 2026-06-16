@@ -65,7 +65,7 @@ export function VaultCategoryGrid({ categories, onSelectCategory }: VaultCategor
   const t = useTranslations("marketplace");
 
   return (
-    <section className="border-b border-border/60 bg-gradient-to-b from-card to-background">
+    <section className="border-b border-border/80 bg-gradient-to-b from-card via-card to-transparent">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
           {t("landing.exploreCategories")}
