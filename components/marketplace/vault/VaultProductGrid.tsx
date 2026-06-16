@@ -148,6 +148,11 @@ export function VaultProductGrid({
       ? "w-[220px] shrink-0 snap-start sm:w-[240px]"
       : "";
 
+  const seriesItemClass =
+    layout === "rail"
+      ? "w-[min(92vw,28rem)] shrink-0 snap-start sm:w-[30rem] lg:w-[32rem]"
+      : "";
+
   const renderSeriesCard = (card: VaultDisplayProductCard, cardIndex: number) => {
     const seriesKey = card.seriesKey;
     if (!seriesKey || !card.collectionHref || !card.collectionLabel) return null;
@@ -212,7 +217,13 @@ export function VaultProductGrid({
 
         return (
           <Fragment key={seriesKey ?? card.product.id}>
-            <div className={itemClass}>
+            <div
+              className={
+                card.collectionHref && seriesKey && card.collectionLabel
+                  ? seriesItemClass
+                  : itemClass
+              }
+            >
               {card.collectionHref && seriesKey && card.collectionLabel ? (
                 renderSeriesCard(card, cardIndex)
               ) : (
