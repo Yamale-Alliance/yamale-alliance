@@ -10,6 +10,13 @@ const supabaseHostname =
     : "fitqojixvjbthsxignka.supabase.co";
 
 const nextConfig = {
+  // Sentry/OpenTelemetry: must resolve from project root (Turbopack external packages).
+  serverExternalPackages: [
+    "import-in-the-middle",
+    "require-in-the-middle",
+    "@sentry/nextjs",
+    "@sentry/node",
+  ],
   turbopack: {
     resolveAlias: {
       "next-intl/config": "./i18n/request.ts",
@@ -27,9 +34,9 @@ const nextConfig = {
     cssChunking: "strict",
     // Default proxy buffer is 10MB; raise for admin PDF uploads under ~4MB on the same request.
     proxyClientMaxBodySize: "100mb",
-  },
-  serverActions: {
-    bodySizeLimit: "100mb",
+    serverActions: {
+      bodySizeLimit: "100mb",
+    },
   },
   images: {
     remotePatterns: [
@@ -57,9 +64,12 @@ const nextConfig = {
   },
 };
 
-const hasSentry = Boolean(
-  process.env.NEXT_PUBLIC_SENTRY_DSN?.trim() || process.env.SENTRY_DSN?.trim()
-);
+const hasSentry =
+  Boolean(
+    process.env.NEXT_PUBLIC_SENTRY_DSN?.trim() || process.env.SENTRY_DSN?.trim()
+  ) &&
+  (process.env.NODE_ENV === "production" ||
+    process.env.SENTRY_ENABLE_IN_DEV === "true");
 
 /** @type {import('@sentry/nextjs').SentryBuildOptions} */
 const sentryBuildOptions = {
