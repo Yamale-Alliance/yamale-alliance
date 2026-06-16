@@ -48,30 +48,34 @@ export function VaultSeriesCard({
       onClick={navigate}
       aria-label={title}
     >
-      <div className={styles.media}>
+      <div className={styles.mediaFrame}>
         {hasCover ? (
           <VaultCoverImage
             src={coverUrl!}
             className={styles.cover}
+            variant="card"
             priority={coverPriority}
             onError={() => setCoverFailed(true)}
           />
-        ) : null}
+        ) : (
+          <div className={styles.coverFallback} aria-hidden />
+        )}
         <span className={styles.badge}>{t("collection")}</span>
-        <div className={styles.overlay}>
-          <h3 className={styles.title}>{title}</h3>
-          <p className={styles.meta}>{t("resourcesCount", { count: resourceCount })}</p>
-          {showPrice ? (
-            <span className={styles.pricePill}>
-              {formatUsd(priceCents!)}
-              {showStrike ? (
-                <span className={styles.strike}>{formatUsd(listPriceCents!)}</span>
-              ) : null}
-            </span>
-          ) : priceCents === 0 ? (
-            <span className={styles.pricePill}>{t("free")}</span>
-          ) : null}
-        </div>
+        {showPrice ? (
+          <span className={styles.priceBadge}>
+            {formatUsd(priceCents!)}
+            {showStrike ? (
+              <span className={styles.strike}>{formatUsd(listPriceCents!)}</span>
+            ) : null}
+          </span>
+        ) : priceCents === 0 ? (
+          <span className={styles.priceBadge}>{t("free")}</span>
+        ) : null}
+      </div>
+      <div className={styles.body}>
+        <h3 className={styles.title}>{title}</h3>
+        <p className={styles.meta}>{t("resourcesCount", { count: resourceCount })}</p>
+        <span className={styles.exploreCta}>{t("landing.exploreCollection")}</span>
       </div>
     </button>
   );
