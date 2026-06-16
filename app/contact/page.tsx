@@ -18,13 +18,13 @@ export const metadata = createPageMetadata({
 });
 
 type Props = {
-  searchParams?: { product?: string; tier?: string };
+  searchParams: Promise<{ product?: string; tier?: string }>;
 };
 
-export default function ContactPage({ searchParams }: Props) {
-  const tier = parseLawFirmEnrollmentTier(searchParams?.tier);
-  const isLawFirm =
-    searchParams?.product === "law-firm-development" || tier !== null;
+export default async function ContactPage({ searchParams }: Props) {
+  const { product, tier: tierParam } = await searchParams;
+  const tier = parseLawFirmEnrollmentTier(tierParam);
+  const isLawFirm = product === "law-firm-development" || tier !== null;
 
   const heading = tier
     ? lawFirmTierLabel(tier)
