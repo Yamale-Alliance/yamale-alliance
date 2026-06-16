@@ -45,6 +45,10 @@ async function fetchPublishedMarketplaceItemByColumn(
   if (isMissingDbColumnError(first.error, "slug") && column === "slug") {
     return { data: null, error: first.error };
   }
+  const code = (first.error as { code?: string })?.code;
+  if (code === "22P02" || code === "PGRST116") {
+    return { data: null, error: null };
+  }
   return { data: null, error: first.error };
 }
 
@@ -57,9 +61,6 @@ export async function fetchPublishedMarketplaceItem(
   const param = slugOrId.trim();
   const column: "id" | "slug" = isUuid(param) ? "id" : "slug";
   let result = await fetchPublishedMarketplaceItemByColumn(supabase, column, param, baseSelect);
-  if (!result.data && column === "slug") {
-    result = await fetchPublishedMarketplaceItemByColumn(supabase, "id", param, baseSelect);
-  }
   if (!result.data && column === "id") {
     result = await fetchPublishedMarketplaceItemByColumn(supabase, "slug", param, baseSelect);
   }
