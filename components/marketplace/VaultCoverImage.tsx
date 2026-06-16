@@ -13,6 +13,7 @@ type VaultCoverImageProps = {
   /** Eager-load for above-the-fold covers */
   priority?: boolean;
   onError?: () => void;
+  objectPosition?: string;
 };
 
 export function VaultCoverImage({
@@ -22,6 +23,7 @@ export function VaultCoverImage({
   variant = "card",
   priority = false,
   onError,
+  objectPosition,
 }: VaultCoverImageProps) {
   return (
     // Cloudinary already serves resized WebP/AVIF — skip Next image proxy for faster CDN delivery.
@@ -30,6 +32,7 @@ export function VaultCoverImage({
       src={optimizeMarketplaceCoverUrl(src, variant)}
       alt={alt}
       className={className}
+      style={objectPosition ? { objectPosition } : undefined}
       loading={priority ? "eager" : "lazy"}
       decoding="async"
       fetchPriority={priority ? "high" : "auto"}
