@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { Source_Serif_4 } from "next/font/google";
 import { useSearchParams, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -65,6 +66,14 @@ import {
   clearLawDocumentSearchHighlights,
   getLawDocumentSearchHitElements,
 } from "@/lib/law-document-search-highlight";
+import { buildLawAnchorIndex, linkifyLawRichText } from "@/lib/library/law-reader-linkify";
+import { useLawSectionScrollSpy } from "@/lib/library/use-law-section-scroll-spy";
+
+const lawSerif = Source_Serif_4({
+  subsets: ["latin"],
+  variable: "--font-law-serif",
+  display: "swap",
+});
 
 type LawStatus = "In force" | "Amended" | "Repealed";
 
@@ -273,30 +282,6 @@ function isLikelyMarkdown(text: string): boolean {
   return false;
 }
 
-// Turn URLs in text into clickable links (e.g. http://www.adie.sn/...)
-function linkify(text: string): ReactNode {
-  if (!text?.trim()) return text;
-  const urlRegex = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/g;
-  const parts = text.split(urlRegex);
-  return parts.map((part, i) => {
-    if (/^https?:\/\//.test(part)) {
-      const href = part.replace(/[.,;:?!)\]]+$/, "");
-      return (
-        <a
-          key={i}
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="!text-blue-600 font-bold underline decoration-blue-600 break-words hover:decoration-blue-600"
-        >
-          {part}
-        </a>
-      );
-    }
-    return <span key={i}>{part}</span>;
-  });
-}
-
 /** Remove OCR/markdown `**bold**` / `__bold__` markers for plain display (used before heading regex). */
 function stripInlineMarkdownBoldMarkers(text: string): string {
   return text.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/__([^_]+)__/g, "$1");
@@ -313,47 +298,18 @@ function isBoldOnlyWrappedLine(line: string): boolean {
   return /^\*\*[^*]+\*\*\s*$/.test(s) || /^__[^_]+__\s*$/.test(s);
 }
 
-/** URLs + inline `**bold**` / `__bold__` (plain-text law path; avoids literal asterisks in the UI). */
-function linkifyRichText(text: string): ReactNode {
-  if (text == null || text === "") return text;
-  const segments: ReactNode[] = [];
-  const re = /(\*\*[^*]+\*\*|__[^_]+__)/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  let k = 0;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > last) {
-      segments.push(
-        <span key={`t-${k++}`}>{linkify(text.slice(last, m.index))}</span>
-      );
-    }
-    const raw = m[1];
-    const inner =
-      raw.startsWith("**") && raw.endsWith("**")
-        ? raw.slice(2, -2)
-        : raw.startsWith("__") && raw.endsWith("__")
-          ? raw.slice(2, -2)
-          : raw;
-    segments.push(
-      <strong key={`b-${k++}`} className="font-semibold text-foreground">
-        {linkify(inner)}
-      </strong>
-    );
-    last = m.index + m[0].length;
-  }
-  if (last < text.length) {
-    segments.push(<span key={`t-${k++}`}>{linkify(text.slice(last))}</span>);
-  }
-  return segments.length > 0 ? <>{segments}</> : linkify(text);
-}
-
 /** When heading is "Article 2: …" or "Chapter 1: …", show label on first line and title indented beneath. */
 function toTitleCaseHeading(text: string): string {
   const lower = text.toLowerCase();
   return lower.replace(/(^|[\s\u2014\u2013\-(])(\p{L})/gu, (_m, sep: string, ch: string) => sep + ch.toUpperCase());
 }
 
-function renderLawSubheading(text: string, variant: "h2" | "h3" = "h3"): ReactNode {
+// Turn URLs and in-document citations into links (e.g. Section 12 → #sec-3).
+function renderLawSubheading(
+  text: string,
+  variant: "h2" | "h3",
+  anchorIndex: Map<string, string>
+): ReactNode {
   const plain = stripLeadingMarkdownHeadingMarkers(stripInlineMarkdownBoldMarkers(text).trim());
   const m = plain.match(
     /^(Article\s+\d+|Chapter\s+\d+|Chapitre\s+[\dIVXLCDMivxlcdm]+|Section\s+[\dIVXLCDMivxlcdm]+|Art\.\s*\d+|Part\s+[A-Z]|Titre\s+[\dIVXLCDMivxlcdm]+|Title\s+[\dIVXLCDMivxlcdm]+|TITLE\s+[\dIVXLCDM]+|Ingingo\s+(?:ya\s+)?\d+)\s*:\s*(.+)$/i
@@ -365,32 +321,32 @@ function renderLawSubheading(text: string, variant: "h2" | "h3" = "h3"): ReactNo
     if (variant === "h2") {
       return (
         <>
-          <span className="block text-base font-extrabold uppercase tracking-[0.03em] text-foreground break-words sm:text-2xl sm:tracking-[0.04em] sm:text-[1.65rem]">{linkifyRichText(label)}</span>
-          <span className="mt-1.5 block break-words text-sm font-semibold leading-snug text-foreground/90 sm:mt-2.5 sm:text-xl">{linkifyRichText(subtitleDisplay)}</span>
+          <span className="block text-base font-extrabold uppercase tracking-[0.03em] text-foreground break-words sm:text-2xl sm:tracking-[0.04em] sm:text-[1.65rem]">{linkifyLawRichText(label, anchorIndex)}</span>
+          <span className="mt-1.5 block break-words text-sm font-semibold leading-snug text-foreground/90 sm:mt-2.5 sm:text-xl">{linkifyLawRichText(subtitleDisplay, anchorIndex)}</span>
         </>
       );
     }
     return (
       <>
-        <span className="block text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-primary/85">{linkifyRichText(label)}</span>
-        <span className="mt-1.5 block text-[1.35rem] font-semibold leading-snug tracking-tight text-foreground sm:text-[1.5rem]">{linkifyRichText(subtitleDisplay)}</span>
+        <span className="block text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-primary/85">{linkifyLawRichText(label, anchorIndex)}</span>
+        <span className="mt-1.5 block text-[1.35rem] font-semibold leading-snug tracking-tight text-foreground sm:text-[1.5rem]">{linkifyLawRichText(subtitleDisplay, anchorIndex)}</span>
       </>
     );
   }
   if (variant === "h2") {
     return (
-      <span className="block text-base font-extrabold uppercase tracking-[0.03em] text-foreground break-words sm:text-2xl sm:tracking-[0.04em] sm:text-[1.65rem]">{linkifyRichText(plain)}</span>
+      <span className="block text-base font-extrabold uppercase tracking-[0.03em] text-foreground break-words sm:text-2xl sm:tracking-[0.04em] sm:text-[1.65rem]">{linkifyLawRichText(plain, anchorIndex)}</span>
     );
   }
   const articleMatch = plain.match(/^(Article\s+\d+|Chapter\s+\d+|Chapitre\s+[\dIVXLCDMivxlcdm]+|Section\s+[\dIVXLCDMivxlcdm]+|Art\.\s*\d+|Part\s+[A-Z]|Titre\s+[\dIVXLCDMivxlcdm]+|Title\s+[\dIVXLCDMivxlcdm]+|TITLE\s+[\dIVXLCDM]+|Ingingo\s+(?:ya\s+)?\d+)\s*$/i);
   if (articleMatch) {
     const labelText = toTitleCaseHeading(articleMatch[1]);
     return (
-      <span className="block text-[1.5rem] font-semibold leading-snug tracking-tight text-foreground sm:text-[1.7rem]">{linkifyRichText(labelText)}</span>
+      <span className="block text-[1.5rem] font-semibold leading-snug tracking-tight text-foreground sm:text-[1.7rem]">{linkifyLawRichText(labelText, anchorIndex)}</span>
     );
   }
   return (
-    <span className="block text-[1.35rem] font-semibold leading-snug tracking-tight text-foreground sm:text-[1.5rem]">{linkifyRichText(plain)}</span>
+    <span className="block text-[1.35rem] font-semibold leading-snug tracking-tight text-foreground sm:text-[1.5rem]">{linkifyLawRichText(plain, anchorIndex)}</span>
   );
 }
 
@@ -759,7 +715,6 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
   const [law, setLaw] = useState<LawDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<string>("");
   const [resolvedId, setResolvedId] = useState<string | null>(null);
   const [contentsOpen, setContentsOpen] = useState(false);
   /** Modal contents (locks scroll) — only below md; desktop uses inline TOC. */
@@ -829,15 +784,21 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
     [outlineAll, showSubheadingsInContents]
   );
 
+  const lawAnchorIndex = useMemo(() => buildLawAnchorIndex(outlineAll), [outlineAll]);
+
+  const scrollSpySectionIds = useMemo(
+    () => contentsNavItems.map((item) => item.id),
+    [contentsNavItems]
+  );
+
+  const activeSection = useLawSectionScrollSpy(
+    scrollSpySectionIds,
+    Boolean(law && sections.length > 0)
+  );
+
   const jumpToSection = useCallback((id: string) => {
-    setActiveSection(id);
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
-
-  useEffect(() => {
-    if (sections.length === 0) return;
-    setActiveSection((prev) => (sections.some((s) => s.id === prev) ? prev : sections[0]!.id));
-  }, [law?.id, sections]);
 
   const scrollToTop = useCallback(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1294,7 +1255,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
 
   return (
     <div
-      className={`law-page-root min-h-screen bg-background print:bg-white ${readingMode ? "law-reading-mode-active" : ""}`}
+      className={`${lawSerif.variable} law-page-root min-h-screen bg-background print:bg-white ${readingMode ? "law-reading-mode-active" : ""}`}
     >
       {readingMode ? (
         <div
@@ -1630,8 +1591,8 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                       className="scroll-mt-24 border-b border-border/40 pb-14 last:border-0 last:pb-0 print:border-neutral-300 print:pb-10"
                     >
                       {/* Level 1: Section / Chapter – big, bold, primary accent */}
-                      <h2 className="heading mb-5 mt-8 break-words border-s-[3px] border-primary/80 bg-primary/[0.06] py-2.5 ps-4 text-lg font-semibold tracking-tight text-foreground first:mt-0 sm:mb-6 sm:mt-10 sm:text-xl sm:py-3 sm:ps-5 print:mt-8 print:mb-4 print:border-s-2 print:border-neutral-900 print:bg-transparent print:py-2 print:ps-4">
-                        {renderLawSubheading(sec.title, "h2")}
+                      <h2 className="law-section-heading heading mb-5 mt-8 break-words border-s-[3px] border-primary/80 bg-primary/[0.06] py-2.5 ps-4 text-lg font-semibold tracking-tight text-foreground first:mt-0 sm:mb-6 sm:mt-10 sm:text-xl sm:py-3 sm:ps-5 print:mt-8 print:mb-4 print:border-s-2 print:border-neutral-900 print:bg-transparent print:py-2 print:ps-4">
+                        {renderLawSubheading(sec.title, "h2", lawAnchorIndex)}
                       </h2>
                       {isLikelyMarkdown(sec.body) ? (
                         <LawSectionMarkdown body={sec.body} />
@@ -1664,7 +1625,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                                       <tr key={ri} className="transition-colors hover:bg-muted/20">
                                         {row.map((cell, ci) => (
                                           <td key={ci} className="border-b border-border/60 px-4 py-3 text-center last:border-b-0">
-                                            {linkifyRichText(cell)}
+                                            {linkifyLawRichText(cell, lawAnchorIndex)}
                                           </td>
                                         ))}
                                       </tr>
@@ -1678,11 +1639,11 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                                 id={item.id}
                                 className="mt-12 mb-5 scroll-mt-24 border-t border-border/60 pt-7 first:mt-0 first:border-t-0 first:pt-0 print:mt-8 print:mb-4 print:border-neutral-300 print:pt-5"
                               >
-                                {renderLawSubheading(item.text, "h3")}
+                                {renderLawSubheading(item.text, "h3", lawAnchorIndex)}
                               </h3>
                             ) : (
                               <p className="mb-5 break-words text-left text-[1.125rem] leading-[1.85] text-foreground/90 last:mb-0" key={bi}>
-                                {linkifyRichText(item.text)}
+                                {linkifyLawRichText(item.text, lawAnchorIndex)}
                               </p>
                             )
                           )}
