@@ -22,6 +22,7 @@ import {
   parseMarketplaceItemFilesInput,
   syncMarketplaceItemFiles,
 } from "@/lib/marketplace-item-files";
+import { normalizeCoverFocal } from "@/lib/marketplace-cover-framing";
 
 const VALID_ITEM_TYPES = ["book", "course", "template", "guide"] as const;
 
@@ -44,6 +45,8 @@ export type VaultSeriesItemInput = {
   description?: string | null;
   price_cents: number;
   image_url?: string | null;
+  cover_focal_x?: number;
+  cover_focal_y?: number;
   use_default_cover?: boolean;
   focus_country?: string | null;
   sort_order?: number;
@@ -261,6 +264,7 @@ export async function saveVaultSeriesBundle(
     )
       ? item.type
       : defaultType;
+    const focal = normalizeCoverFocal(item.cover_focal_x, item.cover_focal_y);
     const row = {
       type: itemType,
       title,
@@ -269,6 +273,8 @@ export async function saveVaultSeriesBundle(
       price_cents: price,
       currency: "usd",
       image_url: imageUrl,
+      cover_focal_x: focal.x,
+      cover_focal_y: focal.y,
       published: item.published !== false,
       sort_order: typeof item.sort_order === "number" ? item.sort_order : i,
       vault_subcategory: seriesId,
