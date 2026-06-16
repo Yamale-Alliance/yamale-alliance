@@ -32,7 +32,6 @@ import {
   shouldGroupVaultItem,
 } from "@/lib/marketplace-vault-categories";
 import {
-  isBuiltinCatalogOnlySeries,
   isBuiltinVaultSeriesId,
 } from "@/lib/marketplace-vault-categories-fallback";
 import {
@@ -49,6 +48,11 @@ import {
   buildItemPackFromForm,
   itemPackToFormDefaults,
 } from "@/lib/marketplace-item-packs";
+import {
+  DEFAULT_COVER_FOCAL,
+  readItemCoverFocal,
+  type CoverFocal,
+} from "@/lib/marketplace-cover-framing";
 
 type MarketplaceItem = {
   id: string;
@@ -59,6 +63,8 @@ type MarketplaceItem = {
   price_cents: number;
   currency: string;
   image_url: string | null;
+  cover_focal_x?: number | null;
+  cover_focal_y?: number | null;
   published: boolean;
   sort_order: number;
   file_path: string | null;
@@ -120,6 +126,7 @@ export default function AdminMarketplacePage() {
   const [imageUploading, setImageUploading] = useState(false);
   const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
   const [coverImageCleared, setCoverImageCleared] = useState(false);
+  const [coverFocal, setCoverFocal] = useState<CoverFocal>(DEFAULT_COVER_FOCAL);
   const landingHtmlFileAddRef = useRef<HTMLInputElement>(null);
   const landingHtmlFileEditRef = useRef<HTMLInputElement>(null);
 
@@ -358,6 +365,11 @@ export default function AdminMarketplacePage() {
 
   useEffect(() => {
     if (!editing) return;
+    setCoverFocal(readItemCoverFocal(editing));
+  }, [editing?.id, editing?.cover_focal_x, editing?.cover_focal_y]);
+
+  useEffect(() => {
+    if (!editing) return;
     const d = itemPackageOffersToFormDefaults(editing.package_offers, editing.price_cents);
     setEditDualPricing(d.enabled);
     setEditStandaloneUsd(d.standalone_price_usd);
@@ -435,14 +447,6 @@ export default function AdminMarketplacePage() {
     [seriesSummaries]
   );
 
-  const catalogOnlyVaultSeries = useMemo(
-    () =>
-      seriesSummaries.filter((s) =>
-        isBuiltinCatalogOnlySeries(s.id, { hasDbRow: s.hasDbRow, itemCount: s.itemCount })
-      ),
-    [seriesSummaries]
-  );
-
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -487,6 +491,8 @@ export default function AdminMarketplacePage() {
           item_pack: itemPack,
           currency: "usd",
           image_url: coverImageCleared ? null : pendingImageUrl ?? null,
+          cover_focal_x: coverFocal.x,
+          cover_focal_y: coverFocal.y,
           published: (form.elements.namedItem("published") as HTMLInputElement)?.checked ?? true,
           sort_order: parseInt((form.elements.namedItem("sort_order") as HTMLInputElement)?.value ?? "0", 10),
           language_files: buildLanguageFilesPayload(addLanguageFiles),
@@ -511,6 +517,7 @@ export default function AdminMarketplacePage() {
       setAddLanguageFiles(defaultMarketplaceLanguageFileDrafts());
       setPendingImageUrl(null);
       setCoverImageCleared(false);
+      setCoverFocal(DEFAULT_COVER_FOCAL);
       setLandingPageHtmlAdd("");
       setAddDualPricing(false);
       setAddStandaloneUsd("199.00");
@@ -571,6 +578,8 @@ export default function AdminMarketplacePage() {
           package_offers: editDualPricing && showDualPricingEdit ? packageOffers : null,
           item_pack: editItemPackEnabled && !showDualPricingEdit ? itemPack : null,
           image_url: resolveCoverImageUrl(),
+          cover_focal_x: coverFocal.x,
+          cover_focal_y: coverFocal.y,
           published: (form.elements.namedItem("published") as HTMLInputElement)?.checked ?? editing.published,
           sort_order: parseInt((form.elements.namedItem("sort_order") as HTMLInputElement)?.value ?? "0", 10),
           language_files: buildLanguageFilesPayload(editLanguageFiles),
@@ -593,6 +602,7 @@ export default function AdminMarketplacePage() {
       setEditing(null);
       setPendingImageUrl(null);
       setCoverImageCleared(false);
+      setCoverFocal(DEFAULT_COVER_FOCAL);
       setEditLanguageFiles(defaultMarketplaceLanguageFileDrafts());
     } catch {
       setError(tc("networkError"));
@@ -759,6 +769,8 @@ export default function AdminMarketplacePage() {
                   setCoverImageCleared(true);
                 }}
                 onPasteUrl={handlePasteCoverUrl}
+                focal={coverFocal}
+                onFocalChange={setCoverFocal}
               />
             </div>
             <div className="sm:col-span-2">
@@ -878,6 +890,9 @@ export default function AdminMarketplacePage() {
             type="button"
             onClick={() => {
               setAddLanguageFiles(defaultMarketplaceLanguageFileDrafts());
+              setCoverFocal(DEFAULT_COVER_FOCAL);
+              setPendingImageUrl(null);
+              setCoverImageCleared(false);
               setAdding(true);
               updateViewInUrl({ add: true });
             }}
@@ -895,77 +910,47 @@ export default function AdminMarketplacePage() {
         </div>
       )}
 
-      {(managedVaultSeries.length > 0 || catalogOnlyVaultSeries.length > 0) &&
+      {managedVaultSeries.length > 0 &&
         !adding &&
         !seriesEditorId && (
         <div className="mt-6 space-y-4">
-          {managedVaultSeries.length > 0 ? (
-            <div className="rounded-lg border border-border bg-card p-4">
-              <h2 className="text-sm font-semibold">{tp("series.vaultSeriesTitle")}</h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Series with saved metadata and/or linked items. Delete unlinks items (or removes them if you choose in
-                the editor).
-              </p>
-              <ul className="mt-3 divide-y divide-border">
-                {managedVaultSeries.map((s) => (
-                  <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                    <span>
-                      <span className="font-medium">{s.label}</span>
-                      <span className="ml-2 text-muted-foreground">
-                        {s.itemCount} item{s.itemCount === 1 ? "" : "s"}
-                        {s.paid ? " · paid" : " · free"}
-                        {s.builtin ? " · built-in" : ""}
-                      </span>
+          <div className="rounded-lg border border-border bg-card p-4">
+            <h2 className="text-sm font-semibold">{tp("series.vaultSeriesTitle")}</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Series with saved metadata and/or linked items. Delete unlinks items (or removes them if you choose in
+              the editor).
+            </p>
+            <ul className="mt-3 divide-y divide-border">
+              {managedVaultSeries.map((s) => (
+                <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                  <span>
+                    <span className="font-medium">{s.label}</span>
+                    <span className="ml-2 text-muted-foreground">
+                      {s.itemCount} item{s.itemCount === 1 ? "" : "s"}
+                      {s.paid ? " · paid" : " · free"}
+                      {s.builtin ? " · built-in" : ""}
                     </span>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openSeriesEditor(s.id)}
-                        className="rounded-lg border border-input px-3 py-1 text-xs font-medium hover:bg-accent"
-                      >
-                        {tp("actions.editSeries")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleDeleteSeriesFromList(s)}
-                        className="rounded-lg border border-destructive/40 px-3 py-1 text-xs font-medium text-destructive hover:bg-destructive/10"
-                      >
-                        {tp("actions.delete")}
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {catalogOnlyVaultSeries.length > 0 ? (
-            <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4">
-              <h2 className="text-sm font-semibold">{tp("series.builtinCatalogTitle")}</h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                These names are defined in app code for the public Vault. They are not stored in the database yet and
-                have no linked items — Delete does nothing useful. Use <strong>Edit series</strong> to save cover and
-                pricing, or <strong>Add series</strong> to create a new collection (e.g. Quick Investment Guide).
-              </p>
-              <ul className="mt-3 divide-y divide-border/70">
-                {catalogOnlyVaultSeries.map((s) => (
-                  <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                    <span>
-                      <span className="font-medium">{s.label}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">code: {s.id}</span>
-                    </span>
+                  </span>
+                  <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => openSeriesEditor(s.id)}
                       className="rounded-lg border border-input px-3 py-1 text-xs font-medium hover:bg-accent"
                     >
-                      {tp("actions.configure")}
+                      {tp("actions.editSeries")}
                     </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteSeriesFromList(s)}
+                      className="rounded-lg border border-destructive/40 px-3 py-1 text-xs font-medium text-destructive hover:bg-destructive/10"
+                    >
+                      {tp("actions.delete")}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
 
@@ -1043,6 +1028,7 @@ export default function AdminMarketplacePage() {
                         setEditing(item);
                         setPendingImageUrl(null);
                         setCoverImageCleared(false);
+                        setCoverFocal(readItemCoverFocal(item));
                       }}
                       className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                       aria-label={tp("actions.edit")}
@@ -1221,6 +1207,8 @@ export default function AdminMarketplacePage() {
                     setCoverImageCleared(true);
                   }}
                   onPasteUrl={handlePasteCoverUrl}
+                  focal={coverFocal}
+                  onFocalChange={setCoverFocal}
                 />
               </div>
               <div className="sm:col-span-2">
