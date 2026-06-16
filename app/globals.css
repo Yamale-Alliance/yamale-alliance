@@ -326,12 +326,14 @@ mark.law-doc-search-hit-active {
   max-width: var(--law-reading-measure);
   margin-left: auto;
   margin-right: auto;
+  font-family: var(--font-law-serif), Georgia, "Times New Roman", serif;
   font-size: 1.125rem;
   line-height: 1.82;
   letter-spacing: 0.01em;
 }
 
 .law-page-root .law-doc-search-root .prose {
+  font-family: inherit;
   font-size: inherit;
   line-height: inherit;
   max-width: none;
@@ -347,6 +349,28 @@ mark.law-doc-search-hit-active {
 .law-page-root .law-doc-search-root .prose h2,
 .law-page-root .law-doc-search-root .prose h3 {
   text-wrap: balance;
+}
+
+/* Sticky major section headings while scrolling (Laws.Africa §5.1). */
+.law-page-root .law-section-heading {
+  position: sticky;
+  top: 5.5rem;
+  z-index: 10;
+  margin-top: 0;
+  background: color-mix(in srgb, var(--card) 94%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+html.law-reading-mode-active .law-page-root .law-section-heading {
+  top: 3.25rem;
+}
+
+@media print {
+  .law-page-root .law-section-heading {
+    position: static;
+    background: transparent;
+    backdrop-filter: none;
+  }
 }
 
 /* Distraction-free reading mode */
