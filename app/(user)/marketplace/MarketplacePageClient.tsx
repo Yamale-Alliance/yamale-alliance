@@ -757,7 +757,7 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-24">
       {alertDialog}
       <MarketplaceVaultCheckoutDialog
         open={buyModalProduct != null || buyModalSeriesId != null}
@@ -813,7 +813,7 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
       )}
 
       {isLandingMode ? (
-        <>
+        <div className="vault-landing-catalog border-t border-border/70">
           <VaultCategoryGrid
             categories={categoryGridItems}
             onSelectCategory={navigateBrowseCategory}
@@ -826,6 +826,7 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
             landingSections.map((section, index) => (
               <VaultProductSection
                 key={section.titleKey}
+                sectionKey={section.titleKey}
                 title={t(section.titleKey)}
                 viewAllHref={section.viewAllHref}
                 displayCards={section.displayCards}
@@ -846,7 +847,7 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
               />
             ))
           )}
-        </>
+        </div>
       ) : (
         <>
           <VaultCatalogToolbar
