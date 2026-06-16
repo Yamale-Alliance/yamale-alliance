@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ShoppingCart, Trash2, Loader2, Check, Sparkles, Package } from "lucide-react";
+import { ShoppingCart, Trash2, Loader2, Check } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { VaultCoverImage } from "@/components/marketplace/VaultCoverImage";
@@ -18,14 +18,7 @@ import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries
 import { useAlertDialog } from "@/components/ui/use-confirm";
 import { notifyMarketplaceCartUpdated } from "@/lib/marketplace-cart-events";
 import { displayVaultPublisher } from "@/lib/marketplace-display";
-
-const BRAND = {
-  dark: "#221913",
-  medium: "#603b1c",
-  gradientStart: "#9a632a",
-  gradientEnd: "#c18c43",
-  accent: "#e3ba65",
-};
+import { VaultSubpageHeader } from "@/components/marketplace/vault/VaultSubpageHeader";
 
 type CartItem = {
   id: string;
@@ -134,88 +127,46 @@ export default function CartPage() {
   return (
     <div className="min-h-screen bg-background">
       {alertDialog}
-      {/* Hero */}
-      <section className="relative overflow-hidden border-b border-border/40 bg-gradient-to-b from-muted/30 via-background to-background">
-        <div
-          className="pointer-events-none absolute -top-32 left-1/2 h-[400px] w-[700px] -translate-x-1/2 rounded-full opacity-[0.22] blur-[100px] dark:opacity-30"
-          style={{ background: "radial-gradient(circle, var(--primary) 0%, transparent 70%)" }}
-        />
-        <div
-          className="pointer-events-none absolute -bottom-40 right-[-10%] h-80 w-80 rounded-full opacity-[0.16] blur-[90px] dark:opacity-25"
-          style={{ background: "radial-gradient(circle, var(--accent) 0%, transparent 70%)" }}
-        />
-        <div className="relative mx-auto max-w-7xl px-4 pt-10 pb-16 sm:px-6 lg:px-8 sm:pt-14">
-          <Link
-            href="/marketplace"
-            className="inline-flex items-center gap-2 rounded-xl border border-border/60 bg-background/80 px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:border-primary/60 hover:bg-primary/10 hover:text-foreground backdrop-blur mb-6"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" /> {t("backToVault")}
-          </Link>
-          <div className="max-w-2xl">
-            <p className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/90 backdrop-blur">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              {tCart("eyebrow")}
-            </p>
-            <h1 className="heading mt-5 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-[2.5rem]">
-              {tCart("title")}
-            </h1>
-            <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
-              {tCart("subtitle")}
-            </p>
-          </div>
-        </div>
-      </section>
+      <VaultSubpageHeader
+        backLabel={t("backToVault")}
+        title={tCart("title")}
+        subtitle={tCart("subtitle")}
+      />
 
-      {/* Cart content */}
-      <section className="-mt-8 pb-16">
+      <section className="pb-16 pt-8">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
           {loading ? (
             <div className="flex justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : cart.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border/80 bg-card/90 p-12 text-center shadow-sm">
-              <div className="relative mb-6 inline-flex">
-                <div
-                  className="absolute -inset-4 h-20 w-20 rounded-full opacity-20 blur-xl"
-                  style={{ background: "radial-gradient(circle, var(--primary) 0%, transparent 70%)" }}
-                />
-                <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/20 to-primary/10">
-                  <ShoppingCart className="h-8 w-8 text-primary" />
-                </div>
-              </div>
-              <h2 className="text-xl font-semibold text-foreground sm:text-2xl">{tCart("emptyTitle")}</h2>
+            <div className="rounded-[10px] border border-dashed border-border bg-card px-8 py-12 text-center">
+              <ShoppingCart className="mx-auto h-10 w-10 text-muted-foreground" />
+              <h2 className="mt-4 text-xl font-semibold text-foreground">{tCart("emptyTitle")}</h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 {tCart("emptyHint")}
               </p>
               <Link
                 href="/marketplace"
-                className="mt-6 inline-flex items-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-6 py-3 text-sm font-semibold text-foreground shadow-sm shadow-primary/20 transition hover:border-primary/60 hover:bg-primary/20 hover:shadow-md"
+                className="mt-6 inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition hover:brightness-105"
               >
-                <Sparkles className="h-4 w-4" />
                 {tCart("browseVault")}
               </Link>
             </div>
           ) : (
             <div className="grid min-w-0 gap-6 lg:grid-cols-3">
-              {/* Cart Items */}
-              <div className="min-w-0 lg:col-span-2 space-y-4">
-                <div className="rounded-2xl border border-border/70 bg-card/95 p-5 shadow-lg shadow-primary/10 backdrop-blur-xl sm:p-6">
-                  <div className="mb-4 flex items-center gap-2">
-                    <Package className="h-5 w-5 text-primary" />
-                    <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                      {tCart("itemsHeading", { count: cart.length })}
-                    </h2>
-                  </div>
+              <div className="min-w-0 space-y-4 lg:col-span-2">
+                <div className="rounded-[10px] border border-border bg-card p-5 sm:p-6">
+                  <h2 className="mb-4 text-base font-semibold text-foreground">
+                    {tCart("itemsHeading", { count: cart.length })}
+                  </h2>
                   <div className="space-y-3">
                     {cart.map((item) => (
                       <div
                         key={item.id}
-                        className="group relative overflow-hidden rounded-xl border border-border/70 bg-background/80 p-4 transition hover:border-primary/50 hover:shadow-md"
+                        className="flex items-start gap-4 rounded-lg border border-border bg-background p-4"
                       >
-                        <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[rgba(193,140,67,0.9)] via-[rgba(227,186,101,0.95)] to-[rgba(154,99,42,0.9)] opacity-70" />
-                        <div className="flex items-start gap-4">
-                          <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/70 bg-muted/30 shadow-sm">
+                          <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted/30">
                             {item.item.image_url ? (
                               <VaultCoverImage
                                 src={item.item.image_url}
@@ -243,7 +194,7 @@ export default function CartPage() {
                                 type="button"
                                 onClick={() => removeFromCart(item.marketplace_item_id)}
                                 disabled={removing === item.marketplace_item_id}
-                                className="rounded-xl border border-destructive/50 bg-destructive/10 p-2 text-destructive transition hover:border-destructive hover:bg-destructive/20 disabled:opacity-50"
+                                className="rounded-md border border-border p-2 text-muted-foreground transition hover:border-destructive hover:text-destructive disabled:opacity-50"
                                 aria-label={tCart("removeFromCartAria")}
                               >
                                 {removing === item.marketplace_item_id ? (
@@ -254,17 +205,15 @@ export default function CartPage() {
                               </button>
                             </div>
                           </div>
-                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
 
-              {/* Order Summary */}
               <div className="min-w-0 lg:col-span-1">
-                <div className="sticky top-6 w-full min-w-0 rounded-2xl border border-border/70 bg-card/95 p-5 shadow-lg shadow-primary/10 backdrop-blur-xl sm:p-6">
-                  <h2 className="mb-4 text-lg font-semibold tracking-tight text-foreground">{tCart("orderSummary")}</h2>
+                <div className="sticky top-6 w-full min-w-0 rounded-[10px] border border-border bg-card p-5 sm:p-6">
+                  <h2 className="mb-4 text-base font-semibold text-foreground">{tCart("orderSummary")}</h2>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">
@@ -301,7 +250,7 @@ export default function CartPage() {
                     type="button"
                     onClick={handleCheckout}
                     disabled={checkoutLoading}
-                    className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[rgba(154,99,42,0.95)] to-[rgba(193,140,67,0.95)] px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 transition hover:brightness-105 disabled:opacity-60"
+                    className="mt-6 flex w-full items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground transition hover:brightness-105 disabled:opacity-60"
                   >
                     {checkoutLoading ? (
                       <>
