@@ -27,6 +27,11 @@ import {
 } from "@/components/layout/prototype-nav-styles";
 import { slugifyVaultSeriesId } from "@/lib/marketplace-vault-series";
 import type { VaultSeriesRecord } from "@/lib/marketplace-vault-series";
+import {
+  DEFAULT_COVER_FOCAL,
+  normalizeCoverFocal,
+  type CoverFocal,
+} from "@/lib/marketplace-cover-framing";
 import { useTranslations } from "next-intl";
 
 /** Card cover on the public Vault: type color, country map, or uploaded image. */
@@ -39,6 +44,8 @@ type VaultCatalogItem = {
   description: string | null;
   price_cents: number;
   image_url: string | null;
+  cover_focal_x?: number | null;
+  cover_focal_y?: number | null;
   focus_country?: string | null;
   sort_order: number;
   published: boolean;
@@ -59,6 +66,7 @@ type ItemDraft = {
   priceUsd: string;
   coverMode: ItemCoverMode;
   imageUrl: string | null;
+  coverFocal: CoverFocal;
   focus_country: string;
   sort_order: number;
   published: boolean;
@@ -99,6 +107,7 @@ function newItemDraft(sortOrder: number, seriesUsesPerCountryCovers = false): It
     priceUsd: "0",
     coverMode: seriesUsesPerCountryCovers ? "map" : "type",
     imageUrl: null,
+    coverFocal: DEFAULT_COVER_FOCAL,
     focus_country: "",
     sort_order: sortOrder,
     published: true,
@@ -124,6 +133,10 @@ function mapLoadedItem(
     priceUsd: ((Number(row.price_cents) || 0) / 100).toFixed(2),
     coverMode: coverModeFromLoadedItem(row, seriesUsesPerCountryCovers),
     imageUrl: row.image_url ? String(row.image_url) : null,
+    coverFocal: normalizeCoverFocal(
+      typeof row.cover_focal_x === "number" ? row.cover_focal_x : null,
+      typeof row.cover_focal_y === "number" ? row.cover_focal_y : null
+    ),
     focus_country: row.focus_country ? String(row.focus_country) : "",
     sort_order: typeof row.sort_order === "number" ? row.sort_order : i,
     published: row.published !== false,
@@ -390,6 +403,7 @@ export function AdminVaultSeriesEditor({
       priceUsd: ((Number(row.price_cents) || 0) / 100).toFixed(2),
       coverMode: coverModeFromLoadedItem(row as Record<string, unknown>, perCountryCovers),
       imageUrl: row.image_url,
+      coverFocal: normalizeCoverFocal(row.cover_focal_x, row.cover_focal_y),
       focus_country: row.focus_country ? String(row.focus_country) : "",
       sort_order: items.length,
       published: row.published !== false,
@@ -470,6 +484,8 @@ export function AdminVaultSeriesEditor({
         price_cents: Math.round((parseFloat(it.priceUsd) || 0) * 100),
         use_default_cover: it.coverMode !== "custom",
         image_url: it.coverMode === "custom" ? it.imageUrl : null,
+        cover_focal_x: it.coverFocal.x,
+        cover_focal_y: it.coverFocal.y,
         focus_country: it.focus_country || null,
         sort_order: it.sort_order,
         published: it.published,
@@ -970,6 +986,8 @@ export function AdminVaultSeriesEditor({
                           previewUrl={activeItem.imageUrl}
                           uploading={itemImageUploading}
                           saveReadyHint={t("coverModes.saveReadyHint")}
+                          focal={activeItem.coverFocal}
+                          onFocalChange={(coverFocal) => updateActiveItem({ coverFocal })}
                           onUpload={(f) => {
                             setItemImageUploading(true);
                             uploadCover(f, (url) => {
