@@ -7,6 +7,7 @@ import {
   type VaultSeriesBundleInput,
 } from "@/lib/admin-vault-series-sync";
 import { fetchVaultSeriesAdminPayload } from "@/lib/marketplace-vault-series";
+import { revalidateMarketplaceCatalogCache } from "@/lib/marketplace-catalog-cache";
 
 /** GET: merged vault series registry for admin pickers. */
 export async function GET() {
@@ -41,6 +42,8 @@ export async function POST(request: NextRequest) {
       entityId: result.seriesId,
       details: { label: body.label, itemCount: body.items?.length ?? 0 },
     });
+
+    revalidateMarketplaceCatalogCache();
 
     return NextResponse.json(result);
   } catch (err) {
