@@ -145,6 +145,33 @@
     "eyebrow": "Le Yamalé Vault",
     "title": "Le Yamalé Vault",
     "subtitle": "Formation juridique premium et ressources pratiques pour les professionnels du droit africains. Apprenez, téléchargez et appliquez en toute confiance dans Le Yamalé Vault.",
+    "landing": {
+      "headline": "Des ressources juridiques conçues pour la pratique africaine",
+      "subheadline": "Cours, modèles, guides et livres de praticiens qui connaissent le continent — parcourez, apprenez et téléchargez en toute confiance.",
+      "searchPlaceholder": "Que souhaitez-vous apprendre ou télécharger ?",
+      "exploreCategories": "Parcourir par format",
+      "exploreCategoriesHint": "Choisissez une catégorie pour explorer tout le contenu de ce format.",
+      "resourceCount": "{count, plural, one {# ressource} other {# ressources}}",
+      "sectionFeatured": "Ressources en vedette",
+      "sectionSeries": "Séries par pays et thème",
+      "sectionFree": "Ressources gratuites",
+      "sectionCourses": "Cours",
+      "sectionTemplates": "Modèles",
+      "sectionBooks": "Livres",
+      "sectionGuides": "Guides",
+      "viewAll": "Tout voir",
+      "backToBrowse": "Retour à l'exploration",
+      "showingCount": "{count, plural, one {# résultat} other {# résultats}}",
+      "clearSearch": "Effacer la recherche",
+      "searchResults": "Résultats de recherche",
+      "exploreCollection": "Explorer la collection",
+      "statResources": "Ressources",
+      "statFree": "Gratuit",
+      "statSeries": "Séries",
+      "seriesItemsTitle": "Dans cette collection",
+      "seriesItemsHint": "Ouvrez une ressource pour la prévisualiser, l'acheter ou la télécharger.",
+      "seriesSavings": "Économisez {amount} avec la série complète"
+    },
     "purchased": "Achetés",
     "cart": "Panier",
     "confirmingPayment": "Confirmation de votre paiement…",
@@ -167,6 +194,8 @@
       "allBlurb": "Tout le contenu du vault",
       "free": "Gratuit",
       "freeBlurb": "Ressources gratuites",
+      "series": "Séries",
+      "seriesBlurb": "Guides multi-pays regroupés par thème",
       "book": "Livres",
       "bookBlurb": "Traités et références",
       "course": "Cours",
@@ -202,6 +231,7 @@
       "default": "Documentation de référence"
     },
     "backToVault": "Retour au Yamalé Vault",
+    "backToCollection": "Retour à {name}",
     "vaultShort": "Vault",
     "view": "Voir",
     "buy": "Acheter",
@@ -267,7 +297,38 @@
       "noFileAttached": "Aucun fichier n'est joint à cet article. Contactez le support si vous attendiez un téléchargement.",
       "reviews": "{count, plural, one {# avis} other {# avis}}",
       "productVideo": "Vidéo du produit",
-      "openingPackage": "Ouverture du package…"
+      "openingPackage": "Ouverture du package…",
+      "byAuthor": "par {author}",
+      "partOfCollection": "Fait partie de {name}",
+      "instantDownload": "Téléchargement immédiat",
+      "instantDownloadHint": "Accédez au fichier dès l'achat",
+      "languagesCount": "{count, plural, one {# langue} other {# langues}}",
+      "languagesCountHint": "Choisissez votre version au téléchargement",
+      "fileFormat": "Document {format}",
+      "fileFormatHint": "Prêt à consulter ou enregistrer hors ligne",
+      "lifetimeAccess": "Accès à vie",
+      "lifetimeAccessFreeHint": "Gratuit — à conserver",
+      "lifetimeAccessPaidHint": "Achat unique — sans abonnement",
+      "whatsIncluded": "Ce qui est inclus",
+      "includedDownload": "Ressource téléchargeable",
+      "includedDownloadDesc": "Consultez dans le navigateur ou enregistrez sur votre appareil",
+      "includedLanguages": "Langues disponibles",
+      "includedFormat": "Format de fichier",
+      "includedUpdated": "Ajouté au Vault",
+      "aboutResource": "À propos de cette ressource",
+      "seriesBundleTitle": "Économisez avec {name} complet",
+      "seriesBundleHint": "Obtenez les {count} guides pour {price} au paiement",
+      "exploreCollectionTitle": "Explorer {name} complet",
+      "exploreCollectionHint": "Parcourez chaque guide pays de cette collection — aperçu, achat ou téléchargement.",
+      "valueExpertTitle": "Prêt pour les praticiens",
+      "valueExpertDesc": "Renseignements juridiques structurés pour les investisseurs et conseils sur les marchés africains.",
+      "valueLanguagesTitle": "Multilingue",
+      "valueLanguagesDesc": "Téléchargez la version adaptée à votre équipe — changez de langue après l'achat.",
+      "valueAccessTitle": "À vous pour toujours",
+      "valueAccessDesc": "Achat unique avec accès à vie via votre bibliothèque Yamalé Vault.",
+      "checkoutSectionLabel": "Paiement",
+      "checkoutEyebrow": "Obtenir cette ressource",
+      "checkoutOneTime": "Achat unique — sans abonnement."
     }
   },
   "admin": {
@@ -733,8 +794,7 @@
           "onlineCourseTitle": "Les acheteurs obtiennent Voir le cours et l'espace de mise en œuvre en ligne"
         },
         "series": {
-          "vaultSeriesTitle": "Vault series",
-          "builtinCatalogTitle": "Built-in catalog series"
+          "vaultSeriesTitle": "Vault series"
         },
         "list": {
           "standaloneHintBefore": "Standalone vault items only. Items in a series are managed in",
@@ -806,7 +866,18 @@
         "uploadCoverImage": "Upload cover image",
         "pasteUrlPlaceholder": "Or paste Cloudinary image URL (https://res.cloudinary.com/…)",
         "useUrl": "Utiliser l'URL",
-        "saveReadyHint": "Couverture prête — enregistrez l'article pour le publier sur le Vault."
+        "saveReadyHint": "Couverture prête — enregistrez l'article pour le publier sur le Vault.",
+        "framingTitle": "Cadrage sur la carte",
+        "framingHelp": "Ajustez le recadrage de la couverture dans la carte Vault 16:9. Utilisez Haut pour les couvertures hautes avec un titre en haut.",
+        "cardPreviewAlt": "Aperçu du recadrage sur la carte Vault",
+        "cardPreviewLabel": "Aperçu carte 16:9",
+        "framingHorizontal": "Focus horizontal",
+        "framingVertical": "Focus vertical",
+        "framingPreset": {
+          "top": "Haut",
+          "center": "Centre",
+          "bottom": "Bas"
+        }
       },
       "focusCountrySelect": {
         "label": "Focus country (map on card)",
@@ -2096,7 +2167,7 @@
     "signInPrompt": {
       "title": "Connectez-vous pour parcourir la bibliothèque juridique",
       "body": "La bibliothèque juridique africaine est réservée aux utilisateurs inscrits. Connectez-vous ou créez un compte gratuit pour rechercher lois, règlements et traités dans 54 juridictions.",
-      "dialogTitle": "Connectez-vous pour lire cette loi",
+      "dialogTitle": "Connectez-vous pour lire cette loi <free>GRATUITEMENT</free>",
       "dialogBody": "Vous pouvez parcourir la bibliothèque gratuitement. Connectez-vous ou créez un compte gratuit pour ouvrir les textes complets et utiliser les favoris.",
       "signIn": "Connexion",
       "createAccount": "Créer un compte"
