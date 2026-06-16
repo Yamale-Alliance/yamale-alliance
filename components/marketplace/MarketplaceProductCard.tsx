@@ -3,17 +3,14 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, Check, Eye, GraduationCap, LayoutTemplate, Loader2 } from "lucide-react";
+import { BookOpen, Check, Eye, GraduationCap, LayoutTemplate } from "lucide-react";
 import { VaultCountryMapIcon } from "@/components/marketplace/VaultCountryMapIcon";
-import { LawFirmPackageDiscountPrice } from "@/components/marketplace/LawFirmPackageDiscountPrice";
 import { displayVaultProductTitle, displayVaultPublisher } from "@/lib/marketplace-display";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
 import { marketplaceItemDetailHref } from "@/lib/marketplace-public-url";
+import { coverObjectPosition, readItemCoverFocal } from "@/lib/marketplace-cover-framing";
 import { canUseLawFirmAdvisoryWorkspace } from "@/lib/law-firm-advisory-preview";
 import { advisoryCourseHref, isMarketplaceCourseItem } from "@/lib/marketplace-course";
-import {
-  shouldShowLawFirmPackageMarketingDiscount,
-} from "@/lib/law-firm-package-marketing";
 import { VaultCoverImage } from "@/components/marketplace/VaultCoverImage";
 import { VaultLanguageBadges } from "@/components/marketplace/VaultLanguageBadges";
 import styles from "./MarketplaceProductCard.module.css";
@@ -34,13 +31,6 @@ function themeForType(type: string) {
   return TYPE_THEMES[type] ?? { from: BRAND.gradientStart, to: BRAND.gradientEnd, iconColor: "#fff8eb" };
 }
 
-const TYPE_CARD_CLASS: Record<string, string> = {
-  book: "typeBook",
-  course: "typeCourse",
-  guide: "typeGuide",
-  template: "typeTemplate",
-};
-
 export type MarketplaceProductCardProduct = {
   id: string;
   slug?: string | null;
@@ -57,24 +47,21 @@ export type MarketplaceProductCardProduct = {
   focus_country?: string | null;
   is_course?: boolean;
   language_codes?: string[];
+  cover_focal_x?: number | null;
+  cover_focal_y?: number | null;
 };
 
 type MarketplaceProductCardProps = {
   product: MarketplaceProductCardProduct;
-  topicLabel: string;
   typeBadgeLabel: string;
-  formatHint: string;
   seriesLabel?: string | null;
   collectionHref?: string | null;
   collectionCount?: number | null;
   collectionLabel?: string | null;
-  /** Inline series expand (collection card stays visible). */
   isCollection?: boolean;
-  /** Show/Hide series overlay — series cover card only. */
   showSeriesToggle?: boolean;
   collectionExpanded?: boolean;
   onCollectionToggle?: () => void;
-  /** Series member tiles: icon only, no cover image. */
   iconOnlyMedia?: boolean;
   isSignedIn: boolean;
   cartItemIds: Set<string>;
@@ -82,7 +69,6 @@ type MarketplaceProductCardProps = {
   onAddToCart: (productId: string, e: React.MouseEvent) => void;
   onRemoveFromCart: (productId: string, e: React.MouseEvent) => void;
   onBuy: (product: MarketplaceProductCardProduct, e: React.MouseEvent) => void;
-  /** Paid series collection card — buy remaining items at bundle / prorated price. */
   paidSeriesSummary?: {
     chargeCents: number;
     totalCents: number;
@@ -93,35 +79,26 @@ type MarketplaceProductCardProps = {
     fullyOwned: boolean;
   } | null;
   onBuySeries?: (e: React.MouseEvent) => void;
-  /** From GET /api/marketplace — server reads ADVISORY_WORKSPACE_PREVIEW env. */
   advisoryWorkspacePreview?: boolean;
-  /** Eager-load cover for first visible grid row */
   coverPriority?: boolean;
+  /** When set, appended as `?from=` so item pages can navigate back to the collection. */
+  returnTo?: string | null;
 };
 
 function CategoryIcon({ type, className }: { type: string; className?: string }) {
-  const cn = className ?? "h-3.5 w-3.5";
+  const cn = className ?? "h-8 w-8";
   switch (type) {
     case "book":
-      return <BookOpen className={cn} strokeWidth={1.75} />;
+      return <BookOpen className={cn} strokeWidth={1.5} />;
     case "course":
-      return <GraduationCap className={cn} strokeWidth={1.75} />;
+      return <GraduationCap className={cn} strokeWidth={1.5} />;
     case "guide":
-      return <BookOpen className={cn} strokeWidth={1.75} />;
+      return <BookOpen className={cn} strokeWidth={1.5} />;
     case "template":
-      return <LayoutTemplate className={cn} strokeWidth={1.75} />;
+      return <LayoutTemplate className={cn} strokeWidth={1.5} />;
     default:
-      return <BookOpen className={cn} strokeWidth={1.75} />;
+      return <BookOpen className={cn} strokeWidth={1.5} />;
   }
-}
-
-function plainDescription(raw: string | null, fallback: string): string {
-  if (!raw?.trim()) return fallback;
-  const text = raw
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return text || fallback;
 }
 
 function formatUsd(cents: number, decimals = 2): string {
@@ -130,9 +107,7 @@ function formatUsd(cents: number, decimals = 2): string {
 
 export function MarketplaceProductCard({
   product,
-  topicLabel,
   typeBadgeLabel,
-  formatHint,
   seriesLabel,
   collectionHref,
   collectionCount,
@@ -142,29 +117,19 @@ export function MarketplaceProductCard({
   collectionExpanded = false,
   onCollectionToggle,
   iconOnlyMedia = false,
-  isSignedIn,
-  cartItemIds,
-  addingToCart,
-  onAddToCart,
-  onRemoveFromCart,
-  onBuy,
   paidSeriesSummary,
   onBuySeries,
   advisoryWorkspacePreview = false,
   coverPriority = false,
+  returnTo,
 }: MarketplaceProductCardProps) {
   const t = useTranslations("marketplace");
-  const tAdvisory = useTranslations("advisory");
   const router = useRouter();
   const [coverFailed, setCoverFailed] = useState(false);
 
-  const priceLabel = product.price_cents === 0 ? t("free") : formatUsd(product.price_cents);
-  const languageCodes = product.language_codes ?? [];
-  const hasLanguageBadge = languageCodes.length > 0;
-  const isOwnedBadge = Boolean(product.owned || paidSeriesSummary?.fullyOwned);
-  const showLawFirmDiscount = shouldShowLawFirmPackageMarketingDiscount(product);
   const isCollectionCard =
     isCollection || Boolean(collectionHref && collectionCount && collectionLabel);
+  const isOwnedBadge = Boolean(product.owned || paidSeriesSummary?.fullyOwned);
   const hasSeriesBundleDiscount = Boolean(
     paidSeriesSummary &&
       paidSeriesSummary.bundleCents != null &&
@@ -178,49 +143,42 @@ export function MarketplaceProductCard({
     : 0;
   const useInlineCollection = showSeriesToggle && isCollectionCard && Boolean(onCollectionToggle);
   const displayTitle = isCollectionCard ? (collectionLabel as string) : displayVaultProductTitle(product.title);
-  const publisher = isCollectionCard
+  const subtitle = isCollectionCard
     ? t("resourcesCount", { count: collectionCount ?? 0 })
-    : displayVaultPublisher(product.author);
-  const description = isCollectionCard
-    ? paidSeriesSummary
-      ? hasSeriesBundleDiscount
-        ? `${collectionCount} resources · save ${formatUsd(paidSeriesSummary!.bundleSavingsCents, 0)} vs buying separately`
-        : `${collectionCount} resources in this series`
-      : `Browse all ${collectionLabel} resources in one place.`
-    : plainDescription(product.description, t("cardDescriptionFallback"));
+    : seriesLabel || displayVaultPublisher(product.author) || typeBadgeLabel;
   const href =
     collectionHref ||
-    marketplaceItemDetailHref({
-      id: product.id,
-      slug: product.slug,
-      packagePage: isMarketplaceZip(product),
-    });
+    marketplaceItemDetailHref(
+      {
+        id: product.id,
+        slug: product.slug,
+        packagePage: isMarketplaceZip(product),
+      },
+      { returnTo }
+    );
   const typeTheme = themeForType(product.type);
-  const typeCardClass = styles[TYPE_CARD_CLASS[product.type] ?? "typeDefault"];
   const placeholderGradient = `linear-gradient(155deg, ${typeTheme.from} 0%, ${typeTheme.to} 100%)`;
   const hasCustomCover = Boolean(product.image_url?.trim()) && !coverFailed;
   const showCountryMap =
     !hasCustomCover && (iconOnlyMedia || Boolean(product.focus_country?.trim()));
   const showTypePlaceholder = !hasCustomCover && !showCountryMap;
-  const tagLabel = isCollectionCard ? t("collection") : seriesLabel || typeBadgeLabel;
-  const fileLabel = product.file_format ? `.${product.file_format.replace(/^\./, "")}` : null;
+  const coverFocalPosition = coverObjectPosition(readItemCoverFocal(product));
 
-  const metaParts = [topicLabel, typeBadgeLabel, fileLabel].filter(Boolean);
-
-  const showCartActions =
-    !isCollectionCard && !product.owned && product.price_cents > 0 && !isMarketplaceZip(product);
-
-  const courseWorkspaceHref = advisoryCourseHref(product);
   const lawFirmHasWorkspaceAccess =
     isMarketplaceCourseItem(product) &&
     canUseLawFirmAdvisoryWorkspace(product.owned, advisoryWorkspacePreview);
 
-  const showPackageCta =
-    !isCollectionCard && !lawFirmHasWorkspaceAccess && isMarketplaceZip(product);
+  const showSeriesBuy =
+    paidSeriesSummary && isCollectionCard && onBuySeries && !paidSeriesSummary.fullyOwned;
 
-  const showLawFirmWorkspaceCta = !isCollectionCard && lawFirmHasWorkspaceAccess;
+  const priceLabel =
+    product.price_cents === 0
+      ? t("free")
+      : formatUsd(product.price_cents);
+  const languageCodes = product.language_codes ?? [];
+  const showLanguageFlairs = !isCollectionCard && languageCodes.length > 0;
 
-  const navigate = () => router.push(href);
+  const navigate = () => router.push(href, { scroll: true });
 
   const handleCardClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("button")) return;
@@ -249,7 +207,7 @@ export function MarketplaceProductCard({
 
   return (
     <article
-      className={`vault-product-card ${styles.card} ${typeCardClass} ${useInlineCollection ? styles.cardCollection : ""} ${useInlineCollection && collectionExpanded ? styles.cardCollectionExpanded : ""}`}
+      className={`vault-product-card ${styles.card} ${useInlineCollection ? styles.cardCollection : ""} ${useInlineCollection && collectionExpanded ? styles.cardCollectionExpanded : ""}`}
       onClick={handleCardClick}
       onKeyDown={handleCardKeyDown}
       role={useInlineCollection ? "button" : "link"}
@@ -263,6 +221,7 @@ export function MarketplaceProductCard({
             key={product.image_url!}
             src={product.image_url!}
             className={styles.cover}
+            objectPosition={coverFocalPosition}
             priority={coverPriority}
             onError={() => setCoverFailed(true)}
           />
@@ -272,12 +231,12 @@ export function MarketplaceProductCard({
           </div>
         ) : showTypePlaceholder ? (
           <div className={styles.coverPlaceholder} style={{ background: placeholderGradient }}>
-            <CategoryIcon type={product.type} className="h-10 w-10 opacity-90" />
+            <CategoryIcon type={product.type} className="opacity-90" />
           </div>
         ) : null}
         {useInlineCollection ? (
           <div className={styles.collectionHover} aria-hidden>
-            <Eye className="h-6 w-6" strokeWidth={1.75} />
+            <Eye className="h-5 w-5" strokeWidth={1.75} />
             <span className={styles.collectionHoverLabel}>
               {collectionExpanded ? t("hideSeries") : t("showSeries")}
             </span>
@@ -290,174 +249,71 @@ export function MarketplaceProductCard({
               {t("owned")}
             </span>
           </div>
+        ) : isCollectionCard ? (
+          <div className={styles.mediaBadges}>
+            <span className={styles.badgeCollection}>{t("collection")}</span>
+          </div>
+        ) : product.price_cents === 0 ? (
+          <div className={styles.mediaBadges}>
+            <span className={styles.badgeFree}>{t("free")}</span>
+          </div>
+        ) : null}
+        {!isOwnedBadge && !isCollectionCard && product.price_cents > 0 ? (
+          <span className={styles.priceBadge}>{priceLabel}</span>
         ) : null}
       </div>
 
       <div className={styles.body}>
-        <div className={styles.publisher}>
-          <span className={styles.publisherIcon} style={{ color: typeTheme.iconColor }}>
-            <CategoryIcon type={product.type} />
-          </span>
-          <span className={styles.publisherName}>{publisher}</span>
-        </div>
-
         <h3 className={`vault-product-title ${styles.title}`} title={product.title}>
           {displayTitle}
         </h3>
-
-        <p className={styles.description}>{description}</p>
-
-        {hasLanguageBadge ? (
+        {showLanguageFlairs ? (
           <div className={styles.languageRow}>
-            <VaultLanguageBadges languageCodes={languageCodes} variant="compact" />
+            <VaultLanguageBadges languageCodes={languageCodes} variant="card" />
           </div>
         ) : null}
+        {subtitle ? <p className={styles.subtitle}>{subtitle}</p> : null}
 
-        <div className={styles.footer}>
-          <p className={styles.meta}>
-            {metaParts.join(" · ")}
-            {formatHint ? `${metaParts.length > 0 ? " · " : ""}${formatHint}` : null}
-          </p>
-          {tagLabel ? <span className={styles.tag}>{tagLabel}</span> : null}
-        </div>
-
-        {paidSeriesSummary && isCollectionCard && onBuySeries && !paidSeriesSummary.fullyOwned ? (
-          <div className={styles.actions}>
-            <button
-              type="button"
-              onClick={(e) => {
-                stop(e);
-                onBuySeries(e);
-              }}
-              className={styles.actionBtnPrimary}
-              style={{ flex: "1 1 100%" }}
-            >
-              {paidSeriesSummary.ownedCount > 0 ? (
-                <>{t("buyRemaining", { price: formatUsd(paidSeriesSummary.chargeCents) })}</>
-              ) : hasSeriesBundleDiscount ? (
-                <>
-                  {t("buyFullSeries", { price: formatUsd(seriesChargeCents) })}{" "}
-                  <span className="text-white/75 line-through">{formatUsd(seriesListCents, 0)}</span>
-                </>
-              ) : (
-                <>{t("buyFullSeries", { price: formatUsd(seriesChargeCents) })}</>
-              )}
-            </button>
-          </div>
-        ) : null}
-
-        {showLawFirmWorkspaceCta ? (
-          <div className={styles.actions}>
-            <button
-              type="button"
-              onClick={(e) => {
-                stop(e);
-                navigate();
-              }}
-              className={styles.actionBtn}
-            >
-              {t("view")}
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                stop(e);
-                router.push(courseWorkspaceHref);
-              }}
-              className={styles.actionBtnPrimary}
-            >
-              {tAdvisory("viewCourse")}
-            </button>
-          </div>
-        ) : null}
-
-        {showPackageCta ? (
-          <div className={styles.actions}>
-            <button
-              type="button"
-              onClick={(e) => {
-                stop(e);
-                navigate();
-              }}
-              className={styles.actionBtnPrimary}
-              style={{ flex: "1 1 100%" }}
-            >
-              {product.price_cents === 0 ? (
-                t("getPackage")
-              ) : showLawFirmDiscount ? (
-                <span className="inline-flex items-center justify-center gap-1.5">
-                  {t("view")} ·{" "}
-                  <LawFirmPackageDiscountPrice
-                    saleCents={product.price_cents}
-                    size="inline"
-                    className="text-white [&_span:first-child]:text-white/70 [&_span:nth-child(2)]:text-white"
-                  />
-                </span>
-              ) : (
-                `${t("view")} · ${priceLabel}`
-              )}
-            </button>
-          </div>
-        ) : null}
-
-        {showCartActions ? (
-          <div className={styles.actions}>
-            {cartItemIds.has(product.id) ? (
-              <button
-                type="button"
-                onClick={(e) => {
-                  stop(e);
-                  onRemoveFromCart(product.id, e);
-                }}
-                disabled={addingToCart === product.id}
-                className={styles.actionBtn}
-              >
-                {addingToCart === product.id ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  t("removeFromCart")
-                )}
-              </button>
+        {showSeriesBuy ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              stop(e);
+              onBuySeries!(e);
+            }}
+            className={styles.seriesBuyBtn}
+          >
+            {paidSeriesSummary!.ownedCount > 0 ? (
+              t("buyRemaining", { price: formatUsd(paidSeriesSummary!.chargeCents) })
+            ) : hasSeriesBundleDiscount ? (
+              <>
+                {t("buyFullSeries", { price: formatUsd(seriesChargeCents) })}{" "}
+                <span className={styles.strike}>{formatUsd(seriesListCents, 0)}</span>
+              </>
             ) : (
-              <button
-                type="button"
-                onClick={(e) => {
-                  stop(e);
-                  onAddToCart(product.id, e);
-                }}
-                disabled={addingToCart === product.id}
-                className={styles.actionBtn}
-              >
-                {addingToCart === product.id ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  t("addToCart")
-                )}
-              </button>
+              t("buyFullSeries", { price: formatUsd(seriesChargeCents) })
             )}
-            <button
-              type="button"
-              onClick={(e) => {
-                stop(e);
-                onBuy(product, e);
-              }}
-              className={styles.actionBtnPrimary}
-            >
-              {showLawFirmDiscount ? (
-                <span className="inline-flex items-center justify-center gap-1.5">
-                  {t("buy")} ·{" "}
-                  <LawFirmPackageDiscountPrice
-                    saleCents={product.price_cents}
-                    size="inline"
-                    className="text-inherit [&_span:first-child]:text-white/70 [&_span:nth-child(2)]:text-inherit"
-                  />
-                </span>
-              ) : (
-                `${t("buy")} · ${priceLabel}`
-              )}
-            </button>
+          </button>
+        ) : (
+          <div className={styles.priceRow}>
+            {isCollectionCard ? (
+              <p className={styles.price}>{t("landing.exploreCollection")}</p>
+            ) : lawFirmHasWorkspaceAccess ? (
+              <p className={styles.price}>{t("owned")}</p>
+            ) : (
+              <p
+                className={`${styles.price} ${product.price_cents === 0 ? styles.priceFree : ""}`}
+              >
+                {priceLabel}
+              </p>
+            )}
+            {!isCollectionCard && !lawFirmHasWorkspaceAccess ? (
+              <span className={styles.cta}>{product.price_cents === 0 ? t("view") : t("view")}</span>
+            ) : isCollectionCard ? (
+              <span className={styles.cta}>{t("view")}</span>
+            ) : null}
           </div>
-        ) : null}
+        )}
       </div>
     </article>
   );
