@@ -9,8 +9,30 @@ import type { MarketplaceProductCardProduct } from "@/components/marketplace/Mar
 import type { MarketplaceBrowseItem } from "@/lib/marketplace-browse-data";
 import type { VaultDisplayProductCard } from "@/lib/marketplace-vault-display-cards";
 import type { VaultSubcategoryId } from "@/lib/marketplace-vault-categories";
+import styles from "./VaultProductSection.module.css";
+
+const SECTION_HINT_KEYS: Record<string, string> = {
+  "landing.sectionFeatured": "formats.allBlurb",
+  "landing.sectionSeries": "formats.seriesBlurb",
+  "landing.sectionFree": "formats.freeBlurb",
+  "landing.sectionCourses": "formats.courseBlurb",
+  "landing.sectionTemplates": "formats.templateBlurb",
+  "landing.sectionBooks": "formats.bookBlurb",
+  "landing.sectionGuides": "formats.guideBlurb",
+};
+
+const SECTION_EYEBROW_KEYS: Record<string, string> = {
+  "landing.sectionFeatured": "formats.all",
+  "landing.sectionSeries": "formats.series",
+  "landing.sectionFree": "formats.free",
+  "landing.sectionCourses": "formats.course",
+  "landing.sectionTemplates": "formats.template",
+  "landing.sectionBooks": "formats.book",
+  "landing.sectionGuides": "formats.guide",
+};
 
 type VaultProductSectionProps = {
+  sectionKey?: string;
   title: string;
   viewAllHref?: string;
   displayCards: VaultDisplayProductCard[];
@@ -31,6 +53,7 @@ type VaultProductSectionProps = {
 };
 
 export function VaultProductSection({
+  sectionKey,
   title,
   viewAllHref,
   displayCards,
@@ -50,46 +73,44 @@ export function VaultProductSection({
   const viewAllPath = viewAllHref?.split("?")[0]?.split("#")[0];
   const viewAllScroll = Boolean(viewAllPath && viewAllPath !== pathname);
 
-  const sectionClass =
+  const sectionToneClass =
     variant === "series"
-      ? "bg-gradient-to-b from-[#0c1628] to-[#111d32] text-white"
+      ? styles.sectionSeries
       : muted
-        ? "bg-muted/30"
-        : "bg-background";
+        ? styles.sectionMuted
+        : styles.sectionDefault;
 
-  const titleClass =
-    variant === "series"
-      ? "text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]"
-      : "text-2xl font-bold tracking-tight text-foreground sm:text-[1.65rem]";
-
-  const borderClass =
-    variant === "series" ? "border-b border-white/10 pb-4" : "border-b border-border/50 pb-4";
-
-  const viewAllClass =
-    variant === "series"
-      ? "inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-sm font-semibold text-white transition hover:bg-white/15"
-      : "inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#C8922A]/30 bg-[#C8922A]/10 px-3.5 py-1.5 text-sm font-semibold text-[#9a632a] transition hover:bg-[#C8922A]/20";
+  const hintKey = sectionKey ? SECTION_HINT_KEYS[sectionKey] : undefined;
+  const eyebrowKey = sectionKey ? SECTION_EYEBROW_KEYS[sectionKey] : undefined;
+  const hint = hintKey ? t(hintKey) : null;
+  const eyebrow = eyebrowKey ? t(eyebrowKey) : null;
 
   return (
-    <section className={sectionClass}>
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className={`mb-8 flex items-end justify-between gap-4 ${borderClass}`}>
-          <h2 className={titleClass}>{title}</h2>
+    <section className={`${styles.section} ${sectionToneClass}`}>
+      <div className={styles.inner}>
+        <header className={styles.header}>
+          <div className={styles.headerMain}>
+            {eyebrow ? <p className={styles.eyebrow}>{eyebrow}</p> : null}
+            <h2 className={styles.title}>{title}</h2>
+            {hint ? <p className={styles.hint}>{hint}</p> : null}
+          </div>
           {viewAllHref ? (
-            <Link href={viewAllHref} scroll={viewAllScroll} className={viewAllClass}>
+            <Link href={viewAllHref} scroll={viewAllScroll} className={styles.viewAll}>
               {t("landing.viewAll")}
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
           ) : null}
+        </header>
+        <div className={styles.railTrack}>
+          <VaultProductGrid
+            displayCards={displayCards}
+            seriesMembersByKey={seriesMembersByKey}
+            expandedSeriesKey={expandedSeriesKey}
+            onToggleSeries={onToggleSeries}
+            layout={layout}
+            {...gridProps}
+          />
         </div>
-        <VaultProductGrid
-          displayCards={displayCards}
-          seriesMembersByKey={seriesMembersByKey}
-          expandedSeriesKey={expandedSeriesKey}
-          onToggleSeries={onToggleSeries}
-          layout={layout}
-          {...gridProps}
-        />
       </div>
     </section>
   );
