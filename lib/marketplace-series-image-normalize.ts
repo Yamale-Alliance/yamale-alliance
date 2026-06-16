@@ -41,7 +41,7 @@ function shouldShareSeriesCover(
 }
 
 /**
- * For series that share one cover across all items (e.g. At a Glance), copy the first
+ * For series that share one cover across all items, copy the first
  * item image onto siblings so cards stay visually consistent. Skips series with
  * per-country item covers enabled, or when members already have different covers.
  */
