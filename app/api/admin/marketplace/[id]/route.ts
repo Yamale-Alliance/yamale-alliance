@@ -14,6 +14,8 @@ import {
 import { vaultSeriesUsesPerCountryCoversFromDb } from "@/lib/marketplace-vault-series";
 import { resolveFocusCountryForSave } from "@/lib/marketplace-vault-country";
 import { assignMarketplaceItemSlug } from "@/lib/content-slug-assign";
+import { revalidateMarketplaceCatalogCache } from "@/lib/marketplace-catalog-cache";
+import { parseCoverFocalInput } from "@/lib/marketplace-cover-framing";
 import {
   legacyFieldsFromMarketplaceFiles,
   listMarketplaceItemFiles,
@@ -106,6 +108,14 @@ export async function PUT(
     if (typeof price_cents === "number") updates.price_cents = Math.max(0, Math.round(price_cents));
     if (typeof currency === "string" && currency) updates.currency = currency;
     if (image_url !== undefined) updates.image_url = image_url || null;
+    const focal = parseCoverFocalInput(
+      (body as { cover_focal_x?: unknown }).cover_focal_x,
+      (body as { cover_focal_y?: unknown }).cover_focal_y
+    );
+    if (focal) {
+      updates.cover_focal_x = focal.x;
+      updates.cover_focal_y = focal.y;
+    }
     if (typeof published === "boolean") updates.published = published;
     if (typeof sort_order === "number") updates.sort_order = sort_order;
     if (legacyFromLanguages) {
@@ -230,6 +240,7 @@ export async function PUT(
     });
 
     const syncedLanguageFiles = await listMarketplaceItemFiles(supabase, id);
+    revalidateMarketplaceCatalogCache();
     return NextResponse.json({ item: data, language_files: syncedLanguageFiles });
   } catch (err) {
     console.error("Admin marketplace PUT error:", err);
@@ -263,6 +274,8 @@ export async function DELETE(
     entityId: id,
     details: {},
   });
+
+  revalidateMarketplaceCatalogCache();
 
   return NextResponse.json({ ok: true });
 }
