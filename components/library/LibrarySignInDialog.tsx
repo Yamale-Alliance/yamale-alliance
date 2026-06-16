@@ -38,7 +38,9 @@ export function LibrarySignInDialog({ open, onOpenChange, returnPath }: LibraryS
             </Dialog.Close>
           </div>
           <Dialog.Title className="mt-4 text-xl font-semibold tracking-tight text-foreground">
-            {t("dialogTitle")}
+            {t.rich("dialogTitle", {
+              free: (chunks) => <span className="font-bold uppercase">{chunks}</span>,
+            })}
           </Dialog.Title>
           <Dialog.Description className="mt-2 text-sm leading-relaxed text-muted-foreground">
             {t("dialogBody")}
