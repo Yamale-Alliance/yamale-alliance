@@ -1,15 +1,14 @@
 /**
- * Sentry helpers for launch-critical flows. No-ops when DSN is unset (local dev).
+ * Sentry helpers for launch-critical flows. No-ops when monitoring is disabled.
  */
 
 import * as Sentry from "@sentry/nextjs";
+import { isSentryEnabled } from "@/lib/sentry-enabled";
 
 export type MonitoringArea = "api" | "webhooks" | "payments" | "ai";
 
 function monitoringEnabled(): boolean {
-  return Boolean(
-    process.env.NEXT_PUBLIC_SENTRY_DSN?.trim() || process.env.SENTRY_DSN?.trim()
-  );
+  return isSentryEnabled();
 }
 
 function withMonitoringScope(
