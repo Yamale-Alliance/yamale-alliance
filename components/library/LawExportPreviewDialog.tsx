@@ -189,7 +189,7 @@ export function LawExportPreviewDialog({
                 </p>
               </div>
 
-              <div className="law-export-preview-prose prose prose-sm max-w-none text-neutral-900 prose-headings:text-[#0D1B2A] prose-p:text-justify prose-p:leading-[1.7] prose-th:border prose-th:border-neutral-300 prose-th:bg-neutral-100 prose-th:px-2 prose-th:py-1.5 prose-td:border prose-td:border-neutral-200 prose-td:px-2 prose-td:py-1.5 prose-table:text-sm print:prose-sm">
+              <div className="law-export-preview-prose prose prose-sm max-w-none text-neutral-900 prose-headings:text-[#0D1B2A] prose-p:text-left prose-p:leading-[1.7] prose-th:border prose-th:border-neutral-300 prose-th:bg-neutral-100 prose-th:px-2 prose-th:py-1.5 prose-td:border prose-td:border-neutral-200 prose-td:px-2 prose-td:py-1.5 prose-table:text-sm print:prose-sm">
                 {sections.map((sec) => (
                   <section key={sec.id} className="mb-10 print:mb-7">
                     <h2 className="heading mb-4 border-s-4 border-[#C8922A] ps-3 text-lg font-extrabold uppercase tracking-[0.03em] text-[#0D1B2A] sm:text-xl">
