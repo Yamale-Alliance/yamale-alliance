@@ -4,18 +4,33 @@
   width: 100%;
   height: 100%;
   min-height: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  overflow: visible;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, #9a632a 18%);
+  border-radius: 14px;
+  background: var(--card);
+  overflow: hidden;
   outline: none;
   cursor: pointer;
   text-align: left;
-  transition: transform 0.2s ease;
+  box-shadow:
+    0 1px 2px rgba(13, 27, 42, 0.04),
+    0 6px 20px rgba(13, 27, 42, 0.07);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .card:hover {
   transform: translateY(-3px);
+  border-color: rgba(200, 146, 42, 0.45);
+  box-shadow:
+    0 2px 4px rgba(13, 27, 42, 0.05),
+    0 12px 32px rgba(13, 27, 42, 0.11);
+}
+
+:global(.dark) .card {
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
+}
+
+:global(.dark) .card:hover {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
 }
 
 .card:focus-visible {
@@ -29,23 +44,19 @@
   width: 100%;
   aspect-ratio: 16 / 9;
   flex-shrink: 0;
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
-  background: var(--muted);
-  box-shadow: 0 4px 14px rgba(13, 27, 42, 0.12);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 90%, #c8922a 10%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--muted) 88%, var(--card)) 0%,
+    var(--card) 100%
+  );
   transition: box-shadow 0.2s ease;
 }
 
 .card:hover .media {
-  box-shadow: 0 8px 24px rgba(13, 27, 42, 0.18);
-}
-
-:global(.dark) .media {
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
-}
-
-:global(.dark) .card:hover .media {
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  box-shadow: none;
 }
 
 .collectionHover {
@@ -177,7 +188,7 @@
   flex-direction: column;
   gap: 6px;
   min-height: 0;
-  padding: 12px 4px 0;
+  padding: 12px 14px 14px;
 }
 
 .title {
@@ -199,48 +210,84 @@
   font-size: 0.75rem;
   font-weight: 500;
   line-height: 1.4;
-  color: var(--muted-foreground);
+  color: color-mix(in srgb, var(--muted-foreground) 88%, var(--foreground));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.priceRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 2px;
+.collectionCta {
+  margin-top: 6px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #c8922a;
 }
 
-.price {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 800;
+.actionRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.btnPrimary,
+.btnSecondary,
+.btnSecondaryInCart {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
   line-height: 1.2;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.15s ease, background 0.15s ease;
+}
+
+.btnPrimary {
+  border: none;
+  color: #fff;
+  background: linear-gradient(135deg, #9a632a 0%, #c8922a 100%);
+  box-shadow: 0 2px 8px rgba(154, 99, 42, 0.28);
+}
+
+.btnPrimary:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+.btnSecondary {
+  border: 1px solid var(--border);
+  background: transparent;
   color: var(--foreground);
 }
 
-.priceFree {
-  color: #059669;
+.btnSecondary:hover:not(:disabled) {
+  background: var(--accent);
 }
 
-:global(.dark) .priceFree {
-  color: #34d399;
+.btnSecondaryInCart {
+  border: 1px solid rgba(200, 146, 42, 0.45);
+  background: rgba(200, 146, 42, 0.08);
+  color: #9a632a;
 }
 
-.cta {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: #c8922a;
-  opacity: 0;
-  transition: opacity 0.15s ease;
+:global(.dark) .btnSecondaryInCart {
+  color: #e8b84b;
 }
 
-.card:hover .cta {
-  opacity: 1;
+.btnPrimary:disabled,
+.btnSecondary:disabled,
+.btnSecondaryInCart:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .seriesBuyBtn {
