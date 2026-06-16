@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { auth } from "@clerk/nextjs/server";
 import { isAdvisoryWorkspacePreviewEnabled } from "@/lib/law-firm-advisory-preview";
-import { fetchPublishedMarketplaceItem } from "@/lib/marketplace-item-db";
+import { fetchPublishedMarketplaceItem, isMissingDbColumnError } from "@/lib/marketplace-item-db";
+import { DEFAULT_COVER_FOCAL } from "@/lib/marketplace-cover-framing";
 import {
   listMarketplaceItemFiles,
   publicLanguageFileMeta,
@@ -24,11 +25,14 @@ export async function GET(
     }
 
     const supabase = getSupabaseServer();
-    const { data, error } = await fetchPublishedMarketplaceItem(
-      supabase,
-      slugOrId,
-      "id, slug, type, title, author, description, price_cents, currency, image_url, published, sort_order, file_path, file_name, file_format, video_url, landing_page_html, package_offers, vault_subcategory, created_at, is_course"
-    );
+    const baseSelect =
+      "id, slug, type, title, author, description, price_cents, currency, image_url, published, sort_order, file_path, file_name, file_format, video_url, landing_page_html, package_offers, vault_subcategory, created_at, is_course";
+    const selectWithFocal = `${baseSelect}, cover_focal_x, cover_focal_y`;
+
+    let { data, error } = await fetchPublishedMarketplaceItem(supabase, slugOrId, selectWithFocal);
+    if (error && isMissingDbColumnError(error, "cover_focal_x")) {
+      ({ data, error } = await fetchPublishedMarketplaceItem(supabase, slugOrId, baseSelect));
+    }
 
     const row = data as (MarketplaceItemRow & { file_path?: string | null; video_url?: string | null }) | null;
     if (error || !row || !row.published) {
@@ -58,6 +62,10 @@ export async function GET(
     const { file_path: _fp, ...rest } = row;
     const item = {
       ...rest,
+      cover_focal_x:
+        typeof row.cover_focal_x === "number" ? row.cover_focal_x : DEFAULT_COVER_FOCAL.x,
+      cover_focal_y:
+        typeof row.cover_focal_y === "number" ? row.cover_focal_y : DEFAULT_COVER_FOCAL.y,
       purchased,
       has_file,
       language_codes,
