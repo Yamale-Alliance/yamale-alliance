@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { VaultCoverImage } from "@/components/marketplace/VaultCoverImage";
 import { MarketplaceProductCard } from "@/components/marketplace/MarketplaceProductCard";
+import type { MarketplaceProductCardProduct } from "@/components/marketplace/MarketplaceProductCard";
 import {
   MarketplaceVaultCheckoutDialog,
   type MarketplaceVaultCheckoutChoice,
@@ -17,6 +18,9 @@ import {
 } from "@/components/checkout/PaymentMethodPicker";
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { computeSeriesOfferFromBrowseItems } from "@/lib/marketplace-series-offers";
+import type { MarketplaceItemPackOffer } from "@/lib/marketplace-item-packs";
+import { notifyMarketplaceCartUpdated } from "@/lib/marketplace-cart-events";
+import { useMarketplaceCart } from "@/lib/use-marketplace-cart";
 import {
   isFreeVaultItem,
   isPaidVaultSubcategory,
@@ -54,8 +58,10 @@ export function VaultSeriesPageClient({
   const { isSignedIn } = useAppUser();
   const [items] = useState(initialPayload.items);
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
-  const [cartItemIds, setCartItemIds] = useState<Set<string>>(new Set());
+  const { itemIds: cartItemIds, refresh: refreshCart } = useMarketplaceCart(!!isSignedIn);
   const [buyModalOpen, setBuyModalOpen] = useState(false);
+  const [buyModalProduct, setBuyModalProduct] = useState<MarketplaceProductCardProduct | null>(null);
+  const [buyModalPackOffer, setBuyModalPackOffer] = useState<MarketplaceItemPackOffer | null>(null);
   const [checkoutChoice, setCheckoutChoice] = useState<MarketplaceVaultCheckoutChoice>("series");
   const [buyCheckoutLoading, setBuyCheckoutLoading] = useState(false);
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>(
@@ -107,24 +113,12 @@ export function VaultSeriesPageClient({
     return computeSeriesOfferFromBrowseItems(seriesId as VaultSubcategoryId, members);
   }, [seriesId, members]);
 
-  useLayoutEffect(() => {
-    if (!isSignedIn) return;
-    fetch("/api/cart", { credentials: "include" })
-      .then((r) => r.json())
-      .then((data: { cart?: Array<{ marketplace_item_id: string }> }) => {
-        setCartItemIds(new Set((data.cart ?? []).map((row) => row.marketplace_item_id)));
-      })
-      .catch(() => {});
-  }, [isSignedIn]);
-
-  const refreshCart = () => {
-    if (!isSignedIn) return;
-    fetch("/api/cart", { credentials: "include" })
-      .then((r) => r.json())
-      .then((data: { cart?: Array<{ marketplace_item_id: string }> }) => {
-        setCartItemIds(new Set((data.cart ?? []).map((row) => row.marketplace_item_id)));
-      })
-      .catch(() => {});
+  const closeBuyModal = () => {
+    setBuyModalOpen(false);
+    setBuyModalProduct(null);
+    setBuyModalPackOffer(null);
+    setCheckoutChoice("series");
+    setBuyCheckoutLoading(false);
   };
 
   const handleAddToCart = async (productId: string, e: React.MouseEvent) => {
@@ -142,7 +136,29 @@ export function VaultSeriesPageClient({
         credentials: "include",
         body: JSON.stringify({ marketplace_item_id: productId, quantity: 1 }),
       });
-      if (res.ok) refreshCart();
+      if (res.ok) {
+        await refreshCart();
+        notifyMarketplaceCartUpdated();
+      }
+    } finally {
+      setAddingToCart(null);
+    }
+  };
+
+  const handleRemoveFromCart = async (productId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isSignedIn) return;
+    setAddingToCart(productId);
+    try {
+      const res = await fetch(`/api/cart?item_id=${productId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (res.ok) {
+        await refreshCart();
+        notifyMarketplaceCartUpdated();
+      }
     } finally {
       setAddingToCart(null);
     }
@@ -153,20 +169,61 @@ export function VaultSeriesPageClient({
       window.location.href = `/sign-in?redirect_url=${encodeURIComponent(window.location.pathname + window.location.search)}`;
       return;
     }
+    setBuyModalProduct(null);
+    setBuyModalPackOffer(null);
+    setCheckoutChoice("series");
     setBuyModalOpen(true);
   };
 
+  const openBuyProduct = (product: MarketplaceProductCardProduct, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isSignedIn) {
+      window.location.href = `/sign-in?redirect_url=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+      return;
+    }
+    setBuyModalProduct(product);
+    setBuyModalPackOffer(null);
+    setCheckoutChoice("item");
+    setBuyModalOpen(true);
+    if (product.price_cents > 0) {
+      fetch(`/api/marketplace/${product.id}/pack-offer`, { credentials: "include" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: { offer?: MarketplaceItemPackOffer } | null) => {
+          setBuyModalPackOffer(data?.offer ?? null);
+        })
+        .catch(() => setBuyModalPackOffer(null));
+    }
+  };
+
   const submitBuyCheckout = async () => {
-    if (!offer || offer.fullyOwned) return;
+    const useSeries =
+      checkoutChoice === "series" && offer && !offer.fullyOwned && !buyModalProduct;
+    const usePack = checkoutChoice === "pack" && buyModalPackOffer?.packEligible;
+    const useItem = checkoutChoice === "item" && buyModalProduct;
+    if (!useSeries && !usePack && !useItem) return;
+
     setBuyCheckoutLoading(true);
     try {
-      const res = await fetch("/api/payments/marketplace-series-checkout", {
+      const checkoutUrl = useSeries
+        ? "/api/payments/marketplace-series-checkout"
+        : usePack
+          ? "/api/payments/marketplace-pack-checkout"
+          : "/api/payments/marketplace-checkout";
+      const successPath = window.location.pathname + window.location.search;
+      const res = await fetch(checkoutUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          seriesId,
-          success_path: window.location.pathname + window.location.search,
+          ...(useSeries
+            ? { seriesId, success_path: successPath }
+            : usePack
+              ? {
+                  anchorItemId: buyModalPackOffer!.anchorItemId,
+                  success_path: successPath,
+                }
+              : { itemId: buyModalProduct!.id, success_path: successPath }),
           provider: paymentProvider,
           ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
         }),
@@ -185,13 +242,15 @@ export function VaultSeriesPageClient({
     offer && offer.ownedCount > 0 ? offer.chargeCents : (offer?.bundleCents ?? offer?.chargeCents ?? 0);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-24">
       <MarketplaceVaultCheckoutDialog
         open={buyModalOpen}
-        onOpenChange={setBuyModalOpen}
-        product={null}
+        onOpenChange={(open) => {
+          if (!open) closeBuyModal();
+        }}
+        product={buyModalProduct}
         seriesOffer={offer}
-        packOffer={null}
+        packOffer={buyModalPackOffer}
         choice={checkoutChoice}
         onChoiceChange={setCheckoutChoice}
         paymentProvider={paymentProvider}
@@ -317,8 +376,8 @@ export function VaultSeriesPageClient({
                   cartItemIds={cartItemIds}
                   addingToCart={addingToCart}
                   onAddToCart={handleAddToCart}
-                  onRemoveFromCart={() => {}}
-                  onBuy={() => {}}
+                  onRemoveFromCart={handleRemoveFromCart}
+                  onBuy={openBuyProduct}
                   advisoryWorkspacePreview={initialPayload.advisoryWorkspacePreview}
                   coverPriority={index < 8}
                   returnTo={seriesReturnPath}
