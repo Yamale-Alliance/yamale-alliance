@@ -18,6 +18,8 @@ SENTRY_AUTH_TOKEN=sntrys_…
 
 3. Redeploy. Without `NEXT_PUBLIC_SENTRY_DSN`, monitoring is disabled (no-op).
 
+**Local dev:** Sentry is **skipped** when `NODE_ENV=development` unless you set `SENTRY_ENABLE_IN_DEV=true`. This avoids slow Turbopack compiles of the Sentry + OpenTelemetry instrumentation graph on every `npm run dev` while the DSN remains in `.env` for production builds.
+
 Optional: connect the **Vercel** integration in Sentry for deployment markers and serverless metrics.
 
 ## What is captured automatically
