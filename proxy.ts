@@ -30,7 +30,7 @@ const isPublicRoute = createRouteMatcher([
   "/sitemap.xml",
   "/robots.txt",
   "/llms.txt",
-  "/library(.*)", // page shows sign-in prompt; laws API requires Clerk session
+  "/library(.*)", // browse is public; sign-in prompt on law open
   "/afcfta(.*)",
   "/ai-research(.*)",
   "/ai-legal-search-africa(.*)",
@@ -55,6 +55,12 @@ function isPublicMarketplaceCatalogGet(request: Request): boolean {
   if (request.method !== "GET") return false;
   const pathname = new URL(request.url).pathname;
   return pathname === "/api/marketplace" || pathname === "/api/pricing";
+}
+
+/** Public library list GET only — law detail/summary routes enforce session in handlers. */
+function isPublicLibraryLawsListGet(request: Request): boolean {
+  if (request.method !== "GET") return false;
+  return new URL(request.url).pathname === "/api/laws";
 }
 
 // Basic HTTP Authentication
@@ -85,7 +91,8 @@ export default clerkMiddleware(async (auth, request) => {
     return NextResponse.redirect(dest, 308);
   }
 
-  const skipClerkSessionProbe = isPublicMarketplaceCatalogGet(request);
+  const skipClerkSessionProbe =
+    isPublicMarketplaceCatalogGet(request) || isPublicLibraryLawsListGet(request);
   const authState = skipClerkSessionProbe ? null : await auth();
   const userId = authState?.userId ?? null;
 
@@ -144,7 +151,7 @@ export default clerkMiddleware(async (auth, request) => {
   }
 
   // Clerk authentication (batch eval uses AI_EVAL_SECRET + AI_EVAL_CLERK_USER_ID on POST /api/ai/chat)
-  if (!isPublicRoute(request) && !isAiEvalChat) {
+  if (!isPublicRoute(request) && !isAiEvalChat && !isPublicLibraryLawsListGet(request)) {
     await auth.protect();
   }
 
