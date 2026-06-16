@@ -467,6 +467,15 @@ body:has(.marketplace-package-page) {
   overflow-x: clip;
 }
 
+/* Vault browse landing — warm catalog canvas in light mode */
+:root:not(.dark) .vault-landing-catalog {
+  background: linear-gradient(180deg, #faf7f2 0%, #f6f2eb 45%, #faf7f2 100%);
+}
+
+.vault-landing-catalog > section:last-child {
+  padding-bottom: 0.5rem;
+}
+
 /* Platform chrome stacking (do not set position:relative on header — it breaks sticky top-0). */
 footer.yamale-site-footer,
 div.yamale-site-chrome {
