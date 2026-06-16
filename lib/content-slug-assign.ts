@@ -155,13 +155,15 @@ export async function resolveMarketplacePublicMeta(
       .maybeSingle();
     if (error) {
       if (/column.*slug/i.test(String(error.message ?? "")) && column === "slug") return null;
+      const code = (error as { code?: string }).code;
+      if (code === "22P02") return null;
       throw error;
     }
     return data as Record<string, unknown> | null;
   };
 
   let row = isUuid(param) ? await fetchRow("id") : await fetchRow("slug");
-  if (!row && !isUuid(param)) row = await fetchRow("id");
+  if (!row && isUuid(param)) row = await fetchRow("slug");
   if (!row?.id || typeof row.title !== "string") return null;
 
   let slug = typeof row.slug === "string" ? row.slug.trim() : "";
