@@ -697,7 +697,6 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
                 lomiAvailable={lomiAvailable}
                 lomiComingSoon={lomiComingSoon}
                 variant="segmented"
-                tone="dark"
               />
             </div>
           ) : null}
@@ -819,7 +818,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-24">
       <MarketplaceVaultCheckoutDialog
         open={checkoutOpen}
         onOpenChange={setCheckoutOpen}
@@ -973,22 +972,22 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
         <section className={styles.lowerBand}>
           <div className={styles.lowerInner}>
             {paymentVerifyInProgress ? (
-              <div className={`${styles.alert} border border-white/10 bg-white/5 text-white/80`}>
+              <div className={`${styles.alert} border border-border bg-muted text-foreground`}>
                 {tCommon("confirmingPayment")}
               </div>
             ) : null}
             {showVerifiedPaymentSuccess ? (
-              <div className={`${styles.alert} border border-green-500/40 bg-green-500/10 text-green-300`}>
+              <div className={`${styles.alert} border border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300`}>
                 {tItem("paymentSuccessItem")}
               </div>
             ) : null}
             {showPaymentNotCompleted && !showVerifiedPaymentSuccess ? (
-              <div className={`${styles.alert} border border-amber-500/40 bg-amber-500/10 text-amber-200`}>
+              <div className={`${styles.alert} border border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200`}>
                 {tItem("paymentNotCompleted")}
               </div>
             ) : null}
             {checkoutCancelled && !showVerifiedPaymentSuccess && !showPaymentNotCompleted ? (
-              <div className={`${styles.alert} border border-amber-500/40 bg-amber-500/10 text-amber-200`}>
+              <div className={`${styles.alert} border border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-200`}>
                 {tItem("checkoutCancelled")}
               </div>
             ) : null}
@@ -1039,7 +1038,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
             {getYouTubeEmbedUrl(item.video_url ?? null) && (free || owned) ? (
               <section className={styles.contentSection}>
                 <h2 className={styles.lowerSectionTitle}>{tItem("productVideo")}</h2>
-                <div className="overflow-hidden rounded-xl border border-white/10 bg-black">
+                <div className="overflow-hidden rounded-xl border border-border bg-black">
                   <div className="relative w-full pt-[56.25%]">
                     <iframe
                       src={getYouTubeEmbedUrl(item.video_url ?? null) ?? ""}
@@ -1056,7 +1055,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
             {owned ? (
               <section className={styles.contentSection}>
                 <h2 className={styles.lowerSectionTitle}>{tItem("rateProduct")}</h2>
-                <p className="mb-3 text-sm text-white/65">{tItem("rateProductHint")}</p>
+                <p className="mb-3 text-sm text-muted-foreground">{tItem("rateProductHint")}</p>
                 <div className="flex items-center gap-2">
                   {[1, 2, 3, 4, 5].map((value) => {
                     const active = (hoverRating ?? myRating ?? 0) >= value;
@@ -1075,17 +1074,17 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
                       </button>
                     );
                   })}
-                  <span className="ml-2 text-xs text-white/55">
+                  <span className="ml-2 text-xs text-muted-foreground">
                     {myRating ? tItem("youRated", { rating: myRating }) : tItem("clickToRate")}
                   </span>
                 </div>
                 {ratingError ? (
-                  <p className="mt-1 text-xs text-red-400">{ratingError}</p>
+                  <p className="mt-1 text-xs text-destructive">{ratingError}</p>
                 ) : null}
               </section>
             ) : null}
 
-            {error ? <p className="text-sm text-red-400">{error}</p> : null}
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
           </div>
         </section>
       )}
