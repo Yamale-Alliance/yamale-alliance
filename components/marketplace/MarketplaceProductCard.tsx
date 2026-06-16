@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, Check, Eye, GraduationCap, LayoutTemplate } from "lucide-react";
+import { BookOpen, Check, Eye, GraduationCap, LayoutTemplate, Loader2, ShoppingCart, Zap } from "lucide-react";
 import { VaultCountryMapIcon } from "@/components/marketplace/VaultCountryMapIcon";
 import { displayVaultProductTitle, displayVaultPublisher } from "@/lib/marketplace-display";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
@@ -117,6 +117,12 @@ export function MarketplaceProductCard({
   collectionExpanded = false,
   onCollectionToggle,
   iconOnlyMedia = false,
+  isSignedIn,
+  cartItemIds,
+  addingToCart,
+  onAddToCart,
+  onRemoveFromCart,
+  onBuy,
   paidSeriesSummary,
   onBuySeries,
   advisoryWorkspacePreview = false,
@@ -170,6 +176,14 @@ export function MarketplaceProductCard({
 
   const showSeriesBuy =
     paidSeriesSummary && isCollectionCard && onBuySeries && !paidSeriesSummary.fullyOwned;
+
+  const isInCart = cartItemIds.has(product.id);
+  const isAddingThis = addingToCart === product.id;
+  const showPurchaseActions =
+    !isCollectionCard && !isOwnedBadge && !lawFirmHasWorkspaceAccess && product.price_cents > 0;
+  const showFreeAction =
+    !isCollectionCard && !isOwnedBadge && !lawFirmHasWorkspaceAccess && product.price_cents === 0;
+  const showOwnedAction = !isCollectionCard && (isOwnedBadge || lawFirmHasWorkspaceAccess);
 
   const priceLabel =
     product.price_cents === 0
@@ -294,26 +308,86 @@ export function MarketplaceProductCard({
               t("buyFullSeries", { price: formatUsd(seriesChargeCents) })
             )}
           </button>
-        ) : (
-          <div className={styles.priceRow}>
-            {isCollectionCard ? (
-              <p className={styles.price}>{t("landing.exploreCollection")}</p>
-            ) : lawFirmHasWorkspaceAccess ? (
-              <p className={styles.price}>{t("owned")}</p>
-            ) : (
-              <p
-                className={`${styles.price} ${product.price_cents === 0 ? styles.priceFree : ""}`}
+        ) : isCollectionCard ? (
+          <span className={styles.collectionCta}>{t("landing.exploreCollection")}</span>
+        ) : showPurchaseActions ? (
+          <div className={styles.actionRow}>
+            <button
+              type="button"
+              onClick={(e) => {
+                stop(e);
+                onBuy(product, e);
+              }}
+              disabled={isAddingThis}
+              className={styles.btnPrimary}
+            >
+              {isAddingThis ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              ) : (
+                <Zap className="h-3.5 w-3.5" aria-hidden />
+              )}
+              {t("buyNow")}
+            </button>
+            {isInCart ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  stop(e);
+                  onRemoveFromCart(product.id, e);
+                }}
+                disabled={isAddingThis}
+                className={styles.btnSecondaryInCart}
               >
-                {priceLabel}
-              </p>
+                {isAddingThis ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <Check className="h-3.5 w-3.5" aria-hidden />
+                )}
+                {t("removeFromCart")}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => {
+                  stop(e);
+                  onAddToCart(product.id, e);
+                }}
+                disabled={isAddingThis}
+                className={styles.btnSecondary}
+              >
+                {isAddingThis ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <ShoppingCart className="h-3.5 w-3.5" aria-hidden />
+                )}
+                {t("addToCart")}
+              </button>
             )}
-            {!isCollectionCard && !lawFirmHasWorkspaceAccess ? (
-              <span className={styles.cta}>{product.price_cents === 0 ? t("view") : t("view")}</span>
-            ) : isCollectionCard ? (
-              <span className={styles.cta}>{t("view")}</span>
-            ) : null}
           </div>
-        )}
+        ) : showFreeAction ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              stop(e);
+              navigate();
+            }}
+            className={styles.btnPrimary}
+          >
+            {t("getForFree")}
+          </button>
+        ) : showOwnedAction ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              stop(e);
+              navigate();
+            }}
+            className={styles.btnSecondary}
+          >
+            <Eye className="h-3.5 w-3.5" aria-hidden />
+            {t("view")}
+          </button>
+        ) : null}
       </div>
     </article>
   );
