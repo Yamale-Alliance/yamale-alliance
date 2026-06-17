@@ -5,6 +5,11 @@ export function isLawyersNetworkLive(): boolean {
   return process.env.NEXT_PUBLIC_LAWYERS_NETWORK_ENABLED === "1";
 }
 
+/** Client-side: search + unlock when live, or when signed-in user is admin (preview). */
+export function isLawyersNetworkSearchEnabled(options?: { isAdmin?: boolean }): boolean {
+  return isLawyersNetworkLive() || Boolean(options?.isAdmin);
+}
+
 export function lawyersNetworkApiDisabledResponse(): NextResponse {
   return NextResponse.json(
     {
