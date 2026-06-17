@@ -13,9 +13,9 @@ import { buildLomiOneTimeCatalogCheckoutInput } from "@/lib/lomi-catalog-checkou
 import { PAWAPAY_COUNTRY_BY_NAME } from "@/lib/pawapay-payment-countries";
 import { getLawyerSearchUnlockPriceUsdCents } from "@/lib/platform-settings";
 import {
-  isLawyersNetworkLive,
   lawyersNetworkApiDisabledResponse,
 } from "@/lib/lawyers-network-enabled";
+import { isLawyersNetworkAccessible } from "@/lib/lawyers-network-access";
 
 type CheckoutProvider = "pawapay" | "lomi";
 
@@ -24,7 +24,7 @@ type CheckoutProvider = "pawapay" | "lomi";
  * Body: { lawyerIds: string[] }. On success, webhook/confirm-payment records unlocks for each.
  */
 export async function POST(request: NextRequest) {
-  if (!isLawyersNetworkLive()) {
+  if (!(await isLawyersNetworkAccessible())) {
     return lawyersNetworkApiDisabledResponse();
   }
   try {
