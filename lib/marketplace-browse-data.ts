@@ -6,7 +6,7 @@ import {
   normalizeVaultSeriesMemberImages,
   perCountryCoversMapFromSeries,
 } from "@/lib/marketplace-series-image-normalize";
-import { sortMarketplaceLanguageCodes } from "@/lib/marketplace-item-files";
+import { resolveMarketplaceDisplayLanguageCodes } from "@/lib/marketplace-item-files";
 import {
   fetchVaultSeriesDbRows,
   mergeVaultSeriesRecords,
@@ -133,7 +133,7 @@ async function loadMarketplaceCatalogUncached(): Promise<CachedMarketplaceCatalo
       cover_focal_x: focalX ?? DEFAULT_COVER_FOCAL.x,
       cover_focal_y: focalY ?? DEFAULT_COVER_FOCAL.y,
       owned: false,
-      language_codes: codes.length > 0 ? sortMarketplaceLanguageCodes(codes) : [],
+      language_codes: resolveMarketplaceDisplayLanguageCodes(item, codes),
     };
   });
 
