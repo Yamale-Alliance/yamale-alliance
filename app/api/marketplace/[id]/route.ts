@@ -7,7 +7,7 @@ import { DEFAULT_COVER_FOCAL } from "@/lib/marketplace-cover-framing";
 import {
   listMarketplaceItemFiles,
   publicLanguageFileMeta,
-  sortMarketplaceLanguageCodes,
+  resolveMarketplaceDisplayLanguageCodes,
 } from "@/lib/marketplace-item-files";
 import type { Database } from "@/lib/database.types";
 
@@ -54,10 +54,10 @@ export async function GET(
     }
 
     const languageFiles = await listMarketplaceItemFiles(supabase, itemId);
-    const language_codes =
-      languageFiles.length > 0
-        ? sortMarketplaceLanguageCodes(languageFiles.map((f) => f.language_code))
-        : [];
+    const language_codes = resolveMarketplaceDisplayLanguageCodes(
+      { title: row.title, slug: row.slug },
+      languageFiles.map((f) => f.language_code)
+    );
     const has_file = languageFiles.length > 0 || !!row.file_path;
     const { file_path: _fp, ...rest } = row;
     const item = {
