@@ -218,6 +218,12 @@ import {
 } from "@/lib/ai/output-validator";
 import type { AiSubscriptionTier } from "@/lib/ai-system-prompt-compact";
 import { applyLawRagApprovalFilter } from "@/lib/law-rag-approval";
+import {
+  extractSpecificLawHint,
+  extractSlashCitationFromHint,
+  fetchLawsMatchingSpecificHint,
+  pickLawsForSpecificHint,
+} from "@/lib/ai-specific-law-hint";
 import { recordAutoAiQualityFlags } from "@/lib/ai-auto-quality-flag";
 import {
   buildLawyersHrefFromAiResearch,
@@ -1116,137 +1122,6 @@ function buildExcerptAnchorTokens(query: string, primaryIntentId: string): strin
   return Array.from(new Set(anchors));
 }
 
-function scoreLawAgainstSpecificHint(law: { title?: string | null }, hint: string): number {
-  const title = String(law.title ?? "").toLowerCase();
-  const hintNorm = normalizeSearchQueryForAi(hint).trim().toLowerCase();
-  if (!title || !hintNorm) return 0;
-  let score = 0;
-  if (title === hintNorm) score += 200;
-  if (title.includes(hintNorm) || hintNorm.includes(title)) score += 120;
-  const hintTokens = hintNorm
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter((t) => t.length >= 3);
-  for (const t of hintTokens) {
-    if (title.includes(t)) score += 12;
-  }
-  for (const englishToken of englishLibraryTokensFromFrenchQuery(hint)) {
-    if (title.includes(englishToken.toLowerCase())) score += 18;
-  }
-  if (/\btrademarks?\s+act\b|\btrade\s+marks?\s+act\b/.test(hintNorm) && isNationalTrademarksActTitle(title)) {
-    score += 90;
-  }
-  const cap = hintNorm.match(/\bcap\.?\s*(\d+)\b/i);
-  if (cap?.[1] && title.includes(cap[1])) score += 40;
-  if (/\btax\s+administration\b/.test(hintNorm) && /\btax\s+administration\b/.test(title)) score += 80;
-  if (/\btax\s+act\b/.test(hintNorm) && /\btax\s+act\b/.test(title) && !/\badministration\b/.test(title)) score += 80;
-  return score;
-}
-
-/** Pick the instrument the user named — not whichever unrelated act ranked first on tokens. */
-function pickLawsForSpecificHint(candidateLaws: any[], hint: string): any[] {
-  if (candidateLaws.length === 0) return [];
-  const scored = candidateLaws
-    .map((law) => ({ law, score: scoreLawAgainstSpecificHint(law, hint) }))
-    .sort((a, b) => b.score - a.score);
-  const best = scored[0];
-  if (!best || best.score < 20) return candidateLaws.slice(0, 1);
-  const tied = scored.filter((s) => s.score >= best.score - 5).map((s) => s.law);
-  return tied.slice(0, 2);
-}
-
-function extractSpecificLawHint(query: string): string | null {
-  // Formal citation-style snippets (French Loi N°, Commonwealth Act/Cap, OHADA, Lusophone decreto-lei)
-  if (
-    /\b(loi\s+n[°ºo.]?\s*[\d\-–—/]+|act\s+no\.?\s*\d+|decree(?:t)?(?:\s+no\.?)?\s*[\d\-–—/]+|cap\.?\s*\d+|chapter\s+\d+|decreto-lei\s+n[°ºo.]?\s*[\d/]+|ohada\s+acte\s+uniforme)/i.test(
-      query
-    )
-  ) {
-    return query.trim();
-  }
-
-  const looksLikeNamedLawTitle = (value: string): boolean => {
-    const normalized = value.trim().toLowerCase();
-    if (!normalized) return false;
-
-    // Generic category-level prompts should not collapse retrieval to a single law.
-    const genericCategoryLawPattern =
-      /\b(corporate|tax|labou?r|employment|trade|customs|privacy|data protection|intellectual property|environmental|criminal|civil)\s+laws?\b/i;
-    if (genericCategoryLawPattern.test(normalized)) return false;
-    if (/\blaws?\s+in\s+[a-z]/i.test(normalized)) return false;
-    if (/\blaws?\s+of\s+[a-z]/i.test(normalized)) return false;
-
-    // Treat as specific only when it resembles a named instrument.
-    if (/\b(act|code|regulation|regulations|decree|ordinance|order|proclamation|constitution|bill)\b/i.test(value)) {
-      return true;
-    }
-    if (
-      /\b(loi|code|decret|décret|arrete|arrêté|ordonnance|reglement|règlement|acte\s+uniforme)\b/i.test(
-        value
-      )
-    ) {
-      return true;
-    }
-    if (/\b(trademarks?|trade\s+marks?)\s+act\b/i.test(value)) return true;
-    if (/\b(code\s+du\s+travail|code\s+fiscal|code\s+p[eé]nal|code\s+des\s+investissements)\b/i.test(value)) {
-      return true;
-    }
-    if (/\bcap\.?\s*\d+\b/i.test(value) && /\bact\b/i.test(value)) return true;
-    return false;
-  };
-
-  const q = query.trim().toLowerCase();
-  if (!q) return null;
-  const patterns = [
-    /more info on this\s+(.+)/i,
-    /more information on this\s+(.+)/i,
-    /more info on\s+(.+)/i,
-    /more information on\s+(.+)/i,
-    /tell me more about\s+(.+)/i,
-    /give me more info on\s+(.+)/i,
-  ];
-  for (const p of patterns) {
-    const m = query.match(p);
-    if (m?.[1]?.trim()) {
-      let v = m[1].trim();
-      v = v.replace(/\s+from\s+[a-z\s'-]+$/i, "").trim();
-      if (looksLikeNamedLawTitle(v)) return v;
-      return null;
-    }
-  }
-  // Common named-instrument patterns that users ask in natural language.
-  const trademarksAct = query.match(
-    /\b((?:the\s+)?(?:trade\s+)?marks?\s+act(?:\s*\(cap\.?\s*\d+\))?)\b/i
-  );
-  if (trademarksAct?.[1]?.trim() && looksLikeNamedLawTitle(trademarksAct[1])) return trademarksAct[1].trim();
-
-  const explicitNamedAct =
-    query.match(/\b([A-Z][A-Za-z'’\-\s]+?\s+Companies\s+Act(?:\s*[-,]?\s*\d{4})?)\b/i) ||
-    query.match(/\b([A-Z][A-Za-z'’\-\s]+?\s+Act(?:\s*No\.?\s*[\d/.-]+)?)\b/i);
-  if (explicitNamedAct?.[1]?.trim()) return explicitNamedAct[1].trim();
-
-  const frenchNamedInstrument =
-    query.match(
-      /\b((?:loi|code|décret|decret|arrêté|arrete|ordonnance|règlement|reglement)\s+(?:n[°ºo.]?\s*[\d\-–—/]+\s+)?(?:sur\s+)?[\p{L}\p{N}'’\-\s]{3,80})/iu
-    ) ||
-    query.match(/\b(code\s+du\s+travail|code\s+fiscal|code\s+p[eé]nal|code\s+des\s+investissements)\b/iu);
-  if (frenchNamedInstrument?.[1]?.trim() && looksLikeNamedLawTitle(frenchNamedInstrument[1])) {
-    return frenchNamedInstrument[1].trim();
-  }
-
-  // fallback: if query looks like a direct named-law prompt
-  if (
-    q.includes("law no") ||
-    q.includes("decree") ||
-    q.includes("article") ||
-    q.includes("loi n") ||
-    q.includes("decret") ||
-    q.includes("décret")
-  ) {
-    return query.trim();
-  }
-  return null;
-}
-
 function isTrademarkIntent(query: string): boolean {
   return /\btrademark\b|\btrademarks\b|\bmark registration\b/i.test(query);
 }
@@ -2110,44 +1985,13 @@ async function searchLegalLibrary(
 
     let specificLawRows: any[] | null = null;
     if (specificLawHint) {
-      const specificStop = new Set([
-        "what",
-        "does",
-        "under",
-        "about",
-        "article",
-        "section",
-        "chapter",
-        "say",
-        "from",
-        "this",
-        "that",
-      ]);
-      const specificTokens = specificLawHint
-        .toLowerCase()
-        .split(/[^a-z0-9]+/)
-        .map((t) => t.trim())
-        .filter((t) => t.length >= 3 && !specificStop.has(t))
-        .slice(0, 5);
-      if (specificTokens.length > 0) {
-        let sq = excludeInternalCategoryFromLawsQuery(
-          supabase
-            .from("laws")
-            .select(LAWS_AI_SELECT)
-            .or(LAW_HAS_BODY_OR_FILTER)
-            .neq("status", "Repealed"),
-          internalCategoryId
-        );
-        if (countryId) {
-          sq = applyCountryScopedTitleSearch(sq, countryId, countryScopeOr, specificTokens);
-        } else {
-          for (const t of specificTokens) {
-            sq = sq.ilike("title", `%${escapeIlikePattern(t)}%`);
-          }
-        }
-        const { data: rows } = await sq.limit(40);
-        if (rows?.length) specificLawRows = rows as any[];
-      }
+      const rows = await fetchLawsMatchingSpecificHint(supabase, specificLawHint, {
+        countryId,
+        countryScopeOr,
+        internalCategoryId,
+        lawsSelect: LAWS_AI_SELECT,
+      });
+      if (rows.length > 0) specificLawRows = rows;
     }
 
     let laws: any[] | null = specificLawRows;
@@ -2194,21 +2038,23 @@ async function searchLegalLibrary(
           "this",
           "that",
         ]);
+        const slashCite = extractSlashCitationFromHint(specificLawHint);
         const specificTokens = specificLawHint
           .toLowerCase()
           .split(/[^a-z0-9]+/)
           .map((t) => t.trim())
           .filter((t) => t.length >= 3 && !specificStop.has(t))
           .slice(0, 8);
-        const tokenOr = specificTokens
-          .map((t) => `title.ilike.%${escapeIlikePattern(t)}%`)
-          .join(",");
-        if (countryId && specificTokens.length > 0) {
+        const tokenOrParts = slashCite
+          ? [`title.ilike.%${escapeIlikePattern(slashCite)}%`]
+          : specificTokens.map((t) => `title.ilike.%${escapeIlikePattern(t)}%`);
+        const tokenOr = tokenOrParts.join(",");
+        if (countryId && (slashCite || specificTokens.length > 0)) {
           lawsQuery = applyCountryScopedTitleSearch(
             lawsQuery,
             countryId,
             countryScopeOr,
-            specificTokens
+            slashCite ? [slashCite] : specificTokens
           );
         } else if (countryId && countryScopeOr) {
           lawsQuery = lawsQuery.or(countryScopeOr);
@@ -2654,7 +2500,9 @@ async function searchLegalLibrary(
         );
       }
       if (specificLawHint && candidateLaws.length > 0) {
-        return pickLawsForSpecificHint(candidateLaws, specificLawHint);
+        return pickLawsForSpecificHint(candidateLaws, specificLawHint, {
+          isNationalTrademarksActTitle,
+        });
       }
       // When multiple supranational frameworks are mentioned (e.g. "AfCFTA vs
       // ECOWAS"), guarantee each framework keeps a slot in the response so
@@ -3306,7 +3154,9 @@ async function finalizeAssistantTurn(opts: {
 
   const citationParse = extractCitedDocIndices(assistantTextRaw, legalContext.length);
   const retrievedLawIds = platformGuideMeta ? [] : legalContext.map((l) => l.id);
-  const outputValidation = validateResponse(assistantTextRaw, retrievedLawIds);
+  const outputValidation = validateResponse(assistantTextRaw, retrievedLawIds, {
+    retrievedTitles: legalContext.map((l) => l.title),
+  });
   let outputConfidence: OutputValidationConfidence = outputValidation.confidence;
 
   let content = stripDocMarkersFromAnswer(assistantTextRaw).replace(/[ \t]{2,}/g, " ").trim();
@@ -3857,9 +3707,11 @@ export async function POST(request: NextRequest) {
     const searchCountry = effectiveHints.country ?? dbDetectedCountry;
     const supabaseForTurn = getSupabaseServer() as any;
     const modelIdPromise = resolveModelIdForRequest(tier, requestedModel);
+    const specificLawHintForTurn = extractSpecificLawHint(userQuery);
     const needsTitleCatalog =
       !platformGuideMeta &&
       isLawTitleCatalogForPromptEnabled() &&
+      !specificLawHintForTurn &&
       queryNeedsLawTitleCatalog(userQuery, Boolean(searchCountry));
 
     const libraryPromise: Promise<LegalLibrarySearchResult> = platformGuideMeta
