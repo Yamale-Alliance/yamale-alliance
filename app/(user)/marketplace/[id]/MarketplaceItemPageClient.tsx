@@ -26,6 +26,7 @@ import {
   type MarketplaceFileAccessMeta,
 } from "@/lib/marketplace-file-access";
 import { VaultLanguageBadges } from "@/components/marketplace/VaultLanguageBadges";
+import { resolveMarketplaceDisplayLanguageCodes } from "@/lib/marketplace-item-files";
 import { MarketplaceLandingIframe } from "@/components/marketplace/MarketplaceLandingIframe";
 import { useMarketplacePaymentReturn } from "@/components/marketplace/use-marketplace-payment-return";
 import { notifyMarketplaceCartUpdated } from "@/lib/marketplace-cart-events";
@@ -211,6 +212,17 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
     }
     return backLink;
   }, [backLink, returnTo, item?.vault_subcategory, t]);
+
+  const displayLanguageCodes = useMemo(
+    () =>
+      item
+        ? resolveMarketplaceDisplayLanguageCodes(
+            { title: item.title, slug: item.slug },
+            item.language_codes ?? []
+          )
+        : [],
+    [item]
+  );
 
   const lomiAvailable = isLomiCheckoutAvailable();
   const lomiComingSoon = false;
@@ -599,7 +611,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
   const seriesBlurb = seriesMeta?.blurb ?? seriesMeta?.description ?? null;
   const typeLabel = typeBadgeLabel(item.type, t);
   const formatLabel = formatFileFormatLabel(item.file_format);
-  const languageCount = item.language_codes?.length ?? 0;
+  const languageCount = displayLanguageCodes.length;
   const coverFocalPosition = coverObjectPosition(readItemCoverFocal(item));
   const addedDate =
     item.created_at && !Number.isNaN(Date.parse(item.created_at))
@@ -640,7 +652,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
             <div>
               <p className={styles.includedLabel}>{tItem("includedLanguages")}</p>
               <p className={styles.includedDesc}>
-                <VaultLanguageBadges languageCodes={item.language_codes!} variant="card" />
+                <VaultLanguageBadges languageCodes={displayLanguageCodes} variant="card" />
               </p>
             </div>
           </div>
@@ -959,7 +971,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
                   {tItem("viewAndDownload")}
                 </button>
                 {languageCount > 0 ? (
-                  <VaultLanguageBadges languageCodes={item.language_codes!} variant="card" />
+                  <VaultLanguageBadges languageCodes={displayLanguageCodes} variant="card" />
                 ) : null}
               </div>
             </section>

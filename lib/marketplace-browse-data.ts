@@ -146,7 +146,7 @@ async function loadMarketplaceCatalogUncached(): Promise<CachedMarketplaceCatalo
 
 const getCachedMarketplaceCatalog = unstable_cache(
   loadMarketplaceCatalogUncached,
-  ["marketplace-catalog-v1"],
+  ["marketplace-catalog-v2"],
   { revalidate: 120, tags: [MARKETPLACE_CATALOG_CACHE_TAG] }
 );
 

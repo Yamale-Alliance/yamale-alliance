@@ -13,6 +13,7 @@ import { canUseLawFirmAdvisoryWorkspace } from "@/lib/law-firm-advisory-preview"
 import { advisoryCourseHref, isMarketplaceCourseItem } from "@/lib/marketplace-course";
 import { VaultCoverImage } from "@/components/marketplace/VaultCoverImage";
 import { VaultLanguageBadges } from "@/components/marketplace/VaultLanguageBadges";
+import { resolveMarketplaceDisplayLanguageCodes } from "@/lib/marketplace-item-files";
 import styles from "./MarketplaceProductCard.module.css";
 
 const BRAND = {
@@ -189,7 +190,10 @@ export function MarketplaceProductCard({
     product.price_cents === 0
       ? t("free")
       : formatUsd(product.price_cents);
-  const languageCodes = product.language_codes ?? [];
+  const languageCodes = resolveMarketplaceDisplayLanguageCodes(
+    { title: product.title, slug: product.slug },
+    product.language_codes ?? []
+  );
   const showLanguageFlairs = !isCollectionCard && languageCodes.length > 0;
 
   const navigate = () => router.push(href, { scroll: true });
