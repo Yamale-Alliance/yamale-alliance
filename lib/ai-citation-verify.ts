@@ -75,6 +75,15 @@ export function mergeUsedFlagsFromTitleMentions(
         break;
       }
     }
+
+    if (!out[i]) {
+      for (const slashCite of rawTitle.matchAll(/\b(\d+\/\d{4})\b/g)) {
+        if (stripped.includes(String(slashCite[1]).toLowerCase())) {
+          out[i] = true;
+          break;
+        }
+      }
+    }
   }
   return out;
 }
