@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import {
   listMarketplaceItemFilesByItemIds,
-  sortMarketplaceLanguageCodes,
+  resolveMarketplaceDisplayLanguageCodes,
 } from "@/lib/marketplace-item-files";
 
 /** GET: list all purchased marketplace items for the authenticated user. */
@@ -71,10 +71,10 @@ export async function GET() {
     );
     const itemsWithPurchaseDate = itemRows.map((item) => {
       const languageFiles = filesByItem.get(item.id) ?? [];
-      const language_codes =
-        languageFiles.length > 0
-          ? sortMarketplaceLanguageCodes(languageFiles.map((f) => f.language_code))
-          : [];
+      const language_codes = resolveMarketplaceDisplayLanguageCodes(
+        { title: item.title, slug: (item as { slug?: string | null }).slug },
+        languageFiles.map((f) => f.language_code)
+      );
       return {
         ...item,
         purchased: true,
