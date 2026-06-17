@@ -57,6 +57,37 @@ export function sortMarketplaceLanguageCodes(codes: string[]): string[] {
   );
 }
 
+/** DRC Extractive Industry Subcontractor Pack — display EN+FR (zip includes both; DB may list EN only). */
+export function isDrcExtractiveSubcontractorPack(item: {
+  title?: string | null;
+  slug?: string | null;
+}): boolean {
+  const title = (item.title ?? "").trim().toLowerCase();
+  const slug = (item.slug ?? "").trim().toLowerCase();
+  if (
+    slug.includes("drc") &&
+    slug.includes("extractive") &&
+    slug.includes("subcontractor")
+  ) {
+    return true;
+  }
+  return (
+    title.includes("drc") &&
+    title.includes("extractive") &&
+    title.includes("subcontractor")
+  );
+}
+
+export function resolveMarketplaceDisplayLanguageCodes(
+  item: { title?: string | null; slug?: string | null },
+  codesFromDb: string[]
+): string[] {
+  if (isDrcExtractiveSubcontractorPack(item)) {
+    return sortMarketplaceLanguageCodes(["en", "fr"]);
+  }
+  return codesFromDb.length > 0 ? sortMarketplaceLanguageCodes(codesFromDb) : [];
+}
+
 export function pickPrimaryMarketplaceItemFile(
   files: MarketplaceItemFileRow[]
 ): MarketplaceItemFileRow | null {
