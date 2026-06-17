@@ -2503,6 +2503,10 @@
     "manageTeam": "Gérer l'équipe",
     "searchPrevious": "Rechercher des requêtes précédentes…",
     "recent": "Récent",
+    "starred": "Favoris",
+    "starChat": "Ajouter aux favoris",
+    "unstarChat": "Retirer des favoris",
+    "sidebarBrand": "Yamalé IA",
     "newChat": "Nouvelle conversation",
     "deleteChat": "Supprimer la conversation",
     "noMatchingQueries": "Aucune requête correspondante.",
@@ -2517,7 +2521,21 @@
     "unlimited": "Illimité",
     "openSidebar": "Ouvrir la barre latérale",
     "closeSidebar": "Fermer la barre latérale",
-    "describeQuestion": "Décrivez votre question juridique…",
+    "describeQuestion": "Posez une question sur le droit africain, un texte nommé ou la conformité…",
+    "sendMessage": "Envoyer le message",
+    "emptyHero": {
+      "eyebrow": "Recherche juridique IA Yamalé",
+      "title": "Que souhaitez-vous rechercher ?",
+      "subtitle": "Posez votre question en langage courant. Les réponses citent des textes et instruments régionaux de la bibliothèque Yamalé — recherche indicative uniquement, pas un avis juridique.",
+      "piiNotice": "N'entrez pas de noms personnels, de détails de dossier ou d'informations client confidentielles. Les requêtes sont traitées par les systèmes IA d'Anthropic.",
+      "dismissPii": "Fermer",
+      "quickPrompts": {
+        "mining": "Mines et minéraux",
+        "afcfta": "ZLECAf et commerce",
+        "corporate": "Sociétés et fiscalité",
+        "employment": "Droit du travail"
+      }
+    },
     "stopGenerating": "Arrêter la génération",
     "generating": "Génération…",
     "generatingHint": "Génération… Cliquez pour arrêter",
