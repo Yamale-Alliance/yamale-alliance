@@ -15,7 +15,7 @@ import {
   legacyFieldsFromMarketplaceFiles,
   listMarketplaceItemFilesByItemIds,
   parseMarketplaceItemFilesInput,
-  sortMarketplaceLanguageCodes,
+  resolveMarketplaceDisplayLanguageCodes,
   syncMarketplaceItemFiles,
 } from "@/lib/marketplace-item-files";
 
@@ -47,10 +47,10 @@ export async function GET() {
       const record = row as Record<string, unknown> & { id: string };
       const id = String(record.id);
       const languageFiles = filesByItem.get(id) ?? [];
-      const language_codes =
-        languageFiles.length > 0
-          ? sortMarketplaceLanguageCodes(languageFiles.map((f) => f.language_code))
-          : [];
+      const language_codes = resolveMarketplaceDisplayLanguageCodes(
+        { title: record.title as string | undefined, slug: record.slug as string | undefined },
+        languageFiles.map((f) => f.language_code)
+      );
       return { ...record, language_codes };
     });
     return NextResponse.json({ items });
