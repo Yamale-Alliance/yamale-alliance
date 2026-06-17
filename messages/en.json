@@ -2543,6 +2543,10 @@
     "manageTeam": "Manage team",
     "searchPrevious": "Search previous queries…",
     "recent": "Recent",
+    "starred": "Starred",
+    "starChat": "Star chat",
+    "unstarChat": "Unstar chat",
+    "sidebarBrand": "Yamalé AI",
     "newChat": "New chat",
     "deleteChat": "Delete chat",
     "noMatchingQueries": "No matching queries.",
@@ -2557,7 +2561,21 @@
     "unlimited": "Unlimited",
     "openSidebar": "Open sidebar",
     "closeSidebar": "Close sidebar",
-    "describeQuestion": "Describe your legal question…",
+    "describeQuestion": "Ask about African law, a named instrument, or compliance…",
+    "sendMessage": "Send message",
+    "emptyHero": {
+      "eyebrow": "Yamalé AI Legal Research",
+      "title": "What would you like to research?",
+      "subtitle": "Ask in plain language. Answers cite statutes and regional instruments from the Yamalé library — indicative only, not legal advice.",
+      "piiNotice": "Do not enter personal names, case details, or confidential client information. Queries are processed by Anthropic's AI systems.",
+      "dismissPii": "Dismiss",
+      "quickPrompts": {
+        "mining": "Mining & minerals",
+        "afcfta": "AfCFTA & trade",
+        "corporate": "Corporate & tax",
+        "employment": "Employment law"
+      }
+    },
     "stopGenerating": "Stop generating",
     "generating": "Generating…",
     "generatingHint": "Generating… Click stop to cancel",
