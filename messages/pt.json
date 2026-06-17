@@ -2503,6 +2503,10 @@
     "manageTeam": "Gerir equipa",
     "searchPrevious": "Pesquisar consultas anteriores…",
     "recent": "Recente",
+    "starred": "Com favorito",
+    "starChat": "Marcar com favorito",
+    "unstarChat": "Remover favorito",
+    "sidebarBrand": "Yamalé IA",
     "newChat": "Nova conversa",
     "deleteChat": "Eliminar conversa",
     "noMatchingQueries": "Nenhuma consulta correspondente.",
@@ -2517,7 +2521,21 @@
     "unlimited": "Ilimitado",
     "openSidebar": "Abrir barra lateral",
     "closeSidebar": "Fechar barra lateral",
-    "describeQuestion": "Descreva a sua questão jurídica…",
+    "describeQuestion": "Pergunte sobre direito africano, um instrumento nomeado ou conformidade…",
+    "sendMessage": "Enviar mensagem",
+    "emptyHero": {
+      "eyebrow": "Pesquisa jurídica IA Yamalé",
+      "title": "O que gostaria de pesquisar?",
+      "subtitle": "Pergunte em linguagem simples. As respostas citam estatutos e instrumentos regionais da biblioteca Yamalé — pesquisa indicativa apenas, não aconselhamento jurídico.",
+      "piiNotice": "Não introduza nomes pessoais, detalhes de casos ou informação confidencial de clientes. As consultas são processadas pelos sistemas de IA da Anthropic.",
+      "dismissPii": "Fechar",
+      "quickPrompts": {
+        "mining": "Mineração e minerais",
+        "afcfta": "AfCFTA e comércio",
+        "corporate": "Empresas e fiscalidade",
+        "employment": "Direito laboral"
+      }
+    },
     "stopGenerating": "Parar geração",
     "generating": "A gerar…",
     "generatingHint": "A gerar… Clique para parar",
