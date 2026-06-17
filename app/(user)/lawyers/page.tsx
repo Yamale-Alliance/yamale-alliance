@@ -28,7 +28,7 @@ import {
 } from "@/lib/lawyer-expertise";
 import { LawyersOnboardingVideo } from "@/components/lawyers/LawyersOnboardingVideo";
 import { LawyersNetworkComingSoonBanner } from "@/components/lawyers/LawyersNetworkComingSoonBanner";
-import { isLawyersNetworkLive } from "@/lib/lawyers-network-enabled";
+import { isLawyersNetworkLive, isLawyersNetworkSearchEnabled } from "@/lib/lawyers-network-enabled";
 
 const BRAND = {
   dark: "#221913",
@@ -84,7 +84,10 @@ function pseudoCountries(name: string): number {
 export default function LawyersPage() {
   const t = useTranslations("lawyers");
   const tCommon = useTranslations("common");
-  const searchEnabled = isLawyersNetworkLive();
+  const { isLoaded: userLoaded, isSignedIn, user } = useAppUser();
+  const isAdmin = userLoaded && (user?.publicMetadata?.role as string | undefined) === "admin";
+  const networkLive = isLawyersNetworkLive();
+  const searchEnabled = isLawyersNetworkSearchEnabled({ isAdmin });
   const [lawyers, setLawyers] = useState<Lawyer[]>([]);
   const [loading, setLoading] = useState(true);
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
@@ -117,7 +120,6 @@ export default function LawyersPage() {
     }
   }, [searchEnabled]);
   const confirmedSessionRef = useRef<string | null>(null);
-  const { isLoaded: userLoaded, isSignedIn } = useAppUser();
   const lomiAvailable =
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
     Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
@@ -359,8 +361,9 @@ export default function LawyersPage() {
   }, []);
 
   useEffect(() => {
+    if (!userLoaded) return;
     refetchUnlocked();
-  }, []);
+  }, [userLoaded, isAdmin]);
 
   const expertiseList = useMemo(() => buildExpertiseFilterOptions(lawyers), [lawyers]);
 
@@ -560,7 +563,7 @@ export default function LawyersPage() {
       {/* Filters + results */}
       <section className="pb-16 pt-10">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          {!searchEnabled && (
+          {!networkLive && !isAdmin && (
             <div className="mb-6">
               <LawyersNetworkComingSoonBanner />
             </div>
