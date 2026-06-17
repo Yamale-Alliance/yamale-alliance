@@ -406,6 +406,9 @@ function buildAnswerStyleRules(
     parts.push(
       "Do not claim an article is blank unless the excerpt shows it. If you cannot locate an article in the excerpt, say so explicitly."
     );
+    parts.push(
+      "Named-instrument integrity (critical): Use the **exact official title and proclamation/act number** shown on the retrieved [doc:N] Title line—never substitute a different number (e.g. do not write 678/2010 if the retrieved title says 608/2010). For revision-style summaries, append **[doc:1]** (or the correct index) at the end of each major Part/Section heading block so the answer stays traceable."
+    );
   }
   if (requestedArticle !== null) {
     parts.push(
