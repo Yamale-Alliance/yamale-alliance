@@ -22,17 +22,10 @@ import remarkGfm from "remark-gfm";
 import { useTranslations } from "next-intl";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import {
-  Send,
-  Square,
   Pencil,
-  Plus,
-  Search,
   Menu,
-  Trash2,
   Share2,
   Download,
-  X,
-  Sparkles,
   Users,
   Loader2,
   Copy,
@@ -41,6 +34,7 @@ import {
   ThumbsDown,
   UserCircle2,
   ChevronDown,
+  PanelLeft,
 } from "lucide-react";
 import { canShareByEmail, canDownloadConversations } from "@/lib/plan-limits";
 import { plainTextForAiChatExport } from "@/lib/ai-chat-plain-text";
@@ -66,6 +60,10 @@ import {
 import { AiResearchProcessPanel } from "@/components/ai-research/AiResearchProcessPanel";
 import { AiResearchMessageFootnotes } from "@/components/ai-research/AiResearchMessageFootnotes";
 import { AiResearchPlanLanding } from "@/components/ai-research/AiResearchPlanLanding";
+import { AiResearchComposer } from "@/components/ai-research/AiResearchComposer";
+import { AiResearchEmptyHero } from "@/components/ai-research/AiResearchEmptyHero";
+import { AiResearchSidebar } from "@/components/ai-research/AiResearchSidebar";
+import shellStyles from "@/components/ai-research/AIResearchShell.module.css";
 import {
   translateAiProcessStepDetail,
   translateAiProcessStepMessage,
@@ -164,10 +162,12 @@ type ChatSession = {
   title: string;
   messages: Message[];
   updatedAt: number;
+  starred?: boolean;
 };
 
 const STORAGE_KEY = "yamale-ai-chats";
 const CURRENT_CHAT_ID_KEY = "yamale-ai-current-chat-id";
+const SIDEBAR_OPEN_KEY = "yamale-ai-sidebar-open";
 const MAX_SESSIONS = 50;
 const AI_RESEARCH_NOTICE_VERSION = "v1";
 const AI_RESEARCH_NOTICE_KEY = `yamale-ai-research-notice:${AI_RESEARCH_NOTICE_VERSION}`;
@@ -200,6 +200,7 @@ function getTierFromUser(metadata: Record<string, unknown> | undefined): Tier {
 function normalizeSessionMessages(sessions: ChatSession[]): ChatSession[] {
   return sessions.map((session) => ({
     ...session,
+    starred: Boolean(session.starred),
     messages: session.messages.map((message) => ({
       ...message,
       sources: filterAiResearchSourcesForDisplay(message.sources),
@@ -420,12 +421,51 @@ export default function AIResearchClient() {
       )
     : sessions;
 
+  const { starredSessions, recentSessions } = useMemo(() => {
+    const sorted = [...filteredSessions].sort((a, b) => b.updatedAt - a.updatedAt);
+    return {
+      starredSessions: sorted.filter((s) => s.starred),
+      recentSessions: sorted.filter((s) => !s.starred),
+    };
+  }, [filteredSessions]);
+
+  const fillComposerPrompt = useCallback((text: string) => {
+    setInput(text);
+    requestAnimationFrame(() => {
+      const el = composerTextareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(text.length, text.length);
+    });
+  }, []);
+
   useEffect(() => {
-    if (!mounted.current) {
-      // On mobile, start with sidebar closed so chat area has full width
-      if (typeof window !== "undefined" && window.innerWidth < 768) {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = localStorage.getItem(SIDEBAR_OPEN_KEY);
+      if (saved === "0") {
+        setSidebarOpen(false);
+      } else if (saved === "1") {
+        setSidebarOpen(true);
+      } else if (window.innerWidth < 768) {
         setSidebarOpen(false);
       }
+    } catch {
+      if (window.innerWidth < 768) setSidebarOpen(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(SIDEBAR_OPEN_KEY, sidebarOpen ? "1" : "0");
+    } catch {
+      // ignore
+    }
+  }, [sidebarOpen]);
+
+  useEffect(() => {
+    if (!mounted.current) {
       mounted.current = true;
     }
   }, []);
@@ -795,6 +835,16 @@ export default function AIResearchClient() {
       setCurrentId(null);
     }
   }, [currentId]);
+
+  const toggleChatStarred = useCallback((id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === id ? { ...s, starred: !s.starred, updatedAt: Date.now() } : s
+      )
+    );
+  }, []);
 
   const getChatTranscript = useCallback(() => {
     if (!currentSession) return "";
@@ -1382,112 +1432,28 @@ export default function AIResearchClient() {
     <>
       {/* AI Research: 280px sidebar + main — both follow light/dark theme */}
       <div
-        className="fixed inset-x-0 z-10 grid grid-cols-1 overflow-hidden bg-background md:grid-cols-[280px_minmax(0,1fr)]"
+        className={`${shellStyles.aiShell} fixed inset-x-0 z-10 grid grid-cols-1 overflow-hidden bg-background ${
+          sidebarOpen ? "md:grid-cols-[280px_minmax(0,1fr)]" : "md:grid-cols-1"
+        }`}
         style={{ top: shellTopOffset, height: `calc(100dvh - ${shellTopOffset}px)` }}
       >
-        <aside
-          className={`absolute inset-y-0 left-0 z-20 flex h-full min-h-0 w-[min(100%,280px)] flex-col border-r border-border bg-background text-foreground shadow-2xl transition-transform duration-200 dark:border-white/[0.08] dark:bg-[#0D1B2A] dark:text-white md:relative md:z-auto md:w-[280px] md:max-w-none md:translate-x-0 md:shadow-none ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-          }`}
-        >
-          <div className="flex items-center justify-between border-b border-[#E8E4DC] px-5 py-4 pt-[max(1rem,env(safe-area-inset-top))] dark:border-white/[0.08] md:hidden">
-            <span className="text-[13px] font-semibold text-[#0D1B2A]/90 dark:text-white/90">{t("researchHistory")}</span>
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(false)}
-              className="rounded-lg p-1.5 text-[#0D1B2A]/60 hover:bg-[#0D1B2A]/5 hover:text-[#0D1B2A] dark:text-white/60 dark:hover:bg-white/10 dark:hover:text-white"
-              aria-label={t("closeChatList")}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="border-b border-[#E8E4DC] px-5 py-5 dark:border-white/[0.08]">
-            <button
-              type="button"
-              onClick={() => {
-                newChat();
-                setSidebarOpen(false);
-              }}
-              className="flex w-full items-center justify-center gap-2 rounded-[6px] bg-[#C8922A] px-4 py-2.5 text-[13.5px] font-semibold text-white transition hover:bg-[#b07e22]"
-            >
-              <Plus className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden />
-              {t("newQuery")}
-            </button>
-            {tier === "team" && (
-              <Link
-                href="/ai-research/team"
-                className="mt-3 flex items-center justify-center gap-2 rounded-[6px] border border-[#E8E4DC] px-3 py-2 text-[13px] font-medium text-[#0D1B2A]/80 transition hover:bg-[#0D1B2A]/5 dark:border-white/15 dark:text-white/80 dark:hover:bg-white/10"
-              >
-                <Users className="h-4 w-4" />
-                {t("manageTeam")}
-              </Link>
-            )}
-          </div>
-          <div className="border-b border-[#E8E4DC] px-5 pb-4 pt-2 dark:border-white/[0.08]">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#0D1B2A]/35 dark:text-white/35" />
-              <input
-                type="text"
-                value={searchChats}
-                onChange={(e) => setSearchChats(e.target.value)}
-                placeholder={t("searchPrevious")}
-                className="w-full rounded-[6px] border border-[#E8E4DC] bg-white py-2.5 pl-10 pr-3 text-[13px] text-[#0D1B2A]/80 outline-none ring-0 placeholder:text-[#0D1B2A]/35 focus:border-[#C8922A]/50 dark:border-white/10 dark:bg-white/[0.07] dark:text-white/80 dark:placeholder:text-white/35 dark:focus:border-white/20"
-              />
-            </div>
-          </div>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <p className="px-5 pb-2.5 pt-4 text-[10px] font-bold uppercase tracking-[0.12em] text-[#0D1B2A]/55 dark:text-white/40">
-              {t("recent")}
-            </p>
-            <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4">
-              {filteredSessions.map((s) => (
-                <div key={s.id} className="group mb-0.5 flex items-stretch gap-0.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      selectChat(s.id);
-                      setSidebarOpen(false);
-                    }}
-                    className={`min-w-0 flex-1 truncate rounded-[6px] px-2.5 py-2 text-left text-[13px] transition ${
-                      currentId === s.id
-                        ? "bg-[#0D1B2A]/[0.08] font-semibold text-[#0D1B2A] dark:bg-white/[0.09] dark:text-white"
-                        : "font-medium text-[#0D1B2A]/80 hover:bg-[#0D1B2A]/[0.06] hover:text-[#0D1B2A] dark:font-medium dark:text-white/80 dark:hover:bg-white/[0.07] dark:hover:text-white"
-                    }`}
-                  >
-                    {s.title || t("newChat")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => deleteChat(s.id, e)}
-                    className="shrink-0 rounded p-1.5 text-[#0D1B2A]/40 opacity-0 transition hover:bg-red-500/10 hover:text-red-600 group-hover:opacity-100 dark:text-white/40 dark:hover:bg-red-500/20 dark:hover:text-red-200"
-                    aria-label={t("deleteChat")}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
-              {filteredSessions.length === 0 && (
-                <p className="px-2 py-4 text-[13px] font-medium text-[#0D1B2A]/60 dark:text-white/55">
-                  {searchChats.trim() ? t("noMatchingQueries") : t("noQueriesYet")}
-                </p>
-              )}
-            </nav>
-          </div>
-          <div className="border-t border-[#E8E4DC] px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] dark:border-white/[0.08]">
-            <div className="flex items-center justify-between gap-2 rounded-[6px] bg-[#0D1B2A]/[0.04] px-3 py-2.5 dark:bg-white/[0.06]">
-              <span className="text-[12px] text-[#0D1B2A]/55 dark:text-white/50">{t("aiQueries")}</span>
-              <span className="text-right text-[12px] font-bold text-[#9a7020] dark:text-[#E8B84B]">{planUsageLabel}</span>
-            </div>
-            {limit !== null && (
-              <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[#0D1B2A]/10 dark:bg-white/10">
-                <div
-                  className="h-full rounded-full bg-[#C8922A] transition-all duration-500"
-                  style={{ width: `${Math.min(100, (used / limit) * 100)}%` }}
-                />
-              </div>
-            )}
-          </div>
-        </aside>
+        <AiResearchSidebar
+          sidebarOpen={sidebarOpen}
+          onCloseSidebar={() => setSidebarOpen(false)}
+          onNewChat={newChat}
+          searchChats={searchChats}
+          onSearchChatsChange={setSearchChats}
+          starredSessions={starredSessions}
+          recentSessions={recentSessions}
+          currentId={currentId}
+          onSelectChat={selectChat}
+          onDeleteChat={deleteChat}
+          onToggleStar={toggleChatStarred}
+          tier={tier}
+          planUsageLabel={planUsageLabel}
+          limit={limit}
+          used={used}
+        />
 
         {sidebarOpen && (
           <div
@@ -1497,25 +1463,35 @@ export default function AIResearchClient() {
           />
         )}
 
-        <div className="relative z-[1] flex min-h-0 min-w-0 flex-col overflow-hidden bg-background">
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-background px-4 py-2 md:px-8 md:py-2.5">
+        <div className={`${shellStyles.mainPane} relative z-[1] flex min-h-0 min-w-0 flex-col overflow-hidden`}>
+          <div
+            className={`flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2 md:px-8 md:py-2.5 ${
+              messages.length === 0
+                ? `${shellStyles.headerMinimal} bg-transparent`
+                : "bg-background/80 backdrop-blur-sm"
+            }`}
+          >
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
                 onClick={() => setSidebarOpen((o) => !o)}
-                className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground md:hidden"
+                className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
                 aria-label={sidebarOpen ? t("closeSidebar") : t("openSidebar")}
               >
-                <Menu className="h-5 w-5" />
+                {!sidebarOpen ? (
+                  <PanelLeft className="h-5 w-5" />
+                ) : (
+                  <Menu className="h-5 w-5 md:hidden" />
+                )}
               </button>
               <div className="min-w-0">
                 <h2 className="heading truncate text-[14px] font-semibold tracking-tight text-foreground md:text-[15px]">
                   {t("title")}
                 </h2>
-                <p className="hidden truncate text-[11px] leading-tight text-muted-foreground sm:block">
+                <p className={`hidden truncate text-[11px] leading-tight text-muted-foreground sm:block ${messages.length === 0 ? "md:hidden" : ""}`}>
                   {t("headerSubtitle")}
                 </p>
-                <p className="hidden text-[10px] leading-tight text-muted-foreground/90 sm:block">
+                <p className={`hidden text-[10px] leading-tight text-muted-foreground/90 sm:block ${messages.length === 0 ? "md:hidden" : ""}`}>
                   {t("headerDisclaimer")}
                 </p>
               </div>
@@ -1613,55 +1589,49 @@ export default function AIResearchClient() {
             </div>
           </div>
 
-          <div ref={chatScrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-            <div className="mx-auto max-w-[760px] px-5 py-5 sm:px-6 md:px-8 md:py-10">
-              {!piiWarningDismissed ? (
+          <div className={`${shellStyles.mainContent} flex min-h-0 flex-1 flex-col overflow-hidden`}>
+            {messages.length === 0 ? (
+              <AiResearchEmptyHero
+                exampleQuestions={exampleQuestions}
+                onFillPrompt={fillComposerPrompt}
+                atLimit={atLimit}
+                isTurnBusy={isTurnBusy}
+                input={input}
+                setInput={setInput}
+                onSubmit={handleSubmit}
+                onSend={(text) => {
+                  void sendMessage(text);
+                }}
+                stopGenerating={stopGenerating}
+                textareaRef={composerTextareaRef}
+                mobileKeyboardInset={mobileKeyboardInset}
+                piiWarningDismissed={piiWarningDismissed}
+                onDismissPiiWarning={dismissPiiWarning}
+              />
+            ) : (
+              <>
                 <div
-                  role="status"
-                  className="mb-4 flex items-start gap-3 rounded-[8px] border border-amber-300/80 bg-amber-50 px-3 py-2.5 text-[13px] leading-snug text-amber-950 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100"
+                  ref={chatScrollRef}
+                  className={`${shellStyles.chatScroll} min-h-0 flex-1 overflow-y-auto overscroll-contain`}
                 >
-                  <p className="flex-1">
-                    Do not enter personal names, case details, or confidential client information. Queries are
-                    processed by Anthropic&apos;s AI systems.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={dismissPiiWarning}
-                    className="shrink-0 rounded px-2 py-0.5 text-[12px] font-semibold text-amber-900/80 hover:bg-amber-100/80 dark:text-amber-200 dark:hover:bg-amber-900/40"
-                    aria-label="Dismiss privacy notice"
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              ) : null}
-              {messages.length === 0 ? (
-                <div className="text-center">
-                  <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card shadow-sm sm:mb-6 sm:h-14 sm:w-14">
-                    <Sparkles className="h-6 w-6 text-[#C8922A] sm:h-7 sm:w-7" strokeWidth={1.5} aria-hidden />
-                  </div>
-                  <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#C8922A] sm:mb-2">Yamalé AI</p>
-                  <h2 className="heading mb-2 text-xl font-semibold tracking-tight text-foreground sm:mb-3 sm:text-2xl md:text-[30px]">
-                    What would you like to research?
-                  </h2>
-                  <p className="mx-auto mb-6 max-w-md text-[13px] leading-relaxed text-muted-foreground sm:mb-8 sm:text-[14px]">
-                    Ask about African law, AfCFTA, or compliance. Responses are indicative only.
-                  </p>
-                  <div className="mx-auto grid max-w-lg grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-2.5">
-                    {exampleQuestions.map((q) => (
-                      <button
-                        key={q}
-                        type="button"
-                        onClick={() => sendMessage(q).catch(() => {})}
-                        disabled={atLimit || isTurnBusy}
-                        className="rounded-[6px] border border-border bg-card px-3 py-2.5 text-left text-[12px] leading-snug text-muted-foreground transition hover:border-[#C8922A]/40 hover:bg-muted disabled:opacity-50 sm:px-4 sm:py-3 sm:text-[13px]"
+                  <div className="mx-auto max-w-[820px] px-5 py-5 sm:px-6 md:px-8 md:py-8">
+                    {!piiWarningDismissed ? (
+                      <div
+                        role="status"
+                        className={`${shellStyles.piiBanner} mb-4 flex items-start gap-3 text-left`}
                       >
-                        {q}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-6">
+                        <p className="flex-1">{t("emptyHero.piiNotice")}</p>
+                        <button
+                          type="button"
+                          onClick={dismissPiiWarning}
+                          className="shrink-0 rounded-md px-2 py-0.5 text-[12px] font-semibold opacity-80 transition hover:opacity-100"
+                          aria-label={t("emptyHero.dismissPii")}
+                        >
+                          {t("emptyHero.dismissPii")}
+                        </button>
+                      </div>
+                    ) : null}
+                    <div className="space-y-6">
                   {messages.map((msg, msgIdx) => {
                     const precedingUserQuery =
                       msg.role === "assistant"
@@ -2023,74 +1993,75 @@ export default function AIResearchClient() {
                     );
                   })}
                   <div ref={messagesEndRef} />
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
-
-          <div
-            className="ai-research-composer z-20 shrink-0 border-t border-border bg-card px-3 py-2 sm:px-6 sm:py-3 md:px-8"
-            style={{
-              paddingBottom: `max(0.5rem, env(safe-area-inset-bottom), ${mobileKeyboardInset}px)`,
-            }}
-          >
-            <div className="mx-auto max-w-[760px]">
-              <form onSubmit={handleSubmit}>
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2 rounded-[8px] border border-border bg-background p-1.5 shadow-inner focus-within:border-[#C8922A]/35 focus-within:ring-2 focus-within:ring-[#C8922A]/15">
-                  <textarea
-                    ref={composerTextareaRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onFocus={() => {
-                      requestAnimationFrame(() => {
-                        composerTextareaRef.current?.scrollIntoView({
-                          block: "nearest",
-                          behavior: "smooth",
-                        });
-                      });
+                <div className="mx-auto w-full max-w-[820px] px-4 sm:px-6 md:px-8">
+                  <AiResearchComposer
+                    input={input}
+                    setInput={setInput}
+                    onSubmit={handleSubmit}
+                    onSend={(text) => {
+                      void sendMessage(text);
                     }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        if (input.trim() && !atLimit && !isTurnBusy) {
-                          void sendMessage(input);
-                        }
-                      }
-                    }}
+                    isTurnBusy={isTurnBusy}
+                    stopGenerating={stopGenerating}
+                    atLimit={atLimit}
+                    textareaRef={composerTextareaRef}
+                    mobileKeyboardInset={mobileKeyboardInset}
+                    variant="dock"
                     placeholder={t("describeQuestion")}
-                    disabled={atLimit}
-                    rows={2}
-                    className="min-h-[44px] w-full resize-none bg-transparent px-2 py-2 text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-50 md:min-h-[38px] md:py-1.5"
+                    sendHint={t("sendHint")}
+                    tapSendHint={t("tapSend")}
+                    generatingHint={t("generatingHint")}
+                    generatingLabel={t("generating")}
+                    stopLabel={t("stopGenerating")}
+                    sendLabel={t("sendMessage")}
                   />
-                  {isTurnBusy ? (
-                    <button
-                      type="button"
-                      onClick={stopGenerating}
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[6px] border border-[#0D1B2A] bg-[#0D1B2A] text-white transition hover:bg-[#162436] md:h-9 md:w-9 dark:border-white/25"
-                      aria-label="Stop generating"
-                      title="Stop"
-                    >
-                      <Square className="h-4 w-4 fill-current md:h-3.5 md:w-3.5" strokeWidth={0} />
-                    </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      disabled={!input.trim() || atLimit}
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[6px] bg-[#0D1B2A] text-white transition hover:bg-[#162436] disabled:opacity-40 md:h-9 md:w-9"
-                      aria-label="Send"
-                    >
-                      <Send className="h-4 w-4 md:h-3.5 md:w-3.5" strokeWidth={2} />
-                    </button>
+                  {showPayAsYouGoPrompt && (
+                    <div className="mt-3 rounded-[10px] border border-[#C8922A]/30 bg-[#FFFDF8] px-4 py-3 text-center dark:bg-[#2D2516]/40">
+                      <p className="mb-2 text-sm font-medium text-[#0D1B2A] dark:text-white/90">
+                        You have used your pay-as-you-go query.
+                      </p>
+                      <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
+                        <Link
+                          href="/pricing"
+                          className="inline-flex items-center gap-2 rounded-[8px] bg-[#0D1B2A] px-4 py-2 text-sm font-medium text-white hover:bg-[#162436] dark:bg-[#E8B84B] dark:text-[#0D1B2A]"
+                          onClick={() => setShowPayAsYouGoPrompt(false)}
+                        >
+                          Purchase more queries
+                        </Link>
+                        <Link
+                          href="/pricing"
+                          className="inline-flex items-center gap-2 rounded-[8px] border border-[#E8E4DC] bg-white px-4 py-2 text-sm font-medium text-[#0D1B2A] hover:bg-[#FAFAF7] dark:border-white/15 dark:bg-white/5 dark:text-white/90"
+                          onClick={() => setShowPayAsYouGoPrompt(false)}
+                        >
+                          Upgrade plan
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => setShowPayAsYouGoPrompt(false)}
+                          className="text-xs text-[#0D1B2A]/45 hover:text-[#0D1B2A] dark:text-white/50 dark:hover:text-white/80"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {atLimit && !showPayAsYouGoPrompt && (
+                    <p className="mt-3 rounded-[10px] border border-amber-200 bg-amber-50 px-3 py-2 text-center text-sm font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100">
+                      Limit reached.{" "}
+                      <Link href="/pricing" className="underline underline-offset-2 hover:no-underline">
+                        Upgrade for more
+                      </Link>
+                    </p>
                   )}
                 </div>
-                <p className="mt-1.5 hidden text-center text-[10px] text-muted-foreground sm:block">
-                  {isTurnBusy ? t("generatingHint") : t("sendHint")}
-                </p>
-                <p className="mt-1 text-center text-[10px] text-muted-foreground sm:hidden">
-                  {isTurnBusy ? t("generating") : t("tapSend")}
-                </p>
-              </form>
-              {negativeModal ? (
+              </>
+            )}
+          </div>
+
+          {negativeModal ? (
                 <Dialog.Root open onOpenChange={(open) => !open && setNegativeModal(null)}>
                   <Dialog.Portal>
                     <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm print:hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
@@ -2148,45 +2119,7 @@ export default function AIResearchClient() {
                     </Dialog.Content>
                   </Dialog.Portal>
                 </Dialog.Root>
-              ) : null}
-              {showPayAsYouGoPrompt && (
-                <div className="mt-3 rounded-[6px] border border-[#C8922A]/30 bg-[#FFFDF8] px-4 py-3 text-center">
-                  <p className="mb-2 text-sm font-medium text-[#0D1B2A]">You have used your pay-as-you-go query.</p>
-                  <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
-                    <Link
-                      href="/pricing"
-                      className="inline-flex items-center gap-2 rounded-[6px] bg-[#0D1B2A] px-4 py-2 text-sm font-medium text-white hover:bg-[#162436]"
-                      onClick={() => setShowPayAsYouGoPrompt(false)}
-                    >
-                      Purchase more queries
-                    </Link>
-                    <Link
-                      href="/pricing"
-                      className="inline-flex items-center gap-2 rounded-[6px] border border-[#E8E4DC] bg-white px-4 py-2 text-sm font-medium text-[#0D1B2A] hover:bg-[#FAFAF7]"
-                      onClick={() => setShowPayAsYouGoPrompt(false)}
-                    >
-                      Upgrade plan
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => setShowPayAsYouGoPrompt(false)}
-                      className="text-xs text-[#0D1B2A]/45 hover:text-[#0D1B2A]"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                </div>
-              )}
-              {atLimit && !showPayAsYouGoPrompt && (
-                <p className="mt-3 rounded-[6px] border border-amber-200 bg-amber-50 px-3 py-2 text-center text-sm font-medium text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100">
-                  Limit reached.{" "}
-                  <Link href="/pricing" className="underline underline-offset-2 hover:no-underline">
-                    Upgrade for more
-                  </Link>
-                </p>
-              )}
-            </div>
-          </div>
+          ) : null}
         </div>
       </div>
       {!hasAcknowledgedNotice && (
