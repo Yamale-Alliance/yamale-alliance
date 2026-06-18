@@ -2001,7 +2001,9 @@
         "placeholders": {
           "fullName": "Nom complet",
           "country": "ex. Ghana, Kenya",
+          "city": "ex. Nairobi, Lagos",
           "expertise": "ex. Droit des sociétés, Fiscalité, Emploi",
+          "selectExpertise": "Choisir un domaine de pratique",
           "email": "avocat@exemple.com",
           "phone": "ex. +233 00 000 0000",
           "primaryLanguage": "ex. Français",
@@ -2013,7 +2015,7 @@
         "uploading": "Téléversement…",
         "previewAlt": "Aperçu"
       },
-      "table": { "photo": "Photo", "country": "Pays", "expertise": "Expertise", "languages": "Langues", "phone": "Téléphone", "source": "Source", "added": "Ajouté" },
+      "table": { "photo": "Photo", "country": "Pays", "city": "Ville", "expertise": "Expertise", "languages": "Langues", "phone": "Téléphone", "source": "Source", "added": "Ajouté" },
       "export": {
         "documentTitle": "Annuaire des avocats – Yamalé Alliance",
         "reportTitle": "Export annuaire des avocats",
@@ -2602,6 +2604,7 @@
     "country": "Pays",
     "selectCountry": "Sélectionner un pays",
     "city": "Ville",
+    "cityPlaceholder": "ex. Nairobi, Lagos",
     "practiceArea": "Domaine de pratique",
     "allPracticeAreas": "Tous les domaines",
     "language": "Langue",
