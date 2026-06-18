@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { auth } from "@clerk/nextjs/server";
 import { isAdvisoryWorkspacePreviewEnabled } from "@/lib/law-firm-advisory-preview";
+import { marketplaceCourseAccessGranted } from "@/lib/marketplace-course-access";
 import { fetchPublishedMarketplaceItem, isMissingDbColumnError } from "@/lib/marketplace-item-db";
 import { DEFAULT_COVER_FOCAL } from "@/lib/marketplace-cover-framing";
 import {
@@ -42,7 +43,8 @@ export async function GET(
     const itemId = String(row.id);
 
     let purchased = false;
-    const { userId } = await auth();
+    const authState = await auth();
+    const { userId } = authState;
     if (userId) {
       const { data: purchase } = await supabase
         .from("marketplace_purchases")
@@ -52,6 +54,10 @@ export async function GET(
         .maybeSingle();
       purchased = !!purchase;
     }
+    purchased = await marketplaceCourseAccessGranted(authState, {
+      purchased,
+      isCourse: Boolean(row.is_course),
+    });
 
     const languageFiles = await listMarketplaceItemFiles(supabase, itemId);
     const language_codes = resolveMarketplaceDisplayLanguageCodes(
