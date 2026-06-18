@@ -1,15 +1,30 @@
-/** Practice areas for lawyer directory filters and canonical labels. */
-
+/** Practice areas for lawyer directory filters, admin forms, and canonical labels. */
 export const STANDARD_PRACTICE_AREAS = [
-  "Corporate Law",
-  "Trade Law",
   "AfCFTA",
-  "Intellectual Property",
-  "Tax Law",
-  "Litigation",
+  "Arbitration",
+  "Banking",
+  "Civil And Tort Law",
+  "Civil Litigation",
+  "Commercial Litigation",
+  "Corporate Law",
+  "Dispute Resolution",
   "Employment Law",
+  "Finance",
+  "Immigration & Refugee Law",
+  "Infrastructure And Projects",
+  "Intellectual Property",
+  "Intellectual Property Law",
+  "International Trade Law",
+  "Land And Property Law",
+  "Litigation",
   "Mergers and Acquisitions",
+  "Public Private Partnerships",
+  "Tax Law",
+  "Trade Law",
 ] as const;
+
+/** Options for admin lawyer expertise dropdown (same as standard practice areas). */
+export const LAWYER_EXPERTISE_OPTIONS: readonly string[] = STANDARD_PRACTICE_AREAS;
 
 const CANONICAL_BY_KEY: Record<string, string> = {
   "corporate law": "Corporate Law",
@@ -17,8 +32,21 @@ const CANONICAL_BY_KEY: Record<string, string> = {
   "trade law": "Trade Law",
   trade: "Trade Law",
   afcfta: "AfCFTA",
+  arbitration: "Arbitration",
+  banking: "Banking",
+  "civil and tort law": "Civil And Tort Law",
+  "civil litigation": "Civil Litigation",
+  "commercial litigation": "Commercial Litigation",
+  "dispute resolution": "Dispute Resolution",
+  finance: "Finance",
+  "immigration & refugee law": "Immigration & Refugee Law",
+  "immigration and refugee law": "Immigration & Refugee Law",
+  "infrastructure and projects": "Infrastructure And Projects",
   "intellectual property": "Intellectual Property",
+  "intellectual property law": "Intellectual Property Law",
   ip: "Intellectual Property",
+  "international trade law": "International Trade Law",
+  "land and property law": "Land And Property Law",
   "tax law": "Tax Law",
   tax: "Tax Law",
   litigation: "Litigation",
@@ -27,6 +55,8 @@ const CANONICAL_BY_KEY: Record<string, string> = {
   "m&a": "Mergers and Acquisitions",
   "mergers and acquisitions": "Mergers and Acquisitions",
   "mergers & acquisitions": "Mergers and Acquisitions",
+  "public private partnerships": "Public Private Partnerships",
+  ppp: "Public Private Partnerships",
 };
 
 function normalizeKey(raw: string): string {
@@ -105,4 +135,25 @@ export function expertiseMatchesSelection(lawyerExpertise: string, selected: str
     expertiseSegmentKey
   );
   return lawyerKeys.some((k) => k === wantKey);
+}
+
+/** Primary practice area for admin expertise select (prefers a standard label when present). */
+export function primaryExpertiseFromField(expertise: string): string {
+  const segments = dedupeExpertiseSegments(parseExpertiseSegments(expertise));
+  const match = segments.find((s) =>
+    STANDARD_PRACTICE_AREAS.some((o) => expertiseSegmentKey(o) === expertiseSegmentKey(s))
+  );
+  return match ?? segments[0] ?? "";
+}
+
+/** Dropdown options; keeps a legacy value visible when editing non-standard expertise. */
+export function lawyerExpertiseSelectOptions(currentValue?: string): string[] {
+  const options = [...STANDARD_PRACTICE_AREAS];
+  const trimmed = currentValue?.trim();
+  if (!trimmed) return options;
+  const label = canonicalExpertiseLabel(parseExpertiseSegments(trimmed)[0] ?? trimmed);
+  if (label && !options.some((o) => expertiseSegmentKey(o) === expertiseSegmentKey(label))) {
+    return [label, ...options];
+  }
+  return options;
 }
