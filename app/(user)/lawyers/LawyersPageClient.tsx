@@ -29,6 +29,7 @@ import {
 import { LawyersOnboardingVideo } from "@/components/lawyers/LawyersOnboardingVideo";
 import { LawyersNetworkComingSoonBanner } from "@/components/lawyers/LawyersNetworkComingSoonBanner";
 import { isLawyersNetworkLive, isLawyersNetworkSearchEnabled } from "@/lib/lawyers-network-enabled";
+import { lawyerUnlockedForViewer } from "@/lib/lawyers-admin-presentation";
 
 const BRAND = {
   dark: "#221913",
@@ -403,7 +404,8 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
     );
   }, [filteredLawyers]);
 
-  const isUnlocked = (lawyerId: string) => dayPassActive || unlockedIds.has(lawyerId);
+  const isUnlocked = (lawyer: Lawyer) =>
+    lawyerUnlockedForViewer(lawyer, { isAdmin, dayPassActive, unlockedIds });
 
   const clearFilters = () => {
     setSelectedCountry("");
@@ -625,7 +627,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
 
         {/* Pay $5 for this search — show when user has searched with a specific expertise, there are results, and at least one is locked */}
         {searchEnabled && hasSearched && selectedExpertise !== "all" && filteredLawyers.length > 0 && (() => {
-          const allUnlocked = filteredLawyers.every((l) => isUnlocked(l.id));
+          const allUnlocked = filteredLawyers.every((l) => isUnlocked(l));
           if (allUnlocked) {
             return (
               <div className="mb-6 rounded-xl border border-green-200 dark:border-green-500/30 bg-green-50 dark:bg-green-500/10 px-4 py-3 text-sm text-green-800 dark:text-green-200">
@@ -802,7 +804,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
         ) : (
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
             {filteredLawyers.map((lawyer) => {
-              const unlocked = isUnlocked(lawyer.id);
+              const unlocked = isUnlocked(lawyer);
               const contacts = contactsByLawyer[lawyer.id];
               const expertiseTags = dedupeExpertiseSegments(parseExpertiseSegments(lawyer.expertise));
               const initials = lawyer.name.split(" ").map((n) => n[0]).filter(Boolean).join("");

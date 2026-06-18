@@ -12,7 +12,8 @@ export async function GET() {
   if (!userId) {
     return NextResponse.json({ lawyerIds: [], dayPassActive: false, dayPassExpiresAt: null, contacts: {} });
   }
-  const adminPreview = !isLawyersNetworkLive() && (await userHasAdminAccess(authState));
+  const isAdmin = await userHasAdminAccess(authState);
+  const adminPreview = !isLawyersNetworkLive() && isAdmin;
   const clerk = await clerkClient();
   const user = await clerk.users.getUser(userId);
   const expiresAtRaw = (user.publicMetadata as Record<string, unknown>)?.day_pass_expires_at;
@@ -51,7 +52,28 @@ export async function GET() {
   ]);
   const lawyerIds = Array.from(new Set([...perLawyerIds, ...criteriaIds, ...grantIds]));
 
-  const idsToFetch = lawyerIds;
+  if (isAdmin) {
+    const { data: senegalRows } = await (supabase.from("lawyers") as any)
+      .select("id, email, phone, contacts")
+      .eq("approved", true)
+      .eq("country", "Senegal");
+    for (const row of (senegalRows ?? []) as Array<{
+      id: string;
+      email: string | null;
+      phone: string | null;
+      contacts: string | null;
+    }>) {
+      lawyerIds.push(row.id);
+      contacts[row.id] = {
+        email: row.email ?? null,
+        phone: row.phone ?? null,
+        contacts: row.contacts ?? null,
+      };
+    }
+  }
+
+  const uniqueLawyerIds = Array.from(new Set(lawyerIds));
+  const idsToFetch = uniqueLawyerIds.filter((id) => !contacts[id]);
   if (idsToFetch.length > 0) {
     const { data } = await (supabase.from("lawyers") as any)
       .select("id, email, phone, contacts")
@@ -66,5 +88,10 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json({ lawyerIds, dayPassActive, dayPassExpiresAt, contacts });
+  return NextResponse.json({
+    lawyerIds: uniqueLawyerIds,
+    dayPassActive,
+    dayPassExpiresAt,
+    contacts,
+  });
 }
