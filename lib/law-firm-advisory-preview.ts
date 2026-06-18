@@ -6,10 +6,14 @@ export function isAdvisoryWorkspacePreviewEnabled(): boolean {
   );
 }
 
-/** Show Vault “View course” and package owned CTAs when purchased or preview is on. */
+/** Show Vault “View course” and package owned CTAs when purchased, preview is on, or admin on a course package. */
 export function canUseLawFirmAdvisoryWorkspace(
   owned?: boolean,
-  previewEnabled?: boolean
+  previewEnabled?: boolean,
+  options?: { isAdmin?: boolean; isCourse?: boolean }
 ): boolean {
-  return Boolean(owned) || Boolean(previewEnabled) || isAdvisoryWorkspacePreviewEnabled();
+  if (Boolean(owned) || Boolean(previewEnabled) || isAdvisoryWorkspacePreviewEnabled()) {
+    return true;
+  }
+  return Boolean(options?.isAdmin && options?.isCourse);
 }
