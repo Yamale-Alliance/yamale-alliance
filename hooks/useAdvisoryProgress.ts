@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAdvisoryCatalogContext } from "@/components/law-firm-development/AdvisoryCatalogContext";
 import {
   computeOverallProgressPercent,
@@ -21,7 +22,9 @@ type WorkspaceResponse = AdvisoryProgressSnapshot & {
 };
 
 export function useAdvisoryProgress() {
-  const { listDocuments } = useAdvisoryCatalogContext();
+  const { listDocuments, courseQuery } = useAdvisoryCatalogContext();
+  const searchParams = useSearchParams();
+  const courseKey = courseQuery ?? searchParams.get("course")?.trim() ?? null;
   const [snapshot, setSnapshot] = useState<WorkspaceResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +34,8 @@ export function useAdvisoryProgress() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/advisory/workspace", { credentials: "include" });
+      const qs = courseKey ? `?course=${encodeURIComponent(courseKey)}` : "";
+      const res = await fetch(`/api/advisory/workspace${qs}`, { credentials: "include" });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(data.error ?? "Failed to load workspace");
@@ -48,7 +52,7 @@ export function useAdvisoryProgress() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [courseKey]);
 
   useEffect(() => {
     void reload();
@@ -59,7 +63,8 @@ export function useAdvisoryProgress() {
       setSaving(true);
       setError(null);
       try {
-        const res = await fetch("/api/advisory/workspace", {
+        const qs = courseKey ? `?course=${encodeURIComponent(courseKey)}` : "";
+        const res = await fetch(`/api/advisory/workspace${qs}`, {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -80,7 +85,7 @@ export function useAdvisoryProgress() {
         setSaving(false);
       }
     },
-    []
+    [courseKey]
   );
 
   const setDocumentStatus = useCallback(
