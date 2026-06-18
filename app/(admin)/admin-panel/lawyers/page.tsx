@@ -5,13 +5,18 @@ import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Loader2, Briefcase, Plus, Trash2, Download, Upload, Video, X } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
-import { normalizeExpertiseField } from "@/lib/lawyer-expertise";
+import {
+  lawyerExpertiseSelectOptions,
+  normalizeExpertiseField,
+  primaryExpertiseFromField,
+} from "@/lib/lawyer-expertise";
 import { cloudinaryVideoPlaybackUrl } from "@/lib/cloudinary-video-playback";
 
 type LawyerRow = {
   id: string;
   name: string;
   country: string | null;
+  city: string | null;
   expertise: string;
   email: string | null;
   phone: string | null;
@@ -38,6 +43,7 @@ export default function AdminLawyersPage() {
 
   const [formName, setFormName] = useState("");
   const [formCountry, setFormCountry] = useState("");
+  const [formCity, setFormCity] = useState("");
   const [formExpertise, setFormExpertise] = useState("");
   const [formEmail, setFormEmail] = useState("");
   const [formPhone, setFormPhone] = useState("");
@@ -51,6 +57,7 @@ export default function AdminLawyersPage() {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editName, setEditName] = useState("");
   const [editCountry, setEditCountry] = useState("");
+  const [editCity, setEditCity] = useState("");
   const [editExpertise, setEditExpertise] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
@@ -232,6 +239,7 @@ export default function AdminLawyersPage() {
         body: JSON.stringify({
           name: formName.trim(),
           country: formCountry.trim() || undefined,
+          city: formCity.trim() || undefined,
           expertise: formExpertise.trim(),
           email: formEmail.trim() || undefined,
           phone: formPhone.trim() || undefined,
@@ -248,6 +256,7 @@ export default function AdminLawyersPage() {
       }
       setFormName("");
       setFormCountry("");
+      setFormCity("");
       setFormExpertise("");
       setFormEmail("");
       setFormPhone("");
@@ -268,7 +277,8 @@ export default function AdminLawyersPage() {
     setEditing(lawyer);
     setEditName(lawyer.name);
     setEditCountry(lawyer.country ?? "");
-    setEditExpertise(lawyer.expertise);
+    setEditCity(lawyer.city ?? "");
+    setEditExpertise(primaryExpertiseFromField(lawyer.expertise));
     setEditEmail(lawyer.email ?? "");
     setEditPhone(lawyer.phone ?? "");
     setEditPrimaryLanguage(lawyer.primary_language ?? "");
@@ -299,6 +309,7 @@ export default function AdminLawyersPage() {
         body: JSON.stringify({
           name: editName.trim(),
           country: editCountry.trim() || undefined,
+          city: editCity.trim() || undefined,
           expertise: editExpertise.trim(),
           email: editEmail.trim() || undefined,
           phone: editPhone.trim() || undefined,
@@ -547,20 +558,38 @@ export default function AdminLawyersPage() {
                 placeholder={t("form.placeholders.country")}
               />
             </div>
+            <div>
+              <label htmlFor="admin-lawyer-city" className="block text-sm font-medium text-foreground mb-1">
+                {t("table.city")}
+              </label>
+              <input
+                id="admin-lawyer-city"
+                type="text"
+                value={formCity}
+                onChange={(e) => setFormCity(e.target.value)}
+                maxLength={100}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                placeholder={t("form.placeholders.city")}
+              />
+            </div>
             <div className="sm:col-span-2">
               <label htmlFor="admin-lawyer-expertise" className="block text-sm font-medium text-foreground mb-1">
                 {t("table.expertise")} <span className="text-destructive">*</span>
               </label>
-              <input
+              <select
                 id="admin-lawyer-expertise"
-                type="text"
                 value={formExpertise}
                 onChange={(e) => setFormExpertise(e.target.value)}
                 required
-                maxLength={500}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                placeholder={t("form.placeholders.expertise")}
-              />
+              >
+                <option value="">{t("form.placeholders.selectExpertise")}</option>
+                {lawyerExpertiseSelectOptions().map((area) => (
+                  <option key={area} value={area}>
+                    {area}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label htmlFor="admin-lawyer-email" className="block text-sm font-medium text-foreground mb-1">
@@ -743,19 +772,38 @@ export default function AdminLawyersPage() {
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
               />
             </div>
+            <div>
+              <label htmlFor="edit-lawyer-city" className="block text-sm font-medium text-foreground mb-1">
+                {t("table.city")}
+              </label>
+              <input
+                id="edit-lawyer-city"
+                type="text"
+                value={editCity}
+                onChange={(e) => setEditCity(e.target.value)}
+                maxLength={100}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                placeholder={t("form.placeholders.city")}
+              />
+            </div>
             <div className="sm:col-span-2">
               <label htmlFor="edit-lawyer-expertise" className="block text-sm font-medium text-foreground mb-1">
                 {t("table.expertise")} <span className="text-destructive">*</span>
               </label>
-              <input
+              <select
                 id="edit-lawyer-expertise"
-                type="text"
                 value={editExpertise}
                 onChange={(e) => setEditExpertise(e.target.value)}
                 required
-                maxLength={500}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              />
+              >
+                <option value="">{t("form.placeholders.selectExpertise")}</option>
+                {lawyerExpertiseSelectOptions(editExpertise).map((area) => (
+                  <option key={area} value={area}>
+                    {area}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label htmlFor="edit-lawyer-email" className="block text-sm font-medium text-foreground mb-1">
@@ -919,6 +967,7 @@ export default function AdminLawyersPage() {
                   <th className="text-left p-3 font-medium w-14">{t("table.photo")}</th>
                   <th className="text-left p-3 font-medium">{tc("name")}</th>
                   <th className="text-left p-3 font-medium">{t("table.country")}</th>
+                  <th className="text-left p-3 font-medium">{t("table.city")}</th>
                   <th className="text-left p-3 font-medium max-w-[160px]">{t("table.expertise")}</th>
                   <th className="text-left p-3 font-medium max-w-[140px]">{t("table.languages")}</th>
                   <th className="text-left p-3 font-medium max-w-[160px]">{tc("email")}</th>
@@ -931,7 +980,7 @@ export default function AdminLawyersPage() {
               <tbody>
                 {lawyers.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="p-8 text-center text-muted-foreground">
+                    <td colSpan={11} className="p-8 text-center text-muted-foreground">
                       {t("empty")}
                     </td>
                   </tr>
@@ -947,6 +996,7 @@ export default function AdminLawyersPage() {
                       </td>
                       <td className="p-3 font-medium">{l.name}</td>
                       <td className="p-3 text-muted-foreground">{l.country ?? "—"}</td>
+                      <td className="p-3 text-muted-foreground">{l.city ?? "—"}</td>
                       <td
                         className="p-3 max-w-[200px] truncate"
                         title={normalizeExpertiseField(l.expertise)}
