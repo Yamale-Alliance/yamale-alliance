@@ -547,6 +547,7 @@ export interface Database {
           id: string;
           name: string;
           country: string | null;
+          city: string | null;
           expertise: string;
           contacts: string | null;
           email: string | null;
@@ -564,6 +565,7 @@ export interface Database {
           id?: string;
           name: string;
           country?: string | null;
+          city?: string | null;
           expertise: string;
           contacts?: string | null;
           email?: string | null;
