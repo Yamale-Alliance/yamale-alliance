@@ -1,6 +1,8 @@
 import "server-only";
 
+import { auth } from "@clerk/nextjs/server";
 import { unstable_cache } from "next/cache";
+import { userHasAdminAccess } from "@/lib/admin-session";
 import { isAdvisoryWorkspacePreviewEnabled } from "@/lib/law-firm-advisory-preview";
 import {
   normalizeVaultSeriesMemberImages,
@@ -169,13 +171,15 @@ export async function fetchMarketplaceBrowsePayload(
   userId?: string | null
 ): Promise<MarketplaceBrowsePayload> {
   const supabase = getSupabaseServer();
+  const authState = await auth();
+  const isAdmin = authState.userId ? await userHasAdminAccess(authState) : false;
 
   const [catalog, ownedIds] = await Promise.all([
     getCachedMarketplaceCatalog(),
     userId ? fetchOwnedMarketplaceItemIds(supabase, userId) : Promise.resolve(new Set<string>()),
   ]);
 
-  if (ownedIds.size === 0) {
+  if (ownedIds.size === 0 && !isAdmin) {
     return catalog;
   }
 
@@ -183,7 +187,7 @@ export async function fetchMarketplaceBrowsePayload(
     ...catalog,
     items: catalog.items.map((item) => ({
       ...item,
-      owned: ownedIds.has(item.id),
+      owned: ownedIds.has(item.id) || (isAdmin && item.is_course),
     })),
   };
 }
