@@ -7,6 +7,7 @@ import { CheckCircle } from "lucide-react";
 export default function JoinLawyersPage() {
   const [name, setName] = useState("");
   const [country, setCountry] = useState("");
+  const [city, setCity] = useState("");
   const [expertise, setExpertise] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -38,6 +39,7 @@ export default function JoinLawyersPage() {
         body: JSON.stringify({
           name: name.trim(),
           country: country.trim() || undefined,
+          city: city.trim() || undefined,
           expertise: expertise.trim(),
           email: email.trim() || undefined,
           phone: phone.trim() || undefined,
@@ -119,6 +121,20 @@ export default function JoinLawyersPage() {
             maxLength={100}
             className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
             placeholder="e.g. Ghana, Kenya"
+          />
+        </div>
+        <div>
+          <label htmlFor="city" className="block text-sm font-medium text-foreground">
+            City
+          </label>
+          <input
+            id="city"
+            type="text"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            maxLength={100}
+            className="mt-1.5 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+            placeholder="e.g. Nairobi, Lagos"
           />
         </div>
         <div>
