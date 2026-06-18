@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { isAdvisoryWorkspacePreviewEnabled } from "@/lib/law-firm-advisory-preview";
+import { marketplaceCourseAccessGranted } from "@/lib/marketplace-course-access";
 import { resolveMarketplaceItemFileForAccess } from "@/lib/marketplace-item-files";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -62,7 +63,8 @@ export async function canAccessMarketplaceZip(
   const isFree = !item.price_cents || item.price_cents <= 0;
   if (isFree) return true;
 
-  const { userId } = await auth();
+  const authState = await auth();
+  const { userId } = authState;
   if (!userId) return false;
 
   const { data: purchase } = await supabase
@@ -73,6 +75,15 @@ export async function canAccessMarketplaceZip(
     .maybeSingle();
 
   if (purchase) return true;
+
+  if (
+    await marketplaceCourseAccessGranted(authState, {
+      purchased: false,
+      isCourse: Boolean(item.is_course),
+    })
+  ) {
+    return true;
+  }
 
   if (item.is_course && isAdvisoryWorkspacePreviewEnabled()) return true;
 
