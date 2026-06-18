@@ -22,6 +22,7 @@ export async function PATCH(
 
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const country = typeof body.country === "string" ? body.country.trim() || null : null;
+  const city = typeof body.city === "string" ? body.city.trim() || null : null;
   const expertise = typeof body.expertise === "string" ? body.expertise.trim() : "";
   const email = typeof body.email === "string" ? body.email.trim() || null : null;
   const phone = typeof body.phone === "string" ? body.phone.trim() || null : null;
@@ -56,6 +57,9 @@ export async function PATCH(
   if (linkedinUrl && linkedinUrl.length > 500) {
     return NextResponse.json({ error: "LinkedIn URL too long" }, { status: 400 });
   }
+  if (city && city.length > 100) {
+    return NextResponse.json({ error: "City too long" }, { status: 400 });
+  }
   if (imageUrl !== undefined && imageUrl !== null && imageUrl.length > 2048) {
     return NextResponse.json({ error: "Image URL too long" }, { status: 400 });
   }
@@ -63,6 +67,7 @@ export async function PATCH(
   const update: Record<string, unknown> = {
     name,
     country,
+    city,
     expertise: normalizedExpertise,
     email,
     phone,
@@ -82,7 +87,7 @@ export async function PATCH(
   const { data, error } = await (supabase.from("lawyers") as any)
     .update(update)
     .eq("id", id)
-    .select("id, name, country, expertise, email, phone, contacts, linkedin_url, primary_language, other_languages, image_url, source, approved, created_at")
+    .select("id, name, country, city, expertise, email, phone, contacts, linkedin_url, primary_language, other_languages, image_url, source, approved, created_at")
     .single();
 
   if (error || !data) {
