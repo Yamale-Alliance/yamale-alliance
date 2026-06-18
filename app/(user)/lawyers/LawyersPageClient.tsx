@@ -42,6 +42,7 @@ type Lawyer = {
   id: string;
   name: string;
   country: string;
+  city: string;
   expertise: string;
   linkedinUrl: string | null;
   imageUrl: string | null;
@@ -369,7 +370,11 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
   const filteredLawyers = useMemo(() => {
     return lawyers.filter((lawyer) => {
       if (selectedCountry && lawyer.country !== selectedCountry) return false;
-      if (selectedCity.trim() && !lawyer.name.toLowerCase().includes(selectedCity.toLowerCase()) && !lawyer.expertise.toLowerCase().includes(selectedCity.toLowerCase())) return false;
+      if (selectedCity.trim()) {
+        const q = selectedCity.trim().toLowerCase();
+        const city = lawyer.city.toLowerCase();
+        if (!city.includes(q)) return false;
+      }
       if (!expertiseMatchesSelection(lawyer.expertise, selectedExpertise)) return false;
       return true;
     });
@@ -516,11 +521,11 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
               </div>
               <div>
                 <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
-                  {t("searchByName")}
+                  {t("city")}
                 </label>
                 <input
                   type="text"
-                  placeholder={t("searchByNamePlaceholder")}
+                  placeholder={t("cityPlaceholder")}
                   className="w-full rounded-[6px] border border-white/20 bg-[#13263a] px-3 py-2 text-sm text-white placeholder:text-white/45 outline-none"
                   value={selectedCity}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedCity(e.target.value)}
@@ -843,7 +848,9 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                           </span>
                         </div>
                         <div className="text-xs text-muted-foreground sm:text-[13px]">
-                          {lawyer.country} · {selectedLanguage === "all" ? "English / French" : selectedLanguage}
+                          {[lawyer.city, lawyer.country].filter(Boolean).join(", ") || lawyer.country}
+                          {" · "}
+                          {selectedLanguage === "all" ? "English / French" : selectedLanguage}
                         </div>
                         <div className="flex items-center gap-1 mt-2">
                           <Star className="h-4 w-4 fill-current text-yellow-500" />
