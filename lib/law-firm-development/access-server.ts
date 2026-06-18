@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { isAdvisoryWorkspacePreviewEnabled } from "@/lib/law-firm-advisory-preview";
 import { resolveMarketplaceCourseItem } from "@/lib/advisory-course-catalog";
+import { userHasAdminAccess } from "@/lib/admin-session";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 export type AdvisoryAccessResult = {
@@ -43,7 +44,8 @@ async function firstPublishedCourseItem(): Promise<{
 export async function getAdvisoryWorkspaceAccess(
   courseKey?: string | null
 ): Promise<AdvisoryAccessResult> {
-  const { userId } = await auth();
+  const authState = await auth();
+  const { userId } = authState;
   if (!userId) {
     return {
       signedIn: false,
@@ -54,6 +56,7 @@ export async function getAdvisoryWorkspaceAccess(
     };
   }
 
+  const isAdmin = await userHasAdminAccess(authState);
   const key = courseKey?.trim() || null;
   let course: { id: string; slug: string | null; title: string } | null = key
     ? await resolveMarketplaceCourseItem(key)
@@ -74,11 +77,24 @@ export async function getAdvisoryWorkspaceAccess(
     const owned = await userOwnsCourse(userId, course.id);
     return {
       signedIn: true,
-      hasPackage: owned,
+      hasPackage: owned || isAdmin,
       marketplaceItemId: course.id,
       marketplaceSlug: course.slug,
       courseTitle: course.title,
     };
+  }
+
+  if (isAdmin) {
+    const fallback = await firstPublishedCourseItem();
+    if (fallback) {
+      return {
+        signedIn: true,
+        hasPackage: true,
+        marketplaceItemId: fallback.id,
+        marketplaceSlug: fallback.slug,
+        courseTitle: fallback.title,
+      };
+    }
   }
 
   const supabase = getSupabaseServer();
