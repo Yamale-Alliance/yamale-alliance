@@ -11,7 +11,7 @@ export async function GET() {
   try {
     const supabase = getSupabaseServer();
     const { data, error } = await (supabase.from("lawyers") as any)
-      .select("id, name, country, expertise, linkedin_url, primary_language, other_languages, image_url")
+      .select("id, name, country, city, expertise, linkedin_url, primary_language, other_languages, image_url")
       .eq("approved", true)
       .order("name");
 
@@ -19,11 +19,12 @@ export async function GET() {
       console.error("Lawyers GET error:", error);
       return NextResponse.json({ error: "Failed to list lawyers" }, { status: 500 });
     }
-    const rows = (data ?? []) as Array<{ id: string; name: string; country: string | null; expertise: string; linkedin_url: string | null; primary_language: string | null; other_languages: string | null; image_url: string | null }>;
+    const rows = (data ?? []) as Array<{ id: string; name: string; country: string | null; city: string | null; expertise: string; linkedin_url: string | null; primary_language: string | null; other_languages: string | null; image_url: string | null }>;
     const lawyers = rows.map((row) => ({
       id: row.id,
       name: row.name,
       country: row.country ?? "",
+      city: row.city ?? "",
       expertise: row.expertise,
       linkedinUrl: row.linkedin_url ?? null,
       primaryLanguage: row.primary_language,
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const name = typeof body.name === "string" ? body.name.trim() : "";
     const country = typeof body.country === "string" ? body.country.trim() || null : null;
+    const city = typeof body.city === "string" ? body.city.trim() || null : null;
     const expertise = typeof body.expertise === "string" ? body.expertise.trim() : "";
     const email = typeof body.email === "string" ? body.email.trim() || null : null;
     const phone = typeof body.phone === "string" ? body.phone.trim() || null : null;
@@ -60,6 +62,12 @@ export async function POST(request: NextRequest) {
     const normalizedExpertise = normalizeExpertiseField(expertise);
     if (!normalizedExpertise || normalizedExpertise.length > 500) {
       return NextResponse.json({ error: "Expertise is required (max 500 characters)" }, { status: 400 });
+    }
+    if (country && country.length > 100) {
+      return NextResponse.json({ error: "Country too long" }, { status: 400 });
+    }
+    if (city && city.length > 100) {
+      return NextResponse.json({ error: "City too long" }, { status: 400 });
     }
     if (!email && !phone) {
       return NextResponse.json({ error: "Email or phone is required" }, { status: 400 });
@@ -88,6 +96,7 @@ export async function POST(request: NextRequest) {
       .insert({
         name,
         country,
+        city,
         expertise: normalizedExpertise,
         email,
         phone,
