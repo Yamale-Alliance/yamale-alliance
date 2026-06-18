@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { resolveMarketplaceItemFileForAccess } from "@/lib/marketplace-item-files";
+import { marketplaceCourseAccessGranted } from "@/lib/marketplace-course-access";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 const BUCKET = "marketplace-files";
@@ -24,7 +25,7 @@ export async function GET(
   const supabase = getSupabaseServer();
   const { data, error: itemErr } = await supabase
     .from("marketplace_items")
-    .select("id, file_path, file_name, file_format, published, price_cents")
+    .select("id, file_path, file_name, file_format, published, price_cents, is_course")
     .eq("id", id)
     .single();
 
@@ -38,6 +39,7 @@ export async function GET(
     file_format: string | null;
     published: boolean;
     price_cents: number | null;
+    is_course: boolean;
   };
   if (!item.published) {
     return NextResponse.json({ error: "Item not found" }, { status: 404 });
@@ -56,7 +58,8 @@ export async function GET(
 
   // Paid items require auth + purchase; free items do not.
   if (!isFree) {
-    const { userId } = await auth();
+    const authState = await auth();
+    const { userId } = authState;
     if (!userId) {
       return NextResponse.json({ error: "Sign in to access" }, { status: 401 });
     }
@@ -68,7 +71,11 @@ export async function GET(
       .eq("marketplace_item_id", id)
       .maybeSingle();
 
-    if (!purchase) {
+    const allowed = await marketplaceCourseAccessGranted(authState, {
+      purchased: Boolean(purchase),
+      isCourse: Boolean(item.is_course),
+    });
+    if (!allowed) {
       return NextResponse.json({ error: "Purchase this item to view" }, { status: 403 });
     }
   }
