@@ -11,14 +11,15 @@ import type { AdvisoryDocumentStatus } from "@/lib/law-firm-development/types";
 const VALID_STATUS = new Set<AdvisoryDocumentStatus>(["not_started", "in_progress", "complete"]);
 
 /** GET: load advisory workspace state for the signed-in purchaser. */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Sign in required" }, { status: 401 });
     }
 
-    const access = await getAdvisoryWorkspaceAccess();
+    const courseKey = request.nextUrl.searchParams.get("course");
+    const access = await getAdvisoryWorkspaceAccess(courseKey);
     if (!access.hasPackage) {
       return NextResponse.json({ error: "Package required" }, { status: 403 });
     }
@@ -43,7 +44,8 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Sign in required" }, { status: 401 });
     }
 
-    const access = await getAdvisoryWorkspaceAccess();
+    const courseKey = request.nextUrl.searchParams.get("course");
+    const access = await getAdvisoryWorkspaceAccess(courseKey);
     if (!access.hasPackage) {
       return NextResponse.json({ error: "Package required" }, { status: 403 });
     }
