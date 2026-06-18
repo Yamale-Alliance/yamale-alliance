@@ -2033,7 +2033,9 @@
         "placeholders": {
           "fullName": "Full name",
           "country": "e.g. Ghana, Kenya",
+          "city": "e.g. Nairobi, Lagos",
           "expertise": "e.g. Corporate law, Tax, Employment",
+          "selectExpertise": "Select practice area",
           "email": "lawyer@example.com",
           "phone": "e.g. +233 00 000 0000",
           "primaryLanguage": "e.g. English",
@@ -2048,6 +2050,7 @@
       "table": {
         "photo": "Photo",
         "country": "Country",
+        "city": "City",
         "expertise": "Expertise",
         "languages": "Languages",
         "phone": "Phone",
@@ -2642,6 +2645,7 @@
     "country": "Country",
     "selectCountry": "Select a country",
     "city": "City",
+    "cityPlaceholder": "e.g. Nairobi, Lagos",
     "practiceArea": "Practice area",
     "allPracticeAreas": "All practice areas",
     "language": "Language",
