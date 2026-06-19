@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Plus, FileText, Loader2, Trash2, CopyCheck, Trash, History, Download, Scale, Link2, Tags } from "lucide-react";
+import { Plus, FileText, Loader2, Trash2, CopyCheck, Trash, History, Download, Scale, Link2, Tags, ShieldCheck } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
 
@@ -64,6 +64,7 @@ function AdminLawsPageInner() {
   const [bulkTreatyType, setBulkTreatyType] = useState<LawTreatyType>("Multilateral");
   const [bulkTreatySaving, setBulkTreatySaving] = useState(false);
   const [bulkTreatyError, setBulkTreatyError] = useState<string | null>(null);
+  const [pendingRagCount, setPendingRagCount] = useState<number | null>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
   const { confirm, confirmDialog } = useConfirm();
 
@@ -94,6 +95,15 @@ function AdminLawsPageInner() {
   useEffect(() => {
     void loadLaws();
   }, [loadLaws]);
+
+  useEffect(() => {
+    fetch("/api/admin/laws/rag-approval?countOnly=1&status=pending", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        setPendingRagCount(typeof data.total === "number" ? data.total : 0);
+      })
+      .catch(() => setPendingRagCount(null));
+  }, [laws]);
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -286,6 +296,18 @@ function AdminLawsPageInner() {
           >
             <Trash className="h-4 w-4" />
             {t("actions.recentlyDeleted")}
+          </Link>
+          <Link
+            href="/admin-panel/laws/rag-approval"
+            className="inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-500/15 dark:text-amber-100"
+          >
+            <ShieldCheck className="h-4 w-4" />
+            {t("actions.ragApproval")}
+            {pendingRagCount != null && pendingRagCount > 0 && (
+              <span className="rounded-full bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                {pendingRagCount}
+              </span>
+            )}
           </Link>
           <Link
             href="/admin-panel/laws/updated"
