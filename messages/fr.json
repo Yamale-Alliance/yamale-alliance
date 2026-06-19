@@ -1263,6 +1263,7 @@
           "categories": "Catégories",
           "recentlyDeleted": "Récemment supprimées",
           "recentlyUpdated": "Récemment mises à jour",
+          "ragApproval": "File d'approbation RAG",
           "addLaw": "Ajouter une loi"
         },
         "filters": {
@@ -1517,6 +1518,76 @@
           "countryRequired": "Sélectionnez un pays, ou activez \"Tous les pays\" pour les traités et instruments régionaux.",
           "categoryRequired": "Sélectionnez au moins une catégorie.",
           "saveFailed": "Échec de l'enregistrement des modifications"
+        },
+        "ragApproval": {
+          "pendingTitle": "Pas encore approuvée pour la recherche IA",
+          "pendingHint": "Cette loi a été importée récemment et est masquée dans Recherche IA jusqu'à approbation.",
+          "approveForAi": "Approuver pour l'IA",
+          "approvedHint": "Approuvée pour la recherche Recherche IA.",
+          "revokeApproval": "Révoquer l'approbation IA",
+          "confirm": {
+            "approveTitle": "Approuver pour l'IA",
+            "approveDescription": "Cette loi apparaîtra dans Recherche IA après approbation.",
+            "approve": "Approuver",
+            "revokeTitle": "Révoquer l'approbation IA",
+            "revokeDescription": "Cette loi sera retirée de Recherche IA jusqu'à une nouvelle approbation.",
+            "revoke": "Révoquer"
+          },
+          "messages": {
+            "approved": "Loi approuvée pour la recherche IA.",
+            "revoked": "Approbation IA révoquée — la loi est à nouveau en attente."
+          },
+          "errors": {
+            "updateFailed": "Échec de la mise à jour du statut d'approbation RAG."
+          }
+        }
+      },
+      "ragApproval": {
+        "back": "Retour aux lois",
+        "title": "File d'approbation RAG",
+        "subtitle": "Les nouvelles importations restent en attente jusqu'à approbation. Les lois approuvées sont incluses dans Recherche IA.",
+        "hint": "Relisez le texte avant d'approuver. Les lois en attente sont exclues des réponses IA.",
+        "empty": "Aucune loi ne correspond à ce filtre.",
+        "filters": {
+          "status": "Statut RAG",
+          "pending": "En attente de revue",
+          "approved": "Approuvées",
+          "all": "Toutes (avec colonne RAG)"
+        },
+        "status": {
+          "pending": "En attente",
+          "approved": "Approuvée",
+          "legacy": "Ancienne (pré-migration)"
+        },
+        "actions": {
+          "approveOne": "Approuver",
+          "revokeOne": "Révoquer",
+          "approveSelected": "Approuver la sélection{count, plural, =0 {} other { ({count})}}",
+          "approvePage": "Approuver toute la page ({count})"
+        },
+        "confirm": {
+          "approveTitle": "Approuver pour l'IA",
+          "approveDescription": "Approuver {count} {count, plural, one {loi} other {lois}} pour Recherche IA ?",
+          "approve": "Approuver",
+          "revokeTitle": "Révoquer l'approbation IA",
+          "revokeDescription": "Révoquer l'approbation IA pour {count} {count, plural, one {loi} other {lois}} ? Elles seront masquées jusqu'à nouvelle approbation.",
+          "revoke": "Révoquer"
+        },
+        "table": {
+          "selectAllAria": "Sélectionner toutes les lois de cette page",
+          "title": "Titre",
+          "country": "Pays",
+          "category": "Catégorie",
+          "ingested": "Importée",
+          "ragStatus": "Statut RAG",
+          "actions": "Actions"
+        },
+        "pagination": "Page {page} sur {totalPages} · {total} au total",
+        "paginationPrev": "Page précédente",
+        "paginationNext": "Page suivante",
+        "errors": {
+          "loadFailed": "Échec du chargement de la file d'approbation RAG.",
+          "updateFailed": "Échec de la mise à jour de l'approbation RAG."
         }
       },
       "documentLanguage": {
