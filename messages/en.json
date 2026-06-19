@@ -1263,6 +1263,7 @@
           "categories": "Categories",
           "recentlyDeleted": "Recently deleted",
           "recentlyUpdated": "Recently updated",
+          "ragApproval": "RAG approval queue",
           "addLaw": "Add law"
         },
         "filters": {
@@ -1517,6 +1518,76 @@
           "countryRequired": "Select a country, or enable \"All countries\" for treaties and regional instruments.",
           "categoryRequired": "Select at least one category.",
           "saveFailed": "Failed to save changes"
+        },
+        "ragApproval": {
+          "pendingTitle": "Not yet approved for AI retrieval",
+          "pendingHint": "This law was imported recently and is hidden from AI Research until you approve it.",
+          "approveForAi": "Approve for AI",
+          "approvedHint": "Approved for AI Research retrieval.",
+          "revokeApproval": "Revoke AI approval",
+          "confirm": {
+            "approveTitle": "Approve for AI",
+            "approveDescription": "This law will appear in AI Research retrieval after approval.",
+            "approve": "Approve",
+            "revokeTitle": "Revoke AI approval",
+            "revokeDescription": "This law will be removed from AI Research retrieval until approved again.",
+            "revoke": "Revoke"
+          },
+          "messages": {
+            "approved": "Law approved for AI retrieval.",
+            "revoked": "AI approval revoked — law is pending review again."
+          },
+          "errors": {
+            "updateFailed": "Failed to update RAG approval status."
+          }
+        }
+      },
+      "ragApproval": {
+        "back": "Back to laws",
+        "title": "RAG approval queue",
+        "subtitle": "New imports stay pending until approved. Approved laws are included in AI Research retrieval.",
+        "hint": "Review law text before approving. Pending laws are excluded from AI answers.",
+        "empty": "No laws match this filter.",
+        "filters": {
+          "status": "RAG status",
+          "pending": "Pending review",
+          "approved": "Approved",
+          "all": "All (with RAG column set)"
+        },
+        "status": {
+          "pending": "Pending",
+          "approved": "Approved",
+          "legacy": "Legacy (pre-migration)"
+        },
+        "actions": {
+          "approveOne": "Approve",
+          "revokeOne": "Revoke",
+          "approveSelected": "Approve selected{count, plural, =0 {} other { ({count})}}",
+          "approvePage": "Approve all on this page ({count})"
+        },
+        "confirm": {
+          "approveTitle": "Approve for AI",
+          "approveDescription": "Approve {count} {count, plural, one {law} other {laws}} for AI Research retrieval?",
+          "approve": "Approve",
+          "revokeTitle": "Revoke AI approval",
+          "revokeDescription": "Revoke AI approval for {count} {count, plural, one {law} other {laws}}? They will be hidden from retrieval until approved again.",
+          "revoke": "Revoke"
+        },
+        "table": {
+          "selectAllAria": "Select all laws on this page",
+          "title": "Title",
+          "country": "Country",
+          "category": "Category",
+          "ingested": "Ingested",
+          "ragStatus": "RAG status",
+          "actions": "Actions"
+        },
+        "pagination": "Page {page} of {totalPages} · {total} total",
+        "paginationPrev": "Previous page",
+        "paginationNext": "Next page",
+        "errors": {
+          "loadFailed": "Failed to load RAG approval queue.",
+          "updateFailed": "Failed to update RAG approval."
         }
       },
       "documentLanguage": {
