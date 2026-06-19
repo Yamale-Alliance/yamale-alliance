@@ -1263,6 +1263,7 @@
           "categories": "Categorias",
           "recentlyDeleted": "Eliminadas recentemente",
           "recentlyUpdated": "Atualizadas recentemente",
+          "ragApproval": "Fila de aprovação RAG",
           "addLaw": "Adicionar lei"
         },
         "filters": {
@@ -1517,6 +1518,76 @@
           "countryRequired": "Selecione um país, ou ative \"Todos os países\" para tratados e instrumentos regionais.",
           "categoryRequired": "Selecione pelo menos uma categoria.",
           "saveFailed": "Falha ao guardar alterações"
+        },
+        "ragApproval": {
+          "pendingTitle": "Ainda não aprovada para pesquisa IA",
+          "pendingHint": "Esta lei foi importada recentemente e fica oculta na Pesquisa IA até ser aprovada.",
+          "approveForAi": "Aprovar para IA",
+          "approvedHint": "Aprovada para pesquisa na Pesquisa IA.",
+          "revokeApproval": "Revogar aprovação IA",
+          "confirm": {
+            "approveTitle": "Aprovar para IA",
+            "approveDescription": "Esta lei passará a aparecer na Pesquisa IA após aprovação.",
+            "approve": "Aprovar",
+            "revokeTitle": "Revogar aprovação IA",
+            "revokeDescription": "Esta lei será removida da Pesquisa IA até ser aprovada novamente.",
+            "revoke": "Revogar"
+          },
+          "messages": {
+            "approved": "Lei aprovada para pesquisa IA.",
+            "revoked": "Aprovação IA revogada — a lei voltou a pendente."
+          },
+          "errors": {
+            "updateFailed": "Falha ao atualizar o estado de aprovação RAG."
+          }
+        }
+      },
+      "ragApproval": {
+        "back": "Voltar às leis",
+        "title": "Fila de aprovação RAG",
+        "subtitle": "Novas importações ficam pendentes até aprovação. Leis aprovadas entram na Pesquisa IA.",
+        "hint": "Revise o texto antes de aprovar. Leis pendentes ficam excluídas das respostas IA.",
+        "empty": "Nenhuma lei corresponde a este filtro.",
+        "filters": {
+          "status": "Estado RAG",
+          "pending": "Pendentes de revisão",
+          "approved": "Aprovadas",
+          "all": "Todas (com coluna RAG)"
+        },
+        "status": {
+          "pending": "Pendente",
+          "approved": "Aprovada",
+          "legacy": "Legado (pré-migração)"
+        },
+        "actions": {
+          "approveOne": "Aprovar",
+          "revokeOne": "Revogar",
+          "approveSelected": "Aprovar selecionadas{count, plural, =0 {} other { ({count})}}",
+          "approvePage": "Aprovar todas nesta página ({count})"
+        },
+        "confirm": {
+          "approveTitle": "Aprovar para IA",
+          "approveDescription": "Aprovar {count} {count, plural, one {lei} other {leis}} para a Pesquisa IA?",
+          "approve": "Aprovar",
+          "revokeTitle": "Revogar aprovação IA",
+          "revokeDescription": "Revogar aprovação IA de {count} {count, plural, one {lei} other {leis}}? Ficarão ocultas até nova aprovação.",
+          "revoke": "Revogar"
+        },
+        "table": {
+          "selectAllAria": "Selecionar todas as leis desta página",
+          "title": "Título",
+          "country": "País",
+          "category": "Categoria",
+          "ingested": "Importada",
+          "ragStatus": "Estado RAG",
+          "actions": "Ações"
+        },
+        "pagination": "Página {page} de {totalPages} · {total} no total",
+        "paginationPrev": "Página anterior",
+        "paginationNext": "Página seguinte",
+        "errors": {
+          "loadFailed": "Falha ao carregar a fila de aprovação RAG.",
+          "updateFailed": "Falha ao atualizar a aprovação RAG."
         }
       },
       "documentLanguage": {
