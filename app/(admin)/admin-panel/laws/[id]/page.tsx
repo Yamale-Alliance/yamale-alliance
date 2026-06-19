@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, Link2, Loader2, Search, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, Link2, Loader2, Search, Sparkles, Trash2, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { LAW_YEAR_MIN, LAW_YEAR_MAX } from "@/lib/admin-law-utils";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
@@ -31,6 +31,9 @@ type LawForEdit = {
   language_code?: string | null;
   content: string | null;
   content_plain: string | null;
+  rag_approval_status?: string | null;
+  ingested_by?: string | null;
+  ingested_at?: string | null;
 };
 
 export default function AdminLawEditPage() {
@@ -70,6 +73,7 @@ export default function AdminLawEditPage() {
   const [replaceResult, setReplaceResult] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [fixOcrLoading, setFixOcrLoading] = useState(false);
+  const [ragApprovalLoading, setRagApprovalLoading] = useState(false);
   const [sharedLinkPeerCount, setSharedLinkPeerCount] = useState(0);
   const router = useRouter();
   const { confirm, confirmDialog } = useConfirm();
@@ -239,6 +243,45 @@ export default function AdminLawEditPage() {
       setError(t("errors.networkTryAgain"));
     } finally {
       setFixOcrLoading(false);
+    }
+  };
+
+  const handleRagApproval = async (status: "approved" | "pending") => {
+    if (!id) return;
+    const isApprove = status === "approved";
+    const ok = await confirm({
+      title: isApprove ? t("ragApproval.confirm.approveTitle") : t("ragApproval.confirm.revokeTitle"),
+      description: isApprove
+        ? t("ragApproval.confirm.approveDescription")
+        : t("ragApproval.confirm.revokeDescription"),
+      confirmLabel: isApprove ? t("ragApproval.confirm.approve") : t("ragApproval.confirm.revoke"),
+      cancelLabel: tc("cancel"),
+      variant: isApprove ? "default" : "destructive",
+    });
+    if (!ok) return;
+    setRagApprovalLoading(true);
+    setError(null);
+    setStatusMsg(null);
+    try {
+      const res = await fetch("/api/admin/laws/rag-approval", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [id], status }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setError(typeof data.error === "string" ? data.error : t("ragApproval.errors.updateFailed"));
+        return;
+      }
+      setLaw((prev) => (prev ? { ...prev, rag_approval_status: status } : prev));
+      setStatusMsg(
+        isApprove ? t("ragApproval.messages.approved") : t("ragApproval.messages.revoked")
+      );
+    } catch {
+      setError(t("errors.networkTryAgain"));
+    } finally {
+      setRagApprovalLoading(false);
     }
   };
 
@@ -452,6 +495,43 @@ export default function AdminLawEditPage() {
                     {t("linked.viewOrUnlink")}
                   </Link>
                 </div>
+              </div>
+            )}
+            {law.rag_approval_status === "pending" && (
+              <div className="mt-3 flex flex-col gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-2 text-sm">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" />
+                  <div>
+                    <p className="font-medium text-amber-900 dark:text-amber-100">{t("ragApproval.pendingTitle")}</p>
+                    <p className="mt-0.5 text-amber-800/90 dark:text-amber-200/90">{t("ragApproval.pendingHint")}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={ragApprovalLoading}
+                  onClick={() => void handleRagApproval("approved")}
+                  className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {ragApprovalLoading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  )}
+                  {t("ragApproval.approveForAi")}
+                </button>
+              </div>
+            )}
+            {law.rag_approval_status === "approved" && (
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm">
+                <span className="text-green-800 dark:text-green-200">{t("ragApproval.approvedHint")}</span>
+                <button
+                  type="button"
+                  disabled={ragApprovalLoading}
+                  onClick={() => void handleRagApproval("pending")}
+                  className="text-xs font-medium text-muted-foreground hover:text-foreground hover:underline disabled:opacity-50"
+                >
+                  {t("ragApproval.revokeApproval")}
+                </button>
               </div>
             )}
           </div>
