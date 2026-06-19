@@ -53,7 +53,7 @@ export async function GET(
   try {
     const supabase = getSupabaseServer();
     const fullSelect =
-      "id, slug, title, country_id, applies_to_all_countries, category_id, year, status, treaty_type, source_url, source_name, content, content_plain, language_code, last_verified_at";
+      "id, slug, title, country_id, applies_to_all_countries, category_id, year, status, treaty_type, source_url, source_name, content, content_plain, language_code, last_verified_at, rag_approval_status, ingested_by, ingested_at, content_hash";
     const legacySelect =
       "id, slug, title, country_id, applies_to_all_countries, category_id, year, status, source_url, source_name, content, content_plain, language_code, last_verified_at";
 
@@ -67,6 +67,34 @@ export async function GET(
       const missingTreatyColumn =
         error.message?.toLowerCase().includes("treaty_type") ||
         error.code === "PGRST204";
+      const missingRagColumn =
+        error.message?.toLowerCase().includes("rag_approval_status") ||
+        error.message?.toLowerCase().includes("ingested_at") ||
+        error.message?.toLowerCase().includes("content_hash");
+      if (missingRagColumn && !missingTreatyColumn) {
+        const ragLegacySelect =
+          "id, slug, title, country_id, applies_to_all_countries, category_id, year, status, treaty_type, source_url, source_name, content, content_plain, language_code, last_verified_at";
+        const ragLegacyRes = await supabase.from("laws").select(ragLegacySelect).eq("id", id).single();
+        const ragLegacyData = ragLegacyRes.data as LawRow | null;
+        const ragLegacyError = ragLegacyRes.error;
+        if (ragLegacyError || !ragLegacyData) {
+          return NextResponse.json({ error: "Law not found" }, { status: 404 });
+        }
+        const law = ragLegacyData;
+        let category_ids: string[] = law.category_id ? [law.category_id] : [];
+        try {
+          category_ids = await fetchCategoryIdsForLaw(supabase, id);
+        } catch {
+          /* law_categories table may not exist yet */
+        }
+        const country_ids = law.applies_to_all_countries
+          ? []
+          : await fetchAssignedCountryIdsForLaw(supabase, id, law);
+        return NextResponse.json({
+          law: { ...law, category_ids, country_ids, rag_approval_status: null },
+          warning: "Missing RAG approval columns; run scripts/supabase/add-content-hash.sql",
+        });
+      }
       if (missingTreatyColumn) {
         // Backward-compat: local DB may not have migration 064 yet.
         const legacyRes = await supabase.from("laws").select(legacySelect).eq("id", id).single();
