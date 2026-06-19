@@ -1,6 +1,10 @@
 # Yamalé Platform — Security Remediation Log
 ikPin Audit Response | June 2026
 
+**Status (June 2026):** All ikPin remediation phases (code + manual ops) are **complete in production**. Ongoing practices below remain active.
+
+---
+
 ## ✅ Implemented in Code
 
 ### Phase 2 — Code changes
@@ -37,96 +41,50 @@ ikPin Audit Response | June 2026
 
 ---
 
-## ⚙️ Manual Actions Required (Patrick to complete)
+## ✅ Manual Actions Completed (Production)
 
-### Gmail password + 2FA (frashid274@gmail.com)
-**Why:** Compromised email can reset passwords for Supabase, Vercel, GitHub, and Anthropic.
-**Steps:**
-1. Sign in at https://myaccount.google.com/security
-2. Change password to a unique 16+ character password (password manager).
-3. Turn on 2-Step Verification → Authenticator app (not SMS).
-4. Save backup codes offline.
-**Done when:** Google Security shows 2-Step Verification ON and last password change is today.
+| Item | Resolution |
+|------|------------|
+| **Legacy admin account** | `frashid274@gmail.com` removed from admin access (no longer in admin roster). |
+| **Service account hygiene** | Unique passwords + MFA enabled on Supabase, Vercel, GitHub, Anthropic Console, and Clerk. |
+| **Admin authentication** | Clerk MFA replaced by **app-level admin TOTP** (`/admin-panel/mfa`); `ADMIN_MFA_ENFORCED` active in production. |
+| **Anthropic spend cap** | Monthly spending limit and billing alerts configured in Anthropic Console. |
+| **`AI_PERF_LOG=0`** | Set in Vercel Production; redeployed (no query snippets in prod logs). |
+| **`setup-purge-cron.sql`** | Applied; `cron.job` row `yamale_ai_data_purge` exists (`0 2 * * *`). |
+| **`add-content-hash.sql`** | Applied; RAG columns live; existing laws `approved`. |
+| **`add-cost-columns.sql`** | Applied; new AI chats write token/cost fields to `ai_query_log`. |
+| **`VIRUSTOTAL_API_KEY`** | Set in Production; admin uploads scanned (no skip warnings). |
+| **Upstash REST Redis** | `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` in Production; distributed rate limits active. |
+| **RAG approval workflow** | Admin UI live (**Laws → RAG approval queue**). Initial corpus **4,248 laws approved** (June 2026); new imports still default to `pending` until approved. |
 
-### Audit service account passwords (no reuse)
-**Why:** Password reuse across Supabase, Vercel, GitHub, Anthropic, and Clerk allows one breach to compromise all.
-**Steps:**
-1. List every login used for: Supabase, Vercel, GitHub, Anthropic Console, Clerk Dashboard.
-2. Ensure each has a unique password in a team password manager.
-3. Enable MFA on each platform where supported.
-**Done when:** Password manager shows unique entries and MFA enabled for each service.
+### Reference: original runbook steps
 
-### App-level admin TOTP
-**Why:** Admin accounts can ingest laws, view query logs, and change platform settings. This uses Yamalé-owned TOTP (no Clerk Pro MFA).
-**Steps:**
-1. Run `scripts/supabase/add-admin-totp.sql` in Supabase SQL Editor.
-2. Set `ADMIN_MFA_SECRET`, `ADMIN_MFA_ENCRYPTION_KEY`, and `ADMIN_MFA_ENFORCED=true` in Vercel (see `.env.example`; generate secrets with `openssl rand -base64 48` and `openssl rand -hex 32`).
-3. Deploy. No pre-enrollment needed — each admin is prompted on their **first visit to the admin panel** (redirect to `/admin-panel/mfa`, QR setup starts automatically).
-4. On later visits (or after the step-up cookie expires), admins enter a 6-digit code only.
-**Done when:** Production has the env vars set; each admin can open `/admin-panel` after completing first-time authenticator setup.
+<details>
+<summary>Phase 1 manual checklist (archived — all items above marked done)</summary>
 
-### Anthropic Console monthly spending cap
-**Why:** Limits runaway API cost if keys leak or abuse spikes.
-**Steps:**
-1. Sign in at https://console.anthropic.com → Settings → Billing.
-2. Set a monthly spend limit appropriate for Yamalé traffic (e.g. $500–$2000).
-3. Add billing alert email to Patrick + Hawa.
-**Done when:** Billing page shows an active monthly limit and alert recipients.
+- ~~Gmail password + 2FA~~ — superseded by removing legacy admin account from roster.
+- ~~Audit service account passwords (no reuse)~~ — done.
+- ~~Clerk MFA for admins~~ — replaced by app-level TOTP (see item 2.5).
+- ~~App-level admin TOTP~~ — SQL applied, env vars set, enforced in production.
+- ~~Anthropic monthly spending cap~~ — done.
+- ~~Disable `AI_PERF_LOG` in production~~ — done.
+- ~~Run `setup-purge-cron.sql`~~ — done.
+- ~~Run `add-content-hash.sql`~~ — done.
+- ~~Run `add-cost-columns.sql`~~ — done.
+- ~~`VIRUSTOTAL_API_KEY`~~ — done.
+- ~~Upstash REST vars in production~~ — done.
+- ~~RAG approval process~~ — operational.
 
-### Disable AI_PERF_LOG in Vercel production
-**Why:** Verbose perf logs can leak query snippets and internal timing in production logs.
-**Steps:**
-1. Vercel → Project → Settings → Environment Variables → Production.
-2. Set `AI_PERF_LOG=0` (or remove the variable if it was set to `1`).
-3. Redeploy production.
-**Done when:** Production env shows `AI_PERF_LOG=0` and new deploy is live.
+</details>
 
-### Run `scripts/supabase/setup-purge-cron.sql`
-**Why:** Retains AI query data only as long as policy allows (90/180 days).
-**Steps:**
-1. Supabase Dashboard → Database → Extensions → enable `pg_cron` if needed.
-2. SQL Editor → paste contents of `scripts/supabase/setup-purge-cron.sql` → Run.
-3. Verify: `SELECT * FROM cron.job WHERE jobname = 'yamale_ai_data_purge';`
-**Done when:** One row shows schedule `0 2 * * *` and job name `yamale_ai_data_purge`.
+---
 
-### Run `scripts/supabase/add-content-hash.sql`
-**Why:** Enables content hashing and RAG approval workflow before new ingestions go live to users.
-**Steps:**
-1. Supabase SQL Editor → paste `scripts/supabase/add-content-hash.sql` → Run.
-2. Confirm columns: `content_hash`, `ingested_by`, `ingested_at`, `rag_approval_status`.
-3. Existing laws should show `rag_approval_status = 'approved'`.
-**Done when:** `\d laws` (or Table Editor) shows new columns; existing rows are `approved`.
+## ⏳ Optional follow-ups (not blocking remediation)
 
-### Run `scripts/supabase/add-cost-columns.sql`
-**Why:** Persists token usage and estimated cost per AI query for finance and incident review.
-**Steps:**
-1. Supabase SQL Editor → paste `scripts/supabase/add-cost-columns.sql` → Run.
-2. Confirm columns on `ai_query_log`: `input_tokens`, `output_tokens`, `estimated_cost_usd`, `model_used`.
-**Done when:** A new AI chat turn writes non-null cost fields in `ai_query_log`.
-
-### VirusTotal API key
-**Why:** Admin uploads are scanned before storage/OCR; without a key, scans are skipped.
-**Steps:**
-1. Register at https://www.virustotal.com/gui/join-us
-2. Copy API key from profile.
-3. Add `VIRUSTOTAL_API_KEY` to Vercel Production (and Preview if desired) → Redeploy.
-**Done when:** Uploading a test file in admin logs no "VIRUSTOTAL_API_KEY not set" warning.
-
-### Vercel KV / Upstash Redis
-**Why:** Tier hourly limits and API rate limits must persist across serverless instances.
-**Steps:**
-1. Vercel Dashboard → Storage → Create KV (or connect existing Upstash Redis).
-2. Link store to the Yamalé project.
-3. Ensure env vars are set in Production: `KV_REST_API_URL` and `KV_REST_API_TOKEN` (or `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`).
-4. Redeploy.
-**Done when:** Exceeding hourly AI quota on a plan returns HTTP 429 consistently after cold starts.
-
-### Approve pending laws after ingestion review
-**Why:** New ingestions default to `rag_approval_status = 'pending'` and do not appear in RAG until approved.
-**Steps:**
-1. After admin imports, review content in Supabase Table Editor → `laws`.
-2. Set `rag_approval_status = 'approved'` for vetted rows only.
-**Done when:** Approved laws appear in AI research retrieval; pending laws do not.
+| Item | Notes |
+|------|-------|
+| **Article-level citation verification** | Stage 1 (`[doc:N]` range) done; stage 2 (article grounding vs excerpt) remains a quality hardening item. |
+| **`subscription_ledger` migration** | Optional payment audit trail — see `docs/SUBSCRIPTION_STATE.md`. |
 
 ---
 
@@ -135,7 +93,7 @@ ikPin Audit Response | June 2026
 - **Weekly:** Review `ai_query_log` `estimated_cost_usd` totals; investigate spikes. Confirm `AI_CHAT_DISABLED=false` unless incident active.
 - **Weekly:** Triage `npm audit` failures from `.github/workflows/security.yml` before merging to `main`.
 - **Monthly:** Reconcile Anthropic Console spend vs. `ai_query_log` aggregates.
-- **Quarterly:** Review pending `laws.rag_approval_status` queue; rotate API keys if staff changes.
+- **Quarterly:** Review pending `laws.rag_approval_status` queue (new imports only after initial 4,248-law approval); rotate API keys if staff changes.
 - **Quarterly:** Drill `docs/AI_INCIDENT_RESPONSE.md` (kill switch + escalation).
 
 ---
@@ -145,7 +103,7 @@ ikPin Audit Response | June 2026
 | Name | Purpose | Where to get it |
 |------|---------|-----------------|
 | `AI_CHAT_DISABLED` | Emergency kill switch for AI chat (`true` = 503) | Set manually in Vercel; default `false` |
-| `ADMIN_MFA_ENFORCED` | Require app-level TOTP for admin panel + APIs; unenrolled admins are prompted on first `/admin-panel` visit | Set `true` in Vercel when deploying MFA |
+| `ADMIN_MFA_ENFORCED` | Require app-level TOTP for admin panel + APIs; unenrolled admins are prompted on first `/admin-panel` visit | **`true` in Production** (June 2026) |
 | `ADMIN_MFA_SECRET` | HMAC signing key for `admin_mfa_step_up` cookie (32+ chars) | `openssl rand -base64 48` |
 | `ADMIN_MFA_ENCRYPTION_KEY` | AES-256-GCM key for TOTP secrets in Supabase (32+ chars or 64 hex) | `openssl rand -hex 32` |
 | `ADMIN_MFA_SESSION_TTL_SEC` | Step-up cookie lifetime (default 43200 = 12h) | Optional |
