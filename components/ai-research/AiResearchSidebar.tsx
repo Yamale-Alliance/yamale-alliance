@@ -11,7 +11,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import shellStyles from "./AIResearchShell.module.css";
+import { useAIResearchShellStyles } from "./AIResearchShellStylesContext";
 
 export type AiResearchSidebarSession = {
   id: string;
@@ -53,6 +53,7 @@ function SessionRow({
   onToggleStar: (e: React.MouseEvent) => void;
   t: ReturnType<typeof useTranslations<"aiResearch">>;
 }) {
+  const shellStyles = useAIResearchShellStyles();
   const active = currentId === session.id;
   return (
     <div className={`${shellStyles.sidebarSessionRow} group mb-0.5 flex items-stretch gap-0.5`}>
@@ -110,6 +111,7 @@ export function AiResearchSidebar({
   used,
 }: AiResearchSidebarProps) {
   const t = useTranslations("aiResearch");
+  const shellStyles = useAIResearchShellStyles();
   const totalVisible = starredSessions.length + recentSessions.length;
 
   const handleSelect = (id: string) => {
