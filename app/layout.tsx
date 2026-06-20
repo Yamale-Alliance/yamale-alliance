@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import Script from "next/script";
 import { NextIntlClientProvider } from "next-intl";
@@ -34,6 +34,14 @@ const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('yamale-th
 export async function generateMetadata(): Promise<Metadata> {
   return createRootMetadata();
 }
+
+/** Resize layout when the virtual keyboard opens instead of overlaying fixed panes (mobile). */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
+};
 
 export default async function RootLayout({
   children,
