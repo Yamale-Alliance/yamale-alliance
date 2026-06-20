@@ -2,7 +2,7 @@
 
 import type { FormEvent, RefObject } from "react";
 import { Send, Square } from "lucide-react";
-import styles from "./AIResearchShell.module.css";
+import { useAIResearchShellStyles } from "./AIResearchShellStylesContext";
 
 type AiResearchComposerProps = {
   input: string;
@@ -43,6 +43,7 @@ export function AiResearchComposer({
   stopLabel,
   sendLabel,
 }: AiResearchComposerProps) {
+  const styles = useAIResearchShellStyles();
   const shellClass =
     variant === "hero"
       ? `${styles.composerShell} ${styles.composerShellHero}`
