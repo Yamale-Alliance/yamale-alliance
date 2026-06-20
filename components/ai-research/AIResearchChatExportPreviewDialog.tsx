@@ -1,5 +1,3 @@
-"use client";
-
 import * as Dialog from "@radix-ui/react-dialog";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -9,7 +7,7 @@ import {
   filterAiResearchSourceCardsForDisplay,
   filterAiResearchSourcesForDisplay,
 } from "@/lib/ai-research-source-cards";
-import { containsArabicScript } from "@/lib/jspdf-unicode-text";
+import { containsArabicScript } from "@/lib/pdf-latin-sanitize";
 
 export type AIResearchExportPreviewMessage = {
   id: string;
