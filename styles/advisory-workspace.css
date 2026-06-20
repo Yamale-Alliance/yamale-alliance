@@ -346,10 +346,16 @@ body:has(.advisory-workspace-root) {
   background: var(--adv-surface);
   padding: 9px 14px 9px 36px;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--adv-ebony);
   font-family: inherit;
   transition: border-color 0.15s, background 0.15s;
+}
+
+@media (min-width: 768px) {
+  .advisory-topbar__search input {
+    font-size: 14px;
+  }
 }
 
 .advisory-topbar__search input::placeholder {
