@@ -269,6 +269,7 @@ export default function AIResearchClient() {
   /** Do not put `confirmingPayment` in the payg effect deps — it re-runs cleanup, cancels the fetch, and `finally` used to skip clearing the UI (stuck on "Confirming payment…"). */
   const mounted = useRef(false);
   const [mobileKeyboardInset, setMobileKeyboardInset] = useState(0);
+  const [shellViewportHeight, setShellViewportHeight] = useState<number | null>(null);
 
   useEffect(() => {
     const viewport = typeof window !== "undefined" ? window.visualViewport : null;
@@ -277,6 +278,7 @@ export default function AIResearchClient() {
     const updateInset = () => {
       const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
       setMobileKeyboardInset(inset);
+      setShellViewportHeight(viewport.height + viewport.offsetTop);
     };
 
     viewport.addEventListener("resize", updateInset);
@@ -1399,7 +1401,13 @@ export default function AIResearchClient() {
         className={`${shellStyles.aiShell} fixed inset-x-0 z-10 grid grid-cols-1 overflow-hidden bg-background ${
           sidebarOpen ? "md:grid-cols-[280px_minmax(0,1fr)]" : "md:grid-cols-1"
         }`}
-        style={{ top: shellTopOffset, height: `calc(100dvh - ${shellTopOffset}px)` }}
+        style={{
+          top: shellTopOffset,
+          height:
+            shellViewportHeight != null
+              ? `${Math.max(240, shellViewportHeight - shellTopOffset)}px`
+              : `calc(100dvh - ${shellTopOffset}px)`,
+        }}
       >
         <AiResearchSidebar
           sidebarOpen={sidebarOpen}
