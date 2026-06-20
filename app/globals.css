@@ -57,6 +57,15 @@ body {
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Mobile: 16px+ form controls so iOS/Android reliably focus and show the keyboard. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
 /* Law library (and similar) — paper-like PDF / print output; site chrome hides via print:hidden. */
 @media print {
   @page {
