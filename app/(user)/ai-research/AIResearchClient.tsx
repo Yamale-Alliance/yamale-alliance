@@ -63,7 +63,10 @@ import { AiResearchPlanLanding } from "@/components/ai-research/AiResearchPlanLa
 import { AiResearchComposer } from "@/components/ai-research/AiResearchComposer";
 import { AiResearchEmptyHero } from "@/components/ai-research/AiResearchEmptyHero";
 import { AiResearchSidebar } from "@/components/ai-research/AiResearchSidebar";
-import shellStyles from "@/components/ai-research/AIResearchShell.module.css";
+import {
+  AIResearchShellStylesProvider,
+  useAIResearchShellStyles,
+} from "@/components/ai-research/AIResearchShellStylesContext";
 import {
   translateAiProcessStepDetail,
   translateAiProcessStepMessage,
@@ -83,32 +86,6 @@ const TIER_LIMITS: Record<Tier, number | null> = {
   pro: 50,
   team: null,
 };
-
-const EXAMPLE_QUESTIONS_POOL = [
-  "What are the requirements for company registration in Ghana?",
-  "What is the minimum wage under Kenyan employment law?",
-  "What documents are needed for an AfCFTA certificate of origin?",
-  "What are the rules of origin for manufactured goods under AfCFTA?",
-  "How does VAT work for cross-border services in Nigeria?",
-  "What are the key labour protections for employees in South Africa?",
-  "What permits are required to export agricultural products under AfCFTA?",
-  "How do I register a trademark in Kenya?",
-  "What customs documents are needed to import machinery into Rwanda?",
-  "How are AfCFTA tariff phase-down schedules applied for sensitive products?",
-  "What are the main corporate tax obligations for a company in Senegal?",
-  "How do rules of origin differ between AfCFTA and ECOWAS?",
-];
-
-const DEFAULT_EXAMPLE_QUESTIONS = EXAMPLE_QUESTIONS_POOL.slice(0, 4);
-
-function pickRandomExampleQuestions(count: number): string[] {
-  const pool = [...EXAMPLE_QUESTIONS_POOL];
-  for (let i = pool.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
-  }
-  return pool.slice(0, Math.min(count, pool.length));
-}
 
 type Message = {
   id: string;
@@ -353,7 +330,6 @@ export default function AIResearchClient() {
   const [defaultModelId, setDefaultModelId] = useState<string | null>(null);
   const [allowedModelIds, setAllowedModelIds] = useState<string[]>([]);
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
-  const [exampleQuestions, setExampleQuestions] = useState<string[]>(DEFAULT_EXAMPLE_QUESTIONS);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [feedbackBusyId, setFeedbackBusyId] = useState<string | null>(null);
   const [feedbackChoiceById, setFeedbackChoiceById] = useState<Record<string, 1 | -1>>({});
@@ -429,16 +405,6 @@ export default function AIResearchClient() {
     };
   }, [filteredSessions]);
 
-  const fillComposerPrompt = useCallback((text: string) => {
-    setInput(text);
-    requestAnimationFrame(() => {
-      const el = composerTextareaRef.current;
-      if (!el) return;
-      el.focus();
-      el.setSelectionRange(text.length, text.length);
-    });
-  }, []);
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -468,10 +434,6 @@ export default function AIResearchClient() {
     if (!mounted.current) {
       mounted.current = true;
     }
-  }, []);
-
-  useEffect(() => {
-    setExampleQuestions(pickRandomExampleQuestions(4));
   }, []);
 
   useEffect(() => {
@@ -819,7 +781,6 @@ export default function AIResearchClient() {
   const newChat = useCallback(() => {
     setCurrentId(null);
     setInput("");
-    setExampleQuestions(pickRandomExampleQuestions(4));
   }, []);
 
   const selectChat = useCallback((id: string) => {
@@ -1428,7 +1389,10 @@ export default function AIResearchClient() {
   const planUsageLabel =
     limit === null ? `${t("unlimited")} · ${tierLabels[tier]}` : `${used} / ${limit} · ${tierLabels[tier]}`;
 
-  return (
+  function SubscriberShell() {
+    const shellStyles = useAIResearchShellStyles();
+
+    return (
     <>
       {/* AI Research: 280px sidebar + main — both follow light/dark theme */}
       <div
@@ -1484,17 +1448,19 @@ export default function AIResearchClient() {
                   <Menu className="h-5 w-5 md:hidden" />
                 )}
               </button>
-              <div className="min-w-0">
-                <h2 className="heading truncate text-[14px] font-semibold tracking-tight text-foreground md:text-[15px]">
-                  {t("title")}
-                </h2>
-                <p className={`hidden truncate text-[11px] leading-tight text-muted-foreground sm:block ${messages.length === 0 ? "md:hidden" : ""}`}>
-                  {t("headerSubtitle")}
-                </p>
-                <p className={`hidden text-[10px] leading-tight text-muted-foreground/90 sm:block ${messages.length === 0 ? "md:hidden" : ""}`}>
-                  {t("headerDisclaimer")}
-                </p>
-              </div>
+              {messages.length > 0 ? (
+                <div className="min-w-0">
+                  <h2 className="heading truncate text-[14px] font-semibold tracking-tight text-foreground md:text-[15px]">
+                    {t("title")}
+                  </h2>
+                  <p className="hidden truncate text-[11px] leading-tight text-muted-foreground sm:block">
+                    {t("headerSubtitle")}
+                  </p>
+                  <p className="hidden text-[10px] leading-tight text-muted-foreground/90 sm:block">
+                    {t("headerDisclaimer")}
+                  </p>
+                </div>
+              ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {messages.length > 0 && (
@@ -1592,8 +1558,6 @@ export default function AIResearchClient() {
           <div className={`${shellStyles.mainContent} flex min-h-0 flex-1 flex-col overflow-hidden`}>
             {messages.length === 0 ? (
               <AiResearchEmptyHero
-                exampleQuestions={exampleQuestions}
-                onFillPrompt={fillComposerPrompt}
                 atLimit={atLimit}
                 isTurnBusy={isTurnBusy}
                 input={input}
@@ -2194,5 +2158,12 @@ export default function AIResearchClient() {
         />
       ) : null}
     </>
+    );
+  }
+
+  return (
+    <AIResearchShellStylesProvider>
+      <SubscriberShell />
+    </AIResearchShellStylesProvider>
   );
 }
