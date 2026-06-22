@@ -83,12 +83,11 @@
 
 .hero {
   display: flex;
-  min-height: min(72vh, 720px);
-  flex: 1;
+  width: 100%;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 1.25rem 1.25rem 2rem;
+  justify-content: flex-start;
+  padding: clamp(1rem, 3vh, 2rem) 1.25rem 2.5rem;
   text-align: center;
 }
 
