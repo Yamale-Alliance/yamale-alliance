@@ -361,6 +361,75 @@ function listFetchKey(input: {
   return JSON.stringify(input);
 }
 
+function LibraryPageSelector({
+  totalPages,
+  safePage,
+  onPageChange,
+}: {
+  totalPages: number;
+  safePage: number;
+  onPageChange: (page: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+  const showPages: (number | "ellipsis")[] = [];
+  const add = (p: number) => {
+    if (p >= 1 && p <= totalPages) showPages.push(p);
+  };
+  add(1);
+  if (safePage > 3) showPages.push("ellipsis");
+  for (let p = Math.max(2, safePage - 1); p <= Math.min(totalPages - 1, safePage + 1); p++) add(p);
+  if (safePage < totalPages - 2) showPages.push("ellipsis");
+  if (totalPages > 1) add(totalPages);
+  const uniq = Array.from(new Set(showPages));
+
+  return (
+    <nav className="flex items-center justify-center gap-1" aria-label="Pagination">
+      <button
+        type="button"
+        onClick={() => onPageChange(safePage - 1)}
+        disabled={safePage <= 1}
+        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-sm font-medium text-foreground transition hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+        aria-label="Previous page"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <div className="flex items-center gap-1">
+        {uniq.map((p, i) =>
+          p === "ellipsis" ? (
+            <span key={`e-${i}`} className="px-2 text-muted-foreground">
+              …
+            </span>
+          ) : (
+            <button
+              key={p}
+              type="button"
+              onClick={() => onPageChange(p)}
+              className={`inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-lg border px-2 text-sm font-medium transition ${
+                p === safePage
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background text-foreground hover:bg-muted"
+              }`}
+              aria-label={`Page ${p}`}
+              aria-current={p === safePage ? "page" : undefined}
+            >
+              {p}
+            </button>
+          )
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => onPageChange(safePage + 1)}
+        disabled={safePage >= totalPages}
+        className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-sm font-medium text-foreground transition hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+        aria-label="Next page"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </nav>
+  );
+}
+
 export function LibraryView({
   initialCountries,
   initialCategories,
@@ -982,67 +1051,6 @@ export function LibraryView({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stable deps: only run when page count or current page change
   }, [totalPages, currentPage]);
 
-  function PageSelector() {
-    if (totalPages <= 1) return null;
-    const showPages: (number | "ellipsis")[] = [];
-    const add = (p: number) => {
-      if (p >= 1 && p <= totalPages) showPages.push(p);
-    };
-    add(1);
-    if (safePage > 3) showPages.push("ellipsis");
-    for (let p = Math.max(2, safePage - 1); p <= Math.min(totalPages - 1, safePage + 1); p++) add(p);
-    if (safePage < totalPages - 2) showPages.push("ellipsis");
-    if (totalPages > 1) add(totalPages);
-    const uniq = Array.from(new Set(showPages));
-
-    return (
-      <nav className="flex items-center justify-center gap-1" aria-label="Pagination">
-        <button
-          type="button"
-          onClick={() => handlePageChange(safePage - 1)}
-          disabled={safePage <= 1}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-sm font-medium text-foreground transition hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
-          aria-label="Previous page"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <div className="flex items-center gap-1">
-          {uniq.map((p, i) =>
-            p === "ellipsis" ? (
-              <span key={`e-${i}`} className="px-2 text-muted-foreground">
-                …
-              </span>
-            ) : (
-              <button
-                key={p}
-                type="button"
-                onClick={() => handlePageChange(p)}
-                className={`inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-lg border px-2 text-sm font-medium transition ${
-                  p === safePage
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-background text-foreground hover:bg-muted"
-                }`}
-                aria-label={`Page ${p}`}
-                aria-current={p === safePage ? "page" : undefined}
-              >
-                {p}
-              </button>
-            )
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={() => handlePageChange(safePage + 1)}
-          disabled={safePage >= totalPages}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-sm font-medium text-foreground transition hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
-          aria-label="Next page"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </nav>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <Dialog.Root
@@ -1236,7 +1244,11 @@ export function LibraryView({
           <>
             {totalPages > 1 && (
               <div className="mb-5 flex justify-end">
-                <PageSelector />
+                <LibraryPageSelector
+                  totalPages={totalPages}
+                  safePage={safePage}
+                  onPageChange={handlePageChange}
+                />
               </div>
             )}
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -1459,7 +1471,11 @@ export function LibraryView({
             </aside>
             {totalPages > 1 && laws.length > 0 && (
               <div className="mt-8 flex justify-center">
-                <PageSelector />
+                <LibraryPageSelector
+                  totalPages={totalPages}
+                  safePage={safePage}
+                  onPageChange={handlePageChange}
+                />
               </div>
             )}
           </>
