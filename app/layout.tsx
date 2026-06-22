@@ -35,12 +35,12 @@ export async function generateMetadata(): Promise<Metadata> {
   return createRootMetadata();
 }
 
-/** Resize layout when the virtual keyboard opens instead of overlaying fixed panes (mobile). */
+/** overlays-content (default) keeps focus stable while typing; resizes-content reflows the page and can blur inputs. */
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  interactiveWidget: "resizes-content",
+  interactiveWidget: "overlays-content",
 };
 
 export default async function RootLayout({
