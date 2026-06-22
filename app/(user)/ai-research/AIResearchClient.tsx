@@ -62,6 +62,7 @@ import { AiResearchMessageFootnotes } from "@/components/ai-research/AiResearchM
 import { AiResearchPlanLanding } from "@/components/ai-research/AiResearchPlanLanding";
 import { AiResearchComposer } from "@/components/ai-research/AiResearchComposer";
 import { AiResearchEmptyHero } from "@/components/ai-research/AiResearchEmptyHero";
+import { pickRandomExampleQuestions } from "@/lib/ai-research-example-prompts";
 import { AiResearchSidebar } from "@/components/ai-research/AiResearchSidebar";
 import {
   AIResearchShellStylesProvider,
@@ -235,6 +236,9 @@ export default function AIResearchClient() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [input, setInput] = useState("");
+  const [exampleQuestions, setExampleQuestions] = useState<string[]>(() =>
+    pickRandomExampleQuestions(4)
+  );
   const [searchChats, setSearchChats] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [streamingAssistantId, setStreamingAssistantId] = useState<string | null>(null);
@@ -780,9 +784,20 @@ export default function AIResearchClient() {
     };
   }, [sessions, user]);
 
+  const fillComposerPrompt = useCallback((text: string) => {
+    setInput(text);
+    requestAnimationFrame(() => {
+      const el = composerTextareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(text.length, text.length);
+    });
+  }, []);
+
   const newChat = useCallback(() => {
     setCurrentId(null);
     setInput("");
+    setExampleQuestions(pickRandomExampleQuestions(4));
   }, []);
 
   const selectChat = useCallback((id: string) => {
@@ -1565,21 +1580,29 @@ export default function AIResearchClient() {
 
           <div className={`${shellStyles.mainContent} flex min-h-0 flex-1 flex-col overflow-hidden`}>
             {messages.length === 0 ? (
-              <AiResearchEmptyHero
-                atLimit={atLimit}
-                isTurnBusy={isTurnBusy}
-                input={input}
-                setInput={setInput}
-                onSubmit={handleSubmit}
-                onSend={(text) => {
-                  void sendMessage(text);
-                }}
-                stopGenerating={stopGenerating}
-                textareaRef={composerTextareaRef}
-                mobileKeyboardInset={mobileKeyboardInset}
-                piiWarningDismissed={piiWarningDismissed}
-                onDismissPiiWarning={dismissPiiWarning}
-              />
+              <div
+                className={`${shellStyles.chatScroll} min-h-0 flex-1 overflow-y-auto overscroll-contain`}
+              >
+                <div className="mx-auto max-w-[820px] px-4 py-4 sm:px-6 md:px-8 md:py-6">
+                  <AiResearchEmptyHero
+                    exampleQuestions={exampleQuestions}
+                    onFillPrompt={fillComposerPrompt}
+                    atLimit={atLimit}
+                    isTurnBusy={isTurnBusy}
+                    input={input}
+                    setInput={setInput}
+                    onSubmit={handleSubmit}
+                    onSend={(text) => {
+                      void sendMessage(text);
+                    }}
+                    stopGenerating={stopGenerating}
+                    textareaRef={composerTextareaRef}
+                    mobileKeyboardInset={mobileKeyboardInset}
+                    piiWarningDismissed={piiWarningDismissed}
+                    onDismissPiiWarning={dismissPiiWarning}
+                  />
+                </div>
+              </div>
             ) : (
               <>
                 <div
@@ -1709,25 +1732,6 @@ export default function AIResearchClient() {
                             startedAt={msg.processStartedAt ?? Date.now()}
                             completedAt={msg.processCompletedAt}
                           />
-                        ) : null}
-                        {msg.role === "assistant" &&
-                        msg.outputConfidence &&
-                        !isAssistantTurnInProgress ? (
-                          <span
-                            className={`mb-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                              msg.outputConfidence === "high"
-                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
-                                : msg.outputConfidence === "medium"
-                                  ? "bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-100"
-                                  : "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-200"
-                            }`}
-                          >
-                            {msg.outputConfidence === "high"
-                              ? t("grounded")
-                              : msg.outputConfidence === "medium"
-                                ? t("partiallyGrounded")
-                                : t("lowConfidence")}
-                          </span>
                         ) : null}
                         {msg.role === "assistant" && msg.content.trim() ? (
                           <div className="prose prose-sm max-w-none break-words text-foreground dark:prose-invert prose-headings:font-semibold prose-headings:text-base sm:prose-headings:text-lg prose-p:my-2 prose-p:text-[13px] sm:prose-p:text-sm prose-ul:my-2 prose-li:my-0.5 prose-strong:font-semibold prose-a:break-words prose-a:text-[#C8922A] prose-a:underline hover:prose-a:opacity-90">
