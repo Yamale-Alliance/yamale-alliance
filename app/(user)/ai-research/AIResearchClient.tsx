@@ -217,7 +217,7 @@ function getLastExchangeScrollMessageId(messages: Message[]): string | undefined
   return messages[messages.length - 1]?.id;
 }
 
-export default function AIResearchClient() {
+function AIResearchClientCore() {
   const t = useTranslations("aiResearch");
   const tLoading = useTranslations("loading");
   const tCommon = useTranslations("common");
@@ -231,6 +231,7 @@ export default function AIResearchClient() {
     [t]
   );
   const { user, isLoaded } = useAppUser();
+  const shellStyles = useAIResearchShellStyles();
   const searchParams = useClientSearchParams();
   const chatStorageReadyRef = useRef(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -279,18 +280,24 @@ export default function AIResearchClient() {
     const viewport = typeof window !== "undefined" ? window.visualViewport : null;
     if (!viewport) return;
 
+    let rafId = 0;
     const updateInset = () => {
-      const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
-      setMobileKeyboardInset(inset);
-      setShellViewportHeight(viewport.height + viewport.offsetTop);
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+        setMobileKeyboardInset((prev) => (Math.abs(prev - inset) < 2 ? prev : inset));
+        const nextHeight = viewport.height + viewport.offsetTop;
+        setShellViewportHeight((prev) =>
+          prev != null && Math.abs(prev - nextHeight) < 2 ? prev : nextHeight
+        );
+      });
     };
 
     viewport.addEventListener("resize", updateInset);
-    viewport.addEventListener("scroll", updateInset);
     updateInset();
     return () => {
+      cancelAnimationFrame(rafId);
       viewport.removeEventListener("resize", updateInset);
-      viewport.removeEventListener("scroll", updateInset);
     };
   }, []);
 
@@ -602,11 +609,9 @@ export default function AIResearchClient() {
 
     updateShellOffset();
     window.addEventListener("resize", updateShellOffset);
-    window.addEventListener("scroll", updateShellOffset, { passive: true });
     window.visualViewport?.addEventListener("resize", updateShellOffset);
     return () => {
       window.removeEventListener("resize", updateShellOffset);
-      window.removeEventListener("scroll", updateShellOffset);
       window.visualViewport?.removeEventListener("resize", updateShellOffset);
     };
   }, []);
@@ -1406,10 +1411,7 @@ export default function AIResearchClient() {
   const planUsageLabel =
     limit === null ? `${t("unlimited")} · ${tierLabels[tier]}` : `${used} / ${limit} · ${tierLabels[tier]}`;
 
-  function SubscriberShell() {
-    const shellStyles = useAIResearchShellStyles();
-
-    return (
+  return (
     <>
       {/* AI Research: 280px sidebar + main — both follow light/dark theme */}
       <div
@@ -2170,12 +2172,13 @@ export default function AIResearchClient() {
         />
       ) : null}
     </>
-    );
-  }
+  );
+}
 
+export default function AIResearchClient() {
   return (
     <AIResearchShellStylesProvider>
-      <SubscriberShell />
+      <AIResearchClientCore />
     </AIResearchShellStylesProvider>
   );
 }
