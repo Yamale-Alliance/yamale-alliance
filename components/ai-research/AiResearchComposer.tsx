@@ -65,19 +65,6 @@ export function AiResearchComposer({
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onFocus={() => {
-                if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
-                  return;
-                }
-                requestAnimationFrame(() => {
-                  textareaRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-                });
-              }}
-              onTouchStart={() => {
-                if (document.activeElement !== textareaRef.current) {
-                  textareaRef.current?.focus({ preventScroll: true });
-                }
-              }}
               enterKeyHint="send"
               autoComplete="off"
               autoCorrect="on"
