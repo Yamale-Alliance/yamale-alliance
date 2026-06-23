@@ -29,7 +29,7 @@ import {
 import { stashPaygAiQueryLomiSessionId } from "@/lib/lomi-payg-ai-query-return";
 import {
   PRICING_AFCFTA_COMING_SOON,
-  PRICING_LAWYERS_COMING_SOON,
+  PRICING_LAWYERS_NETWORK_FEATURE,
   normalizePricingFeatures,
 } from "@/lib/pricing-coming-soon-features";
 import { PLATFORM_MAIL_LINK_REL, platformBusinessMailto } from "@/lib/platform-emails";
@@ -59,7 +59,7 @@ const FALLBACK_TIERS: Tier[] = [
     description: "Explore African law",
     features: [
       "Unlimited browsing of full texts of laws",
-      PRICING_LAWYERS_COMING_SOON,
+      PRICING_LAWYERS_NETWORK_FEATURE,
       "Browse The Yamalé Vault",
     ],
     cta: "Get Started Free",
@@ -76,7 +76,7 @@ const FALLBACK_TIERS: Tier[] = [
       "Unlimited browsing of full texts of laws",
       "<strong>Basic level AI queries/month</strong> (limited)",
       PRICING_AFCFTA_COMING_SOON,
-      PRICING_LAWYERS_COMING_SOON,
+      PRICING_LAWYERS_NETWORK_FEATURE,
       "Browse The Yamalé Vault",
     ],
     cta: "Choose Basic",
@@ -94,7 +94,7 @@ const FALLBACK_TIERS: Tier[] = [
       "Unlimited browsing of full texts of laws",
       "<strong>Pro level AI queries/month</strong> (limited)",
       PRICING_AFCFTA_COMING_SOON,
-      PRICING_LAWYERS_COMING_SOON,
+      PRICING_LAWYERS_NETWORK_FEATURE,
       "Browse The Yamalé Vault",
       "Download AI conversation",
     ],
@@ -113,7 +113,7 @@ const FALLBACK_TIERS: Tier[] = [
       "<strong>5 user seats included</strong>",
       "<strong>Team level AI queries per user/month</strong> (limited)",
       PRICING_AFCFTA_COMING_SOON,
-      PRICING_LAWYERS_COMING_SOON,
+      PRICING_LAWYERS_NETWORK_FEATURE,
       "Browse The Yamalé Vault",
       "Download AI conversation",
       "<strong>Additional user: $6/month each</strong>",
@@ -565,7 +565,10 @@ export default function PricingPage() {
               <MarketingDiscountPrice currentCents={lawPrintPriceUsdCents} size="hero" suffix={t("payg.printLaw.suffix")} />
             </button>
 
-            <div className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left">
+            <Link
+              href="/lawyers"
+              className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left transition hover:border-[#C8922A] hover:shadow-sm"
+            >
               <div className="pr-4 sm:pr-6">
                 <div className="text-xl font-semibold leading-tight text-foreground sm:text-[28px]">
                   {t("payg.lawyersNetwork.title")}
@@ -574,10 +577,10 @@ export default function PricingPage() {
                   {t("payg.lawyersNetwork.description")}
                 </div>
               </div>
-              <span className="shrink-0 rounded-lg border border-amber-300/80 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100">
-                {t("payg.comingSoon")}
+              <span className="shrink-0 rounded-lg bg-[#0D1B2A] px-4 py-2 text-sm font-semibold text-white dark:bg-primary dark:text-primary-foreground">
+                {t("payg.lawyersNetwork.cta")}
               </span>
-            </div>
+            </Link>
 
             <button
               type="button"
