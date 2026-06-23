@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import {
   PRICING_AFCFTA_COMING_SOON,
-  PRICING_LAWYERS_COMING_SOON,
+  PRICING_LAWYERS_NETWORK_FEATURE,
   normalizePricingFeatures,
 } from "@/lib/pricing-coming-soon-features";
 
@@ -28,7 +28,7 @@ const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
     description: "Explore African law",
     features: [
       "Unlimited browsing of full texts of laws",
-      PRICING_LAWYERS_COMING_SOON,
+      PRICING_LAWYERS_NETWORK_FEATURE,
       "Browse marketplace",
     ],
     cta: "Get Started Free",
@@ -42,7 +42,7 @@ const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
       "Unlimited browsing of full texts of laws",
       "<strong>Basic level AI queries/month</strong> (limited)",
       PRICING_AFCFTA_COMING_SOON,
-      PRICING_LAWYERS_COMING_SOON,
+      PRICING_LAWYERS_NETWORK_FEATURE,
       "Browse marketplace",
     ],
     cta: "Choose Basic",
@@ -56,7 +56,7 @@ const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
       "Unlimited browsing of full texts of laws",
       "<strong>Pro level AI queries/month</strong> (limited)",
       PRICING_AFCFTA_COMING_SOON,
-      PRICING_LAWYERS_COMING_SOON,
+      PRICING_LAWYERS_NETWORK_FEATURE,
       "Browse marketplace",
       "Download AI conversation",
     ],
@@ -71,7 +71,7 @@ const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
       "<strong>5 users included</strong>",
       "<strong>Team level AI queries per user/month</strong> (limited)",
       PRICING_AFCFTA_COMING_SOON,
-      PRICING_LAWYERS_COMING_SOON,
+      PRICING_LAWYERS_NETWORK_FEATURE,
       "Browse marketplace",
       "Download AI conversation",
       "<strong>Additional user: $6/month each</strong>",
