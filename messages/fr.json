@@ -2065,6 +2065,8 @@
         "editTitle": "Modifier l'avocat",
         "primaryLanguage": "Langue principale",
         "otherLanguages": "Autres langues",
+        "languages": "Langues parlées",
+        "languagesDescription": "Sélectionnez chaque langue pratiquée par cet avocat. Elles apparaissent sur sa fiche dans l'annuaire.",
         "linkedin": "URL LinkedIn",
         "photo": "Photo",
         "uploadImage": "Téléverser l'image",
@@ -2679,15 +2681,19 @@
     "practiceArea": "Domaine de pratique",
     "allPracticeAreas": "Tous les domaines",
     "language": "Langue",
+    "languageSingular": "Langue",
+    "languagePlural": "Langues",
     "allLanguages": "Toutes les langues",
     "search": "Rechercher",
     "confirmingPayment": "Confirmation du paiement…",
-    "selectCountryAndArea": "Veuillez sélectionner un pays et un domaine de pratique.",
+    "selectCountryAndArea": "Veuillez sélectionner un pays et au moins un domaine de pratique.",
     "signInToUnlock": "Connectez-vous pour débloquer les coordonnées.",
     "checkoutFailed": "Impossible de démarrer le paiement",
     "checkoutNotStarted": "Le paiement n'a pas pu être lancé.",
     "loading": "Chargement des avocats…",
-    "areaOfExpertise": "Domaine d'expertise *",
+    "areaOfExpertise": "Domaines de pratique *",
+    "selectPracticeAreas": "Sélectionner les domaines",
+    "practiceAreasSelected": "{count} domaines sélectionnés",
     "searchByName": "Rechercher par nom",
     "searchByNamePlaceholder": "p. ex. Lagos, arbitrage…",
     "searchComingSoon": "Rechercher (bientôt disponible)",
@@ -2703,18 +2709,18 @@
       "wolof": "Wolof",
       "twi": "Twi"
     },
-    "infoSelectCountryPractice": "Sélectionnez un <strong>pays</strong> et un <strong>domaine de pratique</strong> pour lancer la recherche. Une recherche coûte <price></price> et débloque les coordonnées de tous les avocats correspondants.",
+    "infoSelectCountryPractice": "Sélectionnez un <strong>pays</strong> et un ou plusieurs <strong>domaines de pratique</strong> pour lancer la recherche. Une recherche coûte <price></price> et débloque les coordonnées de tous les avocats correspondants.",
     "quoteMandates": "La plateforme vous apporte des mandats — vous n'avez pas à vous commercialiser.",
     "disclaimerDirectory": "Les avocats répertoriés dans l'annuaire Yamalé ont été invités sur la base de leurs qualifications professionnelles et de leur expertise déclarée. <strong>Yamalé Alliance ne certifie, n'approuve ni ne garantit les services d'aucun avocat répertorié.</strong>",
-    "validationPracticeArea": "Veuillez sélectionner un domaine de pratique. Le pays et le domaine de pratique sont requis pour que votre déblocage <price></price> s'applique à une recherche précise.",
-    "validationCountryAndArea": "Veuillez sélectionner un pays et un domaine de pratique avant de rechercher.",
-    "promptBeforeSearch": "Sélectionnez un <strong>pays</strong> et un <strong>domaine de pratique</strong>, puis cliquez sur <strong>Rechercher</strong> pour voir les avocats correspondants.",
+    "validationPracticeArea": "Veuillez sélectionner au moins un domaine de pratique. Le pays et les domaines sont requis pour que votre déblocage <price></price> s'applique à une recherche précise.",
+    "validationCountryAndArea": "Veuillez sélectionner un pays et au moins un domaine de pratique avant de rechercher.",
+    "promptBeforeSearch": "Sélectionnez un <strong>pays</strong> et des <strong>domaines de pratique</strong>, puis cliquez sur <strong>Rechercher</strong> pour voir les avocats correspondants.",
     "promptBeforeSearchComingSoon": "La recherche et le déblocage des contacts arrivent <strong>bientôt</strong>. Vous pouvez explorer les filtres ci-dessus pour prévisualiser le fonctionnement de l'annuaire.",
     "dayPassActiveBanner": "Pass journalier actif — accès complet à la plateforme pendant 24 heures.",
     "openAiResearch": "Ouvrir la recherche juridique IA",
     "comingSoonBannerTitle": "Bientôt disponible",
     "comingSoonBannerBody": "Parcourez l'aperçu de l'annuaire ci-dessous. La recherche payante et le déblocage des contacts ne sont pas encore disponibles — nous intégrons des avocats vérifiés sur invitation.",
-    "perSearchFooter": "<price></price> par recherche (pays + domaine de pratique). Votre paiement débloque les coordonnées des avocats correspondants. Un autre pays ou domaine = une nouvelle recherche. Paiements sécurisés via mobile money."
+    "perSearchFooter": "<price></price> par recherche (pays + domaines de pratique). Votre paiement débloque les coordonnées des avocats correspondants. Un autre pays ou d'autres domaines = une nouvelle recherche. Paiements sécurisés via mobile money."
   },
   "pricing": {
     "eyebrow": "Tarifs",
@@ -2744,21 +2750,21 @@
     "planFeatures": {
       "free": [
         "Navigation illimitée dans les textes intégraux des lois",
-        "Réseau d'avocats (bientôt disponible)",
+        "Réseau d'avocats — recherche dans l'annuaire",
         "Parcourir le Yamalé Vault"
       ],
       "basic": [
         "Navigation illimitée dans les textes intégraux des lois",
         "<strong>10 requêtes IA/mois</strong>",
         "Passeport ZLECAf (bientôt disponible)",
-        "Réseau d'avocats (bientôt disponible)",
+        "Réseau d'avocats — recherche dans l'annuaire",
         "Parcourir le Yamalé Vault"
       ],
       "pro": [
         "Navigation illimitée dans les textes intégraux des lois",
         "<strong>50 requêtes IA/mois</strong>",
         "Passeport ZLECAf (bientôt disponible)",
-        "Réseau d'avocats (bientôt disponible)",
+        "Réseau d'avocats — recherche dans l'annuaire",
         "Parcourir le Yamalé Vault",
         "Télécharger la conversation IA"
       ],
@@ -2766,7 +2772,7 @@
         "<strong>5 sièges utilisateur inclus</strong>",
         "<strong>Requêtes IA illimitées par utilisateur/mois</strong>",
         "Passeport ZLECAf (bientôt disponible)",
-        "Réseau d'avocats (bientôt disponible)",
+        "Réseau d'avocats — recherche dans l'annuaire",
         "Parcourir le Yamalé Vault",
         "Télécharger la conversation IA",
         "<strong>Utilisateur supplémentaire : 6 $/mois chacun</strong>"
@@ -2808,7 +2814,8 @@
       },
       "lawyersNetwork": {
         "title": "Réseau d'avocats",
-        "description": "Recherche dans l'annuaire sélectionné et déblocage des contacts — bientôt disponible."
+        "description": "Recherchez dans l'annuaire sélectionné et débloquez les coordonnées de conseils commerciaux en Afrique.",
+        "cta": "Parcourir les avocats"
       },
       "dayPass": {
         "title": "Pass journalier",
@@ -2829,7 +2836,7 @@
       "title": "Questions fréquentes",
       "payg": {
         "q": "Comment fonctionne le paiement à l'usage ?",
-        "a": "Tous les utilisateurs (y compris gratuits) peuvent acheter des documents et requêtes IA supplémentaires aux tarifs indiqués ci-dessus. Le Passeport ZLECAf et le réseau d'avocats arrivent bientôt. Les abonnés bénéficient de tarifs réduits et d'un usage inclus chaque mois."
+        "a": "Tous les utilisateurs (y compris gratuits) peuvent acheter des documents et requêtes IA supplémentaires aux tarifs indiqués ci-dessus. Le réseau d'avocats est disponible sur la page annuaire. Le Passeport ZLECAf arrive bientôt. Les abonnés bénéficient de tarifs réduits et d'un usage inclus chaque mois."
       },
       "changePlans": {
         "q": "Puis-je changer de forfait à tout moment ?",
