@@ -2065,6 +2065,8 @@
         "editTitle": "Editar advogado",
         "primaryLanguage": "Idioma principal",
         "otherLanguages": "Outros idiomas",
+        "languages": "Idiomas falados",
+        "languagesDescription": "Selecione todos os idiomas em que este advogado trabalha. Aparecem no cartão do diretório.",
         "linkedin": "URL do LinkedIn",
         "photo": "Foto",
         "uploadImage": "Carregar imagem",
@@ -2679,15 +2681,19 @@
     "practiceArea": "Área de prática",
     "allPracticeAreas": "Todas as áreas",
     "language": "Idioma",
+    "languageSingular": "Idioma",
+    "languagePlural": "Idiomas",
     "allLanguages": "Todos os idiomas",
     "search": "Pesquisar",
     "confirmingPayment": "A confirmar pagamento…",
-    "selectCountryAndArea": "Selecione um país e uma área de prática.",
+    "selectCountryAndArea": "Selecione um país e pelo menos uma área de prática.",
     "signInToUnlock": "Inicie sessão para desbloquear contactos.",
     "checkoutFailed": "Falha ao iniciar pagamento",
     "checkoutNotStarted": "Não foi possível iniciar o pagamento.",
     "loading": "A carregar advogados…",
-    "areaOfExpertise": "Área de especialização *",
+    "areaOfExpertise": "Áreas de prática *",
+    "selectPracticeAreas": "Selecionar áreas de prática",
+    "practiceAreasSelected": "{count} áreas selecionadas",
     "searchByName": "Pesquisar por nome",
     "searchByNamePlaceholder": "p. ex. Lagos, arbitragem…",
     "searchComingSoon": "Pesquisar (em breve)",
@@ -2703,18 +2709,18 @@
       "wolof": "Wolof",
       "twi": "Twi"
     },
-    "infoSelectCountryPractice": "Selecione um <strong>país</strong> e uma <strong>área de prática</strong> para pesquisar. Uma pesquisa custa <price></price> e desbloqueia os contactos de todos os advogados correspondentes.",
+    "infoSelectCountryPractice": "Selecione um <strong>país</strong> e uma ou mais <strong>áreas de prática</strong> para pesquisar. Uma pesquisa custa <price></price> e desbloqueia os contactos de todos os advogados correspondentes.",
     "quoteMandates": "A plataforma traz-lhe mandatos — não precisa de se promover.",
     "disclaimerDirectory": "Os advogados listados no diretório Yamalé foram convidados com base nas suas credenciais profissionais e especialização declarada. <strong>A Yamalé Alliance não certifica, endossa nem garante os serviços de nenhum advogado listado.</strong>",
-    "validationPracticeArea": "Selecione uma área de prática. País e área de prática são obrigatórios para que o seu desbloqueio <price></price> se aplique a uma pesquisa específica.",
-    "validationCountryAndArea": "Selecione um país e uma área de prática antes de pesquisar.",
-    "promptBeforeSearch": "Selecione <strong>país</strong> e <strong>área de prática</strong>, depois clique em <strong>Pesquisar</strong> para ver os advogados correspondentes.",
+    "validationPracticeArea": "Selecione pelo menos uma área de prática. País e áreas de prática são obrigatórios para que o seu desbloqueio <price></price> se aplique a uma pesquisa específica.",
+    "validationCountryAndArea": "Selecione um país e pelo menos uma área de prática antes de pesquisar.",
+    "promptBeforeSearch": "Selecione <strong>país</strong> e <strong>áreas de prática</strong>, depois clique em <strong>Pesquisar</strong> para ver os advogados correspondentes.",
     "promptBeforeSearchComingSoon": "A pesquisa e o desbloqueio de contactos estão <strong>em breve</strong>. Pode explorar os filtros acima para pré-visualizar o funcionamento do diretório.",
     "dayPassActiveBanner": "Passe diário ativo — acesso completo à plataforma durante 24 horas.",
     "openAiResearch": "Abrir pesquisa jurídica IA",
     "comingSoonBannerTitle": "Em breve",
     "comingSoonBannerBody": "Explore a pré-visualização do diretório abaixo. A pesquisa paga e o desbloqueio de contactos ainda não estão disponíveis — estamos a integrar advogados verificados por convite.",
-    "perSearchFooter": "<price></price> por pesquisa (país + área de prática). O seu pagamento desbloqueia os contactos dos advogados nessa pesquisa. País ou área diferente = nova pesquisa. Pagamentos processados de forma segura via mobile money."
+    "perSearchFooter": "<price></price> por pesquisa (país + áreas de prática). O seu pagamento desbloqueia os contactos dos advogados nessa pesquisa. País ou áreas diferentes = nova pesquisa. Pagamentos processados de forma segura via mobile money."
   },
   "pricing": {
     "eyebrow": "Preços",
@@ -2744,21 +2750,21 @@
     "planFeatures": {
       "free": [
         "Navegação ilimitada nos textos integrais das leis",
-        "Rede de advogados (em breve)",
+        "Rede de advogados — pesquisa no diretório",
         "Explorar o Yamalé Vault"
       ],
       "basic": [
         "Navegação ilimitada nos textos integrais das leis",
         "<strong>10 consultas IA/mês</strong>",
         "Passaporte AfCFTA (em breve)",
-        "Rede de advogados (em breve)",
+        "Rede de advogados — pesquisa no diretório",
         "Explorar o Yamalé Vault"
       ],
       "pro": [
         "Navegação ilimitada nos textos integrais das leis",
         "<strong>50 consultas IA/mês</strong>",
         "Passaporte AfCFTA (em breve)",
-        "Rede de advogados (em breve)",
+        "Rede de advogados — pesquisa no diretório",
         "Explorar o Yamalé Vault",
         "Descarregar a conversa IA"
       ],
@@ -2766,7 +2772,7 @@
         "<strong>5 lugares de utilizador incluídos</strong>",
         "<strong>Consultas IA ilimitadas por utilizador/mês</strong>",
         "Passaporte AfCFTA (em breve)",
-        "Rede de advogados (em breve)",
+        "Rede de advogados — pesquisa no diretório",
         "Explorar o Yamalé Vault",
         "Descarregar a conversa IA",
         "<strong>Utilizador adicional: 6 $/mês cada</strong>"
@@ -2808,7 +2814,8 @@
       },
       "lawyersNetwork": {
         "title": "Rede de advogados",
-        "description": "Pesquisa no diretório selecionado e desbloqueio de contactos — em breve."
+        "description": "Pesquise no diretório selecionado e desbloqueie contactos de consultores comerciais em África.",
+        "cta": "Explorar advogados"
       },
       "dayPass": {
         "title": "Passe diário",
@@ -2829,7 +2836,7 @@
       "title": "Perguntas frequentes",
       "payg": {
         "q": "Como funciona o pagamento por utilização?",
-        "a": "Todos os utilizadores (incluindo gratuitos) podem comprar documentos e consultas IA adicionais às tarifas indicadas acima. O Passaporte AfCFTA e a rede de advogados chegam em breve. Os subscritores beneficiam de tarifas mais baixas e utilização incluída todos os meses."
+        "a": "Todos os utilizadores (incluindo gratuitos) podem comprar documentos e consultas IA adicionais às tarifas indicadas acima. A rede de advogados está disponível na página do diretório. O Passaporte AfCFTA chega em breve. Os subscritores beneficiam de tarifas mais baixas e utilização incluída todos os meses."
       },
       "changePlans": {
         "q": "Posso mudar de plano a qualquer momento?",
