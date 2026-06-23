@@ -10,6 +10,12 @@ import {
   normalizeExpertiseField,
   primaryExpertiseFromField,
 } from "@/lib/lawyer-expertise";
+import {
+  collectLawyerLanguages,
+  formatLawyerLanguagesLabel,
+  splitLawyerLanguagesForStorage,
+} from "@/lib/lawyer-languages";
+import { LawyerLanguagesPicker } from "@/components/lawyers/LawyerLanguagesPicker";
 import { cloudinaryVideoPlaybackUrl } from "@/lib/cloudinary-video-playback";
 
 type LawyerRow = {
@@ -47,8 +53,7 @@ export default function AdminLawyersPage() {
   const [formExpertise, setFormExpertise] = useState("");
   const [formEmail, setFormEmail] = useState("");
   const [formPhone, setFormPhone] = useState("");
-  const [formPrimaryLanguage, setFormPrimaryLanguage] = useState("");
-  const [formOtherLanguages, setFormOtherLanguages] = useState("");
+  const [formLanguages, setFormLanguages] = useState<string[]>([]);
   const [formLinkedin, setFormLinkedin] = useState("");
   const [formImageUrl, setFormImageUrl] = useState("");
   const [formImageUploading, setFormImageUploading] = useState(false);
@@ -61,8 +66,7 @@ export default function AdminLawyersPage() {
   const [editExpertise, setEditExpertise] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
-  const [editPrimaryLanguage, setEditPrimaryLanguage] = useState("");
-  const [editOtherLanguages, setEditOtherLanguages] = useState("");
+  const [editLanguages, setEditLanguages] = useState<string[]>([]);
   const [editLinkedin, setEditLinkedin] = useState("");
   const [editImageUrl, setEditImageUrl] = useState("");
   const [editImageUploading, setEditImageUploading] = useState(false);
@@ -232,6 +236,7 @@ export default function AdminLawyersPage() {
     setSubmitting(true);
     setError(null);
     try {
+      const languageFields = splitLawyerLanguagesForStorage(formLanguages);
       const res = await fetch(`${window.location.origin}/api/admin/lawyers`, {
         method: "POST",
         credentials: "include",
@@ -243,8 +248,8 @@ export default function AdminLawyersPage() {
           expertise: formExpertise.trim(),
           email: formEmail.trim() || undefined,
           phone: formPhone.trim() || undefined,
-          primary_language: formPrimaryLanguage.trim() || undefined,
-          other_languages: formOtherLanguages.trim() || undefined,
+          primary_language: languageFields.primary_language || undefined,
+          other_languages: languageFields.other_languages || undefined,
           linkedin_url: formLinkedin.trim() || undefined,
           image_url: formImageUrl.trim() || undefined,
         }),
@@ -260,8 +265,7 @@ export default function AdminLawyersPage() {
       setFormExpertise("");
       setFormEmail("");
       setFormPhone("");
-      setFormPrimaryLanguage("");
-      setFormOtherLanguages("");
+      setFormLanguages([]);
       setFormLinkedin("");
       setFormImageUrl("");
       setShowForm(false);
@@ -281,8 +285,7 @@ export default function AdminLawyersPage() {
     setEditExpertise(primaryExpertiseFromField(lawyer.expertise));
     setEditEmail(lawyer.email ?? "");
     setEditPhone(lawyer.phone ?? "");
-    setEditPrimaryLanguage(lawyer.primary_language ?? "");
-    setEditOtherLanguages(lawyer.other_languages ?? "");
+    setEditLanguages(collectLawyerLanguages(lawyer.primary_language, lawyer.other_languages));
     setEditLinkedin(lawyer.linkedin_url ?? "");
     setEditImageUrl(lawyer.image_url ?? "");
     setError(null);
@@ -302,6 +305,7 @@ export default function AdminLawyersPage() {
     setEditSubmitting(true);
     setError(null);
     try {
+      const languageFields = splitLawyerLanguagesForStorage(editLanguages);
       const res = await fetch(`${window.location.origin}/api/admin/lawyers/directory/${editing.id}`, {
         method: "PATCH",
         credentials: "include",
@@ -313,8 +317,8 @@ export default function AdminLawyersPage() {
           expertise: editExpertise.trim(),
           email: editEmail.trim() || undefined,
           phone: editPhone.trim() || undefined,
-          primary_language: editPrimaryLanguage.trim() || undefined,
-          other_languages: editOtherLanguages.trim() || undefined,
+          primary_language: languageFields.primary_language || undefined,
+          other_languages: languageFields.other_languages || undefined,
           linkedin_url: editLinkedin.trim() || undefined,
           image_url: editImageUrl.trim() || null,
         }),
@@ -619,32 +623,13 @@ export default function AdminLawyersPage() {
                 placeholder={t("form.placeholders.phone")}
               />
             </div>
-            <div>
-              <label htmlFor="admin-lawyer-primary-language" className="block text-sm font-medium text-foreground mb-1">
-                {t("form.primaryLanguage")}
-              </label>
-              <input
-                id="admin-lawyer-primary-language"
-                type="text"
-                value={formPrimaryLanguage}
-                onChange={(e) => setFormPrimaryLanguage(e.target.value)}
-                maxLength={100}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                placeholder={t("form.placeholders.primaryLanguage")}
-              />
-            </div>
-            <div>
-              <label htmlFor="admin-lawyer-other-languages" className="block text-sm font-medium text-foreground mb-1">
-                {t("form.otherLanguages")}
-              </label>
-              <input
-                id="admin-lawyer-other-languages"
-                type="text"
-                value={formOtherLanguages}
-                onChange={(e) => setFormOtherLanguages(e.target.value)}
-                maxLength={500}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                placeholder={t("form.placeholders.otherLanguages")}
+            <div className="sm:col-span-2">
+              <LawyerLanguagesPicker
+                idPrefix="admin-lawyer-language"
+                label={t("form.languages")}
+                description={t("form.languagesDescription")}
+                value={formLanguages}
+                onChange={setFormLanguages}
               />
             </div>
             <div className="sm:col-span-2">
@@ -831,30 +816,13 @@ export default function AdminLawyersPage() {
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
               />
             </div>
-            <div>
-              <label htmlFor="edit-lawyer-primary-language" className="block text-sm font-medium text-foreground mb-1">
-                {t("form.primaryLanguage")}
-              </label>
-              <input
-                id="edit-lawyer-primary-language"
-                type="text"
-                value={editPrimaryLanguage}
-                onChange={(e) => setEditPrimaryLanguage(e.target.value)}
-                maxLength={100}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label htmlFor="edit-lawyer-other-languages" className="block text-sm font-medium text-foreground mb-1">
-                {t("form.otherLanguages")}
-              </label>
-              <input
-                id="edit-lawyer-other-languages"
-                type="text"
-                value={editOtherLanguages}
-                onChange={(e) => setEditOtherLanguages(e.target.value)}
-                maxLength={500}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+            <div className="sm:col-span-2">
+              <LawyerLanguagesPicker
+                idPrefix="edit-lawyer-language"
+                label={t("form.languages")}
+                description={t("form.languagesDescription")}
+                value={editLanguages}
+                onChange={setEditLanguages}
               />
             </div>
             <div className="sm:col-span-2">
@@ -1004,11 +972,9 @@ export default function AdminLawyersPage() {
                         {normalizeExpertiseField(l.expertise)}
                       </td>
                       <td className="p-3 max-w-[140px] truncate text-muted-foreground" title={
-                        [l.primary_language, l.other_languages].filter(Boolean).join(", ") || ""
+                        formatLawyerLanguagesLabel(collectLawyerLanguages(l.primary_language, l.other_languages))
                       }>
-                        {l.primary_language || l.other_languages
-                          ? [l.primary_language, l.other_languages].filter(Boolean).join(", ")
-                          : "—"}
+                        {formatLawyerLanguagesLabel(collectLawyerLanguages(l.primary_language, l.other_languages)) || "—"}
                       </td>
                       <td className="p-3 max-w-[160px] truncate text-muted-foreground" title={l.email ?? ""}>
                         {l.email ?? "—"}
