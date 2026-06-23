@@ -12,16 +12,20 @@ export const STANDARD_PRACTICE_AREAS = [
   "Finance",
   "Immigration & Refugee Law",
   "Infrastructure And Projects",
-  "Intellectual Property",
   "Intellectual Property Law",
   "International Trade Law",
   "Land And Property Law",
-  "Litigation",
   "Mergers and Acquisitions",
   "Public Private Partnerships",
   "Tax Law",
-  "Trade Law",
 ] as const;
+
+/** Legacy labels hidden from search/admin dropdowns (still canonicalized for stored data). */
+const EXCLUDED_FILTER_PRACTICE_AREA_KEYS = new Set([
+  "trade law",
+  "intellectual property",
+  "litigation",
+]);
 
 /** Options for admin lawyer expertise dropdown (same as standard practice areas). */
 export const LAWYER_EXPERTISE_OPTIONS: readonly string[] = STANDARD_PRACTICE_AREAS;
@@ -29,8 +33,8 @@ export const LAWYER_EXPERTISE_OPTIONS: readonly string[] = STANDARD_PRACTICE_ARE
 const CANONICAL_BY_KEY: Record<string, string> = {
   "corporate law": "Corporate Law",
   corporate: "Corporate Law",
-  "trade law": "Trade Law",
-  trade: "Trade Law",
+  "trade law": "International Trade Law",
+  trade: "International Trade Law",
   afcfta: "AfCFTA",
   arbitration: "Arbitration",
   banking: "Banking",
@@ -42,14 +46,14 @@ const CANONICAL_BY_KEY: Record<string, string> = {
   "immigration & refugee law": "Immigration & Refugee Law",
   "immigration and refugee law": "Immigration & Refugee Law",
   "infrastructure and projects": "Infrastructure And Projects",
-  "intellectual property": "Intellectual Property",
+  "intellectual property": "Intellectual Property Law",
   "intellectual property law": "Intellectual Property Law",
-  ip: "Intellectual Property",
+  ip: "Intellectual Property Law",
   "international trade law": "International Trade Law",
   "land and property law": "Land And Property Law",
   "tax law": "Tax Law",
   tax: "Tax Law",
-  litigation: "Litigation",
+  litigation: "Dispute Resolution",
   "employment law": "Employment Law",
   employment: "Employment Law",
   "m&a": "Mergers and Acquisitions",
@@ -114,6 +118,10 @@ export function normalizeExpertiseField(expertise: string): string {
   return dedupeExpertiseSegments(parseExpertiseSegments(expertise)).join(", ");
 }
 
+function isExcludedFilterPracticeArea(label: string): boolean {
+  return EXCLUDED_FILTER_PRACTICE_AREA_KEYS.has(expertiseSegmentKey(label));
+}
+
 /** Unique sorted practice areas for filter dropdowns. */
 export function buildExpertiseFilterOptions(
   lawyers: Array<{ expertise: string }>,
@@ -124,17 +132,46 @@ export function buildExpertiseFilterOptions(
   const combined = includeStandard
     ? [...segments, ...STANDARD_PRACTICE_AREAS]
     : segments;
-  return dedupeExpertiseSegments(combined).sort((a, b) => a.localeCompare(b));
+  return dedupeExpertiseSegments(combined)
+    .filter((area) => !isExcludedFilterPracticeArea(area))
+    .sort((a, b) => a.localeCompare(b));
 }
 
-/** Whether a lawyer's expertise includes the selected practice area. */
+/** Normalize user/API expertise input into a deduped list of practice areas. */
+export function parseExpertiseSelectionInput(
+  input: string | string[] | null | undefined
+): string[] {
+  if (!input) return [];
+  if (Array.isArray(input)) return dedupeExpertiseSegments(input);
+  const trimmed = input.trim();
+  if (!trimmed || trimmed === "all") return [];
+  return dedupeExpertiseSegments(parseExpertiseSegments(trimmed));
+}
+
+/** Serialize selected practice areas for unlock grants and checkout metadata. */
+export function formatExpertiseSelection(areas: string[]): string {
+  return dedupeExpertiseSegments(areas).join(", ");
+}
+
+/** Whether a lawyer's expertise matches any selected practice area (single or multi). */
 export function expertiseMatchesSelection(lawyerExpertise: string, selected: string): boolean {
-  if (!selected || selected === "all") return true;
-  const wantKey = expertiseSegmentKey(selected);
+  const selectedAreas = parseExpertiseSelectionInput(selected);
+  if (selectedAreas.length === 0) return true;
   const lawyerKeys = dedupeExpertiseSegments(parseExpertiseSegments(lawyerExpertise)).map(
     expertiseSegmentKey
   );
-  return lawyerKeys.some((k) => k === wantKey);
+  return selectedAreas.some((area) => {
+    const wantKey = expertiseSegmentKey(area);
+    return lawyerKeys.some((k) => k === wantKey);
+  });
+}
+
+/** Whether a lawyer's expertise matches any of the given practice areas. */
+export function expertiseMatchesAnySelection(
+  lawyerExpertise: string,
+  selectedAreas: string[]
+): boolean {
+  return expertiseMatchesSelection(lawyerExpertise, formatExpertiseSelection(selectedAreas));
 }
 
 /** Primary practice area for admin expertise select (prefers a standard label when present). */
@@ -152,7 +189,11 @@ export function lawyerExpertiseSelectOptions(currentValue?: string): string[] {
   const trimmed = currentValue?.trim();
   if (!trimmed) return options;
   const label = canonicalExpertiseLabel(parseExpertiseSegments(trimmed)[0] ?? trimmed);
-  if (label && !options.some((o) => expertiseSegmentKey(o) === expertiseSegmentKey(label))) {
+  if (
+    label &&
+    !isExcludedFilterPracticeArea(label) &&
+    !options.some((o) => expertiseSegmentKey(o) === expertiseSegmentKey(label))
+  ) {
     return [label, ...options];
   }
   return options;
