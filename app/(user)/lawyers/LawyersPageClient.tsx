@@ -17,19 +17,25 @@ import { confirmDayPassPayment } from "@/lib/day-pass-checkout-confirm";
 import {
   PROTOTYPE_HERO_GRID_PATTERN,
   prototypeHeroEyebrowClass,
-  prototypeNavyHeroSectionClass,
 } from "@/components/layout/prototype-page-styles";
 import { PAWAPAY_SUPPORTED_PAYMENT_COUNTRIES as PAWAPAY_SUPPORTED_COUNTRIES } from "@/lib/pawapay-payment-countries";
 import {
   buildExpertiseFilterOptions,
   dedupeExpertiseSegments,
-  expertiseMatchesSelection,
+  expertiseMatchesAnySelection,
+  formatExpertiseSelection,
+  parseExpertiseSelectionInput,
   parseExpertiseSegments,
 } from "@/lib/lawyer-expertise";
 import { LawyersOnboardingVideo } from "@/components/lawyers/LawyersOnboardingVideo";
-import { LawyersNetworkComingSoonBanner } from "@/components/lawyers/LawyersNetworkComingSoonBanner";
-import { isLawyersNetworkLive, isLawyersNetworkSearchEnabled } from "@/lib/lawyers-network-enabled";
+import { LawyerPracticeAreaMultiSelect } from "@/components/lawyers/LawyerPracticeAreaMultiSelect";
 import { lawyerUnlockedForViewer } from "@/lib/lawyers-admin-presentation";
+import {
+  collectLawyerLanguages,
+  formatLawyerLanguagesAbbrev,
+  formatLawyerLanguagesLabel,
+  lawyerSpeaksLanguage,
+} from "@/lib/lawyer-languages";
 
 const BRAND = {
   dark: "#221913",
@@ -47,6 +53,8 @@ type Lawyer = {
   expertise: string;
   linkedinUrl: string | null;
   imageUrl: string | null;
+  primaryLanguage: string | null;
+  otherLanguages: string | null;
 };
 
 const SEARCH_STATE_STORAGE_KEY = "lawyers:lastSearchState";
@@ -87,8 +95,6 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
   const t = useTranslations("lawyers");
   const tCommon = useTranslations("common");
   const { isLoaded: userLoaded, isSignedIn } = useAppUser();
-  const networkLive = isLawyersNetworkLive();
-  const searchEnabled = isLawyersNetworkSearchEnabled({ isAdmin });
   const [lawyers, setLawyers] = useState<Lawyer[]>([]);
   const [loading, setLoading] = useState(true);
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
@@ -97,7 +103,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
   const [dayPassActive, setDayPassActive] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState("");
   const [selectedCity, setSelectedCity] = useState("");
-  const [selectedExpertise, setSelectedExpertise] = useState("all");
+  const [selectedExpertise, setSelectedExpertise] = useState<string[]>([]);
   const [selectedLanguage, setSelectedLanguage] = useState("all");
   const [hasSearched, setHasSearched] = useState(false);
   const [searchPayLoading, setSearchPayLoading] = useState(false);
@@ -113,13 +119,6 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
   const [pawapayCountry, setPawapayCountry] = useState<string>(PAWAPAY_SUPPORTED_COUNTRIES[0]);
   const searchParams = useSearchParams();
 
-  useEffect(() => {
-    if (!searchEnabled) {
-      setHasSearched(false);
-      setShowPaymentChoice(false);
-      setShowPawapayCountryPrompt(false);
-    }
-  }, [searchEnabled]);
   const confirmedSessionRef = useRef<string | null>(null);
   const lomiAvailable =
     process.env.NEXT_PUBLIC_LOMI_CHECKOUT_ENABLED === "1" ||
@@ -136,15 +135,18 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
   const persistSearchState = (next?: {
     country?: string;
     city?: string;
-    expertise?: string;
+    expertise?: string[] | string;
     language?: string;
     hasSearched?: boolean;
   }) => {
     try {
+      const expertiseValue = next?.expertise ?? selectedExpertise;
       const payload = {
         country: next?.country ?? selectedCountry,
         city: next?.city ?? selectedCity,
-        expertise: next?.expertise ?? selectedExpertise,
+        expertise: Array.isArray(expertiseValue)
+          ? expertiseValue
+          : parseExpertiseSelectionInput(expertiseValue),
         language: next?.language ?? selectedLanguage,
         hasSearched: next?.hasSearched ?? hasSearched,
       };
@@ -166,8 +168,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
   };
 
   const handlePayForSearch = async (provider: CheckoutPaymentProvider) => {
-    if (!searchEnabled) return;
-    if (selectedExpertise === "all" || selectedCountry === "") {
+    if (selectedExpertise.length === 0 || selectedCountry === "") {
       setSearchPayError(t("selectCountryAndArea"));
       return;
     }
@@ -185,7 +186,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
         body: JSON.stringify({
           country: selectedCountry,
           city: selectedCity,
-          expertise: selectedExpertise,
+          expertise: formatExpertiseSelection(selectedExpertise),
           language: selectedLanguage,
           provider,
           paymentCountry: provider === "pawapay" ? pawapayCountry : undefined,
@@ -224,15 +225,15 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
       const restored = JSON.parse(raw) as {
         country?: string;
         city?: string;
-        expertise?: string;
+        expertise?: string[] | string;
         language?: string;
         hasSearched?: boolean;
       };
       if (restored.country) setSelectedCountry(restored.country);
       if (restored.city) setSelectedCity(restored.city);
-      if (restored.expertise) setSelectedExpertise(restored.expertise);
+      if (restored.expertise) setSelectedExpertise(parseExpertiseSelectionInput(restored.expertise));
       if (restored.language) setSelectedLanguage(restored.language);
-      if (searchEnabled && restored.hasSearched) {
+      if (restored.hasSearched) {
         setHasSearched(true);
         setShowPaymentChoice(true);
       }
@@ -249,9 +250,13 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
   ) => {
     if (returnCountry != null) setSelectedCountry(returnCountry || "");
     if (returnCity != null) setSelectedCity(returnCity || "");
-    if (returnExpertise != null) setSelectedExpertise(returnExpertise || "all");
+    if (returnExpertise != null) {
+      setSelectedExpertise(parseExpertiseSelectionInput(returnExpertise));
+    }
     if (returnLanguage != null) setSelectedLanguage(returnLanguage || "all");
-    if (searchEnabled && returnExpertise != null && returnExpertise !== "all") setHasSearched(true);
+    if (returnExpertise != null && parseExpertiseSelectionInput(returnExpertise).length > 0) {
+      setHasSearched(true);
+    }
   };
 
   useEffect(() => {
@@ -275,7 +280,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
 
     if (fromAiResearch && (returnCountry != null || returnExpertise != null)) {
       applyReturnFilters(returnCountry, returnCity, returnExpertise, returnLanguage);
-      if (searchEnabled && returnExpertise != null && returnExpertise !== "all") {
+      if (returnExpertise != null && parseExpertiseSelectionInput(returnExpertise).length > 0) {
         setHasSearched(true);
         setShowPaymentChoice(true);
       }
@@ -289,9 +294,9 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
         persistSearchState({
           country: returnCountry ?? "",
           city: returnCity ?? "",
-          expertise: returnExpertise ?? "all",
+          expertise: parseExpertiseSelectionInput(returnExpertise),
           language: returnLanguage ?? "all",
-          hasSearched: returnExpertise != null ? returnExpertise !== "all" : false,
+          hasSearched: parseExpertiseSelectionInput(returnExpertise).length > 0,
         });
       } else {
         restoreStoredSearchState();
@@ -376,10 +381,13 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
         const city = lawyer.city.toLowerCase();
         if (!city.includes(q)) return false;
       }
-      if (!expertiseMatchesSelection(lawyer.expertise, selectedExpertise)) return false;
+      if (!expertiseMatchesAnySelection(lawyer.expertise, selectedExpertise)) return false;
+      if (!lawyerSpeaksLanguage(lawyer.primaryLanguage, lawyer.otherLanguages, selectedLanguage)) {
+        return false;
+      }
       return true;
     });
-  }, [lawyers, selectedCountry, selectedCity, selectedExpertise]);
+  }, [lawyers, selectedCountry, selectedCity, selectedExpertise, selectedLanguage]);
 
   // Fetch reviews for displayed lawyers
   useEffect(() => {
@@ -410,7 +418,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
   const clearFilters = () => {
     setSelectedCountry("");
     setSelectedCity("");
-    setSelectedExpertise("all");
+    setSelectedExpertise([]);
     setSelectedLanguage("all");
     setHasSearched(false);
     setShowPaymentChoice(false);
@@ -419,13 +427,12 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
     clearStoredSearchState();
   };
 
-  const expertiseRequired = selectedExpertise === "all";
+  const expertiseRequired = selectedExpertise.length === 0;
   const countryRequired = selectedCountry === "";
   const selectedCountrySupportsPawapay =
     selectedCountry !== "" &&
     PAWAPAY_SUPPORTED_COUNTRIES.includes(selectedCountry as (typeof PAWAPAY_SUPPORTED_COUNTRIES)[number]);
   const runSearch = () => {
-    if (!searchEnabled) return;
     if (expertiseRequired || countryRequired) return;
     setHasSearched(true);
     setShowPaymentChoice(true);
@@ -458,7 +465,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
       )}
 
       {/* Hero */}
-      <section className={prototypeNavyHeroSectionClass}>
+      <section className="relative overflow-visible border-b border-border bg-[#0D1B2A]">
         <div
           className="pointer-events-none absolute inset-0 z-0"
           style={{ backgroundImage: PROTOTYPE_HERO_GRID_PATTERN }}
@@ -485,7 +492,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
               </Link>
             </div>
           </div>
-          <div className="mt-7 rounded-[10px] border border-white/15 bg-white/10 p-3 backdrop-blur">
+          <div className="relative z-[1] mt-7 overflow-visible rounded-[10px] border border-white/15 bg-white/10 p-3 backdrop-blur">
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1fr_1fr_1fr_auto]">
               <div>
                 <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
@@ -508,18 +515,13 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                 <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
                   {t("areaOfExpertise")}
                 </label>
-                <select
-                  className="w-full rounded-[6px] border border-white/20 bg-[#13263a] px-3 py-2 text-sm text-white outline-none"
+                <LawyerPracticeAreaMultiSelect
+                  options={expertiseList}
                   value={selectedExpertise}
-                  onChange={(e) => setSelectedExpertise(e.target.value)}
-                >
-                  <option value="all">{t("allPracticeAreas")}</option>
-                  {expertiseList.map((e) => (
-                    <option key={e} value={e}>
-                      {e}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setSelectedExpertise}
+                  placeholder={t("selectPracticeAreas")}
+                  selectedCountLabel={(count) => t("practiceAreasSelected", { count })}
+                />
               </div>
               <div>
                 <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">
@@ -553,12 +555,11 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                 <button
                   type="button"
                   onClick={runSearch}
-                  disabled={!searchEnabled || expertiseRequired || countryRequired}
-                  title={!searchEnabled ? t("searchComingSoonTitle") : undefined}
+                  disabled={expertiseRequired || countryRequired}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-[6px] bg-[#0D1B2A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#162436] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Search className="h-4 w-4" />
-                  {searchEnabled ? t("search") : t("searchComingSoon")}
+                  {t("search")}
                 </button>
               </div>
             </div>
@@ -569,11 +570,6 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
       {/* Filters + results */}
       <section className="pb-16 pt-10">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          {!networkLive && !isAdmin && (
-            <div className="mb-6">
-              <LawyersNetworkComingSoonBanner />
-            </div>
-          )}
           <div className="mb-5 flex items-start gap-2 rounded-[8px] border border-border bg-card px-4 py-3 text-[16px] text-foreground">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             <p>
@@ -618,15 +614,13 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
           {!hasSearched && (
             <div className="rounded-2xl border border-dashed border-border/80 bg-card/90 p-8 text-center shadow-sm">
               <p className="text-sm text-muted-foreground">
-                {searchEnabled
-                  ? t.rich("promptBeforeSearch", richTags)
-                  : t.rich("promptBeforeSearchComingSoon", richTags)}
+                {t.rich("promptBeforeSearch", richTags)}
               </p>
             </div>
           )}
 
         {/* Pay $5 for this search — show when user has searched with a specific expertise, there are results, and at least one is locked */}
-        {searchEnabled && hasSearched && selectedExpertise !== "all" && filteredLawyers.length > 0 && (() => {
+        {hasSearched && selectedExpertise.length > 0 && filteredLawyers.length > 0 && (() => {
           const allUnlocked = filteredLawyers.every((l) => isUnlocked(l));
           if (allUnlocked) {
             return (
@@ -662,7 +656,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                 <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
                   Pay {searchPrice} to unlock contact details for all{" "}
                   {filteredLawyers.length} lawyer{filteredLawyers.length !== 1 ? "s" : ""} in this search (
-                  {selectedCountry} + {selectedExpertise}).
+                  {selectedCountry} + {formatExpertiseSelection(selectedExpertise)}).
                 </p>
               </div>
               <div className="flex flex-col items-end gap-2">
@@ -807,6 +801,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
               const unlocked = isUnlocked(lawyer);
               const contacts = contactsByLawyer[lawyer.id];
               const expertiseTags = dedupeExpertiseSegments(parseExpertiseSegments(lawyer.expertise));
+              const lawyerLanguages = collectLawyerLanguages(lawyer.primaryLanguage, lawyer.otherLanguages);
               const initials = lawyer.name.split(" ").map((n) => n[0]).filter(Boolean).join("");
               const initialsDisplay = lawyer.name.split(" ").map((n) => n[0]).filter(Boolean).join(". ") + ".";
 
@@ -851,8 +846,12 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                         </div>
                         <div className="text-xs text-muted-foreground sm:text-[13px]">
                           {[lawyer.city, lawyer.country].filter(Boolean).join(", ") || lawyer.country}
-                          {" · "}
-                          {selectedLanguage === "all" ? "English / French" : selectedLanguage}
+                          {lawyerLanguages.length > 0 ? (
+                            <>
+                              {" · "}
+                              {formatLawyerLanguagesLabel(lawyerLanguages)}
+                            </>
+                          ) : null}
                         </div>
                         <div className="flex items-center gap-1 mt-2">
                           <Star className="h-4 w-4 fill-current text-yellow-500" />
@@ -875,7 +874,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                       </div>
                     </div>
 
-                    <div className="mb-3 mt-3 flex flex-wrap gap-1.5">
+                    <div className="mb-3 flex flex-wrap gap-1.5">
                       {expertiseTags.map((exp) => (
                         <span
                           key={exp}
@@ -885,6 +884,18 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                         </span>
                       ))}
                     </div>
+                    {lawyerLanguages.length > 0 ? (
+                      <div className="mb-3 flex flex-wrap gap-1.5">
+                        {lawyerLanguages.map((language) => (
+                          <span
+                            key={language}
+                            className="rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-medium text-foreground"
+                          >
+                            {language}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                     <div className="mb-3 grid grid-cols-3 gap-2">
                       <div className="rounded-[6px] border border-border bg-background px-2 py-2 text-center">
                         <div className="text-sm font-bold text-foreground">{pseudoYears(lawyer.name)}</div>
@@ -895,8 +906,12 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                         <div className="text-[10px] text-muted-foreground">Countries</div>
                       </div>
                       <div className="rounded-[6px] border border-border bg-background px-2 py-2 text-center">
-                        <div className="text-sm font-bold text-foreground">{selectedLanguage === "all" ? "EN/FR" : selectedLanguage.slice(0, 2).toUpperCase()}</div>
-                        <div className="text-[10px] text-muted-foreground">Language</div>
+                        <div className="text-sm font-bold text-foreground">
+                          {formatLawyerLanguagesAbbrev(lawyerLanguages)}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {lawyerLanguages.length === 1 ? t("languageSingular") : t("languagePlural")}
+                        </div>
                       </div>
                     </div>
 
