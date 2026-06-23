@@ -1,21 +1,20 @@
 import { NextResponse } from "next/server";
 
-/** Turn on public lawyer search, unlock checkout, and directory listing. */
+/** Lawyer directory search and paid unlock are publicly available. */
 export function isLawyersNetworkLive(): boolean {
-  return process.env.NEXT_PUBLIC_LAWYERS_NETWORK_ENABLED === "1";
+  return true;
 }
 
-/** Client-side: search + unlock when live, or when signed-in user is admin (preview). */
-export function isLawyersNetworkSearchEnabled(options?: { isAdmin?: boolean }): boolean {
-  return isLawyersNetworkLive() || Boolean(options?.isAdmin);
+/** Client-side search + unlock (always on). */
+export function isLawyersNetworkSearchEnabled(_options?: { isAdmin?: boolean }): boolean {
+  return true;
 }
 
 export function lawyersNetworkApiDisabledResponse(): NextResponse {
   return NextResponse.json(
     {
-      error:
-        "The lawyers network is coming soon. We are building an invitation-only directory of vetted African legal professionals.",
-      code: "lawyers_network_coming_soon",
+      error: "The lawyers network is temporarily unavailable. Please try again shortly.",
+      code: "lawyers_network_unavailable",
     },
     { status: 503 }
   );
