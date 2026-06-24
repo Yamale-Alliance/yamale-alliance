@@ -27,6 +27,7 @@ import {
   Link2,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useLawCategoryLabel } from "@/lib/i18n/use-catalog-labels";
 import type { LibraryCountry, LibraryCategory, LibraryLawRow, LibrarySortOption } from "@/lib/library-data";
 import { LIBRARY_PAGE_SIZE } from "@/lib/library-data";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
@@ -448,6 +449,7 @@ export function LibraryView({
 }: Props) {
   const t = useTranslations("library");
   const tCommon = useTranslations("common");
+  const lawCategoryLabel = useLawCategoryLabel();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -1297,7 +1299,7 @@ export function LibraryView({
                       <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[12.5px] text-muted-foreground">
                         <span>{law.applies_globally ? t("allCountries") : law.country}</span>
                         <span>·</span>
-                        <span>{law.category}</span>
+                        <span>{lawCategoryLabel(law.category)}</span>
                       </div>
                       <LawFlairs
                         law={law}
