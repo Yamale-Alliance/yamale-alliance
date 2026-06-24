@@ -1,5 +1,3 @@
-"use client";
-
 import * as Dialog from "@radix-ui/react-dialog";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
