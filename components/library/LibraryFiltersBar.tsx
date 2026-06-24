@@ -6,6 +6,7 @@ import { Filter, X } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import type { LibraryCategory, LibraryCountry } from "@/lib/library-data";
+import { useLawCategoryLabel } from "@/lib/i18n/use-catalog-labels";
 
 const STATUSES = [
   { value: "In force", key: "inForce" },
@@ -113,6 +114,7 @@ export function LibraryFiltersBar({
   isSignedIn,
 }: LibraryFiltersBarProps) {
   const t = useTranslations("library");
+  const lawCategoryLabel = useLawCategoryLabel();
 
   const sortOptions = useMemo(
     () =>
@@ -125,8 +127,8 @@ export function LibraryFiltersBar({
 
   const categoryOptions =
     categories.length > 0
-      ? categories.map((c) => ({ key: c.id, name: c.name }))
-      : categoryNames.map((name) => ({ key: name, name }));
+      ? categories.map((c) => ({ key: c.id, name: c.name, label: lawCategoryLabel(c.name) }))
+      : categoryNames.map((name) => ({ key: name, name, label: lawCategoryLabel(name) }));
 
   const advancedFields = (
     <>
@@ -219,7 +221,7 @@ export function LibraryFiltersBar({
                 <option value="">{t("allCategories")}</option>
                 {categoryOptions.map((c) => (
                   <option key={c.key} value={c.name}>
-                    {c.name}
+                    {c.label}
                   </option>
                 ))}
               </select>
@@ -356,7 +358,7 @@ export function LibraryFiltersBar({
                   <option value="">{t("allCategories")}</option>
                   {categoryOptions.map((c) => (
                     <option key={c.key} value={c.name}>
-                      {c.name}
+                      {c.label}
                     </option>
                   ))}
                 </select>
