@@ -30,11 +30,12 @@ import {
 import { LawyersOnboardingVideo } from "@/components/lawyers/LawyersOnboardingVideo";
 import { LawyerPracticeAreaMultiSelect } from "@/components/lawyers/LawyerPracticeAreaMultiSelect";
 import { lawyerUnlockedForViewer } from "@/lib/lawyers-admin-presentation";
+import { useLawyerPracticeAreaLabel } from "@/lib/i18n/use-catalog-labels";
 import {
   collectLawyerLanguages,
   formatLawyerLanguagesAbbrev,
-  formatLawyerLanguagesLabel,
   lawyerSpeaksLanguage,
+  lawyerLanguageKey,
 } from "@/lib/lawyer-languages";
 
 const BRAND = {
@@ -94,6 +95,19 @@ function pseudoCountries(name: string): number {
 export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
   const t = useTranslations("lawyers");
   const tCommon = useTranslations("common");
+  const practiceAreaLabel = useLawyerPracticeAreaLabel();
+  const lawyerLanguageLabel = (canonical: string) => {
+    const option = LANGUAGE_OPTION_VALUES.find((item) => item.value === canonical);
+    if (option && option.value !== "all") {
+      return t(option.messageKey);
+    }
+    const byKey = LANGUAGE_OPTION_VALUES.find(
+      (item) => item.value !== "all" && lawyerLanguageKey(item.value) === lawyerLanguageKey(canonical)
+    );
+    return byKey ? t(byKey.messageKey) : canonical;
+  };
+  const formatLocalizedLawyerLanguages = (languages: string[]) =>
+    languages.map(lawyerLanguageLabel).join(" · ");
   const { isLoaded: userLoaded, isSignedIn } = useAppUser();
   const [lawyers, setLawyers] = useState<Lawyer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -323,10 +337,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
             window.history.replaceState({}, "", "/lawyers");
             return;
           }
-          setDayPassConfirmError(
-            result.error ??
-              "We could not confirm your day pass yet. If mobile money was charged, wait a moment and refresh."
-          );
+          setDayPassConfirmError(result.error ?? t("dayPassConfirmPending"));
           return;
         }
 
@@ -521,6 +532,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                   onChange={setSelectedExpertise}
                   placeholder={t("selectPracticeAreas")}
                   selectedCountLabel={(count) => t("practiceAreasSelected", { count })}
+                  formatOption={practiceAreaLabel}
                 />
               </div>
               <div>
@@ -626,8 +638,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
             return (
               <div className="mb-6 rounded-xl border border-green-200 dark:border-green-500/30 bg-green-50 dark:bg-green-500/10 px-4 py-3 text-sm text-green-800 dark:text-green-200">
                 <p>
-                  You have full access to all {filteredLawyers.length} lawyer
-                  {filteredLawyers.length !== 1 ? "s" : ""} in this search.
+                  {t("allUnlockedBanner", { count: filteredLawyers.length })}
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                   <button
@@ -635,13 +646,13 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                     onClick={clearFilters}
                     className="inline-flex items-center rounded-lg border border-green-700/30 bg-white/80 px-3 py-1.5 text-xs font-semibold text-green-900 transition hover:bg-white dark:border-green-400/30 dark:bg-green-950/40 dark:text-green-100 dark:hover:bg-green-950/60"
                   >
-                    Start a new search
+                    {t("startNewSearch")}
                   </button>
                   <Link
                     href="/lawyers/unlocked"
                     className="text-xs font-semibold text-green-800 underline underline-offset-2 hover:no-underline dark:text-green-200"
                   >
-                    View all unlocked lawyers
+                    {t("viewUnlocked")}
                   </Link>
                 </div>
               </div>
@@ -651,19 +662,22 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
             <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border/80 bg-card/95 p-5 shadow-sm">
               <div className="max-w-xl">
                 <p className="text-sm font-semibold text-foreground">
-                  {filteredLawyers.length} lawyer{filteredLawyers.length !== 1 ? "s" : ""} match your criteria.
+                  {t("lawyersMatchCriteria", { count: filteredLawyers.length })}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-                  Pay {searchPrice} to unlock contact details for all{" "}
-                  {filteredLawyers.length} lawyer{filteredLawyers.length !== 1 ? "s" : ""} in this search (
-                  {selectedCountry} + {formatExpertiseSelection(selectedExpertise)}).
+                  {t.rich("payToUnlockSearch", {
+                    ...richTags,
+                    count: filteredLawyers.length,
+                    country: selectedCountry,
+                    areas: selectedExpertise.map(practiceAreaLabel).join(", "),
+                  })}
                 </p>
               </div>
               <div className="flex flex-col items-end gap-2">
                 {searchPayError && <p className="text-xs text-red-600 sm:text-sm">{searchPayError}</p>}
                 {showPaymentChoice ? (
                   <div className="flex flex-col items-end gap-2">
-                    <p className="text-xs text-muted-foreground">Choose payment method to proceed</p>
+                    <p className="text-xs text-muted-foreground">{t("choosePaymentMethodPrompt")}</p>
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       <button
                         type="button"
@@ -676,7 +690,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                       >
                         {searchPayLoading && paymentProvider === "pawapay" && <Loader2 className="h-4 w-4 animate-spin" />}
                         {!searchPayLoading && <Smartphone className="h-4 w-4" />}
-                        Mobile Money
+                        {t("paymentMobileMoney")}
                       </button>
                       <button
                         type="button"
@@ -691,7 +705,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                           <Loader2 className="h-4 w-4 animate-spin" />
                         )}
                         {!searchPayLoading && <CreditCard className="h-4 w-4" />}
-                        Card
+                        {t("paymentCard")}
                       </button>
                       <button
                         type="button"
@@ -699,23 +713,23 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                         disabled={searchPayLoading}
                         className="inline-flex items-center justify-center rounded-xl border border-border/70 bg-background/80 px-3 py-2 text-xs font-medium text-muted-foreground transition hover:border-primary/60 hover:bg-primary/5 hover:text-foreground"
                       >
-                        Cancel
+                        {t("paymentCancel")}
                       </button>
                     </div>
                     {!selectedCountrySupportsPawapay && selectedCountry !== "" && lomiAvailable && (
                       <p className="text-xs text-amber-700 dark:text-amber-400">
-                        Mobile money is not available for {selectedCountry}. Please proceed with card payment.
+                        {t("mobileMoneyUnavailableForCountry", { country: selectedCountry })}
                       </p>
                     )}
                     {!lomiAvailable && (
                       <p className="text-xs text-amber-700 dark:text-amber-400">
-                        Card checkout is not configured yet. Please use mobile money.
+                        {t("cardCheckoutUnavailable")}
                       </p>
                     )}
                     {showPawapayCountryPrompt && selectedCountrySupportsPawapay && (
                       <div className="mt-2 w-full rounded-xl border border-emerald-600/30 bg-emerald-50 p-3 dark:bg-emerald-900/20">
                         <label className="mb-2 block text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-                          Select mobile money country
+                          {t("selectMobileMoneyCountry")}
                         </label>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                           <select
@@ -735,7 +749,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                             disabled={searchPayLoading}
                             className="inline-flex items-center justify-center rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
                           >
-                            Continue
+                            {t("paymentContinue")}
                           </button>
                         </div>
                       </div>
@@ -748,7 +762,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                     disabled={searchPayLoading}
                     className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[rgba(154,99,42,0.95)] to-[rgba(193,140,67,0.95)] px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-105 disabled:opacity-60"
                   >
-                    Choose payment method
+                    {t("choosePaymentMethod")}
                   </button>
                 )}
               </div>
@@ -758,15 +772,12 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
 
         {hasSearched && (
           <div className="mb-4 text-xs text-muted-foreground">
-            Showing{" "}
-            <span className="font-semibold text-foreground">
-              {filteredLawyers.length} verified lawyer{filteredLawyers.length !== 1 ? "s" : ""}
-            </span>
+            {t("showingVerifiedLawyers", { count: filteredLawyers.length })}
           </div>
         )}
         {searchParams.get("canceled") === "1" && (
           <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200 sm:text-sm">
-            Payment was canceled. Your search is still here, and you can continue checkout anytime.
+            {t("paymentCanceledBanner")}
           </div>
         )}
 
@@ -778,21 +789,19 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
           <div className="rounded-2xl border border-dashed border-border/80 bg-card/90 p-12 text-center shadow-sm">
             <div className="mb-4 text-5xl">🔍</div>
             <h3 className="text-xl font-semibold text-foreground">
-              {selectedCountry
-                ? "No lawyers from this country yet"
-                : "No lawyers found"}
+              {selectedCountry ? t("noLawyersInCountry") : t("noLawyersFound")}
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
               {selectedCountry
-                ? `We don't have any lawyers from ${selectedCountry} in our directory yet. Try another country or check back later.`
-                : "Try adjusting your search filters to see more results."}
+                ? t("noLawyersInCountryHint", { country: selectedCountry })
+                : t("adjustFiltersHint")}
             </p>
             <button
               type="button"
               onClick={clearFilters}
               className="mt-6 inline-flex items-center justify-center rounded-xl border border-primary/70 bg-primary/10 px-6 py-2.5 text-sm font-semibold text-foreground transition hover:border-primary hover:bg-primary/20"
             >
-              Reset search
+              {t("resetSearch")}
             </button>
           </div>
         ) : (
@@ -841,7 +850,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                             </h3>
                           )}
                           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                            Verified
+                            {t("verified")}
                           </span>
                         </div>
                         <div className="text-xs text-muted-foreground sm:text-[13px]">
@@ -849,7 +858,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                           {lawyerLanguages.length > 0 ? (
                             <>
                               {" · "}
-                              {formatLawyerLanguagesLabel(lawyerLanguages)}
+                              {formatLocalizedLawyerLanguages(lawyerLanguages)}
                             </>
                           ) : null}
                         </div>
@@ -861,13 +870,13 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                                 {reviewsByLawyer[lawyer.id].averageRating.toFixed(1)}
                               </span>
                               <span className="text-sm text-muted-foreground">
-                                ({reviewsByLawyer[lawyer.id].totalReviews} review{reviewsByLawyer[lawyer.id].totalReviews !== 1 ? "s" : ""})
+                                ({t("reviewCount", { count: reviewsByLawyer[lawyer.id].totalReviews })})
                               </span>
                             </>
                           ) : (
                             <>
                               <span className="font-bold text-foreground">—</span>
-                              <span className="text-sm text-muted-foreground">(No ratings yet)</span>
+                              <span className="text-sm text-muted-foreground">{t("noRatingsYet")}</span>
                             </>
                           )}
                         </div>
@@ -880,7 +889,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                           key={exp}
                           className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
                         >
-                          {exp}
+                          {practiceAreaLabel(exp)}
                         </span>
                       ))}
                     </div>
@@ -891,7 +900,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                             key={language}
                             className="rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-medium text-foreground"
                           >
-                            {language}
+                            {lawyerLanguageLabel(language)}
                           </span>
                         ))}
                       </div>
@@ -899,11 +908,11 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                     <div className="mb-3 grid grid-cols-3 gap-2">
                       <div className="rounded-[6px] border border-border bg-background px-2 py-2 text-center">
                         <div className="text-sm font-bold text-foreground">{pseudoYears(lawyer.name)}</div>
-                        <div className="text-[10px] text-muted-foreground">Years exp.</div>
+                        <div className="text-[10px] text-muted-foreground">{t("yearsExperience")}</div>
                       </div>
                       <div className="rounded-[6px] border border-border bg-background px-2 py-2 text-center">
                         <div className="text-sm font-bold text-foreground">{pseudoCountries(lawyer.name)}</div>
-                        <div className="text-[10px] text-muted-foreground">Countries</div>
+                        <div className="text-[10px] text-muted-foreground">{t("countriesStat")}</div>
                       </div>
                       <div className="rounded-[6px] border border-border bg-background px-2 py-2 text-center">
                         <div className="text-sm font-bold text-foreground">
@@ -921,11 +930,13 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                           {contacts?.email && <div>📧 {contacts.email}</div>}
                           {contacts?.phone && <div>📱 {contacts.phone}</div>}
                           {contacts?.contacts && <div className="whitespace-pre-wrap">💼 {contacts.contacts}</div>}
-                          {!contacts?.email && !contacts?.phone && !contacts?.contacts && <div>No contact details on file</div>}
+                          {!contacts?.email && !contacts?.phone && !contacts?.contacts && (
+                            <div>{t("noContactDetailsOnFile")}</div>
+                          )}
                         </div>
                       ) : (
                         <div className="rounded-[6px] bg-[#0D1B2A] px-3 py-2 text-center text-[12px] font-semibold text-white">
-                          Unlock contact — {searchPrice}
+                          {t.rich("unlockContactPrice", richTags)}
                         </div>
                       )}
                     </div>
