@@ -5,7 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Loader2, Mail, Phone } from "lucide-react";
-import { normalizeExpertiseField } from "@/lib/lawyer-expertise";
+import { parseExpertiseSegments, dedupeExpertiseSegments } from "@/lib/lawyer-expertise";
+import { useLawyerPracticeAreaLabel } from "@/lib/i18n/use-catalog-labels";
 
 type UnlockedLawyer = {
   id: string;
@@ -21,6 +22,7 @@ type UnlockedLawyer = {
 
 export function AccountUnlockedLawyers() {
   const t = useTranslations("accountUnlockedLawyers");
+  const practiceAreaLabel = useLawyerPracticeAreaLabel();
   const [loading, setLoading] = useState(true);
   const [lawyers, setLawyers] = useState<UnlockedLawyer[]>([]);
 
@@ -79,7 +81,9 @@ export function AccountUnlockedLawyers() {
             <div className="min-w-0 flex-1">
               <h2 className="font-semibold text-foreground">{lawyer.name}</h2>
               <p className="mt-0.5 text-sm text-muted-foreground">
-                {normalizeExpertiseField(lawyer.expertise)}
+                {dedupeExpertiseSegments(parseExpertiseSegments(lawyer.expertise))
+                  .map(practiceAreaLabel)
+                  .join(", ")}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {lawyer.country || t("countryNotSpecified")}
