@@ -6,6 +6,7 @@ import { BookmarkCheck, ArrowLeft, BookOpen, Loader2, ArrowRight } from "lucide-
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { lawDetailHref } from "@/lib/law-public-url";
 import { LawLastVerifiedLabel } from "@/components/library/LawLastVerifiedLabel";
+import { useLawCategoryLabel } from "@/lib/i18n/use-catalog-labels";
 
 type Bookmark = {
   law_id: string;
@@ -23,6 +24,7 @@ type Law = {
 };
 
 export default function BookmarksPage() {
+  const lawCategoryLabel = useLawCategoryLabel();
   const { isSignedIn, isLoaded } = useAppUser();
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [laws, setLaws] = useState<Law[]>([]);
@@ -179,7 +181,7 @@ export default function BookmarksPage() {
                     <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
                       <span>{law.country}</span>
                       <span>·</span>
-                      <span>{law.category}</span>
+                      <span>{lawCategoryLabel(law.category)}</span>
                     </div>
                     <div className="mt-4 flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-green-500/15 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
