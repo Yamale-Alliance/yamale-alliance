@@ -10,6 +10,7 @@ import {
   startTransition,
   type FormEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   filterAiResearchSourceCardsForDisplay,
@@ -152,9 +153,6 @@ const AI_RESEARCH_NOTICE_KEY = `yamale-ai-research-notice:${AI_RESEARCH_NOTICE_V
 const PII_WARNING_VERSION = "v1";
 const PII_WARNING_KEY = `yamale-ai-pii-warning:${PII_WARNING_VERSION}`;
 const AI_CHAT_TIMEOUT_MS = 110000;
-/** mailto URLs above ~2k chars often fail in Gmail (413 / blank page). */
-const MAILTO_BODY_INTRO =
-  "Shared from Yamalé AI Legal Research.\n\nThe full conversation is on your clipboard — paste it here with Cmd+V or Ctrl+V.\n\n---\n\n";
 
 function getTierFromUser(metadata: Record<string, unknown> | undefined): Tier {
   const t = metadata?.tier ?? metadata?.subscriptionTier;
@@ -245,6 +243,9 @@ function AIResearchClientCore() {
   const [streamingAssistantId, setStreamingAssistantId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
+  const [shareMenuPosition, setShareMenuPosition] = useState<{ top: number; left: number } | null>(
+    null
+  );
   const [chatCopied, setChatCopied] = useState(false);
   const [emailShareOpening, setEmailShareOpening] = useState(false);
   const [exportPreviewOpen, setExportPreviewOpen] = useState(false);
@@ -260,6 +261,8 @@ function AIResearchClientCore() {
   } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const shareButtonRef = useRef<HTMLButtonElement>(null);
+  const shareMenuRef = useRef<HTMLDivElement>(null);
   const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
   const chatAbortRef = useRef<AbortController | null>(null);
   const stopRequestedRef = useRef(false);
@@ -616,6 +619,42 @@ function AIResearchClientCore() {
     };
   }, []);
 
+  const updateShareMenuPosition = useCallback(() => {
+    const button = shareButtonRef.current;
+    if (!button) return;
+    const rect = button.getBoundingClientRect();
+    const menuWidth = 192;
+    setShareMenuPosition({
+      top: rect.bottom + 4,
+      left: Math.max(8, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8)),
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!shareOpen) {
+      setShareMenuPosition(null);
+      return;
+    }
+    updateShareMenuPosition();
+    window.addEventListener("resize", updateShareMenuPosition);
+    window.addEventListener("scroll", updateShareMenuPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateShareMenuPosition);
+      window.removeEventListener("scroll", updateShareMenuPosition, true);
+    };
+  }, [shareOpen, updateShareMenuPosition]);
+
+  useEffect(() => {
+    if (!shareOpen) return;
+    const onDoc = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (shareButtonRef.current?.contains(target) || shareMenuRef.current?.contains(target)) return;
+      setShareOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [shareOpen]);
+
   useEffect(() => {
     if (!user) {
       setHasAcknowledgedNotice(true);
@@ -833,7 +872,7 @@ function AIResearchClientCore() {
     if (!currentSession) return "";
     return currentSession.messages
       .map((m) => {
-        const label = m.role === "user" ? "You" : "Yamalé AI";
+        const label = m.role === "user" ? t("transcript.you") : t("transcript.assistant");
         const text =
           m.role === "assistant"
             ? plainTextForAiChatExport(
@@ -843,24 +882,24 @@ function AIResearchClientCore() {
         return `${label}: ${text}`;
       })
       .join("\n\n");
-  }, [currentSession]);
+  }, [currentSession, t]);
 
   const handleShareEmail = useCallback(async () => {
     const transcript = getChatTranscript();
-    const subject = currentSession?.title || "AI Legal Research chat";
+    const subject = currentSession?.title || t("share.emailSubjectDefault");
     setEmailShareOpening(true);
     try {
       await navigator.clipboard.writeText(transcript);
     } catch {
       // mailto can still open; user may paste manually if clipboard fails
     }
-    const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(MAILTO_BODY_INTRO)}`;
+    const mailto = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(t("share.emailBodyIntro"))}`;
     window.location.href = mailto;
     window.setTimeout(() => {
       setEmailShareOpening(false);
       setShareOpen(false);
     }, 400);
-  }, [currentSession, getChatTranscript]);
+  }, [currentSession, getChatTranscript, t]);
 
   const handleCopyChat = useCallback(async () => {
     try {
@@ -1454,7 +1493,7 @@ function AIResearchClientCore() {
 
         <div className={`${shellStyles.mainPane} relative z-[1] flex min-h-0 min-w-0 flex-col overflow-hidden`}>
           <div
-            className={`flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2 md:px-8 md:py-2.5 ${
+            className={`relative z-20 flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2 md:px-8 md:py-2.5 ${
               messages.length === 0
                 ? `${shellStyles.headerMinimal} bg-transparent`
                 : "bg-background/80 backdrop-blur-sm"
@@ -1493,6 +1532,7 @@ function AIResearchClientCore() {
                   {canShareByEmail(tier) && (
                     <div className="relative">
                       <button
+                        ref={shareButtonRef}
                         type="button"
                         onClick={() => {
                           setShareOpen((o) => {
@@ -1504,56 +1544,12 @@ function AIResearchClientCore() {
                           });
                         }}
                         className="flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-[13px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                        aria-expanded={shareOpen}
+                        aria-haspopup="menu"
                       >
                         <Share2 className="h-4 w-4" />
-                        <span className="hidden sm:inline">Share</span>
+                        <span className="hidden sm:inline">{t("share.button")}</span>
                       </button>
-                      {shareOpen && (
-                        <>
-                          <div
-                            className="fixed inset-0 z-40"
-                            aria-hidden
-                            onClick={() => setShareOpen(false)}
-                          />
-                          <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-[6px] border border-border bg-card py-1 shadow-lg">
-                            <button
-                              type="button"
-                              onClick={() => void handleShareEmail()}
-                              disabled={emailShareOpening}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-muted disabled:opacity-60"
-                            >
-                              {emailShareOpening ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-                                  Opening email…
-                                </>
-                              ) : (
-                                <>
-                                  <Share2 className="h-4 w-4 shrink-0 opacity-70" />
-                                  Share by email
-                                </>
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void handleCopyChat()}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
-                            >
-                              {chatCopied ? (
-                                <>
-                                  <Check className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                                  <span className="font-medium text-emerald-700 dark:text-emerald-300">Copied!</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="h-4 w-4 shrink-0 opacity-70" />
-                                  Copy chat
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        </>
-                      )}
                     </div>
                   )}
                   {canDownloadConversations(tier) && (
@@ -1566,16 +1562,16 @@ function AIResearchClientCore() {
                       }}
                       disabled={!currentSession?.messages.length}
                       className="flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-[13px] text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-50"
-                      aria-label="Preview and download chat as PDF"
+                      aria-label={t("export.previewAriaLabel")}
                     >
                       <Download className="h-4 w-4" />
-                      <span className="hidden sm:inline">Download PDF</span>
+                      <span className="hidden sm:inline">{t("export.downloadPdf")}</span>
                     </button>
                   )}
                 </>
               )}
               <span className="rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {tier === "free" && payAsYouGoCount > 0 ? "Limited" : tierLabels[tier]}
+                {tier === "free" && payAsYouGoCount > 0 ? t("limitedTier") : tierLabels[tier]}
               </span>
             </div>
           </div>
@@ -2152,6 +2148,68 @@ function AIResearchClientCore() {
           </div>
         </div>
       )}
+
+      {typeof document !== "undefined" &&
+        shareOpen &&
+        shareMenuPosition &&
+        createPortal(
+          <>
+            <div className="fixed inset-0 z-[55]" aria-hidden onClick={() => setShareOpen(false)} />
+            <div
+              ref={shareMenuRef}
+              role="menu"
+              style={{
+                position: "fixed",
+                top: shareMenuPosition.top,
+                left: shareMenuPosition.left,
+                width: 192,
+                zIndex: 60,
+              }}
+              className="rounded-[6px] border border-border bg-card py-1 shadow-lg"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => void handleShareEmail()}
+                disabled={emailShareOpening}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-muted disabled:opacity-60"
+              >
+                {emailShareOpening ? (
+                  <>
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                    {t("share.openingEmail")}
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="h-4 w-4 shrink-0 opacity-70" />
+                    {t("share.byEmail")}
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => void handleCopyChat()}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-muted"
+              >
+                {chatCopied ? (
+                  <>
+                    <Check className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                    <span className="font-medium text-emerald-700 dark:text-emerald-300">
+                      {t("share.copied")}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4 shrink-0 opacity-70" />
+                    {t("share.copyChat")}
+                  </>
+                )}
+              </button>
+            </div>
+          </>,
+          document.body
+        )}
 
       {currentSession && canDownloadConversations(tier) ? (
         <AIResearchChatExportPreviewDialog
