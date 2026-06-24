@@ -18,6 +18,7 @@ import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect
 import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import type { SubscriptionPublicState } from "@/lib/subscription-state";
 import { getDisplayedBillingWindow } from "@/lib/subscription-billing-window";
+import { localizeAiPricingTiers } from "@/lib/localized-pricing-tiers";
 
 type BillingInterval = "monthly" | "annual";
 
@@ -135,6 +136,10 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
   }, [searchParams, router, basePath]);
 
   const paidTiers = useMemo(() => tiers.filter((tier) => tier.id !== "free"), [tiers]);
+  const localizedPaidTiers = useMemo(
+    () => localizeAiPricingTiers(paidTiers, tPricing),
+    [paidTiers, tPricing]
+  );
 
   const lowerTiersForDowngrade = useMemo(() => {
     if (!subState?.isPaid) return [];
@@ -482,7 +487,7 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
           <section className="mb-8">
             <h2 className="text-lg font-semibold">{t("choosePlan")}</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              {paidTiers.map((tier) => {
+              {localizedPaidTiers.map((tier) => {
                 const price =
                   tier.priceMonthly === 0 ? 0 : isAnnual ? tier.priceAnnualPerMonth : tier.priceMonthly;
                 const selected = selectedPlan === tier.id;
@@ -495,7 +500,7 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
                       selected ? "border-primary ring-2 ring-primary/30" : "border-border hover:border-primary/40"
                     }`}
                   >
-                    <div className="font-semibold">{tier.name}</div>
+                    <div className="font-semibold">{tier.localizedName}</div>
                     <div className="mt-2">
                       <MarketingDiscountSubscriptionPrice currentUsd={price} period="/mo" />
                     </div>
@@ -544,11 +549,11 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
           <section className="mt-10 rounded-lg border border-dashed border-border p-5">
             <h3 className="text-sm font-semibold">{t("compareFeatures")}</h3>
             <div className="mt-4 grid gap-6 md:grid-cols-3">
-              {paidTiers.map((tier) => (
+              {localizedPaidTiers.map((tier) => (
                 <div key={tier.id}>
-                  <div className="font-medium">{tier.name}</div>
+                  <div className="font-medium">{tier.localizedName}</div>
                   <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                    {tier.features.slice(0, 5).map((f, i) => (
+                    {tier.localizedFeatures.slice(0, 5).map((f, i) => (
                       <li key={i} className="flex gap-2">
                         <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                         <span dangerouslySetInnerHTML={{ __html: f }} />
