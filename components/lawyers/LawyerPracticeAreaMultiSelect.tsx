@@ -10,6 +10,7 @@ type LawyerPracticeAreaMultiSelectProps = {
   onChange: (next: string[]) => void;
   placeholder: string;
   selectedCountLabel: (count: number) => string;
+  formatOption?: (value: string) => string;
 };
 
 type MenuPosition = {
@@ -24,6 +25,7 @@ export function LawyerPracticeAreaMultiSelect({
   onChange,
   placeholder,
   selectedCountLabel,
+  formatOption,
 }: LawyerPracticeAreaMultiSelectProps) {
   const [open, setOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
@@ -76,11 +78,13 @@ export function LawyerPracticeAreaMultiSelect({
     onChange([...value, area]);
   };
 
+  const labelFor = (area: string) => (formatOption ? formatOption(area) : area);
+
   const summary =
     value.length === 0
       ? placeholder
       : value.length === 1
-        ? value[0]
+        ? labelFor(value[0])
         : selectedCountLabel(value.length);
 
   const menu =
@@ -112,7 +116,7 @@ export function LawyerPracticeAreaMultiSelect({
                 onChange={() => toggle(area)}
                 className="rounded border-white/30"
               />
-              <span>{area}</span>
+                <span>{labelFor(area)}</span>
             </label>
           );
         })}
