@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Scale } from "lucide-react";
+import { useLawCategoryLabel } from "@/lib/i18n/use-catalog-labels";
 
 type Props = {
   country: string;
@@ -11,7 +12,9 @@ type Props = {
 };
 
 export function LawyerMatchBanner({ country, category, lawTitle }: Props) {
+  const lawCategoryLabel = useLawCategoryLabel();
   const [count, setCount] = useState<number | null>(null);
+  const categoryLabel = lawCategoryLabel(category);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -41,7 +44,7 @@ export function LawyerMatchBanner({ country, category, lawTitle }: Props) {
           <div className="min-w-0">
             <p className="font-semibold text-foreground">Need help with this law?</p>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              {count} verified {lawyerWord} in {country} on the Yamalé Network list {category} among their practice
+              {count} verified {lawyerWord} in {country} on the Yamalé Network list {categoryLabel} among their practice
               areas — useful context for matters such as{" "}
               <span className="font-medium text-foreground">{shortTitle}</span>.
             </p>
