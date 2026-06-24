@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { Source_Serif_4 } from "next/font/google";
 import { useSearchParams, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { translateLawCategoryLabel } from "@/lib/i18n/catalog-labels";
 import {
   ChevronLeft,
   FileText,
@@ -1346,7 +1347,7 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
               )}
               {law.categories?.name && (
                 <span className="rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-medium text-white/75">
-                  {law.categories.name}
+                  {translateLawCategoryLabel(law.categories.name, tLib)}
                 </span>
               )}
               {law.language_code && (
@@ -1522,7 +1523,11 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
               ) : law.countries?.name ? (
                 <span>Country: {law.countries.name}</span>
               ) : null}
-              {law.categories?.name && <span>Category: {law.categories.name}</span>}
+              {law.categories?.name && (
+                <span>
+                  {tLib("category")}: {translateLawCategoryLabel(law.categories.name, tLib)}
+                </span>
+              )}
               {law.language_code && <LawLanguageBadge code={law.language_code} />}
               {law.year != null && <span>Year: {law.year}</span>}
               {law.status ? <span>Status: {law.status}</span> : null}
