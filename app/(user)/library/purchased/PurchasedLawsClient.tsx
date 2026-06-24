@@ -8,6 +8,7 @@ import { ArrowLeft, ArrowRight, FileDown, Loader2, BookOpen } from "lucide-react
 import { fetchDocumentExportUnlockLawIds } from "@/lib/library-document-export-unlocks-client";
 import { lawDetailHref } from "@/lib/law-public-url";
 import { LawLastVerifiedLabel } from "@/components/library/LawLastVerifiedLabel";
+import { useLawCategoryLabel } from "@/lib/i18n/use-catalog-labels";
 
 type Law = {
   id: string;
@@ -26,6 +27,7 @@ type Props = {
 };
 
 export function PurchasedLawsClient({ initialLawIds }: Props) {
+  const lawCategoryLabel = useLawCategoryLabel();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isSignedIn } = useAppUser();
@@ -235,7 +237,7 @@ export function PurchasedLawsClient({ initialLawIds }: Props) {
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
                     {law.country ? <span>{law.country}</span> : null}
                     {law.country && law.category ? <span>·</span> : null}
-                    {law.category ? <span>{law.category}</span> : null}
+                    {law.category ? <span>{lawCategoryLabel(law.category)}</span> : null}
                   </div>
                   <div className="mt-4 flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-green-500/15 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:text-green-400">
