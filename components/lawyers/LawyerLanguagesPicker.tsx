@@ -8,6 +8,7 @@ type LawyerLanguagesPickerProps = {
   label: string;
   description?: string;
   idPrefix?: string;
+  options?: readonly string[];
 };
 
 export function LawyerLanguagesPicker({
@@ -16,7 +17,10 @@ export function LawyerLanguagesPicker({
   label,
   description,
   idPrefix = "lawyer-language",
+  options,
 }: LawyerLanguagesPickerProps) {
+  const languageOptions =
+    options && options.length > 0 ? options : STANDARD_LAWYER_LANGUAGES;
   const toggle = (language: string) => {
     if (value.includes(language)) {
       onChange(value.filter((item) => item !== language));
@@ -30,7 +34,7 @@ export function LawyerLanguagesPicker({
       <p className="mb-1 block text-sm font-medium text-foreground">{label}</p>
       {description ? <p className="mb-2 text-xs text-muted-foreground">{description}</p> : null}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {STANDARD_LAWYER_LANGUAGES.map((language) => {
+        {languageOptions.map((language) => {
           const checked = value.includes(language);
           const inputId = `${idPrefix}-${lawyerLanguageId(language)}`;
           return (
