@@ -125,13 +125,14 @@ function isExcludedFilterPracticeArea(label: string): boolean {
 /** Unique sorted practice areas for filter dropdowns. */
 export function buildExpertiseFilterOptions(
   lawyers: Array<{ expertise: string }>,
-  options?: { includeStandard?: boolean }
+  options?: { includeStandard?: boolean; catalogPracticeAreas?: readonly string[] }
 ): string[] {
   const includeStandard = options?.includeStandard !== false;
+  const catalog = options?.catalogPracticeAreas ?? [];
+  const standardList =
+    catalog.length > 0 ? [...catalog] : ([...STANDARD_PRACTICE_AREAS] as string[]);
   const segments = lawyers.flatMap((l) => parseExpertiseSegments(l.expertise));
-  const combined = includeStandard
-    ? [...segments, ...STANDARD_PRACTICE_AREAS]
-    : segments;
+  const combined = includeStandard ? [...segments, ...standardList] : segments;
   return dedupeExpertiseSegments(combined)
     .filter((area) => !isExcludedFilterPracticeArea(area))
     .sort((a, b) => a.localeCompare(b));
@@ -184,8 +185,11 @@ export function primaryExpertiseFromField(expertise: string): string {
 }
 
 /** Dropdown options; keeps a legacy value visible when editing non-standard expertise. */
-export function lawyerExpertiseSelectOptions(currentValue?: string): string[] {
-  const options = [...STANDARD_PRACTICE_AREAS];
+export function lawyerExpertiseSelectOptions(
+  currentValue?: string,
+  catalogAreas?: readonly string[]
+): string[] {
+  const options = catalogAreas && catalogAreas.length > 0 ? [...catalogAreas] : [...STANDARD_PRACTICE_AREAS];
   const trimmed = currentValue?.trim();
   if (!trimmed) return options;
   const label = canonicalExpertiseLabel(parseExpertiseSegments(trimmed)[0] ?? trimmed);
