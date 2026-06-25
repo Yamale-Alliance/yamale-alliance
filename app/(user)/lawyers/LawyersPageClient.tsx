@@ -31,6 +31,7 @@ import { LawyersOnboardingVideo } from "@/components/lawyers/LawyersOnboardingVi
 import { LawyerPracticeAreaMultiSelect } from "@/components/lawyers/LawyerPracticeAreaMultiSelect";
 import { lawyerUnlockedForViewer } from "@/lib/lawyers-admin-presentation";
 import { useLawyerPracticeAreaLabel } from "@/lib/i18n/use-catalog-labels";
+import { useLawyerCatalog } from "@/lib/i18n/use-lawyer-catalog";
 import {
   collectLawyerLanguages,
   formatLawyerLanguagesAbbrev,
@@ -96,6 +97,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
   const t = useTranslations("lawyers");
   const tCommon = useTranslations("common");
   const practiceAreaLabel = useLawyerPracticeAreaLabel();
+  const { practiceAreas: catalogPracticeAreas, languages: catalogLanguages } = useLawyerCatalog();
   const lawyerLanguageLabel = (canonical: string) => {
     const option = LANGUAGE_OPTION_VALUES.find((item) => item.value === canonical);
     if (option && option.value !== "all") {
@@ -382,7 +384,22 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
     refetchUnlocked();
   }, [userLoaded, isAdmin]);
 
-  const expertiseList = useMemo(() => buildExpertiseFilterOptions(lawyers), [lawyers]);
+  const expertiseList = useMemo(
+    () => buildExpertiseFilterOptions(lawyers, { catalogPracticeAreas }),
+    [lawyers, catalogPracticeAreas]
+  );
+  const languageFilterOptions = useMemo(() => {
+    const knownKeys = new Set(
+      LANGUAGE_OPTION_VALUES.filter((item) => item.value !== "all").map((item) =>
+        lawyerLanguageKey(item.value)
+      )
+    );
+    const extras = catalogLanguages.filter((lang) => !knownKeys.has(lawyerLanguageKey(lang)));
+    return [
+      ...LANGUAGE_OPTION_VALUES,
+      ...extras.map((value) => ({ value, messageKey: null as string | null })),
+    ];
+  }, [catalogLanguages]);
 
   const filteredLawyers = useMemo(() => {
     return lawyers.filter((lawyer) => {
@@ -556,9 +573,9 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                   value={selectedLanguage}
                   onChange={(e) => setSelectedLanguage(e.target.value)}
                 >
-                  {LANGUAGE_OPTION_VALUES.map(({ value, messageKey }) => (
+                  {languageFilterOptions.map(({ value, messageKey }) => (
                     <option key={value} value={value}>
-                      {t(messageKey)}
+                      {messageKey ? t(messageKey) : value}
                     </option>
                   ))}
                 </select>
