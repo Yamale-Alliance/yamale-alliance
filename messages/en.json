@@ -2067,6 +2067,7 @@
       "title": "Lawyers directory",
       "subtitle": "Lawyers are added manually or via the public form. They appear on the Find a Lawyer page.",
       "addLawyer": "Add lawyer",
+      "manageCatalog": "Add expertise & languages",
       "adding": "Adding…",
       "edit": "Edit",
       "editLawyer": "Edit lawyer",
@@ -2156,6 +2157,36 @@
         "uploadFailed": "Upload failed. Ensure CLOUDINARY_* env vars are set on Vercel.",
         "serverNonJson": "Server returned non-JSON (check deployment logs).",
         "videoUploadFailed": "Video upload failed"
+      },
+      "catalog": {
+        "back": "Back to lawyers",
+        "title": "Practice areas & languages",
+        "subtitle": "Manage the expertise and language options shown when adding lawyers and on the public directory search.",
+        "rename": "Rename",
+        "delete": "Delete",
+        "table": {
+          "lawyers": "Lawyers"
+        },
+        "practiceAreas": {
+          "title": "Practice areas",
+          "subtitle": "Used in lawyer profiles and the public practice-area filter.",
+          "add": "Add practice area",
+          "placeholder": "e.g. Mining Law",
+          "empty": "No practice areas yet.",
+          "usedByLawyers": "Cannot delete {name}: used by {count} lawyer(s).",
+          "deleteTitle": "Delete practice area",
+          "deleteDescription": "Delete the practice area \"{name}\"? This cannot be undone."
+        },
+        "languages": {
+          "title": "Languages",
+          "subtitle": "Used in lawyer profiles and the public language filter.",
+          "add": "Add language",
+          "placeholder": "e.g. Hausa",
+          "empty": "No languages yet.",
+          "usedByLawyers": "Cannot delete {name}: used by {count} lawyer(s).",
+          "deleteTitle": "Delete language",
+          "deleteDescription": "Delete the language \"{name}\"? This cannot be undone."
+        }
       }
     }
   },
