@@ -148,6 +148,11 @@ h4,
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Library browse / purchased / bookmark cards: sans titles to match metadata line. */
+.library-law-card-title {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
