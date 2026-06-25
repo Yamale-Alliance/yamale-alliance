@@ -2038,6 +2038,7 @@
       "title": "Annuaire des avocats",
       "subtitle": "Les avocats sont ajoutés manuellement ou via le formulaire public. Ils apparaissent sur la page Trouver un avocat.",
       "addLawyer": "Ajouter un avocat",
+      "manageCatalog": "Expertise & langues",
       "adding": "Ajout…",
       "edit": "Modifier",
       "editLawyer": "Modifier l'avocat",
@@ -2115,6 +2116,36 @@
         "uploadFailed": "Échec du téléversement. Vérifiez les variables CLOUDINARY_* sur Vercel.",
         "serverNonJson": "Le serveur a renvoyé une réponse non-JSON (consultez les journaux de déploiement).",
         "videoUploadFailed": "Échec du téléversement de la vidéo"
+      },
+      "catalog": {
+        "back": "Retour aux avocats",
+        "title": "Domaines de pratique et langues",
+        "subtitle": "Gérez les options d'expertise et de langue proposées lors de l'ajout d'avocats et dans la recherche publique.",
+        "rename": "Renommer",
+        "delete": "Supprimer",
+        "table": {
+          "lawyers": "Avocats"
+        },
+        "practiceAreas": {
+          "title": "Domaines de pratique",
+          "subtitle": "Utilisés dans les profils d'avocats et le filtre public par domaine.",
+          "add": "Ajouter un domaine",
+          "placeholder": "ex. Droit minier",
+          "empty": "Aucun domaine pour l'instant.",
+          "usedByLawyers": "Impossible de supprimer {name} : utilisé par {count} avocat(s).",
+          "deleteTitle": "Supprimer le domaine",
+          "deleteDescription": "Supprimer le domaine « {name} » ? Cette action est irréversible."
+        },
+        "languages": {
+          "title": "Langues",
+          "subtitle": "Utilisées dans les profils d'avocats et le filtre public par langue.",
+          "add": "Ajouter une langue",
+          "placeholder": "ex. Haoussa",
+          "empty": "Aucune langue pour l'instant.",
+          "usedByLawyers": "Impossible de supprimer {name} : utilisée par {count} avocat(s).",
+          "deleteTitle": "Supprimer la langue",
+          "deleteDescription": "Supprimer la langue « {name} » ? Cette action est irréversible."
+        }
       }
     }
   },
