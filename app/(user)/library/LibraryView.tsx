@@ -1295,7 +1295,7 @@ export function LibraryView({
                       }}
                       className="flex min-w-0 flex-1 flex-col"
                     >
-                      <h2 className="text-[15px] font-bold leading-[1.35] text-foreground">{law.name}</h2>
+                      <h2 className="library-law-card-title text-[15px] font-bold leading-[1.35] text-foreground">{law.name}</h2>
                       <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[12.5px] text-muted-foreground">
                         <span>{law.applies_globally ? t("allCountries") : law.country}</span>
                         <span>·</span>
