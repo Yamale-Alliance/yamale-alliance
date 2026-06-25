@@ -2038,6 +2038,7 @@
       "title": "Diretório de advogados",
       "subtitle": "Os advogados são adicionados manualmente ou via formulário público. Aparecem na página Encontrar Advogado.",
       "addLawyer": "Adicionar advogado",
+      "manageCatalog": "Especialização e idiomas",
       "adding": "A adicionar…",
       "edit": "Editar",
       "editLawyer": "Editar advogado",
@@ -2115,6 +2116,36 @@
         "uploadFailed": "Falha no carregamento. Verifique as variáveis CLOUDINARY_* no Vercel.",
         "serverNonJson": "O servidor devolveu uma resposta não-JSON (consulte os registos de implementação).",
         "videoUploadFailed": "Falha no carregamento do vídeo"
+      },
+      "catalog": {
+        "back": "Voltar aos advogados",
+        "title": "Áreas de prática e idiomas",
+        "subtitle": "Gerir as opções de especialização e idioma ao adicionar advogados e na pesquisa pública.",
+        "rename": "Renomear",
+        "delete": "Eliminar",
+        "table": {
+          "lawyers": "Advogados"
+        },
+        "practiceAreas": {
+          "title": "Áreas de prática",
+          "subtitle": "Usadas nos perfis de advogados e no filtro público por área.",
+          "add": "Adicionar área",
+          "placeholder": "ex. Direito mineiro",
+          "empty": "Ainda não há áreas.",
+          "usedByLawyers": "Não é possível eliminar {name}: usada por {count} advogado(s).",
+          "deleteTitle": "Eliminar área",
+          "deleteDescription": "Eliminar a área \"{name}\"? Esta ação não pode ser anulada."
+        },
+        "languages": {
+          "title": "Idiomas",
+          "subtitle": "Usados nos perfis de advogados e no filtro público por idioma.",
+          "add": "Adicionar idioma",
+          "placeholder": "ex. Hausa",
+          "empty": "Ainda não há idiomas.",
+          "usedByLawyers": "Não é possível eliminar {name}: usado por {count} advogado(s).",
+          "deleteTitle": "Eliminar idioma",
+          "deleteDescription": "Eliminar o idioma \"{name}\"? Esta ação não pode ser anulada."
+        }
       }
     }
   },
