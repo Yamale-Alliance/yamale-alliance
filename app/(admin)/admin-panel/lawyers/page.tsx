@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Loader2, Briefcase, Plus, Trash2, Download, Upload, Video, X } from "lucide-react";
+import { Loader2, Briefcase, Plus, Trash2, Download, Upload, Video, X, Tags } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 import {
   lawyerExpertiseSelectOptions,
@@ -74,6 +75,18 @@ export default function AdminLawyersPage() {
   const [onboardingVideoUrl, setOnboardingVideoUrl] = useState<string | null>(null);
   const [onboardingVideoUploading, setOnboardingVideoUploading] = useState(false);
   const [onboardingVideoRemoving, setOnboardingVideoRemoving] = useState(false);
+  const [catalogPracticeAreas, setCatalogPracticeAreas] = useState<string[]>([]);
+  const [catalogLanguages, setCatalogLanguages] = useState<string[]>([]);
+
+  const fetchCatalog = () => {
+    fetch(`${window.location.origin}/api/lawyers/catalog`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data: { practiceAreas?: string[]; languages?: string[] }) => {
+        if (Array.isArray(data.practiceAreas)) setCatalogPracticeAreas(data.practiceAreas);
+        if (Array.isArray(data.languages)) setCatalogLanguages(data.languages);
+      })
+      .catch(() => {});
+  };
 
   const fetchOnboardingVideo = () => {
     fetch(`${window.location.origin}/api/admin/lawyers/onboarding-video`, { credentials: "include" })
@@ -98,6 +111,7 @@ export default function AdminLawyersPage() {
   useEffect(() => {
     fetchLawyers();
     fetchOnboardingVideo();
+    fetchCatalog();
   }, []);
 
   const handleOnboardingVideoUpload = async (file: File) => {
@@ -453,6 +467,13 @@ export default function AdminLawyersPage() {
               {tc("exportPdf")}
             </button>
           )}
+          <Link
+            href="/admin-panel/lawyers/catalog"
+            className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+          >
+            <Tags className="h-4 w-4" />
+            {t("manageCatalog")}
+          </Link>
           <button
             type="button"
             onClick={() => setShowForm((v) => !v)}
@@ -588,7 +609,7 @@ export default function AdminLawyersPage() {
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
               >
                 <option value="">{t("form.placeholders.selectExpertise")}</option>
-                {lawyerExpertiseSelectOptions().map((area) => (
+                {lawyerExpertiseSelectOptions(undefined, catalogPracticeAreas).map((area) => (
                   <option key={area} value={area}>
                     {area}
                   </option>
@@ -630,6 +651,7 @@ export default function AdminLawyersPage() {
                 description={t("form.languagesDescription")}
                 value={formLanguages}
                 onChange={setFormLanguages}
+                options={catalogLanguages}
               />
             </div>
             <div className="sm:col-span-2">
@@ -783,7 +805,7 @@ export default function AdminLawyersPage() {
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
               >
                 <option value="">{t("form.placeholders.selectExpertise")}</option>
-                {lawyerExpertiseSelectOptions(editExpertise).map((area) => (
+                {lawyerExpertiseSelectOptions(editExpertise, catalogPracticeAreas).map((area) => (
                   <option key={area} value={area}>
                     {area}
                   </option>
@@ -823,6 +845,7 @@ export default function AdminLawyersPage() {
                 description={t("form.languagesDescription")}
                 value={editLanguages}
                 onChange={setEditLanguages}
+                options={catalogLanguages}
               />
             </div>
             <div className="sm:col-span-2">
