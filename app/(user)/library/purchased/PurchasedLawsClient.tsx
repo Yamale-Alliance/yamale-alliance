@@ -233,7 +233,7 @@ export function PurchasedLawsClient({ initialLawIds }: Props) {
                     <FileDown className="h-3 w-3" />
                     PDF unlocked
                   </div>
-                  <h2 className="font-semibold text-foreground group-hover:text-primary">{law.title}</h2>
+                  <h2 className="library-law-card-title font-semibold text-foreground group-hover:text-primary">{law.title}</h2>
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
                     {law.country ? <span>{law.country}</span> : null}
                     {law.country && law.category ? <span>·</span> : null}
