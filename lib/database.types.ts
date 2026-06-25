@@ -41,6 +41,36 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["categories"]["Insert"]>;
       };
+      lawyer_practice_areas: {
+        Row: {
+          id: string;
+          name: string;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["lawyer_practice_areas"]["Insert"]>;
+      };
+      lawyer_language_options: {
+        Row: {
+          id: string;
+          name: string;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["lawyer_language_options"]["Insert"]>;
+      };
       law_categories: {
         Row: {
           law_id: string;
