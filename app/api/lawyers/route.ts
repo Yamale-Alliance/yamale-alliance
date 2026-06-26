@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
         other_languages: otherLanguages,
         image_url: imageUrl,
         source: "form",
-        approved: true,
+        approved: false,
       })
       .select("id")
       .single();
