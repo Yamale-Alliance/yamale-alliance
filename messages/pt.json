@@ -2036,7 +2036,7 @@
     },
     "lawyers": {
       "title": "Diretório de advogados",
-      "subtitle": "Os advogados são adicionados manualmente ou via formulário público. Aparecem na página Encontrar Advogado.",
+      "subtitle": "Reveja candidaturas públicas em /lawyers/join, aprove perfis para o diretório ou adicione advogados manualmente.",
       "addLawyer": "Adicionar advogado",
       "manageCatalog": "Especialização e idiomas",
       "adding": "A adicionar…",
@@ -2089,7 +2089,35 @@
         "uploading": "A carregar…",
         "previewAlt": "Pré-visualização"
       },
-      "table": { "photo": "Foto", "country": "País", "city": "Cidade", "expertise": "Especialização", "languages": "Idiomas", "phone": "Telefone", "source": "Origem", "added": "Adicionado" },
+      "table": { "photo": "Foto", "country": "País", "city": "Cidade", "expertise": "Especialização", "languages": "Idiomas", "phone": "Telefone", "source": "Origem", "status": "Estado", "added": "Adicionado" },
+      "filters": { "all": "Todos", "pending": "Pendentes", "approved": "Aprovados" },
+      "status": { "pending": "Em revisão", "approved": "Aprovado", "rejected": "Não aprovado" },
+      "review": {
+        "title": "Rever candidatura",
+        "approve": "Aprovar",
+        "reject": "Rejeitar",
+        "approving": "A aprovar…",
+        "rejecting": "A rejeitar…",
+        "viewApplication": "Rever",
+        "documents": "Documentos carregados",
+        "noDocuments": "Sem documentos registados.",
+        "viewFile": "Ver",
+        "downloadFile": "Transferir",
+        "sections": { "contact": "Contacto e escritório", "practice": "Prática", "education": "Formação", "bar": "Ordem dos advogados" },
+        "fields": {
+          "title": "Título profissional",
+          "firm": "Escritório",
+          "officeAddress": "Morada do escritório",
+          "practiceLocation": "Local principal de prática",
+          "yearsExperience": "Anos de experiência",
+          "barAdmission": "Data de admissão na ordem",
+          "jurisdiction": "Jurisdição",
+          "primaryDegree": "Licenciatura principal",
+          "lawSchool": "Faculdade de direito",
+          "additionalDegree": "Grau adicional",
+          "additionalInstitution": "Instituição"
+        }
+      },
       "export": {
         "documentTitle": "Diretório de advogados – Yamalé Alliance",
         "reportTitle": "Exportação do diretório de advogados",
@@ -2749,6 +2777,7 @@
     "title": "Encontre o advogado comercial certo em qualquer jurisdição africana — rapidamente.",
     "subtitle": "Um diretório por convite de profissionais jurídicos com experiência em direito empresarial africano, mineração, M&A e conformidade.",
     "viewUnlocked": "Ver advogados desbloqueados",
+    "joinDirectory": "Juntar-se ao diretório",
     "country": "País",
     "selectCountry": "Selecionar um país",
     "city": "Cidade",
@@ -2843,7 +2872,94 @@
     "countriesStat": "Países",
     "noContactDetailsOnFile": "Sem contactos registados",
     "unlockContactPrice": "Desbloquear contacto — <price></price>",
-    "dayPassConfirmPending": "Ainda não foi possível confirmar o seu passe diário. Se o mobile money foi cobrado, aguarde um momento e atualize a página."
+    "dayPassConfirmPending": "Ainda não foi possível confirmar o seu passe diário. Se o mobile money foi cobrado, aguarde um momento e atualize a página.",
+    "join": {
+      "title": "Juntar-se ao diretório de advogados Yamalé",
+      "subtitle": "Preencha esta candidatura para revisão administrativa. O seu perfil só aparecerá publicamente após a Yamalé verificar as suas credenciais.",
+      "cancel": "Cancelar",
+      "submit": "Enviar candidatura",
+      "submitting": "A enviar…",
+      "sections": {
+        "profile": "Perfil profissional",
+        "documents": "Documentos de verificação obrigatórios",
+        "documentsHint": "Anexe os seguintes documentos (cópias digitalizadas aceites).",
+        "declaration": "Declaração"
+      },
+      "fields": {
+        "fullLegalName": "Nome legal completo",
+        "professionalTitle": "Título / cargo profissional",
+        "professionalTitleHint": "ex. Sócio sénior, Sócio gerente, Associado, Consultor",
+        "firmName": "Escritório / sociedade de advogados",
+        "businessEmail": "E-mail profissional",
+        "businessPhone": "Telefone profissional (com indicativo)",
+        "officeAddress": "Morada do escritório",
+        "officeAddressHint": "Rua / edifício",
+        "city": "Cidade",
+        "country": "País",
+        "practiceCountry": "País principal de prática",
+        "practiceCity": "Cidade principal de prática",
+        "yearsExperience": "Anos de experiência jurídica",
+        "expertise1": "Área de especialização n.º 1",
+        "expertise2": "Área de especialização n.º 2",
+        "expertise3": "Área de especialização n.º 3",
+        "selectExpertise": "Selecionar área",
+        "selectCountry": "Selecionar país",
+        "languages": "Idiomas falados (todos)",
+        "barAdmissionDate": "Data de admissão na ordem",
+        "jurisdiction": "Jurisdição",
+        "primaryDegree": "Licenciatura em direito principal",
+        "lawSchool": "Faculdade / universidade de direito",
+        "additionalDegree": "Grau adicional (se aplicável)",
+        "additionalInstitution": "Instituição"
+      },
+      "documents": {
+        "barCert": "Certificado da ordem ou licença de prática",
+        "lawDegree": "Certificado(s) de licenciatura em direito",
+        "professionalId": "ID profissional ou prova de prática atual",
+        "cv": "CV recente (opcional mas recomendado)",
+        "profilePhoto": "Foto de perfil profissional (opcional)",
+        "uploadHint": "1 ficheiro suportado: PDF ou imagem. Máx. 10 MB.",
+        "uploadHintOptional": "1 ficheiro. Máx. 10 MB."
+      },
+      "fileUpload": {
+        "chooseFile": "Escolher ficheiro",
+        "noFileChosen": "Nenhum ficheiro selecionado",
+        "removeFile": "Remover ficheiro"
+      },
+      "declaration": {
+        "agree": "Concordo",
+        "bullets": [
+          "Todas as informações fornecidas são verdadeiras, exatas e completas, na medida do meu conhecimento",
+          "Estou devidamente licenciado para exercer direito na(s) jurisdição(ões) indicada(s)",
+          "Encontro-me em situação regular perante a(s) ordem(ns) relevante(s)",
+          "Li e aceito os Termos de Serviço e a Política de Privacidade da Yamalé",
+          "Compreendo que os meus contactos ficarão ocultos até um utilizador pagar 5 $ para desbloquear o meu perfil",
+          "Consinto que a Yamalé exiba publicamente as minhas informações profissionais no diretório",
+          "Compreendo que a Yamalé verificará as minhas credenciais antes de ativar o meu perfil",
+          "Manterei informações precisas e atualizadas no meu perfil",
+          "Cumprirei todas as regras profissionais e normas éticas aplicáveis",
+          "Compreendo que informações falsas ou enganosas podem resultar na remoção imediata",
+          "Monitorizarei regularmente o meu e-mail e WhatsApp e responderei prontamente a pedidos de clientes via Yamalé",
+          "Compreendo que o meu perfil estará sujeito a avaliações e comentários de clientes",
+          "Reconheço que falhas de resposta ou queixas repetidas podem levar a avisos, suspensão ou remoção",
+          "Comprometo-me a manter padrões profissionais em todas as comunicações"
+        ]
+      },
+      "success": {
+        "title": "Candidatura enviada",
+        "body": "Obrigado. A sua candidatura aguarda revisão administrativa. Verificaremos as suas credenciais e contactá-lo-emos quando o perfil for aprovado.",
+        "backToDirectory": "Voltar a Encontrar Advogado"
+      },
+      "errors": {
+        "declarationRequired": "Aceite a declaração antes de enviar.",
+        "requiredDocuments": "Carregue todos os documentos obrigatórios.",
+        "expertiseRequired": "Selecione as três áreas de especialização.",
+        "expertiseDistinct": "Escolha três áreas de especialização diferentes.",
+        "languagesRequired": "Selecione pelo menos um idioma.",
+        "fileTooLarge": "O ficheiro deve ter menos de {max} MB.",
+        "submitFailed": "Algo correu mal. Tente novamente."
+      }
+    }
   },
   "pricing": {
     "eyebrow": "Preços",
