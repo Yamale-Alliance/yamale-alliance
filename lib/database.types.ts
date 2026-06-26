@@ -588,6 +588,19 @@ export interface Database {
           image_url: string | null;
           source: string;
           approved: boolean;
+          professional_title: string | null;
+          firm_name: string | null;
+          office_address: string | null;
+          practice_country: string | null;
+          practice_city: string | null;
+          years_experience: number | null;
+          bar_admission_date: string | null;
+          jurisdiction: string | null;
+          primary_degree: string | null;
+          law_school: string | null;
+          additional_degree: string | null;
+          additional_institution: string | null;
+          declaration_accepted_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -606,10 +619,44 @@ export interface Database {
           image_url?: string | null;
           source?: string;
           approved?: boolean;
+          professional_title?: string | null;
+          firm_name?: string | null;
+          office_address?: string | null;
+          practice_country?: string | null;
+          practice_city?: string | null;
+          years_experience?: number | null;
+          bar_admission_date?: string | null;
+          jurisdiction?: string | null;
+          primary_degree?: string | null;
+          law_school?: string | null;
+          additional_degree?: string | null;
+          additional_institution?: string | null;
+          declaration_accepted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["lawyers"]["Insert"]>;
+      };
+      lawyer_directory_documents: {
+        Row: {
+          id: string;
+          lawyer_id: string;
+          document_type: string;
+          storage_path: string;
+          file_name: string;
+          content_type: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          lawyer_id: string;
+          document_type: string;
+          storage_path: string;
+          file_name: string;
+          content_type: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["lawyer_directory_documents"]["Insert"]>;
       };
       team_chat_messages: {
         Row: {
