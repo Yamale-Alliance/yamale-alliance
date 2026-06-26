@@ -2065,7 +2065,7 @@
     },
     "lawyers": {
       "title": "Lawyers directory",
-      "subtitle": "Lawyers are added manually or via the public form. They appear on the Find a Lawyer page.",
+      "subtitle": "Review public applications from /lawyers/join, approve profiles for the directory, or add lawyers manually.",
       "addLawyer": "Add lawyer",
       "manageCatalog": "Add expertise & languages",
       "adding": "Adding…",
@@ -2129,7 +2129,49 @@
         "languages": "Languages",
         "phone": "Phone",
         "source": "Source",
+        "status": "Status",
         "added": "Added"
+      },
+      "filters": {
+        "all": "All",
+        "pending": "Pending",
+        "approved": "Approved"
+      },
+      "status": {
+        "pending": "Pending review",
+        "approved": "Approved",
+        "rejected": "Not approved"
+      },
+      "review": {
+        "title": "Review application",
+        "approve": "Approve",
+        "reject": "Reject",
+        "approving": "Approving…",
+        "rejecting": "Rejecting…",
+        "viewApplication": "Review",
+        "documents": "Uploaded documents",
+        "noDocuments": "No documents on file.",
+        "viewFile": "View",
+        "downloadFile": "Download",
+        "sections": {
+          "contact": "Contact & office",
+          "practice": "Practice",
+          "education": "Education",
+          "bar": "Bar admission"
+        },
+        "fields": {
+          "title": "Professional title",
+          "firm": "Firm",
+          "officeAddress": "Office address",
+          "practiceLocation": "Primary practice location",
+          "yearsExperience": "Years of experience",
+          "barAdmission": "Bar admission date",
+          "jurisdiction": "Jurisdiction",
+          "primaryDegree": "Primary degree",
+          "lawSchool": "Law school",
+          "additionalDegree": "Additional degree",
+          "additionalInstitution": "Institution"
+        }
       },
       "export": {
         "documentTitle": "Lawyers directory – Yamalé Alliance",
@@ -2790,6 +2832,7 @@
     "title": "Find the right commercial lawyer in any African jurisdiction — fast.",
     "subtitle": "An invitation-only directory of legal professionals with deep expertise in African business law, mining, M&A, and compliance.",
     "viewUnlocked": "View unlocked lawyers",
+    "joinDirectory": "Join the directory",
     "country": "Country",
     "selectCountry": "Select a country",
     "city": "City",
@@ -2884,7 +2927,94 @@
     "countriesStat": "Countries",
     "noContactDetailsOnFile": "No contact details on file",
     "unlockContactPrice": "Unlock contact — <price></price>",
-    "dayPassConfirmPending": "We could not confirm your day pass yet. If mobile money was charged, wait a moment and refresh."
+    "dayPassConfirmPending": "We could not confirm your day pass yet. If mobile money was charged, wait a moment and refresh.",
+    "join": {
+      "title": "Join the Yamalé lawyer directory",
+      "subtitle": "Complete this application for admin review. Your profile will appear publicly only after Yamalé verifies your credentials.",
+      "cancel": "Cancel",
+      "submit": "Submit application",
+      "submitting": "Submitting…",
+      "sections": {
+        "profile": "Professional profile",
+        "documents": "Verification documents required",
+        "documentsHint": "Please attach the following documents (scanned copies accepted).",
+        "declaration": "Declaration"
+      },
+      "fields": {
+        "fullLegalName": "Full legal name",
+        "professionalTitle": "Professional title / position",
+        "professionalTitleHint": "e.g. Senior Partner, Managing Partner, Associate, Counsel",
+        "firmName": "Law firm / legal practice name",
+        "businessEmail": "Business email address",
+        "businessPhone": "Business phone number (with country code)",
+        "officeAddress": "Office address",
+        "officeAddressHint": "Street / building",
+        "city": "City",
+        "country": "Country",
+        "practiceCountry": "Primary country of practice",
+        "practiceCity": "Primary city of practice",
+        "yearsExperience": "Number of years of legal experience",
+        "expertise1": "Area of expertise #1",
+        "expertise2": "Area of expertise #2",
+        "expertise3": "Area of expertise #3",
+        "selectExpertise": "Select practice area",
+        "selectCountry": "Select country",
+        "languages": "Languages spoken (list all)",
+        "barAdmissionDate": "Bar admission date",
+        "jurisdiction": "Jurisdiction",
+        "primaryDegree": "Primary law degree",
+        "lawSchool": "Law school / university",
+        "additionalDegree": "Additional degree (if applicable)",
+        "additionalInstitution": "Institution"
+      },
+      "documents": {
+        "barCert": "Bar certificate or license to practice law",
+        "lawDegree": "Law degree certificate(s)",
+        "professionalId": "Professional ID or proof of current practice",
+        "cv": "Recent CV / resume (optional but recommended)",
+        "profilePhoto": "Professional profile picture (optional)",
+        "uploadHint": "Upload 1 supported file: PDF or image. Max 10 MB.",
+        "uploadHintOptional": "Upload 1 supported file. Max 10 MB."
+      },
+      "fileUpload": {
+        "chooseFile": "Choose file",
+        "noFileChosen": "No file chosen",
+        "removeFile": "Remove file"
+      },
+      "declaration": {
+        "agree": "I agree",
+        "bullets": [
+          "All information provided is true, accurate, and complete to the best of my knowledge",
+          "I am duly licensed to practice law in the stated jurisdiction(s)",
+          "I am in good standing with the relevant bar association(s)",
+          "I have read and agree to Yamalé Legal Platform's Terms of Service and Privacy Policy",
+          "I understand that my contact information (name, firm name, email, phone, address) will be hidden from users until they pay $5 to unlock my profile",
+          "I consent to Yamalé displaying my professional information (title, expertise, location, experience, education, languages) publicly in the lawyer directory",
+          "I understand that Yamalé will verify my credentials before activating my profile",
+          "I will maintain accurate and current information in my profile",
+          "I will comply with all applicable professional rules and ethical standards",
+          "I understand that providing false or misleading information may result in immediate removal from the directory and possible legal action",
+          "I agree to monitor my registered email and WhatsApp regularly and will respond promptly to all client inquiries originating from the Yamalé Legal Platform",
+          "I understand that my profile will be subject to client ratings and reviews, including assessments of my responsiveness, professionalism, and quality of service",
+          "I acknowledge that failure to maintain satisfactory responsiveness ratings or repeated client complaints may result in warnings, profile suspension, or permanent removal from the directory",
+          "I commit to upholding professional standards in all communications, including providing timely responses to inquiries and respectfully declining matters I cannot accept"
+        ]
+      },
+      "success": {
+        "title": "Application submitted",
+        "body": "Thank you. Your application is pending admin review. We will verify your credentials and contact you once your profile is approved for the directory.",
+        "backToDirectory": "Back to Find a Lawyer"
+      },
+      "errors": {
+        "declarationRequired": "Please agree to the declaration before submitting.",
+        "requiredDocuments": "Please upload all required verification documents.",
+        "expertiseRequired": "Please select all three areas of expertise.",
+        "expertiseDistinct": "Please choose three different areas of expertise.",
+        "languagesRequired": "Please select at least one language.",
+        "fileTooLarge": "File must be under {max} MB.",
+        "submitFailed": "Something went wrong. Please try again."
+      }
+    }
   },
   "pricing": {
     "eyebrow": "Pricing",
