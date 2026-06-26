@@ -38,6 +38,7 @@ import {
   lawyerSpeaksLanguage,
   lawyerLanguageKey,
 } from "@/lib/lawyer-languages";
+import { AFRICAN_COUNTRIES } from "@/lib/african-countries";
 
 const BRAND = {
   dark: "#221913",
@@ -73,17 +74,6 @@ const LANGUAGE_OPTION_VALUES = [
   { value: "Wolof", messageKey: "languageOptions.wolof" },
   { value: "Twi", messageKey: "languageOptions.twi" },
 ] as const;
-
-// All African countries for search (user can select any; we show a message if none in directory).
-const AFRICAN_COUNTRIES = [
-  "Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cabo Verde", "Cameroon",
-  "Central African Republic", "Chad", "Comoros", "Congo", "Côte d'Ivoire", "Djibouti", "Egypt",
-  "Equatorial Guinea", "Eritrea", "Eswatini", "Ethiopia", "Gabon", "Gambia", "Ghana", "Guinea",
-  "Guinea-Bissau", "Kenya", "Lesotho", "Liberia", "Libya", "Madagascar", "Malawi", "Mali",
-  "Mauritania", "Mauritius", "Morocco", "Mozambique", "Namibia", "Niger", "Nigeria", "Rwanda",
-  "São Tomé and Príncipe", "Senegal", "Seychelles", "Sierra Leone", "Somalia", "South Africa",
-  "South Sudan", "Sudan", "Tanzania", "Togo", "Tunisia", "Uganda", "Zambia", "Zimbabwe",
-];
 
 function pseudoYears(name: string): number {
   return (name.length % 14) + 8;
@@ -512,6 +502,12 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
             </p>
             <div className="mt-5 flex flex-wrap items-center gap-3">
               <LawyersOnboardingVideo className="inline-flex items-center gap-2 rounded-[6px] border border-white/25 bg-white/10 px-3 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15" />
+              <Link
+                href="/lawyers/join"
+                className="inline-flex items-center rounded-[6px] border border-[#D4AF37]/50 bg-[#D4AF37]/15 px-3 py-2 text-sm font-semibold text-[#F5E6B8] backdrop-blur transition hover:bg-[#D4AF37]/25"
+              >
+                {t("joinDirectory")}
+              </Link>
               <Link
                 href="/lawyers/unlocked"
                 className="inline-flex items-center rounded-[6px] border border-white/25 bg-white/10 px-3 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15"
