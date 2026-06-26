@@ -1,9 +1,51 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin";
+import { listLawyerDirectoryDocumentsWithUrls } from "@/lib/lawyer-directory-documents";
 import { normalizeExpertiseField } from "@/lib/lawyer-expertise";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const LAWYER_DETAIL_SELECT =
+  "id, name, country, city, expertise, email, phone, contacts, linkedin_url, primary_language, other_languages, image_url, source, approved, created_at, professional_title, firm_name, office_address, practice_country, practice_city, years_experience, bar_admission_date, jurisdiction, primary_degree, law_school, additional_degree, additional_institution, declaration_accepted_at";
+
+/** GET: full lawyer application for admin review. */
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const admin = await requireAdmin();
+  if (admin instanceof NextResponse) return admin;
+
+  const { id } = await params;
+  if (!id || !UUID_REGEX.test(id)) {
+    return NextResponse.json({ error: "Invalid lawyer id" }, { status: 400 });
+  }
+
+  const supabase = getSupabaseServer();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from("lawyers")
+    .select(LAWYER_DETAIL_SELECT)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  if (!data) {
+    return NextResponse.json({ error: "Lawyer not found" }, { status: 404 });
+  }
+
+  let documents: Awaited<ReturnType<typeof listLawyerDirectoryDocumentsWithUrls>> = [];
+  try {
+    documents = await listLawyerDirectoryDocumentsWithUrls(id);
+  } catch {
+    documents = [];
+  }
+
+  return NextResponse.json({ lawyer: data, documents });
+}
 
 /** PATCH: update lawyer fields and/or set approved (show/hide in public directory). */
 export async function PATCH(
@@ -19,6 +61,28 @@ export async function PATCH(
   }
 
   const body = await request.json().catch(() => ({}));
+  const approved = typeof body.approved === "boolean" ? body.approved : undefined;
+  const hasProfileFields =
+    typeof body.name === "string" ||
+    typeof body.expertise === "string" ||
+    typeof body.email === "string" ||
+    typeof body.phone === "string";
+
+  if (approved !== undefined && !hasProfileFields) {
+    const supabase = getSupabaseServer();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
+      .from("lawyers")
+      .update({ approved, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select(LAWYER_DETAIL_SELECT)
+      .single();
+
+    if (error || !data) {
+      return NextResponse.json({ error: "Failed to update approval status" }, { status: 500 });
+    }
+    return NextResponse.json(data);
+  }
 
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const country = typeof body.country === "string" ? body.country.trim() || null : null;
@@ -30,7 +94,6 @@ export async function PATCH(
   const otherLanguages = typeof body.other_languages === "string" ? body.other_languages.trim() || null : null;
   const linkedinUrl = typeof body.linkedin_url === "string" ? body.linkedin_url.trim() || null : null;
   const imageUrl = typeof body.image_url === "string" ? body.image_url.trim() || null : undefined;
-  const approved = typeof body.approved === "boolean" ? body.approved : undefined;
 
   if (!name || name.length > 200) {
     return NextResponse.json({ error: "Name is required (max 200 characters)" }, { status: 400 });
@@ -87,7 +150,7 @@ export async function PATCH(
   const { data, error } = await (supabase.from("lawyers") as any)
     .update(update)
     .eq("id", id)
-    .select("id, name, country, city, expertise, email, phone, contacts, linkedin_url, primary_language, other_languages, image_url, source, approved, created_at")
+    .select(LAWYER_DETAIL_SELECT)
     .single();
 
   if (error || !data) {
