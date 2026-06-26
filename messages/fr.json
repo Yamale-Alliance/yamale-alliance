@@ -2036,7 +2036,7 @@
     },
     "lawyers": {
       "title": "Annuaire des avocats",
-      "subtitle": "Les avocats sont ajoutés manuellement ou via le formulaire public. Ils apparaissent sur la page Trouver un avocat.",
+      "subtitle": "Examinez les candidatures publiques depuis /lawyers/join, approuvez les profils pour l'annuaire ou ajoutez des avocats manuellement.",
       "addLawyer": "Ajouter un avocat",
       "manageCatalog": "Expertise & langues",
       "adding": "Ajout…",
@@ -2089,7 +2089,35 @@
         "uploading": "Téléversement…",
         "previewAlt": "Aperçu"
       },
-      "table": { "photo": "Photo", "country": "Pays", "city": "Ville", "expertise": "Expertise", "languages": "Langues", "phone": "Téléphone", "source": "Source", "added": "Ajouté" },
+      "table": { "photo": "Photo", "country": "Pays", "city": "Ville", "expertise": "Expertise", "languages": "Langues", "phone": "Téléphone", "source": "Source", "status": "Statut", "added": "Ajouté" },
+      "filters": { "all": "Tous", "pending": "En attente", "approved": "Approuvés" },
+      "status": { "pending": "En attente", "approved": "Approuvé", "rejected": "Non approuvé" },
+      "review": {
+        "title": "Examiner la candidature",
+        "approve": "Approuver",
+        "reject": "Rejeter",
+        "approving": "Approbation…",
+        "rejecting": "Rejet…",
+        "viewApplication": "Examiner",
+        "documents": "Documents téléversés",
+        "noDocuments": "Aucun document enregistré.",
+        "viewFile": "Voir",
+        "downloadFile": "Télécharger",
+        "sections": { "contact": "Contact et bureau", "practice": "Exercice", "education": "Formation", "bar": "Barreau" },
+        "fields": {
+          "title": "Titre professionnel",
+          "firm": "Cabinet",
+          "officeAddress": "Adresse du bureau",
+          "practiceLocation": "Lieu principal d'exercice",
+          "yearsExperience": "Années d'expérience",
+          "barAdmission": "Date d'inscription au barreau",
+          "jurisdiction": "Juridiction",
+          "primaryDegree": "Diplôme principal",
+          "lawSchool": "Faculté de droit",
+          "additionalDegree": "Diplôme supplémentaire",
+          "additionalInstitution": "Établissement"
+        }
+      },
       "export": {
         "documentTitle": "Annuaire des avocats – Yamalé Alliance",
         "reportTitle": "Export annuaire des avocats",
@@ -2749,6 +2777,7 @@
     "title": "Trouvez le bon avocat commercial dans toute juridiction africaine — rapidement.",
     "subtitle": "Un annuaire sur invitation de professionnels du droit experts en droit des affaires africain, mines, fusions-acquisitions et conformité.",
     "viewUnlocked": "Voir les avocats débloqués",
+    "joinDirectory": "Rejoindre l'annuaire",
     "country": "Pays",
     "selectCountry": "Sélectionner un pays",
     "city": "Ville",
@@ -2843,7 +2872,94 @@
     "countriesStat": "Pays",
     "noContactDetailsOnFile": "Aucune coordonnée enregistrée",
     "unlockContactPrice": "Débloquer les coordonnées — <price></price>",
-    "dayPassConfirmPending": "Nous n'avons pas encore pu confirmer votre pass journalier. Si le mobile money a été débité, patientez un instant puis actualisez la page."
+    "dayPassConfirmPending": "Nous n'avons pas encore pu confirmer votre pass journalier. Si le mobile money a été débité, patientez un instant puis actualisez la page.",
+    "join": {
+      "title": "Rejoindre l'annuaire d'avocats Yamalé",
+      "subtitle": "Complétez cette candidature pour examen par l'équipe admin. Votre profil n'apparaîtra publiquement qu'après vérification de vos références.",
+      "cancel": "Annuler",
+      "submit": "Soumettre la candidature",
+      "submitting": "Envoi…",
+      "sections": {
+        "profile": "Profil professionnel",
+        "documents": "Documents de vérification requis",
+        "documentsHint": "Veuillez joindre les documents suivants (copies numérisées acceptées).",
+        "declaration": "Déclaration"
+      },
+      "fields": {
+        "fullLegalName": "Nom légal complet",
+        "professionalTitle": "Titre / poste professionnel",
+        "professionalTitleHint": "ex. Associé principal, Associé directeur, Collaborateur, Conseil",
+        "firmName": "Cabinet / structure juridique",
+        "businessEmail": "E-mail professionnel",
+        "businessPhone": "Téléphone professionnel (avec indicatif pays)",
+        "officeAddress": "Adresse du bureau",
+        "officeAddressHint": "Rue / immeuble",
+        "city": "Ville",
+        "country": "Pays",
+        "practiceCountry": "Pays principal d'exercice",
+        "practiceCity": "Ville principale d'exercice",
+        "yearsExperience": "Années d'expérience juridique",
+        "expertise1": "Domaine d'expertise n°1",
+        "expertise2": "Domaine d'expertise n°2",
+        "expertise3": "Domaine d'expertise n°3",
+        "selectExpertise": "Sélectionner un domaine",
+        "selectCountry": "Sélectionner un pays",
+        "languages": "Langues parlées (toutes)",
+        "barAdmissionDate": "Date d'inscription au barreau",
+        "jurisdiction": "Juridiction",
+        "primaryDegree": "Diplôme de droit principal",
+        "lawSchool": "Faculté / université de droit",
+        "additionalDegree": "Diplôme supplémentaire (le cas échéant)",
+        "additionalInstitution": "Établissement"
+      },
+      "documents": {
+        "barCert": "Certificat du barreau ou licence d'exercice",
+        "lawDegree": "Certificat(s) de diplôme de droit",
+        "professionalId": "Pièce d'identité professionnelle ou preuve d'exercice actuel",
+        "cv": "CV récent (facultatif mais recommandé)",
+        "profilePhoto": "Photo de profil professionnelle (facultatif)",
+        "uploadHint": "1 fichier pris en charge : PDF ou image. Max 10 Mo.",
+        "uploadHintOptional": "1 fichier. Max 10 Mo."
+      },
+      "fileUpload": {
+        "chooseFile": "Choisir un fichier",
+        "noFileChosen": "Aucun fichier choisi",
+        "removeFile": "Supprimer le fichier"
+      },
+      "declaration": {
+        "agree": "J'accepte",
+        "bullets": [
+          "Toutes les informations fournies sont vraies, exactes et complètes au meilleur de ma connaissance",
+          "Je suis dûment autorisé(e) à exercer le droit dans la ou les juridictions indiquées",
+          "Je suis en règle auprès du ou des barreaux concernés",
+          "J'ai lu et j'accepte les Conditions d'utilisation et la Politique de confidentialité de Yamalé",
+          "Je comprends que mes coordonnées seront masquées jusqu'à ce qu'un utilisateur paie 5 $ pour débloquer mon profil",
+          "Je consens à ce que Yamalé affiche publiquement mes informations professionnelles dans l'annuaire",
+          "Je comprends que Yamalé vérifiera mes références avant d'activer mon profil",
+          "Je maintiendrai des informations exactes et à jour dans mon profil",
+          "Je respecterai toutes les règles professionnelles et normes éthiques applicables",
+          "Je comprends que des informations fausses ou trompeuses peuvent entraîner mon retrait immédiat",
+          "Je surveillerai régulièrement mon e-mail et WhatsApp et répondrai rapidement aux demandes clients via Yamalé",
+          "Je comprends que mon profil sera soumis aux évaluations et avis des clients",
+          "Je reconnais qu'un manque de réactivité ou des plaintes répétées peuvent entraîner avertissements, suspension ou retrait",
+          "Je m'engage à maintenir des standards professionnels dans toutes mes communications"
+        ]
+      },
+      "success": {
+        "title": "Candidature envoyée",
+        "body": "Merci. Votre candidature est en attente d'examen. Nous vérifierons vos références et vous contacterons une fois votre profil approuvé.",
+        "backToDirectory": "Retour à Trouver un avocat"
+      },
+      "errors": {
+        "declarationRequired": "Veuillez accepter la déclaration avant de soumettre.",
+        "requiredDocuments": "Veuillez téléverser tous les documents requis.",
+        "expertiseRequired": "Veuillez sélectionner les trois domaines d'expertise.",
+        "expertiseDistinct": "Veuillez choisir trois domaines d'expertise différents.",
+        "languagesRequired": "Veuillez sélectionner au moins une langue.",
+        "fileTooLarge": "Le fichier doit faire moins de {max} Mo.",
+        "submitFailed": "Une erreur s'est produite. Veuillez réessayer."
+      }
+    }
   },
   "pricing": {
     "eyebrow": "Tarifs",
