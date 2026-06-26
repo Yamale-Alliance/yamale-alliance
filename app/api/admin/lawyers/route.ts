@@ -3,6 +3,9 @@ import { requireAdmin } from "@/lib/admin";
 import { normalizeExpertiseField } from "@/lib/lawyer-expertise";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
+const LAWYER_DETAIL_SELECT =
+  "id, name, country, city, expertise, email, phone, contacts, linkedin_url, primary_language, other_languages, image_url, source, approved, created_at, professional_title, firm_name, office_address, practice_country, practice_city, years_experience, bar_admission_date, jurisdiction, primary_degree, law_school, additional_degree, additional_institution, declaration_accepted_at";
+
 /** GET: list all lawyers in the directory (admin). */
 export async function GET() {
   const admin = await requireAdmin();
@@ -11,7 +14,7 @@ export async function GET() {
   try {
     const supabase = getSupabaseServer();
     const { data, error } = await (supabase.from("lawyers") as any)
-      .select("id, name, country, city, expertise, email, phone, contacts, linkedin_url, primary_language, other_languages, image_url, source, approved, created_at")
+      .select(LAWYER_DETAIL_SELECT)
       .order("created_at", { ascending: false });
 
     if (error) {
