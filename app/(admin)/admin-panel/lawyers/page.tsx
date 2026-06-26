@@ -18,24 +18,12 @@ import {
 } from "@/lib/lawyer-languages";
 import { LawyerLanguagesPicker } from "@/components/lawyers/LawyerLanguagesPicker";
 import { cloudinaryVideoPlaybackUrl } from "@/lib/cloudinary-video-playback";
+import {
+  LawyerApplicationReviewDialog,
+  type LawyerApplicationSummary,
+} from "@/components/admin/LawyerApplicationReviewDialog";
 
-type LawyerRow = {
-  id: string;
-  name: string;
-  country: string | null;
-  city: string | null;
-  expertise: string;
-  email: string | null;
-  phone: string | null;
-  contacts: string | null;
-  linkedin_url: string | null;
-  primary_language: string | null;
-  other_languages: string | null;
-  image_url: string | null;
-  source: string;
-  approved: boolean;
-  created_at: string;
-};
+type LawyerRow = LawyerApplicationSummary;
 
 export default function AdminLawyersPage() {
   const t = useTranslations("admin.lawyers");
@@ -77,6 +65,8 @@ export default function AdminLawyersPage() {
   const [onboardingVideoRemoving, setOnboardingVideoRemoving] = useState(false);
   const [catalogPracticeAreas, setCatalogPracticeAreas] = useState<string[]>([]);
   const [catalogLanguages, setCatalogLanguages] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved">("all");
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
 
   const fetchCatalog = () => {
     fetch(`${window.location.origin}/api/lawyers/catalog`, { credentials: "include" })
@@ -391,6 +381,18 @@ export default function AdminLawyersPage() {
     } catch {
       return iso;
     }
+  };
+
+  const filteredLawyers = lawyers.filter((l) => {
+    if (statusFilter === "pending") return !l.approved;
+    if (statusFilter === "approved") return l.approved;
+    return true;
+  });
+
+  const pendingCount = lawyers.filter((l) => !l.approved).length;
+
+  const handleLawyerUpdated = (updated: LawyerRow) => {
+    setLawyers((prev) => prev.map((row) => (row.id === updated.id ? { ...row, ...updated } : row)));
   };
 
   const exportPdf = () => {
@@ -945,6 +947,24 @@ export default function AdminLawyersPage() {
         </div>
       )}
 
+      <div className="mt-6 flex flex-wrap items-center gap-2">
+        {(["all", "pending", "approved"] as const).map((filter) => (
+          <button
+            key={filter}
+            type="button"
+            onClick={() => setStatusFilter(filter)}
+            className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+              statusFilter === filter
+                ? "bg-primary text-primary-foreground"
+                : "border border-input bg-background hover:bg-accent"
+            }`}
+          >
+            {t(`filters.${filter}`)}
+            {filter === "pending" && pendingCount > 0 ? ` (${pendingCount})` : ""}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="mt-8 flex justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -964,19 +984,20 @@ export default function AdminLawyersPage() {
                   <th className="text-left p-3 font-medium max-w-[160px]">{tc("email")}</th>
                   <th className="text-left p-3 font-medium max-w-[120px]">{t("table.phone")}</th>
                   <th className="text-left p-3 font-medium w-20">{t("table.source")}</th>
+                  <th className="text-left p-3 font-medium w-28">{t("table.status")}</th>
                   <th className="text-left p-3 font-medium">{t("table.added")}</th>
-                  <th className="text-left p-3 font-medium w-[100px] min-w-[100px] sticky right-0 bg-muted/50 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)] z-10">{tc("actions")}</th>
+                  <th className="text-left p-3 font-medium w-[140px] min-w-[140px] sticky right-0 bg-muted/50 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)] z-10">{tc("actions")}</th>
                 </tr>
               </thead>
               <tbody>
-                {lawyers.length === 0 ? (
+                {filteredLawyers.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="p-8 text-center text-muted-foreground">
+                    <td colSpan={12} className="p-8 text-center text-muted-foreground">
                       {t("empty")}
                     </td>
                   </tr>
                 ) : (
-                  lawyers.map((l) => (
+                  filteredLawyers.map((l) => (
                     <tr key={l.id} className="group border-b border-border hover:bg-muted/30">
                       <td className="p-3">
                         {l.image_url ? (
@@ -1010,8 +1031,28 @@ export default function AdminLawyersPage() {
                           {l.source === "form" ? t("source.form") : t("source.manual")}
                         </span>
                       </td>
+                      <td className="p-3">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs ${
+                            l.approved
+                              ? "bg-green-500/15 text-green-700 dark:text-green-400"
+                              : "bg-amber-500/15 text-amber-800 dark:text-amber-300"
+                          }`}
+                        >
+                          {l.approved ? t("status.approved") : t("status.pending")}
+                        </span>
+                      </td>
                       <td className="p-3 text-muted-foreground">{formatDate(l.created_at)}</td>
-                      <td className="p-3 sticky right-0 bg-card group-hover:bg-muted/30 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)] z-10 flex items-center gap-1 shrink-0 w-[100px] min-w-[100px]">
+                      <td className="p-3 sticky right-0 bg-card group-hover:bg-muted/30 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)] z-10 flex items-center gap-1 shrink-0 w-[140px] min-w-[140px]">
+                        {!l.approved ? (
+                          <button
+                            type="button"
+                            onClick={() => setReviewingId(l.id)}
+                            className="rounded px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10"
+                          >
+                            {t("review.viewApplication")}
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => openEdit(l)}
@@ -1045,6 +1086,11 @@ export default function AdminLawyersPage() {
         })}
       </p>
       {confirmDialog}
+      <LawyerApplicationReviewDialog
+        lawyerId={reviewingId}
+        onClose={() => setReviewingId(null)}
+        onUpdated={handleLawyerUpdated}
+      />
     </div>
   );
 }
