@@ -131,6 +131,7 @@ import {
   isOhadaCommercialCompaniesQuery,
   isOhadaInstrument,
 } from "@/lib/ohada-commercial-companies-retrieval";
+import { isCorporateShareholderQuery } from "@/lib/corporate-shareholder-retrieval";
 import {
   OHADA_UNIFORM_ACT_CATALOG_MAX_DOCS,
   detectOhadaUniformActInventoryQuery,
@@ -2199,6 +2200,7 @@ async function searchLegalLibrary(
     const targetHydratedDocFloor = 6;
     const intentHydrationIds = [
       "registration",
+      "corporate_shareholder",
       "investment_domestic",
       "investment_treaty",
       "intellectual_property",
@@ -2209,17 +2211,30 @@ async function searchLegalLibrary(
       "telecommunications",
     ] as const;
     const trademarkRegistrationHowTo = isTrademarkRegistrationHowToQuery(query);
-    const resolvedIntentForMandatory = trademarkRegistrationHowTo
+    const ohadaCommercialCompaniesQuery = isOhadaCommercialCompaniesQuery(query);
+    const corporateShareholderQuery = isCorporateShareholderQuery(query);
+    let resolvedIntentForMandatory = trademarkRegistrationHowTo
       ? {
           ...resolvedIntent,
           matchedIds: Array.from(new Set([...resolvedIntent.matchedIds, "intellectual_property"])),
         }
       : resolvedIntent;
-    const ohadaCommercialCompaniesQuery = isOhadaCommercialCompaniesQuery(query);
+    if (
+      corporateShareholderQuery &&
+      !resolvedIntentForMandatory.matchedIds.includes("corporate_shareholder")
+    ) {
+      resolvedIntentForMandatory = {
+        ...resolvedIntentForMandatory,
+        matchedIds: [...resolvedIntentForMandatory.matchedIds, "corporate_shareholder"],
+      };
+    }
     const hasMandatoryIntent =
       Boolean(countryId) &&
-      (resolvedIntent.matchedIds.some((id) => (intentHydrationIds as readonly string[]).includes(id)) ||
-        ohadaCommercialCompaniesQuery);
+      (resolvedIntentForMandatory.matchedIds.some((id) =>
+        (intentHydrationIds as readonly string[]).includes(id)
+      ) ||
+        ohadaCommercialCompaniesQuery ||
+        corporateShareholderQuery);
     const needSupplemental =
       !skipBroadLibraryTextSearch &&
       supEsc.length > 0 &&

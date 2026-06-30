@@ -204,6 +204,16 @@ const RETRIEVAL_SYNONYM_GROUPS: readonly (readonly string[])[] = [
     "jours feries",
     "public holiday",
   ],
+  [
+    "pre-emptive",
+    "preemptive",
+    "preemption",
+    "subscription",
+    "preferential",
+    "shareholder",
+    "shareholders",
+    "allotment",
+  ],
 ];
 
 function queryTokenSet(normalizedQuery: string): Set<string> {
@@ -295,6 +305,9 @@ const FRENCH_STATUTE_PHRASE_TO_ENGLISH_TOKENS: readonly (readonly [string, reado
   ["droit preférentiel", ["pre-emptive", "subscription", "preferential"]],
   ["droit de retrait", ["withdrawal", "buyout", "minority"]],
   ["parts sociales", ["shares", "capital", "subscription"]],
+  ["pre-emptive right", ["preemptive", "subscription", "preferential", "shareholder"]],
+  ["preemptive right", ["pre-emptive", "subscription", "preferential", "shareholder"]],
+  ["shareholders", ["shareholder", "companies", "subscription"]],
 ];
 
 /**

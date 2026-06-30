@@ -31,6 +31,7 @@ export const LIBRARY_INTENT_TO_YAMALE_CATEGORY: Partial<Record<string, YamaleLaw
   constitutional: "Constitution",
   public_holidays: "Constitution",
   registration: "Corporate Law",
+  corporate_shareholder: "Corporate Law",
   investment_domestic: "Corporate Law",
   land: "Corporate Law",
   criminal: "Criminal Law",

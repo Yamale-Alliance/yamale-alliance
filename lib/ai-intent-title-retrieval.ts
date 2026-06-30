@@ -4,6 +4,7 @@ import { applyCountryScopedTitleSearch } from "@/lib/law-country-scope-query";
 import { LAW_HAS_BODY_OR_FILTER, filterLawsWithReadableBody } from "@/lib/law-readable-body";
 import type { ResolvedLibrarySearchIntent } from "@/lib/ai-library-search-intent";
 import { expandCommercialRegistrationTokens } from "@/lib/ai-library-search-intent";
+import { isCorporateShareholderQuery } from "@/lib/corporate-shareholder-retrieval";
 import { isOhadaCommercialCompaniesQuery } from "@/lib/ohada-commercial-companies-retrieval";
 import { tokenWordsForPostgrestSearch } from "@/lib/postgrest-ilike-tokens";
 
@@ -39,7 +40,7 @@ export function buildIntentTitleSearchTerms(
   const q = query.toLowerCase();
   const terms: string[] = [...resolvedIntent.supplementalTermsRaw];
 
-  if (resolvedIntent.matchedIds.includes("registration")) {
+  if (resolvedIntent.matchedIds.includes("registration") || isCorporateShareholderQuery(query)) {
     terms.push(
       ...expandCommercialRegistrationTokens(query),
       "companies act",
@@ -48,6 +49,18 @@ export function buildIntentTitleSearchTerms(
       "beneficial ownership",
       "business registration",
       "incorporation"
+    );
+  }
+  if (isCorporateShareholderQuery(query)) {
+    terms.push(
+      "companies act",
+      "company act",
+      "shareholder",
+      "shareholders",
+      "pre-emptive",
+      "preemptive",
+      "subscription",
+      "preferential"
     );
   }
   if (isOhadaCommercialCompaniesQuery(query)) {
@@ -178,6 +191,7 @@ export function buildIntentTitleSearchTerms(
 
 /** Direct title ilike patterns when batch hydration misses a mandatory slot. */
 const SLOT_DIRECT_TITLE_ILIKE: Record<string, string[]> = {
+  companies_act: ["%companies act%", "%company act%"],
   labor_core: [
     "%employment code%",
     "%labour relations act%",
@@ -376,6 +390,7 @@ const MANDATORY_INTENT_IDS = [
   "labor",
   "corruption",
   "telecommunications",
+  "corporate_shareholder",
 ] as const;
 
 type TopicSlot = { label: string; titleTest: (title: string) => boolean };
@@ -389,6 +404,9 @@ const INTENT_TOPIC_SLOTS: Record<string, TopicSlot[]> = {
       titleTest: (t) =>
         /soci[eé]t[eé]s?\s+commerciales?|commercial companies|groupement d'?int[eé]r[eê]t [ée]conomique/i.test(t),
     },
+  ],
+  corporate_shareholder: [
+    { label: "companies_act", titleTest: (t) => /\bcompanies?\s+act\b|\bcompany\s+act\b/i.test(t) },
   ],
   investment_domestic: [
     {

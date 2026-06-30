@@ -32,6 +32,7 @@ import {
   RE_PUBLIC_HOLIDAYS,
   RE_REGIONAL_TRADE,
   RE_REGISTRATION,
+  RE_CORPORATE_SHAREHOLDER,
   RE_TAX,
   RE_TELECOMMUNICATIONS,
   shouldPreferLaborOverRegistration,
@@ -181,6 +182,16 @@ function boostRegistration(law: LawTextFields, tokens: string[]): number {
     if (tok.length >= 5 && blob.includes(tok)) b += 2;
   }
   return Math.min(b, 45);
+}
+
+function boostCorporateShareholder(law: LawTextFields, tokens: string[]): number {
+  let b = boostRegistration(law, tokens);
+  const title = String(law.title ?? "").toLowerCase();
+  if (/\binvestment\s+(and\s+)?export\s+promotion\b/i.test(title)) b -= 40;
+  if (/\binvestment\s+promotion\s+agency\b/i.test(title)) b -= 40;
+  const blob = `${title}\n${String(law.content_plain ?? law.content ?? "").toLowerCase()}`;
+  if (/\bpre[-\s]?emptive\b|\bpreemptive\b|\bsubscription\s+right\b|\bshareholder\b/.test(blob)) b += 12;
+  return Math.max(Math.min(b, 50), -20);
 }
 
 function demotePureTaxOnRegistration(law: LawTextFields): number {
@@ -816,6 +827,32 @@ const INTENTS: IntentDef[] = [
     boost: boostRegistration,
   },
   {
+    id: "corporate_shareholder",
+    specificity: 80,
+    test: (q) => RE_CORPORATE_SHAREHOLDER.test(q),
+    lexiconExtra: [
+      "shareholder",
+      "shareholders",
+      "pre-emptive",
+      "preemptive",
+      "subscription",
+      "preferential",
+      "companies act",
+      "capital",
+      "allotment",
+      "rights issue",
+    ],
+    supplementalTerms: [
+      "companies act",
+      "company act",
+      "shareholders",
+      "pre-emptive",
+      "subscription rights",
+      "preferential subscription",
+    ],
+    boost: boostCorporateShareholder,
+  },
+  {
     id: "labor",
     specificity: 72,
     test: (q) => RE_LABOR.test(q),
@@ -1179,6 +1216,9 @@ export function prioritizeTokensForLibrarySearch(tokens: string[], primaryId: st
       if (/min(e|ing|eral)|quarry|تعدين|معادن|منجم/.test(x)) s += 28;
     } else if (primaryId === "oil_gas") {
       if (/petrol|hydrocarbon|upstream|نفط|غاز|oil|gas|هيدروكربون/.test(x)) s += 28;
+    } else if (primaryId === "corporate_shareholder") {
+      if (/shareholder|preempt|pre-empt|subscription|preferential|capital|allotment/.test(x)) s += 28;
+      if (x.includes("compan")) s += 14;
     } else {
       if (x.includes("registr")) s += 12;
       if (x.includes("compan")) s += 10;

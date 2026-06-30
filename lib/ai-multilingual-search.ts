@@ -37,6 +37,10 @@ export const RE_LABOR =
 export const RE_REGISTRATION =
   /\b(regist|incorpor|compan(?:y|ies)?|business|enterprise|commercial|soci[eé]t[eé]|sarl|sas|gie|llc|ffc|ohada|uemoa|uniform\s+act|acte\s+uniform|immatriculation|enregistrement|registre\s+du\s+commerce|creation\s+de\s+societe|creer\s+une\s+societe|constituer\s+une\s+societe|joint\s+venture|limited\s+partnership|\blp\b|scs|commandit|commanditaires?|partnership\s+structure|liability\s+protection|شركة|شركات|تسجيل|تأسيس|تاسيس|سجل\s+تجاري|السجل\s+التجاري|تأسيس\s+شركة)\b|(?:شركة|تسجيل|تأسيس)/iu;
 
+/** Shareholder rights, pre-emptive subscription, allotments, corporate governance. */
+export const RE_CORPORATE_SHAREHOLDER =
+  /\b(shareholder|shareholders|pre[-\s]?emptive|preemptive|preemption|subscription\s+right|preferential\s+(subscription\s+)?right|rights?\s+issue|capital\s+increase|minority\s+shareholder|corporate\s+governance|transfer\s+of\s+shares|allotment|allotments|rights?\s+of\s+shareholders|company\s+law|memorandum\s+of\s+association|articles\s+of\s+association)\b|(?:حقوق\s+المساهمين|مساهم|مساهمين|الاكتتاب|اكتتاب)/iu;
+
 export const RE_CRIMINAL =
   /\b(criminal|penal|p[eé]nal|offense|offence|prosecution|prison|code\s+p[eé]nal|infraction|police\s+judiciaire|code\s+penal|procedure\s+penale|delit|d[eé]lit|جرائم|جزائي|جنائي|عقوبات|قانون\s+العقوبات|الجزاء|العقوبات|جريمة)\b|(?:جنائي|عقوبات|جزائي)/iu;
 
