@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/admin";
+import { requireLawsAccess } from "@/lib/admin";
 import { recordAuditLog } from "@/lib/admin-audit";
 import { extractTextFromPdf } from "@/lib/pdf-extract";
 import {
@@ -87,7 +87,7 @@ async function extractLawTextFromPdfUpload(options: {
 }
 
 export async function POST(request: NextRequest) {
-  const admin = await requireAdmin();
+  const admin = await requireLawsAccess();
   if (admin instanceof NextResponse) return admin;
 
   try {
