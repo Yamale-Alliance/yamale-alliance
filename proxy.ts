@@ -4,7 +4,12 @@ import {
   adminHasValidStepUpFromRequest,
   isAdminMfaExemptPath,
 } from "@/lib/admin-mfa-gate";
-import { isAdminMfaEnforced, userHasAdminAccess } from "@/lib/admin-session";
+import { isAdminMfaEnforced, getUserAdminPanelRole } from "@/lib/admin-session";
+import {
+  isLegalAdminAllowedApiPath,
+  isLegalAdminAllowedPanelPath,
+  isLegalAdminRole,
+} from "@/lib/admin-roles";
 import { isBlockedAiScraperRequest } from "@/lib/ai-scraper-guard";
 import {
   applySecurityHeaders,
@@ -161,18 +166,37 @@ export default clerkMiddleware(async (auth, request) => {
       const forbidden = NextResponse.json({ error: "Forbidden" }, { status: 403 });
       return applySecurityHeaders(attachRateLimitHeaders(forbidden, rateLimit));
     }
-    const isAdmin = await userHasAdminAccess(authState);
-    if (isAdminPanelPage(request) && !isAdmin) {
+    const panelRole = await getUserAdminPanelRole(authState);
+    const hasPanelAccess = panelRole !== null;
+    const pathname = url.pathname;
+
+    if (isAdminPanelPage(request) && !hasPanelAccess) {
       return applySecurityHeaders(
         attachRateLimitHeaders(NextResponse.redirect(new URL("/dashboard", request.url)), rateLimit)
       );
     }
-    if (isAdminApiRoute(request) && !isAdmin) {
+    if (isAdminApiRoute(request) && !hasPanelAccess) {
       const forbidden = NextResponse.json({ error: "Forbidden" }, { status: 403 });
       return applySecurityHeaders(attachRateLimitHeaders(forbidden, rateLimit));
     }
 
-    if (isAdmin && isAdminMfaEnforced() && !isAdminMfaExemptPath(url.pathname)) {
+    if (hasPanelAccess && isLegalAdminRole(panelRole)) {
+      if (isAdminPanelPage(request) && !isLegalAdminAllowedPanelPath(pathname)) {
+        const lawsUrl = new URL("/admin-panel/laws", request.url);
+        return applySecurityHeaders(
+          attachRateLimitHeaders(NextResponse.redirect(lawsUrl), rateLimit)
+        );
+      }
+      if (
+        isAdminApiRoute(request) &&
+        !isLegalAdminAllowedApiPath(pathname, request.method)
+      ) {
+        const forbidden = NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        return applySecurityHeaders(attachRateLimitHeaders(forbidden, rateLimit));
+      }
+    }
+
+    if (hasPanelAccess && isAdminMfaEnforced() && !isAdminMfaExemptPath(pathname)) {
       const stepUpOk = userId ? adminHasValidStepUpFromRequest(request, userId) : false;
       if (!stepUpOk) {
         if (isAdminPanelPage(request)) {
