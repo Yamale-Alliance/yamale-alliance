@@ -9,10 +9,12 @@ export function useTranslatedAdminNavItems() {
 
   return useMemo(
     () =>
-      adminNavItemDefs.map(({ href, labelKey, icon }) => ({
+      adminNavItemDefs.map(({ href, labelKey, icon, fullAdminOnly, supportLive }) => ({
         href,
         label: t(labelKey),
         icon,
+        fullAdminOnly: fullAdminOnly ?? false,
+        supportLive,
       })),
     [t]
   );
