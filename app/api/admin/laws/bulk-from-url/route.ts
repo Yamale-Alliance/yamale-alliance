@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/admin";
+import { requireLawsAccess } from "@/lib/admin";
 import { normaliseLawTitle } from "@/lib/admin-law-utils";
 import {
   processPdfUrlToMarkdown,
@@ -75,7 +75,7 @@ async function loadCountriesCategories(): Promise<{ countries: CountryOpt[]; cat
 }
 
 export async function POST(request: NextRequest) {
-  const admin = await requireAdmin();
+  const admin = await requireLawsAccess();
   if (admin instanceof NextResponse) return admin;
 
   try {
