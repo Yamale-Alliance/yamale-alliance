@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Shield, X } from "lucide-react";
+import { Lock, Shield, X } from "lucide-react";
 import { useTranslatedAdminNavItems } from "./use-translated-admin-nav";
+import { useAdminRole } from "./AdminRoleProvider";
 
 type AdminSidebarProps = {
   open?: boolean;
@@ -14,7 +15,9 @@ type AdminSidebarProps = {
 export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
   const pathname = usePathname();
   const t = useTranslations("common");
+  const tNav = useTranslations("admin.nav");
   const navItems = useTranslatedAdminNavItems();
+  const { isLegalAdmin, loading } = useAdminRole();
 
   const navContent = (
     <>
@@ -23,7 +26,12 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
             <Shield className="h-5 w-5 text-primary" />
           </div>
-          <span className="font-semibold tracking-tight text-foreground">{t("admin")}</span>
+          <div className="min-w-0">
+            <span className="font-semibold tracking-tight text-foreground">{t("admin")}</span>
+            {!loading && isLegalAdmin ? (
+              <p className="truncate text-[11px] text-muted-foreground">{tNav("legalAdminBadge")}</p>
+            ) : null}
+          </div>
         </div>
         {onClose && (
           <button
@@ -37,9 +45,11 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
         )}
       </div>
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {navItems.map(({ href, label, icon: Icon, fullAdminOnly }) => {
+          const disabled = !loading && isLegalAdmin && fullAdminOnly;
           const isActive =
-            href === "/admin-panel"
+            !disabled &&
+            (href === "/admin-panel"
               ? pathname === "/admin-panel"
               : href === "/admin-panel/revenue"
                 ? pathname.startsWith("/admin-panel/revenue") ||
@@ -50,7 +60,27 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
                   ? pathname.startsWith("/admin-panel/ai-quality") ||
                     pathname.startsWith("/admin-panel/ai-bugs") ||
                     pathname.startsWith("/admin-panel/ai-feedback")
-                  : pathname.startsWith(href);
+                  : pathname.startsWith(href));
+
+          if (disabled) {
+            return (
+              <div
+                key={href}
+                title={tNav("restrictedAccessHint")}
+                className="flex cursor-not-allowed items-start gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground/50"
+              >
+                <Icon className="mt-0.5 h-5 w-5 shrink-0 opacity-40" />
+                <span className="min-w-0 flex-1">
+                  <span className="block opacity-80">{label}</span>
+                  <span className="mt-0.5 flex items-center gap-1 text-[11px] font-normal leading-snug text-muted-foreground/70">
+                    <Lock className="h-3 w-3 shrink-0" aria-hidden />
+                    {tNav("restrictedAccessHint")}
+                  </span>
+                </span>
+              </div>
+            );
+          }
+
           return (
             <Link
               key={href}
