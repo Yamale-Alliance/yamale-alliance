@@ -6,6 +6,7 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Plus, FileText, Loader2, Trash2, CopyCheck, Trash, History, Download, Scale, Link2, Tags, ShieldCheck } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
+import { useAdminRole } from "@/components/admin/AdminRoleProvider";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
 
 type Country = { id: string; name: string; region: string | null };
@@ -67,6 +68,7 @@ function AdminLawsPageInner() {
   const [pendingRagCount, setPendingRagCount] = useState<number | null>(null);
   const selectAllRef = useRef<HTMLInputElement>(null);
   const { confirm, confirmDialog } = useConfirm();
+  const { isFullAdmin, canDeleteLaws } = useAdminRole();
 
   const loadLaws = useCallback(() => {
     const params = new URLSearchParams();
@@ -263,59 +265,63 @@ function AdminLawsPageInner() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link
-            href="/admin-panel/laws/fix-ocr"
-            className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
-          >
-            {t("actions.fixOcr")}
-          </Link>
-          <Link
-            href="/admin-panel/laws/link-by-title"
-            className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
-          >
-            <Link2 className="h-4 w-4" />
-            {t("actions.linkByTitle")}
-          </Link>
-          <Link
-            href="/admin-panel/laws/linked"
-            className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
-          >
-            <Link2 className="h-4 w-4" />
-            {t("actions.linkedLaws")}
-          </Link>
-          <Link
-            href="/admin-panel/laws/categories"
-            className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
-          >
-            <Tags className="h-4 w-4" />
-            {t("actions.categories")}
-          </Link>
-          <Link
-            href={`/admin-panel/laws/deleted?returnTo=${encodeURIComponent(currentListUrl)}`}
-            className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
-          >
-            <Trash className="h-4 w-4" />
-            {t("actions.recentlyDeleted")}
-          </Link>
-          <Link
-            href="/admin-panel/laws/rag-approval"
-            className="inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-500/15 dark:text-amber-100"
-          >
-            <ShieldCheck className="h-4 w-4" />
-            {t("actions.ragApproval")}
-            {pendingRagCount != null && pendingRagCount > 0 && (
-              <span className="rounded-full bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                {pendingRagCount}
-              </span>
-            )}
-          </Link>
-          <Link
-            href="/admin-panel/laws/updated"
-            className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
-          >
-            <History className="h-4 w-4" />
-            {t("actions.recentlyUpdated")}
-          </Link>
+          {isFullAdmin && (
+            <>
+              <Link
+                href="/admin-panel/laws/fix-ocr"
+                className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+              >
+                {t("actions.fixOcr")}
+              </Link>
+              <Link
+                href="/admin-panel/laws/link-by-title"
+                className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+              >
+                <Link2 className="h-4 w-4" />
+                {t("actions.linkByTitle")}
+              </Link>
+              <Link
+                href="/admin-panel/laws/linked"
+                className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+              >
+                <Link2 className="h-4 w-4" />
+                {t("actions.linkedLaws")}
+              </Link>
+              <Link
+                href="/admin-panel/laws/categories"
+                className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+              >
+                <Tags className="h-4 w-4" />
+                {t("actions.categories")}
+              </Link>
+              <Link
+                href={`/admin-panel/laws/deleted?returnTo=${encodeURIComponent(currentListUrl)}`}
+                className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+              >
+                <Trash className="h-4 w-4" />
+                {t("actions.recentlyDeleted")}
+              </Link>
+              <Link
+                href="/admin-panel/laws/rag-approval"
+                className="inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-500/15 dark:text-amber-100"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                {t("actions.ragApproval")}
+                {pendingRagCount != null && pendingRagCount > 0 && (
+                  <span className="rounded-full bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                    {pendingRagCount}
+                  </span>
+                )}
+              </Link>
+              <Link
+                href="/admin-panel/laws/updated"
+                className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+              >
+                <History className="h-4 w-4" />
+                {t("actions.recentlyUpdated")}
+              </Link>
+            </>
+          )}
           <Link
             href="/admin-panel/laws/add"
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
@@ -386,6 +392,7 @@ function AdminLawsPageInner() {
         </div>
       </div>
 
+      {isFullAdmin && (
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -457,7 +464,9 @@ function AdminLawsPageInner() {
           )
         ) : null}
       </div>
+      )}
 
+      {isFullAdmin && (
       <div className="mt-4 flex flex-wrap items-end gap-3">
         <div>
           <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("export.region")}</label>
@@ -484,8 +493,9 @@ function AdminLawsPageInner() {
           {exporting ? t("export.exporting") : t("export.exportButton")}
         </button>
       </div>
+      )}
 
-      {!loading && laws.length > 0 && (
+      {!loading && laws.length > 0 && isFullAdmin && (
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
           <div className="flex flex-wrap items-end gap-2">
             <div>
@@ -516,6 +526,7 @@ function AdminLawsPageInner() {
               {t("bulk.applySelected", { count: selectedCount })}
             </button>
           </div>
+          {canDeleteLaws && (
           <button
             type="button"
             onClick={() => void handleDeleteSelected()}
@@ -525,6 +536,7 @@ function AdminLawsPageInner() {
             {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
             {t("bulk.deleteSelected", { count: selectedCount })}
           </button>
+          )}
           {(bulkTreatyError || deleteError) && (
             <span className="text-sm text-destructive w-full sm:w-auto">
               {bulkTreatyError ?? deleteError}
@@ -551,6 +563,7 @@ function AdminLawsPageInner() {
             <table className="w-full text-sm">
               <thead className="border-b border-border bg-muted/50">
                 <tr>
+                  {isFullAdmin && (
                   <th className="w-10 p-3">
                     <input
                       ref={selectAllRef}
@@ -561,6 +574,7 @@ function AdminLawsPageInner() {
                       aria-label={t("table.selectAllAria")}
                     />
                   </th>
+                  )}
                   <th className="text-left p-3 font-medium">{t("table.title")}</th>
                   <th className="text-left p-3 font-medium">{t("table.country")}</th>
                   <th className="text-left p-3 font-medium">{t("table.category")}</th>
@@ -572,6 +586,7 @@ function AdminLawsPageInner() {
               <tbody>
                 {laws.map((law) => (
                   <tr key={law.id} className="border-b border-border hover:bg-muted/30">
+                    {isFullAdmin && (
                     <td className="p-3 align-top">
                       <input
                         type="checkbox"
@@ -581,6 +596,7 @@ function AdminLawsPageInner() {
                         aria-label={`Select ${law.title}`}
                       />
                     </td>
+                    )}
                     <td className="p-3">
                       <Link
                         href={`/admin-panel/laws/${law.id}?returnTo=${encodeURIComponent(currentListUrl)}`}
