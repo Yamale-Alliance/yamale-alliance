@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Plus, FileText, Loader2, Trash2, CopyCheck, Trash, History, Download, Scale, Link2, Tags, ShieldCheck } from "lucide-react";
+import { Plus, FileText, Loader2, Trash2, CopyCheck, Trash, History, Download, Scale, Link2, Tags, ShieldCheck, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { useAdminRole } from "@/components/admin/AdminRoleProvider";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
@@ -24,6 +24,97 @@ type Law = {
   categories: { name: string } | null;
 };
 
+const LAWS_PAGE_SIZE = 25;
+
+function parsePage(raw: string | null): number {
+  const n = Number.parseInt(raw ?? "1", 10);
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+}
+
+function LawsPaginationBar({
+  page,
+  totalPages,
+  total,
+  loading,
+  onPageChange,
+  t,
+}: {
+  page: number;
+  totalPages: number;
+  total: number;
+  loading: boolean;
+  onPageChange: (page: number) => void;
+  t: ReturnType<typeof useTranslations<"admin.laws.list">>;
+}) {
+  if (total === 0) return null;
+
+  const showPages: (number | "ellipsis")[] = [];
+  const add = (p: number) => {
+    if (p >= 1 && p <= totalPages) showPages.push(p);
+  };
+  add(1);
+  if (page > 3) showPages.push("ellipsis");
+  for (let p = Math.max(2, page - 1); p <= Math.min(totalPages - 1, page + 1); p++) add(p);
+  if (page < totalPages - 2) showPages.push("ellipsis");
+  if (totalPages > 1) add(totalPages);
+  const pageNumbers = Array.from(new Set(showPages));
+
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <span className="text-sm text-muted-foreground">
+        {t("pagination", { page, totalPages: Math.max(1, totalPages), total })}
+      </span>
+      {totalPages > 1 ? (
+        <nav className="flex items-center justify-end gap-1" aria-label={t("paginationAria")}>
+          <button
+            type="button"
+            disabled={page <= 1 || loading}
+            onClick={() => onPageChange(page - 1)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background hover:bg-accent disabled:opacity-50"
+            aria-label={t("paginationPrev")}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <div className="flex items-center gap-1">
+            {pageNumbers.map((p, i) =>
+              p === "ellipsis" ? (
+                <span key={`ellipsis-${i}`} className="px-2 text-muted-foreground">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => onPageChange(p)}
+                  className={`inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-md border px-2 text-sm font-medium transition ${
+                    p === page
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-input bg-background hover:bg-accent"
+                  }`}
+                  aria-label={t("paginationPage", { page: p })}
+                  aria-current={p === page ? "page" : undefined}
+                >
+                  {p}
+                </button>
+              )
+            )}
+          </div>
+          <button
+            type="button"
+            disabled={page >= totalPages || loading}
+            onClick={() => onPageChange(page + 1)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-background hover:bg-accent disabled:opacity-50"
+            aria-label={t("paginationNext")}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </nav>
+      ) : null}
+    </div>
+  );
+}
+
 function AdminLawsPageInner() {
   const t = useTranslations("admin.laws.list");
   const tc = useTranslations("admin.common");
@@ -34,26 +125,50 @@ function AdminLawsPageInner() {
   const countryId = searchParams.get("countryId") ?? "";
   const categoryId = searchParams.get("categoryId") ?? "";
   const status = searchParams.get("status") ?? "";
+  const q = searchParams.get("q") ?? "";
+  const page = parsePage(searchParams.get("page"));
   const currentListUrl = (() => {
     const qs = searchParams.toString();
     return qs ? `${pathname}?${qs}` : pathname;
   })();
 
-  const setFilter = useCallback(
-    (key: "countryId" | "categoryId" | "status", value: string) => {
+  const setUrlParams = useCallback(
+    (updates: Record<string, string | null>, options?: { resetPage?: boolean }) => {
       const params = new URLSearchParams(searchParams.toString());
-      if (value) params.set(key, value);
-      else params.delete(key);
+      for (const [key, value] of Object.entries(updates)) {
+        if (value) params.set(key, value);
+        else params.delete(key);
+      }
+      if (options?.resetPage !== false) {
+        params.delete("page");
+      }
       const qs = params.toString();
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     },
     [searchParams, router, pathname]
   );
 
+  const setFilter = useCallback(
+    (key: "countryId" | "categoryId" | "status", value: string) => {
+      setUrlParams({ [key]: value || null });
+    },
+    [setUrlParams]
+  );
+
+  const setPage = useCallback(
+    (nextPage: number) => {
+      const safe = Math.max(1, nextPage);
+      setUrlParams({ page: safe > 1 ? String(safe) : null }, { resetPage: false });
+    },
+    [setUrlParams]
+  );
+
   const [countries, setCountries] = useState<Country[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [laws, setLaws] = useState<Law[]>([]);
+  const [lawCount, setLawCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [searchDraft, setSearchDraft] = useState(q);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -73,9 +188,12 @@ function AdminLawsPageInner() {
   const loadLaws = useCallback(() => {
     const params = new URLSearchParams();
     params.set("skipEnrichment", "1");
+    params.set("page", String(page));
+    params.set("pageSize", String(LAWS_PAGE_SIZE));
     if (countryId) params.set("countryId", countryId);
     if (categoryId) params.set("categoryId", categoryId);
     if (status) params.set("status", status);
+    if (q.trim()) params.set("q", q.trim());
     setLoading(true);
     setDeleteError(null);
     setBulkTreatyError(null);
@@ -85,14 +203,16 @@ function AdminLawsPageInner() {
         setCountries(data.countries ?? []);
         setCategories(data.categories ?? []);
         setLaws(data.laws ?? []);
+        setLawCount(typeof data.lawCount === "number" ? data.lawCount : (data.laws ?? []).length);
       })
       .catch(() => {
         setCountries([]);
         setCategories([]);
         setLaws([]);
+        setLawCount(0);
       })
       .finally(() => setLoading(false));
-  }, [countryId, categoryId, status]);
+  }, [countryId, categoryId, status, q, page]);
 
   useEffect(() => {
     void loadLaws();
@@ -109,7 +229,28 @@ function AdminLawsPageInner() {
 
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [countryId, categoryId, status]);
+  }, [countryId, categoryId, status, q, page]);
+
+  useEffect(() => {
+    setSearchDraft(q);
+  }, [q]);
+
+  useEffect(() => {
+    if (searchDraft === q) return;
+    const timer = window.setTimeout(() => {
+      setUrlParams({ q: searchDraft.trim() || null });
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [searchDraft, q, setUrlParams]);
+
+  const totalPages = Math.max(1, Math.ceil(lawCount / LAWS_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+
+  useEffect(() => {
+    if (!loading && page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [loading, page, totalPages, setPage]);
 
   useEffect(() => {
     const el = selectAllRef.current;
@@ -380,15 +521,32 @@ function AdminLawsPageInner() {
           <button
             type="button"
             onClick={() => {
-              setFilter("countryId", "");
-              setFilter("categoryId", "");
-              setFilter("status", "");
+              setSearchDraft("");
+              router.replace(pathname, { scroll: false });
             }}
-            disabled={!countryId && !categoryId && !status}
+            disabled={!countryId && !categoryId && !status && !q}
             className="rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50"
           >
             {t("filters.clear")}
           </button>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <label htmlFor="admin-laws-search" className="mb-1 block text-xs font-medium text-muted-foreground">
+          {t("search.label")}
+        </label>
+        <div className="relative max-w-md">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            id="admin-laws-search"
+            type="search"
+            value={searchDraft}
+            onChange={(e) => setSearchDraft(e.target.value)}
+            placeholder={t("search.placeholder")}
+            aria-label={t("search.ariaLabel")}
+            className="w-full rounded-md border border-input bg-background py-2 pl-9 pr-3 text-sm"
+          />
         </div>
       </div>
 
@@ -545,7 +703,20 @@ function AdminLawsPageInner() {
         </div>
       )}
 
-      <div className="mt-6 rounded-lg border border-border overflow-hidden">
+      {!loading && lawCount > 0 && (
+        <div className="mt-6">
+          <LawsPaginationBar
+            page={safePage}
+            totalPages={totalPages}
+            total={lawCount}
+            loading={loading}
+            onPageChange={setPage}
+            t={t}
+          />
+        </div>
+      )}
+
+      <div className="mt-4 rounded-lg border border-border overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -619,6 +790,19 @@ function AdminLawsPageInner() {
           </div>
         )}
       </div>
+
+      {!loading && lawCount > 0 && (
+        <div className="mt-4">
+          <LawsPaginationBar
+            page={safePage}
+            totalPages={totalPages}
+            total={lawCount}
+            loading={loading}
+            onPageChange={setPage}
+            t={t}
+          />
+        </div>
+      )}
     </div>
   );
 }
