@@ -391,6 +391,22 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
     ];
   }, [catalogLanguages]);
 
+  const countriesWithLawyers = useMemo(() => {
+    const set = new Set<string>();
+    for (const lawyer of lawyers) {
+      const country = lawyer.country?.trim();
+      if (country) set.add(country);
+    }
+    return set;
+  }, [lawyers]);
+
+  useEffect(() => {
+    if (loading || !selectedCountry) return;
+    if (!countriesWithLawyers.has(selectedCountry)) {
+      setSelectedCountry("");
+    }
+  }, [loading, selectedCountry, countriesWithLawyers]);
+
   const filteredLawyers = useMemo(() => {
     return lawyers.filter((lawyer) => {
       if (selectedCountry && lawyer.country !== selectedCountry) return false;
@@ -523,16 +539,20 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                   {t("country")}
                 </label>
                 <select
-                  className="w-full rounded-[6px] border border-white/20 bg-[#13263a] px-3 py-2 text-sm text-white outline-none"
+                  className="w-full rounded-[6px] border border-white/20 bg-[#13263a] px-3 py-2 text-sm text-white outline-none disabled:opacity-60"
                   value={selectedCountry}
                   onChange={(e) => setSelectedCountry(e.target.value)}
                 >
                   <option value="">{t("selectCountry")}</option>
-                  {AFRICAN_COUNTRIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
+                  {AFRICAN_COUNTRIES.map((c) => {
+                    const hasLawyers = countriesWithLawyers.has(c);
+                    const empty = !loading && !hasLawyers;
+                    return (
+                      <option key={c} value={c} disabled={empty} className={empty ? "text-white/40" : undefined}>
+                        {empty ? t("countryNoLawyersYet", { country: c }) : c}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
               <div>
