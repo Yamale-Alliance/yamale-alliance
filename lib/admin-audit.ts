@@ -16,6 +16,7 @@ export type AuditAction =
   | "admin.role"
   | "admin.mfa.enroll"
   | "admin.mfa.disable"
+  | "admin.security.mfa_idle_timeout"
   | "lawyer.removed"
   | "marketplace_item.add"
   | "marketplace_item.update"
