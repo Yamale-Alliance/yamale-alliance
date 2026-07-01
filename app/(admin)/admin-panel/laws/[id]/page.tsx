@@ -11,6 +11,7 @@ import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
 import { lawDetailHref } from "@/lib/law-public-url";
 import { LawLastVerifiedLabel } from "@/components/library/LawLastVerifiedLabel";
 import { AdminLawLanguageSelect } from "@/components/admin/AdminLawLanguageSelect";
+import { useAdminRole } from "@/components/admin/AdminRoleProvider";
 
 type Country = { id: string; name: string };
 type Category = { id: string; name: string };
@@ -75,8 +76,10 @@ export default function AdminLawEditPage() {
   const [fixOcrLoading, setFixOcrLoading] = useState(false);
   const [ragApprovalLoading, setRagApprovalLoading] = useState(false);
   const [sharedLinkPeerCount, setSharedLinkPeerCount] = useState(0);
+  const [canEdit, setCanEdit] = useState(true);
   const router = useRouter();
   const { confirm, confirmDialog } = useConfirm();
+  const { canDeleteLaws, canApproveRag, isFullAdmin } = useAdminRole();
 
   useEffect(() => {
     fetch(`${window.location.origin}/api/laws?skipEnrichment=1`, { credentials: "include" })
@@ -102,6 +105,7 @@ export default function AdminLawEditPage() {
         }
         const lawData = data.law as LawForEdit;
         setLaw(lawData);
+        setCanEdit(data.can_edit !== false);
         setSharedLinkPeerCount(
           typeof data.shared_link_peer_count === "number" ? data.shared_link_peer_count : 0
         );
@@ -314,7 +318,7 @@ export default function AdminLawEditPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!id) return;
+    if (!id || !canEdit) return;
     if (!title.trim()) {
       setError(t("errors.titleRequired"));
       return;
@@ -435,6 +439,7 @@ export default function AdminLawEditPage() {
         </Link>
         {law && (
           <div className="flex flex-wrap items-center justify-end gap-2">
+            {isFullAdmin && (
             <button
               type="button"
               onClick={() => void handleFixOcr()}
@@ -444,6 +449,7 @@ export default function AdminLawEditPage() {
               {fixOcrLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
               {t("actions.fixOcr")}
             </button>
+            )}
             <Link
               href={lawDetailHref({ id: law.id, slug: (law as { slug?: string | null }).slug })}
               target="_blank"
@@ -452,6 +458,7 @@ export default function AdminLawEditPage() {
             >
               {t("actions.viewInLibrary")}
             </Link>
+            {canDeleteLaws && (
             <button
               type="button"
               onClick={handleDelete}
@@ -461,6 +468,7 @@ export default function AdminLawEditPage() {
               {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
               {t("actions.deleteLaw")}
             </button>
+            )}
           </div>
         )}
       </div>
@@ -480,7 +488,12 @@ export default function AdminLawEditPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               {t("subtitle")}
             </p>
-            {sharedLinkPeerCount > 0 && (
+            {!canEdit && (
+              <p className="mt-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                {t("readOnlyHint")}
+              </p>
+            )}
+            {sharedLinkPeerCount > 0 && isFullAdmin && (
               <div className="mt-3 flex flex-wrap items-start gap-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2.5 text-sm text-foreground">
                 <Link2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
                 <div>
@@ -506,6 +519,7 @@ export default function AdminLawEditPage() {
                     <p className="mt-0.5 text-amber-800/90 dark:text-amber-200/90">{t("ragApproval.pendingHint")}</p>
                   </div>
                 </div>
+                {canApproveRag && (
                 <button
                   type="button"
                   disabled={ragApprovalLoading}
@@ -519,11 +533,13 @@ export default function AdminLawEditPage() {
                   )}
                   {t("ragApproval.approveForAi")}
                 </button>
+                )}
               </div>
             )}
             {law.rag_approval_status === "approved" && (
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm">
                 <span className="text-green-800 dark:text-green-200">{t("ragApproval.approvedHint")}</span>
+                {canApproveRag && (
                 <button
                   type="button"
                   disabled={ragApprovalLoading}
@@ -532,6 +548,7 @@ export default function AdminLawEditPage() {
                 >
                   {t("ragApproval.revokeApproval")}
                 </button>
+                )}
               </div>
             )}
           </div>
@@ -546,6 +563,7 @@ export default function AdminLawEditPage() {
             ) : null}
           </div>
 
+          <fieldset disabled={!canEdit} className="space-y-6 disabled:opacity-80">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className="mb-1.5 block text-sm font-medium text-foreground">{t("titleLabel")} *</label>
@@ -805,6 +823,7 @@ export default function AdminLawEditPage() {
               {t("lawText.characters", { count: text.length.toLocaleString() })}
             </p>
           </div>
+          </fieldset>
 
           <div className="flex flex-wrap items-center gap-3">
             {statusMsg && (
@@ -813,6 +832,7 @@ export default function AdminLawEditPage() {
             {error && !loading && (
               <p className="text-sm text-destructive">{error}</p>
             )}
+            {canEdit && (
             <button
               type="submit"
               disabled={saving}
@@ -821,6 +841,7 @@ export default function AdminLawEditPage() {
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               <span>{t("saveChanges")}</span>
             </button>
+            )}
           </div>
         </form>
       )}
