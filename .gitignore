@@ -52,5 +52,8 @@ supabase_backup_*.sql
 # Sentry Config File
 .env.sentry-build-plugin
 
+# Local-only API documentation (do not commit)
+API_REFERENCE.local.md
+
 # AI golden eval batch outputs (may contain long answers)
 data/eval/runs/
