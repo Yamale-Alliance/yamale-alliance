@@ -2,14 +2,21 @@ import { createHmac, timingSafeEqual } from "crypto";
 
 export const ADMIN_MFA_COOKIE_NAME = "admin_mfa_step_up";
 
-const DEFAULT_SESSION_TTL_SEC = 12 * 60 * 60;
+/**
+ * Absolute maximum lifetime of a step-up session regardless of activity.
+ * Idle expiry (configured in admin settings) is enforced on top of this.
+ */
+const DEFAULT_ABSOLUTE_TTL_SEC = 12 * 60 * 60;
 
-export function getAdminMfaSessionTtlSec(): number {
+export function getAdminMfaAbsoluteTtlSec(): number {
   const raw = process.env.ADMIN_MFA_SESSION_TTL_SEC?.trim();
-  if (!raw) return DEFAULT_SESSION_TTL_SEC;
+  if (!raw) return DEFAULT_ABSOLUTE_TTL_SEC;
   const n = parseInt(raw, 10);
-  return Number.isFinite(n) && n > 0 ? n : DEFAULT_SESSION_TTL_SEC;
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_ABSOLUTE_TTL_SEC;
 }
+
+/** @deprecated Use getAdminMfaAbsoluteTtlSec. Kept for older call sites. */
+export const getAdminMfaSessionTtlSec = getAdminMfaAbsoluteTtlSec;
 
 function getSigningSecret(): string {
   const secret = process.env.ADMIN_MFA_SECRET?.trim();
@@ -23,34 +30,76 @@ function signPayload(payload: string): string {
   return createHmac("sha256", getSigningSecret()).update(payload, "utf8").digest("base64url");
 }
 
-/** Signed token: `userId.exp.hmac` */
-export function createAdminMfaSessionToken(userId: string): string {
-  const exp = Math.floor(Date.now() / 1000) + getAdminMfaSessionTtlSec();
-  const payload = `${userId}.${exp}`;
+function nowSec(): number {
+  return Math.floor(Date.now() / 1000);
+}
+
+/**
+ * Signed token: `userId.absExp.lastActivity.hmac`
+ * - absExp: absolute expiry (issue time + absolute TTL)
+ * - lastActivity: unix seconds of the last recorded admin activity (for idle expiry)
+ */
+export function createAdminMfaSessionToken(userId: string, lastActivitySec = nowSec()): string {
+  const absExp = nowSec() + getAdminMfaAbsoluteTtlSec();
+  const payload = `${userId}.${absExp}.${lastActivitySec}`;
   return `${payload}.${signPayload(payload)}`;
 }
 
-export function verifyAdminMfaSessionToken(token: string, userId: string): boolean {
+export type AdminMfaTokenStatus =
+  | { valid: true; absExp: number; lastActivity: number }
+  | { valid: false; reason: "malformed" | "wrong_user" | "bad_signature" | "absolute_expired" | "idle_expired" };
+
+type VerifyOptions = {
+  /** Idle window in seconds; null = no idle expiry (never). */
+  idleTimeoutSec: number | null;
+};
+
+/**
+ * Verify a step-up token, enforcing both the absolute expiry and (optionally) an idle window.
+ * The signature is checked before any timestamp so tampering can't extend a session.
+ */
+export function inspectAdminMfaSessionToken(
+  token: string,
+  userId: string,
+  options: VerifyOptions
+): AdminMfaTokenStatus {
   const parts = token.split(".");
-  if (parts.length !== 3) return false;
-  const [uid, expStr, sig] = parts;
-  if (uid !== userId) return false;
-  const exp = parseInt(expStr, 10);
-  if (!Number.isFinite(exp) || exp < Math.floor(Date.now() / 1000)) return false;
-  const payload = `${uid}.${expStr}`;
+  if (parts.length !== 4) return { valid: false, reason: "malformed" };
+  const [uid, absExpStr, lastActivityStr, sig] = parts;
+  if (uid !== userId) return { valid: false, reason: "wrong_user" };
+
+  const payload = `${uid}.${absExpStr}.${lastActivityStr}`;
   const expected = signPayload(payload);
+  let signatureOk = false;
   try {
     const a = Buffer.from(sig, "base64url");
     const b = Buffer.from(expected, "base64url");
-    if (a.length !== b.length) return false;
-    return timingSafeEqual(a, b);
+    signatureOk = a.length === b.length && timingSafeEqual(a, b);
   } catch {
-    return false;
+    signatureOk = false;
   }
+  if (!signatureOk) return { valid: false, reason: "bad_signature" };
+
+  const absExp = parseInt(absExpStr, 10);
+  const lastActivity = parseInt(lastActivityStr, 10);
+  if (!Number.isFinite(absExp) || !Number.isFinite(lastActivity)) {
+    return { valid: false, reason: "malformed" };
+  }
+
+  const now = nowSec();
+  if (absExp < now) return { valid: false, reason: "absolute_expired" };
+
+  if (options.idleTimeoutSec != null && options.idleTimeoutSec > 0) {
+    if (now - lastActivity > options.idleTimeoutSec) {
+      return { valid: false, reason: "idle_expired" };
+    }
+  }
+
+  return { valid: true, absExp, lastActivity };
 }
 
 /** Serialize options for `Response.cookies.set(name, value, options)` — do not include `name`. */
-export function adminMfaCookieSerializeOptions(maxAgeSec = getAdminMfaSessionTtlSec()) {
+export function adminMfaCookieSerializeOptions(maxAgeSec = getAdminMfaAbsoluteTtlSec()) {
   const insecure =
     process.env.ADMIN_MFA_COOKIE_INSECURE === "true" || process.env.ADMIN_MFA_COOKIE_INSECURE === "1";
   return {
@@ -62,7 +111,7 @@ export function adminMfaCookieSerializeOptions(maxAgeSec = getAdminMfaSessionTtl
   };
 }
 
-/** @deprecated Use adminMfaCookieSerializeOptions — kept for call sites migrating off the old shape. */
-export function adminMfaCookieOptions(maxAgeSec = getAdminMfaSessionTtlSec()) {
+/** @deprecated Use adminMfaCookieSerializeOptions. */
+export function adminMfaCookieOptions(maxAgeSec = getAdminMfaAbsoluteTtlSec()) {
   return adminMfaCookieSerializeOptions(maxAgeSec);
 }
