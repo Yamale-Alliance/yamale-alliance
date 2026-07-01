@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useClerk } from "@clerk/nextjs";
 import { useTranslations } from "next-intl";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
+import { ADMIN_ROLE, LEGAL_ADMIN_ROLE } from "@/lib/admin-roles";
 import { LogOut, Settings, Shield, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -33,7 +34,27 @@ export function AccountAvatarMenu({ afterSignOutUrl = "/" }: AccountAvatarMenuPr
 
   if (!user) return null;
 
-  const isAdmin = (user.publicMetadata?.role as string | undefined) === "admin";
+  const role = user.publicMetadata?.role as string | undefined;
+  const showAdminPanel = role === ADMIN_ROLE || role === LEGAL_ADMIN_ROLE;
+  const adminPanelHref = role === LEGAL_ADMIN_ROLE ? "/admin-panel/laws" : "/admin-panel";
+
+  const handleSignOut = async () => {
+    setOpen(false);
+    // Admins/legal admins: clear the app-level MFA step-up so re-login requires the code again.
+    if (showAdminPanel) {
+      try {
+        await fetch("/api/admin/mfa", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "logout" }),
+        });
+      } catch {
+        // Best effort — proceed with sign-out regardless.
+      }
+    }
+    await signOut({ redirectUrl: afterSignOutUrl });
+  };
 
   const initials =
     [user.firstName?.[0], user.lastName?.[0]].filter(Boolean).join("") ||
@@ -84,9 +105,9 @@ export function AccountAvatarMenu({ afterSignOutUrl = "/" }: AccountAvatarMenuPr
             <Settings className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
             {t("profileSecurity")}
           </Link>
-          {isAdmin && (
+          {showAdminPanel && (
             <Link
-              href="/admin-panel"
+              href={adminPanelHref}
               role="menuitem"
               className="flex items-center gap-2 px-3 py-2.5 text-sm text-foreground transition hover:bg-muted"
               onClick={() => setOpen(false)}
@@ -99,10 +120,7 @@ export function AccountAvatarMenu({ afterSignOutUrl = "/" }: AccountAvatarMenuPr
             type="button"
             role="menuitem"
             className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-foreground transition hover:bg-muted"
-            onClick={() => {
-              setOpen(false);
-              void signOut({ redirectUrl: afterSignOutUrl });
-            }}
+            onClick={() => void handleSignOut()}
           >
             <LogOut className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
             {t("signOut")}
