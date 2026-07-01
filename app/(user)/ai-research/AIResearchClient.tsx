@@ -37,7 +37,12 @@ import {
   ChevronDown,
   PanelLeft,
 } from "lucide-react";
-import { canShareByEmail, canDownloadConversations } from "@/lib/plan-limits";
+import {
+  canShareByEmail,
+  canShareChat,
+  canDownloadConversations,
+  normalizePlanTier,
+} from "@/lib/plan-limits";
 import { plainTextForAiChatExport } from "@/lib/ai-chat-plain-text";
 import {
   formatAssistantAnswerForDisplay,
@@ -360,7 +365,10 @@ function AIResearchClientCore() {
 
   const tierFromMetadata: Tier =
     user?.publicMetadata ? getTierFromUser(user.publicMetadata as Record<string, unknown>) : "free";
-  const tier = (aiUsage?.tier as Tier | undefined) ?? tierFromMetadata;
+  const tier: Tier =
+    aiUsage?.tier != null
+      ? normalizePlanTier(aiUsage.tier)
+      : tierFromMetadata;
   const limit = aiUsage?.limit ?? TIER_LIMITS[tier];
   const currentSession = sessions.find((s) => s.id === currentId);
   const messages = currentSession?.messages ?? [];
@@ -533,7 +541,7 @@ function AIResearchClientCore() {
         used: data.used ?? 0,
         limit: data.limit ?? null,
         remaining: data.remaining ?? null,
-        tier: (data.tier as Tier) ?? undefined,
+        tier: normalizePlanTier(data.tier) as Tier,
         payAsYouGoCount: data.payAsYouGoCount ?? 0,
         canQuery: data.canQuery ?? true,
       };
@@ -1221,7 +1229,7 @@ function AIResearchClientCore() {
           used: usageData.used ?? 0,
           limit: usageData.limit ?? null,
           remaining: usageData.remaining ?? null,
-          tier: (usageData.tier as Tier) ?? undefined,
+          tier: normalizePlanTier(usageData.tier) as Tier,
           payAsYouGoCount: usageData.payAsYouGoCount ?? 0,
           canQuery: usageData.canQuery ?? true,
         });
@@ -1529,7 +1537,7 @@ function AIResearchClientCore() {
             <div className="flex shrink-0 items-center gap-2">
               {messages.length > 0 && (
                 <>
-                  {canShareByEmail(tier) && (
+                  {canShareChat(tier, payAsYouGoCount) && (
                     <div className="relative">
                       <button
                         ref={shareButtonRef}
@@ -1546,6 +1554,7 @@ function AIResearchClientCore() {
                         className="flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 text-[13px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
                         aria-expanded={shareOpen}
                         aria-haspopup="menu"
+                        aria-label={t("share.button")}
                       >
                         <Share2 className="h-4 w-4" />
                         <span className="hidden sm:inline">{t("share.button")}</span>
@@ -2167,25 +2176,27 @@ function AIResearchClientCore() {
               }}
               className="rounded-[6px] border border-border bg-card py-1 shadow-lg"
             >
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => void handleShareEmail()}
-                disabled={emailShareOpening}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-muted disabled:opacity-60"
-              >
-                {emailShareOpening ? (
-                  <>
-                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-                    {t("share.openingEmail")}
-                  </>
-                ) : (
-                  <>
-                    <Share2 className="h-4 w-4 shrink-0 opacity-70" />
-                    {t("share.byEmail")}
-                  </>
-                )}
-              </button>
+              {canShareByEmail(tier) ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => void handleShareEmail()}
+                  disabled={emailShareOpening}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-muted disabled:opacity-60"
+                >
+                  {emailShareOpening ? (
+                    <>
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                      {t("share.openingEmail")}
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="h-4 w-4 shrink-0 opacity-70" />
+                      {t("share.byEmail")}
+                    </>
+                  )}
+                </button>
+              ) : null}
               <button
                 type="button"
                 role="menuitem"
