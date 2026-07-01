@@ -45,19 +45,35 @@ export const TEAM_SEATS: Record<PlanTier, number | null> = {
   team: 5,
 };
 
-/** Can share documents via email (Pro, Team). */
-export function canShareByEmail(tier: PlanTier): boolean {
-  return tier === "pro" || tier === "team";
+/** Map legacy Clerk tiers to current plan tiers (`plus` was the old Team slug). */
+export function normalizePlanTier(tier: string | null | undefined): PlanTier {
+  const t = (tier ?? "free").toLowerCase();
+  if (t === "plus" || t === "team") return "team";
+  if (t === "pro" || t === "basic" || t === "free") return t;
+  return "free";
 }
 
-/** Can download AI conversations (Pro, Team). */
-export function canDownloadConversations(tier: PlanTier): boolean {
-  return tier === "pro" || tier === "team";
+/** Share menu (copy chat) — Basic+ and pay-as-you-go AI users. */
+export function canShareChat(tier: string, payAsYouGoCount = 0): boolean {
+  const n = normalizePlanTier(tier);
+  if (n === "basic" || n === "pro" || n === "team") return true;
+  return n === "free" && payAsYouGoCount > 0;
+}
+
+/** Share by email (Pro, Team). */
+export function canShareByEmail(tier: string): boolean {
+  const n = normalizePlanTier(tier);
+  return n === "pro" || n === "team";
+}
+
+/** Download AI conversations as PDF (Pro, Team). */
+export function canDownloadConversations(tier: string): boolean {
+  const n = normalizePlanTier(tier);
+  return n === "pro" || n === "team";
 }
 
 export function getAiQueryLimit(tier: string): number | null {
-  const t = (tier || "free").toLowerCase() as PlanTier;
-  return t in AI_QUERY_LIMITS ? AI_QUERY_LIMITS[t as PlanTier] : 0;
+  return AI_QUERY_LIMITS[normalizePlanTier(tier)];
 }
 
 export function getDocumentDownloadLimit(tier: string): number | null {
