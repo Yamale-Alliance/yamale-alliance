@@ -348,7 +348,9 @@
       "afcfta": "AfCFTA",
       "pricing": "Preços",
       "content": "Conteúdo",
-      "settings": "Definições"
+      "settings": "Definições",
+      "legalAdminBadge": "Admin jurídico",
+      "restrictedAccessHint": "É necessário acesso de administrador completo"
     },
     "overview": {
       "title": "Visão geral admin",
@@ -374,6 +376,7 @@
       "role": "Função",
       "user": "Utilizador",
       "admin": "Admin",
+      "legalAdmin": "Admin jurídico",
       "save": "Guardar",
       "refresh": "Atualizar",
       "loading": "A carregar…",
@@ -464,6 +467,11 @@
       "subtitle": "Gerir utilizadores e oferecer acesso à IA e outras funcionalidades definindo o nível do plano. Altere a função na tabela.",
       "noUsersFound": "Nenhum utilizador encontrado.",
       "giftAccessHint": "Definir um nível (Basic, Pro, Plus, Team) concede ao utilizador acesso à pesquisa IA e outras funcionalidades do plano sem pagamento.",
+      "roleLabels": {
+        "user": "Utilizador",
+        "admin": "Admin",
+        "legal_admin": "Admin jurídico"
+      },
       "tiers": {
         "free": "Grátis",
         "basic": "Basic (10 IA/mês)",
@@ -1429,6 +1437,7 @@
         "back": "Voltar às leis",
         "title": "Editar lei",
         "subtitle": "Atualize metadados (título, país, categoria, etc.) e/ou texto da lei. As alterações aplicam-se à biblioteca e à IA.",
+        "readOnlyHint": "Pode ver esta lei mas não editá-la, porque foi adicionada por outro administrador.",
         "lawId": "ID da lei: {id}",
         "titleLabel": "Título",
         "titlePlaceholder": "ex.: Lei das Sociedades, 2019",
@@ -2780,6 +2789,7 @@
     "joinDirectory": "Juntar-se ao diretório",
     "country": "País",
     "selectCountry": "Selecionar um país",
+    "countryNoLawyersYet": "{country} — Ainda sem advogados",
     "city": "Cidade",
     "cityPlaceholder": "ex.: Nairobi, Lagos",
     "practiceArea": "Área de prática",
