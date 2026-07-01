@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { currentUser } from "@clerk/nextjs/server";
-import { requireAdmin } from "@/lib/admin";
+import { requireAdminPanel } from "@/lib/admin";
 import { readAdminMfaGateState } from "@/lib/admin-mfa-gate";
 import {
   adminHasConfirmedTotp,
@@ -20,7 +20,7 @@ import { recordAuditLog } from "@/lib/admin-audit";
 const MFA_SKIP = { skipMfa: true as const };
 
 export async function GET() {
-  const admin = await requireAdmin(MFA_SKIP);
+  const admin = await requireAdminPanel(MFA_SKIP);
   if (admin instanceof NextResponse) return admin;
 
   const state = await readAdminMfaGateState(admin.userId);
@@ -28,11 +28,13 @@ export async function GET() {
     enforced: state.enforced,
     enrolled: state.enrolled,
     stepUpComplete: state.stepUpComplete,
+    role: admin.role,
+    defaultReturnTo: admin.role === "legal_admin" ? "/admin-panel/laws" : "/admin-panel",
   });
 }
 
 export async function POST(request: NextRequest) {
-  const admin = await requireAdmin(MFA_SKIP);
+  const admin = await requireAdminPanel(MFA_SKIP);
   if (admin instanceof NextResponse) return admin;
 
   let body: Record<string, unknown>;
