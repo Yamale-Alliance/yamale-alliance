@@ -3,17 +3,17 @@
 export const prototypeNavHeaderClass =
   "sticky top-0 z-50 border-b border-border bg-card shadow-[0_1px_3px_rgba(13,27,42,0.06),0_1px_2px_rgba(13,27,42,0.04)] print:hidden";
 
-/** Full-viewport modal overlay: sits below sticky nav (72px / 88px) with gap, above header z-index. */
+/** Full-viewport modal overlay: sits below sticky nav with gap, above header z-index. */
 export const siteModalOverlayClass =
-  "fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/50 p-4 pb-6 pt-[calc(72px+1rem)] sm:p-6 sm:pt-[calc(88px+1rem)]";
+  "fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/50 p-4 pb-6 pt-[calc(var(--site-nav-h,4.5rem)+1rem)] sm:p-6 sm:pt-[calc(var(--site-nav-h,4.5rem)+1rem)]";
 
 /** Modal panel max height accounting for sticky header + overlay padding. */
 export const siteModalPanelMaxHeightClass =
-  "max-h-[min(90vh,calc(100dvh-72px-2rem))] sm:max-h-[min(90vh,calc(100dvh-88px-2rem))]";
+  "max-h-[min(90vh,calc(100dvh-var(--site-nav-h,4.5rem)-2rem))]";
 
 /** Mobile bottom sheet; sm+ aligns with siteModalOverlayClass top inset. */
 export const siteModalBottomSheetOverlayClass =
-  "fixed inset-0 z-[60] flex items-end justify-center overflow-y-auto bg-black/50 p-0 sm:items-start sm:justify-center sm:p-6 sm:pb-6 sm:pt-[calc(88px+1rem)]";
+  "fixed inset-0 z-[60] flex items-end justify-center overflow-y-auto bg-black/50 p-0 sm:items-start sm:justify-center sm:p-6 sm:pb-6 sm:pt-[calc(var(--site-nav-h,4.5rem)+1rem)]";
 
 export const prototypeNavInnerClass =
   "mx-auto grid h-[72px] max-w-[1280px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 px-4 sm:h-[88px] sm:px-8 xl:gap-x-4";
