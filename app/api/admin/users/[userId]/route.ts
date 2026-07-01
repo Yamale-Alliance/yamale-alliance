@@ -5,7 +5,9 @@ import { requireAdmin } from "@/lib/admin";
 import { recordAuditLog } from "@/lib/admin-audit";
 
 const VALID_TIERS = ["free", "basic", "pro", "team"];
-const VALID_ROLES = ["admin", "user"];
+import { CLERK_USER_ROLES } from "@/lib/admin-roles";
+
+const VALID_ROLES = [...CLERK_USER_ROLES];
 
 export async function PATCH(
   request: NextRequest,
@@ -57,7 +59,7 @@ export async function PATCH(
     }
 
     if (role !== undefined) {
-      if (!VALID_ROLES.includes(role)) {
+      if (!(VALID_ROLES as readonly string[]).includes(role)) {
         return NextResponse.json(
           { error: `Invalid role. Use one of: ${VALID_ROLES.join(", ")}` },
           { status: 400 }
