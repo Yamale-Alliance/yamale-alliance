@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { AdminSessionResponse } from "@/app/api/admin/session/route";
+import type { AdminSessionResponse } from "@/lib/admin-session";
 import { canEditLaw } from "@/lib/admin-roles";
 
 type AdminRoleContextValue = {
