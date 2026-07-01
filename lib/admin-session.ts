@@ -7,6 +7,16 @@ import {
   normalizeClerkRole,
 } from "@/lib/admin-roles";
 
+export type AdminSessionResponse = {
+  userId: string;
+  role: AdminPanelRole;
+  permissions: {
+    canDeleteLaws: boolean;
+    canApproveRag: boolean;
+    isFullAdmin: boolean;
+  };
+};
+
 type SessionClaims = Record<string, unknown> | null | undefined;
 type SessionAuthObject = Awaited<ReturnType<typeof auth>>;
 
