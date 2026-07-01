@@ -16,7 +16,7 @@ export default function AdminLayout({
 
   return (
     <AdminRoleProvider>
-      <div className="flex min-h-0 flex-1 flex-col bg-muted/30 md:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col bg-muted/30 md:h-[calc(100dvh-var(--site-nav-h,4.5rem))] md:max-h-[calc(100dvh-var(--site-nav-h,4.5rem))] md:flex-row md:overflow-hidden">
         <AdminSidebar
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
