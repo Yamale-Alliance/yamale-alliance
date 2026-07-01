@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin";
+import { requireLawsAccess } from "@/lib/admin";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { createAdminLawPdfUploadUrl } from "@/lib/admin-law-pdf-import";
 import { ADMIN_LAW_PDF_MAX_MB } from "@/lib/admin-law-upload-limits";
 
 /** POST: signed URL for direct browser upload of large law PDFs (bypasses API body size limits). */
 export async function POST(request: NextRequest) {
-  const admin = await requireAdmin();
+  const admin = await requireLawsAccess();
   if (admin instanceof NextResponse) return admin;
 
   let body: { sizeBytes?: number; filename?: string };
