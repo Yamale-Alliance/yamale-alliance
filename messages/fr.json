@@ -1047,7 +1047,28 @@
         "mfa": {
           "label": "Second facteur admin (TOTP)",
           "description": "Inscrivez ou vérifiez votre application d'authentification pour l'étape de sécurité admin."
+        },
+        "security": {
+          "label": "Sécurité de session",
+          "description": "Définissez la durée pendant laquelle les admins restent vérifiés avant de ressaisir leur code."
         }
+      }
+    },
+    "security": {
+      "title": "Sécurité de session",
+      "subtitle": "Contrôlez la durée pendant laquelle un admin reste vérifié après avoir saisi son code d'authentification. Des durées plus courtes sont plus sûres.",
+      "saved": "Enregistré.",
+      "timeout": {
+        "label": "Ressaisir le code après inactivité",
+        "hint": "Après cette période sans activité dans le panneau admin, les admins doivent saisir de nouveau leur code d'authentification. La valeur par défaut est de 30 minutes.",
+        "minutes": "{count, plural, one {# minute} other {# minutes}}",
+        "hours": "{count, plural, one {# heure} other {# heures}}",
+        "never": "Jamais (non recommandé)",
+        "neverWarning": "Choisir « Jamais » signifie que la session admin reste vérifiée jusqu'à la déconnexion ou la limite de 12 heures. C'est dangereux sur un appareil partagé ou perdu : toute personne ayant la session peut accéder au panneau admin sans code."
+      },
+      "errors": {
+        "load": "Impossible de charger les paramètres de sécurité.",
+        "save": "Impossible d'enregistrer les paramètres de sécurité."
       }
     },
     "content": {
@@ -1101,6 +1122,7 @@
         "enterCode": "Saisissez le code à 6 chiffres de votre application d'authentification."
       },
       "enforcedBanner": "La MFA admin est imposée sur cet environnement. Vous devez terminer cette étape pour continuer.",
+      "sessionExpired": "Votre session admin a expiré par inactivité. Saisissez votre code d'authentification pour continuer.",
       "setupHint": "Utilisez Google Authenticator, 1Password, Authy ou toute application TOTP. Scannez le QR code puis confirmez avec un code à usage unique.",
       "preparingSetup": "Préparation de votre configuration d'authentification…",
       "setUpAuthenticator": "Configurer l'authentificateur",
@@ -1279,6 +1301,16 @@
           "category": "Catégorie",
           "clear": "Effacer les filtres sélectionnés"
         },
+        "search": {
+          "label": "Recherche",
+          "placeholder": "Rechercher par titre ou source…",
+          "ariaLabel": "Rechercher des lois"
+        },
+        "pagination": "Page {page} sur {totalPages} · {total} lois",
+        "paginationAria": "Pagination de la liste des lois",
+        "paginationPrev": "Page précédente",
+        "paginationNext": "Page suivante",
+        "paginationPage": "Page {page}",
         "statusValues": {
           "inForce": "En vigueur",
           "amended": "Modifiée",
