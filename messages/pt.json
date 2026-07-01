@@ -1047,7 +1047,28 @@
         "mfa": {
           "label": "Segundo fator admin (TOTP)",
           "description": "Registe ou verifique a sua app autenticadora para reforço de segurança admin."
+        },
+        "security": {
+          "label": "Segurança da sessão",
+          "description": "Defina quanto tempo os admins permanecem verificados antes de reintroduzir o código."
         }
+      }
+    },
+    "security": {
+      "title": "Segurança da sessão",
+      "subtitle": "Controle quanto tempo um admin permanece verificado após introduzir o código do autenticador. Janelas mais curtas são mais seguras.",
+      "saved": "Guardado.",
+      "timeout": {
+        "label": "Reintroduzir o código após inatividade",
+        "hint": "Após este período sem atividade no painel admin, os admins têm de introduzir novamente o código do autenticador. O padrão é 30 minutos.",
+        "minutes": "{count, plural, one {# minuto} other {# minutos}}",
+        "hours": "{count, plural, one {# hora} other {# horas}}",
+        "never": "Nunca (não recomendado)",
+        "neverWarning": "Escolher “Nunca” significa que a sessão admin permanece verificada até terminar sessão ou atingir o limite de 12 horas. Isto é inseguro em dispositivos partilhados ou perdidos — qualquer pessoa com a sessão pode aceder ao painel admin sem código."
+      },
+      "errors": {
+        "load": "Não foi possível carregar as definições de segurança.",
+        "save": "Não foi possível guardar as definições de segurança."
       }
     },
     "content": {
@@ -1101,6 +1122,7 @@
         "enterCode": "Introduza o código de 6 dígitos da sua app autenticadora."
       },
       "enforcedBanner": "A MFA admin é obrigatória neste ambiente. Tem de concluir este passo para continuar.",
+      "sessionExpired": "A sua sessão admin expirou por inatividade. Introduza o código do autenticador para continuar.",
       "setupHint": "Use Google Authenticator, 1Password, Authy ou qualquer app TOTP. Leia o QR code e confirme com um código único.",
       "preparingSetup": "A preparar a configuração da autenticação…",
       "setUpAuthenticator": "Configurar autenticador",
@@ -1279,6 +1301,16 @@
           "category": "Categoria",
           "clear": "Limpar filtros selecionados"
         },
+        "search": {
+          "label": "Pesquisar",
+          "placeholder": "Pesquisar por título ou fonte…",
+          "ariaLabel": "Pesquisar leis"
+        },
+        "pagination": "Página {page} de {totalPages} · {total} leis",
+        "paginationAria": "Paginação da lista de leis",
+        "paginationPrev": "Página anterior",
+        "paginationNext": "Página seguinte",
+        "paginationPage": "Página {page}",
         "statusValues": {
           "inForce": "Em vigor",
           "amended": "Alterada",
