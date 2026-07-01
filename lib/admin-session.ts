@@ -1,4 +1,11 @@
 import { clerkClient, type auth } from "@clerk/nextjs/server";
+import {
+  ADMIN_ROLE,
+  type AdminPanelRole,
+  isAdminPanelRole,
+  isFullAdminRole,
+  normalizeClerkRole,
+} from "@/lib/admin-roles";
 
 type SessionClaims = Record<string, unknown> | null | undefined;
 type SessionAuthObject = Awaited<ReturnType<typeof auth>>;
@@ -12,51 +19,78 @@ export function getRoleFromSessionClaims(sessionClaims: SessionClaims): string |
 }
 
 export function isAdminSessionClaims(sessionClaims: SessionClaims): boolean {
-  return getRoleFromSessionClaims(sessionClaims) === "admin";
+  return getRoleFromSessionClaims(sessionClaims) === ADMIN_ROLE;
 }
 
 const ADMIN_ROLE_CACHE_TTL_MS = 5 * 60 * 1000;
-const adminRoleCache = new Map<string, { isAdmin: boolean; expiresAt: number }>();
+const adminRoleCache = new Map<string, { role: AdminPanelRole | null; expiresAt: number }>();
 
-function readCachedAdminRole(userId: string): boolean | undefined {
+function readCachedAdminPanelRole(userId: string): AdminPanelRole | null | undefined {
   const entry = adminRoleCache.get(userId);
   if (!entry) return undefined;
   if (entry.expiresAt <= Date.now()) {
     adminRoleCache.delete(userId);
     return undefined;
   }
-  return entry.isAdmin;
+  return entry.role;
 }
 
-function writeCachedAdminRole(userId: string, isAdmin: boolean): void {
-  adminRoleCache.set(userId, { isAdmin, expiresAt: Date.now() + ADMIN_ROLE_CACHE_TTL_MS });
+function writeCachedAdminPanelRole(userId: string, role: AdminPanelRole | null): void {
+  adminRoleCache.set(userId, { role, expiresAt: Date.now() + ADMIN_ROLE_CACHE_TTL_MS });
+}
+
+async function resolveAdminPanelRoleFromClerk(userId: string): Promise<AdminPanelRole | null> {
+  const cached = readCachedAdminPanelRole(userId);
+  if (cached !== undefined) return cached;
+
+  try {
+    const clerk = await clerkClient();
+    const user = await clerk.users.getUser(userId);
+    const role = normalizeClerkRole(user.publicMetadata?.role as string | undefined);
+    const panelRole = role && isAdminPanelRole(role) ? role : null;
+    writeCachedAdminPanelRole(userId, panelRole);
+    return panelRole;
+  } catch (err) {
+    console.error("resolveAdminPanelRoleFromClerk: Clerk lookup failed:", err);
+    return null;
+  }
+}
+
+function roleFromSessionClaims(claims: SessionClaims): AdminPanelRole | null {
+  const role = normalizeClerkRole(getRoleFromSessionClaims(claims));
+  return role && isAdminPanelRole(role) ? role : null;
+}
+
+/** Full admin only (not legal admin). */
+export async function userHasAdminAccess(authState: SessionAuthObject): Promise<boolean> {
+  const role = await getUserAdminPanelRole(authState);
+  return isFullAdminRole(role);
+}
+
+/** Full admin or legal admin. */
+export async function userHasAdminPanelAccess(authState: SessionAuthObject): Promise<boolean> {
+  const role = await getUserAdminPanelRole(authState);
+  return isAdminPanelRole(role);
+}
+
+export async function getUserAdminPanelRole(
+  authState: SessionAuthObject
+): Promise<AdminPanelRole | null> {
+  const claims = authState.sessionClaims as SessionClaims;
+  const claimRole = roleFromSessionClaims(claims);
+  if (claimRole) return claimRole;
+
+  const userId = authState.userId;
+  if (!userId) return null;
+
+  return resolveAdminPanelRoleFromClerk(userId);
 }
 
 /**
  * Admin gate for middleware: JWT `metadata.role` when present, else Clerk publicMetadata
  * (matches `requireAdmin()` on API routes — no session-token customization required).
  */
-export async function userHasAdminAccess(authState: SessionAuthObject): Promise<boolean> {
-  const claims = authState.sessionClaims as SessionClaims;
-  if (isAdminSessionClaims(claims)) return true;
-
-  const userId = authState.userId;
-  if (!userId) return false;
-
-  const cached = readCachedAdminRole(userId);
-  if (cached !== undefined) return cached;
-
-  try {
-    const clerk = await clerkClient();
-    const user = await clerk.users.getUser(userId);
-    const isAdmin = (user.publicMetadata?.role as string | undefined) === "admin";
-    writeCachedAdminRole(userId, isAdmin);
-    return isAdmin;
-  } catch (err) {
-    console.error("userHasAdminAccess: Clerk lookup failed:", err);
-    return false;
-  }
-}
+export const userHasAdminPanelAccessLegacy = userHasAdminPanelAccess;
 
 /**
  * Legacy Clerk `fva` second-factor claim. App-level admin MFA uses `admin_mfa_step_up` cookie instead.
