@@ -348,7 +348,9 @@
       "afcfta": "ZLECAf",
       "pricing": "Tarifs",
       "content": "Contenu",
-      "settings": "Paramètres"
+      "settings": "Paramètres",
+      "legalAdminBadge": "Admin juridique",
+      "restrictedAccessHint": "Accès administrateur complet requis"
     },
     "overview": {
       "title": "Vue d'ensemble admin",
@@ -374,6 +376,7 @@
       "role": "Rôle",
       "user": "Utilisateur",
       "admin": "Admin",
+      "legalAdmin": "Admin juridique",
       "save": "Enregistrer",
       "refresh": "Actualiser",
       "loading": "Chargement…",
@@ -464,6 +467,11 @@
       "subtitle": "Gérez les utilisateurs et offrez l'accès à l'IA et aux autres fonctionnalités en définissant leur niveau de plan. Changez le rôle dans le tableau.",
       "noUsersFound": "Aucun utilisateur trouvé.",
       "giftAccessHint": "Définir un niveau (Basic, Pro, Plus, Team) accorde à l'utilisateur l'accès à la recherche IA et aux autres fonctionnalités du plan sans paiement.",
+      "roleLabels": {
+        "user": "Utilisateur",
+        "admin": "Admin",
+        "legal_admin": "Admin juridique"
+      },
       "tiers": {
         "free": "Gratuit",
         "basic": "Basic (10 IA/mois)",
@@ -1429,6 +1437,7 @@
         "back": "Retour aux lois",
         "title": "Modifier la loi",
         "subtitle": "Mettez à jour les métadonnées (titre, pays, catégorie, etc.) et/ou le texte de la loi. Les changements s'appliquent à la bibliothèque et à l'IA.",
+        "readOnlyHint": "Vous pouvez consulter cette loi mais pas la modifier, car elle a été ajoutée par un autre administrateur.",
         "lawId": "ID de loi : {id}",
         "titleLabel": "Titre",
         "titlePlaceholder": "ex. Loi sur les sociétés, 2019",
@@ -2780,6 +2789,7 @@
     "joinDirectory": "Rejoindre l'annuaire",
     "country": "Pays",
     "selectCountry": "Sélectionner un pays",
+    "countryNoLawyersYet": "{country} — Pas encore d'avocats",
     "city": "Ville",
     "cityPlaceholder": "ex. Nairobi, Lagos",
     "practiceArea": "Domaine de pratique",
