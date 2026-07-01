@@ -348,7 +348,9 @@
       "afcfta": "AfCFTA",
       "pricing": "Pricing",
       "content": "Content",
-      "settings": "Settings"
+      "settings": "Settings",
+      "legalAdminBadge": "Legal admin",
+      "restrictedAccessHint": "Full admin access required"
     },
     "overview": {
       "title": "Admin Overview",
@@ -374,6 +376,7 @@
       "role": "Role",
       "user": "User",
       "admin": "Admin",
+      "legalAdmin": "Legal admin",
       "save": "Save",
       "refresh": "Refresh",
       "loading": "Loading…",
@@ -464,6 +467,11 @@
       "subtitle": "Manage users and gift access to AI and other features by setting their plan tier. Change role in the table.",
       "noUsersFound": "No users found.",
       "giftAccessHint": "Setting a tier (Basic, Pro, Plus, Team) grants that user access to AI research and other plan features without payment.",
+      "roleLabels": {
+        "user": "User",
+        "admin": "Admin",
+        "legal_admin": "Legal admin"
+      },
       "tiers": {
         "free": "Free",
         "basic": "Basic (10 AI/mo)",
@@ -1429,6 +1437,7 @@
         "back": "Back to laws",
         "title": "Edit law",
         "subtitle": "Update metadata (title, country, category, etc.) and/or the law text. Changes apply to the library and AI.",
+        "readOnlyHint": "You can view this law but cannot edit it because it was added by another admin.",
         "lawId": "Law ID: {id}",
         "titleLabel": "Title",
         "titlePlaceholder": "e.g. Companies Act, 2019",
@@ -2835,6 +2844,7 @@
     "joinDirectory": "Join the directory",
     "country": "Country",
     "selectCountry": "Select a country",
+    "countryNoLawyersYet": "{country} — No lawyers yet",
     "city": "City",
     "cityPlaceholder": "e.g. Nairobi, Lagos",
     "practiceArea": "Practice area",
