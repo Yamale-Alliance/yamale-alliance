@@ -1047,7 +1047,28 @@
         "mfa": {
           "label": "Admin second factor (TOTP)",
           "description": "Enroll or verify your authenticator app for admin step-up."
+        },
+        "security": {
+          "label": "Session security",
+          "description": "Set how long admins stay verified before re-entering their code."
         }
+      }
+    },
+    "security": {
+      "title": "Session security",
+      "subtitle": "Control how long an admin stays verified after entering their authenticator code. Shorter windows are more secure.",
+      "saved": "Saved.",
+      "timeout": {
+        "label": "Re-enter code after inactivity",
+        "hint": "After this period without activity in the admin panel, admins must enter their authenticator code again. The default is 30 minutes.",
+        "minutes": "{count, plural, one {# minute} other {# minutes}}",
+        "hours": "{count, plural, one {# hour} other {# hours}}",
+        "never": "Never (not recommended)",
+        "neverWarning": "Choosing “Never” means the admin session stays verified until sign-out or the 12-hour maximum. This is unsafe on shared or lost devices — anyone with the session can reach the admin panel without a code."
+      },
+      "errors": {
+        "load": "Unable to load security settings.",
+        "save": "Unable to save security settings."
       }
     },
     "content": {
@@ -1101,6 +1122,7 @@
         "enterCode": "Enter the 6-digit code from your authenticator app."
       },
       "enforcedBanner": "Admin MFA is enforced on this environment. You must complete this step to continue.",
+      "sessionExpired": "Your admin session expired due to inactivity. Enter your authenticator code to continue.",
       "setupHint": "Use Google Authenticator, 1Password, Authy, or any TOTP app. Scan the QR code and confirm with a one-time code.",
       "preparingSetup": "Preparing your authenticator setup…",
       "setUpAuthenticator": "Set up authenticator",
@@ -1279,6 +1301,16 @@
           "category": "Category",
           "clear": "Clear selected filters"
         },
+        "search": {
+          "label": "Search",
+          "placeholder": "Search by title or source name…",
+          "ariaLabel": "Search laws"
+        },
+        "pagination": "Page {page} of {totalPages} · {total} laws",
+        "paginationAria": "Laws list pagination",
+        "paginationPrev": "Previous page",
+        "paginationNext": "Next page",
+        "paginationPage": "Page {page}",
         "statusValues": {
           "inForce": "In force",
           "amended": "Amended",
