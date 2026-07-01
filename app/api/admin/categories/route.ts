@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/admin";
+import { requireAdmin, requireLawsAccess } from "@/lib/admin";
 import { normalizeCategoryName, slugifyCategoryName } from "@/lib/category-slug";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
@@ -34,7 +34,7 @@ function countLawsPerCategory(
 }
 
 export async function GET() {
-  const admin = await requireAdmin();
+  const admin = await requireLawsAccess();
   if (admin instanceof NextResponse) return admin;
 
   try {
