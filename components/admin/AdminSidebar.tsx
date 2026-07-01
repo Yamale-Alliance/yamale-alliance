@@ -112,7 +112,7 @@ export function AdminSidebar({ open = false, onClose }: AdminSidebarProps) {
           onClick={onClose}
         />
       )}
-      <aside className="hidden w-64 shrink-0 flex-col self-stretch border-r border-border bg-card md:sticky md:top-0 md:flex">
+      <aside className="hidden h-full w-64 shrink-0 flex-col overflow-hidden border-r border-border bg-card md:flex">
         {navContent}
       </aside>
       {onClose && (
