@@ -9,6 +9,8 @@ type MfaStatus = {
   enforced: boolean;
   enrolled: boolean;
   stepUpComplete: boolean;
+  role?: "admin" | "legal_admin";
+  defaultReturnTo?: string;
 };
 
 type EnrollPayload = {
@@ -17,10 +19,10 @@ type EnrollPayload = {
   qrDataUrl: string;
 };
 
-function safeAdminReturnTo(raw: string | null): string {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/admin-panel";
-  if (!raw.startsWith("/admin-panel")) return "/admin-panel";
-  if (raw === "/admin-panel/mfa" || raw.startsWith("/admin-panel/mfa/")) return "/admin-panel";
+function safeAdminReturnTo(raw: string | null, fallback = "/admin-panel"): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return fallback;
+  if (!raw.startsWith("/admin-panel")) return fallback;
+  if (raw === "/admin-panel/mfa" || raw.startsWith("/admin-panel/mfa/")) return fallback;
   return raw;
 }
 
@@ -32,9 +34,10 @@ export function AdminMfaPanel() {
   const t = useTranslations("admin.mfa");
   const tc = useTranslations("admin.common");
   const searchParams = useSearchParams();
-  const returnTo = safeAdminReturnTo(searchParams.get("returnTo"));
+  const returnToParam = searchParams.get("returnTo");
 
   const [status, setStatus] = useState<MfaStatus | null>(null);
+  const [returnTo, setReturnTo] = useState("/admin-panel");
   const [enroll, setEnroll] = useState<EnrollPayload | null>(null);
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(true);
@@ -53,9 +56,14 @@ export function AdminMfaPanel() {
         return;
       }
       const data = (await res.json()) as MfaStatus;
+      const resolvedReturnTo = safeAdminReturnTo(
+        returnToParam,
+        data.defaultReturnTo ?? "/admin-panel"
+      );
+      setReturnTo(resolvedReturnTo);
       setStatus(data);
       if (data.stepUpComplete && data.enrolled) {
-        goToAdminReturnTo(returnTo);
+        goToAdminReturnTo(resolvedReturnTo);
         return;
       }
     } catch {
@@ -63,7 +71,7 @@ export function AdminMfaPanel() {
     } finally {
       setLoading(false);
     }
-  }, [returnTo]);
+  }, [returnToParam, t, tc]);
 
   useEffect(() => {
     void loadStatus();
