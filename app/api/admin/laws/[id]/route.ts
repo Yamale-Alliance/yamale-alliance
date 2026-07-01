@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/admin";
+import { requireAdmin, requireLawsAccess, assertCanEditLaw, assertCanDeleteLaw } from "@/lib/admin";
+import { canEditLaw } from "@/lib/admin-roles";
 import { recordAuditLog } from "@/lib/admin-audit";
 import { isLawTreatyType } from "@/lib/law-treaty-type";
 import type { Database } from "@/lib/database.types";
@@ -42,7 +43,7 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const admin = await requireAdmin();
+  const admin = await requireLawsAccess();
   if (admin instanceof NextResponse) return admin;
 
   const { id } = await params;
@@ -156,6 +157,7 @@ export async function GET(
       law: { ...law, category_ids, country_ids },
       shared_link_peer_count,
       shared_group_id: sharedGroup?.groupId ?? null,
+      can_edit: canEditLaw(admin.role, admin.userId, (law as LawRow & { ingested_by?: string | null }).ingested_by),
     });
   } catch (err) {
     console.error("Admin law GET error:", err);
@@ -168,7 +170,7 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const admin = await requireAdmin();
+  const admin = await requireLawsAccess();
   if (admin instanceof NextResponse) return admin;
 
   const { id } = await params;
@@ -182,10 +184,15 @@ export async function PUT(
 
     const { data: existingRow } = await supabase
       .from("laws")
-      .select("title, year, status, treaty_type, source_url, source_name, content, content_plain, language_code")
+      .select(
+        "title, year, status, treaty_type, source_url, source_name, content, content_plain, language_code, ingested_by"
+      )
       .eq("id", id)
       .maybeSingle();
-    const existingLaw = existingRow as LawRow | null;
+    const existingLaw = existingRow as (LawRow & { ingested_by?: string | null }) | null;
+
+    const editDenied = assertCanEditLaw(admin, existingLaw?.ingested_by);
+    if (editDenied) return editDenied;
 
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
@@ -472,6 +479,9 @@ export async function DELETE(
 ) {
   const admin = await requireAdmin();
   if (admin instanceof NextResponse) return admin;
+
+  const deleteDenied = assertCanDeleteLaw(admin);
+  if (deleteDenied) return deleteDenied;
 
   const { id } = await params;
   if (!id) {
