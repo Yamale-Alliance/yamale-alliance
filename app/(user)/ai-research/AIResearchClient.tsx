@@ -41,6 +41,8 @@ import {
   canShareByEmail,
   canShareChat,
   canDownloadConversations,
+  pickHigherPlanTier,
+  resolveTierFromClerkMetadata,
   normalizePlanTier,
 } from "@/lib/plan-limits";
 import { plainTextForAiChatExport } from "@/lib/ai-chat-plain-text";
@@ -158,25 +160,6 @@ const AI_RESEARCH_NOTICE_KEY = `yamale-ai-research-notice:${AI_RESEARCH_NOTICE_V
 const PII_WARNING_VERSION = "v1";
 const PII_WARNING_KEY = `yamale-ai-pii-warning:${PII_WARNING_VERSION}`;
 const AI_CHAT_TIMEOUT_MS = 110000;
-
-function getTierFromUser(metadata: Record<string, unknown> | undefined): Tier {
-  const t = metadata?.tier ?? metadata?.subscriptionTier;
-
-  // Temporary 24-hour day pass upgrade
-  const dayPassExpiry = metadata?.day_pass_expires_at;
-  if (typeof dayPassExpiry === "string") {
-    const expiresAt = new Date(dayPassExpiry).getTime();
-    if (!Number.isNaN(expiresAt) && Date.now() < expiresAt) {
-      // Treat active day pass as Pro-level access
-      return "pro";
-    }
-  }
-
-  if (t === "pro") return "pro";
-  if (t === "team" || t === "plus") return "team"; // plus legacy → Team
-  if (t === "basic") return "basic";
-  return "free";
-}
 
 function normalizeSessionMessages(sessions: ChatSession[]): ChatSession[] {
   return sessions.map((session) => ({
@@ -363,12 +346,13 @@ function AIResearchClientCore() {
   const [piiWarningDismissed, setPiiWarningDismissed] = useState(false);
   const [shellTopOffset, setShellTopOffset] = useState(72);
 
-  const tierFromMetadata: Tier =
-    user?.publicMetadata ? getTierFromUser(user.publicMetadata as Record<string, unknown>) : "free";
+  const tierFromMetadata: Tier = user?.publicMetadata
+    ? resolveTierFromClerkMetadata(user.publicMetadata as Record<string, unknown>)
+    : "free";
+  const tierFromApi =
+    aiUsage?.tier != null ? (normalizePlanTier(aiUsage.tier) as Tier) : null;
   const tier: Tier =
-    aiUsage?.tier != null
-      ? normalizePlanTier(aiUsage.tier)
-      : tierFromMetadata;
+    tierFromApi != null ? pickHigherPlanTier(tierFromApi, tierFromMetadata) : tierFromMetadata;
   const limit = aiUsage?.limit ?? TIER_LIMITS[tier];
   const currentSession = sessions.find((s) => s.id === currentId);
   const messages = currentSession?.messages ?? [];

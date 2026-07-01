@@ -53,6 +53,35 @@ export function normalizePlanTier(tier: string | null | undefined): PlanTier {
   return "free";
 }
 
+/** Clerk publicMetadata → plan tier (day pass, legacy plus, subscription fields). */
+export function resolveTierFromClerkMetadata(
+  metadata: Record<string, unknown> | null | undefined
+): PlanTier {
+  const m = metadata ?? {};
+  const dayPassExpiry = m.day_pass_expires_at;
+  if (typeof dayPassExpiry === "string") {
+    const expiresAt = new Date(dayPassExpiry).getTime();
+    if (!Number.isNaN(expiresAt) && Date.now() < expiresAt) {
+      return "pro";
+    }
+  }
+
+  const raw = m.tier ?? m.subscriptionTier;
+  return normalizePlanTier(typeof raw === "string" ? raw : "free");
+}
+
+const PLAN_TIER_RANK: Record<PlanTier, number> = {
+  free: 0,
+  basic: 1,
+  pro: 2,
+  team: 3,
+};
+
+/** Prefer the higher tier when Clerk metadata and API usage disagree (e.g. day pass). */
+export function pickHigherPlanTier(a: PlanTier, b: PlanTier): PlanTier {
+  return PLAN_TIER_RANK[a] >= PLAN_TIER_RANK[b] ? a : b;
+}
+
 /** Share menu (copy chat) — Basic+ and pay-as-you-go AI users. */
 export function canShareChat(tier: string, payAsYouGoCount = 0): boolean {
   const n = normalizePlanTier(tier);

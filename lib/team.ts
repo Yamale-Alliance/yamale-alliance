@@ -1,6 +1,6 @@
 import { clerkClient } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { TEAM_SEATS } from "@/lib/plan-limits";
+import { resolveTierFromClerkMetadata, TEAM_SEATS } from "@/lib/plan-limits";
 
 const DEFAULT_TEAM_SEATS = TEAM_SEATS.team ?? 5;
 const EXTRA_SEAT_CENTS = 600; // $6
@@ -16,8 +16,8 @@ export function getTeamSeatsTotal(metadata: Record<string, unknown> | undefined)
 export async function getEffectiveTierForUser(userId: string): Promise<string> {
   const clerk = await clerkClient();
   const user = await clerk.users.getUser(userId);
-  const raw = ((user.publicMetadata?.tier ?? user.publicMetadata?.subscriptionTier) as string) ?? "free";
-  const tier = raw === "plus" ? "team" : raw;
+  const metadata = user.publicMetadata as Record<string, unknown> | undefined;
+  const tier = resolveTierFromClerkMetadata(metadata);
   if (tier === "team") return "team";
 
   const supabase = getSupabaseServer();
@@ -30,7 +30,9 @@ export async function getEffectiveTierForUser(userId: string): Promise<string> {
   if (!row) return tier;
 
   const admin = await clerk.users.getUser(row.admin_user_id);
-  const adminTier = ((admin.publicMetadata?.tier ?? admin.publicMetadata?.subscriptionTier) as string) ?? "free";
+  const adminTier = resolveTierFromClerkMetadata(
+    admin.publicMetadata as Record<string, unknown> | undefined
+  );
   return adminTier === "team" ? "team" : tier;
 }
 
