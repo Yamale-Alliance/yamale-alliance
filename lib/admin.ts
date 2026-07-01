@@ -39,6 +39,12 @@ async function requireAdminPanelAuth(
           { status: 403 }
         );
       }
+      if (mfa.idleExpired) {
+        return NextResponse.json(
+          { error: "MFA session expired", code: "MFA_SESSION_EXPIRED" },
+          { status: 403 }
+        );
+      }
       return NextResponse.json({ error: "MFA required", code: "MFA_REQUIRED" }, { status: 403 });
     }
   }
