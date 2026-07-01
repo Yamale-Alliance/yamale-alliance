@@ -17,7 +17,8 @@ import {
 
 type AccountNavProps = {
   supportLive: boolean;
-  isAdmin: boolean;
+  showAdminPanel: boolean;
+  adminPanelHref?: string;
 };
 
 const linkDefs: Array<{
@@ -54,7 +55,7 @@ function accountNavLinkClass(active: boolean): string {
     : `${base} text-muted-foreground hover:bg-muted hover:text-foreground`;
 }
 
-export function AccountNav({ supportLive, isAdmin }: AccountNavProps) {
+export function AccountNav({ supportLive, showAdminPanel, adminPanelHref = "/admin-panel" }: AccountNavProps) {
   const t = useTranslations("account");
   const pathname = usePathname();
 
@@ -84,13 +85,13 @@ export function AccountNav({ supportLive, isAdmin }: AccountNavProps) {
           );
         })}
       </nav>
-      {isAdmin && (
+      {showAdminPanel && (
         <div className="mt-5 md:border-r md:border-border md:pr-6">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {t("administration")}
           </p>
           <Link
-            href="/admin-panel"
+            href={adminPanelHref}
             className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5 text-sm font-medium text-foreground shadow-sm transition hover:bg-muted"
           >
             <Shield className="h-4 w-4 shrink-0 text-primary" aria-hidden />
