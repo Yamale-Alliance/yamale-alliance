@@ -22,6 +22,11 @@
   --surface: #f4f1eb;
   --brand-navy: #0d1b2a;
   --brand-navy-mid: #162436;
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  --site-nav-h: calc(4.5rem + var(--safe-area-top));
   /* Vault tiles & design-system aliases */
   --color-background-primary: var(--card);
   --color-border-tertiary: var(--border);
@@ -55,6 +60,12 @@ body {
   color: var(--foreground);
   background: var(--background);
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --site-nav-h: calc(5.5rem + var(--safe-area-top));
+  }
 }
 
 /* Mobile: 16px+ form controls so iOS/Android reliably focus and show the keyboard. */
@@ -502,19 +513,24 @@ header.yamale-site-chrome {
   position: sticky;
   top: 0;
   z-index: 110;
+  padding-top: var(--safe-area-top);
+}
+
+footer.yamale-site-footer {
+  padding-bottom: var(--safe-area-bottom);
 }
 
 /* Law Firm Development Package — portaled sub-nav locked under site header height. */
 body:has(.law-firm-package-landing),
 body:has(.advisory-workspace-root) {
-  --site-nav-h: 4.5rem;
+  --site-nav-h: calc(4.5rem + var(--safe-area-top));
   --vault-chrome-h: 5.25rem;
 }
 
 @media (min-width: 640px) {
   body:has(.law-firm-package-landing),
   body:has(.advisory-workspace-root) {
-    --site-nav-h: 5.5rem;
+    --site-nav-h: calc(5.5rem + var(--safe-area-top));
     --vault-chrome-h: 4.75rem;
   }
 }
