@@ -19,7 +19,7 @@ type UserRow = {
 };
 
 const TIER_VALUES = ["free", "basic", "pro", "team"] as const;
-const ROLE_VALUES = ["user", "admin"] as const;
+const ROLE_VALUES = ["user", "admin", "legal_admin"] as const;
 
 export default function AdminUsersPage() {
   const t = useTranslations("admin.users");
@@ -195,7 +195,7 @@ export default function AdminUsersPage() {
                       >
                         {ROLE_VALUES.map((value) => (
                           <option key={value} value={value}>
-                            {value === "admin" ? tc("admin") : tc("user")}
+                            {t(`roleLabels.${value}`)}
                           </option>
                         ))}
                       </select>
