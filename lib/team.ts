@@ -16,7 +16,8 @@ export function getTeamSeatsTotal(metadata: Record<string, unknown> | undefined)
 export async function getEffectiveTierForUser(userId: string): Promise<string> {
   const clerk = await clerkClient();
   const user = await clerk.users.getUser(userId);
-  const tier = ((user.publicMetadata?.tier ?? user.publicMetadata?.subscriptionTier) as string) ?? "free";
+  const raw = ((user.publicMetadata?.tier ?? user.publicMetadata?.subscriptionTier) as string) ?? "free";
+  const tier = raw === "plus" ? "team" : raw;
   if (tier === "team") return "team";
 
   const supabase = getSupabaseServer();
