@@ -6,6 +6,6 @@ import { Footer } from "@/components/layout/Footer";
 /** Renders Footer on all routes except AI Research (full-viewport chat). */
 export function ConditionalFooter() {
   const pathname = usePathname();
-  if (pathname?.startsWith("/ai-research") || pathname?.startsWith("/advisory")) return null;
+  if (pathname?.startsWith("/ai-research") || pathname?.startsWith("/advisory") || pathname?.startsWith("/admin-panel")) return null;
   return <Footer />;
 }
