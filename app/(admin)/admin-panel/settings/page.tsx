@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Scale, Cpu, Shield, Palette } from "lucide-react";
+import { Scale, Cpu, Shield, Palette, Lock } from "lucide-react";
 import { AdminLaunchMetricsResetPanel } from "@/components/admin/AdminLaunchMetricsResetPanel";
 
 const settingsLinks = [
@@ -28,6 +28,11 @@ const settingsLinks = [
     href: "/admin-panel/mfa",
     key: "mfa",
     icon: Shield,
+  },
+  {
+    href: "/admin-panel/settings/security",
+    key: "security",
+    icon: Lock,
   },
 ];
 
