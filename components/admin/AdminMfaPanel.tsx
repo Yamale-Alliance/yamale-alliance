@@ -35,6 +35,7 @@ export function AdminMfaPanel() {
   const tc = useTranslations("admin.common");
   const searchParams = useSearchParams();
   const returnToParam = searchParams.get("returnTo");
+  const sessionExpired = searchParams.get("reason") === "expired";
 
   const [status, setStatus] = useState<MfaStatus | null>(null);
   const [returnTo, setReturnTo] = useState("/admin-panel");
@@ -181,6 +182,12 @@ export function AdminMfaPanel() {
             </p>
           </div>
         </div>
+
+        {sessionExpired && needsVerify && (
+          <p className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-2 text-sm font-medium text-amber-900 dark:text-amber-100">
+            {t("sessionExpired")}
+          </p>
+        )}
 
         {status.enforced && (
           <p className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
