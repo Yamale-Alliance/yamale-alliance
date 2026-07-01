@@ -1,10 +1,13 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import {
-  adminHasValidStepUpFromRequest,
+  inspectStepUpFromRequest,
   isAdminMfaExemptPath,
+  isAdminMfaRequired,
 } from "@/lib/admin-mfa-gate";
-import { isAdminMfaEnforced, getUserAdminPanelRole } from "@/lib/admin-session";
+import { getUserAdminPanelRole } from "@/lib/admin-session";
+import { getAdminSecuritySettings } from "@/lib/admin-security-settings";
+import { ADMIN_MFA_COOKIE_NAME, adminMfaCookieSerializeOptions } from "@/lib/admin-mfa-session";
 import {
   isLegalAdminAllowedApiPath,
   isLegalAdminAllowedPanelPath,
@@ -160,6 +163,7 @@ export default clerkMiddleware(async (auth, request) => {
     await auth.protect();
   }
 
+  let refreshedStepUpToken: string | null = null;
   const needsAdminAccess = isAdminPanelPage(request) || isAdminApiRoute(request);
   if (needsAdminAccess) {
     if (!authState) {
@@ -196,26 +200,49 @@ export default clerkMiddleware(async (auth, request) => {
       }
     }
 
-    if (hasPanelAccess && isAdminMfaEnforced() && !isAdminMfaExemptPath(pathname)) {
-      const stepUpOk = userId ? adminHasValidStepUpFromRequest(request, userId) : false;
-      if (!stepUpOk) {
+    if (hasPanelAccess && isAdminMfaRequired() && !isAdminMfaExemptPath(pathname)) {
+      const { mfaIdleTimeoutSec } = await getAdminSecuritySettings();
+      const result = userId
+        ? inspectStepUpFromRequest(request, userId, mfaIdleTimeoutSec)
+        : { status: { valid: false as const, reason: "malformed" as const }, refreshedToken: null };
+
+      if (!result.status.valid) {
+        const idleExpired = result.status.reason === "idle_expired";
         if (isAdminPanelPage(request)) {
           const mfaUrl = new URL("/admin-panel/mfa", request.url);
           mfaUrl.searchParams.set("returnTo", `${url.pathname}${url.search}`);
-          return applySecurityHeaders(
-            attachRateLimitHeaders(NextResponse.redirect(mfaUrl), rateLimit)
-          );
+          if (idleExpired) mfaUrl.searchParams.set("reason", "expired");
+          const redirect = NextResponse.redirect(mfaUrl);
+          // Drop the stale step-up cookie so the client state is clean.
+          redirect.cookies.set(ADMIN_MFA_COOKIE_NAME, "", {
+            ...adminMfaCookieSerializeOptions(0),
+            maxAge: 0,
+          });
+          return applySecurityHeaders(attachRateLimitHeaders(redirect, rateLimit));
         }
         const mfaRequired = NextResponse.json(
-          { error: "MFA required", code: "MFA_REQUIRED" },
+          {
+            error: idleExpired ? "MFA session expired" : "MFA required",
+            code: idleExpired ? "MFA_SESSION_EXPIRED" : "MFA_REQUIRED",
+          },
           { status: 403 }
         );
         return applySecurityHeaders(attachRateLimitHeaders(mfaRequired, rateLimit));
       }
+
+      // Valid step-up: slide the idle window forward for this activity.
+      refreshedStepUpToken = result.refreshedToken;
     }
   }
 
   const response = NextResponse.next();
+  if (refreshedStepUpToken) {
+    response.cookies.set(
+      ADMIN_MFA_COOKIE_NAME,
+      refreshedStepUpToken,
+      adminMfaCookieSerializeOptions()
+    );
+  }
   return applySecurityHeaders(attachRateLimitHeaders(response, rateLimit));
 });
 
