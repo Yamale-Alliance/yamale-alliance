@@ -20,6 +20,7 @@ export type AiQueryLogInsert = {
   output_tokens?: number | null;
   estimated_cost_usd?: number | null;
   model_used?: string | null;
+  retrieval_metadata?: Record<string, unknown> | null;
 };
 
 /** Returns new row id, or null on failure (never throws). */
@@ -44,6 +45,7 @@ export async function insertAiQueryLog(
         output_tokens: row.output_tokens ?? null,
         estimated_cost_usd: row.estimated_cost_usd ?? null,
         model_used: row.model_used ?? row.model ?? null,
+        retrieval_metadata: row.retrieval_metadata ?? null,
       })
       .select("id")
       .maybeSingle();

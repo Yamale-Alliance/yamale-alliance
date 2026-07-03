@@ -6,6 +6,11 @@ import {
 import { mergeLegalContextDeduped } from "@/lib/ai-prompt-budget";
 import { isAiEmbeddingsEnabled } from "@/lib/embeddings/embedding-client";
 import { lawEmbeddingsIndexReady, searchLawsByVectorSimilarity } from "@/lib/embeddings/vector-search";
+import {
+  runChunkRetrievalPipeline,
+  type RetrievalPipelineMetadata,
+} from "@/lib/retrieval/pipeline";
+import { isHybridRetrievalEnabled } from "@/lib/retrieval/retrieval-mode";
 import { ohadaUniformActRetrievalAliases } from "@/lib/ohada-uniform-act-catalog";
 import {
   fetchOhadaCommercialCompaniesInstrumentLaws,
@@ -24,6 +29,7 @@ export type OrchestratedRetrievalPass = "lexical_primary" | "vector_hybrid" | "e
 export type OrchestratedRetrievalResult = {
   docs: AiLegalLibrarySearchResult;
   passes: OrchestratedRetrievalPass[];
+  retrievalMetadata?: RetrievalPipelineMetadata;
 };
 
 type OrchestrateOptions = {
@@ -135,15 +141,25 @@ export async function orchestrateLegalLibrarySearch(
 
   const vectorEligible =
     maxPasses >= 2 && isAiEmbeddingsEnabled() && (await lawEmbeddingsIndexReady(options.supabase));
+  const useHybridPipeline = vectorEligible && isHybridRetrievalEnabled();
 
   // Pass 1 (+ optional 2) — start vector alongside lexical; skip awaiting vector when lexical is already strong.
   const lexicalPromise = options.lexicalSearch(options.userQuery, options.searchCountry);
   const vectorPromise = vectorEligible
-    ? searchLawsByVectorSimilarity(options.supabase, options.userQuery, {
-        countryId: options.countryId ?? null,
-        matchCount: 12,
-        rankTokens,
-      })
+    ? useHybridPipeline
+      ? runChunkRetrievalPipeline({
+          supabase: options.supabase,
+          userQuery: options.userQuery,
+          searchCountry: options.searchCountry,
+          countryId: options.countryId ?? null,
+          rankTokens,
+          matchCount: 12,
+        })
+      : searchLawsByVectorSimilarity(options.supabase, options.userQuery, {
+          countryId: options.countryId ?? null,
+          matchCount: 12,
+          rankTokens,
+        }).then((docs) => ({ docs, metadata: { retrieval_mode: "vector" as const } }))
     : null;
 
   const lexicalDocs = await lexicalPromise;
@@ -151,9 +167,12 @@ export async function orchestrateLegalLibrarySearch(
   passes.push("lexical_primary");
 
   let rawVectorHits: AiLegalLibrarySearchResult = [];
+  let retrievalMetadata: RetrievalPipelineMetadata | undefined;
   if (vectorPromise) {
     if (shouldAwaitVectorMerge(options.userQuery, lexicalDocs)) {
-      rawVectorHits = await vectorPromise;
+      const vectorResult = await vectorPromise;
+      rawVectorHits = vectorResult.docs;
+      retrievalMetadata = vectorResult.metadata;
     } else {
       void vectorPromise.catch(() => {});
     }
@@ -198,5 +217,5 @@ export async function orchestrateLegalLibrarySearch(
     }
   }
 
-  return { docs, passes };
+  return { docs, passes, retrievalMetadata };
 }

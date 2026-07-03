@@ -6,6 +6,11 @@ import {
   isAiEmbeddingsEnabled,
 } from "@/lib/embeddings/embedding-client";
 import { chunkLawContent } from "@/lib/embeddings/chunking";
+import {
+  chunkLawMarkdownStructured,
+  type StructuredChunkMeta,
+} from "@/lib/embeddings/structured-chunking";
+import { countryNameToIso2 } from "@/lib/retrieval/jurisdiction-codes";
 import { lawCountryDisplayName } from "@/lib/law-source-display";
 import { lawReadableBodyText } from "@/lib/law-readable-body";
 import { pickContentExcerpt } from "@/lib/ai-law-excerpt";
@@ -22,19 +27,58 @@ type VectorMatchRow = {
   law_title: string;
 };
 
-/** Chunk readable law body for embedding storage. */
+/** Chunk readable law body for embedding storage (structure-aware when Markdown headings present). */
 export function chunkLawForEmbedding(law: {
   title?: string | null;
   content?: string | null;
   content_plain?: string | null;
-}): Array<{ index: number; text: string }> {
+  country?: string | null;
+  category?: string | null;
+  language?: string | null;
+}): Array<{
+  index: number;
+  text: string;
+  breadcrumb?: string;
+  jurisdiction?: string;
+  domain?: string;
+  article_ref?: string;
+  language?: string;
+}> {
   const body = lawReadableBodyText(law);
   if (!body) return [];
   const title = String(law.title ?? "").trim();
+  const country = String(law.country ?? "").trim();
+  const jurisdiction = countryNameToIso2(country) ?? undefined;
+  const domain = String(law.category ?? "").trim() || undefined;
+  const language = String(law.language ?? "").trim() || undefined;
+
+  const hasStructure = /^#{1,6}\s+/m.test(body) || /^(?:Article|Art\.?|Chapter|Chapitre)\s+/im.test(body);
+  if (hasStructure && country && title) {
+    const meta: StructuredChunkMeta = {
+      country,
+      lawTitle: title,
+      domain,
+      language,
+      jurisdiction,
+    };
+    return chunkLawMarkdownStructured(body, meta).map((c) => ({
+      index: c.index,
+      text: c.text,
+      breadcrumb: c.breadcrumb,
+      jurisdiction,
+      domain,
+      article_ref: c.articleRef,
+      language,
+    }));
+  }
+
   const chunks = chunkLawContent(body, { maxChunkChars: 900, overlapChars: 100 });
   return chunks.map((c) => ({
     index: c.index,
     text: title ? `${title}\n\n${c.text}` : c.text,
+    jurisdiction,
+    domain,
+    language,
   }));
 }
 

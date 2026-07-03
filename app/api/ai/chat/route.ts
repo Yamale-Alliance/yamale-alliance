@@ -151,6 +151,7 @@ import {
 } from "@/lib/law-language-preference";
 import { englishLibraryTokensFromFrenchQuery } from "@/lib/ai-query-language-parity";
 import { orchestrateLegalLibrarySearch } from "@/lib/ai-rag-orchestrator";
+import type { RetrievalPipelineMetadata } from "@/lib/retrieval/pipeline";
 import {
   AI_CHAT_SSE_HEADERS,
   encodeSseEvent,
@@ -3127,6 +3128,7 @@ async function finalizeAssistantTurn(opts: {
   inputTokens: number;
   outputTokens: number;
   webSearchNote: string | null;
+  retrievalMetadata?: RetrievalPipelineMetadata;
 }) {
   const {
     assistantTextRaw,
@@ -3150,6 +3152,7 @@ async function finalizeAssistantTurn(opts: {
     inputTokens,
     outputTokens,
     webSearchNote,
+    retrievalMetadata,
   } = opts;
 
   if (usedPayAsYouGo && limit === 0) {
@@ -3303,6 +3306,9 @@ async function finalizeAssistantTurn(opts: {
     output_tokens: outputTokens,
     estimated_cost_usd: estimatedCostUsd,
     model_used: modelId,
+    retrieval_metadata: retrievalMetadata
+      ? (JSON.parse(JSON.stringify(retrievalMetadata)) as Record<string, unknown>)
+      : null,
   });
 
   if (!platformGuideMeta) {
@@ -3743,6 +3749,7 @@ export async function POST(request: NextRequest) {
 
     const searchCountry = effectiveHints.country ?? dbDetectedCountry;
     const supabaseForTurn = getSupabaseServer() as any;
+    let retrievalMetadata: RetrievalPipelineMetadata | undefined;
     const modelIdPromise = resolveModelIdForRequest(tier, requestedModel);
     const specificLawHintForTurn = extractSpecificLawHint(userQuery);
     const needsTitleCatalog =
@@ -3764,7 +3771,7 @@ export async function POST(request: NextRequest) {
               const vectorCountryId = searchCountry
                 ? await resolveCountryIdCached(searchCountry)
                 : null;
-              const { docs, passes } = await orchestrateLegalLibrarySearch({
+              const { docs, passes, retrievalMetadata: rm } = await orchestrateLegalLibrarySearch({
                 userQuery,
                 searchCountry,
                 countryId: vectorCountryId,
@@ -3773,6 +3780,7 @@ export async function POST(request: NextRequest) {
                 lexicalSearch: (q, c) => searchLegalLibrary(q, c, detailedMode, perf),
                 quickFallback: (q, c) => searchLegalLibraryQuickFallback(q, c),
               });
+              retrievalMetadata = rm;
               perfStep(perf, "rag_orchestrator", { passes: passes.join("+"), docs: docs.length });
               return docs;
             })();
@@ -4168,6 +4176,7 @@ export async function POST(request: NextRequest) {
       usedPayAsYouGo,
       limit,
       webSearchNote,
+      retrievalMetadata,
     };
 
     const sseStream = new ReadableStream<Uint8Array>({
