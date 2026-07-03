@@ -1,5 +1,9 @@
 import type { AiResponseGapKind } from "@/lib/ai-response-gap-detect";
-import { detectAiResponseQualityGap } from "@/lib/ai-response-gap-detect";
+import {
+  detectAiResponseQualityGap,
+  lawTitleMentionedIn,
+  titlesFuzzyMatch,
+} from "@/lib/ai-response-gap-detect";
 
 export type AiResearchContentGap = {
   kind: AiResponseGapKind;
@@ -72,16 +76,29 @@ export function buildAiResearchContentGap(params: {
   }
 }
 
-/** Peripheral "not in excerpt" notes should not override a grounded library answer. */
-function shouldSuppressExcerptInsufficientBanner(params: {
+/** Peripheral gap notes should not override a grounded library answer. */
+function shouldSuppressGroundedGapBanner(params: {
   kind: AiResponseGapKind;
   retrievedLawCount: number;
   displayedSourceCardCount: number;
   lawsUsedInAnswerCount: number;
   assistantText: string;
+  userQuery: string;
+  displayedSourceTitles: string[];
 }): boolean {
-  if (params.kind !== "excerpt_insufficient") return false;
   if (params.lawsUsedInAnswerCount > 0 && params.displayedSourceCardCount > 0) return true;
+
+  if (
+    params.displayedSourceTitles.some(
+      (title) =>
+        titlesFuzzyMatch(params.userQuery, title) ||
+        lawTitleMentionedIn(params.assistantText, title)
+    )
+  ) {
+    return true;
+  }
+
+  if (params.kind !== "excerpt_insufficient") return false;
   const len = params.assistantText.trim().length;
   return params.retrievedLawCount > 0 && len >= 500;
 }
@@ -93,21 +110,25 @@ export function resolveAiResearchContentGap(params: {
   retrievedLawCount: number;
   displayedSourceCardCount: number;
   lawsUsedInAnswerCount?: number;
+  displayedSourceTitles?: string[];
 }): AiResearchContentGap | null {
   const lawsUsedInAnswerCount = params.lawsUsedInAnswerCount ?? 0;
+  const displayedSourceTitles = params.displayedSourceTitles ?? [];
   const detection = detectAiResponseQualityGap(params.assistantText, {
     userQuery: params.userQuery,
   });
 
   if (detection.hasGap && detection.kind) {
-    const suppressExcerptBanner = shouldSuppressExcerptInsufficientBanner({
+    const suppressGapBanner = shouldSuppressGroundedGapBanner({
       kind: detection.kind,
       retrievedLawCount: params.retrievedLawCount,
       displayedSourceCardCount: params.displayedSourceCardCount,
       lawsUsedInAnswerCount,
       assistantText: params.assistantText,
+      userQuery: params.userQuery,
+      displayedSourceTitles,
     });
-    if (!suppressExcerptBanner) {
+    if (!suppressGapBanner) {
       return buildAiResearchContentGap({
         kind: detection.kind,
         effectiveCountry: params.effectiveCountry,
