@@ -20,6 +20,26 @@ export function isNationalTrademarksActTitle(title: string): boolean {
   return /\btrademarks?\s+act\b/i.test(title) || /\btrade\s+marks?\s+act\b/i.test(title);
 }
 
+/** Title phrases for ilike when users say "trademark act" but corpus uses "Trade Marks Act". */
+export function trademarkActTitleSearchPhrases(): string[] {
+  return ["trade marks act", "trademarks act", "trade mark act", "trademark act"];
+}
+
+export function hintLooksLikeTrademarksAct(hint: string): boolean {
+  const h = hint.toLowerCase();
+  return /\btrademarks?\s+act\b/i.test(h) || /\btrade\s+marks?\s+act\b/i.test(h);
+}
+
+/** International IP treaties — demote when user asks for a national Trademarks / Patents Act. */
+export function isInternationalIpTreatyTitle(title: string): boolean {
+  const t = title.toLowerCase();
+  return (
+    /\b(paris\s+convention|berne\s+convention|trips|wipo\s+convention|madrid\s+protocol|pct|patent\s+cooperation|harare\s+protocol|bangui\s+agreement|oapi|aripo)\b/i.test(
+      t
+    ) || (/\b(convention|protocol|treaty)\b/i.test(t) && /\b(intellectual|industrial|property|mark|patent|copyright)\b/i.test(t))
+  );
+}
+
 export function isNationalIndustrialPropertyActTitle(title: string): boolean {
   const t = title.toLowerCase();
   if (/\b(industrial\s+property|intellectual\s+property)\b/i.test(t) && /\bact\b/i.test(t)) {
@@ -39,6 +59,7 @@ export function isDomesticIpActTitle(title: string): boolean {
 export function isTrademarkInstrumentTitle(title: string): boolean {
   const t = title.toLowerCase();
   if (/\btrademarks?\b/.test(t)) return true;
+  if (/\btrade\s+marks?\b/.test(t)) return true;
   if (/\bmadrid\b/.test(t) && /\b(mark|protocol|agreement|registration)\b/.test(t)) return true;
   if (isNationalIndustrialPropertyActTitle(title)) return true;
   return false;
