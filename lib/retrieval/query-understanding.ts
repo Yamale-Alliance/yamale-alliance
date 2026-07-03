@@ -6,6 +6,8 @@ const QueryUnderstandingSchema = z.object({
   legal_domain: z.string().nullable().optional(),
   corpus_language: z.string().nullable().optional(),
   rewritten_query: z.string().min(1),
+  references_specific_law: z.boolean().default(false),
+  law_name_mentioned: z.string().nullable().optional(),
 });
 
 export type QueryUnderstanding = z.infer<typeof QueryUnderstandingSchema> & {
@@ -79,12 +81,16 @@ Respond with ONLY valid JSON (no markdown prose) matching this schema:
   "jurisdictions": ["ISO2 uppercase codes or OHADA or unknown"],
   "legal_domain": "short domain label or null",
   "corpus_language": "en|fr|pt|ar|unknown",
-  "rewritten_query": "formal legal register query in corpus_language"
+  "rewritten_query": "formal legal register query in corpus_language",
+  "references_specific_law": true|false,
+  "law_name_mentioned": "normalized statute name or null"
 }
 Rules:
 - jurisdictions: ISO 3166-1 alpha-2 UPPERCASE for African countries; use ["unknown"] if unclear.
 - If the user names an OHADA member state, include that ISO code (OHADA instruments are added separately).
-- rewritten_query must stay in the corpus language of the primary jurisdiction.`;
+- rewritten_query must stay in the corpus language of the primary jurisdiction.
+- references_specific_law: true when the user names or clearly points at one statute/instrument (e.g. "Trade Marks Act", "Companies Act 2019", "Code du travail").
+- law_name_mentioned: the canonical statute title phrase only (e.g. "Trade Marks Act", "Companies Act") — null if generic topic question.`;
 
   const user = hint
     ? `Country hint: ${hint}\n\nUser question:\n${userQuery}`
