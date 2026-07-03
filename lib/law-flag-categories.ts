@@ -11,6 +11,7 @@ export const LAW_FLAG_CATEGORIES = [
   { id: "ai_excerpt_gap", label: "AI: rule not in attached text (instrument retrieved)" },
   { id: "ai_corpus_missing", label: "AI: instrument reported missing from library" },
   { id: "ai_retrieval_miss", label: "AI: no documents retrieved for question" },
+  { id: "ai_version_metadata", label: "AI: indexed year may not match requested revision" },
   { id: "other", label: "Other" },
 ] as const;
 
@@ -19,6 +20,7 @@ export const AI_AUTO_LAW_FLAG_CATEGORY_IDS = [
   "ai_excerpt_gap",
   "ai_corpus_missing",
   "ai_retrieval_miss",
+  "ai_version_metadata",
 ] as const;
 
 export type LawFlagCategoryId = (typeof LAW_FLAG_CATEGORIES)[number]["id"];
