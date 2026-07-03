@@ -212,18 +212,32 @@ export function detectVersionMetadataFlags(
   for (const law of laws) {
     if (!isLawPresentedAsInLibrary(law, assistantText)) continue;
     const lawYear = extractYearFromTitle(law.title);
-    if (lawYear == null) continue;
 
     for (const missing of missingNames) {
-      const missingYear = extractYearFromTitle(missing);
-      if (missingYear == null) continue;
-      if (missingYear === lawYear) continue;
       if (!titlesFuzzyMatch(missing, law.title)) continue;
-      if (!seen.has(law.id)) {
-        seen.add(law.id);
-        out.push(law);
+
+      const missingYear = extractYearFromTitle(missing);
+      if (missingYear != null && lawYear != null && missingYear !== lawYear) {
+        if (!seen.has(law.id)) {
+          seen.add(law.id);
+          out.push(law);
+        }
+        break;
       }
-      break;
+
+      // Same family, different naming (e.g. "Patents Act" missing vs "Industrial Property Act" indexed)
+      if (
+        missingYear == null &&
+        lawYear != null &&
+        /\b(patents?\s+act|trademarks?\s+act|trade\s+marks?\s+act)\b/i.test(missing) &&
+        /\b(industrial|intellectual)\s+property\b/i.test(law.title)
+      ) {
+        if (!seen.has(law.id)) {
+          seen.add(law.id);
+          out.push(law);
+        }
+        break;
+      }
     }
   }
 
