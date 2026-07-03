@@ -43,3 +43,16 @@ export function isTrademarkInstrumentTitle(title: string): boolean {
   if (isNationalIndustrialPropertyActTitle(title)) return true;
   return false;
 }
+
+/** Query tokens to add when the user names a Patents / Trademarks Act but the corpus uses Industrial Property Act. */
+export function expandDomesticIpQueryTerms(query: string): string[] {
+  if (!isDomesticIpStatuteQuery(query)) return [];
+  return [
+    "industrial property act",
+    "industrial property",
+    "intellectual property act",
+    "patents act",
+    "trademarks act",
+    "trade marks act",
+  ];
+}
