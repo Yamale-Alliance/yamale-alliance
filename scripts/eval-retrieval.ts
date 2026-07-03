@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Retrieval eval harness — recall@5, recall@10, MRR per mode / language / jurisdiction.
+ * Title-resolution rows (`eval_kind: title_resolution`) also report law-resolver hit rate.
  *
  * Usage:
  *   node --env-file=.env --import tsx scripts/eval-retrieval.ts
@@ -20,11 +21,19 @@ type GoldenRow = {
   expected_article_ref?: string;
   jurisdiction: string;
   language: string;
+  eval_kind?: "title_resolution" | "substantive";
 };
 
 type EvalHit = {
   lawId: string;
   rank: number;
+};
+
+type ResolverStats = {
+  count: number;
+  resolver_top_hit: number;
+  scoped_law_match: number;
+  absence_guard_fired: number;
 };
 
 function parseArgs(argv: string[]) {
@@ -71,6 +80,10 @@ function emptyBucket(): BucketStats {
   return { count: 0, recall5: 0, recall10: 0, mrr: 0 };
 }
 
+function emptyResolverStats(): ResolverStats {
+  return { count: 0, resolver_top_hit: 0, scoped_law_match: 0, absence_guard_fired: 0 };
+}
+
 function addToBucket(bucket: BucketStats, r5: number, r10: number, mrr: number) {
   bucket.count += 1;
   bucket.recall5 += r5;
@@ -112,6 +125,8 @@ async function main() {
     const overall = emptyBucket();
     const byLanguage = new Map<string, BucketStats>();
     const byJurisdiction = new Map<string, BucketStats>();
+    const titleResolution = emptyResolverStats();
+    const titleResolutionRecall = emptyBucket();
 
     for (const row of golden) {
       if (row.expected_law_id.startsWith("REPLACE_")) {
@@ -119,7 +134,7 @@ async function main() {
         continue;
       }
 
-      const { docs } = await runChunkRetrievalPipeline({
+      const { docs, metadata } = await runChunkRetrievalPipeline({
         supabase: supabase as unknown as Parameters<typeof runChunkRetrievalPipeline>[0]["supabase"],
         userQuery: row.query,
         searchCountry: row.jurisdiction.length === 2 ? undefined : row.jurisdiction,
@@ -142,6 +157,22 @@ async function main() {
       const jurBucket = byJurisdiction.get(row.jurisdiction) ?? emptyBucket();
       addToBucket(jurBucket, r5, r10, mrr);
       byJurisdiction.set(row.jurisdiction, jurBucket);
+
+      if (row.eval_kind === "title_resolution") {
+        titleResolution.count += 1;
+        addToBucket(titleResolutionRecall, r5, r10, mrr);
+
+        const resolverTopId = metadata.law_resolver?.top_hit?.law_id;
+        if (resolverTopId === row.expected_law_id) {
+          titleResolution.resolver_top_hit += 1;
+        }
+        if (metadata.scoped_law_id === row.expected_law_id) {
+          titleResolution.scoped_law_match += 1;
+        }
+        if (metadata.absence_guard_fired) {
+          titleResolution.absence_guard_fired += 1;
+        }
+      }
     }
 
     sections.push(`## Mode: \`${mode}\`\n`);
@@ -158,6 +189,22 @@ async function main() {
       ])
     );
     sections.push("");
+
+    if (titleResolution.count > 0) {
+      sections.push("### Title resolution (`eval_kind: title_resolution`)\n");
+      sections.push(
+        markdownTable([
+          ["Metric", "N", "Rate"],
+          ["Resolver top-hit = expected law", String(titleResolution.count), fmtRate(titleResolution.resolver_top_hit, titleResolution.count)],
+          ["Scoped law_id = expected law", String(titleResolution.count), fmtRate(titleResolution.scoped_law_match, titleResolution.count)],
+          ["Absence guard fired", String(titleResolution.count), fmtRate(titleResolution.absence_guard_fired, titleResolution.count)],
+          ["Recall@5 (chunk pipeline)", String(titleResolutionRecall.count), fmtRate(titleResolutionRecall.recall5, titleResolutionRecall.count)],
+          ["Recall@10 (chunk pipeline)", String(titleResolutionRecall.count), fmtRate(titleResolutionRecall.recall10, titleResolutionRecall.count)],
+          ["MRR (chunk pipeline)", String(titleResolutionRecall.count), fmtMrr(titleResolutionRecall.mrr, titleResolutionRecall.count)],
+        ])
+      );
+      sections.push("");
+    }
 
     const langRows: string[][] = [["Language", "N", "Recall@5", "Recall@10", "MRR"]];
     for (const [lang, b] of [...byLanguage.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
