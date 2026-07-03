@@ -121,7 +121,8 @@ export function buildIntentTitleSearchTerms(
         "intellectual property act",
         "industrial property",
         "patents act",
-        "trademarks act"
+        "trademarks act",
+        "trade marks act"
       );
     }
   }
@@ -221,6 +222,9 @@ const SLOT_DIRECT_TITLE_ILIKE: Record<string, string[]> = {
     "%code du travail%",
   ],
   ip_national: [
+    "%trade marks act%",
+    "%trade mark act%",
+    "%trademarks act%",
     "%copyright%",
     "%copyright and performance%",
     "%copyright and neighbouring%",
@@ -228,7 +232,6 @@ const SLOT_DIRECT_TITLE_ILIKE: Record<string, string[]> = {
     "%industrial property act%",
     "%industrial property%",
     "%patents act%",
-    "%trademarks act%",
   ],
 };
 
@@ -359,6 +362,8 @@ const SLOT_TITLE_SEARCH_TERMS: Record<string, string[]> = {
     "copyright and performance",
     "copyright and neighbouring",
     "trademark",
+    "trade marks act",
+    "trademarks act",
     "trade mark",
     "intellectual property",
     "industrial property act",
@@ -456,9 +461,9 @@ const INTENT_TOPIC_SLOTS: Record<string, TopicSlot[]> = {
     {
       label: "ip_national",
       titleTest: (t) =>
-        /\b(copyright|trademark|trade\s*mark|patent|intellectual\s+property|industrial\s+property|performers?\s+rights|neighbou?ring\s+rights)\b/i.test(
+        /\b(copyright|trademarks?|trade\s+marks?|patent|intellectual\s+property|industrial\s+property|performers?\s+rights|neighbou?ring\s+rights)\b/i.test(
           t
-        ) && !/\b(berne|paris\s+convention|trips|wipo|oapi|bangui|aripo)\b/i.test(t) &&
+        ) && !/\b(berne|paris\s+convention|trips|wipo|oapi|bangui|aripo|madrid\s+protocol)\b/i.test(t) &&
         !/\bregulations?\b/i.test(t),
     },
     { label: "ip_treaty", titleTest: (t) => /\b(berne|paris\s+convention|trips|oapi|bangui|wipo)\b/i.test(t) },
