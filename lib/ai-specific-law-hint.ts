@@ -5,6 +5,10 @@ import { escapeIlikePattern } from "@/lib/law-country-scope";
 import { applyCountryScopedTitleSearch } from "@/lib/law-country-scope-query";
 import { applyLawRagApprovalFilter } from "@/lib/law-rag-approval";
 import { LAW_HAS_BODY_OR_FILTER } from "@/lib/law-readable-body";
+import {
+  hintLooksLikeTrademarksAct,
+  trademarkActTitleSearchPhrases,
+} from "@/lib/ai-ip-act-aliases";
 import { excludeInternalCategoryFromLawsQuery } from "@/lib/internal-library-categories";
 
 const FORMAL_CITATION_PATTERN =
@@ -93,6 +97,7 @@ export function extractSpecificLawHint(query: string): string | null {
     /more information on this\s+(.+)/i,
     /more info on\s+(.+)/i,
     /more information on\s+(.+)/i,
+    /tell me about\s+(.+)/i,
     /tell me more about\s+(.+)/i,
     /give me more info on\s+(.+)/i,
   ];
@@ -101,6 +106,7 @@ export function extractSpecificLawHint(query: string): string | null {
     if (m?.[1]?.trim()) {
       let v = m[1].trim();
       v = v.replace(/\s+from\s+[a-z\s'-]+$/i, "").trim();
+      v = v.replace(/\s+in\s+[a-z\s'-]+$/i, "").trim();
       if (looksLikeNamedLawTitle(v)) return v;
       return null;
     }
@@ -175,8 +181,11 @@ export function scoreLawAgainstSpecificHint(
     if (title.includes(englishToken.toLowerCase())) score += 18;
   }
   if (opts?.isNationalTrademarksActTitle) {
-    if (/\btrademarks?\s+act\b|\btrade\s+marks?\s+act\b/.test(hintNorm) && opts.isNationalTrademarksActTitle(title)) {
-      score += 90;
+    if (hintLooksLikeTrademarksAct(hintNorm) && opts.isNationalTrademarksActTitle(title)) {
+      score += 120;
+    }
+    if (hintLooksLikeTrademarksAct(hintNorm) && /\btrade\s+marks?\b/i.test(title)) {
+      score += 40;
     }
   }
   const cap = hintNorm.match(/\bcap\.?\s*(\d+)\b/i);
@@ -234,6 +243,20 @@ export async function fetchLawsMatchingSpecificHint(
   const { countryId, countryScopeOr, internalCategoryId, lawsSelect } = opts;
   const scopedOr = countryScopeOr ?? null;
   const rows: any[] = [];
+
+  if (hintLooksLikeTrademarksAct(hint)) {
+    for (const phrase of trademarkActTitleSearchPhrases()) {
+      let tmQuery = baseLawsQuery(supabase, lawsSelect, internalCategoryId).ilike(
+        "title",
+        `%${escapeIlikePattern(phrase)}%`
+      );
+      if (countryId) {
+        tmQuery = applyCountryScopedTitleSearch(tmQuery, countryId, scopedOr, [phrase]);
+      }
+      const { data } = await tmQuery.limit(8);
+      if (data?.length) rows.push(...(data as any[]));
+    }
+  }
 
   const slashCite = extractSlashCitationFromHint(hint);
   if (slashCite) {
