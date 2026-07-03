@@ -227,6 +227,12 @@ import {
 } from "@/lib/ai-specific-law-hint";
 import { recordAutoAiQualityFlags } from "@/lib/ai-auto-quality-flag";
 import {
+  isDomesticIpActTitle,
+  isDomesticIpStatuteQuery,
+  isNationalTrademarksActTitle,
+  isTrademarkInstrumentTitle,
+} from "@/lib/ai-ip-act-aliases";
+import {
   buildLawyersHrefFromAiResearch,
   resolveAiResearchContentGap,
   type AiResearchContentGap,
@@ -1135,17 +1141,6 @@ function isTrademarkRegistrationHowToQuery(query: string): boolean {
   );
 }
 
-function isTrademarkInstrumentTitle(title: string): boolean {
-  const t = title.toLowerCase();
-  if (/\btrademarks?\b/.test(t)) return true;
-  if (/\bmadrid\b/.test(t) && /\b(mark|protocol|agreement|registration)\b/.test(t)) return true;
-  return false;
-}
-
-function isNationalTrademarksActTitle(title: string): boolean {
-  return /\btrademarks?\s+act\b/i.test(title) || /\btrade\s+marks?\s+act\b/i.test(title);
-}
-
 async function listTrademarkLawTitlesByCountry(
   country: string
 ): Promise<Array<{ title: string; year?: number | null }>> {
@@ -1166,10 +1161,12 @@ async function listTrademarkLawTitlesByCountry(
       .select("title, year")
       .eq("country_id", countryId)
       .neq("status", "Repealed")
-      .or("title.ilike.%trademark%,title.ilike.%trademarks%,title.ilike.%madrid%")
+      .or(
+        "title.ilike.%trademark%,title.ilike.%trademarks%,title.ilike.%madrid%,title.ilike.%industrial property%,title.ilike.%intellectual property act%"
+      )
   )
     .order("title")
-    .limit(20);
+    .limit(24);
   const rows = (data ?? []) as Array<{ title: string; year?: number | null }>;
   return rows.filter((r) => isTrademarkInstrumentTitle(String(r.title ?? "")));
 }
@@ -2211,14 +2208,16 @@ async function searchLegalLibrary(
       "telecommunications",
     ] as const;
     const trademarkRegistrationHowTo = isTrademarkRegistrationHowToQuery(query);
+    const domesticIpStatuteQuery = isDomesticIpStatuteQuery(query);
     const ohadaCommercialCompaniesQuery = isOhadaCommercialCompaniesQuery(query);
     const corporateShareholderQuery = isCorporateShareholderQuery(query);
-    let resolvedIntentForMandatory = trademarkRegistrationHowTo
-      ? {
-          ...resolvedIntent,
-          matchedIds: Array.from(new Set([...resolvedIntent.matchedIds, "intellectual_property"])),
-        }
-      : resolvedIntent;
+    let resolvedIntentForMandatory =
+      trademarkRegistrationHowTo || domesticIpStatuteQuery
+        ? {
+            ...resolvedIntent,
+            matchedIds: Array.from(new Set([...resolvedIntent.matchedIds, "intellectual_property"])),
+          }
+        : resolvedIntent;
     if (
       corporateShareholderQuery &&
       !resolvedIntentForMandatory.matchedIds.includes("corporate_shareholder")
@@ -2620,15 +2619,15 @@ async function searchLegalLibrary(
         resolvedIntentForMandatory,
         mandatorySlotRows
       );
-      if (trademarkRegistrationHowTo) {
+      if (trademarkRegistrationHowTo || domesticIpStatuteQuery) {
         const national = picked.filter((law) =>
-          isNationalTrademarksActTitle(String((law as any).title ?? ""))
+          isDomesticIpActTitle(String((law as any).title ?? ""))
         );
         if (national.length > 0) {
           const rest = picked.filter(
-            (law) => !isNationalTrademarksActTitle(String((law as any).title ?? ""))
+            (law) => !isDomesticIpActTitle(String((law as any).title ?? ""))
           );
-          picked = [...national, ...rest].slice(0, 5);
+          picked = [...national, ...rest].slice(0, baseResponseSize);
         }
       }
       if (ohadaCommercialCompaniesQuery) {
@@ -2695,8 +2694,8 @@ async function searchLegalLibrary(
     }
 
     const trademarkRegistrationFocused =
-      trademarkRegistrationHowTo &&
-      lawsForResponse.some((law) => isNationalTrademarksActTitle(String((law as any).title ?? "")));
+      (trademarkRegistrationHowTo || domesticIpStatuteQuery) &&
+      lawsForResponse.some((law) => isDomesticIpActTitle(String((law as any).title ?? "")));
 
     const preferMoreDocuments =
       countryCatalogRequest ||
