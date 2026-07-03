@@ -29,6 +29,8 @@ export async function hybridSearchChunks(
     matchCount?: number;
     jurisdictionFilters?: string[] | null;
     domain?: string | null;
+    filterLawId?: string | null;
+    queryLanguage?: string | null;
   }
 ): Promise<HybridChunkHit[]> {
   if (!isAiEmbeddingsEnabled()) return [];
@@ -52,6 +54,8 @@ export async function hybridSearchChunks(
     filter_jurisdictions: options?.jurisdictionFilters ?? null,
     filter_domain: options?.domain ?? null,
     filter_model: model,
+    filter_law_id: options?.filterLawId ?? null,
+    query_language: options?.queryLanguage ?? null,
   });
 
   if (error) {
