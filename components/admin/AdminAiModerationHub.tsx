@@ -3,16 +3,26 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Bug, MessageSquareWarning, Scale } from "lucide-react";
+import { Bug, BookMarked, MessageSquareWarning, Scale, SearchX } from "lucide-react";
 import { AiBugsPanel } from "@/components/admin/ai-moderation/AiBugsPanel";
 import { AiCorpusGapsPanel } from "@/components/admin/ai-moderation/AiCorpusGapsPanel";
 import { AiFlaggedFeedbackPanel } from "@/components/admin/ai-moderation/AiFlaggedFeedbackPanel";
+import { LegalSynonymsPanel } from "@/components/admin/ai-moderation/LegalSynonymsPanel";
+import { RetrievalNotFoundPanel } from "@/components/admin/ai-moderation/RetrievalNotFoundPanel";
 
-const TAB_VALUES = ["bugs", "corpus-gaps", "feedback"] as const;
+const TAB_VALUES = ["bugs", "corpus-gaps", "feedback", "synonyms", "not-found"] as const;
 export type AiQualityTab = (typeof TAB_VALUES)[number];
 
 function normalizeTab(raw: string | null): AiQualityTab {
-  if (raw === "feedback" || raw === "bugs" || raw === "corpus-gaps") return raw;
+  if (
+    raw === "feedback" ||
+    raw === "bugs" ||
+    raw === "corpus-gaps" ||
+    raw === "synonyms" ||
+    raw === "not-found"
+  ) {
+    return raw;
+  }
   return "bugs";
 }
 
@@ -60,6 +70,20 @@ export function AdminAiModerationHub() {
             <MessageSquareWarning className="h-4 w-4" />
             {t("tabs.feedback")}
           </Tabs.Trigger>
+          <Tabs.Trigger
+            value="synonyms"
+            className="inline-flex min-h-[42px] flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-md data-[state=inactive]:hover:text-foreground sm:flex-none"
+          >
+            <BookMarked className="h-4 w-4" />
+            {t("tabs.synonyms")}
+          </Tabs.Trigger>
+          <Tabs.Trigger
+            value="not-found"
+            className="inline-flex min-h-[42px] flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-md data-[state=inactive]:hover:text-foreground sm:flex-none"
+          >
+            <SearchX className="h-4 w-4" />
+            {t("tabs.notFound")}
+          </Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="bugs" className="mt-8 outline-none">
           <AiBugsPanel />
@@ -69,6 +93,12 @@ export function AdminAiModerationHub() {
         </Tabs.Content>
         <Tabs.Content value="feedback" className="mt-8 outline-none">
           <AiFlaggedFeedbackPanel />
+        </Tabs.Content>
+        <Tabs.Content value="synonyms" className="mt-8 outline-none">
+          <LegalSynonymsPanel />
+        </Tabs.Content>
+        <Tabs.Content value="not-found" className="mt-8 outline-none">
+          <RetrievalNotFoundPanel />
         </Tabs.Content>
       </Tabs.Root>
     </div>
