@@ -11,6 +11,7 @@ import {
 import { canonicalCategoryForLibraryIntent } from "@/lib/ai-canonical-categories";
 import { escapeIlikePattern } from "@/lib/law-country-scope";
 import { crossLanguageRetrievalTokens } from "@/lib/ai-query-language-parity";
+import { lawSearchableText } from "@/lib/law-search-aliases";
 import {
   deaccentForSearch,
   normalizeQueryForLibrarySearch,
@@ -45,6 +46,7 @@ export type LawTextFields = {
   title?: string | null;
   content?: string | null;
   content_plain?: string | null;
+  metadata?: unknown;
   /** Yamalé `categories.name` when available on the row */
   categoryName?: string | null;
   categories?: { name?: string | null } | null;
@@ -222,7 +224,7 @@ function boostInvestmentDomestic(law: LawTextFields, tokens: string[]): number {
 
 function boostIntellectualProperty(law: LawTextFields, tokens: string[]): number {
   const title = String(law.title ?? "").toLowerCase();
-  const blob = `${title}\n${String(law.content_plain ?? law.content ?? "").toLowerCase()}`;
+  const blob = `${lawSearchableText(law)}\n${String(law.content_plain ?? law.content ?? "").toLowerCase()}`;
   let b = 0;
   const needles = [
     "intellectual property",
