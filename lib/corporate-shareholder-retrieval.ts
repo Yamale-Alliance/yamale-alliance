@@ -9,3 +9,15 @@ export function isCorporateShareholderQuery(query: string): boolean {
     /\b(capital|shareholder|souscription|subscription|pre[-\s]?emptive)\b/.test(q)
   );
 }
+
+/** Investment promotion agency acts — not companies legislation (shareholder rights). */
+export function isInvestmentPromotionAgencyTitle(title: string): boolean {
+  return /\b(investment\s+(and\s+)?export\s+promotion|export\s+promotion\s+agency|promotion\s+agency\s+act|investment\s+promotion\s+agency)\b/i.test(
+    title
+  );
+}
+
+/** Shareholder / pre-emptive rights queries should rank companies acts above investment agency statutes. */
+export function isCompaniesActTitle(title: string): boolean {
+  return /\bcompanies?\s+act\b|\bcompany\s+act\b/i.test(title);
+}
