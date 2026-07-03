@@ -234,10 +234,11 @@ import { recordAutoAiQualityFlags } from "@/lib/ai-auto-quality-flag";
 import {
   isDomesticIpActTitle,
   isDomesticIpStatuteQuery,
+  isInternationalIpTreatyTitle,
   isNationalTrademarksActTitle,
   isTrademarkInstrumentTitle,
 } from "@/lib/ai-ip-act-aliases";
-import { rankDomesticIpLawsForQuery } from "@/lib/domestic-ip-country-routing";
+import { isTrademarkFocusedIpQuery, rankDomesticIpLawsForQuery } from "@/lib/domestic-ip-country-routing";
 import { queryMatchesLawSearchAliases } from "@/lib/law-search-aliases";
 import {
   buildLawyersHrefFromAiResearch,
@@ -2636,6 +2637,25 @@ async function searchLegalLibrary(
       ) {
         picked = rankDomesticIpLawsForQuery(picked, query, searchCountry).slice(0, baseResponseSize);
       }
+      if (domesticIpStatuteQuery && isTrademarkFocusedIpQuery(query)) {
+        const nationalTm = picked.filter((law) =>
+          isNationalTrademarksActTitle(String((law as any).title ?? ""))
+        );
+        const domesticIp = picked.filter(
+          (law) =>
+            isDomesticIpActTitle(String((law as any).title ?? "")) &&
+            !isNationalTrademarksActTitle(String((law as any).title ?? ""))
+        );
+        const treaties = picked.filter((law) =>
+          isInternationalIpTreatyTitle(String((law as any).title ?? ""))
+        );
+        const rest = picked.filter(
+          (law) => !nationalTm.includes(law) && !domesticIp.includes(law) && !treaties.includes(law)
+        );
+        if (nationalTm.length > 0 || domesticIp.length > 0) {
+          picked = [...nationalTm, ...domesticIp, ...rest, ...treaties].slice(0, baseResponseSize);
+        }
+      }
       if (ohadaCommercialCompaniesQuery) {
         const ccFirst = picked.filter((law) => isLikelyOhadaCommercialCompaniesLaw(law as { title?: string; categories?: { name?: string } }));
         const ccRest = picked.filter((law) => !ccFirst.includes(law));
@@ -3339,6 +3359,7 @@ async function finalizeAssistantTurn(opts: {
         retrievedLawCount: legalContext.length,
         displayedSourceCardCount: displaySourceCards.length,
         lawsUsedInAnswerCount: displaySourceCards.filter((c) => c.usedInAnswer).length,
+        displayedSourceTitles: displaySourceCards.map((c) => c.title),
       });
 
   const networkEnabled = isLawyersNetworkLive();
