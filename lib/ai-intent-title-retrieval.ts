@@ -97,6 +97,7 @@ export function buildIntentTitleSearchTerms(
   if (resolvedIntent.matchedIds.includes("intellectual_property")) {
     terms.push(
       "intellectual property",
+      "industrial property act",
       "copyright",
       "trademark",
       "patent",
@@ -107,6 +108,18 @@ export function buildIntentTitleSearchTerms(
       "trips",
       "industrial property"
     );
+    if (
+      /\b(trademarks?\s+act|patents?\s+act|trade\s+marks?\s+act)\b/i.test(q) ||
+      (/\b(trademark|patent)\b/i.test(q) && /\bact\b/i.test(q))
+    ) {
+      terms.push(
+        "industrial property act",
+        "intellectual property act",
+        "industrial property",
+        "patents act",
+        "trademarks act"
+      );
+    }
   }
   if (resolvedIntent.matchedIds.includes("dispute_resolution")) {
     terms.push(
@@ -206,6 +219,8 @@ const SLOT_DIRECT_TITLE_ILIKE: Record<string, string[]> = {
     "%copyright and performance%",
     "%copyright and neighbouring%",
     "%intellectual property act%",
+    "%industrial property act%",
+    "%industrial property%",
     "%patents act%",
     "%trademarks act%",
   ],
@@ -338,7 +353,11 @@ const SLOT_TITLE_SEARCH_TERMS: Record<string, string[]> = {
     "trademark",
     "trade mark",
     "intellectual property",
+    "industrial property act",
+    "industrial property",
     "patent",
+    "patents act",
+    "trademarks act",
     "performers rights",
   ],
   ip_treaty: ["berne", "oapi", "bangui", "trips", "paris convention"],
