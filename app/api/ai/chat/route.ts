@@ -131,7 +131,11 @@ import {
   isOhadaCommercialCompaniesQuery,
   isOhadaInstrument,
 } from "@/lib/ohada-commercial-companies-retrieval";
-import { isCorporateShareholderQuery } from "@/lib/corporate-shareholder-retrieval";
+import {
+  isCompaniesActTitle,
+  isCorporateShareholderQuery,
+  isInvestmentPromotionAgencyTitle,
+} from "@/lib/corporate-shareholder-retrieval";
 import {
   OHADA_UNIFORM_ACT_CATALOG_MAX_DOCS,
   detectOhadaUniformActInventoryQuery,
@@ -232,6 +236,8 @@ import {
   isNationalTrademarksActTitle,
   isTrademarkInstrumentTitle,
 } from "@/lib/ai-ip-act-aliases";
+import { rankDomesticIpLawsForQuery } from "@/lib/domestic-ip-country-routing";
+import { queryMatchesLawSearchAliases } from "@/lib/law-search-aliases";
 import {
   buildLawyersHrefFromAiResearch,
   resolveAiResearchContentGap,
@@ -2272,6 +2278,7 @@ async function searchLegalLibrary(
         needIntentHydration
           ? fetchCountryIntentTitleCandidates(supabase, {
               countryId: countryId!,
+              countryName: searchCountry ?? null,
               countryScopeOr,
               query,
               resolvedIntent: resolvedIntentForMandatory,
@@ -2282,6 +2289,7 @@ async function searchLegalLibrary(
         needIntentHydration
           ? fetchMandatoryIntentSlotLaws(supabase, {
               countryId: countryId!,
+              countryName: searchCountry ?? null,
               countryScopeOr,
               query,
               resolvedIntent: resolvedIntentForMandatory,
@@ -2423,6 +2431,7 @@ async function searchLegalLibrary(
           if (/(proc[eé]dures?\s+collectives?|apurement\s+du\s+passif)/i.test(title)) bonus -= 140;
         }
         bonus += retrievalTuningBoost(law, query, searchCountry);
+      if (queryMatchesLawSearchAliases(query, law)) bonus += 88;
         const expectedCategory = canonicalCategoryForLibraryIntent(resolvedIntent.primaryId);
         if (expectedCategory && String(law.categories?.name ?? "") === expectedCategory) {
           bonus += 30;
@@ -2619,16 +2628,12 @@ async function searchLegalLibrary(
         resolvedIntentForMandatory,
         mandatorySlotRows
       );
-      if (trademarkRegistrationHowTo || domesticIpStatuteQuery) {
-        const national = picked.filter((law) =>
-          isDomesticIpActTitle(String((law as any).title ?? ""))
-        );
-        if (national.length > 0) {
-          const rest = picked.filter(
-            (law) => !isDomesticIpActTitle(String((law as any).title ?? ""))
-          );
-          picked = [...national, ...rest].slice(0, baseResponseSize);
-        }
+      if (
+        trademarkRegistrationHowTo ||
+        domesticIpStatuteQuery ||
+        resolvedIntentForMandatory.matchedIds.includes("intellectual_property")
+      ) {
+        picked = rankDomesticIpLawsForQuery(picked, query, searchCountry).slice(0, baseResponseSize);
       }
       if (ohadaCommercialCompaniesQuery) {
         const ccFirst = picked.filter((law) => isLikelyOhadaCommercialCompaniesLaw(law as { title?: string; categories?: { name?: string } }));
@@ -2644,6 +2649,23 @@ async function searchLegalLibrary(
         if (coreLabor.length > 0) {
           const rest = picked.filter((law) => !coreLabor.includes(law));
           picked = [...coreLabor, ...rest].slice(0, baseResponseSize);
+        }
+      }
+      if (corporateShareholderQuery) {
+        const companiesActs = picked.filter((law) =>
+          isCompaniesActTitle(String((law as any).title ?? ""))
+        );
+        const promoNoise = picked.filter((law) =>
+          isInvestmentPromotionAgencyTitle(String((law as any).title ?? ""))
+        );
+        if (companiesActs.length > 0) {
+          const rest = picked.filter(
+            (law) => !companiesActs.includes(law) && !promoNoise.includes(law)
+          );
+          picked = [...companiesActs, ...rest, ...promoNoise].slice(0, baseResponseSize);
+        } else if (promoNoise.length > 0) {
+          const rest = picked.filter((law) => !promoNoise.includes(law));
+          picked = [...rest, ...promoNoise].slice(0, baseResponseSize);
         }
       }
       if (shouldDemoteInvestmentTreatyNoise(resolvedIntent.primaryId, query)) {
@@ -2806,6 +2828,7 @@ async function searchLegalLibrary(
         bonus += 56;
       }
       bonus += retrievalTuningBoost(law, query, searchCountry);
+      if (queryMatchesLawSearchAliases(query, law)) bonus += 88;
       if (preferredDocumentLanguage) {
         bonus += lawDocumentLanguageScore(law, preferredDocumentLanguage);
       }
