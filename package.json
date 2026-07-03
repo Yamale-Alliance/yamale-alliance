@@ -17,6 +17,7 @@
     "embeddings:backfill": "node --env-file=.env scripts/backfill-law-embeddings.mjs",
     "embeddings:backfill-structured": "node --env-file=.env --import tsx scripts/backfill-structured-chunks.mjs",
     "embeddings:backfill-fts": "node --env-file=.env scripts/backfill-law-embeddings-fts.mjs",
+    "laws:backfill-normalized-title": "node --env-file=.env scripts/backfill-laws-normalized-title.mjs",
     "eval:retrieval": "node --env-file=.env --import tsx scripts/eval-retrieval.ts",
     "eval:golden": "node --env-file=.env scripts/run-ai-golden-batch.mjs",
     "eval:golden:dry-run": "node --env-file=.env scripts/run-ai-golden-batch.mjs --dry-run",
