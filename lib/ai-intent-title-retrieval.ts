@@ -5,6 +5,8 @@ import { LAW_HAS_BODY_OR_FILTER, filterLawsWithReadableBody } from "@/lib/law-re
 import type { ResolvedLibrarySearchIntent } from "@/lib/ai-library-search-intent";
 import { expandCommercialRegistrationTokens } from "@/lib/ai-library-search-intent";
 import { isCorporateShareholderQuery } from "@/lib/corporate-shareholder-retrieval";
+import { expandDomesticIpQueryTerms } from "@/lib/ai-ip-act-aliases";
+import { unifiedCountryIpSearchTerms } from "@/lib/domestic-ip-country-routing";
 import { isOhadaCommercialCompaniesQuery } from "@/lib/ohada-commercial-companies-retrieval";
 import { tokenWordsForPostgrestSearch } from "@/lib/postgrest-ilike-tokens";
 
@@ -13,6 +15,7 @@ const LAWS_AI_SELECT =
 
 type TitleFetchOpts = {
   countryId: string;
+  countryName?: string | null;
   countryScopeOr: string | null;
   query: string;
   resolvedIntent: ResolvedLibrarySearchIntent;
@@ -35,7 +38,8 @@ function dedupeTerms(terms: string[]): string[] {
 /** Title-search phrases for country-scoped hydration when body search under-fetches. */
 export function buildIntentTitleSearchTerms(
   query: string,
-  resolvedIntent: ResolvedLibrarySearchIntent
+  resolvedIntent: ResolvedLibrarySearchIntent,
+  countryName?: string | null
 ): string[] {
   const q = query.toLowerCase();
   const terms: string[] = [...resolvedIntent.supplementalTermsRaw];
@@ -193,8 +197,10 @@ export function buildIntentTitleSearchTerms(
     terms.push("arbitration", "dispute", "mediation", "new york convention");
   }
   if (/\b(ip|intellectual|copyright|trademark|patent|oapi)\b/.test(q)) {
-    terms.push("intellectual property", "copyright", "trademark", "oapi", "bangui");
+    terms.push("intellectual property", "industrial property", "copyright", "trademark", "oapi", "bangui");
   }
+  terms.push(...expandDomesticIpQueryTerms(query));
+  terms.push(...unifiedCountryIpSearchTerms(countryName));
   if (/\b(register|incorporat|business)\b/.test(q)) {
     terms.push("companies act", "commercial", "registration");
   }
@@ -291,7 +297,9 @@ export async function fetchCountryIntentTitleCandidates(
 
   const titleTerms = Array.from(
     new Set(
-      buildIntentTitleSearchTerms(query, resolvedIntent).flatMap((t) => tokenWordsForPostgrestSearch(t))
+      buildIntentTitleSearchTerms(query, resolvedIntent, opts.countryName).flatMap((t) =>
+        tokenWordsForPostgrestSearch(t)
+      )
     )
   ).slice(0, 8);
   if (titleTerms.length === 0) return [];
@@ -448,9 +456,10 @@ const INTENT_TOPIC_SLOTS: Record<string, TopicSlot[]> = {
     {
       label: "ip_national",
       titleTest: (t) =>
-        /\b(copyright|trademark|trade\s*mark|patent|intellectual\s+property|performers?\s+rights|neighbou?ring\s+rights)\b/i.test(
+        /\b(copyright|trademark|trade\s*mark|patent|intellectual\s+property|industrial\s+property|performers?\s+rights|neighbou?ring\s+rights)\b/i.test(
           t
-        ) && !/\b(berne|paris\s+convention|trips|wipo|oapi|bangui|aripo)\b/i.test(t),
+        ) && !/\b(berne|paris\s+convention|trips|wipo|oapi|bangui|aripo)\b/i.test(t) &&
+        !/\bregulations?\b/i.test(t),
     },
     { label: "ip_treaty", titleTest: (t) => /\b(berne|paris\s+convention|trips|oapi|bangui|wipo)\b/i.test(t) },
   ],
@@ -532,7 +541,9 @@ export async function fetchMandatoryIntentSlotLaws(
 
   const searchTerms = dedupeTerms([
     ...slots.flatMap((s) => SLOT_TITLE_SEARCH_TERMS[s.label] ?? []),
-    ...buildIntentTitleSearchTerms(query, resolvedIntent).flatMap((t) => tokenWordsForPostgrestSearch(t)),
+    ...buildIntentTitleSearchTerms(query, resolvedIntent, opts.countryName).flatMap((t) =>
+      tokenWordsForPostgrestSearch(t)
+    ),
   ]).slice(0, 10);
   if (searchTerms.length === 0) return [];
 
