@@ -91,11 +91,13 @@ const SEARCH_STOPWORDS = new Set([
 
 /** Related title/metadata terms when the user types a subject keyword (not bare "property", "law", etc.). */
 const TOPIC_MATCH_ALIASES: Record<string, string[]> = {
-  patent: ["patent", "patents", "trademark", "trademarks", "copyright", "oapi", "bangui", "trips", "wipo"],
-  patents: ["patent", "patents", "trademark", "trademarks", "copyright", "oapi", "bangui", "trips", "wipo"],
-  trademark: ["trademark", "trademarks", "patent", "copyright", "oapi", "bangui", "service"],
-  trademarks: ["trademark", "trademarks", "patent", "copyright", "oapi", "bangui", "service"],
-  copyright: ["copyright", "patent", "trademark", "berne", "trips", "wipo"],
+  patent: ["patent", "patents", "patents act", "industrial property", "intellectual property", "trademark", "trademarks", "copyright", "oapi", "bangui", "trips", "wipo"],
+  patents: ["patent", "patents", "patents act", "industrial property", "intellectual property", "trademark", "trademarks", "copyright", "oapi", "bangui", "trips", "wipo"],
+  trademark: ["trademark", "trademarks", "trademarks act", "trade mark", "industrial property", "patent", "copyright", "oapi", "bangui", "service"],
+  trademarks: ["trademark", "trademarks", "trademarks act", "trade mark", "industrial property", "patent", "copyright", "oapi", "bangui", "service"],
+  industrial: ["industrial property", "intellectual property", "patent", "trademark", "copyright"],
+  property: ["industrial property", "intellectual property", "patent", "trademark"],
+  copyright: ["copyright", "patent", "trademark", "industrial property", "berne", "trips", "wipo"],
   ip: ["patent", "trademark", "copyright", "oapi", "bangui", "trips", "wipo"],
   oapi: ["oapi", "bangui", "patent", "trademark", "copyright"],
   bangui: ["bangui", "oapi", "patent", "trademark", "copyright"],
