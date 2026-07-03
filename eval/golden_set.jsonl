@@ -18,3 +18,10 @@
 {"query":"Zambia Mines and Minerals Act royalty rates","expected_law_id":"REPLACE_WITH_LAW_UUID","expected_article_ref":"Section 42","jurisdiction":"ZM","language":"en"}
 {"query":"Algeria commercial code agency contract termination notice","expected_law_id":"REPLACE_WITH_LAW_UUID","expected_article_ref":"Article 712","jurisdiction":"DZ","language":"fr"}
 {"query":"Mauritius Financial Services Act licensing categories","expected_law_id":"REPLACE_WITH_LAW_UUID","expected_article_ref":"Section 14","jurisdiction":"MU","language":"en"}
+{"query":"trade marks act zambia","expected_law_id":"REPLACE_WITH_LAW_UUID","jurisdiction":"ZM","language":"en","eval_kind":"title_resolution"}
+{"query":"trademark law zambia","expected_law_id":"REPLACE_WITH_LAW_UUID","jurisdiction":"ZM","language":"en","eval_kind":"title_resolution"}
+{"query":"zambia trademrak act","expected_law_id":"REPLACE_WITH_LAW_UUID","jurisdiction":"ZM","language":"en","eval_kind":"title_resolution"}
+{"query":"companies act kenya","expected_law_id":"REPLACE_WITH_LAW_UUID","jurisdiction":"KE","language":"en","eval_kind":"title_resolution"}
+{"query":"company act kenya","expected_law_id":"REPLACE_WITH_LAW_UUID","jurisdiction":"KE","language":"en","eval_kind":"title_resolution"}
+{"query":"code du travail sénégal","expected_law_id":"REPLACE_WITH_LAW_UUID","jurisdiction":"SN","language":"fr","eval_kind":"title_resolution"}
+{"query":"labour code senegal","expected_law_id":"REPLACE_WITH_LAW_UUID","jurisdiction":"SN","language":"en","eval_kind":"title_resolution"}
