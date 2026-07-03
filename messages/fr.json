@@ -1169,7 +1169,9 @@
       "tabs": {
         "bugs": "Signalements de bugs",
         "corpusGaps": "Lacunes du corpus",
-        "feedback": "Retours signalés"
+        "feedback": "Retours signalés",
+        "synonyms": "Synonymes juridiques",
+        "notFound": "Introuvable (recherche)"
       },
       "bugs": {
         "title": "Signalements de bugs IA",
@@ -1214,6 +1216,28 @@
         "openBugTriage": "Ouvrir le tri des bugs",
         "messageLabel": "Message : {value}",
         "na": "n/d"
+      },
+      "synonyms": {
+        "title": "Synonymes de requête juridique",
+        "subtitle": "Élargit les requêtes FTS pour les variantes orthographiques, pluriels et termes multilingues.",
+        "termPlaceholder": "Terme",
+        "expansionPlaceholder": "Expansion",
+        "languagePlaceholder": "Langue",
+        "add": "Ajouter",
+        "loading": "Chargement…",
+        "empty": "Aucun synonyme configuré.",
+        "colTerm": "Terme",
+        "colExpansion": "Expansion",
+        "colLanguage": "Langue",
+        "delete": "Supprimer"
+      },
+      "notFound": {
+        "title": "Journal introuvable (recherche)",
+        "subtitle": "Requêtes où une faible confiance a déclenché le résolveur de titre avant la génération.",
+        "loading": "Chargement…",
+        "empty": "Aucun événement pour l'instant.",
+        "interpreted": "Nom de loi interprété",
+        "unknownJurisdiction": "Juridiction inconnue"
       }
     },
     "aiBugDetail": {
