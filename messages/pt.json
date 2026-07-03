@@ -1169,7 +1169,9 @@
       "tabs": {
         "bugs": "Relatórios de bugs",
         "corpusGaps": "Lacunas de corpus",
-        "feedback": "Feedback sinalizado"
+        "feedback": "Feedback sinalizado",
+        "synonyms": "Sinónimos jurídicos",
+        "notFound": "Não encontrado (recuperação)"
       },
       "bugs": {
         "title": "Relatórios de bugs IA",
@@ -1214,6 +1216,28 @@
         "openBugTriage": "Abrir triagem de bugs",
         "messageLabel": "Mensagem: {value}",
         "na": "n/d"
+      },
+      "synonyms": {
+        "title": "Sinónimos de consulta jurídica",
+        "subtitle": "Expande consultas FTS para variantes ortográficas, plurais e termos entre idiomas.",
+        "termPlaceholder": "Termo",
+        "expansionPlaceholder": "Expansão",
+        "languagePlaceholder": "Idioma",
+        "add": "Adicionar sinónimo",
+        "loading": "A carregar…",
+        "empty": "Nenhum sinónimo configurado.",
+        "colTerm": "Termo",
+        "colExpansion": "Expansão",
+        "colLanguage": "Idioma",
+        "delete": "Eliminar"
+      },
+      "notFound": {
+        "title": "Registo de não encontrado",
+        "subtitle": "Consultas em que a recuperação de baixa confiança acionou o resolvedor de títulos antes da geração.",
+        "loading": "A carregar…",
+        "empty": "Ainda sem eventos de não encontrado.",
+        "interpreted": "Nome da lei interpretado",
+        "unknownJurisdiction": "Jurisdição desconhecida"
       }
     },
     "aiBugDetail": {
