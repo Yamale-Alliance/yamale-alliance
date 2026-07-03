@@ -1,10 +1,12 @@
 import {
   aiBugCategoryForGap,
   detectAiResponseQualityGap,
+  detectVersionMetadataFlags,
   extractRequestedInstrumentHint,
   lawFlagCategoryForGap,
   lawsToFlagForGap,
   type AiResponseGapKind,
+  type LawFlagCategoryForGap,
 } from "@/lib/ai-response-gap-detect";
 import { lawFlagCategoryLabel } from "@/lib/law-flag-categories";
 
@@ -50,7 +52,15 @@ export async function recordAutoAiQualityFlags(params: RecordAutoAiQualityFlagsP
   const gapKind = detection.kind;
   const laws = params.legalContext.filter((l) => l.id?.trim());
   const hadRetrievedLaws = laws.length > 0;
-  const lawsToFlag = lawsToFlagForGap(params.assistantText, laws, params.userQuery, gapKind);
+  const gapLawFlags = lawsToFlagForGap(params.assistantText, laws, params.userQuery, gapKind);
+  const versionLawFlags = detectVersionMetadataFlags(params.assistantText, laws);
+  const gapFlagIds = new Set(gapLawFlags.map((l) => l.id));
+  const lawsToFlag: Array<{ id: string; title: string; flagCategory: LawFlagCategoryForGap }> = [
+    ...gapLawFlags.map((l) => ({ ...l, flagCategory: lawFlagCategoryForGap(gapKind, hadRetrievedLaws) })),
+    ...versionLawFlags
+      .filter((l) => !gapFlagIds.has(l.id))
+      .map((l) => ({ ...l, flagCategory: "ai_version_metadata" as const })),
+  ];
   const requestedHint = extractRequestedInstrumentHint(params.userQuery);
   const flagCategory = lawFlagCategoryForGap(gapKind, hadRetrievedLaws);
   const bugCategory = aiBugCategoryForGap(gapKind);
@@ -79,7 +89,7 @@ export async function recordAutoAiQualityFlags(params: RecordAutoAiQualityFlagsP
         title: l.title,
         country: full?.country ?? null,
         category: full?.category ?? null,
-        flagCategory,
+        flagCategory: l.flagCategory,
       };
     });
 
@@ -90,11 +100,14 @@ export async function recordAutoAiQualityFlags(params: RecordAutoAiQualityFlagsP
         ? `Question: ${params.userQuery.trim().slice(0, 500)}`
         : null,
       detection.matchedPhrases.length ? `Matched: "${detection.matchedPhrases.join('"; "')}"` : null,
+      laws.length
+        ? `Retrieved this turn: ${laws.map((l) => l.title).join("; ")}`
+        : "No instruments were attached to this turn.",
       lawsToFlag.length
-        ? `Retrieved context flagged: ${lawsToFlag.map((l) => l.title).join("; ")}`
+        ? `Law records flagged: ${lawsToFlag.map((l) => l.title).join("; ")}`
         : hadRetrievedLaws
-          ? null
-          : "No instruments were attached to this turn.",
+          ? "No library records flagged — gap is likely an unindexed instrument or retrieval mismatch."
+          : null,
       params.queryLogId ? `Query log: ${params.queryLogId}` : null,
     ]
       .filter(Boolean)
@@ -134,7 +147,7 @@ export async function recordAutoAiQualityFlags(params: RecordAutoAiQualityFlagsP
         .from("law_flags")
         .select("id")
         .eq("law_id", law.id)
-        .eq("issue_category", flagCategory)
+        .eq("issue_category", law.flagCategory)
         .eq("user_id", params.userId)
         .eq("status", "open")
         .gte("created_at", since)
@@ -143,8 +156,10 @@ export async function recordAutoAiQualityFlags(params: RecordAutoAiQualityFlagsP
 
       if (dup?.id) continue;
 
+      const lawCategoryLabel = lawFlagCategoryLabel(law.flagCategory);
       const lawIssueDetails = [
         issueDetails,
+        `Flag category: ${lawCategoryLabel}`,
         `Reporter (AI chat user): ${params.userName || params.userEmail || params.userId}`,
       ]
         .join("\n")
@@ -158,7 +173,7 @@ export async function recordAutoAiQualityFlags(params: RecordAutoAiQualityFlagsP
         law_title: full.title,
         law_country: full.country || null,
         law_category: full.category || null,
-        issue_category: flagCategory,
+        issue_category: law.flagCategory,
         issue_details: lawIssueDetails,
         status: "open",
         updated_at: now,
