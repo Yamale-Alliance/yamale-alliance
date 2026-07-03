@@ -1169,7 +1169,9 @@
       "tabs": {
         "bugs": "Bug reports",
         "corpusGaps": "Corpus gaps",
-        "feedback": "Flagged feedback"
+        "feedback": "Flagged feedback",
+        "synonyms": "Legal synonyms",
+        "notFound": "Retrieval not-found"
       },
       "bugs": {
         "title": "AI bug reports",
@@ -1214,6 +1216,28 @@
         "openBugTriage": "Open bug triage",
         "messageLabel": "Message: {value}",
         "na": "n/a"
+      },
+      "synonyms": {
+        "title": "Legal query synonyms",
+        "subtitle": "Expand FTS queries for spelling variants, plurals, and cross-language terms (e.g. trademark ↔ trade mark).",
+        "termPlaceholder": "Term",
+        "expansionPlaceholder": "Expansion",
+        "languagePlaceholder": "Lang",
+        "add": "Add synonym",
+        "loading": "Loading…",
+        "empty": "No synonyms configured.",
+        "colTerm": "Term",
+        "colExpansion": "Expansion",
+        "colLanguage": "Language",
+        "delete": "Delete"
+      },
+      "notFound": {
+        "title": "Retrieval not-found log",
+        "subtitle": "Queries where low-confidence retrieval triggered the law-title resolver fallback before generation.",
+        "loading": "Loading…",
+        "empty": "No not-found events yet.",
+        "interpreted": "Interpreted law name",
+        "unknownJurisdiction": "Unknown jurisdiction"
       }
     },
     "aiBugDetail": {
