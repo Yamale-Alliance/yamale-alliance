@@ -1085,7 +1085,7 @@ export function detectCheckoutTierFromAnchor(anchor: {
   if (href === "#pricing" || href.startsWith("#pricing") || href === "#yamale-checkout") {
     const text = (anchor.textContent || "").toLowerCase();
     if (/bundle|\$129|law firm package/i.test(text)) return "bundle";
-    if (/\$199|standalone|get the kit/i.test(text)) return "standalone";
+    if (/\$199|standalone|get the kit|get the package|purchase/i.test(text)) return "standalone";
   }
 
   return null;
@@ -1108,7 +1108,7 @@ export function detectCheckoutTierFromCtaText(
   if (!text?.trim()) return null;
   const lower = text.toLowerCase();
   if (/\$129|bundle|law firm package \+ /i.test(text)) return "bundle";
-  if (/\$199|get the kit|standalone/i.test(lower)) return "standalone";
+  if (/\$199|get the kit|get the package|purchase|standalone/i.test(lower)) return "standalone";
   const cents = parseUsdCentsFromCtaText(text);
   if (cents === 19900) return "standalone";
   if (cents === 12900) return "bundle";
@@ -1300,7 +1300,35 @@ export function rewriteEnrollmentContactAnchors(html: string): string {
   return out;
 }
 
-/** True when this anchor should scroll the host page to Yamale checkout (not navigate). */
+/** Browse package ZIP listing (not checkout). */
+export function isLandingBrowseContentsAnchor(anchor: {
+  getAttribute(name: string): string | null;
+  classList?: { contains(name: string): boolean };
+  textContent?: string | null;
+}): boolean {
+  if (anchor.getAttribute("data-yamale-action") === "browse-contents") return true;
+  if (anchor.classList?.contains("btn-secondary")) return true;
+  const href = (anchor.getAttribute("href") || "").trim().toLowerCase();
+  const text = (anchor.textContent || "").toLowerCase();
+  if (href === "#contents" || href.endsWith("#contents")) return true;
+  if (/what.?s inside|see what|view package|browse contents|package contents/i.test(text)) return true;
+  return false;
+}
+
+/** Download ZIP CTA (gated by purchase on the package page). */
+export function isLandingDownloadAnchor(anchor: {
+  getAttribute(name: string): string | null;
+  textContent?: string | null;
+}): boolean {
+  if (anchor.getAttribute("data-yamale-action") === "download") return true;
+  const href = (anchor.getAttribute("href") || "").trim().toLowerCase();
+  const text = (anchor.textContent || "").toLowerCase();
+  if (href === "#download" || href.includes("#download")) return true;
+  if (/download\s+(zip|package|now)/i.test(text)) return true;
+  return false;
+}
+
+/** True when this anchor should open Yamalé vault checkout (not navigate). */
 export function shouldInterceptVaultCheckoutAnchor(anchor: {
   getAttribute(name: string): string | null;
   classList?: { contains(name: string): boolean };
@@ -1308,29 +1336,40 @@ export function shouldInterceptVaultCheckoutAnchor(anchor: {
   textContent?: string | null;
 }): boolean {
   if (isAdvisoryEnrollmentAnchor(anchor)) return false;
+  if (isLandingBrowseContentsAnchor(anchor)) return false;
+  if (isLandingDownloadAnchor(anchor)) return false;
+  if (anchor.classList?.contains("btn-secondary")) return false;
+  if (anchor.getAttribute("data-yamale-action") === "checkout") return true;
 
   const href = (anchor.getAttribute("href") || "").toLowerCase();
+  if (href === "#contents" || href.endsWith("#contents")) return false;
+  if (href === "#download" || href.includes("#download")) return false;
   if (href.startsWith("mailto:") && /purchase|kit|bundle|checkout/i.test(href)) return true;
   if (href === "#pricing" || href.startsWith("#pricing") || href === "#yamale-checkout") return true;
   if (href === "#pricing-standalone" || href === "#pricing-bundle") return true;
   if (href.includes("/pricing")) return true;
   if (anchor.classList?.contains("nav-cta")) return true;
   if (anchor.classList?.contains("btn-primary")) return true;
-  if (anchor.closest?.(".cta-section, .pricing-section, .pricing-cards, .cta-buttons, .hero-actions")) {
+  if (anchor.closest?.(".cta-section, .pricing-section, .pricing-cards, .cta-buttons")) {
     return true;
+  }
+  if (anchor.closest?.(".hero-actions")) {
+    return anchor.classList?.contains("btn-primary") ?? false;
   }
   return false;
 }
 
-/** In-page section link inside the landing (e.g. #contents for “What's inside”). */
+/** In-page section link inside the landing (scroll within embed). */
 export function isLandingInPageSectionAnchor(anchor: {
   getAttribute(name: string): string | null;
   textContent?: string | null;
 }): boolean {
+  if (anchor.getAttribute("data-yamale-action")) return false;
   if (shouldInterceptVaultCheckoutAnchor(anchor)) return false;
+  if (isLandingBrowseContentsAnchor(anchor)) return false;
+  if (isLandingDownloadAnchor(anchor)) return false;
   const href = (anchor.getAttribute("href") || "").trim();
   if (href.startsWith("#") && href.length > 1) return true;
-  if (/what.?s inside|see what/i.test(anchor.textContent || "")) return true;
   return false;
 }
 
