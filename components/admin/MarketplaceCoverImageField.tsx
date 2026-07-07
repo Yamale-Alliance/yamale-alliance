@@ -1,11 +1,12 @@
 "use client";
 
-import { useId } from "react";
+import { useRef } from "react";
 import { Loader2, Upload, X } from "lucide-react";
 import { MARKETPLACE_COVER_MAX_MB } from "@/lib/marketplace-cover-limits";
 import { useTranslations } from "next-intl";
 import { MarketplaceCoverFramingField } from "@/components/admin/MarketplaceCoverFramingField";
 import { DEFAULT_COVER_FOCAL, type CoverFocal } from "@/lib/marketplace-cover-framing";
+import { preserveAdminWorkspaceMainScroll } from "@/lib/admin-workspace-scroll";
 
 type Props = {
   previewUrl: string | null;
@@ -31,14 +32,23 @@ export function MarketplaceCoverImageField({
 }: Props) {
   const t = useTranslations("admin.vault.marketplaceCoverImageField");
   const hint = saveReadyHint ?? t("saveReadyHint");
-  const inputId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const openFilePicker = () => {
+    if (uploading) return;
+    preserveAdminWorkspaceMainScroll(() => {
+      inputRef.current?.click();
+    });
+  };
 
   const fileInput = (
     <input
-      id={inputId}
+      ref={inputRef}
       type="file"
       accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic"
-      className="sr-only"
+      tabIndex={-1}
+      aria-hidden
+      className="pointer-events-none fixed left-0 top-0 h-px w-px opacity-0"
       disabled={uploading}
       onChange={(e) => {
         const f = e.target.files?.[0];
@@ -60,14 +70,14 @@ export function MarketplaceCoverImageField({
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <span className="text-sm text-muted-foreground">{hint}</span>
             <div className="flex flex-wrap gap-2">
-              <label
-                htmlFor={inputId}
-                className={`cursor-pointer rounded-lg border border-input px-3 py-1.5 text-xs font-medium hover:bg-muted ${
-                  uploading ? "pointer-events-none opacity-50" : ""
-                }`}
+              <button
+                type="button"
+                onClick={openFilePicker}
+                disabled={uploading}
+                className="rounded-lg border border-input px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-50"
               >
                 {uploading ? t("uploading") : t("replaceImage")}
-              </label>
+              </button>
               <button
                 type="button"
                 onClick={onClear}
@@ -80,15 +90,15 @@ export function MarketplaceCoverImageField({
           </div>
         </div>
       ) : (
-        <label
-          htmlFor={inputId}
-          className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-4 py-6 text-sm text-muted-foreground hover:border-primary hover:text-foreground ${
-            uploading ? "pointer-events-none opacity-50" : ""
-          }`}
+        <button
+          type="button"
+          onClick={openFilePicker}
+          disabled={uploading}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-4 py-6 text-sm text-muted-foreground hover:border-primary hover:text-foreground disabled:opacity-50"
         >
           {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
           {uploading ? t("uploadingCover") : t("uploadCoverImage")}
-        </label>
+        </button>
       )}
       {onPasteUrl ? (
         <div className="flex gap-2">
