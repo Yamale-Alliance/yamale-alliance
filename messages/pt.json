@@ -771,6 +771,7 @@
         "addItem": {
           "title": "Add item"
         },
+        "backToList": "Voltar aos itens do cofre",
         "fields": {
           "type": "Type",
           "title": "Title",
@@ -2103,6 +2104,7 @@
       "title": "Diretório de advogados",
       "subtitle": "Reveja candidaturas públicas em /lawyers/join, aprove perfis para o diretório ou adicione advogados manualmente.",
       "addLawyer": "Adicionar advogado",
+      "backToList": "Voltar ao diretório de advogados",
       "manageCatalog": "Especialização e idiomas",
       "adding": "A adicionar…",
       "edit": "Editar",
@@ -2124,7 +2126,10 @@
         "removeTitle": "Remover vídeo de onboarding?",
         "removeDescription": "Os visitantes deixam de ver o vídeo introdutório até carregar um novo.",
         "removeButton": "Remover",
-        "empty": "Ainda sem vídeo carregado."
+        "empty": "Ainda sem vídeo carregado.",
+        "configured": "Um vídeo está configurado. Pré-visualize quando necessário.",
+        "preview": "Pré-visualizar",
+        "hidePreview": "Ocultar pré-visualização"
       },
       "form": {
         "addTitle": "Adicionar advogado ao diretório",
@@ -2133,6 +2138,7 @@
         "otherLanguages": "Outros idiomas",
         "languages": "Idiomas falados",
         "languagesDescription": "Selecione todos os idiomas em que este advogado trabalha. Aparecem no cartão do diretório.",
+        "expertiseDescription": "Selecione uma ou mais áreas de prática. Todas aparecem no cartão do diretório.",
         "linkedin": "URL do LinkedIn",
         "photo": "Foto",
         "uploadImage": "Carregar imagem",
