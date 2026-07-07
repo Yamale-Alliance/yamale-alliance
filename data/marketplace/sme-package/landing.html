@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SME Package — Yamalé Vault</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #c18c43;
+    --saddlewood: #603b1c;
+    --pale-gold: #e3ba65;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    color: var(--foreground, #0d1b2a);
+    background: var(--background, #fafaf7);
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+  }
+
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 20px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(to bottom, color-mix(in srgb, var(--background, #fafaf7) 95%, transparent), transparent);
+  }
+  .nav-logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--primary, var(--gold));
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+  }
+  .nav-cta {
+    background: var(--primary, var(--gold));
+    color: var(--primary-foreground, #fff);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 10px 24px;
+    text-decoration: none;
+    transition: background 0.2s, transform 0.2s;
+  }
+  .nav-cta:hover { opacity: 0.92; transform: translateY(-1px); }
+
+  section { position: relative; z-index: 1; }
+
+  .hero {
+    position: relative;
+    min-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 120px 48px 80px;
+    overflow: hidden;
+    background: var(--background, #fafaf7);
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: radial-gradient(ellipse 80% 60% at 70% 30%, color-mix(in srgb, var(--primary, #c18c43) 10%, transparent) 0%, transparent 60%);
+  }
+  :host(.yamale-landing-dark) .hero {
+    background: #221913;
+  }
+  :host(.yamale-landing-dark) .hero::after {
+    background:
+      radial-gradient(ellipse 80% 60% at 70% 30%, rgba(193,140,67,0.14) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 80% at 10% 80%, rgba(96,59,28,0.28) 0%, transparent 50%),
+      linear-gradient(160deg, #221913 50%, #2e1a0e 100%);
+  }
+  .hero-content {
+    position: relative;
+    z-index: 2;
+    max-width: 780px;
+  }
+  .hero-eyebrow {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--primary, var(--gold));
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .hero-eyebrow::before {
+    content: '';
+    width: 40px;
+    height: 1px;
+    background: var(--primary, var(--gold));
+  }
+  .hero-headline {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2.8rem, 5.5vw, 5rem);
+    font-weight: 700;
+    line-height: 1.05;
+    color: var(--foreground, #0d1b2a);
+    margin-bottom: 28px;
+  }
+  .hero-headline em { font-style: italic; color: var(--primary, var(--gold)); }
+  .hero-sub {
+    font-size: 1.05rem;
+    font-weight: 300;
+    line-height: 1.75;
+    color: var(--muted-foreground, color-mix(in srgb, var(--foreground, #0d1b2a) 72%, transparent));
+    max-width: 640px;
+    margin-bottom: 40px;
+  }
+  :host(.yamale-landing-dark) .hero-headline { color: color-mix(in srgb, #faf8f5 95%, transparent); }
+  :host(.yamale-landing-dark) .hero-sub { color: color-mix(in srgb, #faf8f5 78%, transparent); }
+  .hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .hero-price-tag {
+    position: absolute;
+    top: 140px;
+    right: 48px;
+    z-index: 2;
+    text-align: right;
+  }
+  .price-amount {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 4.5rem;
+    font-weight: 700;
+    color: var(--primary, var(--gold));
+    line-height: 1;
+  }
+  .price-currency {
+    font-size: 1.1rem;
+    font-weight: 300;
+    color: var(--primary, var(--gold));
+    vertical-align: super;
+    margin-right: 4px;
+  }
+  .price-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted-foreground, color-mix(in srgb, var(--foreground, #0d1b2a) 55%, transparent));
+    margin-top: 6px;
+  }
+  :host(.yamale-landing-dark) .price-label { color: color-mix(in srgb, #faf8f5 50%, transparent); }
+
+  .btn-primary {
+    background: var(--primary, var(--gold));
+    color: var(--primary-foreground, #fff);
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 16px 36px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.25s;
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    opacity: 0.92;
+    box-shadow: 0 8px 32px color-mix(in srgb, var(--primary, #c18c43) 30%, transparent);
+  }
+  .btn-secondary {
+    color: var(--primary, var(--gold));
+    font-size: 0.875rem;
+    text-decoration: none;
+    border-bottom: 1px solid color-mix(in srgb, var(--primary, #c18c43) 40%, transparent);
+    padding-bottom: 2px;
+  }
+  .btn-secondary:hover { opacity: 0.85; }
+
+  .cities-strip {
+    padding: 16px 48px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px 32px;
+    background: var(--accent, #162436);
+  }
+  .cities-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, #fff 78%, var(--primary, #c18c43));
+  }
+  .city-item {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem;
+    color: color-mix(in srgb, #fff 88%, var(--primary, #c18c43));
+    letter-spacing: 0.04em;
+  }
+
+  .section-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--primary, var(--gold));
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-label::before {
+    content: '';
+    width: 24px;
+    height: 1px;
+    background: var(--primary, var(--gold));
+  }
+
+  .problem-section {
+    padding: 96px 48px;
+    background: var(--background, #fafaf7);
+  }
+  :host(.yamale-landing-dark) .problem-section { background: #221913; }
+  .problem-inner { max-width: 1100px; margin: 0 auto; }
+  .problem-heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 56px;
+    max-width: 700px;
+    color: var(--foreground, #0d1b2a);
+  }
+  :host(.yamale-landing-dark) .problem-heading { color: color-mix(in srgb, #faf8f5 95%, transparent); }
+  .problem-heading em { font-style: italic; color: var(--primary, var(--gold)); }
+  .problem-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  .problem-item {
+    background: var(--card, #fff);
+    border: 1px solid color-mix(in srgb, var(--foreground, #0d1b2a) 12%, var(--border, #e2ddd5));
+    padding: 32px 28px;
+  }
+  :host(.yamale-landing-dark) .problem-item {
+    background: color-mix(in srgb, #faf8f5 4%, #221913);
+    border-color: color-mix(in srgb, var(--primary, #c18c43) 15%, transparent);
+  }
+  .problem-num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2rem;
+    color: color-mix(in srgb, var(--primary, #c18c43) 45%, transparent);
+    margin-bottom: 16px;
+  }
+  .problem-text {
+    font-size: 0.92rem;
+    line-height: 1.7;
+    color: var(--muted-foreground, color-mix(in srgb, var(--foreground, #0d1b2a) 70%, transparent));
+  }
+  .problem-text strong {
+    display: block;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.35rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--foreground, #0d1b2a);
+  }
+  :host(.yamale-landing-dark) .problem-text strong { color: color-mix(in srgb, #faf8f5 95%, transparent); }
+
+  .kit-section {
+    padding: 96px 48px;
+    background: linear-gradient(180deg, var(--muted, #f4f1eb) 0%, var(--background, #fafaf7) 100%);
+  }
+  :host(.yamale-landing-dark) .kit-section {
+    background: linear-gradient(180deg, #2a1c12 0%, #221913 100%);
+  }
+  .kit-inner { max-width: 1100px; margin: 0 auto; }
+  .kit-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    margin-bottom: 48px;
+    align-items: end;
+  }
+  .kit-heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--foreground, #0d1b2a);
+  }
+  :host(.yamale-landing-dark) .kit-heading { color: color-mix(in srgb, #faf8f5 95%, transparent); }
+  .kit-heading em { font-style: italic; color: var(--primary, var(--gold)); }
+  .kit-desc {
+    font-size: 0.95rem;
+    line-height: 1.75;
+    color: var(--muted-foreground, color-mix(in srgb, var(--foreground, #0d1b2a) 72%, transparent));
+  }
+  .kit-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .kit-card {
+    background: var(--card, #fff);
+    border: 1px solid color-mix(in srgb, var(--foreground, #0d1b2a) 12%, var(--border, #e2ddd5));
+    padding: 28px 24px;
+  }
+  :host(.yamale-landing-dark) .kit-card {
+    background: color-mix(in srgb, #faf8f5 4%, #221913);
+    border-color: color-mix(in srgb, var(--primary, #c18c43) 12%, transparent);
+  }
+  .kit-card-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--foreground, #0d1b2a);
+    margin-bottom: 10px;
+  }
+  :host(.yamale-landing-dark) .kit-card-title { color: color-mix(in srgb, #faf8f5 95%, transparent); }
+  .kit-card-desc {
+    font-size: 0.85rem;
+    line-height: 1.65;
+    color: var(--muted-foreground, color-mix(in srgb, var(--foreground, #0d1b2a) 65%, transparent));
+  }
+
+  .who-section {
+    padding: 96px 48px;
+    background: var(--muted, #f4f1eb);
+  }
+  :host(.yamale-landing-dark) .who-section { background: #221913; }
+  .who-inner { max-width: 900px; margin: 0 auto; text-align: center; }
+  .who-heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: var(--foreground, #0d1b2a);
+  }
+  :host(.yamale-landing-dark) .who-heading { color: color-mix(in srgb, #faf8f5 95%, transparent); }
+  .who-heading em { font-style: italic; color: var(--primary, var(--gold)); }
+  .who-sub {
+    font-size: 1rem;
+    line-height: 1.75;
+    color: var(--muted-foreground, color-mix(in srgb, var(--foreground, #0d1b2a) 72%, transparent));
+    margin-bottom: 40px;
+  }
+  .who-tags {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+  }
+  .who-tag {
+    border: 1px solid color-mix(in srgb, var(--primary, #c18c43) 35%, var(--border, #e2ddd5));
+    color: var(--primary, var(--gold));
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 10px 18px;
+  }
+
+  .pricing-section {
+    padding: 96px 48px 120px;
+    background: var(--background, #fafaf7);
+  }
+  :host(.yamale-landing-dark) .pricing-section {
+    background: linear-gradient(180deg, #221913 0%, #1a1008 100%);
+  }
+  .pricing-inner { max-width: 640px; margin: 0 auto; text-align: center; }
+  .pricing-heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 16px;
+    color: var(--foreground, #0d1b2a);
+  }
+  :host(.yamale-landing-dark) .pricing-heading { color: color-mix(in srgb, #faf8f5 95%, transparent); }
+  .pricing-heading em { font-style: italic; color: var(--primary, var(--gold)); }
+  .pricing-sub {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--muted-foreground, color-mix(in srgb, var(--foreground, #0d1b2a) 68%, transparent));
+    margin-bottom: 40px;
+  }
+  .pricing-card {
+    background: var(--card, #fff);
+    border: 1px solid color-mix(in srgb, var(--primary, #c18c43) 25%, var(--border, #e2ddd5));
+    padding: 40px 36px;
+    text-align: left;
+  }
+  :host(.yamale-landing-dark) .pricing-card {
+    background: color-mix(in srgb, #faf8f5 4%, #221913);
+    border-color: color-mix(in srgb, var(--primary, #c18c43) 25%, transparent);
+  }
+  .pricing-tier {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--primary, var(--gold));
+    margin-bottom: 12px;
+  }
+  .pricing-price {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 4rem;
+    font-weight: 700;
+    color: var(--primary, var(--gold));
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .pricing-price .currency {
+    font-size: 1.5rem;
+    vertical-align: super;
+    margin-right: 2px;
+  }
+  .pricing-period {
+    font-size: 0.8rem;
+    color: var(--muted-foreground, color-mix(in srgb, var(--foreground, #0d1b2a) 55%, transparent));
+    margin-bottom: 28px;
+  }
+  .pricing-includes {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted-foreground, color-mix(in srgb, var(--foreground, #0d1b2a) 50%, transparent));
+    margin-bottom: 16px;
+  }
+  .pricing-list {
+    list-style: none;
+    margin-bottom: 32px;
+  }
+  .pricing-list li {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--muted-foreground, color-mix(in srgb, var(--foreground, #0d1b2a) 82%, transparent));
+    padding: 10px 0 10px 20px;
+    border-bottom: 1px solid color-mix(in srgb, var(--primary, #c18c43) 10%, var(--border, #e2ddd5));
+    position: relative;
+  }
+  .pricing-list li::before {
+    content: '—';
+    position: absolute;
+    left: 0;
+    color: var(--primary, var(--gold));
+    opacity: 0.6;
+  }
+  .pricing-note {
+    margin-top: 20px;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    color: var(--muted-foreground, color-mix(in srgb, var(--foreground, #0d1b2a) 50%, transparent));
+    text-align: center;
+  }
+
+  .about-section {
+    padding: 80px 48px;
+    background: var(--muted, #f4f1eb);
+  }
+  :host(.yamale-landing-dark) .about-section { background: var(--accent, #603b1c); }
+  .about-inner {
+    max-width: 900px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .about-wordmark {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--primary, var(--gold));
+    margin-bottom: 8px;
+  }
+  .about-tagline {
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted-foreground, color-mix(in srgb, var(--foreground, #0d1b2a) 55%, transparent));
+    margin-bottom: 28px;
+  }
+  :host(.yamale-landing-dark) .about-tagline { color: color-mix(in srgb, #faf8f5 60%, transparent); }
+  .about-text {
+    font-size: 0.95rem;
+    line-height: 1.8;
+    color: var(--muted-foreground, color-mix(in srgb, var(--foreground, #0d1b2a) 78%, transparent));
+  }
+  :host(.yamale-landing-dark) .about-text { color: color-mix(in srgb, #faf8f5 80%, transparent); }
+
+  footer {
+    padding: 28px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    font-size: 0.75rem;
+    color: var(--muted-foreground, color-mix(in srgb, var(--foreground, #0d1b2a) 45%, transparent));
+    border-top: 1px solid color-mix(in srgb, var(--primary, #c18c43) 10%, var(--border, #e2ddd5));
+    background: var(--muted, #f4f1eb);
+  }
+  :host(.yamale-landing-dark) footer {
+    background: #1a1008;
+    color: color-mix(in srgb, #faf8f5 40%, transparent);
+    border-top-color: color-mix(in srgb, var(--primary, #c18c43) 10%, transparent);
+  }
+
+  @media (max-width: 900px) {
+    nav { padding: 16px 24px; }
+    .hero { padding: 100px 24px 60px; min-height: auto; }
+    .hero-price-tag { display: none; }
+    .problem-grid, .kit-grid { grid-template-columns: 1fr; }
+    .kit-header { grid-template-columns: 1fr; }
+    .problem-section, .kit-section, .who-section, .pricing-section, .about-section { padding: 64px 24px; }
+    .cities-strip { padding: 14px 24px; }
+    footer { flex-direction: column; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="#">Yamalé</a>
+  <a class="nav-cta" href="#" data-yamale-action="checkout" data-yamale-tier="standalone">Get the Package</a>
+</nav>
+
+<section class="hero">
+  <div class="hero-price-tag">
+    <div class="price-amount"><span class="price-currency">$</span>199</div>
+    <div class="price-label">One-time purchase</div>
+  </div>
+  <div class="hero-content">
+    <div class="hero-eyebrow">Yamalé Vault — SME Series</div>
+    <h1 class="hero-headline">
+      Fuel growth.<br>
+      <em>Unlock new possibilities.</em>
+    </h1>
+    <p class="hero-sub">
+      Fuel growth and unlock new possibilities with our tailored SME package. Designed to streamline operations,
+      enhance your digital presence, and connect you with opportunities across the African market, this package
+      provides the tools and support you need to thrive. From essential business services to specialized resources,
+      we're dedicated to empowering your journey to success. Invest in your business future — choose our SME package
+      and elevate your business to new heights.
+    </p>
+    <div class="hero-actions">
+      <a class="btn-primary" href="#" data-yamale-action="checkout" data-yamale-tier="standalone">Get the Package — $199</a>
+      <a class="btn-secondary" href="#" data-yamale-action="browse-contents">See what's inside ↓</a>
+    </div>
+  </div>
+</section>
+
+<div class="cities-strip">
+  <span class="cities-label">Built for growth across</span>
+  <span class="city-item">West Africa</span>
+  <span class="city-item">East Africa</span>
+  <span class="city-item">Southern Africa</span>
+  <span class="city-item">Central Africa</span>
+  <span class="city-item">Pan-African trade</span>
+</div>
+
+<section class="problem-section">
+  <div class="problem-inner">
+    <h2 class="problem-heading">Everything a growing SME needs to <em>compete and scale.</em></h2>
+    <div class="problem-grid">
+      <div class="problem-item">
+        <div class="problem-num">01</div>
+        <p class="problem-text">
+          <strong>Streamlined operations</strong>
+          Practical templates, checklists, and workflows to run your business with clarity — from client intake to delivery and follow-up.
+        </p>
+      </div>
+      <div class="problem-item">
+        <div class="problem-num">02</div>
+        <p class="problem-text">
+          <strong>Digital presence</strong>
+          Guides and frameworks to strengthen how your business shows up online — credibility, visibility, and trust with customers and partners.
+        </p>
+      </div>
+      <div class="problem-item">
+        <div class="problem-num">03</div>
+        <p class="problem-text">
+          <strong>African market access</strong>
+          Resources oriented toward cross-border opportunity, regional trade, and the realities of doing business across African jurisdictions.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="kit-section" id="contents">
+  <div class="kit-inner">
+    <div class="kit-header">
+      <div>
+        <div class="section-label">What's Inside</div>
+        <h2 class="kit-heading">One download.<br><em>Immediate impact.</em></h2>
+      </div>
+      <p class="kit-desc">
+        The SME Package is delivered as a ready-to-use ZIP archive. Open the files, adapt them to your business,
+        and put them to work the same day. No subscription — yours to keep and update as you grow.
+      </p>
+    </div>
+    <div class="kit-grid">
+      <div class="kit-card">
+        <div class="kit-card-title">Business operations toolkit</div>
+        <p class="kit-card-desc">Core documents to structure day-to-day operations, client engagement, and internal processes.</p>
+      </div>
+      <div class="kit-card">
+        <div class="kit-card-title">Digital growth playbook</div>
+        <p class="kit-card-desc">Step-by-step guidance to improve your online presence, messaging, and customer touchpoints.</p>
+      </div>
+      <div class="kit-card">
+        <div class="kit-card-title">Market opportunity briefs</div>
+        <p class="kit-card-desc">Orientation to African market dynamics, partnership models, and practical entry considerations.</p>
+      </div>
+      <div class="kit-card">
+        <div class="kit-card-title">Compliance &amp; risk starters</div>
+        <p class="kit-card-desc">Foundational checklists to identify regulatory, contractual, and operational risks early.</p>
+      </div>
+      <div class="kit-card">
+        <div class="kit-card-title">Financial planning templates</div>
+        <p class="kit-card-desc">Simple models and worksheets to plan revenue, costs, and investment priorities with confidence.</p>
+      </div>
+      <div class="kit-card">
+        <div class="kit-card-title">Specialized resource library</div>
+        <p class="kit-card-desc">Curated references and tools aligned with SME needs across sectors and African markets.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="who-section">
+  <div class="who-inner">
+    <div class="section-label" style="justify-content: center;">Who it's for</div>
+    <h2 class="who-heading">Built for SMEs ready to <em>move faster.</em></h2>
+    <p class="who-sub">
+      Whether you are launching, restructuring, or expanding into new African markets, this package gives you
+      structured tools without the cost of bespoke consulting on every document.
+    </p>
+    <div class="who-tags">
+      <span class="who-tag">Growing SMEs</span>
+      <span class="who-tag">Professional services</span>
+      <span class="who-tag">Trade &amp; logistics</span>
+      <span class="who-tag">Tech-enabled businesses</span>
+      <span class="who-tag">Regional expansion</span>
+    </div>
+  </div>
+</section>
+
+<section class="pricing-section" id="pricing">
+  <div class="pricing-inner">
+    <div class="section-label" style="justify-content: center;">Pricing</div>
+    <h2 class="pricing-heading">One price. <em>Full package.</em></h2>
+    <p class="pricing-sub">
+      No subscription. No hidden fees. Download the complete SME Package immediately after purchase and start using it today.
+    </p>
+    <div class="pricing-card standard">
+      <div class="pricing-tier">SME Package</div>
+      <div class="pricing-price"><span class="currency">$</span>199</div>
+      <div class="pricing-period">one-time payment · instant ZIP download</div>
+      <div class="pricing-includes">What you get</div>
+      <ul class="pricing-list">
+        <li>Full SME Package ZIP — all files included</li>
+        <li>Business operations toolkit</li>
+        <li>Digital growth playbook</li>
+        <li>African market opportunity briefs</li>
+        <li>Compliance &amp; risk starter checklists</li>
+        <li>Financial planning templates</li>
+        <li>Specialized resource library</li>
+        <li>Lifetime access — update files as your business evolves</li>
+      </ul>
+      <a class="btn-primary" href="#" data-yamale-action="checkout" data-yamale-tier="standalone" style="display: block; text-align: center; width: 100%;">Purchase — $199</a>
+      <p class="pricing-note">Checkout appears below. Secure payment via Yamalé Vault.</p>
+    </div>
+  </div>
+</section>
+
+<section class="about-section">
+  <div class="about-inner">
+    <div class="about-wordmark">Yamalé</div>
+    <div class="about-tagline">Putting Africa on Equal Footing</div>
+    <p class="about-text">
+      Yamalé builds practical legal and business tools for African professionals and the enterprises they serve.
+      The Yamalé Vault brings curated packages — like this SME bundle — to teams that need quality resources
+      without enterprise price tags.
+    </p>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-text">© 2026 Yamalé. All rights reserved. For business guidance only — not a substitute for professional advice in your jurisdiction.</div>
+  <div class="foot-r">Yamalé Vault</div>
+</footer>
+
+</body>
+</html>
