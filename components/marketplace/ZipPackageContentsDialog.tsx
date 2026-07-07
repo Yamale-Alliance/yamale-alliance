@@ -635,6 +635,9 @@ export function ZipPackageContentsDialog({ itemId, open, onOpenChange }: Props) 
               <Dialog.Title className="truncate text-base font-semibold tracking-tight text-foreground sm:text-lg">
                 {archiveTitle}
               </Dialog.Title>
+              <Dialog.Description className="sr-only">
+                Browse and preview files inside this ZIP package.
+              </Dialog.Description>
               <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
                 {loading ? "Loading…" : `${itemCount} file${itemCount !== 1 ? "s" : ""} · ${totalEntries} entr${totalEntries !== 1 ? "ies" : "y"}`}
               </p>
