@@ -33,6 +33,12 @@ import {
   type PackageOfferTier,
   type PackageOffersResolved,
 } from "@/lib/marketplace-package-offers";
+import {
+  detectCheckoutTierFromAnchor,
+  isLandingBrowseContentsAnchor,
+  isLandingDownloadAnchor,
+  shouldInterceptVaultCheckoutAnchor,
+} from "@/lib/marketplace-landing-page";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 import { marketplaceItemDetailHref } from "@/lib/marketplace-public-url";
 
@@ -205,25 +211,71 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
     );
   }, [packageOffers, item, customLandingHtml]);
 
+  const purchasedForAccess = Boolean(item?.purchased);
+  const freeForActions = item ? Number(item.price_cents) === 0 : false;
+  const showCheckoutDialog = purchasedForAccess === false && freeForActions === false;
+
+  const handleGetFree = useCallback(async () => {
+    if (!item || item.price_cents > 0) return false;
+    if (!isLoaded) return false;
+    if (!isSignedIn) {
+      router.push(`/sign-in?redirect_url=${encodeURIComponent(itemPublicPath(item, true))}`);
+      return false;
+    }
+    setPurchasing(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/marketplace/claim", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId: item.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to claim");
+        return false;
+      }
+      setItem((prev) => (prev ? { ...prev, purchased: true } : null));
+      return true;
+    } catch {
+      setError("Something went wrong");
+      return false;
+    } finally {
+      setPurchasing(false);
+    }
+  }, [item, isLoaded, isSignedIn, router]);
+
   const openCheckoutDialog = useCallback(
     (tier: PackageOfferTier | null) => {
       if (!item || item.purchased) return;
-      if (!isLoaded) return;
-      if (!isSignedIn) {
-        router.push(`/sign-in?redirect_url=${encodeURIComponent(itemPublicPath(item, true))}`);
-        return;
-      }
+
       const nextTier: PackageOfferTier =
         tier === "standalone" || tier === "bundle"
           ? tier
           : effectiveOffers
             ? "standalone"
             : "standalone";
+
+      const isFreeItem = Number(item.price_cents) <= 0 && !effectiveOffers;
+
+      if (isFreeItem) {
+        void handleGetFree();
+        return;
+      }
+
       setSelectedTier(nextTier);
       setError(null);
       setCheckoutDialogOpen(true);
+
+      if (!isLoaded) return;
+
+      if (!isSignedIn) {
+        setCheckoutDialogOpen(false);
+        router.push(`/sign-in?redirect_url=${encodeURIComponent(itemPublicPath(item, true))}`);
+      }
     },
-    [item, isLoaded, isSignedIn, router, id, effectiveOffers]
+    [item, isLoaded, isSignedIn, router, effectiveOffers, handleGetFree]
   );
 
   useEffect(() => {
@@ -321,34 +373,79 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
     setPurchasing(false);
   };
 
-  const handleGetFree = async () => {
-    if (!item || item.price_cents > 0) return;
-    if (!isLoaded) return;
-    if (!isSignedIn) {
-      router.push(`/sign-in?redirect_url=${encodeURIComponent(itemPublicPath(item, true))}`);
+  const handleBrowseZipContents = useCallback(async () => {
+    if (!item?.has_file) return;
+    if (purchasedForAccess) {
+      setZipViewerOpen(true);
       return;
     }
-    setPurchasing(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/marketplace/claim", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId: item.id }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Failed to claim");
-        setPurchasing(false);
+    if (freeForActions) {
+      const claimed = await handleGetFree();
+      if (claimed) setZipViewerOpen(true);
+      return;
+    }
+    openCheckoutDialog(null);
+  }, [item, purchasedForAccess, freeForActions, handleGetFree, openCheckoutDialog]);
+
+  const handleLandingDownload = useCallback(async () => {
+    if (!item?.has_file) return;
+    if (purchasedForAccess) {
+      await handleDownload();
+      return;
+    }
+    if (freeForActions) {
+      const claimed = await handleGetFree();
+      if (claimed) await handleDownload();
+      return;
+    }
+    openCheckoutDialog(null);
+  }, [item, purchasedForAccess, freeForActions, handleGetFree, openCheckoutDialog]);
+
+  useEffect(() => {
+    if (!customLandingHtml) return;
+
+    const findInPath = (path: EventTarget[], selector: string): Element | null => {
+      for (const node of path) {
+        if (!(node instanceof Element)) continue;
+        if (node.matches(selector)) return node;
+        const nested = node.closest(selector);
+        if (nested) return nested;
+      }
+      return null;
+    };
+
+    const onLandingClick = (event: MouseEvent) => {
+      const path = event.composedPath();
+      const zone = findInPath(path, ".marketplace-landing-zone");
+      if (!zone) return;
+
+      const anchor = findInPath(path, "a");
+      if (!anchor) return;
+
+      if (isLandingBrowseContentsAnchor(anchor)) {
+        event.preventDefault();
+        event.stopPropagation();
+        void handleBrowseZipContents();
         return;
       }
-      setItem((prev) => (prev ? { ...prev, purchased: true } : null));
-    } catch {
-      setError("Something went wrong");
-    }
-    setPurchasing(false);
-  };
+
+      if (isLandingDownloadAnchor(anchor)) {
+        event.preventDefault();
+        event.stopPropagation();
+        void handleLandingDownload();
+        return;
+      }
+
+      if (shouldInterceptVaultCheckoutAnchor(anchor)) {
+        event.preventDefault();
+        event.stopPropagation();
+        openCheckoutDialog(detectCheckoutTierFromAnchor(anchor));
+      }
+    };
+
+    document.addEventListener("click", onLandingClick, true);
+    return () => document.removeEventListener("click", onLandingClick, true);
+  }, [customLandingHtml, openCheckoutDialog, handleBrowseZipContents, handleLandingDownload]);
 
   if (loading) {
     return (
@@ -395,8 +492,12 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
 
   return (
     <div className="marketplace-package-page min-h-screen overflow-x-clip bg-background pb-24">
-      {id && (
-        <ZipPackageContentsDialog itemId={id} open={zipViewerOpen} onOpenChange={setZipViewerOpen} />
+      {item?.id && (
+        <ZipPackageContentsDialog
+          itemId={item.id}
+          open={zipViewerOpen}
+          onOpenChange={setZipViewerOpen}
+        />
       )}
       {!lawFirmLanding && (
         <VaultPackageSubheader
@@ -479,6 +580,8 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
           html={customLandingHtml}
           className="overflow-hidden border-0"
           onCheckoutClick={openCheckoutDialog}
+          onBrowseZipContents={() => void handleBrowseZipContents()}
+          onDownloadClick={() => void handleLandingDownload()}
         />
       ) : (
         <GenericZipPackageLanding
@@ -489,7 +592,7 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
         />
       )}
 
-      {!owned && !free && (
+      {showCheckoutDialog && (
         <ZipPackageCheckoutDialog
           open={checkoutDialogOpen}
           onOpenChange={setCheckoutDialogOpen}
@@ -513,9 +616,9 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
         />
       )}
 
-      {owned && item.has_file && (lawFirmLanding || customLandingHtml) && (
+      {item.has_file && (customLandingHtml || (lawFirmLanding && owned)) && (
         <section className="mx-auto mt-8 max-w-3xl px-4 pb-8">
-          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-white/15 bg-white/[0.06] p-4">
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-white/15 bg-white/[0.06] p-4 dark:border-border dark:bg-muted/30">
             {showCourseWorkspace && (
               <Link
                 href={courseWorkspaceHref}
@@ -526,24 +629,25 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
             )}
             <button
               type="button"
-              onClick={() => setZipViewerOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-white/25 bg-white/5 px-5 py-2.5 text-sm font-medium text-white hover:bg-white/10"
+              onClick={() => void handleBrowseZipContents()}
+              className="inline-flex items-center gap-2 rounded-lg border border-white/25 bg-white/5 px-5 py-2.5 text-sm font-medium text-white hover:bg-white/10 dark:border-border dark:bg-background dark:text-foreground dark:hover:bg-muted"
             >
               View package contents
             </button>
             <button
               type="button"
-              onClick={handleDownload}
+              onClick={() => void handleLandingDownload()}
               disabled={downloading}
               className="inline-flex items-center gap-2 rounded-lg bg-[#C18C43] px-5 py-2.5 text-sm font-semibold text-[#221913] hover:bg-[#E3BA65] disabled:opacity-50"
             >
               {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
               Download ZIP
             </button>
-            <Link href={itemPublicPath(item)} className="text-sm text-[#E3BA65] hover:underline">
+            <Link href={itemPublicPath(item)} className="text-sm text-[#E3BA65] hover:underline dark:text-primary">
               Ratings & details
             </Link>
           </div>
+          {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
         </section>
       )}
 
@@ -553,17 +657,17 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
           className="mx-auto mt-8 max-w-3xl scroll-mt-[calc(72px+5.5rem)] px-4 sm:scroll-mt-[calc(88px+5.5rem)]"
         >
           <div className="rounded-xl border border-[rgba(193,140,67,0.25)] bg-white/[0.06] p-6 backdrop-blur-sm">
-            {!owned && free ? (
+            {!purchasedForAccess && free ? (
               <button
                 type="button"
-                onClick={handleGetFree}
+                onClick={() => void handleGetFree()}
                 disabled={purchasing}
                 className="rounded-lg bg-[#C18C43] px-6 py-2.5 text-sm font-semibold text-[#221913] hover:bg-[#E3BA65] disabled:opacity-50"
               >
                 {purchasing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Get for free"}
               </button>
             ) : null}
-            {!owned && !free ? (
+            {showCheckoutDialog ? (
               <button
                 type="button"
                 onClick={() => openCheckoutDialog(effectiveOffers ? "standalone" : null)}
@@ -572,7 +676,7 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
                 Purchase — {priceDisplay}
               </button>
             ) : null}
-            {owned && item.has_file ? (
+            {purchasedForAccess && item.has_file ? (
               <div className="flex flex-wrap items-center gap-3">
                 {showCourseWorkspace && (
                   <Link
