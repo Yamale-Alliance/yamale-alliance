@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Loader2, Plus, Pencil, Trash2, BookOpen, GraduationCap, FileText, X } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, BookOpen, GraduationCap, FileText, ArrowLeft } from "lucide-react";
 import { AdminMarketplaceLanguageFilesField } from "@/components/admin/AdminMarketplaceLanguageFilesField";
 import { VaultLanguageBadges } from "@/components/marketplace/VaultLanguageBadges";
 import { useConfirm } from "@/components/ui/use-confirm";
@@ -14,10 +14,7 @@ import { MarketplaceCoverImageField } from "@/components/admin/MarketplaceCoverI
 import { AdminVaultSubcategorySelect } from "@/components/admin/AdminVaultSubcategorySelect";
 import { AdminVaultFocusCountrySelect } from "@/components/admin/AdminVaultFocusCountrySelect";
 import { AdminVaultSeriesEditor } from "@/components/admin/AdminVaultSeriesEditor";
-import {
-  siteModalBottomSheetOverlayClass,
-  siteModalPanelMaxHeightClass,
-} from "@/components/layout/prototype-nav-styles";
+import { useAdminMainScrollToTop } from "@/components/admin/useAdminMainScrollToTop";
 import {
   buildLanguageFilesPayload,
   defaultMarketplaceLanguageFileDrafts,
@@ -683,39 +680,53 @@ export default function AdminMarketplacePage() {
     setRevokingId(null);
   };
 
+  const isItemFormView = adding || Boolean(editing);
+  const showListView = !isItemFormView && !seriesEditorId;
+
+  useAdminMainScrollToTop(isItemFormView, adding, editing?.id);
+
+  const closeItemFormView = () => {
+    setAdding(false);
+    setEditing(null);
+    updateViewInUrl({});
+    setError(null);
+  };
+
+  const backToListButton = (
+    <button
+      type="button"
+      onClick={closeItemFormView}
+      className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+    >
+      <ArrowLeft className="h-4 w-4" />
+      {tp("backToList")}
+    </button>
+  );
+
   return (
     <div className="p-4 sm:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">{t("title")}</h1>
-          <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
-        </div>
-        <Link
-          href="/marketplace"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm text-primary hover:underline"
-        >
-          {t("viewPublicVault")}
-        </Link>
-      </div>
+      {isItemFormView ? (
+        <>
+          <div className="mb-6">{backToListButton}</div>
+          <h1 className="text-2xl font-semibold">
+            {adding ? tp("addItem.title") : tp("editItem.title")}
+          </h1>
 
-      {error && (
-        <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive">
-          {error}
-        </div>
-      )}
+          {error && (
+            <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+              {error}
+            </div>
+          )}
 
-      {notice && (
-        <div className="mt-4 rounded-lg border border-border bg-muted/50 px-4 py-2 text-sm text-muted-foreground">
-          {notice}
-        </div>
-      )}
+          {notice && (
+            <div className="mt-4 rounded-lg border border-border bg-muted/50 px-4 py-2 text-sm text-muted-foreground">
+              {notice}
+            </div>
+          )}
 
       {adding && (
-        <div className="mt-6 rounded-lg border border-border bg-card p-4">
-          <h2 className="text-lg font-medium">{tp("addItem.title")}</h2>
-          <form onSubmit={handleCreate} className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="mt-6 rounded-lg border border-border bg-card p-4 sm:p-6">
+          <form onSubmit={handleCreate} className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium">{tp("fields.type")}</label>
               <select name="type" className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm" required>
@@ -871,10 +882,7 @@ export default function AdminMarketplacePage() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setAdding(false);
-                  updateViewInUrl({});
-                }}
+                onClick={closeItemFormView}
                 className="rounded-lg border border-input px-4 py-2 text-sm font-medium hover:bg-accent"
               >
                 {tc("cancel")}
@@ -884,273 +892,10 @@ export default function AdminMarketplacePage() {
         </div>
       )}
 
-      {!adding && !seriesEditorId && (
-        <div className="mt-6 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setAddLanguageFiles(defaultMarketplaceLanguageFileDrafts());
-              setCoverFocal(DEFAULT_COVER_FOCAL);
-              setPendingImageUrl(null);
-              setCoverImageCleared(false);
-              setAdding(true);
-              updateViewInUrl({ add: true });
-            }}
-            className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-4 py-2 text-sm font-medium text-muted-foreground hover:border-primary hover:text-primary"
-          >
-            <Plus className="h-4 w-4" /> {tp("actions.addItem")}
-          </button>
-          <button
-            type="button"
-            onClick={() => openSeriesEditor("new")}
-            className="flex items-center gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10"
-          >
-            <Plus className="h-4 w-4" /> {tp("actions.addSeries")}
-          </button>
-        </div>
-      )}
-
-      {managedVaultSeries.length > 0 &&
-        !adding &&
-        !seriesEditorId && (
-        <div className="mt-6 space-y-4">
-          <div className="rounded-lg border border-border bg-card p-4">
-            <h2 className="text-sm font-semibold">{tp("series.vaultSeriesTitle")}</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Series with saved metadata and/or linked items. Delete unlinks items (or removes them if you choose in
-              the editor).
-            </p>
-            <ul className="mt-3 divide-y divide-border">
-              {managedVaultSeries.map((s) => (
-                <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                  <span>
-                    <span className="font-medium">{s.label}</span>
-                    <span className="ml-2 text-muted-foreground">
-                      {s.itemCount} item{s.itemCount === 1 ? "" : "s"}
-                      {s.paid ? " · paid" : " · free"}
-                      {s.builtin ? " · built-in" : ""}
-                    </span>
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openSeriesEditor(s.id)}
-                      className="rounded-lg border border-input px-3 py-1 text-xs font-medium hover:bg-accent"
-                    >
-                      {tp("actions.editSeries")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleDeleteSeriesFromList(s)}
-                      className="rounded-lg border border-destructive/40 px-3 py-1 text-xs font-medium text-destructive hover:bg-destructive/10"
-                    >
-                      {tp("actions.delete")}
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="mt-8 flex justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : (
-        <div className="mt-6 overflow-x-auto">
-          <p className="mb-3 text-xs text-muted-foreground">
-            {tp("list.standaloneHintBefore")}{" "}
-            <strong>{tp("actions.editSeries")}</strong> {tp("list.standaloneHintAfter")}
-          </p>
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="pb-2 text-left font-medium">{tp("table.cover")}</th>
-                <th className="pb-2 text-left font-medium">{tp("table.type")}</th>
-                <th className="pb-2 text-left font-medium">{tp("table.title")}</th>
-                <th className="pb-2 text-left font-medium">{tp("table.freeSeries")}</th>
-                <th className="pb-2 text-left font-medium">{tp("table.author")}</th>
-                <th className="pb-2 text-right font-medium">{tp("table.price")}</th>
-                <th className="pb-2 text-center font-medium">{tp("table.file")}</th>
-                <th className="pb-2 text-center font-medium">{tp("table.published")}</th>
-                <th className="pb-2 text-right font-medium">{tc("actions")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {standaloneItems.map((item) => (
-                <tr key={item.id} className="border-b border-border/70">
-                  <td className="py-3">
-                    {item.image_url ? (
-                      <img src={item.image_url} alt="" className="h-10 w-10 rounded object-cover border border-border" />
-                    ) : (
-                      <span className="inline-flex h-10 w-10 items-center justify-center rounded border border-dashed border-border text-[10px] text-muted-foreground">
-                        {tp("table.noImage")}
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-3">
-                    <span className="flex items-center gap-2">
-                      <TypeIcon type={item.type} />
-                      {tp(`types.${item.type}`)}
-                    </span>
-                  </td>
-                  <td className="py-3 font-medium">{item.title}</td>
-                  <td className="py-3 text-muted-foreground text-xs">
-                    {item.price_cents === 0
-                      ? labelForVaultSubcategory(item.vault_subcategory) ?? tp("table.free")
-                      : labelForVaultSubcategory(item.vault_subcategory) ?? "—"}
-                  </td>
-                  <td className="py-3 text-muted-foreground">{item.author || "—"}</td>
-                  <td className="py-3 text-right">
-                    {item.price_cents === 0 ? tp("table.free") : `$${(item.price_cents / 100).toFixed(2)}`}
-                  </td>
-                  <td className="py-3 text-center">
-                    {item.language_codes && item.language_codes.length > 0 ? (
-                      <VaultLanguageBadges languageCodes={item.language_codes} />
-                    ) : item.file_path ? (
-                      item.file_format ? `.${item.file_format}` : tc("yes")
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="py-3 text-center">{item.published ? tc("yes") : tc("no")}</td>
-                  <td className="py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const sub = item.vault_subcategory?.trim();
-                        if (sub && shouldGroupVaultItem(item)) {
-                          openSeriesEditor(sub);
-                          return;
-                        }
-                        setEditing(item);
-                        setPendingImageUrl(null);
-                        setCoverImageCleared(false);
-                        setCoverFocal(readItemCoverFocal(item));
-                      }}
-                      className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                      aria-label={tp("actions.edit")}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(item.id)}
-                      className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      aria-label={tp("actions.delete")}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {standaloneItems.length === 0 && !adding && (
-            <p className="py-8 text-center text-muted-foreground">
-              {items.length > 0
-                  ? tp("empty.noStandaloneItems")
-                  : tp("empty.noItemsYet")}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Purchases overview */}
-      <div className="mt-10 rounded-lg border border-border bg-card p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{tp("purchases.title")}</h2>
-          <button
-            type="button"
-            onClick={fetchPurchases}
-            className="text-xs font-medium text-primary hover:underline"
-          >
-            {tc("refresh")}
-          </button>
-        </div>
-        <p className="mt-1 text-sm text-muted-foreground">{tp("purchases.subtitle")}</p>
-
-        {loadingPurchases ? (
-          <div className="flex items-center justify-center py-6">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : purchases.length === 0 ? (
-          <p className="mt-4 text-sm text-muted-foreground">{tp("purchases.empty")}</p>
-        ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full divide-y divide-border text-sm">
-              <thead className="bg-muted/40">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">{tc("item")}</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">{tp("purchases.columns.buyer")}</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">{tp("purchases.columns.purchasedAt")}</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">{tc("actions")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {purchases.map((p) => (
-                  <tr key={p.id}>
-                    <td className="px-3 py-2">
-                      <div className="max-w-xs truncate text-sm font-medium text-foreground" title={p.item_title}>
-                        {p.item_title}
-                      </div>
-                      <div className="text-xs text-muted-foreground">{tp("purchases.itemId", { id: p.marketplace_item_id })}</div>
-                    </td>
-                    <td className="px-3 py-2 align-top text-xs text-muted-foreground">
-                      <div className="text-foreground text-sm">{p.buyer_name}</div>
-                      <div className="text-[10px] text-muted-foreground/80">{tp("purchases.userId", { id: p.user_id })}</div>
-                    </td>
-                    <td className="px-3 py-2 align-top text-xs text-muted-foreground">
-                      {new Date(p.created_at).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2 align-top text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleRevokePurchase(p.id)}
-                        disabled={revokingId === p.id}
-                        className="inline-flex items-center rounded-md border border-border px-2 py-1 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
-                      >
-                        {revokingId === p.id ? tp("actions.revoking") : tp("actions.revoke")}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
       {editing && (
-        <div className={siteModalBottomSheetOverlayClass}>
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="edit-vault-item-title"
-            className={`flex w-full max-w-3xl flex-col rounded-t-xl border border-border bg-card shadow-xl sm:rounded-xl ${siteModalPanelMaxHeightClass}`}
-          >
-            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-6">
-              <h2 id="edit-vault-item-title" className="text-lg font-medium">
-                {tp("editItem.title")}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setEditing(null)}
-                className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label={tc("close")}
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <form
-              id="edit-vault-item-form"
-              onSubmit={handleUpdate}
-              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5"
-            >
-              <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
+        <div className="mt-6 rounded-lg border border-border bg-card p-4 sm:p-6">
+          <form id="edit-vault-item-form" onSubmit={handleUpdate} className="grid gap-4 sm:grid-cols-2">
+              <div>
                 <label className="mb-1 block text-sm font-medium">{tp("fields.type")}</label>
                 <select name="type" defaultValue={editing.type} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm">
                 <option value="book">{tp("types.book")}</option>
@@ -1303,9 +1048,7 @@ export default function AdminMarketplacePage() {
                   <input name="sort_order" type="number" defaultValue={editing.sort_order} className="w-20 rounded border border-input bg-background px-2 py-1 text-sm" />
                 </label>
               </div>
-              </div>
-            </form>
-            <div className="flex shrink-0 flex-wrap gap-2 border-t border-border bg-card px-4 py-4 sm:px-6">
+            <div className="flex flex-wrap gap-2 sm:col-span-2">
               {editing.is_course &&
               (buildLanguageFilesPayload(editLanguageFiles).length > 0 || editing.file_path) ? (
                 <button
@@ -1323,7 +1066,6 @@ export default function AdminMarketplacePage() {
               ) : null}
               <button
                 type="submit"
-                form="edit-vault-item-form"
                 disabled={saving}
                 className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
               >
@@ -1331,15 +1073,286 @@ export default function AdminMarketplacePage() {
               </button>
               <button
                 type="button"
-                onClick={() => setEditing(null)}
+                onClick={closeItemFormView}
                 className="rounded-lg border border-input px-4 py-2 text-sm font-medium hover:bg-accent"
               >
                 {tc("cancel")}
               </button>
             </div>
+          </form>
+        </div>
+      )}
+
+        <div className="mt-8 border-t border-border pt-6">{backToListButton}</div>
+        </>
+      ) : showListView ? (
+        <>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">{t("title")}</h1>
+          <p className="mt-1 text-muted-foreground">{t("subtitle")}</p>
+        </div>
+        <Link
+          href="/marketplace"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-primary hover:underline"
+        >
+          {t("viewPublicVault")}
+        </Link>
+      </div>
+
+      {error && (
+        <div className="mt-4 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
+      {notice && (
+        <div className="mt-4 rounded-lg border border-border bg-muted/50 px-4 py-2 text-sm text-muted-foreground">
+          {notice}
+        </div>
+      )}
+
+      <div className="mt-6 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(null);
+              setAddLanguageFiles(defaultMarketplaceLanguageFileDrafts());
+              setCoverFocal(DEFAULT_COVER_FOCAL);
+              setPendingImageUrl(null);
+              setCoverImageCleared(false);
+              setAdding(true);
+              updateViewInUrl({ add: true });
+            }}
+            className="flex items-center gap-2 rounded-lg border border-dashed border-border bg-transparent px-4 py-2 text-sm font-medium text-muted-foreground hover:border-primary hover:text-primary"
+          >
+            <Plus className="h-4 w-4" /> {tp("actions.addItem")}
+          </button>
+          <button
+            type="button"
+            onClick={() => openSeriesEditor("new")}
+            className="flex items-center gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/10"
+          >
+            <Plus className="h-4 w-4" /> {tp("actions.addSeries")}
+          </button>
+        </div>
+
+      {managedVaultSeries.length > 0 && (
+        <div className="mt-6 space-y-4">
+          <div className="rounded-lg border border-border bg-card p-4">
+            <h2 className="text-sm font-semibold">{tp("series.vaultSeriesTitle")}</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Series with saved metadata and/or linked items. Delete unlinks items (or removes them if you choose in
+              the editor).
+            </p>
+            <ul className="mt-3 divide-y divide-border">
+              {managedVaultSeries.map((s) => (
+                <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                  <span>
+                    <span className="font-medium">{s.label}</span>
+                    <span className="ml-2 text-muted-foreground">
+                      {s.itemCount} item{s.itemCount === 1 ? "" : "s"}
+                      {s.paid ? " · paid" : " · free"}
+                      {s.builtin ? " · built-in" : ""}
+                    </span>
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openSeriesEditor(s.id)}
+                      className="rounded-lg border border-input px-3 py-1 text-xs font-medium hover:bg-accent"
+                    >
+                      {tp("actions.editSeries")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteSeriesFromList(s)}
+                      className="rounded-lg border border-destructive/40 px-3 py-1 text-xs font-medium text-destructive hover:bg-destructive/10"
+                    >
+                      {tp("actions.delete")}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       )}
+
+      {loading ? (
+        <div className="mt-8 flex justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <div className="mt-6 overflow-x-auto">
+          <p className="mb-3 text-xs text-muted-foreground">
+            {tp("list.standaloneHintBefore")}{" "}
+            <strong>{tp("actions.editSeries")}</strong> {tp("list.standaloneHintAfter")}
+          </p>
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="pb-2 text-left font-medium">{tp("table.cover")}</th>
+                <th className="pb-2 text-left font-medium">{tp("table.type")}</th>
+                <th className="pb-2 text-left font-medium">{tp("table.title")}</th>
+                <th className="pb-2 text-left font-medium">{tp("table.freeSeries")}</th>
+                <th className="pb-2 text-left font-medium">{tp("table.author")}</th>
+                <th className="pb-2 text-right font-medium">{tp("table.price")}</th>
+                <th className="pb-2 text-center font-medium">{tp("table.file")}</th>
+                <th className="pb-2 text-center font-medium">{tp("table.published")}</th>
+                <th className="pb-2 text-right font-medium">{tc("actions")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {standaloneItems.map((item) => (
+                <tr key={item.id} className="border-b border-border/70">
+                  <td className="py-3">
+                    {item.image_url ? (
+                      <img src={item.image_url} alt="" className="h-10 w-10 rounded object-cover border border-border" />
+                    ) : (
+                      <span className="inline-flex h-10 w-10 items-center justify-center rounded border border-dashed border-border text-[10px] text-muted-foreground">
+                        {tp("table.noImage")}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3">
+                    <span className="flex items-center gap-2">
+                      <TypeIcon type={item.type} />
+                      {tp(`types.${item.type}`)}
+                    </span>
+                  </td>
+                  <td className="py-3 font-medium">{item.title}</td>
+                  <td className="py-3 text-muted-foreground text-xs">
+                    {item.price_cents === 0
+                      ? labelForVaultSubcategory(item.vault_subcategory) ?? tp("table.free")
+                      : labelForVaultSubcategory(item.vault_subcategory) ?? "—"}
+                  </td>
+                  <td className="py-3 text-muted-foreground">{item.author || "—"}</td>
+                  <td className="py-3 text-right">
+                    {item.price_cents === 0 ? tp("table.free") : `$${(item.price_cents / 100).toFixed(2)}`}
+                  </td>
+                  <td className="py-3 text-center">
+                    {item.language_codes && item.language_codes.length > 0 ? (
+                      <VaultLanguageBadges languageCodes={item.language_codes} />
+                    ) : item.file_path ? (
+                      item.file_format ? `.${item.file_format}` : tc("yes")
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="py-3 text-center">{item.published ? tc("yes") : tc("no")}</td>
+                  <td className="py-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const sub = item.vault_subcategory?.trim();
+                        if (sub && shouldGroupVaultItem(item)) {
+                          openSeriesEditor(sub);
+                          return;
+                        }
+                        setAdding(false);
+                        setEditing(item);
+                        setPendingImageUrl(null);
+                        setCoverImageCleared(false);
+                        setCoverFocal(readItemCoverFocal(item));
+                      }}
+                      className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      aria-label={tp("actions.edit")}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item.id)}
+                      className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      aria-label={tp("actions.delete")}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {standaloneItems.length === 0 && (
+            <p className="py-8 text-center text-muted-foreground">
+              {items.length > 0
+                  ? tp("empty.noStandaloneItems")
+                  : tp("empty.noItemsYet")}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Purchases overview */}
+      <div className="mt-10 rounded-lg border border-border bg-card p-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">{tp("purchases.title")}</h2>
+          <button
+            type="button"
+            onClick={fetchPurchases}
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            {tc("refresh")}
+          </button>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">{tp("purchases.subtitle")}</p>
+
+        {loadingPurchases ? (
+          <div className="flex items-center justify-center py-6">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : purchases.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">{tp("purchases.empty")}</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full divide-y divide-border text-sm">
+              <thead className="bg-muted/40">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">{tc("item")}</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">{tp("purchases.columns.buyer")}</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">{tp("purchases.columns.purchasedAt")}</th>
+                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">{tc("actions")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {purchases.map((p) => (
+                  <tr key={p.id}>
+                    <td className="px-3 py-2">
+                      <div className="max-w-xs truncate text-sm font-medium text-foreground" title={p.item_title}>
+                        {p.item_title}
+                      </div>
+                      <div className="text-xs text-muted-foreground">{tp("purchases.itemId", { id: p.marketplace_item_id })}</div>
+                    </td>
+                    <td className="px-3 py-2 align-top text-xs text-muted-foreground">
+                      <div className="text-foreground text-sm">{p.buyer_name}</div>
+                      <div className="text-[10px] text-muted-foreground/80">{tp("purchases.userId", { id: p.user_id })}</div>
+                    </td>
+                    <td className="px-3 py-2 align-top text-xs text-muted-foreground">
+                      {new Date(p.created_at).toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2 align-top text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleRevokePurchase(p.id)}
+                        disabled={revokingId === p.id}
+                        className="inline-flex items-center rounded-md border border-border px-2 py-1 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                      >
+                        {revokingId === p.id ? tp("actions.revoking") : tp("actions.revoke")}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+        </>
+      ) : null}
+
       {seriesEditorId ? (
         <AdminVaultSeriesEditor
           key={seriesEditorId}
