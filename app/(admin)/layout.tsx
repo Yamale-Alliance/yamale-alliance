@@ -16,25 +16,28 @@ export default function AdminLayout({
 
   return (
     <AdminRoleProvider>
-      <div className="flex min-h-0 flex-1 flex-col bg-muted/30 md:h-[calc(100dvh-var(--site-nav-h,4.5rem))] md:max-h-[calc(100dvh-var(--site-nav-h,4.5rem))] md:flex-row md:overflow-hidden">
+      {/* Desktop: fixed shell below site header — avoids double viewport height + empty scroll gap */}
+      <div className="admin-workspace-root flex w-full flex-col overflow-hidden bg-muted/30 max-md:relative md:fixed md:inset-x-0 md:bottom-0 md:top-[var(--site-nav-h,4.5rem)] md:z-[1] md:flex-row">
         <AdminSidebar
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
         />
-        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-card px-4 md:hidden">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(true)}
-            className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-            aria-label={t("openAdminMenu")}
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <span className="text-sm font-medium text-foreground">{t("adminMenu")}</span>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-card px-4 md:hidden">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label={t("openAdminMenu")}
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <span className="text-sm font-medium text-foreground">{t("adminMenu")}</span>
+          </div>
+          <main className="admin-workspace-main min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-muted/30 [-webkit-overflow-scrolling:touch]">
+            {children}
+          </main>
         </div>
-        <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
-          {children}
-        </main>
       </div>
     </AdminRoleProvider>
   );
