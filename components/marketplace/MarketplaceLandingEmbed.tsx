@@ -6,6 +6,8 @@ import {
   applyLandingLanguage,
   detectCheckoutTierFromAnchor,
   detectCheckoutTierFromCtaText,
+  isLandingBrowseContentsAnchor,
+  isLandingDownloadAnchor,
   isLandingInPageSectionAnchor,
   landingHashFromAnchor,
   landingLanguageFromButton,
@@ -24,6 +26,8 @@ type MarketplaceLandingEmbedProps = {
   html: string;
   className?: string;
   onCheckoutClick?: (tier: PackageOfferTier | null) => void;
+  onBrowseZipContents?: () => void;
+  onDownloadClick?: () => void;
 };
 
 function findClickTargetInComposedPath(
@@ -67,6 +71,8 @@ export function MarketplaceLandingEmbed({
   html,
   className = "w-full bg-background",
   onCheckoutClick,
+  onBrowseZipContents,
+  onDownloadClick,
 }: MarketplaceLandingEmbedProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const { theme } = useTheme();
@@ -97,10 +103,17 @@ export function MarketplaceLandingEmbed({
 
       const anchor = findClickTargetInComposedPath(path, "a");
       if (anchor) {
-        if (isLandingInPageSectionAnchor(anchor)) {
+        if (onBrowseZipContents && isLandingBrowseContentsAnchor(anchor)) {
           event.preventDefault();
           event.stopPropagation();
-          scrollShadowHash(host, landingHashFromAnchor(anchor));
+          onBrowseZipContents();
+          return;
+        }
+
+        if (onDownloadClick && isLandingDownloadAnchor(anchor)) {
+          event.preventDefault();
+          event.stopPropagation();
+          onDownloadClick();
           return;
         }
 
@@ -110,18 +123,42 @@ export function MarketplaceLandingEmbed({
           onCheckoutClick(detectCheckoutTierFromAnchor(anchor));
           return;
         }
+
+        if (isLandingInPageSectionAnchor(anchor)) {
+          event.preventDefault();
+          event.stopPropagation();
+          scrollShadowHash(host, landingHashFromAnchor(anchor));
+          return;
+        }
+      }
+
+      const button = findClickTargetInComposedPath(path, "button");
+      if (button) {
+        if (onBrowseZipContents && isLandingBrowseContentsAnchor(button)) {
+          event.preventDefault();
+          event.stopPropagation();
+          onBrowseZipContents();
+          return;
+        }
+
+        if (onDownloadClick && isLandingDownloadAnchor(button)) {
+          event.preventDefault();
+          event.stopPropagation();
+          onDownloadClick();
+          return;
+        }
       }
 
       if (!onCheckoutClick) return;
 
-      const button = findClickTargetInComposedPath(path, "button");
       if (!button) return;
       const inCheckoutCta =
-        button.closest(".hero-cta, .cta-buttons, .cta-section, .pricing-section, .pricing-cards") !=
+        button.closest(".hero-cta, .cta-buttons, .cta-section, .pricing-section, .pricing-cards, .hero-actions") !=
           null ||
         button.classList.contains("btn-primary") ||
         button.classList.contains("btn-bundle");
       if (!inCheckoutCta) return;
+      if (isLandingBrowseContentsAnchor(button) || isLandingDownloadAnchor(button)) return;
       event.preventDefault();
       event.stopPropagation();
       onCheckoutClick(
@@ -129,7 +166,7 @@ export function MarketplaceLandingEmbed({
           (button.classList.contains("btn-bundle") ? "bundle" : null)
       );
     },
-    [onCheckoutClick]
+    [onCheckoutClick, onBrowseZipContents, onDownloadClick]
   );
 
   useEffect(() => {
@@ -148,7 +185,11 @@ export function MarketplaceLandingEmbed({
     applyLandingLanguage(shadow, initialLang);
 
     shadow.addEventListener("click", handleShadowClick, true);
-    return () => shadow.removeEventListener("click", handleShadowClick, true);
+    host.addEventListener("click", handleShadowClick, true);
+    return () => {
+      shadow.removeEventListener("click", handleShadowClick, true);
+      host.removeEventListener("click", handleShadowClick, true);
+    };
   }, [embedHtml, handleShadowClick]);
 
   useEffect(() => {
