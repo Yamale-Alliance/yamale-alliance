@@ -771,6 +771,7 @@
         "addItem": {
           "title": "Add item"
         },
+        "backToList": "Back to vault items",
         "fields": {
           "type": "Type",
           "title": "Title",
@@ -2132,6 +2133,7 @@
       "title": "Lawyers directory",
       "subtitle": "Review public applications from /lawyers/join, approve profiles for the directory, or add lawyers manually.",
       "addLawyer": "Add lawyer",
+      "backToList": "Back to lawyers directory",
       "manageCatalog": "Add expertise & languages",
       "adding": "Adding…",
       "edit": "Edit",
@@ -2156,7 +2158,10 @@
         "removeTitle": "Remove onboarding video?",
         "removeDescription": "Visitors will no longer see the lawyers tab intro video until you upload a new one.",
         "removeButton": "Remove",
-        "empty": "No video uploaded yet."
+        "empty": "No video uploaded yet.",
+        "configured": "A video is configured. Preview it when needed.",
+        "preview": "Preview video",
+        "hidePreview": "Hide preview"
       },
       "form": {
         "addTitle": "Add lawyer to directory",
@@ -2165,6 +2170,7 @@
         "otherLanguages": "Other languages",
         "languages": "Languages spoken",
         "languagesDescription": "Select every language this lawyer works in. These appear on their directory card.",
+        "expertiseDescription": "Select one or more practice areas. Multiple selections are shown on the lawyer's directory card.",
         "linkedin": "LinkedIn URL",
         "photo": "Photo",
         "uploadImage": "Upload image",
