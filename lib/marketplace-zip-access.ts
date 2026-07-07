@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { isAdvisoryWorkspacePreviewEnabled } from "@/lib/law-firm-advisory-preview";
 import { marketplaceCourseAccessGranted } from "@/lib/marketplace-course-access";
+import { fetchPublishedMarketplaceItem } from "@/lib/marketplace-item-db";
 import { resolveMarketplaceItemFileForAccess } from "@/lib/marketplace-item-files";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -18,19 +19,20 @@ export type MarketplaceZipItem = {
 
 export async function loadMarketplaceZipItem(
   supabase: SupabaseClient,
-  itemId: string,
+  slugOrId: string,
   languageCode?: string | null
 ): Promise<MarketplaceZipItem | null> {
-  const { data, error } = await supabase
-    .from("marketplace_items")
-    .select("id, file_path, file_name, file_format, published, price_cents, is_course")
-    .eq("id", itemId)
-    .single();
+  const { data, error } = await fetchPublishedMarketplaceItem(
+    supabase,
+    slugOrId,
+    "id, file_path, file_name, file_format, published, price_cents, is_course"
+  );
 
   if (error || !data) return null;
   const row = data as MarketplaceZipItem & { file_path: string | null };
   if (!row.published) return null;
 
+  const itemId = String(row.id);
   const resolved = await resolveMarketplaceItemFileForAccess(supabase, itemId, languageCode, {
     file_path: row.file_path,
     file_name: row.file_name,
