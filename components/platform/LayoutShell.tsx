@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { Header } from "@/components/layout/Header";
 import { ConditionalFooter } from "@/components/layout/ConditionalFooter";
 import { MobileScrollLockCleanup } from "@/components/navigation/MobileScrollLockCleanup";
@@ -6,6 +5,7 @@ import { ScrollToTopOnNavigate } from "@/components/navigation/ScrollToTopOnNavi
 import { OfflineProvider } from "@/components/offline/OfflineProvider";
 import { SubscriptionRenewalReminder } from "@/components/subscription/SubscriptionRenewalReminder";
 import { FoundersNoteGate } from "@/components/founders-note/FoundersNoteGate";
+import { LayoutContentArea } from "@/components/platform/LayoutContentArea";
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
   return (
@@ -16,9 +16,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
         <Header />
         <SubscriptionRenewalReminder />
         <FoundersNoteGate />
-        <div className="flex-1 min-w-0">
-          <Suspense fallback={null}>{children}</Suspense>
-        </div>
+        <LayoutContentArea>{children}</LayoutContentArea>
         <ConditionalFooter />
       </div>
       <OfflineProvider />
