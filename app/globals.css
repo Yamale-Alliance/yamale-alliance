@@ -522,16 +522,41 @@ footer.yamale-site-footer {
 
 /* Law Firm Development Package — portaled sub-nav locked under site header height. */
 body:has(.law-firm-package-landing),
-body:has(.advisory-workspace-root) {
+body:has(.advisory-workspace-root),
+body:has(.admin-workspace-root) {
   --site-nav-h: calc(4.5rem + var(--safe-area-top));
   --vault-chrome-h: 5.25rem;
 }
 
 @media (min-width: 640px) {
   body:has(.law-firm-package-landing),
-  body:has(.advisory-workspace-root) {
+  body:has(.advisory-workspace-root),
+  body:has(.admin-workspace-root) {
     --site-nav-h: calc(5.5rem + var(--safe-area-top));
     --vault-chrome-h: 4.75rem;
+  }
+}
+
+/* Admin panel: bounded shell below site header — scroll only inside main */
+.admin-workspace-root {
+  overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 0;
+}
+
+/* Mobile: explicit height below site header */
+@media (max-width: 767px) {
+  .admin-workspace-root {
+    height: calc(100dvh - var(--site-nav-h, 4.5rem));
+    max-height: calc(100dvh - var(--site-nav-h, 4.5rem));
+  }
+}
+
+@media (min-width: 768px) {
+  html:has(.admin-workspace-root),
+  body:has(.admin-workspace-root) {
+    overflow: hidden;
   }
 }
 
