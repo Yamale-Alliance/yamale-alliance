@@ -4,12 +4,12 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Loader2, Briefcase, Plus, Trash2, Download, Upload, Video, X, Tags } from "lucide-react";
+import { Loader2, Briefcase, Plus, Trash2, Download, Upload, Video, X, Tags, Play, ChevronUp, Pencil, ArrowLeft } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 import {
-  lawyerExpertiseSelectOptions,
-  normalizeExpertiseField,
-  primaryExpertiseFromField,
+  dedupeExpertiseSegments,
+  formatExpertiseSelection,
+  parseExpertiseSegments,
 } from "@/lib/lawyer-expertise";
 import {
   collectLawyerLanguages,
@@ -17,7 +17,9 @@ import {
   splitLawyerLanguagesForStorage,
 } from "@/lib/lawyer-languages";
 import { LawyerLanguagesPicker } from "@/components/lawyers/LawyerLanguagesPicker";
+import { LawyerExpertisePicker } from "@/components/lawyers/LawyerExpertisePicker";
 import { cloudinaryVideoPlaybackUrl } from "@/lib/cloudinary-video-playback";
+import { useAdminMainScrollToTop } from "@/components/admin/useAdminMainScrollToTop";
 import {
   LawyerApplicationReviewDialog,
   type LawyerApplicationSummary,
@@ -39,7 +41,7 @@ export default function AdminLawyersPage() {
   const [formName, setFormName] = useState("");
   const [formCountry, setFormCountry] = useState("");
   const [formCity, setFormCity] = useState("");
-  const [formExpertise, setFormExpertise] = useState("");
+  const [formExpertise, setFormExpertise] = useState<string[]>([]);
   const [formEmail, setFormEmail] = useState("");
   const [formPhone, setFormPhone] = useState("");
   const [formLanguages, setFormLanguages] = useState<string[]>([]);
@@ -52,7 +54,7 @@ export default function AdminLawyersPage() {
   const [editName, setEditName] = useState("");
   const [editCountry, setEditCountry] = useState("");
   const [editCity, setEditCity] = useState("");
-  const [editExpertise, setEditExpertise] = useState("");
+  const [editExpertise, setEditExpertise] = useState<string[]>([]);
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editLanguages, setEditLanguages] = useState<string[]>([]);
@@ -63,6 +65,7 @@ export default function AdminLawyersPage() {
   const [onboardingVideoUrl, setOnboardingVideoUrl] = useState<string | null>(null);
   const [onboardingVideoUploading, setOnboardingVideoUploading] = useState(false);
   const [onboardingVideoRemoving, setOnboardingVideoRemoving] = useState(false);
+  const [onboardingVideoPreviewOpen, setOnboardingVideoPreviewOpen] = useState(false);
   const [catalogPracticeAreas, setCatalogPracticeAreas] = useState<string[]>([]);
   const [catalogLanguages, setCatalogLanguages] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved">("all");
@@ -206,6 +209,7 @@ export default function AdminLawyersPage() {
       const data = await parseJsonSafe(res);
       if (!res.ok) throw new Error(apiErrorMessage(data, "Remove failed"));
       setOnboardingVideoUrl(null);
+      setOnboardingVideoPreviewOpen(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("errors.removeFailed"));
     } finally {
@@ -229,7 +233,7 @@ export default function AdminLawyersPage() {
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName.trim() || !formExpertise.trim()) {
+    if (!formName.trim() || formExpertise.length === 0) {
       setError(t("errors.nameExpertiseRequired"));
       return;
     }
@@ -249,7 +253,7 @@ export default function AdminLawyersPage() {
           name: formName.trim(),
           country: formCountry.trim() || undefined,
           city: formCity.trim() || undefined,
-          expertise: formExpertise.trim(),
+          expertise: formatExpertiseSelection(formExpertise),
           email: formEmail.trim() || undefined,
           phone: formPhone.trim() || undefined,
           primary_language: languageFields.primary_language || undefined,
@@ -266,7 +270,7 @@ export default function AdminLawyersPage() {
       setFormName("");
       setFormCountry("");
       setFormCity("");
-      setFormExpertise("");
+      setFormExpertise([]);
       setFormEmail("");
       setFormPhone("");
       setFormLanguages([]);
@@ -282,11 +286,12 @@ export default function AdminLawyersPage() {
   };
 
   const openEdit = (lawyer: LawyerRow) => {
+    setShowForm(false);
     setEditing(lawyer);
     setEditName(lawyer.name);
     setEditCountry(lawyer.country ?? "");
     setEditCity(lawyer.city ?? "");
-    setEditExpertise(primaryExpertiseFromField(lawyer.expertise));
+    setEditExpertise(dedupeExpertiseSegments(parseExpertiseSegments(lawyer.expertise)));
     setEditEmail(lawyer.email ?? "");
     setEditPhone(lawyer.phone ?? "");
     setEditLanguages(collectLawyerLanguages(lawyer.primary_language, lawyer.other_languages));
@@ -298,7 +303,7 @@ export default function AdminLawyersPage() {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editing) return;
-    if (!editName.trim() || !editExpertise.trim()) {
+    if (!editName.trim() || editExpertise.length === 0) {
       setError(t("errors.nameExpertiseRequired"));
       return;
     }
@@ -318,7 +323,7 @@ export default function AdminLawyersPage() {
           name: editName.trim(),
           country: editCountry.trim() || undefined,
           city: editCity.trim() || undefined,
-          expertise: editExpertise.trim(),
+          expertise: formatExpertiseSelection(editExpertise),
           email: editEmail.trim() || undefined,
           phone: editPhone.trim() || undefined,
           primary_language: languageFields.primary_language || undefined,
@@ -446,115 +451,50 @@ export default function AdminLawyersPage() {
     }, 250);
   };
 
+  const isFormView = showForm || editing !== null;
+
+  useAdminMainScrollToTop(isFormView, showForm, editing?.id);
+
+  const closeFormView = () => {
+    setShowForm(false);
+    setEditing(null);
+    setError(null);
+  };
+
+  const openAddForm = () => {
+    setEditing(null);
+    setShowForm(true);
+    setError(null);
+  };
+
+  const backToListButton = (
+    <button
+      type="button"
+      onClick={closeFormView}
+      className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+    >
+      <ArrowLeft className="h-4 w-4" />
+      {t("backToList")}
+    </button>
+  );
+
   return (
     <div className="p-4 sm:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <Briefcase className="h-6 w-6" />
-            {t("title")}
+      {isFormView ? (
+        <>
+          <div className="mb-6">{backToListButton}</div>
+          <h1 className="text-2xl font-semibold">
+            {showForm ? t("form.addTitle") : t("form.editTitle")}
           </h1>
-          <p className="mt-1 text-muted-foreground">
-            {t("subtitle")}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {lawyers.length > 0 && (
-            <button
-              type="button"
-              onClick={exportPdf}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent"
-            >
-              <Download className="h-4 w-4" />
-              {tc("exportPdf")}
-            </button>
+
+          {error && (
+            <div className="mt-4 rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">
+              {error}
+            </div>
           )}
-          <Link
-            href="/admin-panel/lawyers/catalog"
-            className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
-          >
-            <Tags className="h-4 w-4" />
-            {t("manageCatalog")}
-          </Link>
-          <button
-            type="button"
-            onClick={() => setShowForm((v) => !v)}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-          >
-            <Plus className="h-4 w-4" />
-            {t("addLawyer")}
-          </button>
-        </div>
-      </div>
 
-      <section className="mt-6 rounded-xl border border-border bg-card p-6 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="flex items-center gap-2 text-lg font-medium text-foreground">
-              <Video className="h-5 w-5 text-primary" />
-              {t("video.title")}
-            </h2>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              {t.rich("video.description", {
-                strong: (chunks) => <strong>{chunks}</strong>,
-              })}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent">
-              {onboardingVideoUploading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Upload className="h-4 w-4" />
-              )}
-              {onboardingVideoUrl ? t("video.replace") : t("video.upload")}
-              <input
-                type="file"
-                accept="video/mp4,.mp4"
-                className="sr-only"
-                disabled={onboardingVideoUploading || onboardingVideoRemoving}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void handleOnboardingVideoUpload(f);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-            {onboardingVideoUrl && (
-              <button
-                type="button"
-                onClick={() => void handleOnboardingVideoRemove()}
-                disabled={onboardingVideoRemoving || onboardingVideoUploading}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
-              >
-                {onboardingVideoRemoving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <X className="h-4 w-4" />
-                )}
-                {t("video.removeButton")}
-              </button>
-            )}
-          </div>
-        </div>
-        {onboardingVideoUrl ? (
-          <div className="mt-4 overflow-hidden rounded-lg border border-border bg-black">
-            <video
-              src={cloudinaryVideoPlaybackUrl(onboardingVideoUrl)}
-              controls
-              playsInline
-              preload="metadata"
-              className="aspect-video w-full max-h-80 object-contain"
-            />
-          </div>
-        ) : (
-          <p className="mt-4 text-sm text-muted-foreground">{t("video.empty")}</p>
-        )}
-      </section>
-
-      {showForm && (
+          {showForm && (
         <form onSubmit={handleAddSubmit} className="mt-6 rounded-xl border border-border bg-card p-6 shadow-sm">
-          <h2 className="text-lg font-medium mb-4">{t("form.addTitle")}</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="admin-lawyer-name" className="block text-sm font-medium text-foreground mb-1">
@@ -600,23 +540,14 @@ export default function AdminLawyersPage() {
               />
             </div>
             <div className="sm:col-span-2">
-              <label htmlFor="admin-lawyer-expertise" className="block text-sm font-medium text-foreground mb-1">
-                {t("table.expertise")} <span className="text-destructive">*</span>
-              </label>
-              <select
-                id="admin-lawyer-expertise"
+              <LawyerExpertisePicker
+                idPrefix="admin-lawyer-expertise"
+                label={`${t("table.expertise")} *`}
+                description={t("form.expertiseDescription")}
                 value={formExpertise}
-                onChange={(e) => setFormExpertise(e.target.value)}
-                required
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">{t("form.placeholders.selectExpertise")}</option>
-                {lawyerExpertiseSelectOptions(undefined, catalogPracticeAreas).map((area) => (
-                  <option key={area} value={area}>
-                    {area}
-                  </option>
-                ))}
-              </select>
+                onChange={setFormExpertise}
+                options={catalogPracticeAreas}
+              />
             </div>
             <div>
               <label htmlFor="admin-lawyer-email" className="block text-sm font-medium text-foreground mb-1">
@@ -734,7 +665,7 @@ export default function AdminLawyersPage() {
           <div className="mt-4 flex gap-2">
             <button
               type="button"
-              onClick={() => setShowForm(false)}
+              onClick={closeFormView}
               className="rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
             >
               {tc("cancel")}
@@ -752,7 +683,6 @@ export default function AdminLawyersPage() {
 
       {editing && (
         <form onSubmit={handleEditSubmit} className="mt-6 rounded-xl border border-border bg-card p-6 shadow-sm">
-          <h2 className="text-lg font-medium mb-4">{t("form.editTitle")}</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="edit-lawyer-name" className="block text-sm font-medium text-foreground mb-1">
@@ -796,23 +726,14 @@ export default function AdminLawyersPage() {
               />
             </div>
             <div className="sm:col-span-2">
-              <label htmlFor="edit-lawyer-expertise" className="block text-sm font-medium text-foreground mb-1">
-                {t("table.expertise")} <span className="text-destructive">*</span>
-              </label>
-              <select
-                id="edit-lawyer-expertise"
+              <LawyerExpertisePicker
+                idPrefix="edit-lawyer-expertise"
+                label={`${t("table.expertise")} *`}
+                description={t("form.expertiseDescription")}
                 value={editExpertise}
-                onChange={(e) => setEditExpertise(e.target.value)}
-                required
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">{t("form.placeholders.selectExpertise")}</option>
-                {lawyerExpertiseSelectOptions(editExpertise, catalogPracticeAreas).map((area) => (
-                  <option key={area} value={area}>
-                    {area}
-                  </option>
-                ))}
-              </select>
+                onChange={setEditExpertise}
+                options={catalogPracticeAreas}
+              />
             </div>
             <div>
               <label htmlFor="edit-lawyer-email" className="block text-sm font-medium text-foreground mb-1">
@@ -925,7 +846,7 @@ export default function AdminLawyersPage() {
           <div className="mt-4 flex gap-2">
             <button
               type="button"
-              onClick={() => setEditing(null)}
+              onClick={closeFormView}
               className="rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
             >
               {tc("cancel")}
@@ -940,6 +861,131 @@ export default function AdminLawyersPage() {
           </div>
         </form>
       )}
+
+          <div className="mt-8 border-t border-border pt-6">{backToListButton}</div>
+        </>
+      ) : (
+        <>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold flex items-center gap-2">
+            <Briefcase className="h-6 w-6" />
+            {t("title")}
+          </h1>
+          <p className="mt-1 text-muted-foreground">
+            {t("subtitle")}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {lawyers.length > 0 && (
+            <button
+              type="button"
+              onClick={exportPdf}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent"
+            >
+              <Download className="h-4 w-4" />
+              {tc("exportPdf")}
+            </button>
+          )}
+          <Link
+            href="/admin-panel/lawyers/catalog"
+            className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+          >
+            <Tags className="h-4 w-4" />
+            {t("manageCatalog")}
+          </Link>
+          <button
+            type="button"
+            onClick={openAddForm}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" />
+            {t("addLawyer")}
+          </button>
+        </div>
+      </div>
+
+      <section className="mt-6 rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h2 className="flex items-center gap-2 text-base font-medium text-foreground">
+              <Video className="h-4 w-4 text-primary" />
+              {t("video.title")}
+            </h2>
+            <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+              {t.rich("video.description", {
+                strong: (chunks) => <strong>{chunks}</strong>,
+              })}
+            </p>
+            {onboardingVideoUrl ? (
+              <p className="mt-2 text-xs text-muted-foreground">{t("video.configured")}</p>
+            ) : (
+              <p className="mt-2 text-xs text-muted-foreground">{t("video.empty")}</p>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {onboardingVideoUrl ? (
+              <button
+                type="button"
+                onClick={() => setOnboardingVideoPreviewOpen((open) => !open)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent"
+              >
+                {onboardingVideoPreviewOpen ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+                {onboardingVideoPreviewOpen ? t("video.hidePreview") : t("video.preview")}
+              </button>
+            ) : null}
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent">
+              {onboardingVideoUploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              {onboardingVideoUrl ? t("video.replace") : t("video.upload")}
+              <input
+                type="file"
+                accept="video/mp4,.mp4"
+                className="sr-only"
+                disabled={onboardingVideoUploading || onboardingVideoRemoving}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void handleOnboardingVideoUpload(f);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            {onboardingVideoUrl && (
+              <button
+                type="button"
+                onClick={() => void handleOnboardingVideoRemove()}
+                disabled={onboardingVideoRemoving || onboardingVideoUploading}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+              >
+                {onboardingVideoRemoving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <X className="h-4 w-4" />
+                )}
+                {t("video.removeButton")}
+              </button>
+            )}
+          </div>
+        </div>
+        {onboardingVideoUrl && onboardingVideoPreviewOpen ? (
+          <div className="mt-3 overflow-hidden rounded-lg border border-border bg-black">
+            <video
+              src={cloudinaryVideoPlaybackUrl(onboardingVideoUrl)}
+              controls
+              playsInline
+              preload="metadata"
+              className="aspect-video w-full max-h-56 object-contain"
+            />
+          </div>
+        ) : null}
+      </section>
 
       {error && (
         <div className="mt-4 rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">
@@ -969,114 +1015,150 @@ export default function AdminLawyersPage() {
         <div className="mt-8 flex justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
+      ) : filteredLawyers.length === 0 ? (
+        <div className="mt-6 rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+          {t("empty")}
+        </div>
       ) : (
-        <div className="mt-6 rounded-lg border border-border overflow-hidden bg-card">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[800px]">
-              <thead className="border-b border-border bg-muted/50">
-                <tr>
-                  <th className="text-left p-3 font-medium w-14">{t("table.photo")}</th>
-                  <th className="text-left p-3 font-medium">{tc("name")}</th>
-                  <th className="text-left p-3 font-medium">{t("table.country")}</th>
-                  <th className="text-left p-3 font-medium">{t("table.city")}</th>
-                  <th className="text-left p-3 font-medium max-w-[160px]">{t("table.expertise")}</th>
-                  <th className="text-left p-3 font-medium max-w-[140px]">{t("table.languages")}</th>
-                  <th className="text-left p-3 font-medium max-w-[160px]">{tc("email")}</th>
-                  <th className="text-left p-3 font-medium max-w-[120px]">{t("table.phone")}</th>
-                  <th className="text-left p-3 font-medium w-20">{t("table.source")}</th>
-                  <th className="text-left p-3 font-medium w-28">{t("table.status")}</th>
-                  <th className="text-left p-3 font-medium">{t("table.added")}</th>
-                  <th className="text-left p-3 font-medium w-[140px] min-w-[140px] sticky right-0 bg-muted/50 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)] z-10">{tc("actions")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredLawyers.length === 0 ? (
-                  <tr>
-                    <td colSpan={12} className="p-8 text-center text-muted-foreground">
-                      {t("empty")}
-                    </td>
-                  </tr>
-                ) : (
-                  filteredLawyers.map((l) => (
-                    <tr key={l.id} className="group border-b border-border hover:bg-muted/30">
-                      <td className="p-3">
-                        {l.image_url ? (
-                          <Image src={l.image_url} alt="" width={40} height={40} className="h-10 w-10 rounded-full object-cover border border-border" />
-                        ) : (
-                          <span className="text-muted-foreground text-xs">—</span>
-                        )}
-                      </td>
-                      <td className="p-3 font-medium">{l.name}</td>
-                      <td className="p-3 text-muted-foreground">{l.country ?? "—"}</td>
-                      <td className="p-3 text-muted-foreground">{l.city ?? "—"}</td>
-                      <td
-                        className="p-3 max-w-[200px] truncate"
-                        title={normalizeExpertiseField(l.expertise)}
+        <div className="mt-6 divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+          {filteredLawyers.map((l) => {
+            const expertiseAreas = dedupeExpertiseSegments(parseExpertiseSegments(l.expertise));
+            const languagesLabel = formatLawyerLanguagesLabel(
+              collectLawyerLanguages(l.primary_language, l.other_languages)
+            );
+            const location = [l.city, l.country].filter(Boolean).join(", ") || "—";
+
+            return (
+              <article
+                key={l.id}
+                className="flex flex-col gap-4 p-4 transition hover:bg-muted/30 sm:flex-row sm:items-start sm:justify-between"
+              >
+                <div className="flex min-w-0 flex-1 gap-3">
+                  <div className="shrink-0">
+                    {l.image_url ? (
+                      <Image
+                        src={l.image_url}
+                        alt=""
+                        width={44}
+                        height={44}
+                        className="h-11 w-11 rounded-full border border-border object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-muted/40 text-xs text-muted-foreground">
+                        —
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-medium text-foreground">{l.name}</h3>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs ${
+                          l.approved
+                            ? "bg-green-500/15 text-green-700 dark:text-green-400"
+                            : "bg-amber-500/15 text-amber-800 dark:text-amber-300"
+                        }`}
                       >
-                        {normalizeExpertiseField(l.expertise)}
-                      </td>
-                      <td className="p-3 max-w-[140px] truncate text-muted-foreground" title={
-                        formatLawyerLanguagesLabel(collectLawyerLanguages(l.primary_language, l.other_languages))
-                      }>
-                        {formatLawyerLanguagesLabel(collectLawyerLanguages(l.primary_language, l.other_languages)) || "—"}
-                      </td>
-                      <td className="p-3 max-w-[160px] truncate text-muted-foreground" title={l.email ?? ""}>
-                        {l.email ?? "—"}
-                      </td>
-                      <td className="p-3 max-w-[120px] truncate text-muted-foreground" title={l.phone ?? ""}>
-                        {l.phone ?? "—"}
-                      </td>
-                      <td className="p-3">
-                        <span className={`rounded-full px-2 py-0.5 text-xs ${l.source === "form" ? "bg-blue-500/15 text-blue-700 dark:text-blue-400" : "bg-muted text-muted-foreground"}`}>
-                          {l.source === "form" ? t("source.form") : t("source.manual")}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs ${
-                            l.approved
-                              ? "bg-green-500/15 text-green-700 dark:text-green-400"
-                              : "bg-amber-500/15 text-amber-800 dark:text-amber-300"
-                          }`}
-                        >
-                          {l.approved ? t("status.approved") : t("status.pending")}
-                        </span>
-                      </td>
-                      <td className="p-3 text-muted-foreground">{formatDate(l.created_at)}</td>
-                      <td className="p-3 sticky right-0 bg-card group-hover:bg-muted/30 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)] z-10 flex items-center gap-1 shrink-0 w-[140px] min-w-[140px]">
-                        {!l.approved ? (
-                          <button
-                            type="button"
-                            onClick={() => setReviewingId(l.id)}
-                            className="rounded px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10"
+                        {l.approved ? t("status.approved") : t("status.pending")}
+                      </span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs ${
+                          l.source === "form"
+                            ? "bg-blue-500/15 text-blue-700 dark:text-blue-400"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {l.source === "form" ? t("source.form") : t("source.manual")}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {expertiseAreas.length > 0 ? (
+                        expertiseAreas.map((area) => (
+                          <span
+                            key={area}
+                            className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
                           >
-                            {t("review.viewApplication")}
-                          </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          onClick={() => openEdit(l)}
-                          className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground text-xs font-medium"
-                          title={t("editLawyer")}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRemove(l.id)}
-                          disabled={removingId === l.id}
-                          className="rounded p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
-                          title={t("removeFromDirectory")}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                            {area}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
+                    </div>
+                    <dl className="mt-2 grid gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2">
+                      <div className="min-w-0">
+                        <dt className="sr-only">{t("table.city")}</dt>
+                        <dd className="truncate" title={location}>
+                          {location}
+                        </dd>
+                      </div>
+                      <div className="min-w-0">
+                        <dt className="sr-only">{t("table.languages")}</dt>
+                        <dd className="truncate" title={languagesLabel}>
+                          {languagesLabel || "—"}
+                        </dd>
+                      </div>
+                      <div className="min-w-0">
+                        <dt className="sr-only">{tc("email")}</dt>
+                        <dd className="truncate">
+                          {l.email ? (
+                            <a href={`mailto:${l.email}`} className="hover:text-foreground hover:underline">
+                              {l.email}
+                            </a>
+                          ) : (
+                            "—"
+                          )}
+                        </dd>
+                      </div>
+                      <div className="min-w-0">
+                        <dt className="sr-only">{t("table.phone")}</dt>
+                        <dd className="truncate" title={l.phone ?? undefined}>
+                          {l.phone ?? "—"}
+                        </dd>
+                      </div>
+                    </dl>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {t("table.added")}: {formatDate(l.created_at)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+                  {!l.approved ? (
+                    <button
+                      type="button"
+                      onClick={() => setReviewingId(l.id)}
+                      className="rounded-lg border border-primary/30 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
+                    >
+                      {t("review.viewApplication")}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => openEdit(l)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                    title={t("editLawyer")}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    {t("edit")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(l.id)}
+                    disabled={removingId === l.id}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                    title={t("removeFromDirectory")}
+                  >
+                    {removingId === l.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
+                    {t("removeLawyerButton")}
+                  </button>
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
 
@@ -1085,6 +1167,8 @@ export default function AdminLawyersPage() {
           strong: (chunks) => <strong>{chunks}</strong>,
         })}
       </p>
+        </>
+      )}
       {confirmDialog}
       <LawyerApplicationReviewDialog
         lawyerId={reviewingId}
