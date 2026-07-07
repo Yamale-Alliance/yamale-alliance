@@ -9,15 +9,15 @@ const LAW_SELECT =
   "id, slug, title, source_url, source_name, year, status, last_verified_at, content, content_plain, country_id, applies_to_all_countries, category_id, language_code, metadata, countries(name), categories!laws_category_id_fkey(name)";
 
 async function fetchLawBySlugOrId(supabase: ReturnType<typeof getSupabaseServer>, param: string) {
-  const column = isUuid(param) ? "id" : "slug";
-  let { data, error } = await supabase.from("laws").select(LAW_SELECT).eq(column, param).single();
-  if ((error || !data) && column === "slug") {
-    ({ data, error } = await supabase.from("laws").select(LAW_SELECT).eq("id", param).single());
+  const trimmed = param.trim();
+  if (isUuid(trimmed)) {
+    let { data, error } = await supabase.from("laws").select(LAW_SELECT).eq("id", trimmed).single();
+    if (error || !data) {
+      ({ data, error } = await supabase.from("laws").select(LAW_SELECT).eq("slug", trimmed).single());
+    }
+    return { data, error };
   }
-  if ((error || !data) && column === "id") {
-    ({ data, error } = await supabase.from("laws").select(LAW_SELECT).eq("slug", param).single());
-  }
-  return { data, error };
+  return supabase.from("laws").select(LAW_SELECT).eq("slug", trimmed).single();
 }
 
 export async function GET(
