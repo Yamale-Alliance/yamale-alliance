@@ -1,7 +1,7 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
-import { FileText, Loader2, Plus, Upload, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { FileText, Plus, Upload, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { AdminLawLanguageSelect } from "@/components/admin/AdminLawLanguageSelect";
 import { AdminVirusScanUploadBanner } from "@/components/admin/AdminVirusScanUploadBanner";
@@ -11,6 +11,10 @@ import {
   normalizeLawDocumentLanguageCode,
 } from "@/lib/law-document-language";
 import type { MarketplaceLanguageFileDraft } from "@/lib/marketplace-item-files";
+import {
+  clampAdminWorkspaceMainScroll,
+  preserveAdminWorkspaceMainScroll,
+} from "@/lib/admin-workspace-scroll";
 
 type Props = {
   itemId?: string;
@@ -59,7 +63,6 @@ export function AdminMarketplaceLanguageFilesField({
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
   const [uploadingFileName, setUploadingFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingUploadIndex = useRef<number | null>(null);
 
@@ -83,8 +86,12 @@ export function AdminMarketplaceLanguageFilesField({
     onChange([...files, { language_code: nextAvailableLanguage(files), removed: false }]);
   };
 
-  const armUploadForRow = (index: number) => {
+  const openFilePicker = (index: number) => {
+    if (disabled || uploadingIndex != null) return;
     pendingUploadIndex.current = index;
+    preserveAdminWorkspaceMainScroll(() => {
+      inputRef.current?.click();
+    });
   };
 
   const handleFileSelected = async (file: File) => {
@@ -99,6 +106,7 @@ export function AdminMarketplaceLanguageFilesField({
     setUploadingIndex(index);
     setUploadingFileName(file.name);
     setError(null);
+    requestAnimationFrame(clampAdminWorkspaceMainScroll);
     try {
       const form = new FormData();
       form.append("file", file);
@@ -146,6 +154,7 @@ export function AdminMarketplaceLanguageFilesField({
       setUploadingIndex(null);
       setUploadingFileName(null);
       pendingUploadIndex.current = null;
+      requestAnimationFrame(clampAdminWorkspaceMainScroll);
     }
   };
 
@@ -160,10 +169,11 @@ export function AdminMarketplaceLanguageFilesField({
 
       <input
         ref={inputRef}
-        id={inputId}
         type="file"
         accept={MARKETPLACE_FILE_ACCEPT}
-        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        className="pointer-events-none fixed left-0 top-0 h-px w-px opacity-0"
         disabled={disabled || uploadingIndex != null}
         onChange={(e) => {
           const f = e.target.files?.[0];
@@ -202,36 +212,36 @@ export function AdminMarketplaceLanguageFilesField({
                 </button>
               </div>
 
-              {label ? (
+              {rowUploading ? (
+                <AdminVirusScanUploadBanner
+                  active
+                  fileName={uploadingFileName}
+                  className="mt-3"
+                />
+              ) : label ? (
                 <div className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm">
                   <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 truncate">{label}</span>
                   {fmt ? <span className="text-muted-foreground">(.{fmt})</span> : null}
-                  <label
-                    htmlFor={inputId}
-                    onMouseDown={() => armUploadForRow(index)}
-                    className={`ml-auto text-xs font-medium text-primary hover:underline ${
-                      disabled || rowUploading ? "pointer-events-none opacity-50" : "cursor-pointer"
-                    }`}
+                  <button
+                    type="button"
+                    onClick={() => openFilePicker(index)}
+                    disabled={disabled}
+                    className="ml-auto text-xs font-medium text-primary hover:underline disabled:opacity-50"
                   >
                     {t("replaceFile")}
-                  </label>
+                  </button>
                 </div>
               ) : (
-                <label
-                  htmlFor={inputId}
-                  onMouseDown={() => armUploadForRow(index)}
-                  className={`mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border px-3 py-3 text-sm text-muted-foreground transition hover:border-primary hover:text-foreground ${
-                    disabled || rowUploading ? "pointer-events-none opacity-50" : "cursor-pointer"
-                  }`}
+                <button
+                  type="button"
+                  onClick={() => openFilePicker(index)}
+                  disabled={disabled}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border px-3 py-3 text-sm text-muted-foreground transition hover:border-primary hover:text-foreground disabled:opacity-50"
                 >
-                  {rowUploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="h-4 w-4" />
-                  )}
-                  {rowUploading ? t("uploading") : t("uploadForLanguage")}
-                </label>
+                  <Upload className="h-4 w-4" />
+                  {t("uploadForLanguage")}
+                </button>
               )}
             </li>
           );
@@ -249,11 +259,6 @@ export function AdminMarketplaceLanguageFilesField({
           {t("addLanguage")}
         </button>
       ) : null}
-
-      <AdminVirusScanUploadBanner
-        active={uploadingIndex != null}
-        fileName={uploadingFileName}
-      />
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
     </div>
