@@ -771,6 +771,7 @@
         "addItem": {
           "title": "Add item"
         },
+        "backToList": "Retour aux éléments du coffre",
         "fields": {
           "type": "Type",
           "title": "Title",
@@ -2103,6 +2104,7 @@
       "title": "Annuaire des avocats",
       "subtitle": "Examinez les candidatures publiques depuis /lawyers/join, approuvez les profils pour l'annuaire ou ajoutez des avocats manuellement.",
       "addLawyer": "Ajouter un avocat",
+      "backToList": "Retour à l'annuaire des avocats",
       "manageCatalog": "Expertise & langues",
       "adding": "Ajout…",
       "edit": "Modifier",
@@ -2124,7 +2126,10 @@
         "removeTitle": "Supprimer la vidéo d'intégration ?",
         "removeDescription": "Les visiteurs ne verront plus la vidéo d'introduction tant que vous n'en téléversez pas une nouvelle.",
         "removeButton": "Supprimer",
-        "empty": "Aucune vidéo téléversée."
+        "empty": "Aucune vidéo téléversée.",
+        "configured": "Une vidéo est configurée. Prévisualisez-la si nécessaire.",
+        "preview": "Prévisualiser",
+        "hidePreview": "Masquer l'aperçu"
       },
       "form": {
         "addTitle": "Ajouter un avocat à l'annuaire",
@@ -2133,6 +2138,7 @@
         "otherLanguages": "Autres langues",
         "languages": "Langues parlées",
         "languagesDescription": "Sélectionnez chaque langue pratiquée par cet avocat. Elles apparaissent sur sa fiche dans l'annuaire.",
+        "expertiseDescription": "Sélectionnez une ou plusieurs spécialités. Elles s'affichent toutes sur la fiche de l'annuaire.",
         "linkedin": "URL LinkedIn",
         "photo": "Photo",
         "uploadImage": "Téléverser l'image",
