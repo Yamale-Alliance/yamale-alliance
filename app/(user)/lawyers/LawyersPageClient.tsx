@@ -549,7 +549,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                     const empty = !loading && !hasLawyers;
                     return (
                       <option key={c} value={c} disabled={empty} className={empty ? "text-white/40" : undefined}>
-                        {empty ? t("countryNoLawyersYet", { country: c }) : c}
+                        {c}
                       </option>
                     );
                   })}
