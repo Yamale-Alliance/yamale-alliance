@@ -94,6 +94,11 @@ export async function PATCH(
   const otherLanguages = typeof body.other_languages === "string" ? body.other_languages.trim() || null : null;
   const linkedinUrl = typeof body.linkedin_url === "string" ? body.linkedin_url.trim() || null : null;
   const imageUrl = typeof body.image_url === "string" ? body.image_url.trim() || null : undefined;
+  const yearsExperienceRaw = body.years_experience;
+  const yearsExperience =
+    yearsExperienceRaw === null || yearsExperienceRaw === undefined || yearsExperienceRaw === ""
+      ? null
+      : Number.parseInt(String(yearsExperienceRaw), 10);
 
   if (!name || name.length > 200) {
     return NextResponse.json({ error: "Name is required (max 200 characters)" }, { status: 400 });
@@ -126,6 +131,12 @@ export async function PATCH(
   if (imageUrl !== undefined && imageUrl !== null && imageUrl.length > 2048) {
     return NextResponse.json({ error: "Image URL too long" }, { status: 400 });
   }
+  if (
+    yearsExperience !== null &&
+    (!Number.isFinite(yearsExperience) || yearsExperience < 0 || yearsExperience > 80)
+  ) {
+    return NextResponse.json({ error: "Years of experience must be between 0 and 80" }, { status: 400 });
+  }
 
   const update: Record<string, unknown> = {
     name,
@@ -137,6 +148,7 @@ export async function PATCH(
     primary_language: primaryLanguage,
     other_languages: otherLanguages,
     linkedin_url: linkedinUrl,
+    years_experience: yearsExperience,
     updated_at: new Date().toISOString(),
   };
   if (imageUrl !== undefined) {

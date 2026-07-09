@@ -1,16 +1,13 @@
-/** Admin demo on /lawyers: Zambia locked, Senegal unlocked (regardless of purchase). */
+/** Admins preview the public directory with all profiles unmasked (no paywall). */
 
 export function lawyerUnlockedForViewer(
-  lawyer: { id: string; country: string },
+  _lawyer: { id: string; country: string },
   options: {
     isAdmin: boolean;
     dayPassActive: boolean;
     unlockedIds: Set<string>;
   }
 ): boolean {
-  const normallyUnlocked = options.dayPassActive || options.unlockedIds.has(lawyer.id);
-  if (!options.isAdmin) return normallyUnlocked;
-  if (lawyer.country === "Zambia") return false;
-  if (lawyer.country === "Senegal") return true;
-  return normallyUnlocked;
+  if (options.isAdmin) return true;
+  return options.dayPassActive || options.unlockedIds.has(_lawyer.id);
 }

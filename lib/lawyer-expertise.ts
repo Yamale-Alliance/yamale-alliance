@@ -91,10 +91,10 @@ export function expertiseSegmentKey(raw: string): string {
   return normalizeKey(canonicalExpertiseLabel(raw));
 }
 
-/** Split comma/semicolon-separated expertise string into segments. */
+/** Split comma/semicolon/pipe/slash/newline-separated expertise into segments. */
 export function parseExpertiseSegments(expertise: string): string[] {
   return expertise
-    .split(/[,;|]/)
+    .split(/[,;|\n]|(?:\s*\/\s*)/)
     .map((s) => s.trim())
     .filter(Boolean);
 }

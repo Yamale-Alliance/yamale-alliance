@@ -17,8 +17,12 @@ import {
   splitLawyerLanguagesForStorage,
 } from "@/lib/lawyer-languages";
 import { LawyerLanguagesPicker } from "@/components/lawyers/LawyerLanguagesPicker";
-import { LawyerExpertisePicker } from "@/components/lawyers/LawyerExpertisePicker";
+import { LawyerExpertiseSlots } from "@/components/lawyers/LawyerExpertiseSlots";
 import { cloudinaryVideoPlaybackUrl } from "@/lib/cloudinary-video-playback";
+import {
+  prefetchLawyerDirectoryImageUploadSignature,
+  uploadLawyerDirectoryImageToCloudinaryDirect,
+} from "@/lib/lawyer-directory-image-cloudinary-client";
 import { useAdminMainScrollToTop } from "@/components/admin/useAdminMainScrollToTop";
 import {
   LawyerApplicationReviewDialog,
@@ -45,6 +49,7 @@ export default function AdminLawyersPage() {
   const [formEmail, setFormEmail] = useState("");
   const [formPhone, setFormPhone] = useState("");
   const [formLanguages, setFormLanguages] = useState<string[]>([]);
+  const [formYearsExperience, setFormYearsExperience] = useState("");
   const [formLinkedin, setFormLinkedin] = useState("");
   const [formImageUrl, setFormImageUrl] = useState("");
   const [formImageUploading, setFormImageUploading] = useState(false);
@@ -58,6 +63,7 @@ export default function AdminLawyersPage() {
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editLanguages, setEditLanguages] = useState<string[]>([]);
+  const [editYearsExperience, setEditYearsExperience] = useState("");
   const [editLinkedin, setEditLinkedin] = useState("");
   const [editImageUrl, setEditImageUrl] = useState("");
   const [editImageUploading, setEditImageUploading] = useState(false);
@@ -106,6 +112,11 @@ export default function AdminLawyersPage() {
     fetchOnboardingVideo();
     fetchCatalog();
   }, []);
+
+  useEffect(() => {
+    if (!showForm && !editing) return;
+    prefetchLawyerDirectoryImageUploadSignature(window.location.origin);
+  }, [showForm, editing]);
 
   const handleOnboardingVideoUpload = async (file: File) => {
     if (!file.name.toLowerCase().endsWith(".mp4") && file.type !== "video/mp4") {
@@ -237,6 +248,10 @@ export default function AdminLawyersPage() {
       setError(t("errors.nameExpertiseRequired"));
       return;
     }
+    if (formExpertise.length > 3) {
+      setError(t("errors.expertiseMax"));
+      return;
+    }
     if (!formEmail.trim() && !formPhone.trim()) {
       setError(t("errors.emailOrPhoneRequired"));
       return;
@@ -245,6 +260,10 @@ export default function AdminLawyersPage() {
     setError(null);
     try {
       const languageFields = splitLawyerLanguagesForStorage(formLanguages);
+      const yearsParsed =
+        formYearsExperience.trim() === ""
+          ? null
+          : Number.parseInt(formYearsExperience.trim(), 10);
       const res = await fetch(`${window.location.origin}/api/admin/lawyers`, {
         method: "POST",
         credentials: "include",
@@ -258,6 +277,7 @@ export default function AdminLawyersPage() {
           phone: formPhone.trim() || undefined,
           primary_language: languageFields.primary_language || undefined,
           other_languages: languageFields.other_languages || undefined,
+          years_experience: yearsParsed,
           linkedin_url: formLinkedin.trim() || undefined,
           image_url: formImageUrl.trim() || undefined,
         }),
@@ -274,6 +294,7 @@ export default function AdminLawyersPage() {
       setFormEmail("");
       setFormPhone("");
       setFormLanguages([]);
+      setFormYearsExperience("");
       setFormLinkedin("");
       setFormImageUrl("");
       setShowForm(false);
@@ -295,6 +316,11 @@ export default function AdminLawyersPage() {
     setEditEmail(lawyer.email ?? "");
     setEditPhone(lawyer.phone ?? "");
     setEditLanguages(collectLawyerLanguages(lawyer.primary_language, lawyer.other_languages));
+    setEditYearsExperience(
+      lawyer.years_experience !== null && lawyer.years_experience !== undefined
+        ? String(lawyer.years_experience)
+        : ""
+    );
     setEditLinkedin(lawyer.linkedin_url ?? "");
     setEditImageUrl(lawyer.image_url ?? "");
     setError(null);
@@ -307,6 +333,10 @@ export default function AdminLawyersPage() {
       setError(t("errors.nameExpertiseRequired"));
       return;
     }
+    if (editExpertise.length > 3) {
+      setError(t("errors.expertiseMax"));
+      return;
+    }
     if (!editEmail.trim() && !editPhone.trim()) {
       setError(t("errors.emailOrPhoneRequired"));
       return;
@@ -315,6 +345,10 @@ export default function AdminLawyersPage() {
     setError(null);
     try {
       const languageFields = splitLawyerLanguagesForStorage(editLanguages);
+      const yearsParsed =
+        editYearsExperience.trim() === ""
+          ? null
+          : Number.parseInt(editYearsExperience.trim(), 10);
       const res = await fetch(`${window.location.origin}/api/admin/lawyers/directory/${editing.id}`, {
         method: "PATCH",
         credentials: "include",
@@ -328,6 +362,7 @@ export default function AdminLawyersPage() {
           phone: editPhone.trim() || undefined,
           primary_language: languageFields.primary_language || undefined,
           other_languages: languageFields.other_languages || undefined,
+          years_experience: yearsParsed,
           linkedin_url: editLinkedin.trim() || undefined,
           image_url: editImageUrl.trim() || null,
         }),
@@ -540,13 +575,32 @@ export default function AdminLawyersPage() {
               />
             </div>
             <div className="sm:col-span-2">
-              <LawyerExpertisePicker
+              <LawyerExpertiseSlots
                 idPrefix="admin-lawyer-expertise"
                 label={`${t("table.expertise")} *`}
                 description={t("form.expertiseDescription")}
                 value={formExpertise}
                 onChange={setFormExpertise}
                 options={catalogPracticeAreas}
+                maxAreas={3}
+                addLabel={t("form.addPracticeArea")}
+                removeLabel={t("form.removePracticeArea")}
+                maxAreasHint={t("form.expertiseMaxHint")}
+              />
+            </div>
+            <div>
+              <label htmlFor="admin-lawyer-years" className="block text-sm font-medium text-foreground mb-1">
+                {t("form.yearsExperience")} <span className="text-muted-foreground">({t("optional")})</span>
+              </label>
+              <input
+                id="admin-lawyer-years"
+                type="number"
+                min={0}
+                max={80}
+                value={formYearsExperience}
+                onChange={(e) => setFormYearsExperience(e.target.value)}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                placeholder={t("form.placeholders.yearsExperience")}
               />
             </div>
             <div>
@@ -617,7 +671,7 @@ export default function AdminLawyersPage() {
                 <label className="flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm cursor-pointer hover:bg-accent shrink-0">
                   <input
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
                     className="sr-only"
                     disabled={formImageUploading}
                     onChange={async (e) => {
@@ -626,26 +680,13 @@ export default function AdminLawyersPage() {
                       setFormImageUploading(true);
                       setError(null);
                       try {
-                        const fd = new FormData();
-                        fd.set("file", f);
-                        const r = await fetch(`${window.location.origin}/api/admin/lawyers/upload-image`, {
-                          method: "POST",
-                          credentials: "include",
-                          body: fd,
-                        });
-                        const d = await parseJsonSafe(r);
-                        if (r.ok && typeof d.url === "string") {
-                          setFormImageUrl(d.url);
-                        } else {
-                          setError(
-                            apiErrorMessage(
-                              d,
-                              r.status === 413
-                                ? t("errors.imageTooLarge")
-                                : t("errors.uploadFailed")
-                            )
-                          );
-                        }
+                        const url = await uploadLawyerDirectoryImageToCloudinaryDirect(
+                          window.location.origin,
+                          f
+                        );
+                        setFormImageUrl(url);
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : t("errors.uploadFailed"));
                       } finally {
                         setFormImageUploading(false);
                         e.target.value = "";
@@ -726,13 +767,32 @@ export default function AdminLawyersPage() {
               />
             </div>
             <div className="sm:col-span-2">
-              <LawyerExpertisePicker
+              <LawyerExpertiseSlots
                 idPrefix="edit-lawyer-expertise"
                 label={`${t("table.expertise")} *`}
                 description={t("form.expertiseDescription")}
                 value={editExpertise}
                 onChange={setEditExpertise}
                 options={catalogPracticeAreas}
+                maxAreas={3}
+                addLabel={t("form.addPracticeArea")}
+                removeLabel={t("form.removePracticeArea")}
+                maxAreasHint={t("form.expertiseMaxHint")}
+              />
+            </div>
+            <div>
+              <label htmlFor="edit-lawyer-years" className="block text-sm font-medium text-foreground mb-1">
+                {t("form.yearsExperience")}
+              </label>
+              <input
+                id="edit-lawyer-years"
+                type="number"
+                min={0}
+                max={80}
+                value={editYearsExperience}
+                onChange={(e) => setEditYearsExperience(e.target.value)}
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+                placeholder={t("form.placeholders.yearsExperience")}
               />
             </div>
             <div>
@@ -798,7 +858,7 @@ export default function AdminLawyersPage() {
                 <label className="flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm cursor-pointer hover:bg-accent shrink-0">
                   <input
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
                     className="sr-only"
                     disabled={editImageUploading}
                     onChange={async (e) => {
@@ -807,26 +867,13 @@ export default function AdminLawyersPage() {
                       setEditImageUploading(true);
                       setError(null);
                       try {
-                        const fd = new FormData();
-                        fd.set("file", f);
-                        const r = await fetch(`${window.location.origin}/api/admin/lawyers/upload-image`, {
-                          method: "POST",
-                          credentials: "include",
-                          body: fd,
-                        });
-                        const d = await parseJsonSafe(r);
-                        if (r.ok && typeof d.url === "string") {
-                          setEditImageUrl(d.url);
-                        } else {
-                          setError(
-                            apiErrorMessage(
-                              d,
-                              r.status === 413
-                                ? t("errors.imageTooLarge")
-                                : t("errors.uploadFailed")
-                            )
-                          );
-                        }
+                        const url = await uploadLawyerDirectoryImageToCloudinaryDirect(
+                          window.location.origin,
+                          f
+                        );
+                        setEditImageUrl(url);
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : t("errors.uploadFailed"));
                       } finally {
                         setEditImageUploading(false);
                         e.target.value = "";

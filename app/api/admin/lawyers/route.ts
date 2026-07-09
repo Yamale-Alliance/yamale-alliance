@@ -45,6 +45,11 @@ export async function POST(request: NextRequest) {
     const otherLanguages = typeof body.other_languages === "string" ? body.other_languages.trim() || null : null;
     const linkedinUrl = typeof body.linkedin_url === "string" ? body.linkedin_url.trim() || null : null;
     const imageUrl = typeof body.image_url === "string" ? body.image_url.trim() || null : null;
+    const yearsExperienceRaw = body.years_experience;
+    const yearsExperience =
+      yearsExperienceRaw === null || yearsExperienceRaw === undefined || yearsExperienceRaw === ""
+        ? null
+        : Number.parseInt(String(yearsExperienceRaw), 10);
 
     if (!name || name.length > 200) {
       return NextResponse.json({ error: "Name is required (max 200 characters)" }, { status: 400 });
@@ -77,6 +82,12 @@ export async function POST(request: NextRequest) {
     if (city && city.length > 100) {
       return NextResponse.json({ error: "City too long" }, { status: 400 });
     }
+    if (
+      yearsExperience !== null &&
+      (!Number.isFinite(yearsExperience) || yearsExperience < 0 || yearsExperience > 80)
+    ) {
+      return NextResponse.json({ error: "Years of experience must be between 0 and 80" }, { status: 400 });
+    }
 
     const supabase = getSupabaseServer();
     const { data: row, error } = await (supabase.from("lawyers") as any)
@@ -92,6 +103,7 @@ export async function POST(request: NextRequest) {
         primary_language: primaryLanguage,
         other_languages: otherLanguages,
         image_url: imageUrl,
+        years_experience: yearsExperience,
         source: "manual",
         approved: true,
       })

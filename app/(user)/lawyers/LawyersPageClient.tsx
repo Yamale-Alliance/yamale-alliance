@@ -58,6 +58,7 @@ type Lawyer = {
   imageUrl: string | null;
   primaryLanguage: string | null;
   otherLanguages: string | null;
+  yearsExperience: number | null;
 };
 
 const SEARCH_STATE_STORAGE_KEY = "lawyers:lastSearchState";
@@ -495,6 +496,11 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
       {dayPassConfirmError && (
         <div className="border-b border-amber-500/30 bg-amber-50 px-4 py-3 dark:bg-amber-950/30">
           <p className="mx-auto max-w-7xl text-sm text-amber-950 dark:text-amber-100">{dayPassConfirmError}</p>
+        </div>
+      )}
+      {isAdmin && (
+        <div className="border-b border-primary/30 bg-primary/10 px-4 py-3">
+          <p className="mx-auto max-w-7xl text-sm text-foreground">{t("adminPreviewBanner")}</p>
         </div>
       )}
 
@@ -940,7 +946,9 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                     ) : null}
                     <div className="mb-3 grid grid-cols-3 gap-2">
                       <div className="rounded-[6px] border border-border bg-background px-2 py-2 text-center">
-                        <div className="text-sm font-bold text-foreground">{pseudoYears(lawyer.name)}</div>
+                        <div className="text-sm font-bold text-foreground">
+                          {lawyer.yearsExperience ?? pseudoYears(lawyer.name)}
+                        </div>
                         <div className="text-[10px] text-muted-foreground">{t("yearsExperience")}</div>
                       </div>
                       <div className="rounded-[6px] border border-border bg-background px-2 py-2 text-center">

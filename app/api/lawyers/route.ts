@@ -11,7 +11,7 @@ export async function GET() {
   try {
     const supabase = getSupabaseServer();
     const { data, error } = await (supabase.from("lawyers") as any)
-      .select("id, name, country, city, expertise, linkedin_url, primary_language, other_languages, image_url")
+      .select("id, name, country, city, expertise, linkedin_url, primary_language, other_languages, image_url, years_experience")
       .eq("approved", true)
       .order("name");
 
@@ -19,7 +19,7 @@ export async function GET() {
       console.error("Lawyers GET error:", error);
       return NextResponse.json({ error: "Failed to list lawyers" }, { status: 500 });
     }
-    const rows = (data ?? []) as Array<{ id: string; name: string; country: string | null; city: string | null; expertise: string; linkedin_url: string | null; primary_language: string | null; other_languages: string | null; image_url: string | null }>;
+    const rows = (data ?? []) as Array<{ id: string; name: string; country: string | null; city: string | null; expertise: string; linkedin_url: string | null; primary_language: string | null; other_languages: string | null; image_url: string | null; years_experience: number | null }>;
     const lawyers = rows.map((row) => ({
       id: row.id,
       name: row.name,
@@ -30,6 +30,7 @@ export async function GET() {
       primaryLanguage: row.primary_language,
       otherLanguages: row.other_languages,
       imageUrl: row.image_url ?? null,
+      yearsExperience: row.years_experience,
     }));
     return NextResponse.json({ lawyers });
   } catch (err) {

@@ -45,6 +45,32 @@ export async function GET() {
     });
   }
 
+  if (isAdmin) {
+    const { data } = await (supabase.from("lawyers") as any)
+      .select("id, email, phone, contacts")
+      .eq("approved", true);
+    const rows = (data ?? []) as Array<{
+      id: string;
+      email: string | null;
+      phone: string | null;
+      contacts: string | null;
+    }>;
+    for (const row of rows) {
+      contacts[row.id] = {
+        email: row.email ?? null,
+        phone: row.phone ?? null,
+        contacts: row.contacts ?? null,
+      };
+    }
+    return NextResponse.json({
+      lawyerIds: rows.map((row) => row.id),
+      dayPassActive,
+      dayPassExpiresAt,
+      contacts,
+      adminPreview: true,
+    });
+  }
+
   const [perLawyerIds, criteriaIds, grantIds] = await Promise.all([
     getUnlockedLawyerIds(userId),
     getUnlockedLawyerIdsFromSearchCriteria(userId),
@@ -52,28 +78,7 @@ export async function GET() {
   ]);
   const lawyerIds = Array.from(new Set([...perLawyerIds, ...criteriaIds, ...grantIds]));
 
-  if (isAdmin) {
-    const { data: senegalRows } = await (supabase.from("lawyers") as any)
-      .select("id, email, phone, contacts")
-      .eq("approved", true)
-      .eq("country", "Senegal");
-    for (const row of (senegalRows ?? []) as Array<{
-      id: string;
-      email: string | null;
-      phone: string | null;
-      contacts: string | null;
-    }>) {
-      lawyerIds.push(row.id);
-      contacts[row.id] = {
-        email: row.email ?? null,
-        phone: row.phone ?? null,
-        contacts: row.contacts ?? null,
-      };
-    }
-  }
-
-  const uniqueLawyerIds = Array.from(new Set(lawyerIds));
-  const idsToFetch = uniqueLawyerIds.filter((id) => !contacts[id]);
+  const idsToFetch = lawyerIds.filter((id) => !contacts[id]);
   if (idsToFetch.length > 0) {
     const { data } = await (supabase.from("lawyers") as any)
       .select("id, email, phone, contacts")
@@ -89,7 +94,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    lawyerIds: uniqueLawyerIds,
+    lawyerIds,
     dayPassActive,
     dayPassExpiresAt,
     contacts,

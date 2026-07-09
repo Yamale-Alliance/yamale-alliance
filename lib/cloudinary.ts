@@ -104,6 +104,8 @@ export const LAWYERS_ONBOARDING_VIDEO_PUBLIC_ID = 'yamale/lawyers-onboarding/cur
 
 export const MARKETPLACE_COVER_CLOUDINARY_FOLDER = 'yamale/marketplace';
 
+export const LAWYER_DIRECTORY_IMAGE_CLOUDINARY_FOLDER = 'yamale/lawyer-directory';
+
 function cloudinaryErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
     const nested = (error as { error?: { message?: string } }).error;
@@ -165,6 +167,28 @@ export function signMarketplaceCoverImageUpload(): {
 
   const timestamp = Math.round(Date.now() / 1000);
   const folder = MARKETPLACE_COVER_CLOUDINARY_FOLDER;
+  const paramsToSign = { timestamp, folder };
+  const signature = cloudinary.utils.api_sign_request(paramsToSign, apiSecret);
+
+  return { cloudName, apiKey, timestamp, signature, folder };
+}
+
+/** Signed direct browser upload for lawyer directory profile photos (skips proxying through Next.js). */
+export function signLawyerDirectoryImageUpload(): {
+  cloudName: string;
+  apiKey: string;
+  timestamp: number;
+  signature: string;
+  folder: string;
+} {
+  if (!cloudName || !apiKey || !apiSecret) {
+    throw new Error(
+      'Cloudinary credentials not configured. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in your .env file.'
+    );
+  }
+
+  const timestamp = Math.round(Date.now() / 1000);
+  const folder = LAWYER_DIRECTORY_IMAGE_CLOUDINARY_FOLDER;
   const paramsToSign = { timestamp, folder };
   const signature = cloudinary.utils.api_sign_request(paramsToSign, apiSecret);
 
