@@ -2906,7 +2906,6 @@
     "joinDirectory": "Join the directory",
     "country": "Country",
     "selectCountry": "Select a country",
-    "countryNoLawyersYet": "{country} — No lawyers yet",
     "city": "City",
     "cityPlaceholder": "e.g. Nairobi, Lagos",
     "practiceArea": "Practice area",
