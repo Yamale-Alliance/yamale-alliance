@@ -1,3 +1,11 @@
+import { prepareMarketplaceCoverFile } from "@/lib/marketplace-cover-client-prepare";
+import {
+  isLawyerDirectoryPhotoTooLarge,
+  LAWYER_DIRECTORY_PHOTO_MAX_MB,
+} from "@/lib/lawyer-directory-photo-limits";
+
+export { LAWYER_DIRECTORY_PHOTO_MAX_MB };
+
 export type LawyerDirectoryImageUploadSign = {
   cloudName: string;
   apiKey: string;
@@ -66,11 +74,18 @@ export function prefetchLawyerDirectoryImageUploadSignature(origin: string): voi
   });
 }
 
-const MAX_MB = 5;
+const MAX_MB = LAWYER_DIRECTORY_PHOTO_MAX_MB;
+
+export class LawyerDirectoryPhotoTooLargeError extends Error {
+  constructor() {
+    super(`Image exceeds the ${MAX_MB} MB limit`);
+    this.name = "LawyerDirectoryPhotoTooLargeError";
+  }
+}
 
 function validateLawyerDirectoryImageFile(file: File): void {
-  if (file.size > MAX_MB * 1024 * 1024) {
-    throw new Error(`File must be under ${MAX_MB} MB`);
+  if (isLawyerDirectoryPhotoTooLarge(file.size)) {
+    throw new LawyerDirectoryPhotoTooLargeError();
   }
   const mime = (file.type || "").toLowerCase();
   const name = file.name.toLowerCase();
@@ -121,4 +136,46 @@ export async function uploadLawyerDirectoryImageToCloudinaryDirect(
     throw new Error("Cloudinary did not return an image URL");
   }
   return cloudData.secure_url;
+}
+
+async function uploadLawyerDirectoryPhotoViaServer(origin: string, file: File): Promise<string> {
+  const formData = new FormData();
+  formData.set("file", file);
+  const res = await fetch(`${origin}/api/admin/lawyers/upload-image`, {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+  });
+  const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+  if (!res.ok || typeof data.url !== "string") {
+    throw new Error(data.error ?? "Server upload failed");
+  }
+  return data.url;
+}
+
+/**
+ * Upload a lawyer directory photo: prepare in-browser, try direct Cloudinary, then server fallback.
+ */
+export async function uploadLawyerDirectoryPhoto(origin: string, file: File): Promise<string> {
+  validateLawyerDirectoryImageFile(file);
+
+  let uploadFile = file;
+  try {
+    uploadFile = await prepareMarketplaceCoverFile(file);
+  } catch {
+    uploadFile = file;
+  }
+
+  try {
+    return await uploadLawyerDirectoryImageToCloudinaryDirect(origin, uploadFile);
+  } catch (directError) {
+    signCache = null;
+    try {
+      return await uploadLawyerDirectoryPhotoViaServer(origin, uploadFile);
+    } catch (serverError) {
+      const directMessage = directError instanceof Error ? directError.message : "Direct upload failed";
+      const serverMessage = serverError instanceof Error ? serverError.message : "Server upload failed";
+      throw new Error(`${directMessage} (${serverMessage})`);
+    }
+  }
 }
