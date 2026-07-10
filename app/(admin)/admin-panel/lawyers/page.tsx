@@ -18,10 +18,12 @@ import {
 } from "@/lib/lawyer-languages";
 import { LawyerLanguagesPicker } from "@/components/lawyers/LawyerLanguagesPicker";
 import { LawyerExpertiseSlots } from "@/components/lawyers/LawyerExpertiseSlots";
+import { LawyerDirectoryPhotoField } from "@/components/admin/LawyerDirectoryPhotoField";
 import { cloudinaryVideoPlaybackUrl } from "@/lib/cloudinary-video-playback";
 import {
   prefetchLawyerDirectoryImageUploadSignature,
-  uploadLawyerDirectoryImageToCloudinaryDirect,
+  uploadLawyerDirectoryPhoto,
+  LawyerDirectoryPhotoTooLargeError,
 } from "@/lib/lawyer-directory-image-cloudinary-client";
 import { useAdminMainScrollToTop } from "@/components/admin/useAdminMainScrollToTop";
 import {
@@ -502,6 +504,27 @@ export default function AdminLawyersPage() {
     setError(null);
   };
 
+  const handlePhotoUpload = async (
+    file: File,
+    setUrl: (url: string) => void,
+    setUploading: (uploading: boolean) => void
+  ) => {
+    setUploading(true);
+    setError(null);
+    try {
+      const url = await uploadLawyerDirectoryPhoto(window.location.origin, file);
+      setUrl(url);
+    } catch (err) {
+      if (err instanceof LawyerDirectoryPhotoTooLargeError) {
+        setError(t("errors.imageExceeds5Mb"));
+      } else {
+        setError(err instanceof Error ? err.message : t("errors.uploadFailed"));
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const backToListButton = (
     <button
       type="button"
@@ -572,6 +595,19 @@ export default function AdminLawyersPage() {
                 maxLength={100}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                 placeholder={t("form.placeholders.city")}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-foreground mb-1">
+                {t("form.photo")} <span className="text-muted-foreground">({t("optional")})</span>
+              </label>
+              <LawyerDirectoryPhotoField
+                imageUrl={formImageUrl}
+                uploading={formImageUploading}
+                onImageUrlChange={setFormImageUrl}
+                onUpload={(file) => void handlePhotoUpload(file, setFormImageUrl, setFormImageUploading)}
+                onClear={() => setFormImageUrl("")}
+                onSizeError={() => setError(t("errors.imageExceeds5Mb"))}
               />
             </div>
             <div className="sm:col-span-2">
@@ -655,53 +691,6 @@ export default function AdminLawyersPage() {
                 placeholder={t("form.placeholders.linkedin")}
               />
             </div>
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-foreground mb-1">
-                {t("form.photo")} <span className="text-muted-foreground">({t("optional")})</span>
-              </label>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <input
-                  type="url"
-                  value={formImageUrl}
-                  onChange={(e) => setFormImageUrl(e.target.value)}
-                  maxLength={2048}
-                  className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                  placeholder={t("form.placeholders.imageUrl")}
-                />
-                <label className="flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm cursor-pointer hover:bg-accent shrink-0">
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
-                    className="sr-only"
-                    disabled={formImageUploading}
-                    onChange={async (e) => {
-                      const f = e.target.files?.[0];
-                      if (!f) return;
-                      setFormImageUploading(true);
-                      setError(null);
-                      try {
-                        const url = await uploadLawyerDirectoryImageToCloudinaryDirect(
-                          window.location.origin,
-                          f
-                        );
-                        setFormImageUrl(url);
-                      } catch (err) {
-                        setError(err instanceof Error ? err.message : t("errors.uploadFailed"));
-                      } finally {
-                        setFormImageUploading(false);
-                        e.target.value = "";
-                      }
-                    }}
-                  />
-                  {formImageUploading ? t("form.uploading") : t("form.uploadImage")}
-                </label>
-              </div>
-              {formImageUrl && (
-                <div className="mt-2">
-                  <img src={formImageUrl} alt={t("form.previewAlt")} className="h-16 w-16 rounded-full object-cover border border-border" />
-                </div>
-              )}
-            </div>
           </div>
           <div className="mt-4 flex gap-2">
             <button
@@ -764,6 +753,17 @@ export default function AdminLawyersPage() {
                 maxLength={100}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                 placeholder={t("form.placeholders.city")}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-foreground mb-1">{t("form.photo")}</label>
+              <LawyerDirectoryPhotoField
+                imageUrl={editImageUrl}
+                uploading={editImageUploading}
+                onImageUrlChange={setEditImageUrl}
+                onUpload={(file) => void handlePhotoUpload(file, setEditImageUrl, setEditImageUploading)}
+                onClear={() => setEditImageUrl("")}
+                onSizeError={() => setError(t("errors.imageExceeds5Mb"))}
               />
             </div>
             <div className="sm:col-span-2">
@@ -843,51 +843,6 @@ export default function AdminLawyersPage() {
                 maxLength={500}
                 className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
               />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-foreground mb-1">{t("form.photo")}</label>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <input
-                  type="url"
-                  value={editImageUrl}
-                  onChange={(e) => setEditImageUrl(e.target.value)}
-                  maxLength={2048}
-                  className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm"
-                  placeholder={t("form.placeholders.imageUrlOrUpload")}
-                />
-                <label className="flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm cursor-pointer hover:bg-accent shrink-0">
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
-                    className="sr-only"
-                    disabled={editImageUploading}
-                    onChange={async (e) => {
-                      const f = e.target.files?.[0];
-                      if (!f) return;
-                      setEditImageUploading(true);
-                      setError(null);
-                      try {
-                        const url = await uploadLawyerDirectoryImageToCloudinaryDirect(
-                          window.location.origin,
-                          f
-                        );
-                        setEditImageUrl(url);
-                      } catch (err) {
-                        setError(err instanceof Error ? err.message : t("errors.uploadFailed"));
-                      } finally {
-                        setEditImageUploading(false);
-                        e.target.value = "";
-                      }
-                    }}
-                  />
-                  {editImageUploading ? t("form.uploading") : t("form.upload")}
-                </label>
-              </div>
-              {editImageUrl && (
-                <div className="mt-2">
-                  <img src={editImageUrl} alt={t("form.previewAlt")} className="h-16 w-16 rounded-full object-cover border border-border" />
-                </div>
-              )}
             </div>
           </div>
           <div className="mt-4 flex gap-2">
