@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin";
 import { uploadToCloudinary } from "@/lib/cloudinary";
+import {
+  isLawyerDirectoryPhotoTooLarge,
+  LAWYER_DIRECTORY_PHOTO_MAX_MB,
+} from "@/lib/lawyer-directory-photo-limits";
 import { scanAdminImageFile } from "@/lib/uploads/scanner";
 
 /** Normalized MIME types we accept (plus image/jpg → jpeg). */
@@ -12,7 +16,7 @@ const ALLOWED_MIMES = new Set([
   "image/heif",
 ]);
 
-const MAX_MB = 5;
+const MAX_MB = LAWYER_DIRECTORY_PHOTO_MAX_MB;
 
 function isBlobLike(value: unknown): value is Blob {
   return (
@@ -94,8 +98,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (file.size > MAX_MB * 1024 * 1024) {
-    return NextResponse.json({ error: `File must be under ${MAX_MB} MB` }, { status: 400 });
+  if (isLawyerDirectoryPhotoTooLarge(file.size)) {
+    return NextResponse.json(
+      { error: `This image exceeds the ${MAX_MB} MB limit.` },
+      { status: 400 }
+    );
   }
 
   const displayName =
