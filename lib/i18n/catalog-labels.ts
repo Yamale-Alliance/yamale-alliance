@@ -1,4 +1,5 @@
 import { slugifyCategoryName } from "@/lib/category-slug";
+import { canonicalExpertiseLabel } from "@/lib/lawyer-expertise";
 
 type CatalogTranslator = {
   (key: string): string;
@@ -26,5 +27,5 @@ export function translateLawCategoryLabel(englishLabel: string, t: CatalogTransl
 }
 
 export function translateLawyerPracticeAreaLabel(englishLabel: string, t: CatalogTranslator): string {
-  return translateCatalogLabel(englishLabel, "practiceAreas", t);
+  return translateCatalogLabel(canonicalExpertiseLabel(englishLabel), "practiceAreas", t);
 }
