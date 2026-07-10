@@ -2,12 +2,15 @@ import {
   canonicalExpertiseLabel,
   dedupeExpertiseSegments,
   expertiseSegmentKey,
+  filterPracticeAreasForCatalog,
+  isInvalidPracticeAreaLabel,
   parseExpertiseSegments,
   STANDARD_PRACTICE_AREAS,
 } from "@/lib/lawyer-expertise";
 import {
   canonicalLawyerLanguage,
   collectLawyerLanguages,
+  isInvalidLawyerLanguageLabel,
   lawyerLanguageKey,
   STANDARD_LAWYER_LANGUAGES,
 } from "@/lib/lawyer-languages";
@@ -59,12 +62,14 @@ export async function fetchLawyerCatalogSnapshot(): Promise<LawyerCatalogSnapsho
     if (areasRes.error) throw areasRes.error;
     if (languagesRes.error) throw languagesRes.error;
 
-    const practiceAreas = ((areasRes.data ?? []) as Array<{ name: string }>)
-      .map((row) => canonicalExpertiseLabel(row.name))
-      .filter(Boolean);
+    const practiceAreas = filterPracticeAreasForCatalog(
+      ((areasRes.data ?? []) as Array<{ name: string }>).map((row) =>
+        canonicalExpertiseLabel(row.name)
+      )
+    );
     const languages = ((languagesRes.data ?? []) as Array<{ name: string }>)
       .map((row) => canonicalLawyerLanguage(row.name))
-      .filter(Boolean);
+      .filter((language) => !isInvalidLawyerLanguageLabel(language));
 
     if (practiceAreas.length === 0 && languages.length === 0) {
       return fallbackLawyerCatalog();
@@ -144,11 +149,13 @@ export async function fetchAdminLawyerPracticeAreas(): Promise<LawyerCatalogRow[
 
   if (areasRes.error) throw areasRes.error;
 
-  return ((areasRes.data ?? []) as Array<Omit<LawyerCatalogRow, "usageCount">>).map((row) => ({
-    ...row,
-    name: canonicalExpertiseLabel(row.name),
-    usageCount: countLawyersUsingPracticeArea(lawyers, row.name),
-  }));
+  return ((areasRes.data ?? []) as Array<Omit<LawyerCatalogRow, "usageCount">>)
+    .map((row) => ({
+      ...row,
+      name: canonicalExpertiseLabel(row.name),
+      usageCount: countLawyersUsingPracticeArea(lawyers, row.name),
+    }))
+    .filter((row) => !isInvalidPracticeAreaLabel(row.name));
 }
 
 export async function fetchAdminLawyerLanguages(): Promise<LawyerCatalogRow[]> {
@@ -167,11 +174,13 @@ export async function fetchAdminLawyerLanguages(): Promise<LawyerCatalogRow[]> {
 
   if (languagesRes.error) throw languagesRes.error;
 
-  return ((languagesRes.data ?? []) as Array<Omit<LawyerCatalogRow, "usageCount">>).map((row) => ({
-    ...row,
-    name: canonicalLawyerLanguage(row.name),
-    usageCount: countLawyersUsingLanguage(lawyers, row.name),
-  }));
+  return ((languagesRes.data ?? []) as Array<Omit<LawyerCatalogRow, "usageCount">>)
+    .map((row) => ({
+      ...row,
+      name: canonicalLawyerLanguage(row.name),
+      usageCount: countLawyersUsingLanguage(lawyers, row.name),
+    }))
+    .filter((row) => !isInvalidLawyerLanguageLabel(row.name));
 }
 
 export async function replacePracticeAreaInLawyers(
@@ -241,6 +250,8 @@ export function validateCatalogName(raw: string): string | null {
   const name = normalizeCatalogName(raw);
   if (name.length < 2) return null;
   if (name.length > 120) return null;
+  if (/^-+$/.test(name)) return null;
+  if (isInvalidPracticeAreaLabel(name)) return null;
   return name;
 }
 
