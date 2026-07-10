@@ -377,7 +377,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
 
   const expertiseList = useMemo(
     () => buildExpertiseFilterOptions(lawyers, { catalogPracticeAreas }),
-    [lawyers, catalogPracticeAreas]
+    [catalogPracticeAreas, lawyers]
   );
   const languageFilterOptions = useMemo(() => {
     const knownKeys = new Set(
