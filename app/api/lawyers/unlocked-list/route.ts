@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+import { normalizeExpertiseField } from "@/lib/lawyer-expertise";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { getUnlockedLawyerIds, getUnlockedLawyerIdsFromSearchCriteria, getUnlockedLawyerIdsFromSearchGrants } from "@/lib/unlocks";
 
@@ -48,7 +49,7 @@ export async function GET() {
       id: row.id,
       name: row.name,
       country: row.country ?? "",
-      expertise: row.expertise,
+      expertise: normalizeExpertiseField(row.expertise ?? ""),
       linkedinUrl: row.linkedin_url ?? null,
       imageUrl: row.image_url ?? null,
       email: row.email ?? null,
