@@ -25,7 +25,7 @@ export async function GET() {
       name: row.name,
       country: row.country ?? "",
       city: row.city ?? "",
-      expertise: row.expertise,
+      expertise: normalizeExpertiseField(row.expertise ?? ""),
       linkedinUrl: row.linkedin_url ?? null,
       primaryLanguage: row.primary_language,
       otherLanguages: row.other_languages,
