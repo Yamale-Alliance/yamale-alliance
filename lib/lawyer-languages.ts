@@ -55,6 +55,13 @@ export function canonicalLawyerLanguage(raw: string): string {
   return CANONICAL_BY_KEY[key] ?? trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 }
 
+export function isInvalidLawyerLanguageLabel(label: string): boolean {
+  const trimmed = label.trim();
+  if (!trimmed) return true;
+  if (/^-+$/.test(trimmed)) return true;
+  return false;
+}
+
 export function lawyerLanguageKey(raw: string): string {
   return normalizeKey(canonicalLawyerLanguage(raw));
 }
@@ -72,7 +79,7 @@ export function dedupeLawyerLanguages(languages: string[]): string[] {
   for (const language of languages) {
     const label = canonicalLawyerLanguage(language);
     const key = lawyerLanguageKey(label);
-    if (!key || seen.has(key)) continue;
+    if (!key || seen.has(key) || isInvalidLawyerLanguageLabel(label)) continue;
     seen.add(key);
     out.push(label);
   }
