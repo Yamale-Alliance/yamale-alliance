@@ -1,15 +1,20 @@
 /** Practice areas for lawyer directory filters, admin forms, and canonical labels. */
+export const BANKING_AND_FINANCE_PRACTICE_AREA = "Banking and Finance";
+export const AI_PRACTICE_AREA = "AI";
+export const OHADA_PRACTICE_AREA = "OHADA";
+export const DATA_PROTECTION_CYBERSECURITY_AI_PRACTICE_AREA =
+  "Data Protection, Cybersecurity, AI";
+
 export const STANDARD_PRACTICE_AREAS = [
   "AfCFTA",
   "Arbitration",
-  "Banking",
+  BANKING_AND_FINANCE_PRACTICE_AREA,
   "Civil And Tort Law",
   "Civil Litigation",
   "Commercial Litigation",
   "Corporate Law",
   "Dispute Resolution",
   "Employment Law",
-  "Finance",
   "Immigration & Refugee Law",
   "Infrastructure And Projects",
   "Intellectual Property Law",
@@ -30,6 +35,10 @@ const EXCLUDED_FILTER_PRACTICE_AREA_KEYS = new Set([
 /** Options for admin lawyer expertise dropdown (same as standard practice areas). */
 export const LAWYER_EXPERTISE_OPTIONS: readonly string[] = STANDARD_PRACTICE_AREAS;
 
+function normalizeKey(raw: string): string {
+  return raw.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 const CANONICAL_BY_KEY: Record<string, string> = {
   "corporate law": "Corporate Law",
   corporate: "Corporate Law",
@@ -37,12 +46,14 @@ const CANONICAL_BY_KEY: Record<string, string> = {
   trade: "International Trade Law",
   afcfta: "AfCFTA",
   arbitration: "Arbitration",
-  banking: "Banking",
+  banking: BANKING_AND_FINANCE_PRACTICE_AREA,
+  "banking and finance": BANKING_AND_FINANCE_PRACTICE_AREA,
+  "banking & finance": BANKING_AND_FINANCE_PRACTICE_AREA,
+  finance: BANKING_AND_FINANCE_PRACTICE_AREA,
   "civil and tort law": "Civil And Tort Law",
   "civil litigation": "Civil Litigation",
   "commercial litigation": "Commercial Litigation",
   "dispute resolution": "Dispute Resolution",
-  finance: "Finance",
   "immigration & refugee law": "Immigration & Refugee Law",
   "immigration and refugee law": "Immigration & Refugee Law",
   "infrastructure and projects": "Infrastructure And Projects",
@@ -61,42 +72,113 @@ const CANONICAL_BY_KEY: Record<string, string> = {
   "mergers & acquisitions": "Mergers and Acquisitions",
   "public private partnerships": "Public Private Partnerships",
   ppp: "Public Private Partnerships",
+  ai: AI_PRACTICE_AREA,
+  "a.i.": AI_PRACTICE_AREA,
+  "a.i": AI_PRACTICE_AREA,
+  "artificial intelligence": AI_PRACTICE_AREA,
+  ohada: OHADA_PRACTICE_AREA,
+  "ohada law": "OHADA Law",
+  "data protection, cybersecurity, ai": DATA_PROTECTION_CYBERSECURITY_AI_PRACTICE_AREA,
+  "data protection, cybersecurity, a.i.": DATA_PROTECTION_CYBERSECURITY_AI_PRACTICE_AREA,
+  "data protection, cybersecurity, a.i": DATA_PROTECTION_CYBERSECURITY_AI_PRACTICE_AREA,
+  "data protection, cybersecurity, artificial intelligence":
+    DATA_PROTECTION_CYBERSECURITY_AI_PRACTICE_AREA,
 };
 
-function normalizeKey(raw: string): string {
-  return raw.trim().toLowerCase().replace(/\s+/g, " ");
-}
+const COMPOUND_BY_KEY: Record<string, string> = {
+  "data protection, cybersecurity, ai": DATA_PROTECTION_CYBERSECURITY_AI_PRACTICE_AREA,
+  "data protection, cybersecurity, a.i.": DATA_PROTECTION_CYBERSECURITY_AI_PRACTICE_AREA,
+  "data protection, cybersecurity, a.i": DATA_PROTECTION_CYBERSECURITY_AI_PRACTICE_AREA,
+  "data protection, cybersecurity, artificial intelligence":
+    DATA_PROTECTION_CYBERSECURITY_AI_PRACTICE_AREA,
+};
 
-function titleCaseSegment(segment: string): string {
-  return segment
-    .split(/\s+/)
-    .map((word) => {
-      const lower = word.toLowerCase();
-      if (lower === "afcfta") return "AfCFTA";
-      if (lower === "m&a") return "Mergers and Acquisitions";
-      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-    })
-    .join(" ");
-}
-
-/** Canonical display label for one practice area (case-insensitive). */
-export function canonicalExpertiseLabel(raw: string): string {
-  const trimmed = raw.trim();
+function canonicalSingleExpertiseLabel(raw: string): string {
+  const trimmed = raw.trim().replace(/\s+/g, " ");
   if (!trimmed) return "";
-  const key = normalizeKey(trimmed);
-  return CANONICAL_BY_KEY[key] ?? titleCaseSegment(trimmed);
+  return CANONICAL_BY_KEY[normalizeKey(trimmed)] ?? trimmed;
+}
+
+function compoundExpertiseLabel(raw: string): string | null {
+  return COMPOUND_BY_KEY[normalizeKey(raw)] ?? null;
+}
+
+function mergeKnownCompoundParts(parts: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < parts.length; ) {
+    if (
+      i + 2 < parts.length &&
+      normalizeKey(parts[i] ?? "") === "data protection" &&
+      normalizeKey(parts[i + 1] ?? "") === "cybersecurity" &&
+      ["ai", "a.i.", "a.i", "artificial intelligence"].includes(normalizeKey(parts[i + 2] ?? ""))
+    ) {
+      out.push(DATA_PROTECTION_CYBERSECURITY_AI_PRACTICE_AREA);
+      i += 3;
+      continue;
+    }
+    out.push(parts[i] ?? "");
+    i += 1;
+  }
+  return out;
+}
+
+/**
+ * Display label for one practice area.
+ * Known legacy aliases map to a fixed label; otherwise preserve the admin-written casing
+ * (only normalize whitespace) so acronyms like "AI" are not title-cased to "Ai".
+ */
+export function canonicalExpertiseLabel(raw: string): string {
+  const trimmed = raw.trim().replace(/\s+/g, " ");
+  if (!trimmed) return "";
+
+  const directCompound = compoundExpertiseLabel(trimmed);
+  if (directCompound) return directCompound;
+
+  if (/[,;|\n]|(?:\s*\/\s*)/.test(trimmed)) {
+    const inlineFixed = trimmed
+      .split(/[,;|\n]|(?:\s*\/\s*)/)
+      .map((segment) => canonicalSingleExpertiseLabel(segment))
+      .filter(Boolean)
+      .join(", ");
+    const fixedCompound = compoundExpertiseLabel(inlineFixed);
+    if (fixedCompound) return fixedCompound;
+    return dedupeExpertiseSegments(parseExpertiseSegments(trimmed)).join(", ");
+  }
+
+  return canonicalSingleExpertiseLabel(trimmed);
 }
 
 export function expertiseSegmentKey(raw: string): string {
   return normalizeKey(canonicalExpertiseLabel(raw));
 }
 
-/** Split comma/semicolon/pipe/slash/newline-separated expertise into segments. */
+/** Split expertise into practice areas, keeping registered compound labels intact. */
 export function parseExpertiseSegments(expertise: string): string[] {
-  return expertise
+  const trimmed = expertise.trim();
+  if (!trimmed) return [];
+
+  const directCompound = compoundExpertiseLabel(trimmed);
+  if (directCompound) return [directCompound];
+
+  if (!/[,;|\n]|(?:\s*\/\s*)/.test(trimmed)) {
+    const label = canonicalSingleExpertiseLabel(trimmed);
+    return label ? [label] : [];
+  }
+
+  const inlineFixed = trimmed
     .split(/[,;|\n]|(?:\s*\/\s*)/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+    .map((segment) => canonicalSingleExpertiseLabel(segment))
+    .filter(Boolean)
+    .join(", ");
+  const fixedCompound = compoundExpertiseLabel(inlineFixed);
+  if (fixedCompound) return [fixedCompound];
+
+  return mergeKnownCompoundParts(
+    trimmed
+      .split(/[,;|\n]|(?:\s*\/\s*)/)
+      .map((segment) => segment.trim())
+      .filter(Boolean)
+  );
 }
 
 /** Remove duplicate areas (e.g. "AfCFTA" + "afcfta", "Corporate law" + "Corporate Law"). */
@@ -122,19 +204,37 @@ function isExcludedFilterPracticeArea(label: string): boolean {
   return EXCLUDED_FILTER_PRACTICE_AREA_KEYS.has(expertiseSegmentKey(label));
 }
 
+/** Placeholder or junk labels that must not appear in catalog or search filters. */
+export function isInvalidPracticeAreaLabel(label: string): boolean {
+  const trimmed = label.trim();
+  if (!trimmed) return true;
+  if (/^-+$/.test(trimmed)) return true;
+  return false;
+}
+
+/** Practice areas for public filters and admin pickers — catalog only, sorted and deduped. */
+export function filterPracticeAreasForCatalog(areas: readonly string[]): string[] {
+  return dedupeExpertiseSegments([...areas])
+    .filter((area) => !isExcludedFilterPracticeArea(area) && !isInvalidPracticeAreaLabel(area))
+    .sort((a, b) => a.localeCompare(b));
+}
+
 /** Unique sorted practice areas for filter dropdowns. */
 export function buildExpertiseFilterOptions(
   lawyers: Array<{ expertise: string }>,
   options?: { includeStandard?: boolean; catalogPracticeAreas?: readonly string[] }
 ): string[] {
-  const includeStandard = options?.includeStandard !== false;
   const catalog = options?.catalogPracticeAreas ?? [];
-  const standardList =
-    catalog.length > 0 ? [...catalog] : ([...STANDARD_PRACTICE_AREAS] as string[]);
+  if (catalog.length > 0) {
+    return filterPracticeAreasForCatalog(catalog);
+  }
+
+  const includeStandard = options?.includeStandard !== false;
+  const standardList = [...STANDARD_PRACTICE_AREAS] as string[];
   const segments = lawyers.flatMap((l) => parseExpertiseSegments(l.expertise));
   const combined = includeStandard ? [...segments, ...standardList] : segments;
   return dedupeExpertiseSegments(combined)
-    .filter((area) => !isExcludedFilterPracticeArea(area))
+    .filter((area) => !isExcludedFilterPracticeArea(area) && !isInvalidPracticeAreaLabel(area))
     .sort((a, b) => a.localeCompare(b));
 }
 
