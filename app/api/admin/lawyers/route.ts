@@ -21,7 +21,13 @@ export async function GET() {
       console.error("Admin lawyers GET error:", error);
       return NextResponse.json({ error: "Failed to list lawyers" }, { status: 500 });
     }
-    return NextResponse.json(data ?? []);
+    const rows = (data ?? []) as Array<{ expertise?: string | null } & Record<string, unknown>>;
+    return NextResponse.json(
+      rows.map((row) => ({
+        ...row,
+        expertise: normalizeExpertiseField(row.expertise ?? ""),
+      }))
+    );
   } catch (err) {
     console.error("Admin lawyers GET error:", err);
     return NextResponse.json({ error: "Failed to list lawyers" }, { status: 500 });
