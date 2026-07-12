@@ -38,7 +38,6 @@ import {
   isLomiCheckoutAvailable,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
-import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import { fetchDocumentExportUnlockLawIds } from "@/lib/library-document-export-unlocks-client";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
 import { MarketingDiscountPrice } from "@/components/pricing/MarketingDiscountPrice";
@@ -462,7 +461,6 @@ export function LibraryView({
   const [libraryPrintCheckoutProvider, setLibraryPrintCheckoutProvider] =
     useState<CheckoutPaymentProvider>(defaultCheckoutPaymentProvider());
   /** Default to Kenya on library grid checkout (common M-Pesa / sandbox testing); user can change in the dialog. */
-  const [libraryPawapayCountry, setLibraryPawapayCountry] = useState("Kenya");
   const [paidLawIds, setPaidLawIds] = useState<Set<string>>(() => new Set());
   const [signInDialogOpen, setSignInDialogOpen] = useState(false);
   const [signInReturnPath, setSignInReturnPath] = useState("/library");
@@ -1015,7 +1013,6 @@ export function LibraryView({
         body: JSON.stringify({
           return_path: returnPath,
           provider: libraryPrintCheckoutProvider,
-          ...(libraryPrintCheckoutProvider === "pawapay" ? { paymentCountry: libraryPawapayCountry } : {}),
         }),
       });
       const data = await res.json();
@@ -1031,8 +1028,7 @@ export function LibraryView({
     }
   }, [
     libraryDocCheckoutLawId,
-    libraryPawapayCountry,
-    libraryPrintCheckoutProvider,
+        libraryPrintCheckoutProvider,
     laws,
     showAlert,
   ]);
@@ -1087,13 +1083,6 @@ export function LibraryView({
                   );
                 }}
               />
-              {libraryPrintCheckoutProvider === "pawapay" && (
-                <PawapayCountrySelect
-                  label={t("mobileMoneyCountry")}
-                  value={libraryPawapayCountry}
-                  onChange={setLibraryPawapayCountry}
-                />
-              )}
             </div>
             <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-border pt-4">
               <Dialog.Close asChild>
