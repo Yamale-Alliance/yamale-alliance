@@ -4,13 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
-import { Download, Loader2 } from "lucide-react";
+import { Eye, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useMarketplacePaymentReturn } from "@/components/marketplace/use-marketplace-payment-return";
 import {
   defaultCheckoutPaymentProvider,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
-import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { LawFirmDevelopmentZipLanding } from "@/components/marketplace/law-firm-development-package/LawFirmDevelopmentZipLanding";
 import { GenericZipPackageLanding } from "@/components/marketplace/GenericZipPackageLanding";
 import { MarketplaceLandingEmbed } from "@/components/marketplace/MarketplaceLandingEmbed";
@@ -66,6 +66,7 @@ const CUSTOM_LANDING_PURCHASE_SECTION_ID = "yamale-checkout";
 
 export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: string }) {
   const router = useRouter();
+  const tItem = useTranslations("marketplace.item");
   const id = slugOrId;
   const itemPublicPath = (item?: Item | null, packagePage = false) =>
     item
@@ -80,7 +81,6 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>(
     defaultCheckoutPaymentProvider()
   );
-  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
 
   const [item, setItem] = useState<Item | null>(null);
   const [advisoryWorkspacePreview, setAdvisoryWorkspacePreview] = useState(false);
@@ -138,8 +138,7 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
 
   useEffect(() => {
     if ((!lomiAvailable || lomiComingSoon) && paymentProvider === "lomi") {
-      setPaymentProvider("pawapay");
-    }
+          }
   }, [lomiAvailable, lomiComingSoon, paymentProvider]);
 
   useEffect(() => {
@@ -352,12 +351,11 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
         body: JSON.stringify({
           itemId: checkoutItemId,
           tier: hasDualPricing ? selectedTier : "standalone",
-          provider: paymentProvider,
+          provider: "lomi",
           success_path:
             effectiveOffers && selectedTier === "bundle"
               ? `${itemPublicPath(item, true)}?bundle=1`
               : itemPublicPath(item, true),
-          ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
         }),
       });
       const data = await res.json();
@@ -497,6 +495,8 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
           itemId={item.id}
           open={zipViewerOpen}
           onOpenChange={setZipViewerOpen}
+          onDownloadArchive={purchasedForAccess ? () => void handleDownload() : undefined}
+          downloadingArchive={downloading}
         />
       )}
       {!lawFirmLanding && (
@@ -603,8 +603,6 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
           onSelectTier={setSelectedTier}
           paymentProvider={paymentProvider}
           onPaymentProviderChange={setPaymentProvider}
-          pawapayPaymentCountry={pawapayPaymentCountry}
-          onPawapayPaymentCountryChange={setPawapayPaymentCountry}
           lomiAvailable={lomiAvailable}
           lomiComingSoon={lomiComingSoon}
           onLomiComingSoonClick={() => {
@@ -630,18 +628,10 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
             <button
               type="button"
               onClick={() => void handleBrowseZipContents()}
-              className="inline-flex items-center gap-2 rounded-lg border border-white/25 bg-white/5 px-5 py-2.5 text-sm font-medium text-white hover:bg-white/10 dark:border-border dark:bg-background dark:text-foreground dark:hover:bg-muted"
+              className="inline-flex items-center gap-2 rounded-lg bg-[#C18C43] px-5 py-2.5 text-sm font-semibold text-[#221913] hover:bg-[#E3BA65] dark:bg-primary dark:text-primary-foreground dark:hover:opacity-90"
             >
-              View package contents
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleLandingDownload()}
-              disabled={downloading}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#C18C43] px-5 py-2.5 text-sm font-semibold text-[#221913] hover:bg-[#E3BA65] disabled:opacity-50"
-            >
-              {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              Download ZIP
+              <Eye className="h-4 w-4" />
+              {tItem("viewAndDownload")}
             </button>
             <Link href={itemPublicPath(item)} className="text-sm text-[#E3BA65] hover:underline dark:text-primary">
               Ratings & details
@@ -689,18 +679,10 @@ export default function MarketplacePackagePageClient({ slugOrId }: { slugOrId: s
                 <button
                   type="button"
                   onClick={() => setZipViewerOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-lg border border-white/25 bg-white/5 px-5 py-2.5 text-sm font-medium text-white hover:bg-white/10"
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#C18C43] px-5 py-2.5 text-sm font-semibold text-[#221913] hover:bg-[#E3BA65]"
                 >
-                  View package contents
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDownload}
-                  disabled={downloading}
-                  className="inline-flex items-center gap-2 rounded-lg bg-[#C18C43] px-5 py-2.5 text-sm font-semibold text-[#221913] hover:bg-[#E3BA65] disabled:opacity-50"
-                >
-                  {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                  Download ZIP
+                  <Eye className="h-4 w-4" />
+                  {tItem("viewAndDownload")}
                 </button>
               </div>
             ) : null}
