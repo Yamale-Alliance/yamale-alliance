@@ -5,7 +5,7 @@ import { Search, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { VAULT_BROWSE_FREE } from "@/lib/marketplace-vault-categories";
 
-type TopicId = "general" | "afcftaTrade" | "tax" | "labour" | "mining" | "compliance" | "corporate";
+type TopicId = "general" | "tax" | "labour" | "mining" | "compliance" | "corporate";
 
 type VaultCatalogToolbarProps = {
   title: string;
