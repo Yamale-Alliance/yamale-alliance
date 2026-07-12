@@ -310,9 +310,17 @@ type Props = {
   itemId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onDownloadArchive?: () => void | Promise<void>;
+  downloadingArchive?: boolean;
 };
 
-export function ZipPackageContentsDialog({ itemId, open, onOpenChange }: Props) {
+export function ZipPackageContentsDialog({
+  itemId,
+  open,
+  onOpenChange,
+  onDownloadArchive,
+  downloadingArchive = false,
+}: Props) {
   const zipRef = useRef<JSZip | null>(null);
   const blobUrlRef = useRef<string | null>(null);
 
@@ -642,7 +650,23 @@ export function ZipPackageContentsDialog({ itemId, open, onOpenChange }: Props) 
                 {loading ? "Loading…" : `${itemCount} file${itemCount !== 1 ? "s" : ""} · ${totalEntries} entr${totalEntries !== 1 ? "ies" : "y"}`}
               </p>
             </div>
-            <Dialog.Close asChild>
+            <div className="flex shrink-0 items-center gap-1">
+              {onDownloadArchive ? (
+                <button
+                  type="button"
+                  onClick={() => void onDownloadArchive()}
+                  disabled={downloadingArchive}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm font-medium text-primary transition hover:bg-muted disabled:opacity-50"
+                >
+                  {downloadingArchive ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  Download ZIP
+                </button>
+              ) : null}
+              <Dialog.Close asChild>
               <button
                 type="button"
                 className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
@@ -651,6 +675,7 @@ export function ZipPackageContentsDialog({ itemId, open, onOpenChange }: Props) 
                 <X className="h-5 w-5" />
               </button>
             </Dialog.Close>
+            </div>
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
