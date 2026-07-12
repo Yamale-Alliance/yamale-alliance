@@ -1,19 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import {
-  convertUsdCentsToPawapayMinor,
-  createPaymentPageSession,
-  isPawapayConfigured,
-  PawapayReturnUrlError,
-  resolvePawapayReturnOrigin,
-} from "@/lib/pawapay";
-import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
+import { convertUsdCentsToMinor, getCheckoutCurrency } from "@/lib/payment-currency";
 import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
 import { buildLomiOneTimeCatalogCheckoutInput } from "@/lib/lomi-catalog-checkout";
 import { getDayPassPriceUsdCents } from "@/lib/platform-settings";
-
-const DAY_PASS_CURRENCY = (process.env.PAWAPAY_CURRENCY || "USD").toUpperCase();
-type CheckoutProvider = "pawapay" | "lomi";
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,77 +12,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Sign in required" }, { status: 401 });
     }
 
-    const body = await request.json().catch(() => ({}));
-    const provider = (body.provider as CheckoutProvider | undefined) || "pawapay";
     const requestOrigin = request.headers.get("origin") || request.nextUrl.origin;
     const origin = requestOrigin;
 
-    if (provider === "lomi") {
-      if (!isLomiConfigured()) {
-        return NextResponse.json({ error: "Lomi checkout is not configured." }, { status: 503 });
-      }
-      const currencyCode = toLomiCurrency(DAY_PASS_CURRENCY);
-      if (!currencyCode) {
-        return NextResponse.json(
-          {
-            error:
-              "Lomi checkout supports USD, EUR, or XOF. Set PAWAPAY_CURRENCY accordingly or use mobile money.",
-          },
-          { status: 400 }
-        );
-      }
-      const dayPassCents = await getDayPassPriceUsdCents();
-      const amountMinor = convertUsdCentsToPawapayMinor(dayPassCents, currencyCode);
-      const { checkoutUrl } = await createLomiHostedCheckoutSession(
-        buildLomiOneTimeCatalogCheckoutInput({
-          catalogKey: "day_pass",
-          amountMinor,
-          currency_code: currencyCode,
-          metadata: {
-            clerk_user_id: userId,
-            plan_id: "day-pass",
-            kind: "day-pass",
-          },
-          title: "24-hour day pass",
-          success_url: `${origin}/pricing?day_pass_return=1&session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${origin}/pricing?canceled=1`,
-        })
+    if (!isLomiConfigured()) {
+      return NextResponse.json({ error: "Lomi checkout is not configured." }, { status: 503 });
+    }
+    const currencyCode = toLomiCurrency(getCheckoutCurrency());
+    if (!currencyCode) {
+      return NextResponse.json(
+        {
+          error: "Lomi checkout supports USD, EUR, or XOF. Set CHECKOUT_CURRENCY accordingly.",
+        },
+        { status: 400 }
       );
-      return NextResponse.json({ url: checkoutUrl, provider: "lomi" });
     }
-
-    if (!isPawapayConfigured()) {
-      return NextResponse.json({ error: "PawaPay mobile money is not configured." }, { status: 503 });
-    }
-    const gate = requirePawapayPaymentCountry(body as Record<string, unknown>);
-    if (!gate.ok) return gate.response;
     const dayPassCents = await getDayPassPriceUsdCents();
-    const amountMinor = convertUsdCentsToPawapayMinor(dayPassCents, gate.country.currency);
-    const depositId = crypto.randomUUID();
-    const returnBase = resolvePawapayReturnOrigin(requestOrigin);
-    const returnUrl = `${returnBase}/pricing?day_pass_return=1&session_id=${encodeURIComponent(depositId)}`;
-    const { redirectUrl } = await createPaymentPageSession({
-      depositId,
-      amountCents: amountMinor,
-      currency: gate.country.currency,
-      returnUrl,
-      reason: "24-hour day pass",
-      customerMessage: "Full Pro-level access for 24 hours",
-      country: gate.country.iso3,
-      metadata: {
-        clerk_user_id: userId,
-        plan_id: "day-pass",
-        kind: "day-pass",
-        payment_country: gate.country.label,
-      },
-    });
-
-    return NextResponse.json({ url: redirectUrl, provider: "pawapay" });
+    const amountMinor = convertUsdCentsToMinor(dayPassCents, currencyCode);
+    const { checkoutUrl } = await createLomiHostedCheckoutSession(
+      buildLomiOneTimeCatalogCheckoutInput({
+        catalogKey: "day_pass",
+        amountMinor,
+        currency_code: currencyCode,
+        metadata: {
+          clerk_user_id: userId,
+          plan_id: "day-pass",
+          kind: "day-pass",
+          payment_provider: "lomi",
+        },
+        title: "24-hour day pass",
+        success_url: `${origin}/pricing?day_pass_return=1&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/pricing?canceled=1`,
+      })
+    );
+    return NextResponse.json({ url: checkoutUrl, provider: "lomi" });
   } catch (err) {
-    console.error("pawaPay day-pass checkout error:", err);
-    if (err instanceof PawapayReturnUrlError) {
-      return NextResponse.json({ error: err.message }, { status: 400 });
-    }
+    console.error("Day-pass checkout error:", err);
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
   }
 }
