@@ -178,9 +178,6 @@ export function VaultProductGrid({
         resourceCount={card.collectionCount ?? members.length}
         href={card.collectionHref}
         priceCents={priceCents}
-        listPriceCents={
-          offer?.bundleCents != null && offer.bundleSavingsCents > 0 ? offer.totalCents : null
-        }
         coverPriority={cardIndex < 6}
       />
     );
