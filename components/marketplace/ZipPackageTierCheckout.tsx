@@ -5,7 +5,6 @@ import {
   PaymentMethodPicker,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
-import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import type { PackageOfferTier, PackageOffersResolved } from "@/lib/marketplace-package-offers";
 import { formatUsd } from "@/lib/marketplace-package-offers";
 
@@ -15,8 +14,6 @@ type ZipPackageTierCheckoutProps = {
   onSelectTier: (tier: PackageOfferTier) => void;
   paymentProvider: CheckoutPaymentProvider;
   onPaymentProviderChange: (p: CheckoutPaymentProvider) => void;
-  pawapayPaymentCountry: string;
-  onPawapayPaymentCountryChange: (c: string) => void;
   lomiAvailable: boolean;
   lomiComingSoon: boolean;
   onLomiComingSoonClick: () => void;
@@ -32,8 +29,6 @@ export function ZipPackageTierCheckout({
   onSelectTier,
   paymentProvider,
   onPaymentProviderChange,
-  pawapayPaymentCountry,
-  onPawapayPaymentCountryChange,
   lomiAvailable,
   lomiComingSoon,
   onLomiComingSoonClick,
@@ -115,16 +110,6 @@ export function ZipPackageTierCheckout({
               lomiComingSoon={lomiComingSoon}
               onLomiComingSoonClick={onLomiComingSoonClick}
             />
-            {paymentProvider === "pawapay" && (
-              <div className="mt-4">
-                <PawapayCountrySelect
-                  label="Mobile money country"
-                  value={pawapayPaymentCountry}
-                  onChange={onPawapayPaymentCountryChange}
-                  selectClassName="w-full rounded-lg border border-white/20 bg-black/40 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#C8922A]/40"
-                />
-              </div>
-            )}
           </div>
 
           <button
