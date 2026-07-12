@@ -10,7 +10,7 @@ type Props = {
 };
 
 /**
- * Confirms subscription plan payment after pawaPay/Lomi redirect and unlocks the plan server-side.
+ * Confirms subscription plan payment after Lomi/Lomi redirect and unlocks the plan server-side.
  */
 export function SubscriptionCheckoutConfirm({ fullPage = false, onSynced }: Props) {
   const { isReturn, confirming, synced, error, errorMessage, activatedTier, retry, dismiss } =
@@ -31,7 +31,7 @@ export function SubscriptionCheckoutConfirm({ fullPage = false, onSynced }: Prop
         <p className="mt-2 max-w-md text-center text-sm text-[#0D1B2A]/70 dark:text-white/70">
           {synced
             ? "Your plan is active. Opening AI Legal Research…"
-            : "Checking with your payment provider. M-Pesa can finish a few seconds after the pawaPay page shows success."}
+            : "Checking with your payment provider. Payment can take a few seconds to confirm after checkout completes."}
         </p>
         {synced && activatedTier && (
           <p className="mt-1 text-xs capitalize text-[#C8922A]">{activatedTier} plan</p>
@@ -127,7 +127,7 @@ export function SubscriptionCheckoutConfirm({ fullPage = false, onSynced }: Prop
             <p className="mt-1 text-sm opacity-90">{errorMessage}</p>
             <p className="mt-2 text-sm opacity-80">
               If M-Pesa was charged, wait a few seconds and tap Retry. Your plan unlocks only after we receive a completed
-              payment from pawaPay.
+              payment from Lomi.
             </p>
           </div>
           <button
