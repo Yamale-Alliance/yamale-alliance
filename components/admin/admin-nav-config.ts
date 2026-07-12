@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   Shield,
   Cpu,
-  FileCheck,
   MessageSquare,
   MessageSquareWarning,
   LineChart,
@@ -32,7 +31,6 @@ export type AdminNavLabelKey =
   | "aiQuality"
   | "laws"
   | "lawFlags"
-  | "afcfta"
   | "pricing"
   | "content"
   | "settings";
@@ -64,7 +62,6 @@ export const adminNavItemDefs: AdminNavItemDef[] = [
   { href: "/admin-panel/ai-quality", labelKey: "aiQuality", icon: MessageSquareWarning, fullAdminOnly: true },
   { href: "/admin-panel/laws", labelKey: "laws", icon: BookOpen },
   { href: "/admin-panel/law-flags", labelKey: "lawFlags", icon: Flag, fullAdminOnly: true },
-  { href: "/admin-panel/afcfta", labelKey: "afcfta", icon: FileCheck, fullAdminOnly: true },
   { href: "/admin-panel/pricing", labelKey: "pricing", icon: Scale, fullAdminOnly: true },
   { href: "/admin-panel/content", labelKey: "content", icon: FileText, fullAdminOnly: true },
   { href: "/admin-panel/settings", labelKey: "settings", icon: Settings, fullAdminOnly: true },
