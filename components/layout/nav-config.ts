@@ -1,7 +1,6 @@
 import {
   Home,
   BookOpen,
-  FileCheck,
   Search,
   Store,
   Users,
@@ -12,7 +11,6 @@ import {
 export type NavLabelKey =
   | "home"
   | "library"
-  | "afcfta"
   | "aiResearch"
   | "vault"
   | "lawyers"
@@ -26,7 +24,6 @@ export const userNavLinkDefs: Array<{
 }> = [
   { href: "/", labelKey: "home", icon: Home },
   { href: "/library", labelKey: "library", icon: BookOpen },
-  { href: "/afcfta/compliance-check", labelKey: "afcfta", icon: FileCheck },
   { href: "/ai-research", labelKey: "aiResearch", icon: Search },
   { href: "/marketplace", labelKey: "vault", icon: Store },
   { href: "/lawyers", labelKey: "lawyers", icon: Users },
