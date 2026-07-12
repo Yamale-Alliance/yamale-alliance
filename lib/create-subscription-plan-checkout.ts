@@ -1,15 +1,8 @@
-import {
-  convertUsdCentsToPawapayMinor,
-  createPaymentPageSession,
-  isPawapayConfigured,
-  PawapayReturnUrlError,
-  resolvePawapayReturnOrigin,
-} from "@/lib/pawapay";
+import { convertUsdCentsToMinor, getCheckoutCurrency } from "@/lib/payment-currency";
 import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
 import { buildLomiSubscriptionCheckoutInput } from "@/lib/lomi-catalog-checkout";
-import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
 
-export type PlanCheckoutProvider = "pawapay" | "lomi";
+export type PlanCheckoutProvider = "lomi";
 
 export type CreatePlanCheckoutParams = {
   userId: string;
@@ -20,9 +13,6 @@ export type CreatePlanCheckoutParams = {
   metadataExtra: Record<string, string | undefined>;
   /** `Origin` or app URL for redirect links */
   requestOrigin: string;
-  provider: PlanCheckoutProvider;
-  /** Original POST body (country selection for pawaPay) */
-  pawapayBody: Record<string, unknown>;
   successPath?: string;
   cancelPath?: string;
 };
@@ -33,11 +23,9 @@ type Result = Ok | Err;
 
 const BASE_SUB_KIND = "subscription_plan";
 
-/**
- * Create pawaPay or Lomi redirect for a plan purchase (new, renewal, or upgrade with amount already resolved).
- */
+/** Create Lomi redirect for a plan purchase (new, renewal, or upgrade with amount already resolved). */
 export async function createSubscriptionPlanCheckoutRedirect(params: CreatePlanCheckoutParams): Promise<Result> {
-  const { userId, planId, interval, usdCents, metadataExtra, requestOrigin, provider, pawapayBody } = params;
+  const { userId, planId, interval, usdCents, metadataExtra, requestOrigin } = params;
   const successPath = params.successPath ?? "/ai-research";
   const cancelPath = params.cancelPath ?? "/subscription";
   const baseMeta: Record<string, string> = {
@@ -45,96 +33,54 @@ export async function createSubscriptionPlanCheckoutRedirect(params: CreatePlanC
     plan_id: planId,
     interval,
     kind: BASE_SUB_KIND,
-    payment_provider: provider,
+    payment_provider: "lomi",
   };
   for (const [k, v] of Object.entries(metadataExtra)) {
     if (v != null && v !== "") baseMeta[k] = v;
   }
 
   const origin = requestOrigin;
-  const pawCurrency = (process.env.PAWAPAY_CURRENCY || "USD").toUpperCase();
+  const checkoutCurrency = getCheckoutCurrency();
 
-  if (provider === "lomi") {
-    if (!isLomiConfigured()) {
-      return { ok: false, status: 503, error: "Lomi card checkout is not configured." };
-    }
-    const currencyCode = toLomiCurrency(pawCurrency);
-    if (!currencyCode) {
-      return {
-        ok: false,
-        status: 400,
-        error:
-          "Lomi checkout supports USD, EUR, or XOF. Set PAWAPAY_CURRENCY to one of those (or use mobile money).",
-      };
-    }
-    const amountCents = convertUsdCentsToPawapayMinor(usdCents, currencyCode);
-    if (amountCents <= 0) {
-      return { ok: false, status: 400, error: "Checkout amount must be greater than zero." };
-    }
-    const isProration = baseMeta.change_type === "upgrade";
-    try {
-      const { checkoutUrl } = await createLomiHostedCheckoutSession(
-        buildLomiSubscriptionCheckoutInput({
-          planId,
-          interval,
-          amountMinor: amountCents,
-          isProration,
-          currency_code: currencyCode,
-          metadata: baseMeta,
-          title: isProration
-            ? `Upgrade to ${planId} (${interval})`
-            : `${planId} plan (${interval})`,
-          description: isProration
-            ? `Prorated upgrade to ${String(planId).toUpperCase()}`
-            : `${String(planId).toUpperCase()} ${interval} subscription`,
-          success_url: `${origin}${successPath.startsWith("/") ? successPath : `/${successPath}`}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${origin}${cancelPath.startsWith("/") ? cancelPath : `/${cancelPath}`}?canceled=1`,
-        })
-      );
-      return { ok: true, url: checkoutUrl, provider: "lomi" };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Lomi checkout failed";
-      console.error("Lomi subscription checkout error:", err);
-      return { ok: false, status: 502, error: msg };
-    }
+  if (!isLomiConfigured()) {
+    return { ok: false, status: 503, error: "Lomi checkout is not configured." };
   }
-
-  if (!isPawapayConfigured()) {
-    return { ok: false, status: 503, error: "PawaPay mobile money is not configured." };
+  const currencyCode = toLomiCurrency(checkoutCurrency);
+  if (!currencyCode) {
+    return {
+      ok: false,
+      status: 400,
+      error: "Lomi checkout supports USD, EUR, or XOF. Set CHECKOUT_CURRENCY to one of those.",
+    };
   }
-  const gate = requirePawapayPaymentCountry(pawapayBody);
-  if (!gate.ok) return { ok: false, status: 400, error: "Select a mobile money country to continue." };
-
-  const returnBase = resolvePawapayReturnOrigin(requestOrigin);
-
-  const amountCents = convertUsdCentsToPawapayMinor(usdCents, gate.country.currency);
+  const amountCents = convertUsdCentsToMinor(usdCents, currencyCode);
   if (amountCents <= 0) {
     return { ok: false, status: 400, error: "Checkout amount must be greater than zero." };
   }
-  const depositId = crypto.randomUUID();
-  const returnUrl = `${returnBase}${successPath.startsWith("/") ? successPath : `/${successPath}`}?checkout=success&session_id=${encodeURIComponent(depositId)}`;
-
+  const isProration = baseMeta.change_type === "upgrade";
   try {
-    const { redirectUrl } = await createPaymentPageSession({
-      depositId,
-      amountCents,
-      currency: gate.country.currency,
-      returnUrl,
-      reason: `${planId} plan (${interval})`,
-      customerMessage: `${String(planId).toUpperCase()} ${interval} plan`,
-      country: gate.country.iso3,
-      metadata: {
-        ...baseMeta,
-        payment_country: gate.country.label,
-      },
-    });
-    return { ok: true, url: redirectUrl, provider: "pawapay" };
+    const { checkoutUrl } = await createLomiHostedCheckoutSession(
+      buildLomiSubscriptionCheckoutInput({
+        planId,
+        interval,
+        amountMinor: amountCents,
+        isProration,
+        currency_code: currencyCode,
+        metadata: baseMeta,
+        title: isProration
+          ? `Upgrade to ${planId} (${interval})`
+          : `${planId} plan (${interval})`,
+        description: isProration
+          ? `Prorated upgrade to ${String(planId).toUpperCase()}`
+          : `${String(planId).toUpperCase()} ${interval} subscription`,
+        success_url: `${origin}${successPath.startsWith("/") ? successPath : `/${successPath}`}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}${cancelPath.startsWith("/") ? cancelPath : `/${cancelPath}`}?canceled=1`,
+      })
+    );
+    return { ok: true, url: checkoutUrl, provider: "lomi" };
   } catch (err) {
-    if (err instanceof PawapayReturnUrlError) {
-      return { ok: false, status: 400, error: err.message };
-    }
-    const msg = err instanceof Error ? err.message : "Mobile money checkout failed";
-    console.error("pawaPay subscription checkout error:", err);
+    const msg = err instanceof Error ? err.message : "Lomi checkout failed";
+    console.error("Lomi subscription checkout error:", err);
     return { ok: false, status: 502, error: msg };
   }
 }
