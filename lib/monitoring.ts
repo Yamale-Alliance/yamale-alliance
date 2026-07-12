@@ -51,7 +51,7 @@ export function captureMonitoredException(
 }
 
 export function captureWebhookError(
-  provider: "lomi" | "pawapay",
+  provider: "lomi" | "lomi",
   err: unknown,
   extra?: Record<string, unknown>
 ): void {
