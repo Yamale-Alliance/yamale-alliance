@@ -11,7 +11,7 @@ export const SITE = {
   titleDefault:
     "African Law Library & AI Legal Research — Yamalé",
   description:
-    "For lawyers, in-house teams, and law students: search African statutes and regulations across 54 countries, run AI legal research on primary sources, use AfCFTA trade tools, browse The Yamalé Vault, and find commercial counsel. Law without barriers. Business without borders.",
+    "For lawyers, in-house teams, and law students: search African statutes and regulations across 54 countries, run AI legal research on primary sources, browse The Yamalé Vault, and find commercial counsel. Law without barriers. Business without borders.",
   tagline: "Law Without Barriers. Business Without Borders.",
   locale: "en",
   region: "SN",
@@ -22,7 +22,6 @@ export const SITE = {
     "legal research Africa",
     "find African statutes",
     "OHADA law",
-    "AfCFTA compliance",
     "cross-border trade Africa",
     "AI legal research",
     "AI legal search in Africa",
@@ -50,11 +49,7 @@ export const SITEMAP_PATHS: Array<{
   { path: "/ai-research", changeFrequency: "weekly", priority: 0.9 },
   { path: "/ai-legal-search-africa", changeFrequency: "monthly", priority: 0.88 },
   { path: "/ohada-ai-legal-research", changeFrequency: "monthly", priority: 0.86 },
-  { path: "/afcfta-ai-legal-research", changeFrequency: "monthly", priority: 0.86 },
   { path: "/african-legal-library-ai", changeFrequency: "monthly", priority: 0.86 },
-  { path: "/afcfta/compliance-check", changeFrequency: "weekly", priority: 0.9 },
-  { path: "/afcfta/compliance-journey", changeFrequency: "weekly", priority: 0.88 },
-  { path: "/afcfta/tariff-schedule", changeFrequency: "weekly", priority: 0.85 },
   { path: "/marketplace", changeFrequency: "weekly", priority: 0.85 },
   { path: "/lawyers", changeFrequency: "weekly", priority: 0.85 },
   { path: "/lawyers/join", changeFrequency: "monthly", priority: 0.7 },
