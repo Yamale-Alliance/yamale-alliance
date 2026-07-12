@@ -13,8 +13,6 @@ import {
   isLomiCheckoutAvailable,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
-import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
-import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { useAlertDialog } from "@/components/ui/use-confirm";
 import { notifyMarketplaceCartUpdated } from "@/lib/marketplace-cart-events";
 import { displayVaultPublisher } from "@/lib/marketplace-display";
@@ -47,7 +45,6 @@ export default function CartPage() {
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>(
     defaultCheckoutPaymentProvider()
   );
-  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const lomiAvailable = isLomiCheckoutAvailable();
   const lomiComingSoon = false;
   const [removing, setRemoving] = useState<string | null>(null);
@@ -93,8 +90,7 @@ export default function CartPage() {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          provider: paymentProvider,
-          ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
+          provider: "lomi",
         }),
       });
       const data = await res.json();
@@ -237,15 +233,6 @@ export default function CartPage() {
                       void showAlert(tCart("lomiComingSoonMessage"), tCommon("comingSoon"));
                     }}
                   />
-                  {paymentProvider === "pawapay" && (
-                    <div className="mt-4">
-                      <PawapayCountrySelect
-                        label={tCart("mobileMoneyCountry")}
-                        value={pawapayPaymentCountry}
-                        onChange={setPawapayPaymentCountry}
-                      />
-                    </div>
-                  )}
                   <button
                     type="button"
                     onClick={handleCheckout}
