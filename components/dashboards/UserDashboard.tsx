@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { BookOpen, CreditCard, FileCheck, Search, Store } from "lucide-react";
+import { BookOpen, CreditCard, Search, Store } from "lucide-react";
 import { CheckoutSuccessBanner } from "./CheckoutSuccessBanner";
 
 const quickLinks = [
   { href: "/library", label: "Legal Library", icon: BookOpen },
-  { href: "/afcfta", label: "AfCFTA Compliance", icon: FileCheck },
   { href: "/ai-research", label: "AI Research", icon: Search },
   { href: "/marketplace", label: "The Yamalé Vault", icon: Store },
   { href: "/account", label: "Account & billing", icon: CreditCard },
