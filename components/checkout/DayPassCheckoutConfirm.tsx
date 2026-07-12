@@ -25,7 +25,7 @@ export function DayPassCheckoutConfirm({ onSynced }: Props) {
       : "Your 24-hour access is now active."
     : error
       ? (errorMessage ?? "Payment was not completed.")
-      : "Checking with pawaPay. Mobile money can finish a few seconds after the wallet shows success.";
+      : "Checking with Lomi. Payment can take a few seconds to confirm after checkout completes.";
 
   return (
     <div role={error ? "alert" : "status"} className={`mb-6 rounded-xl border p-4 ${border}`}>
