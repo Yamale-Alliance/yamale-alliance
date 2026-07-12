@@ -2,7 +2,6 @@
   "nav": {
     "home": "Home",
     "library": "Library",
-    "afcfta": "AfCFTA",
     "aiResearch": "AI Research",
     "vault": "Yamalé Vault",
     "lawyers": "Lawyers",
@@ -46,7 +45,7 @@
     "newHere": "New here?",
     "createAccount": "Create an account",
     "joinTitle": "Join Yamalé Legal",
-    "signUpSubtitle": "Create a client account to access the library, AfCFTA tools, The Yamalé Vault, and AI research.",
+    "signUpSubtitle": "Create a client account to access the library, The Yamalé Vault, and AI research.",
     "signUpSubtitleLibrary": "Create a free account to search African statutes, regulations, and treaties in the legal library.",
     "alreadyHaveAccount": "Already have an account?",
     "lawyerInviteNote": "Lawyer accounts are created and invited by the admin team. If you are a lawyer, use the secure sign-in link sent to your email.",
@@ -72,12 +71,13 @@
     "heroTitle1": "Law Without Barriers.",
     "heroTitle2": "Business Without Borders.",
     "heroBadge": "African-built. African-governed. Reinvesting in Africa's legal future.",
-    "heroSubtitle": "The first unified platform for African legal research — covering all 54 countries, AfCFTA compliance, AI-powered queries, and a curated network of African legal professionals.",
+    "heroSubtitle": "The first unified platform for African legal research — covering all 54 countries, AI-powered queries, and a curated network of African legal professionals.",
     "browseLibrary": "Browse Legal Library",
     "tryAiResearch": "Try AI Research",
     "statCountries": "African countries covered",
     "statLaws": "Laws & regulations",
-    "statAfcfta": "Passport tool — first of its kind",
+    "statAiValue": "AI",
+    "statAiLabel": "Legal research assistant",
     "trustedBy": "Trusted by",
     "trustedLawFirms": "Law firms",
     "trustedGovernments": "Governments",
@@ -90,7 +90,7 @@
     "foundersCta": "Read the founder's note",
     "platformEyebrow": "Platform",
     "platformTitle": "Everything you need to navigate African law",
-    "platformSubtitle": "Five integrated tools — from raw legislation to expert connections — built for legal professionals, investors, and governments operating across the continent.",
+    "platformSubtitle": "Four integrated tools — from raw legislation to expert connections — built for legal professionals, investors, and governments operating across the continent.",
     "featureLibraryTitle": "Legal Library",
     "featureLibraryDesc": "Every African country's business laws, free to read, in one place. Search all 54 jurisdictions by domain and status.",
     "featureLibraryCta": "Browse the library",
@@ -114,7 +114,7 @@
   "footer": {
     "homeAria": "Yamalé home",
     "tagline": "African law, accessible to those who shape the continent's future.",
-    "description": "National and regional law, AfCFTA compliance, and AI-powered legal research—in one place.",
+    "description": "National and regional law and AI-powered legal research—in one place.",
     "product": "Product",
     "company": "Company",
     "legal": "Legal",
@@ -2459,6 +2459,12 @@
       "signIn": "Sign in",
       "createAccount": "Create account"
     },
+    "aiFab": {
+      "label": "AI Research",
+      "launch": "Open AI Legal Research",
+      "dialogTitle": "Choose a plan for AI Research",
+      "dialogBody": "Select a subscription tier or pay-as-you-go option to start asking legal questions grounded in the library."
+    },
     "flairs": {
       "bookmarked": "Bookmarked",
       "recentlyOpened": "Recently opened",
@@ -2963,7 +2969,6 @@
     "comingSoonBannerTitle": "Coming soon",
     "comingSoonBannerBody": "Browse the directory preview below. Paid search and contact unlock are not available yet — we are onboarding vetted lawyers invitation by invitation.",
     "practiceAreas": {
-      "afcfta": "AfCFTA",
       "ai": "AI",
       "arbitration": "Arbitration",
       "banking_and_finance": "Banking and Finance",
@@ -3134,14 +3139,12 @@
       "basic": [
         "Unlimited browsing of full texts of laws",
         "<strong>10 AI queries/month</strong>",
-        "AfCFTA Passport (coming soon)",
         "Lawyers network directory search",
         "Browse The Yamalé Vault"
       ],
       "pro": [
         "Unlimited browsing of full texts of laws",
         "<strong>50 AI queries/month</strong>",
-        "AfCFTA Passport (coming soon)",
         "Lawyers network directory search",
         "Browse The Yamalé Vault",
         "Download AI conversation"
@@ -3149,7 +3152,6 @@
       "team": [
         "<strong>5 user seats included</strong>",
         "<strong>Unlimited AI queries per user/month</strong>",
-        "AfCFTA Passport (coming soon)",
         "Lawyers network directory search",
         "Browse The Yamalé Vault",
         "Download AI conversation",
@@ -3214,7 +3216,7 @@
       "title": "Frequently asked",
       "payg": {
         "q": "How does pay-as-you-go work?",
-        "a": "All users (including free) can purchase additional documents and AI queries at the rates shown above. The lawyers network is available on the directory page. AfCFTA Passport is coming soon. Subscribers get lower rates and included usage each month."
+        "a": "All users (including free) can purchase additional documents and AI queries at the rates shown above. The lawyers network is available on the directory page. Subscribers get lower rates and included usage each month."
       },
       "changePlans": {
         "q": "Can I change plans anytime?",
