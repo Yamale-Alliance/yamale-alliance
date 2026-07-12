@@ -6,7 +6,6 @@ export const DATA_PROTECTION_CYBERSECURITY_AI_PRACTICE_AREA =
   "Data Protection, Cybersecurity, AI";
 
 export const STANDARD_PRACTICE_AREAS = [
-  "AfCFTA",
   "Arbitration",
   BANKING_AND_FINANCE_PRACTICE_AREA,
   "Civil And Tort Law",
@@ -44,7 +43,6 @@ const CANONICAL_BY_KEY: Record<string, string> = {
   corporate: "Corporate Law",
   "trade law": "International Trade Law",
   trade: "International Trade Law",
-  afcfta: "AfCFTA",
   arbitration: "Arbitration",
   banking: BANKING_AND_FINANCE_PRACTICE_AREA,
   "banking and finance": BANKING_AND_FINANCE_PRACTICE_AREA,
