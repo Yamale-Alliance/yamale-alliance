@@ -169,8 +169,7 @@
       "statFree": "Free",
       "statSeries": "Series",
       "seriesItemsTitle": "In this collection",
-      "seriesItemsHint": "Open any resource to preview, purchase, or download.",
-      "seriesSavings": "Save {amount} with the full series"
+      "seriesItemsHint": "Open any resource to preview, purchase, or download."
     },
     "purchased": "Purchased",
     "cart": "Cart",
@@ -252,7 +251,7 @@
     "cartPage": {
       "eyebrow": "Your shopping cart",
       "title": "Review & checkout",
-      "subtitle": "Review your cart and choose how to pay: mobile money with pawaPay or hosted checkout with Lomi.",
+      "subtitle": "Review your cart and choose how to pay: hosted checkout with Lomi.",
       "emptyTitle": "Your cart is empty",
       "emptyHint": "Add items from The Yamalé Vault to get started.",
       "browseVault": "Browse The Yamalé Vault",
@@ -316,7 +315,7 @@
       "includedFormat": "File format",
       "includedUpdated": "Added to the Vault",
       "aboutResource": "About this resource",
-      "seriesBundleTitle": "Save with the full {name}",
+      "seriesBundleTitle": "Full {name} bundle",
       "seriesBundleHint": "Get all {count} guides for {price} at checkout",
       "exploreCollectionTitle": "Explore the full {name}",
       "exploreCollectionHint": "Browse every country guide in this collection — preview, purchase, or download.",
@@ -500,7 +499,7 @@
     },
     "refunds": {
       "title": "Refund requests",
-      "introBeforeLomi": "Customer-initiated refund requests. Approving triggers Lomi or pawaPay per",
+      "introBeforeLomi": "Customer-initiated refund requests. Approving triggers Lomi per",
       "introAfterProviders": "APIs and revokes access when the provider confirms completion.",
       "noRequests": "No refund requests in this filter.",
       "adminNotesPlaceholder": "Admin notes (optional)",
@@ -550,7 +549,7 @@
         "mixAria": "Revenue mix by source",
         "scannedUsers": "Scanned {count} Clerk users for subscription metrics.",
         "detailTitle": "Who paid for what",
-        "detailSubtitle": "Row-level activity in the same date range as the cards above. Payment references are deposit or checkout IDs from pawaPay / Lomi where stored.",
+        "detailSubtitle": "Row-level activity in the same date range as the cards above. Payment references are deposit or checkout IDs from Lomi where stored.",
         "ranges": {
           "today": "Today",
           "this_week": "This week",
@@ -2642,7 +2641,7 @@
     "currentPlan": "Current plan",
     "tier": "Tier:",
     "paidWith": "Paid with:",
-    "paymentPawapay": "Mobile money (pawaPay)",
+    "paymentPawapay": "Mobile money (Lomi)",
     "paymentLomi": "Card & wallets (Lomi)",
     "paymentGrant": "Plan grant (complimentary)",
     "paymentNotRecorded": "Not recorded",
@@ -2707,7 +2706,7 @@
   },
   "accountRefunds": {
     "requestTitle": "Request a refund",
-    "requestDesc": "Choose a recent purchase and explain why you are requesting a refund. An admin will review your request before any money is returned via Lomi or mobile money (pawaPay).",
+    "requestDesc": "Choose a recent purchase and explain why you are requesting a refund. An admin will review your request before any money is returned via Lomi.",
     "noEligible": "No eligible purchases found, or you already have open requests.",
     "purchaseLabel": "Purchase",
     "selectItem": "Select an item…",
@@ -3111,11 +3110,10 @@
     "subtitle": "Pay with mobile money or credit card. Invoice-ready for institutions. Pay only for what you need.",
     "monthly": "Monthly",
     "annual": "Annual",
-    "savePercent": "Save 17%",
     "choosePlanHint": "Choose a plan below, then complete billing and payment on the subscription checkout page.",
     "perMonth": "/month",
     "forever": "/forever",
-    "billedAnnually": "billed annually as ${total}/year (save ${amount})",
+    "billedAnnually": "billed annually as ${total}/year",
     "currentPlan": "Current plan",
     "contactUs": "Contact us",
     "tiers": {
@@ -3323,12 +3321,30 @@
         "fillStartFieldsTitle": "Fill in all required fields on the Start step to continue"
       },
       "steps": {
-        "start": { "label": "Start", "sub": "Product & route" },
-        "production": { "label": "Production", "sub": "Cost breakdown" },
-        "origin": { "label": "Origin Check", "sub": "Rules of origin" },
-        "ntb": { "label": "Barriers", "sub": "Non-tariff barriers" },
-        "tariff": { "label": "Savings", "sub": "Tariff savings" },
-        "checklist": { "label": "Checklist", "sub": "Final checklist" }
+        "start": {
+          "label": "Start",
+          "sub": "Product & route"
+        },
+        "production": {
+          "label": "Production",
+          "sub": "Cost breakdown"
+        },
+        "origin": {
+          "label": "Origin Check",
+          "sub": "Rules of origin"
+        },
+        "ntb": {
+          "label": "Barriers",
+          "sub": "Non-tariff barriers"
+        },
+        "tariff": {
+          "label": "Savings",
+          "sub": "Tariff savings"
+        },
+        "checklist": {
+          "label": "Checklist",
+          "sub": "Final checklist"
+        }
       },
       "start": {
         "freeTierTitle": "Read-only for Free plan",
