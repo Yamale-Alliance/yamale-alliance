@@ -45,7 +45,6 @@ export function Footer() {
 
   const productLinks = [
     { href: "/library", label: t("legalLibrary") },
-    { href: "/afcfta/compliance-check", label: t("afcftaTools") },
     { href: "/ai-research", label: t("aiResearch") },
     { href: "/marketplace", label: t("vault") },
     { href: "/lawyers", label: t("findLawyer") },
