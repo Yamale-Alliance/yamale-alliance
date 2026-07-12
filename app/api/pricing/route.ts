@@ -36,7 +36,7 @@ const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
   basic: {
     name: "Basic",
     description: "",
-    subtitle: "or $50/year (save $10)",
+    subtitle: "or $50/year",
     features: [
       "Unlimited browsing of full texts of laws",
       "<strong>Basic level AI queries/month</strong> (limited)",
@@ -49,7 +49,7 @@ const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
   pro: {
     name: "Pro",
     description: "",
-    subtitle: "or $150/year (save $30)",
+    subtitle: "or $150/year",
     features: [
       "Unlimited browsing of full texts of laws",
       "<strong>Pro level AI queries/month</strong> (limited)",
@@ -63,7 +63,7 @@ const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
   team: {
     name: "Team",
     description: "",
-    subtitle: "or $400/year (save $80)",
+    subtitle: "or $400/year",
     features: [
       "<strong>5 users included</strong>",
       "<strong>Team level AI queries per user/month</strong> (limited)",
