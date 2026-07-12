@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { auth } from "@clerk/nextjs/server";
-import { getDepositStatus, isDepositCompleted } from "@/lib/pawapay";
 import { getCompletedLomiCheckoutMetadata, pollCompletedLomiCheckoutMetadata } from "@/lib/lomi-checkout";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { upsertPayAsYouGoPurchase } from "@/lib/payg-purchases";
 import { LOMI_PAYG_AI_QUERY_SESSION_COOKIE } from "@/lib/lomi-payg-ai-query-cookie";
 import { capturePaymentConfirmError } from "@/lib/monitoring";
 
-/**
- * After pawaPay redirect: confirm pay-as-you-go AI query payment from session_id and record purchase.
- * After Lomi redirect: use `from_lomi_cookie: true` (session id is stored in an HttpOnly cookie at checkout creation).
- */
+/** After Lomi redirect: confirm pay-as-you-go AI query payment and record purchase. */
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await auth();
@@ -35,14 +31,17 @@ export async function POST(request: NextRequest) {
 
     if (!sessionId || typeof sessionId !== "string") {
       return NextResponse.json(
-        { error: fromLomiCookie ? "Checkout return expired or missing. Wait a moment and refresh, or open pricing to try again." : "session_id required" },
+        {
+          error: fromLomiCookie
+            ? "Checkout return expired or missing. Wait a moment and refresh, or open pricing to try again."
+            : "session_id required",
+        },
         { status: 400 }
       );
     }
 
     const supabase = getSupabaseServer();
 
-    // Webhook may have recorded the purchase before Lomi GET shows "completed".
     const { data: alreadyPurchased } = await (supabase.from("pay_as_you_go_purchases") as any)
       .select("id")
       .eq("user_id", userId)
@@ -61,39 +60,25 @@ export async function POST(request: NextRequest) {
       return res;
     }
 
-    let resolvedKind: string | undefined;
-
     const lomiMd = fromLomiCookie
       ? await pollCompletedLomiCheckoutMetadata(sessionId)
       : await getCompletedLomiCheckoutMetadata(sessionId);
-    if (lomiMd) {
-      const mdUserId = String(lomiMd.clerk_user_id || "").trim();
-      if (mdUserId.length > 0 && mdUserId !== userId) {
-        return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
-      }
-      // Some Lomi accounts omit metadata fields on immediate read-after-redirect.
-      // For this endpoint we only confirm AI PAYG, so default to payg_ai_query on cookie-based Lomi return.
-      resolvedKind = String(lomiMd.kind || "").trim() || (fromLomiCookie ? "payg_ai_query" : "");
-    } else {
-      const deposit = await getDepositStatus(sessionId);
-      if (!deposit || !isDepositCompleted(deposit.status)) {
-        return NextResponse.json(
-          {
-            error:
-              "Payment not completed yet. Wait a few seconds and refresh this page, or open AI Research again from the menu.",
-          },
-          { status: 409 }
-        );
-      }
-
-      const clerkUserId = deposit.metadata?.clerk_user_id;
-      if (clerkUserId !== userId) {
-        return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
-      }
-
-      resolvedKind = deposit.metadata?.kind;
+    if (!lomiMd) {
+      return NextResponse.json(
+        {
+          error:
+            "Payment not completed yet. Wait a few seconds and refresh this page, or open AI Research again from the menu.",
+        },
+        { status: 409 }
+      );
     }
 
+    const mdUserId = String(lomiMd.clerk_user_id || "").trim();
+    if (mdUserId.length > 0 && mdUserId !== userId) {
+      return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
+    }
+    const resolvedKind =
+      String(lomiMd.kind || "").trim() || (fromLomiCookie ? "payg_ai_query" : "");
     if (resolvedKind !== "payg_ai_query") {
       return NextResponse.json({ error: "Not an AI query purchase session" }, { status: 400 });
     }
