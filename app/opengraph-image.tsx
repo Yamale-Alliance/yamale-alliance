@@ -56,7 +56,7 @@ export default function OpenGraphImage() {
             maxWidth: 880,
           }}
         >
-          African legal library · AfCFTA tools · AI research · The Yamalé Vault · Find a Lawyer
+          African legal library · AI research · The Yamalé Vault · Find a Lawyer
         </div>
         <div
           style={{
