@@ -2,11 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
 
-export type WebhookProvider = "lomi" | "pawapay";
+export type WebhookProvider = "lomi";
 
 export type ClaimWebhookEventInput = {
   provider: WebhookProvider;
-  /** Provider-stable delivery id (Lomi `id`, pawaPay depositId+status, etc.). */
+  /** Provider-stable delivery id (Lomi `id`, etc.). */
   eventId: string;
   eventType?: string | null;
   paymentRef?: string | null;
@@ -87,16 +87,6 @@ export async function runIdempotentPaymentWebhook<T>(
     await releasePaymentWebhookEvent(supabase, input.provider, eventId);
     throw err;
   }
-}
-
-/** Build a stable pawaPay deposit event id when no separate webhook id exists. */
-export function pawapayDepositEventId(depositId: string, status: string): string {
-  return `deposit:${depositId.trim()}:${String(status || "").toUpperCase()}`;
-}
-
-/** Build a stable pawaPay refund callback event id. */
-export function pawapayRefundEventId(refundId: string, status: string): string {
-  return `refund:${refundId.trim()}:${String(status || "").toUpperCase()}`;
 }
 
 /** Lomi event id from payload, or deterministic fallback. */
