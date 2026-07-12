@@ -7,7 +7,6 @@ import {
   PaymentMethodPicker,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
-import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import { displayVaultProductTitle } from "@/lib/marketplace-display";
 import type { MarketplaceSeriesOffer } from "@/lib/marketplace-series-offers";
 import type { MarketplaceItemPackOffer } from "@/lib/marketplace-item-packs";
@@ -36,8 +35,6 @@ type Props = {
   onChoiceChange: (choice: MarketplaceVaultCheckoutChoice) => void;
   paymentProvider: CheckoutPaymentProvider;
   onPaymentProviderChange: (provider: CheckoutPaymentProvider) => void;
-  pawapayPaymentCountry: string;
-  onPawapayPaymentCountryChange: (country: string) => void;
   lomiAvailable: boolean;
   lomiComingSoon: boolean;
   loading: boolean;
@@ -58,8 +55,6 @@ export function MarketplaceVaultCheckoutDialog({
   onChoiceChange,
   paymentProvider,
   onPaymentProviderChange,
-  pawapayPaymentCountry,
-  onPawapayPaymentCountryChange,
   lomiAvailable,
   lomiComingSoon,
   loading,
@@ -149,11 +144,6 @@ export function MarketplaceVaultCheckoutDialog({
                     >
                       <p className="text-xs font-semibold uppercase tracking-wide text-[#8a6518] dark:text-[#e3ba65]">
                         {packOffer!.label}
-                        {packOffer!.packSavingsCents > 0 ? (
-                          <span className="ml-2 normal-case text-emerald-700 dark:text-emerald-300">
-                            Save {formatPrice(packOffer!.packSavingsCents)}
-                          </span>
-                        ) : null}
                       </p>
                       <p className="mt-2 text-2xl font-semibold text-foreground">
                         {formatPrice(packOffer!.packCents)}
@@ -161,13 +151,6 @@ export function MarketplaceVaultCheckoutDialog({
                       <p className="mt-1 text-xs text-muted-foreground">
                         {packOffer!.itemCount} item{packOffer!.itemCount === 1 ? "" : "s"} · pack{" "}
                         <span className="font-medium text-foreground">{formatPrice(packOffer!.packCents)}</span>
-                        {packOffer!.packSavingsCents > 0 ? (
-                          <>
-                            {" "}
-                            <span className="line-through">{formatPrice(packOffer!.totalCents)}</span> if bought
-                            separately
-                          </>
-                        ) : null}
                       </p>
                       <ul className="mt-3 space-y-1 border-t border-border/60 pt-3">
                         {packOffer!.items.map((line) => (
@@ -204,11 +187,6 @@ export function MarketplaceVaultCheckoutDialog({
                   >
                     <p className="text-xs font-semibold uppercase tracking-wide text-[#8a6518] dark:text-[#e3ba65]">
                       Complete series
-                      {seriesOffer!.bundleSavingsCents > 0 && seriesOffer!.ownedCount === 0 ? (
-                        <span className="ml-2 normal-case text-emerald-700 dark:text-emerald-300">
-                          Save {formatPrice(seriesOffer!.bundleSavingsCents)}
-                        </span>
-                      ) : null}
                     </p>
                     <p className="mt-2 text-2xl font-semibold text-foreground">
                       {formatPrice(seriesOffer!.chargeCents)}
@@ -216,19 +194,7 @@ export function MarketplaceVaultCheckoutDialog({
                     <p className="mt-1 text-xs text-muted-foreground">
                       {seriesOffer!.remainingCount} of {seriesOffer!.itemCount} item
                       {seriesOffer!.itemCount === 1 ? "" : "s"}
-                      {seriesOffer!.bundleCents != null && seriesOffer!.bundleSavingsCents > 0 ? (
-                        <>
-                          {" "}
-                          · series bundle{" "}
-                          <span className="font-medium text-foreground">
-                            {formatPrice(seriesOffer!.bundleCents)}
-                          </span>{" "}
-                          <span className="line-through">{formatPrice(seriesOffer!.totalCents)}</span> if bought
-                          separately
-                        </>
-                      ) : (
-                        <> · full series {formatPrice(seriesOffer!.totalCents)}</>
-                      )}
+                      {" "}· complete series
                     </p>
                     {seriesOffer!.ownedCount > 0 ? (
                       <p className="mt-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
@@ -252,13 +218,6 @@ export function MarketplaceVaultCheckoutDialog({
                   onChange={onPaymentProviderChange}
                   lomiAvailable={lomiAvailable}
                   lomiComingSoon={lomiComingSoon}
-                />
-              )}
-              {paymentProvider === "pawapay" && (
-                <PawapayCountrySelect
-                  label="Mobile money country"
-                  value={pawapayPaymentCountry}
-                  onChange={onPawapayPaymentCountryChange}
                 />
               )}
             </div>
