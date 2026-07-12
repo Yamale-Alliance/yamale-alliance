@@ -21,7 +21,6 @@ import {
 } from "@/lib/localized-pricing-tiers";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
 import { stashPaygAiQueryLomiSessionId } from "@/lib/lomi-payg-ai-query-return";
-import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 
 type BillingInterval = "monthly" | "annual";
 
@@ -77,18 +76,11 @@ export function AiResearchPricingPanel({ compact = false }: Props) {
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>(
     defaultCheckoutPaymentProvider()
   );
-  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(
-    DEFAULT_PAWAPAY_PAYMENT_COUNTRY
-  );
   const { aiQueryPriceUsdCents } = usePlatformSettings();
   const { alert: showAlert, alertDialog } = useAlertDialog();
   const lomiAvailable = isLomiCheckoutAvailable();
   const lomiComingSoon = false;
   const isAnnual = billing === "annual";
-
-  useEffect(() => {
-    if (!lomiAvailable) setPaymentProvider("pawapay");
-  }, [lomiAvailable]);
 
   useEffect(() => {
     fetch("/api/pricing")
@@ -136,8 +128,7 @@ export function AiResearchPricingPanel({ compact = false }: Props) {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          provider: paymentProvider,
-          ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
+          provider: "lomi",
         }),
       });
       const data = await res.json();
@@ -251,8 +242,6 @@ export function AiResearchPricingPanel({ compact = false }: Props) {
         priceLabel={paygPrice}
         paymentProvider={paymentProvider}
         onPaymentProviderChange={setPaymentProvider}
-        pawapayPaymentCountry={pawapayPaymentCountry}
-        onPawapayPaymentCountryChange={setPawapayPaymentCountry}
         lomiAvailable={lomiAvailable}
         lomiComingSoon={lomiComingSoon}
         onLomiComingSoonClick={() => {
