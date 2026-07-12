@@ -2,7 +2,6 @@
   "nav": {
     "home": "Accueil",
     "library": "Bibliothèque",
-    "afcfta": "ZLECAf",
     "aiResearch": "Recherche IA",
     "vault": "Yamalé Vault",
     "lawyers": "Avocats",
@@ -46,7 +45,7 @@
     "newHere": "Nouveau ici ?",
     "createAccount": "Créer un compte",
     "joinTitle": "Rejoindre Yamalé Legal",
-    "signUpSubtitle": "Créez un compte client pour accéder à la bibliothèque, aux outils ZLECAf, au Coffre Yamalé et à la recherche IA.",
+    "signUpSubtitle": "Créez un compte client pour accéder à la bibliothèque, au Coffre Yamalé et à la recherche IA.",
     "signUpSubtitleLibrary": "Créez un compte gratuit pour rechercher les lois, règlements et traités africains dans la bibliothèque juridique.",
     "alreadyHaveAccount": "Vous avez déjà un compte ?",
     "lawyerInviteNote": "Les comptes avocat sont créés et invités par l'équipe admin. Si vous êtes avocat, utilisez le lien de connexion sécurisé envoyé par e-mail.",
@@ -72,12 +71,13 @@
     "heroTitle1": "Le droit sans frontières.",
     "heroTitle2": "Les affaires sans limites.",
     "heroBadge": "Conçu en Afrique. Gouverné en Afrique. Réinvestir dans l'avenir juridique du continent.",
-    "heroSubtitle": "La première plateforme unifiée de recherche juridique africaine — 54 pays, conformité ZLECAf, requêtes IA et un réseau sélectionné de professionnels du droit africains.",
+    "heroSubtitle": "La première plateforme unifiée de recherche juridique africaine — 54 pays, requêtes IA et un réseau sélectionné de professionnels du droit africains.",
     "browseLibrary": "Parcourir la bibliothèque",
     "tryAiResearch": "Essayer la recherche IA",
     "statCountries": "Pays africains couverts",
     "statLaws": "Lois et règlements",
-    "statAfcfta": "Outil Passeport — une première",
+    "statAiValue": "IA",
+    "statAiLabel": "Assistant de recherche juridique",
     "trustedBy": "Ils nous font confiance",
     "trustedLawFirms": "Cabinets d'avocats",
     "trustedGovernments": "Gouvernements",
@@ -90,7 +90,7 @@
     "foundersCta": "Lire le mot de la fondatrice",
     "platformEyebrow": "Plateforme",
     "platformTitle": "Tout ce qu'il faut pour naviguer le droit africain",
-    "platformSubtitle": "Cinq outils intégrés — du texte législatif aux experts — pour les juristes, investisseurs et gouvernements actifs sur le continent.",
+    "platformSubtitle": "Quatre outils intégrés — du texte législatif aux experts — pour les juristes, investisseurs et gouvernements actifs sur le continent.",
     "featureLibraryTitle": "Bibliothèque juridique",
     "featureLibraryDesc": "Les lois des affaires de chaque pays africain, gratuites et centralisées. Recherchez dans 54 juridictions par domaine et statut.",
     "featureLibraryCta": "Parcourir la bibliothèque",
@@ -114,7 +114,7 @@
   "footer": {
     "homeAria": "Accueil Yamalé",
     "tagline": "Le droit africain, accessible à ceux qui façonnent l'avenir du continent.",
-    "description": "Droit national et régional, conformité ZLECAf et recherche juridique IA — en un seul endroit.",
+    "description": "Droit national et régional et recherche juridique IA — en un seul endroit.",
     "product": "Produit",
     "company": "Entreprise",
     "legal": "Mentions légales",
@@ -2404,6 +2404,12 @@
       "signIn": "Connexion",
       "createAccount": "Créer un compte"
     },
+    "aiFab": {
+      "label": "Recherche IA",
+      "launch": "Ouvrir la recherche juridique IA",
+      "dialogTitle": "Choisissez un forfait pour la recherche IA",
+      "dialogBody": "Sélectionnez un abonnement ou une option à l'unité pour poser des questions juridiques fondées sur la bibliothèque."
+    },
     "flairs": {
       "bookmarked": "En favoris",
       "recentlyOpened": "Récemment ouvert",
@@ -2908,7 +2914,6 @@
     "comingSoonBannerTitle": "Bientôt disponible",
     "comingSoonBannerBody": "Parcourez l'aperçu de l'annuaire ci-dessous. La recherche payante et le déblocage des contacts ne sont pas encore disponibles — nous intégrons des avocats vérifiés sur invitation.",
     "practiceAreas": {
-      "afcfta": "ZLECAf",
       "ai": "IA",
       "arbitration": "Arbitrage",
       "banking_and_finance": "Banque et finance",
@@ -3079,14 +3084,12 @@
       "basic": [
         "Navigation illimitée dans les textes intégraux des lois",
         "<strong>10 requêtes IA/mois</strong>",
-        "Passeport ZLECAf (bientôt disponible)",
         "Réseau d'avocats — recherche dans l'annuaire",
         "Parcourir le Yamalé Vault"
       ],
       "pro": [
         "Navigation illimitée dans les textes intégraux des lois",
         "<strong>50 requêtes IA/mois</strong>",
-        "Passeport ZLECAf (bientôt disponible)",
         "Réseau d'avocats — recherche dans l'annuaire",
         "Parcourir le Yamalé Vault",
         "Télécharger la conversation IA"
@@ -3094,7 +3097,6 @@
       "team": [
         "<strong>5 sièges utilisateur inclus</strong>",
         "<strong>Requêtes IA illimitées par utilisateur/mois</strong>",
-        "Passeport ZLECAf (bientôt disponible)",
         "Réseau d'avocats — recherche dans l'annuaire",
         "Parcourir le Yamalé Vault",
         "Télécharger la conversation IA",
