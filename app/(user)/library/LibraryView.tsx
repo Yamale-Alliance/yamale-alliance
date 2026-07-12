@@ -49,6 +49,7 @@ import { lawDetailHref } from "@/lib/law-public-url";
 import { LawLastVerifiedLabel } from "@/components/library/LawLastVerifiedLabel";
 import { LawLanguageBadge } from "@/components/library/LawLanguageBadge";
 import { LibrarySignInDialog } from "@/components/library/LibrarySignInDialog";
+import { LibraryAiResearchFab } from "@/components/library/LibraryAiResearchFab";
 
 const PAGE_SIZE = LIBRARY_PAGE_SIZE;
 const SUPPORT_LIVE = process.env.NEXT_PUBLIC_SUPPORT_CENTER_ENABLED === "1";
@@ -1490,6 +1491,7 @@ export function LibraryView({
         onOpenChange={setSignInDialogOpen}
         returnPath={signInReturnPath}
       />
+      <LibraryAiResearchFab />
     </div>
   );
 }
