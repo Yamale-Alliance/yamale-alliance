@@ -836,7 +836,7 @@
       "kind": "section",
       "id": "promotions",
       "number": "8",
-      "title": "Promotions, Trials, and Discounts",
+      "title": "Free Trials",
       "blocks": []
     },
     {
@@ -850,38 +850,6 @@
             {
               "kind": "text",
               "value": "Where Yamalé offers a free trial period, no charge is made during the trial. At the end of the trial, your subscription will automatically convert to a paid plan and your selected payment method will be charged unless you cancel before the trial period ends. You will receive a reminder before the trial ends."
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "kind": "subsection",
-      "number": "8.2",
-      "title": "Promotional Pricing",
-      "blocks": [
-        {
-          "type": "p",
-          "segments": [
-            {
-              "kind": "text",
-              "value": "Promotional or discounted pricing applies only for the promotional period stated at the time of subscription. At the end of the promotional period, your subscription will renew at the standard price. You will be notified of this change before it takes effect."
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "kind": "subsection",
-      "number": "8.3",
-      "title": "Discount Codes and Coupons",
-      "blocks": [
-        {
-          "type": "p",
-          "segments": [
-            {
-              "kind": "text",
-              "value": "Discount codes and coupons are valid only for the specific products, dates, and conditions stated. They cannot be combined with other promotions, applied retroactively, redeemed for cash, or transferred. Misuse of promotional codes may result in cancellation of the associated subscription or purchase without refund."
             }
           ]
         }
