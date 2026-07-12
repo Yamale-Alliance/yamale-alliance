@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import {
-  getDepositStatus,
-  isDepositCompleted,
-  pollPawaPayDepositUntilComplete,
-} from "@/lib/pawapay";
-import {
   getCompletedLomiCheckoutMetadata,
   isLomiConfigured,
   pollCompletedLomiCheckoutMetadata,
@@ -30,9 +25,7 @@ async function readDayPassExpiresAt(userId: string): Promise<string | null> {
   return typeof raw === "string" ? raw : null;
 }
 
-/**
- * After pawaPay / Lomi redirect for a 24-hour day pass: poll until COMPLETED, then grant access.
- */
+/** After Lomi redirect for a 24-hour day pass: confirm payment and grant access. */
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await auth();
@@ -49,51 +42,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "session_id required" }, { status: 400 });
     }
 
-    const quickPawa = await getDepositStatus(sessionId);
-
     let lomiMd = await getCompletedLomiCheckoutMetadata(sessionId);
-    if (!lomiMd && isLomiConfigured() && !quickPawa) {
+    if (!lomiMd && isLomiConfigured()) {
       lomiMd = await pollCompletedLomiCheckoutMetadata(sessionId);
     }
-    if (lomiMd) {
-      if (lomiMd.clerk_user_id !== userId) {
-        return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
-      }
-      if (!isDayPassMetadata(lomiMd)) {
-        return NextResponse.json({ error: "Not a day pass session" }, { status: 400 });
-      }
-      await fulfillPaymentFromMetadata(lomiMd, sessionId);
-      const expiresAt = (await readDayPassExpiresAt(userId)) ?? undefined;
-      return NextResponse.json({ ok: true, kind: "day_pass", expiresAt, provider: "lomi" });
+    if (!lomiMd) {
+      return NextResponse.json(
+        {
+          error:
+            "We could not confirm payment yet. If you finished checkout, wait a few seconds and refresh this page.",
+          pending: true,
+        },
+        { status: 503 }
+      );
     }
 
-    let deposit = quickPawa;
-    if (!deposit || !isDepositCompleted(deposit.status)) {
-      const polled = await pollPawaPayDepositUntilComplete(sessionId, {
-        maxAttempts: 20,
-        delayMs: 500,
-      });
-      if (!polled.ok) {
-        const status = polled.reason === "pending" ? 503 : 400;
-        return NextResponse.json(
-          { error: polled.message, pending: polled.reason === "pending" },
-          { status }
-        );
-      }
-      deposit = polled.deposit;
-    }
-
-    const md = deposit.metadata ?? {};
-    if (md.clerk_user_id !== userId) {
+    if (lomiMd.clerk_user_id !== userId) {
       return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
     }
-    if (!isDayPassMetadata(md)) {
+    if (!isDayPassMetadata(lomiMd)) {
       return NextResponse.json({ error: "Not a day pass session" }, { status: 400 });
     }
-
-    await fulfillPaymentFromMetadata(md, sessionId);
+    await fulfillPaymentFromMetadata(lomiMd, sessionId);
     const expiresAt = (await readDayPassExpiresAt(userId)) ?? undefined;
-    return NextResponse.json({ ok: true, kind: "day_pass", expiresAt, provider: "pawapay" });
+    return NextResponse.json({ ok: true, kind: "day_pass", expiresAt, provider: "lomi" });
   } catch (err) {
     console.error("confirm-day-pass error:", err);
     capturePaymentConfirmError("/api/payments/confirm-day-pass", err);
