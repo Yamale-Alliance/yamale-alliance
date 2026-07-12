@@ -85,12 +85,12 @@ export function AdminRefundsPanel() {
         </a>{" "}
         /{" "}
         <a
-          href="https://docs.pawapay.io/v2/docs/refunds"
+          href="https://docs.lomi.io/v2/docs/refunds"
           className="text-primary hover:underline"
           target="_blank"
           rel="noreferrer"
         >
-          pawaPay
+          Lomi
         </a>{" "}
         {t("introAfterProviders")}
       </p>
