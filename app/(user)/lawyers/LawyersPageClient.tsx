@@ -6,11 +6,7 @@ import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, Star, Loader2, Lock, AlertCircle, Quote, CheckSquare, Smartphone, CreditCard } from "lucide-react";
-import {
-  defaultCheckoutPaymentProvider,
-  type CheckoutPaymentProvider,
-} from "@/components/checkout/PaymentMethodPicker";
+import { Search, Star, Loader2, Lock, AlertCircle, Quote, CheckSquare, CreditCard } from "lucide-react";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
 import { MarketingDiscountPrice } from "@/components/pricing/MarketingDiscountPrice";
 import { confirmDayPassPayment } from "@/lib/day-pass-checkout-confirm";
@@ -18,7 +14,6 @@ import {
   PROTOTYPE_HERO_GRID_PATTERN,
   prototypeHeroEyebrowClass,
 } from "@/components/layout/prototype-page-styles";
-import { PAWAPAY_SUPPORTED_PAYMENT_COUNTRIES as PAWAPAY_SUPPORTED_COUNTRIES } from "@/lib/pawapay-payment-countries";
 import {
   buildExpertiseFilterOptions,
   dedupeExpertiseSegments,
@@ -118,12 +113,6 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [dayPassConfirmError, setDayPassConfirmError] = useState<string | null>(null);
   const [dayPassConfirmSuccess, setDayPassConfirmSuccess] = useState(false);
-  const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>(
-    defaultCheckoutPaymentProvider()
-  );
-  const [showPaymentChoice, setShowPaymentChoice] = useState(false);
-  const [showPawapayCountryPrompt, setShowPawapayCountryPrompt] = useState(false);
-  const [pawapayCountry, setPawapayCountry] = useState<string>(PAWAPAY_SUPPORTED_COUNTRIES[0]);
   const searchParams = useSearchParams();
 
   const confirmedSessionRef = useRef<string | null>(null);
@@ -174,7 +163,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
       .catch(() => {});
   };
 
-  const handlePayForSearch = async (provider: CheckoutPaymentProvider) => {
+  const handlePayForSearch = async () => {
     if (selectedExpertise.length === 0 || selectedCountry === "") {
       setSearchPayError(t("selectCountryAndArea"));
       return;
@@ -185,7 +174,6 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
     }
     setSearchPayLoading(true);
     setSearchPayError(null);
-    setPaymentProvider(provider);
     try {
       const res = await fetch("/api/payments/lawyer-search-unlock", {
         method: "POST",
@@ -195,8 +183,6 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
           city: selectedCity,
           expertise: formatExpertiseSelection(selectedExpertise),
           language: selectedLanguage,
-          provider,
-          paymentCountry: provider === "pawapay" ? pawapayCountry : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -242,7 +228,6 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
       if (restored.language) setSelectedLanguage(restored.language);
       if (restored.hasSearched) {
         setHasSearched(true);
-        setShowPaymentChoice(true);
       }
     } catch {
       // ignore restore errors
@@ -289,7 +274,6 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
       applyReturnFilters(returnCountry, returnCity, returnExpertise, returnLanguage);
       if (returnExpertise != null && parseExpertiseSelectionInput(returnExpertise).length > 0) {
         setHasSearched(true);
-        setShowPaymentChoice(true);
       }
       return;
     }
@@ -347,7 +331,6 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
         const data = await res.json();
         if (data.ok) {
           setHasSearched(true);
-          setShowPaymentChoice(false);
           await refetchUnlocked();
           clearStoredSearchState();
           window.history.replaceState({}, "", "/lawyers");
@@ -456,21 +439,15 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
     setSelectedExpertise([]);
     setSelectedLanguage("all");
     setHasSearched(false);
-    setShowPaymentChoice(false);
-    setShowPawapayCountryPrompt(false);
     setSearchPayError(null);
     clearStoredSearchState();
   };
 
   const expertiseRequired = selectedExpertise.length === 0;
   const countryRequired = selectedCountry === "";
-  const selectedCountrySupportsPawapay =
-    selectedCountry !== "" &&
-    PAWAPAY_SUPPORTED_COUNTRIES.includes(selectedCountry as (typeof PAWAPAY_SUPPORTED_COUNTRIES)[number]);
   const runSearch = () => {
     if (expertiseRequired || countryRequired) return;
     setHasSearched(true);
-    setShowPaymentChoice(true);
     persistSearchState({ hasSearched: true });
   };
 
@@ -714,95 +691,17 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
               </div>
               <div className="flex flex-col items-end gap-2">
                 {searchPayError && <p className="text-xs text-red-600 sm:text-sm">{searchPayError}</p>}
-                {showPaymentChoice ? (
-                  <div className="flex flex-col items-end gap-2">
-                    <p className="text-xs text-muted-foreground">{t("choosePaymentMethodPrompt")}</p>
-                    <div className="flex flex-wrap items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!selectedCountrySupportsPawapay) return;
-                          setShowPawapayCountryPrompt(true);
-                        }}
-                        disabled={searchPayLoading || !selectedCountrySupportsPawapay}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-700 to-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:brightness-105 disabled:opacity-60 sm:text-sm"
-                      >
-                        {searchPayLoading && paymentProvider === "pawapay" && <Loader2 className="h-4 w-4 animate-spin" />}
-                        {!searchPayLoading && <Smartphone className="h-4 w-4" />}
-                        {t("paymentMobileMoney")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!lomiAvailable) return;
-                          void handlePayForSearch("lomi");
-                        }}
-                        disabled={searchPayLoading || !lomiAvailable}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#635BFF]/50 bg-[#635BFF]/10 px-4 py-2 text-xs font-semibold text-[#635BFF] transition hover:bg-[#635BFF]/20 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
-                      >
-                        {searchPayLoading && paymentProvider === "lomi" && (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        )}
-                        {!searchPayLoading && <CreditCard className="h-4 w-4" />}
-                        {t("paymentCard")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowPaymentChoice(false)}
-                        disabled={searchPayLoading}
-                        className="inline-flex items-center justify-center rounded-xl border border-border/70 bg-background/80 px-3 py-2 text-xs font-medium text-muted-foreground transition hover:border-primary/60 hover:bg-primary/5 hover:text-foreground"
-                      >
-                        {t("paymentCancel")}
-                      </button>
-                    </div>
-                    {!selectedCountrySupportsPawapay && selectedCountry !== "" && lomiAvailable && (
-                      <p className="text-xs text-amber-700 dark:text-amber-400">
-                        {t("mobileMoneyUnavailableForCountry", { country: selectedCountry })}
-                      </p>
-                    )}
-                    {!lomiAvailable && (
-                      <p className="text-xs text-amber-700 dark:text-amber-400">
-                        {t("cardCheckoutUnavailable")}
-                      </p>
-                    )}
-                    {showPawapayCountryPrompt && selectedCountrySupportsPawapay && (
-                      <div className="mt-2 w-full rounded-xl border border-emerald-600/30 bg-emerald-50 p-3 dark:bg-emerald-900/20">
-                        <label className="mb-2 block text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-                          {t("selectMobileMoneyCountry")}
-                        </label>
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                          <select
-                            value={pawapayCountry}
-                            onChange={(e) => setPawapayCountry(e.target.value)}
-                            className="w-full rounded-lg border border-emerald-700/30 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
-                          >
-                            {PAWAPAY_SUPPORTED_COUNTRIES.map((c) => (
-                              <option key={c} value={c}>
-                                {c}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type="button"
-                            onClick={() => handlePayForSearch("pawapay")}
-                            disabled={searchPayLoading}
-                            className="inline-flex items-center justify-center rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
-                          >
-                            {t("paymentContinue")}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowPaymentChoice(true)}
-                    disabled={searchPayLoading}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[rgba(154,99,42,0.95)] to-[rgba(193,140,67,0.95)] px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:brightness-105 disabled:opacity-60"
-                  >
-                    {t("choosePaymentMethod")}
-                  </button>
+                <button
+                  type="button"
+                  onClick={() => void handlePayForSearch()}
+                  disabled={searchPayLoading || !lomiAvailable}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#635BFF]/50 bg-[#635BFF]/10 px-4 py-2 text-xs font-semibold text-[#635BFF] transition hover:bg-[#635BFF]/20 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
+                >
+                  {searchPayLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                  {t("paymentCard")}
+                </button>
+                {!lomiAvailable && (
+                  <p className="text-xs text-amber-700 dark:text-amber-400">{t("cardCheckoutUnavailable")}</p>
                 )}
               </div>
             </div>
