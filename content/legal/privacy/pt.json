@@ -177,7 +177,7 @@
           "segments": [
             {
               "kind": "text",
-              "value": "Processamos pagamentos através de processadores de pagamento terceiros seguros (como pawaPay). "
+              "value": "Processamos pagamentos através de processadores de pagamento terceiros seguros (como Lomi). "
             },
             {
               "kind": "strong",
@@ -430,7 +430,7 @@
           "items": [
             "Serviços de autenticação (p. ex., Clerk, Auth0) — para gerir contas de utilizadores e login",
             "Fornecedores de bases de dados e armazenamento (p. ex., Supabase, AWS) — para armazenar dados e documentos da Plataforma",
-            "Processadores de pagamento (p. ex., pawaPay, fornecedores de mobile money) — para processar subscrições e pagamentos de desbloqueio",
+            "Processadores de pagamento (p. ex., Lomi, fornecedores de mobile money) — para processar subscrições e pagamentos de desbloqueio",
             "Fornecedores de IA (p. ex., Anthropic) — para alimentar as nossas funcionalidades de pesquisa jurídica com IA",
             "Fornecedores de serviços de e-mail — para enviar e-mails transacionais e de notificação",
             "Fornecedores de análises — para compreender a utilização e desempenho da Plataforma",
