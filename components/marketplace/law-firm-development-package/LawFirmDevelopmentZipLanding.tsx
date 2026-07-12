@@ -48,10 +48,19 @@ export function LawFirmDevelopmentZipLanding({
   courseWorkspaceHref = LAW_FIRM_ADVISORY_WORKSPACE_HREF,
 }: Props) {
   const showTier1Discount = !owned && priceDisplay !== "Free";
-  const navCtaLabel = owned ? "Download" : `Download — ${priceDisplay}`;
-  const heroPrimaryLabel = owned ? "Download" : `Download Tier 1 — ${priceDisplay}`;
-  const tier1CtaLabel = owned ? "Download" : `Download now — ${priceDisplay}`;
-  const finalPrimaryLabel = owned ? "Download" : `Download Tier 1 — ${priceDisplay}`;
+  const ownedFileLabel = "View & download";
+  const navCtaLabel = owned ? ownedFileLabel : `Download — ${priceDisplay}`;
+  const heroPrimaryLabel = owned ? ownedFileLabel : `Download Tier 1 — ${priceDisplay}`;
+  const tier1CtaLabel = owned ? ownedFileLabel : `Download now — ${priceDisplay}`;
+  const finalPrimaryLabel = owned ? ownedFileLabel : `Download Tier 1 — ${priceDisplay}`;
+
+  const handlePrimaryFileAction = () => {
+    if (owned) {
+      onBrowseZipContents?.();
+      return;
+    }
+    void onBeginPaidDownload();
+  };
 
   const sectionScrollClass =
     "scroll-mt-[calc(var(--site-nav-h)+var(--vault-chrome-h))]";
@@ -89,18 +98,9 @@ export function LawFirmDevelopmentZipLanding({
               {LAW_FIRM_VIEW_COURSE_LABEL}
             </Link>
           )}
-          {owned && onBrowseZipContents && (
-            <button
-              type="button"
-              onClick={() => onBrowseZipContents()}
-              className="hidden text-[0.8rem] font-medium uppercase tracking-[0.05em] text-muted-foreground underline-offset-4 transition hover:text-primary hover:underline lg:inline"
-            >
-              View contents
-            </button>
-          )}
           <button
             type="button"
-            onClick={() => (owned ? void onOwnedDownload() : void onBeginPaidDownload())}
+            onClick={handlePrimaryFileAction}
             className="rounded-[2px] bg-primary px-3 py-2 text-[0.75rem] font-semibold uppercase tracking-[0.05em] text-primary-foreground transition hover:bg-primary/90 sm:px-5 sm:text-[0.85rem]"
           >
             {navCtaLabel}
@@ -144,7 +144,7 @@ export function LawFirmDevelopmentZipLanding({
             <div className="animate-[fadeUp_0.7s_0.35s_ease_both] mt-10 flex flex-wrap items-center gap-4">
               <button
                 type="button"
-                onClick={() => (owned ? void onOwnedDownload() : void onBeginPaidDownload())}
+                onClick={handlePrimaryFileAction}
                 className="inline-flex items-center gap-2 rounded-[2px] bg-primary px-8 py-3.5 text-[0.95rem] font-semibold tracking-[0.02em] text-primary-foreground transition hover:bg-primary/90"
               >
                 {heroPrimaryLabel}
@@ -162,15 +162,6 @@ export function LawFirmDevelopmentZipLanding({
                 >
                   {LAW_FIRM_VIEW_COURSE_LABEL}
                 </Link>
-              )}
-              {owned && onBrowseZipContents && (
-                <button
-                  type="button"
-                  onClick={() => onBrowseZipContents()}
-                  className="inline-flex items-center gap-2 rounded-[2px] border border-border px-7 py-3.5 text-[0.95rem] font-medium text-foreground transition hover:border-primary hover:bg-muted/50"
-                >
-                  View package contents
-                </button>
               )}
             </div>
           </div>
@@ -406,7 +397,7 @@ export function LawFirmDevelopmentZipLanding({
                 </ul>
                 <button
                   type="button"
-                  onClick={() => (owned ? void onOwnedDownload() : void onBeginPaidDownload())}
+                  onClick={handlePrimaryFileAction}
                   className="block w-full rounded-[2px] bg-[#C18C43] py-3.5 text-center text-[0.9rem] font-semibold text-[#221913] transition hover:bg-[#E3BA65]"
                 >
                   {tier1CtaLabel}
@@ -580,7 +571,7 @@ export function LawFirmDevelopmentZipLanding({
           <div className="flex flex-wrap justify-center gap-4">
             <button
               type="button"
-              onClick={() => (owned ? void onOwnedDownload() : void onBeginPaidDownload())}
+              onClick={handlePrimaryFileAction}
               className="inline-flex items-center gap-2 rounded-[2px] bg-[#C18C43] px-8 py-3.5 text-[0.95rem] font-semibold text-[#221913] transition hover:bg-[#E3BA65]"
             >
               {finalPrimaryLabel}
