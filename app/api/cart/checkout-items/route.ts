@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
-import { createPaymentPageSession, isPawapayConfigured, PawapayReturnUrlError, resolvePawapayReturnOrigin } from "@/lib/pawapay";
-import { amountMinorForPawapayCountry } from "@/lib/pawapay-deposit-amount";
+import { getCheckoutCurrency } from "@/lib/payment-currency";
 import { createLomiHostedCheckoutSession, isLomiConfigured, toLomiCurrency } from "@/lib/lomi-checkout";
 import { LOMI_MARKETPLACE_CART_CHECKOUT_COOKIE } from "@/lib/lomi-marketplace-checkout-cookie";
-import { requirePawapayPaymentCountry } from "@/lib/pawapay-require-payment-country";
 
 type PricedLine = {
   currency: string;
@@ -36,10 +34,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "marketplace_item_ids is required" }, { status: 400 });
     }
 
-    let provider: "pawapay" | "lomi" = "pawapay";
-    if (body.provider === "lomi" || body.provider === "pawapay") {
-      provider = body.provider;
-    }
 
     let successPath = "/marketplace";
     const sp = body.success_path ?? body.successPath;
@@ -69,7 +63,7 @@ export async function POST(request: NextRequest) {
     const itemRows = rows as ItemRow[];
 
     const pricedItems: PricedLine[] = itemRows.map((r) => ({
-      currency: (r.currency || process.env.PAWAPAY_CURRENCY || "USD").toUpperCase(),
+      currency: (r.currency || getCheckoutCurrency()).toUpperCase(),
       title: r.title,
       price_cents: Number(r.price_cents) || 0,
       quantity: 1,
@@ -116,96 +110,52 @@ export async function POST(request: NextRequest) {
       return u.toString();
     };
 
-    if (provider === "lomi") {
-      if (!isLomiConfigured()) {
-        return NextResponse.json(
-          { error: "Lomi checkout is not configured. Add LOMI_API_KEY or choose mobile money." },
-          { status: 503 }
-        );
-      }
-
-      const currencyCode = toLomiCurrency(currency);
-      if (!currencyCode) {
-        return NextResponse.json(
-          { error: "Lomi checkout supports USD, EUR, or XOF only." },
-          { status: 400 }
-        );
-      }
-
-      if (itemIdsCsv.length > 500) {
-        return NextResponse.json({ error: "Too many items for hosted checkout metadata." }, { status: 400 });
-      }
-
-      const { checkoutUrl, sessionId } = await createLomiHostedCheckoutSession({
-        amount: amountCents,
-        currency_code: currencyCode,
-        metadata: {
-          clerk_user_id: userId,
-          kind: "marketplace_cart",
-          item_ids: itemIdsCsv,
-        },
-        title: "Yamalé Vault bundle",
-        description: pricedItems.map((x) => x.title).join(" + ").slice(0, 200),
-        success_url: buildReturnUrl({ payment: "verify", from_lomi: "1", ...(body.bundle_return ? { bundle: "1" } : {}) }),
-        cancel_url: buildReturnUrl({ canceled: "1", ...(body.bundle_return ? { bundle: "1" } : {}) }),
-      });
-
-      const res = NextResponse.json({ url: checkoutUrl, provider: "lomi", amount_cents: amountCents });
-      if (sessionId) {
-        res.cookies.set(LOMI_MARKETPLACE_CART_CHECKOUT_COOKIE, sessionId, {
-          path: "/",
-          maxAge: 60 * 30,
-          httpOnly: true,
-          sameSite: "lax",
-          secure: process.env.NODE_ENV === "production",
-        });
-      }
-      return res;
+    if (!isLomiConfigured()) {
+      return NextResponse.json(
+        { error: "Lomi checkout is not configured." },
+        { status: 503 }
+      );
     }
 
-    if (!isPawapayConfigured()) {
-      return NextResponse.json({ error: "PawaPay mobile money is not configured." }, { status: 503 });
+    const currencyCode = toLomiCurrency(currency);
+    if (!currencyCode) {
+      return NextResponse.json(
+        { error: "Lomi checkout supports USD, EUR, or XOF only." },
+        { status: 400 }
+      );
     }
 
-    const gate = requirePawapayPaymentCountry(body);
-    if (!gate.ok) return gate.response;
-
-    let amountMinor: number;
-    try {
-      amountMinor = amountMinorForPawapayCountry(amountCents, currency, gate.country.currency);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Currency mismatch";
-      return NextResponse.json({ error: msg }, { status: 400 });
+    if (itemIdsCsv.length > 500) {
+      return NextResponse.json({ error: "Too many items for hosted checkout metadata." }, { status: 400 });
     }
 
-    const depositId = crypto.randomUUID();
-    const returnBase = resolvePawapayReturnOrigin(requestOrigin);
-    const pawapayReturn = new URL(successPath, returnBase);
-    pawapayReturn.searchParams.set("payment", "verify");
-    pawapayReturn.searchParams.set("session_id", depositId);
-    if (body.bundle_return) pawapayReturn.searchParams.set("bundle", "1");
-    const { redirectUrl } = await createPaymentPageSession({
-      depositId,
-      amountCents: amountMinor,
-      currency: gate.country.currency,
-      returnUrl: pawapayReturn.toString(),
-      reason: "Yamalé Vault bundle",
-      customerMessage: pricedItems.map((x) => x.title).join(" + ").slice(0, 120),
-      country: gate.country.iso3,
+    const { checkoutUrl, sessionId } = await createLomiHostedCheckoutSession({
+      amount: amountCents,
+      currency_code: currencyCode,
       metadata: {
         clerk_user_id: userId,
         kind: "marketplace_cart",
-        item_ids: itemIdsJson,
-        payment_country: gate.country.label,
+        item_ids: itemIdsCsv,
       },
+      title: "Yamalé Vault bundle",
+      description: pricedItems.map((x) => x.title).join(" + ").slice(0, 200),
+      success_url: buildReturnUrl({ payment: "verify", from_lomi: "1", ...(body.bundle_return ? { bundle: "1" } : {}) }),
+      cancel_url: buildReturnUrl({ canceled: "1", ...(body.bundle_return ? { bundle: "1" } : {}) }),
     });
 
-    return NextResponse.json({ url: redirectUrl, provider: "pawapay", amount_cents: amountCents });
+    const res = NextResponse.json({ url: checkoutUrl, provider: "lomi", amount_cents: amountCents });
+    if (sessionId) {
+      res.cookies.set(LOMI_MARKETPLACE_CART_CHECKOUT_COOKIE, sessionId, {
+        path: "/",
+        maxAge: 60 * 30,
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      });
+    }
+    return res;
   } catch (err) {
     console.error("checkout-items error:", err);
-    if (err instanceof PawapayReturnUrlError) {
-      return NextResponse.json({ error: err.message }, { status: 400 });
-    }
     const message = err instanceof Error ? err.message : "Failed to create checkout session";
     return NextResponse.json({ error: message }, { status: 500 });
   }
