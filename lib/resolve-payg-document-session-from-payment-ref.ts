@@ -1,4 +1,3 @@
-import { getDepositStatus, isDepositCompleted } from "@/lib/pawapay";
 import { getCompletedLomiCheckoutMetadata, readPaygDocumentLawIdFromMetadata } from "@/lib/lomi-checkout";
 
 function normalizePaygKind(raw: string): string {
@@ -9,39 +8,22 @@ export type ResolvePaygDocumentSessionResult =
   | { ok: true; kind: string; lawId: string | null }
   | { ok: false; reason: "not_completed" | "forbidden" | "wrong_kind" };
 
-/**
- * Reads completed pawaPay / Lomi checkout metadata for a payment reference
- * (`stripe_session_id` on `pay_as_you_go_purchases`).
- */
+/** Reads completed Lomi checkout metadata for a payment reference. */
 export async function resolvePaygDocumentSessionFromPaymentRef(
   sessionId: string,
   expectedClerkUserId: string
 ): Promise<ResolvePaygDocumentSessionResult> {
   const lomiMd = await getCompletedLomiCheckoutMetadata(sessionId);
-  if (lomiMd) {
-    if (lomiMd.clerk_user_id !== expectedClerkUserId) {
-      return { ok: false, reason: "forbidden" };
-    }
-    const kind = normalizePaygKind(lomiMd.kind || "");
-    if (kind !== "payg_document") {
-      return { ok: false, reason: "wrong_kind" };
-    }
-    const lawId = readPaygDocumentLawIdFromMetadata(lomiMd);
-    return { ok: true, kind: "payg_document", lawId };
-  }
-
-  const deposit = await getDepositStatus(sessionId);
-  if (!deposit || !isDepositCompleted(deposit.status)) {
+  if (!lomiMd) {
     return { ok: false, reason: "not_completed" };
   }
-  const clerkUserId = deposit.metadata?.clerk_user_id;
-  if (clerkUserId !== expectedClerkUserId) {
+  if (lomiMd.clerk_user_id !== expectedClerkUserId) {
     return { ok: false, reason: "forbidden" };
   }
-  const kind = normalizePaygKind(deposit.metadata?.kind || "");
+  const kind = normalizePaygKind(lomiMd.kind || "");
   if (kind !== "payg_document") {
     return { ok: false, reason: "wrong_kind" };
   }
-  const lawId = deposit.metadata?.law_id?.trim() || null;
+  const lawId = readPaygDocumentLawIdFromMetadata(lomiMd);
   return { ok: true, kind: "payg_document", lawId };
 }
