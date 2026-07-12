@@ -12,7 +12,6 @@ const FEATURE_LIST = [
   "Search and filter statutes by jurisdiction and topic",
   "Professional and academic legal research",
   "AI legal research grounded in library primary sources",
-  "AfCFTA compliance and tariff tools",
   "The Yamalé Vault — courses, templates, and guides",
   "Curated commercial lawyer directory",
 ] as const;
