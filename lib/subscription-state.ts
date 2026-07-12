@@ -37,8 +37,8 @@ export function inferPeriodStartFromEnd(periodEnd: Date, interval: BillingInterv
   return d;
 }
 
-/** How the user last paid for their subscription (pawaPay mobile money vs Lomi card/wallets). */
-export type SubscriptionPaymentProvider = "pawapay" | "lomi";
+/** How the user last paid for their subscription (Lomi). */
+export type SubscriptionPaymentProvider = "lomi";
 
 export type SubscriptionPublicState = {
   tier: string;
@@ -58,8 +58,7 @@ export type SubscriptionPublicState = {
 
 function parseStoredPaymentProvider(raw: unknown): SubscriptionPaymentProvider | null {
   const s = typeof raw === "string" ? raw.toLowerCase().trim() : "";
-  if (s === "pawapay") return "pawapay";
-  if (s === "lomi") return "lomi";
+  if (s === "lomi" || s === "pawapay") return "lomi";
   return null;
 }
 
