@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useEffect, useMemo } from "react";
+import { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 import Link from "next/link";
@@ -9,16 +9,13 @@ import { VaultCoverImage } from "@/components/marketplace/VaultCoverImage";
 import { coverObjectPosition, readItemCoverFocal } from "@/lib/marketplace-cover-framing";
 import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, ArrowRight, Eye, Star, ShoppingCart, Zap, X, Download, Globe, Layers, ShieldCheck, CheckCircle2, Scale, Sparkles } from "lucide-react";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
-import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import {
   PaymentMethodPicker,
   defaultCheckoutPaymentProvider,
   isLomiCheckoutAvailable,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
-import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { FileViewer } from "@/components/marketplace/FileViewer";
-import { MarketplaceFileAccessDialog } from "@/components/marketplace/MarketplaceFileAccessDialog";
 import {
   defaultMarketplaceDownloadName,
   fetchMarketplaceFileUrl,
@@ -185,13 +182,12 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
   const [addingToCart, setAddingToCart] = useState(false);
   const [isInCart, setIsInCart] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [fileAccessOpen, setFileAccessOpen] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
+  const autoFileAccessRef = useRef(false);
   const [myRating, setMyRating] = useState<number | null>(null);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [savingRating, setSavingRating] = useState(false);
   const [ratingError, setRatingError] = useState<string | null>(null);
-  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>(
     defaultCheckoutPaymentProvider()
   );
@@ -229,11 +225,9 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
 
   useEffect(() => {
     if (!lomiAvailable) {
-      setPaymentProvider("pawapay");
-      return;
+            return;
     }
-    setPaymentProvider((prev) => (prev === "lomi" ? "lomi" : "pawapay"));
-  }, [lomiAvailable]);
+      }, [lomiAvailable]);
 
   const refetchItem = useCallback(async () => {
     if (!id) return;
@@ -265,7 +259,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
   const activeLanguage =
     selectedLanguage ?? item?.language_files?.[0]?.language_code ?? item?.language_codes?.[0] ?? null;
 
-  const handleView = async () => {
+  const handleView = useCallback(async () => {
     if (!item?.id || !item.has_file) return;
     setViewing(true);
     setError(null);
@@ -277,7 +271,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
     } finally {
       setViewing(false);
     }
-  };
+  }, [activeLanguage, item?.has_file, item?.id, tItem]);
 
   const handleDownload = async () => {
     if (!item?.id || !item.has_file) return;
@@ -315,11 +309,12 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
 
   useEffect(() => {
     if (loading || !item?.has_file) return;
-    const wantsFileAccess = searchParams.get("file") === "access";
-    if (!wantsFileAccess) return;
+    if (searchParams.get("file") !== "access") return;
     const ownedOrFree = item.purchased || Number(item.price_cents) === 0;
-    if (ownedOrFree) setFileAccessOpen(true);
-  }, [loading, item, searchParams]);
+    if (!ownedOrFree || autoFileAccessRef.current) return;
+    autoFileAccessRef.current = true;
+    void handleView();
+  }, [handleView, item, loading, searchParams]);
 
   useEffect(() => {
     if (loading || !item || !id) return;
@@ -434,8 +429,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
                     success_path: itemPublicPath(item),
                   }
                 : { itemId: item.id }),
-            provider: paymentProvider,
-            ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
+          provider: "lomi",
           }),
         }
       );
@@ -612,6 +606,8 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
   const typeLabel = typeBadgeLabel(item.type, t);
   const formatLabel = formatFileFormatLabel(item.file_format);
   const languageCount = displayLanguageCodes.length;
+  const languageFiles = item.language_files ?? [];
+  const showLanguagePicker = languageFiles.length > 1;
   const coverFocalPosition = coverObjectPosition(readItemCoverFocal(item));
   const addedDate =
     item.created_at && !Number.isNaN(Date.parse(item.created_at))
@@ -628,6 +624,57 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
       </div>
     );
   }
+
+  const fileAccessBlock = (className = "") =>
+    (owned || free) && item.has_file ? (
+      <div className={className}>
+        {showLanguagePicker ? (
+          <div className="mb-3">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {tItem("includedLanguages")}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {languageFiles.map((file) => {
+                const active = file.language_code === activeLanguage;
+                return (
+                  <button
+                    key={file.language_code}
+                    type="button"
+                    disabled={viewing || downloading}
+                    onClick={() => setSelectedLanguage(file.language_code)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition disabled:opacity-50 ${
+                      active
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : "border-border bg-background text-muted-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    {file.language_code}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : languageCount > 0 ? (
+          <div className="mb-3">
+            <VaultLanguageBadges languageCodes={displayLanguageCodes} variant="card" />
+          </div>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => void handleView()}
+          disabled={viewing || downloading}
+          className={styles.purchaseBtnPrimary}
+          style={{ background: `linear-gradient(to right, ${BRAND.gradientStart}, ${BRAND.gradientEnd})` }}
+        >
+          {viewing || downloading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Eye className="h-4 w-4" />
+          )}
+          {tItem("viewAndDownload")}
+        </button>
+      </div>
+    ) : null;
 
   const whatsIncludedSection = (
     <div className={styles.heroIncluded}>
@@ -709,15 +756,6 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
                 lomiAvailable={lomiAvailable}
                 lomiComingSoon={lomiComingSoon}
                 variant="segmented"
-              />
-            </div>
-          ) : null}
-          {!free && paymentProvider === "pawapay" ? (
-            <div className={styles.checkoutCountry}>
-              <PawapayCountrySelect
-                label={t("cartPage.mobileMoneyCountry")}
-                value={pawapayPaymentCountry}
-                onChange={setPawapayPaymentCountry}
               />
             </div>
           ) : null}
@@ -806,22 +844,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
       ) : null}
 
       {(owned || free) && item.has_file ? (
-        <div className={styles.accessSection}>
-          <button
-            type="button"
-            onClick={() => setFileAccessOpen(true)}
-            disabled={viewing || downloading}
-            className={styles.purchaseBtnPrimary}
-            style={{ background: `linear-gradient(to right, ${BRAND.gradientStart}, ${BRAND.gradientEnd})` }}
-          >
-            {viewing || downloading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
-            {tItem("viewAndDownload")}
-          </button>
-        </div>
+        <div className={styles.accessSection}>{fileAccessBlock()}</div>
       ) : null}
       {(owned || free) && !item.has_file ? (
         <p className={`${styles.checkoutHint} mt-4`}>{tItem("noFileAttached")}</p>
@@ -841,8 +864,6 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
         onChoiceChange={setCheckoutChoice}
         paymentProvider={paymentProvider}
         onPaymentProviderChange={setPaymentProvider}
-        pawapayPaymentCountry={pawapayPaymentCountry}
-        onPawapayPaymentCountryChange={setPawapayPaymentCountry}
         lomiAvailable={lomiAvailable}
         lomiComingSoon={lomiComingSoon}
         loading={purchasing}
@@ -954,27 +975,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
       {landingHtml ? (
         <div className="mx-auto max-w-3xl px-4 py-8">
           {(owned || free) && item.has_file ? (
-            <section className={styles.purchaseCard}>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setFileAccessOpen(true)}
-                  disabled={viewing || downloading}
-                  className={`${styles.purchaseBtnPrimary} max-w-xs`}
-                  style={{ background: `linear-gradient(to right, ${BRAND.gradientStart}, ${BRAND.gradientEnd})` }}
-                >
-                  {viewing || downloading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                  {tItem("viewAndDownload")}
-                </button>
-                {languageCount > 0 ? (
-                  <VaultLanguageBadges languageCodes={displayLanguageCodes} variant="card" />
-                ) : null}
-              </div>
-            </section>
+            <section className={styles.purchaseCard}>{fileAccessBlock("max-w-xs")}</section>
           ) : null}
           {(owned || free) && !item.has_file ? (
             <p className="text-sm text-muted-foreground">{tItem("noFileAttached")}</p>
@@ -1100,20 +1101,6 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
           </div>
         </section>
       )}
-
-      {item ? (
-        <MarketplaceFileAccessDialog
-          open={fileAccessOpen}
-          onOpenChange={setFileAccessOpen}
-          fileName={item.file_name}
-          languageFiles={item.language_files}
-          selectedLanguage={activeLanguage}
-          onLanguageChange={setSelectedLanguage}
-          busy={viewing || downloading}
-          onPreview={() => void handleView()}
-          onDownload={() => void handleDownload()}
-        />
-      ) : null}
 
       {viewerUrl && item && !shouldUseVaultPackagePage(item) ? (
         <FileViewer
