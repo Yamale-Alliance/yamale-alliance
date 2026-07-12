@@ -8,7 +8,6 @@ import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
 import { useAlertDialog } from "@/components/ui/use-confirm";
 import { isMarketplaceZip } from "@/lib/marketplace-zip-package";
-import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { useMarketplacePaymentReturn } from "@/components/marketplace/use-marketplace-payment-return";
 import { notifyMarketplaceCartUpdated } from "@/lib/marketplace-cart-events";
 import {
@@ -158,7 +157,6 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
   const [cartItemIds, setCartItemIds] = useState<Set<string>>(new Set());
   const [selectedTopic, setSelectedTopic] = useState<"all" | TopicId>("all");
   const { isSignedIn } = useAppUser();
-  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>(
     defaultCheckoutPaymentProvider()
   );
@@ -185,9 +183,6 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
     Boolean(process.env.NEXT_PUBLIC_LOMI_PUBLISHABLE_KEY?.trim());
   const lomiComingSoon = false;
 
-  useEffect(() => {
-    if (!lomiAvailable) setPaymentProvider("pawapay");
-  }, [lomiAvailable]);
   const { alert: showAlert, alertDialog } = useAlertDialog();
 
   const categoryQs = searchParams.get("category");
@@ -738,8 +733,7 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
                     success_path: "/marketplace",
                   }
                 : { itemId: buyModalProduct!.id }),
-            provider: paymentProvider,
-            ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
+          provider: "lomi",
           }),
         }
       );
@@ -771,8 +765,6 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
         onChoiceChange={setCheckoutChoice}
         paymentProvider={paymentProvider}
         onPaymentProviderChange={setPaymentProvider}
-        pawapayPaymentCountry={pawapayPaymentCountry}
-        onPawapayPaymentCountryChange={setPawapayPaymentCountry}
         lomiAvailable={lomiAvailable}
         lomiComingSoon={lomiComingSoon}
         loading={buyCheckoutLoading}
