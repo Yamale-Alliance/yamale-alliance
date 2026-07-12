@@ -14,8 +14,6 @@ import {
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
 import { DayPassCheckoutConfirm } from "@/components/checkout/DayPassCheckoutConfirm";
-import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
-import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import {
   PROTOTYPE_HERO_GRID_PATTERN,
   prototypeHeroEyebrowClass,
@@ -70,7 +68,7 @@ const FALLBACK_TIERS: Tier[] = [
     priceAnnualPerMonth: 4,
     priceAnnualTotal: 50,
     description: "",
-    subtitle: "or $50/year (save $10)",
+    subtitle: "or $50/year",
     features: [
       "Unlimited browsing of full texts of laws",
       "<strong>Basic level AI queries/month</strong> (limited)",
@@ -87,7 +85,7 @@ const FALLBACK_TIERS: Tier[] = [
     priceAnnualPerMonth: 12,
     priceAnnualTotal: 150,
     description: "",
-    subtitle: "or $150/year (save $30)",
+    subtitle: "or $150/year",
     features: [
       "Unlimited browsing of full texts of laws",
       "<strong>Pro level AI queries/month</strong> (limited)",
@@ -105,7 +103,7 @@ const FALLBACK_TIERS: Tier[] = [
     priceAnnualPerMonth: 33,
     priceAnnualTotal: 400,
     description: "",
-    subtitle: "or $400/year (save $80)",
+    subtitle: "or $400/year",
     features: [
       "<strong>5 user seats included</strong>",
       "<strong>Team level AI queries per user/month</strong> (limited)",
@@ -139,7 +137,6 @@ export default function PricingPage() {
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>(
     defaultCheckoutPaymentProvider()
   );
-  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const isAnnual = billing === "annual";
   const { alert: showAlert, alertDialog } = useAlertDialog();
   const lomiAvailable = isLomiCheckoutAvailable();
@@ -176,7 +173,6 @@ export default function PricingPage() {
         credentials: "include",
         body: JSON.stringify({
           provider,
-          ...(provider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
         }),
       });
       const data = await res.json();
@@ -221,7 +217,6 @@ export default function PricingPage() {
         credentials: "include",
         body: JSON.stringify({
           provider,
-          ...(provider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
         }),
       });
       const data = await res.json();
@@ -271,13 +266,7 @@ export default function PricingPage() {
     const plan = params.get("plan");
     const interval = params.get("interval") as BillingInterval | null;
     const dayPass = params.get("day_pass");
-    const providerParam = params.get("provider");
-    const provider: CheckoutPaymentProvider =
-      providerParam === "pawapay"
-        ? "pawapay"
-        : providerParam === "lomi" && lomiAvailable && !lomiComingSoon
-          ? "lomi"
-          : defaultCheckoutPaymentProvider();
+    const provider: CheckoutPaymentProvider = "lomi";
 
     setPaymentProvider(provider);
 
@@ -353,7 +342,7 @@ export default function PricingPage() {
                 isAnnual ? "bg-[#C8922A] text-white" : "text-white/70 hover:text-white"
               }`}
             >
-              {t("annual")} <span className="ml-1 text-[11px] opacity-90">{t("savePercent")}</span>
+              {t("annual")}
             </button>
           </div>
           <p className="mx-auto mt-6 max-w-xl text-[15px] text-white/[0.75]">
@@ -532,16 +521,6 @@ export default function PricingPage() {
                 }}
               />
             </div>
-            {paymentProvider === "pawapay" && (
-              <div className="mt-4">
-                <PawapayCountrySelect
-                  id="pricing-pawapay-country"
-                  label={t("payg.mobileMoneyCountry")}
-                  value={pawapayPaymentCountry}
-                  onChange={setPawapayPaymentCountry}
-                />
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
