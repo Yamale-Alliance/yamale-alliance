@@ -177,7 +177,7 @@
           "segments": [
             {
               "kind": "text",
-              "value": "We process payments through secure third-party payment processors (such as pawaPay). We do "
+              "value": "We process payments through secure third-party payment processors (such as Lomi). We do "
             },
             {
               "kind": "strong",
@@ -430,7 +430,7 @@
           "items": [
             "Authentication services (e.g., Clerk, Auth0) — to manage user accounts and login",
             "Database and storage providers (e.g., Supabase, AWS) — to store Platform data and documents",
-            "Payment processors (e.g., pawaPay, mobile money providers) — to process subscription and unlock payments",
+            "Payment processors (e.g., Lomi, mobile money providers) — to process subscription and unlock payments",
             "AI providers (e.g., Anthropic) — to power our AI legal research features",
             "Email service providers — to send transactional and notification emails",
             "Analytics providers — to understand Platform usage and performance",
