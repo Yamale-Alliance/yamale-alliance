@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import {
   createSubscriptionPlanCheckoutRedirect,
-  type PlanCheckoutProvider,
 } from "@/lib/create-subscription-plan-checkout";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { getSubscriptionPlanUsdCents } from "@/lib/pricing-from-db";
@@ -33,7 +32,6 @@ export async function POST(request: NextRequest) {
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const planId = body.planId as string | undefined;
     const interval = (body.interval as BillingInterval) || "monthly";
-    const provider = (body.provider as PlanCheckoutProvider | undefined) || "pawapay";
     const rawCancel = body.cancelPath;
     const cancelPath =
       rawCancel === "/account/subscription" || rawCancel === "/subscription"
@@ -128,7 +126,7 @@ export async function POST(request: NextRequest) {
           plan_id: planId,
           interval: upgradeInterval,
           change_type: "upgrade",
-          payment_provider: provider,
+          payment_provider: "lomi",
         });
         return NextResponse.json({ ok: true, upgraded: true, tier: planId });
       }
@@ -140,8 +138,6 @@ export async function POST(request: NextRequest) {
         usdCents: prorationCents,
         metadataExtra: { change_type: "upgrade" },
         requestOrigin,
-        provider,
-        pawapayBody: body,
         successPath: "/ai-research",
         cancelPath,
       });
@@ -161,8 +157,6 @@ export async function POST(request: NextRequest) {
       usdCents: fullUsdCents,
       metadataExtra: {},
       requestOrigin,
-      provider,
-      pawapayBody: body,
       successPath: "/ai-research",
       cancelPath,
     });
