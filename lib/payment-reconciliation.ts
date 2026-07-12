@@ -1,9 +1,7 @@
 import { getCompletedLomiCheckoutMetadata, isLomiConfigured } from "@/lib/lomi-checkout";
 import { fulfillPaymentFromMetadata } from "@/lib/payment-webhook-fulfillment";
-import { pawapayRefundEventId, runIdempotentPaymentWebhook } from "@/lib/payment-webhook-idempotency";
+import { runIdempotentPaymentWebhook } from "@/lib/payment-webhook-idempotency";
 import { markPendingPaymentCheckoutFulfilled } from "@/lib/pending-payment-checkout";
-import { getDepositStatus, isDepositCompleted, isPawapayConfigured } from "@/lib/pawapay";
-import { getPawapayRefundStatus } from "@/lib/pawapay-refunds";
 import { markRefundCompletedIfProcessing } from "@/lib/refund-request-claims";
 import type { RefundRequestRow } from "@/lib/refund-requests";
 import { getSupabaseServer } from "@/lib/supabase/server";
@@ -44,44 +42,23 @@ function metadataRecord(raw: unknown): Record<string, string> {
   return out;
 }
 
-async function resolvePaidMetadata(
-  row: PendingRow
-): Promise<Record<string, string> | null> {
+async function resolvePaidMetadata(row: PendingRow): Promise<Record<string, string> | null> {
   const ref = row.payment_ref.trim();
   const baseMd = metadataRecord(row.metadata);
   if (!baseMd.clerk_user_id) baseMd.clerk_user_id = row.user_id;
   if (!baseMd.kind && row.kind) baseMd.kind = row.kind;
 
-  if (row.provider === "pawapay" && isPawapayConfigured()) {
-    const deposit = await getDepositStatus(ref);
-    if (deposit && isDepositCompleted(deposit.status)) {
-      const fromDeposit = deposit.metadata ?? {};
-      return { ...baseMd, ...fromDeposit, clerk_user_id: baseMd.clerk_user_id };
-    }
-  }
-
-  if (row.provider === "lomi" || isLomiConfigured()) {
+  if (isLomiConfigured()) {
     const lomiMd = await getCompletedLomiCheckoutMetadata(ref);
     if (lomiMd) {
       return { ...baseMd, ...lomiMd, clerk_user_id: baseMd.clerk_user_id };
     }
   }
 
-  if (row.provider === "pawapay" && isPawapayConfigured()) {
-    return null;
-  }
-
-  const deposit = await getDepositStatus(ref);
-  if (deposit && isDepositCompleted(deposit.status)) {
-    return { ...baseMd, ...(deposit.metadata ?? {}), clerk_user_id: baseMd.clerk_user_id };
-  }
-
   return null;
 }
 
-async function reconcilePendingCheckout(row: PendingRow): Promise<
-  "fulfilled" | "unpaid" | "error"
-> {
+async function reconcilePendingCheckout(row: PendingRow): Promise<"fulfilled" | "unpaid" | "error"> {
   try {
     const md = await resolvePaidMetadata(row);
     if (!md?.clerk_user_id) return "unpaid";
@@ -89,7 +66,7 @@ async function reconcilePendingCheckout(row: PendingRow): Promise<
     const eventId = `reconcile:pending:${row.payment_ref}`;
     const result = await runIdempotentPaymentWebhook(
       {
-        provider: row.provider === "lomi" ? "lomi" : "pawapay",
+        provider: "lomi",
         eventId,
         eventType: "reconciliation.pending_checkout",
         paymentRef: row.payment_ref,
@@ -167,50 +144,8 @@ async function reconcileStaleRefunds(report: PaymentReconciliationReport): Promi
     .lt("updated_at", staleBefore)
     .limit(BATCH_LIMIT);
 
-  for (const row of (rows ?? []) as RefundRequestRow[]) {
+  for (const _row of (rows ?? []) as RefundRequestRow[]) {
     report.refundsScanned += 1;
-    const provider = row.payment_provider;
-    const refundRef = row.provider_refund_id?.trim();
-
-    if (provider === "pawapay" && refundRef) {
-      const statusRes = await getPawapayRefundStatus(refundRef);
-      if (!statusRes.found) {
-        report.refundsStillProcessing += 1;
-        continue;
-      }
-      const st = statusRes.status ?? "";
-      if (st === "COMPLETED") {
-        const eventId = pawapayRefundEventId(refundRef, st);
-        await runIdempotentPaymentWebhook(
-          {
-            provider: "pawapay",
-            eventId: `reconcile:${eventId}`,
-            eventType: "reconciliation.refund",
-            paymentRef: refundRef,
-          },
-          async () => {
-            await markRefundCompletedIfProcessing(supabase, row.id);
-          }
-        );
-        report.refundsCompleted += 1;
-        continue;
-      }
-      if (st === "FAILED") {
-        await (supabase.from("refund_requests") as any)
-          .update({
-            status: "failed",
-            provider_status: st,
-            provider_error: "pawaPay refund FAILED (reconciliation)",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", row.id);
-        report.refundsFailed += 1;
-        continue;
-      }
-      report.refundsStillProcessing += 1;
-      continue;
-    }
-
     report.refundsStillProcessing += 1;
   }
 }
