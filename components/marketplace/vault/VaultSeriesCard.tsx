@@ -12,7 +12,6 @@ type VaultSeriesCardProps = {
   resourceCount: number;
   href: string;
   priceCents?: number | null;
-  listPriceCents?: number | null;
   coverPriority?: boolean;
 };
 
@@ -26,7 +25,6 @@ export function VaultSeriesCard({
   resourceCount,
   href,
   priceCents,
-  listPriceCents,
   coverPriority = false,
 }: VaultSeriesCardProps) {
   const t = useTranslations("marketplace");
@@ -34,10 +32,6 @@ export function VaultSeriesCard({
   const [coverFailed, setCoverFailed] = useState(false);
   const hasCover = Boolean(coverUrl?.trim()) && !coverFailed;
   const showPrice = typeof priceCents === "number" && priceCents > 0;
-  const showStrike =
-    showPrice &&
-    typeof listPriceCents === "number" &&
-    listPriceCents > priceCents!;
 
   const navigate = () => router.push(href, { scroll: true });
 
@@ -64,9 +58,6 @@ export function VaultSeriesCard({
         {showPrice ? (
           <span className={styles.priceBadge}>
             {formatUsd(priceCents!)}
-            {showStrike ? (
-              <span className={styles.strike}>{formatUsd(listPriceCents!)}</span>
-            ) : null}
           </span>
         ) : priceCents === 0 ? (
           <span className={styles.priceBadge}>{t("free")}</span>
