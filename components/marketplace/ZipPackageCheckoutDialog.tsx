@@ -6,7 +6,6 @@ import {
   PaymentMethodPicker,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
-import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import type { PackageOfferTier, PackageOffersResolved } from "@/lib/marketplace-package-offers";
 import { formatUsd } from "@/lib/marketplace-package-offers";
 import {
@@ -26,8 +25,6 @@ export type ZipPackageCheckoutDialogProps = {
   onSelectTier: (tier: PackageOfferTier) => void;
   paymentProvider: CheckoutPaymentProvider;
   onPaymentProviderChange: (p: CheckoutPaymentProvider) => void;
-  pawapayPaymentCountry: string;
-  onPawapayPaymentCountryChange: (c: string) => void;
   lomiAvailable: boolean;
   lomiComingSoon: boolean;
   onLomiComingSoonClick: () => void;
@@ -46,8 +43,6 @@ export function ZipPackageCheckoutDialog({
   onSelectTier,
   paymentProvider,
   onPaymentProviderChange,
-  pawapayPaymentCountry,
-  onPawapayPaymentCountryChange,
   lomiAvailable,
   lomiComingSoon,
   onLomiComingSoonClick,
@@ -154,15 +149,6 @@ export function ZipPackageCheckoutDialog({
                 lomiComingSoon={lomiComingSoon}
                 onLomiComingSoonClick={onLomiComingSoonClick}
               />
-              {paymentProvider === "pawapay" && (
-                <div className="mt-4">
-                  <PawapayCountrySelect
-                    label="Mobile money country"
-                    value={pawapayPaymentCountry}
-                    onChange={onPawapayPaymentCountryChange}
-                  />
-                </div>
-              )}
             </div>
 
             {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
