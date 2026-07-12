@@ -171,7 +171,7 @@ export function AiResearchPricingPanel({ compact = false }: Props) {
     aiQueryPriceUsdCents > 0 ? `$${(aiQueryPriceUsdCents / 100).toFixed(2)}` : "$2.00";
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className={compact ? "mx-auto w-full" : "mx-auto max-w-5xl"}>
       {!compact ? (
         <>
           <h2 className="heading text-center text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
@@ -185,7 +185,7 @@ export function AiResearchPricingPanel({ compact = false }: Props) {
         <h2 className="sr-only">{t("pricingTitle")}</h2>
       )}
 
-      <div className={`flex justify-center ${compact ? "mt-4" : "mt-6"}`}>
+      <div className={`flex justify-center ${compact ? "mt-3" : "mt-6"}`}>
         <div className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 p-1">
           <button
             type="button"
@@ -208,7 +208,7 @@ export function AiResearchPricingPanel({ compact = false }: Props) {
         </div>
       </div>
 
-      <div className={`grid grid-cols-1 gap-4 md:grid-cols-3 ${compact ? "mt-5" : "mt-8"}`}>
+      <div className={`grid grid-cols-1 gap-3 md:grid-cols-3 ${compact ? "mt-4" : "mt-8"}`}>
         {tiers.map((tier) => (
           <PricingTierCard
             key={tier.id}
@@ -216,6 +216,7 @@ export function AiResearchPricingPanel({ compact = false }: Props) {
             billing={billing}
             isAnnual={isAnnual}
             checkoutLoading={checkoutLoading}
+            compact={compact}
             onChoose={() => goToSubscriptionCheckout(tier.id)}
             tLanding={t}
             tPricing={tPricing}
@@ -223,7 +224,7 @@ export function AiResearchPricingPanel({ compact = false }: Props) {
         ))}
       </div>
 
-      <div className={`rounded-xl border border-border bg-card p-5 text-center shadow-sm ${compact ? "mt-5" : "mt-8"}`}>
+      <div className={`rounded-xl border border-border bg-card text-center shadow-sm ${compact ? "mt-4 p-4" : "mt-8 p-5"}`}>
         <p className="text-sm font-semibold text-foreground">{t("paygTitle")}</p>
         <p className="mt-1 text-sm text-muted-foreground">{t("paygBody", { price: paygPrice })}</p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
@@ -273,6 +274,7 @@ function PricingTierCard({
   billing,
   isAnnual,
   checkoutLoading,
+  compact = false,
   onChoose,
   tLanding,
   tPricing,
@@ -281,6 +283,7 @@ function PricingTierCard({
   billing: BillingInterval;
   isAnnual: boolean;
   checkoutLoading: string | null;
+  compact?: boolean;
   onChoose: () => void;
   tLanding: ReturnType<typeof useTranslations<"aiResearch.landing">>;
   tPricing: ReturnType<typeof useTranslations<"pricing">>;
@@ -308,8 +311,8 @@ function PricingTierCard({
           {tLanding("mostPopular")}
         </div>
       ) : null}
-      <div className="flex flex-1 flex-col p-5 sm:p-6">
-        <h3 className={`heading text-lg font-bold ${tier.highlighted ? "text-white" : "text-foreground"}`}>
+      <div className={`flex flex-1 flex-col ${compact ? "p-4" : "p-5 sm:p-6"}`}>
+        <h3 className={`heading font-bold ${compact ? "text-base" : "text-lg"} ${tier.highlighted ? "text-white" : "text-foreground"}`}>
           {tier.localizedName}
         </h3>
         <div className="mb-2 mt-2">
@@ -326,8 +329,8 @@ function PricingTierCard({
             {annualNote}
           </p>
         ) : null}
-        <ul className="mb-5 flex-1 space-y-2 text-sm">
-          {tier.localizedFeatures.slice(0, 5).map((feature) => (
+        <ul className={`flex-1 space-y-1.5 ${compact ? "mb-3 text-xs" : "mb-5 space-y-2 text-sm"}`}>
+          {tier.localizedFeatures.slice(0, compact ? 4 : 5).map((feature) => (
             <li key={feature} className="flex items-start gap-2">
               <Check
                 className={`mt-0.5 h-4 w-4 shrink-0 ${tier.highlighted ? "text-[#E8B84B]" : "text-primary"}`}
