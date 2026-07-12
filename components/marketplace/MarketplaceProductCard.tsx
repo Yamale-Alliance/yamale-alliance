@@ -137,12 +137,6 @@ export function MarketplaceProductCard({
   const isCollectionCard =
     isCollection || Boolean(collectionHref && collectionCount && collectionLabel);
   const isOwnedBadge = Boolean(product.owned || paidSeriesSummary?.fullyOwned);
-  const hasSeriesBundleDiscount = Boolean(
-    paidSeriesSummary &&
-      paidSeriesSummary.bundleCents != null &&
-      paidSeriesSummary.bundleSavingsCents > 0
-  );
-  const seriesListCents = paidSeriesSummary?.totalCents ?? 0;
   const seriesChargeCents = paidSeriesSummary
     ? paidSeriesSummary.ownedCount > 0
       ? paidSeriesSummary.chargeCents
@@ -303,11 +297,6 @@ export function MarketplaceProductCard({
           >
             {paidSeriesSummary!.ownedCount > 0 ? (
               t("buyRemaining", { price: formatUsd(paidSeriesSummary!.chargeCents) })
-            ) : hasSeriesBundleDiscount ? (
-              <>
-                {t("buyFullSeries", { price: formatUsd(seriesChargeCents) })}{" "}
-                <span className={styles.strike}>{formatUsd(seriesListCents, 0)}</span>
-              </>
             ) : (
               t("buyFullSeries", { price: formatUsd(seriesChargeCents) })
             )}
