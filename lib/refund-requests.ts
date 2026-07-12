@@ -3,14 +3,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
 import { createLomiRefund, resolveLomiTransactionIdFromCheckoutSession } from "@/lib/lomi-refunds";
-import { initiatePawapayRefund, isPawapayDepositRef } from "@/lib/pawapay-refunds";
 import { getCompletedLomiCheckoutMetadata, isLomiConfigured } from "@/lib/lomi-checkout";
 import {
   isPostgresUniqueViolation,
   markRefundCompletedIfProcessing,
 } from "@/lib/refund-request-claims";
-import { randomUUID } from "crypto";
-
 export { claimRefundRequestForProcessing, claimRefundRequestForRejection } from "@/lib/refund-request-claims";
 export { markRefundCompletedIfProcessing };
 
@@ -57,10 +54,9 @@ const PAYG_LABELS: Record<string, string> = {
   afcfta_report: "AfCFTA report",
 };
 
-export async function detectPaymentProvider(paymentRef: string): Promise<"lomi" | "pawapay" | null> {
+export async function detectPaymentProvider(paymentRef: string): Promise<"lomi" | null> {
   const ref = paymentRef.trim();
   if (!ref) return null;
-  if (await isPawapayDepositRef(ref)) return "pawapay";
   if (isLomiConfigured()) {
     const md = await getCompletedLomiCheckoutMetadata(ref);
     if (md && Object.keys(md).length > 0) return "lomi";
@@ -339,10 +335,10 @@ export async function processRefundWithProvider(
   const paymentRef = (row.payment_ref || "").trim();
   if (!paymentRef) return { error: "Missing payment reference for this purchase." };
 
-  let provider = row.payment_provider as "lomi" | "pawapay" | null;
+  let provider = row.payment_provider as "lomi" | null;
   if (!provider) provider = await detectPaymentProvider(paymentRef);
   if (!provider) {
-    return { error: "Could not determine payment provider (Lomi vs pawaPay) for this purchase." };
+    return { error: "Could not determine payment provider for this purchase." };
   }
 
   const amountCents = row.amount_cents ?? 0;
@@ -351,31 +347,6 @@ export async function processRefundWithProvider(
   }
 
   try {
-    if (provider === "pawapay") {
-      const refundId = randomUUID();
-      const result = await initiatePawapayRefund({ depositId: paymentRef, refundId });
-      const st = String(result.status || "").toUpperCase();
-      if (st === "REJECTED") {
-        const msg = result.rejectionReason?.rejectionMessage || "pawaPay rejected the refund.";
-        await (supabase.from("refund_requests") as any)
-          .update({
-            status: "failed",
-            provider_error: msg,
-            provider_status: st,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", row.id)
-          .eq("status", "processing");
-        return { error: msg };
-      }
-      await updateRefundRow(supabase, row.id, {
-        payment_provider: "pawapay",
-        provider_refund_id: refundId,
-        provider_status: st,
-      });
-      return { ok: true };
-    }
-
     let txnId = (row.lomi_transaction_id || "").trim();
     if (!txnId) txnId = (await resolveLomiTransactionIdFromCheckoutSession(paymentRef)) || "";
     if (!txnId && paymentRef.length > 20) txnId = paymentRef;
@@ -427,35 +398,4 @@ async function updateRefundRow(
   await (supabase.from("refund_requests") as any)
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("id", id);
-}
-
-export async function handlePawapayRefundWebhook(payload: {
-  refundId?: string;
-  status?: string;
-}): Promise<void> {
-  const refundId = String(payload.refundId || "").trim();
-  const status = String(payload.status || "").toUpperCase();
-  if (!refundId) return;
-
-  const supabase = getSupabaseServer();
-  const { data: row } = await (supabase.from("refund_requests") as any)
-    .select("*")
-    .eq("provider_refund_id", refundId)
-    .maybeSingle();
-  if (!row) return;
-
-  const id = (row as RefundRequestRow).id;
-  if (status === "COMPLETED") {
-    await markRefundCompletedIfProcessing(supabase, id);
-    return;
-  }
-  if (status === "FAILED") {
-    await updateRefundRow(supabase, id, {
-      status: "failed",
-      provider_status: status,
-      provider_error: "pawaPay reported refund FAILED",
-    });
-  } else if (status) {
-    await updateRefundRow(supabase, id, { provider_status: status });
-  }
 }
