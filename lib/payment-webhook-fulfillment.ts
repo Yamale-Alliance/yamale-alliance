@@ -6,43 +6,12 @@ import { recordUnlock, recordSearchUnlockGrant } from "@/lib/unlocks";
 import { clearUserShoppingCart, parseCartItemIdsMetadata } from "@/lib/marketplace-cart-purchases";
 import { readPaygDocumentLawIdFromMetadata } from "@/lib/lomi-checkout";
 import { upsertPayAsYouGoPurchase } from "@/lib/payg-purchases";
-import { pawapayDepositEventId, runIdempotentPaymentWebhook } from "@/lib/payment-webhook-idempotency";
 import { markPendingPaymentCheckoutFulfilled } from "@/lib/pending-payment-checkout";
 import {
   ledgerProviderFromMetadata,
   recordSubscriptionLedgerEntry,
   subscriptionLedgerEntryKindFromMetadata,
 } from "@/lib/subscription-ledger";
-
-type DepositCallback = {
-  depositId?: string;
-  status?: string;
-  metadata?: unknown;
-};
-
-function normalizePawaMetadata(value: unknown): Record<string, string> {
-  if (!value) return {};
-  if (Array.isArray(value)) {
-    const merged: Record<string, string> = {};
-    for (const item of value) {
-      if (!item || typeof item !== "object") continue;
-      for (const [k, v] of Object.entries(item as Record<string, unknown>)) {
-        if (!k) continue;
-        merged[k] = typeof v === "string" ? v : String(v ?? "");
-      }
-    }
-    return merged;
-  }
-  if (typeof value === "object") {
-    const out: Record<string, string> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      if (!k) continue;
-      out[k] = typeof v === "string" ? v : String(v ?? "");
-    }
-    return out;
-  }
-  return {};
-}
 
 async function appendSubscriptionLedgerIfApplicable(
   clerkUserId: string,
@@ -67,7 +36,7 @@ async function appendSubscriptionLedgerIfApplicable(
 }
 
 /**
- * Shared fulfillment for pawaPay deposit callbacks and Lomi `PAYMENT_SUCCEEDED` payloads.
+ * Shared fulfillment for Lomi `PAYMENT_SUCCEEDED` payloads.
  * `paymentRefId` is stored in `stripe_session_id` columns (legacy name — holds any checkout/deposit id).
  */
 export async function fulfillPaymentFromMetadata(metadata: Record<string, string>, paymentRefId: string): Promise<void> {
@@ -192,27 +161,4 @@ export async function fulfillPaymentFromMetadata(metadata: Record<string, string
     await appendSubscriptionLedgerIfApplicable(clerkUserId, paymentRefId, metadata);
     await done();
   }
-}
-
-export async function handlePawaPayDepositWebhook(callback: DepositCallback): Promise<void> {
-  const status = String(callback.status || "").toUpperCase();
-  if (status !== "COMPLETED") return;
-
-  const depositId = callback.depositId?.trim();
-  const metadata = normalizePawaMetadata(callback.metadata);
-  const clerkUserId = metadata.clerk_user_id;
-  if (!depositId || !clerkUserId) return;
-
-  const eventId = pawapayDepositEventId(depositId, status);
-  await runIdempotentPaymentWebhook(
-    {
-      provider: "pawapay",
-      eventId,
-      eventType: "deposit.completed",
-      paymentRef: depositId,
-    },
-    async () => {
-      await fulfillPaymentFromMetadata(metadata, depositId);
-    }
-  );
 }
