@@ -15,8 +15,6 @@ import {
   isLomiCheckoutAvailable,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
-import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
-import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { useAlertDialog } from "@/components/ui/use-confirm";
 
 type CartItem = {
@@ -42,7 +40,6 @@ export function CartDrawer() {
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>(
     defaultCheckoutPaymentProvider()
   );
-  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const lomiAvailable = isLomiCheckoutAvailable();
   const { isSignedIn } = useAppUser();
   const pathname = usePathname();
@@ -115,8 +112,7 @@ export function CartDrawer() {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          provider: paymentProvider,
-          ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
+          provider: "lomi",
         }),
       });
       const data = await res.json();
@@ -226,13 +222,6 @@ export function CartDrawer() {
                   onChange={setPaymentProvider}
                   lomiAvailable={lomiAvailable}
                 />
-                {paymentProvider === "pawapay" && (
-                  <PawapayCountrySelect
-                    label="Mobile money country"
-                    value={pawapayPaymentCountry}
-                    onChange={setPawapayPaymentCountry}
-                  />
-                )}
                 <Link
                   href="/marketplace/cart"
                   onClick={() => setOpen(false)}
