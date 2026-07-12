@@ -7,7 +7,6 @@ import {
   PaymentMethodPicker,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
-import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import {
   dialogPanelBaseClass,
   dialogScrollViewportClass,
@@ -20,8 +19,6 @@ type Props = {
   priceLabel: string;
   paymentProvider: CheckoutPaymentProvider;
   onPaymentProviderChange: (provider: CheckoutPaymentProvider) => void;
-  pawapayPaymentCountry: string;
-  onPawapayPaymentCountryChange: (country: string) => void;
   lomiAvailable: boolean;
   lomiComingSoon: boolean;
   onLomiComingSoonClick: () => void;
@@ -35,8 +32,6 @@ export function AiQueryPaygCheckoutDialog({
   priceLabel,
   paymentProvider,
   onPaymentProviderChange,
-  pawapayPaymentCountry,
-  onPawapayPaymentCountryChange,
   lomiAvailable,
   lomiComingSoon,
   onLomiComingSoonClick,
@@ -89,15 +84,6 @@ export function AiQueryPaygCheckoutDialog({
                       onLomiComingSoonClick={onLomiComingSoonClick}
                     />
                   ) : null}
-                  {paymentProvider === "pawapay" && (
-                    <div className={lomiAvailable ? "mt-4" : undefined}>
-                      <PawapayCountrySelect
-                        label={tBilling("mobileMoneyCountry")}
-                        value={pawapayPaymentCountry}
-                        onChange={onPawapayPaymentCountryChange}
-                      />
-                    </div>
-                  )}
                 </div>
               </div>
 
