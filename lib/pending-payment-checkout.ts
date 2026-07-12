@@ -1,6 +1,6 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
 
-export type PendingCheckoutProvider = "lomi" | "pawapay";
+export type PendingCheckoutProvider = "lomi";
 
 /** Record at checkout create so reconciliation can poll the provider later. */
 export async function recordPendingPaymentCheckout(input: {
