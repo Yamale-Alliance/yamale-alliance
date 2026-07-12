@@ -19,8 +19,6 @@ import {
   isLomiCheckoutAvailable,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
-import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
-import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 
 type Member = { userId: string; email: string; addedAt: string };
 
@@ -39,7 +37,6 @@ export default function ManageTeamPage() {
   const [error, setError] = useState<string | null>(null);
   const [extraSeats, setExtraSeats] = useState(1);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>(
     defaultCheckoutPaymentProvider()
   );
@@ -191,8 +188,7 @@ export default function ManageTeamPage() {
         credentials: "include",
         body: JSON.stringify({
           seats: n,
-          provider: paymentProvider,
-          ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
+          provider: "lomi",
         }),
       });
       const data = await res.json();
@@ -328,13 +324,6 @@ export default function ManageTeamPage() {
                 onChange={setPaymentProvider}
                 lomiAvailable={lomiAvailable}
               />
-              {paymentProvider === "pawapay" && (
-                <PawapayCountrySelect
-                  label="Mobile money country"
-                  value={pawapayPaymentCountry}
-                  onChange={setPawapayPaymentCountry}
-                />
-              )}
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <input
