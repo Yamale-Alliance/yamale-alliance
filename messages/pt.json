@@ -2,7 +2,6 @@
   "nav": {
     "home": "Início",
     "library": "Biblioteca",
-    "afcfta": "AfCFTA",
     "aiResearch": "Pesquisa IA",
     "vault": "Yamalé Vault",
     "lawyers": "Advogados",
@@ -46,7 +45,7 @@
     "newHere": "Novo por aqui?",
     "createAccount": "Criar conta",
     "joinTitle": "Junte-se à Yamalé Legal",
-    "signUpSubtitle": "Crie uma conta de cliente para aceder à biblioteca, ferramentas AfCFTA, Cofre Yamalé e pesquisa IA.",
+    "signUpSubtitle": "Crie uma conta de cliente para aceder à biblioteca, Cofre Yamalé e pesquisa IA.",
     "signUpSubtitleLibrary": "Crie uma conta gratuita para pesquisar estatutos, regulamentos e tratados africanos na biblioteca jurídica.",
     "alreadyHaveAccount": "Já tem conta?",
     "lawyerInviteNote": "As contas de advogado são criadas e convidadas pela equipa de administração. Se é advogado, use a ligação segura de início de sessão enviada por e-mail.",
@@ -72,12 +71,13 @@
     "heroTitle1": "Direito sem barreiras.",
     "heroTitle2": "Negócios sem fronteiras.",
     "heroBadge": "Feito na África. Governado na África. Reinvestir no futuro jurídico do continente.",
-    "heroSubtitle": "A primeira plataforma unificada de pesquisa jurídica africana — 54 países, conformidade AfCFTA, consultas com IA e uma rede selecionada de profissionais jurídicos africanos.",
+    "heroSubtitle": "A primeira plataforma unificada de pesquisa jurídica africana — 54 países, consultas com IA e uma rede selecionada de profissionais jurídicos africanos.",
     "browseLibrary": "Explorar biblioteca jurídica",
     "tryAiResearch": "Experimentar pesquisa IA",
     "statCountries": "Países africanos cobertos",
     "statLaws": "Leis e regulamentos",
-    "statAfcfta": "Ferramenta Passaporte — a primeira do género",
+    "statAiValue": "IA",
+    "statAiLabel": "Assistente de pesquisa jurídica",
     "trustedBy": "Confiam em nós",
     "trustedLawFirms": "Escritórios de advogados",
     "trustedGovernments": "Governos",
@@ -90,7 +90,7 @@
     "foundersCta": "Ler a nota da fundadora",
     "platformEyebrow": "Plataforma",
     "platformTitle": "Tudo o que precisa para navegar o direito africano",
-    "platformSubtitle": "Cinco ferramentas integradas — da legislação bruta às ligações a especialistas — para profissionais jurídicos, investidores e governos que operam no continente.",
+    "platformSubtitle": "Quatro ferramentas integradas — da legislação bruta às ligações a especialistas — para profissionais jurídicos, investidores e governos que operam no continente.",
     "featureLibraryTitle": "Biblioteca jurídica",
     "featureLibraryDesc": "As leis comerciais de cada país africano, gratuitas e num só lugar. Pesquise nas 54 jurisdições por domínio e estado.",
     "featureLibraryCta": "Explorar a biblioteca",
@@ -114,7 +114,7 @@
   "footer": {
     "homeAria": "Início Yamalé",
     "tagline": "Direito africano, acessível a quem molda o futuro do continente.",
-    "description": "Direito nacional e regional, conformidade AfCFTA e pesquisa jurídica com IA — num só lugar.",
+    "description": "Direito nacional e regional e pesquisa jurídica com IA — num só lugar.",
     "product": "Produto",
     "company": "Empresa",
     "legal": "Legal",
@@ -2404,6 +2404,12 @@
       "signIn": "Entrar",
       "createAccount": "Criar conta"
     },
+    "aiFab": {
+      "label": "Pesquisa IA",
+      "launch": "Abrir pesquisa jurídica IA",
+      "dialogTitle": "Escolha um plano para Pesquisa IA",
+      "dialogBody": "Selecione uma subscrição ou opção pay-as-you-go para fazer perguntas jurídicas fundamentadas na biblioteca."
+    },
     "flairs": {
       "bookmarked": "Nos favoritos",
       "recentlyOpened": "Aberto recentemente",
@@ -2908,7 +2914,6 @@
     "comingSoonBannerTitle": "Em breve",
     "comingSoonBannerBody": "Explore a pré-visualização do diretório abaixo. A pesquisa paga e o desbloqueio de contactos ainda não estão disponíveis — estamos a integrar advogados verificados por convite.",
     "practiceAreas": {
-      "afcfta": "AfCFTA",
       "ai": "IA",
       "arbitration": "Arbitragem",
       "banking_and_finance": "Banca e finanças",
@@ -3079,14 +3084,12 @@
       "basic": [
         "Navegação ilimitada nos textos integrais das leis",
         "<strong>10 consultas IA/mês</strong>",
-        "Passaporte AfCFTA (em breve)",
         "Rede de advogados — pesquisa no diretório",
         "Explorar o Yamalé Vault"
       ],
       "pro": [
         "Navegação ilimitada nos textos integrais das leis",
         "<strong>50 consultas IA/mês</strong>",
-        "Passaporte AfCFTA (em breve)",
         "Rede de advogados — pesquisa no diretório",
         "Explorar o Yamalé Vault",
         "Descarregar a conversa IA"
@@ -3094,7 +3097,6 @@
       "team": [
         "<strong>5 lugares de utilizador incluídos</strong>",
         "<strong>Consultas IA ilimitadas por utilizador/mês</strong>",
-        "Passaporte AfCFTA (em breve)",
         "Rede de advogados — pesquisa no diretório",
         "Explorar o Yamalé Vault",
         "Descarregar a conversa IA",
