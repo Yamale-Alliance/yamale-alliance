@@ -145,13 +145,12 @@ function buildBundleOfferSection(params: {
   standaloneCents: number;
 }): PackageOffersResolved["bundle"] {
   const { addon, partner, standaloneCents } = params;
-  const saveCents = Math.max(0, standaloneCents - addon.price_cents);
   const total_cents = partner ? addon.price_cents + partner.price_cents : addon.price_cents;
   const items = partner ? [addon, partner] : [addon];
 
   const note = partner
-    ? `Bundle ${formatUsd(total_cents)}: ${formatUsd(addon.price_cents)} kit add-on + ${formatUsd(partner.price_cents)} ${partner.title}.${saveCents > 0 ? ` Kit add-on saves ${formatUsd(saveCents)} vs standalone ${formatUsd(standaloneCents)}.` : ""}`
-    : `Kit add-on ${formatUsd(addon.price_cents)}${saveCents > 0 ? ` — save ${formatUsd(saveCents)} vs standalone ${formatUsd(standaloneCents)}` : ""}.`;
+    ? `Bundle ${formatUsd(total_cents)}: ${formatUsd(addon.price_cents)} kit add-on + ${formatUsd(partner.price_cents)} ${partner.title}.`
+    : `Kit add-on ${formatUsd(addon.price_cents)}.`;
 
   return {
     items,
