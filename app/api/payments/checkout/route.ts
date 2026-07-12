@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import {
-  createSubscriptionPlanCheckoutRedirect,
-  type PlanCheckoutProvider,
-} from "@/lib/create-subscription-plan-checkout";
+import { createSubscriptionPlanCheckoutRedirect } from "@/lib/create-subscription-plan-checkout";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { getSubscriptionPlanUsdCents } from "@/lib/pricing-from-db";
-
-type CheckoutProvider = PlanCheckoutProvider;
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,7 +14,6 @@ export async function POST(request: NextRequest) {
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const planId = body.planId as string | undefined;
     const interval = (body.interval as "monthly" | "annual") || "monthly";
-    const provider = (body.provider as CheckoutProvider | undefined) || "pawapay";
 
     if (!planId || !["basic", "pro", "team"].includes(planId)) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
@@ -46,8 +40,6 @@ export async function POST(request: NextRequest) {
       usdCents,
       metadataExtra: {},
       requestOrigin,
-      provider,
-      pawapayBody: body,
       successPath: "/ai-research",
       cancelPath: "/pricing",
     });
@@ -57,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ url: result.url, provider: result.provider });
   } catch (err) {
-    console.error("pawaPay checkout error:", err);
+    console.error("Checkout error:", err);
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
   }
 }
