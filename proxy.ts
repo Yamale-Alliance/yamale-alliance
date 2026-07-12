@@ -49,9 +49,9 @@ const isPublicRoute = createRouteMatcher([
   "/lawyers(.*)",
   "/api/pricing", // public pricing data for pricing page
   "/api/marketplace(.*)", // public marketplace list and detail
-  "/api/lomi/webhook", // Lomi (X-Lomi-Signature) + pawaPay callbacks — public; do not require Clerk or X-API-Key here
+  "/api/lomi/webhook", // Lomi (X-Lomi-Signature) + Lomi callbacks — public; do not require Clerk or X-API-Key here
   "/api/payments/webhook", // legacy docs URL; same handler as /api/lomi/webhook
-  "/api/stripe/webhook", // legacy Stripe-era URL; pawaPay may still POST here (not Stripe)
+  "/api/stripe/webhook", // legacy Stripe-era URL; Lomi may still POST here (not Stripe)
   "/api/cron/(.*)", // secured with CRON_SECRET inside each handler
 ]);
 
