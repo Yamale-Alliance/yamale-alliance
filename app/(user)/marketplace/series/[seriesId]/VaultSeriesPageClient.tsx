@@ -16,7 +16,6 @@ import {
   defaultCheckoutPaymentProvider,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
-import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { computeSeriesOfferFromBrowseItems } from "@/lib/marketplace-series-offers";
 import type { MarketplaceItemPackOffer } from "@/lib/marketplace-item-packs";
 import { notifyMarketplaceCartUpdated } from "@/lib/marketplace-cart-events";
@@ -67,7 +66,6 @@ export function VaultSeriesPageClient({
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>(
     defaultCheckoutPaymentProvider()
   );
-  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
 
   useLayoutEffect(() => {
     if (initialPayload.vaultSeries.length > 0) {
@@ -224,8 +222,7 @@ export function VaultSeriesPageClient({
                   success_path: successPath,
                 }
               : { itemId: buyModalProduct!.id, success_path: successPath }),
-          provider: paymentProvider,
-          ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
+          provider: "lomi",
         }),
       });
       const data = await res.json();
@@ -255,8 +252,6 @@ export function VaultSeriesPageClient({
         onChoiceChange={setCheckoutChoice}
         paymentProvider={paymentProvider}
         onPaymentProviderChange={setPaymentProvider}
-        pawapayPaymentCountry={pawapayPaymentCountry}
-        onPawapayPaymentCountryChange={setPawapayPaymentCountry}
         lomiAvailable={false}
         lomiComingSoon={false}
         loading={buyCheckoutLoading}
@@ -318,16 +313,6 @@ export function VaultSeriesPageClient({
                   ? t("buyRemaining", { price: formatUsd(bundlePrice) })
                   : t("buyFullSeries", { price: formatUsd(bundlePrice) })}
               </button>
-              {offer!.bundleCents != null && offer!.bundleSavingsCents > 0 ? (
-                <p className="text-sm text-white/70">
-                  <span className="line-through">{formatUsd(offer!.totalCents)}</span>
-                  <span className="ml-2 font-semibold text-[#E8B84B]">
-                    {t("landing.seriesSavings", {
-                      amount: formatUsd(offer!.bundleSavingsCents),
-                    })}
-                  </span>
-                </p>
-              ) : null}
             </div>
           ) : members.every((member) => isFreeVaultItem(member.price_cents)) ? (
             <p className="mt-8 inline-flex rounded-full bg-emerald-500/20 px-4 py-2 text-sm font-semibold text-emerald-200">
