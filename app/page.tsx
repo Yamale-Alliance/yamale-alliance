@@ -70,8 +70,8 @@ export default async function Home() {
               <div className="mt-1 text-[13px] text-white/50">{t("statLaws")}</div>
             </div>
             <div>
-              <div className="heading text-[28px] font-bold leading-none text-[#E8B84B] md:text-[32px]">AfCFTA</div>
-              <div className="mt-1 text-[13px] text-white/50">{t("statAfcfta")}</div>
+              <div className="heading text-[28px] font-bold leading-none text-[#E8B84B] md:text-[32px]">{t("statAiValue")}</div>
+              <div className="mt-1 text-[13px] text-white/50">{t("statAiLabel")}</div>
             </div>
           </div>
 
@@ -81,7 +81,6 @@ export default async function Home() {
               <span>{t("trustedLawFirms")}</span>
               <span>{t("trustedGovernments")}</span>
               <span>{t("trustedMining")}</span>
-              <span>{t("trustedAfcfta")}</span>
               <span>{t("trustedDev")}</span>
             </div>
           </div>
@@ -117,7 +116,6 @@ export default async function Home() {
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <FeatureCard href="/library" title={t("featureLibraryTitle")} description={t("featureLibraryDesc")} cta={t("featureLibraryCta")} />
-            <FeatureCard href="/afcfta/compliance-check" title={t("featureAfcftaTitle")} description={t("featureAfcftaDesc")} cta={t("featureAfcftaCta")} />
             <FeatureCard href="/ai-research" title={t("featureAiTitle")} description={t("featureAiDesc")} cta={t("featureAiCta")} />
             <FeatureCard href="/marketplace" title={t("featureVaultTitle")} description={t("featureVaultDesc")} cta={t("featureVaultCta")} />
             <FeatureCard
