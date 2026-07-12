@@ -169,8 +169,7 @@
       "statFree": "Gratuit",
       "statSeries": "Séries",
       "seriesItemsTitle": "Dans cette collection",
-      "seriesItemsHint": "Ouvrez une ressource pour la prévisualiser, l'acheter ou la télécharger.",
-      "seriesSavings": "Économisez {amount} avec la série complète"
+      "seriesItemsHint": "Ouvrez une ressource pour la prévisualiser, l'acheter ou la télécharger."
     },
     "purchased": "Achetés",
     "cart": "Panier",
@@ -252,7 +251,7 @@
     "cartPage": {
       "eyebrow": "Votre panier",
       "title": "Vérifier et payer",
-      "subtitle": "Vérifiez votre panier et choisissez le mode de paiement : mobile money avec pawaPay ou paiement hébergé avec Lomi.",
+      "subtitle": "Vérifiez votre panier et choisissez le mode de paiement : paiement hébergé avec Lomi.",
       "emptyTitle": "Votre panier est vide",
       "emptyHint": "Ajoutez des articles depuis le Yamalé Vault pour commencer.",
       "browseVault": "Parcourir le Yamalé Vault",
@@ -316,7 +315,7 @@
       "includedFormat": "Format de fichier",
       "includedUpdated": "Ajouté au Vault",
       "aboutResource": "À propos de cette ressource",
-      "seriesBundleTitle": "Économisez avec {name} complet",
+      "seriesBundleTitle": "Offre complète {name}",
       "seriesBundleHint": "Obtenez les {count} guides pour {price} au paiement",
       "exploreCollectionTitle": "Explorer {name} complet",
       "exploreCollectionHint": "Parcourez chaque guide pays de cette collection — aperçu, achat ou téléchargement.",
@@ -500,7 +499,7 @@
     },
     "refunds": {
       "title": "Demandes de remboursement",
-      "introBeforeLomi": "Demandes de remboursement initiées par les clients. L'approbation déclenche Lomi ou pawaPay selon les",
+      "introBeforeLomi": "Demandes de remboursement initiées par les clients. L'approbation déclenche Lomi selon les",
       "introAfterProviders": "API et révoque l'accès lorsque le fournisseur confirme la finalisation.",
       "noRequests": "Aucune demande de remboursement dans ce filtre.",
       "adminNotesPlaceholder": "Notes admin (facultatif)",
@@ -550,7 +549,7 @@
         "mixAria": "Revenue mix by source",
         "scannedUsers": "Scanned {count} Clerk users for subscription metrics.",
         "detailTitle": "Who paid for what",
-        "detailSubtitle": "Row-level activity in the same date range as the cards above. Payment references are deposit or checkout IDs from pawaPay / Lomi where stored.",
+        "detailSubtitle": "Row-level activity in the same date range as the cards above. Payment references are deposit or checkout IDs from Lomi where stored.",
         "ranges": {
           "today": "Today",
           "this_week": "This week",
@@ -1794,7 +1793,11 @@
         "restored": "Restaurée",
         "noFieldMetadata": "Aucune métadonnée de champ",
         "unknownAdmin": "Admin inconnu",
-        "table": { "law": "Loi", "changed": "Champs modifiés", "updatedBy": "Mis à jour par" },
+        "table": {
+          "law": "Loi",
+          "changed": "Champs modifiés",
+          "updatedBy": "Mis à jour par"
+        },
         "fieldLabels": {
           "title": "Titre",
           "category_id": "Catégorie",
@@ -1804,7 +1807,9 @@
           "year": "Année",
           "content": "Contenu"
         },
-        "errors": { "loadFailed": "Échec du chargement des lois récemment mises à jour." }
+        "errors": {
+          "loadFailed": "Échec du chargement des lois récemment mises à jour."
+        }
       },
       "deleted": {
         "back": "Retour aux lois",
@@ -1841,7 +1846,9 @@
         "delete": "Supprimer",
         "rename": "Renommer",
         "deleteCategoryHint": "Supprimer la catégorie",
-        "table": { "laws": "Lois" },
+        "table": {
+          "laws": "Lois"
+        },
         "errors": {
           "loadFailed": "Échec du chargement des catégories.",
           "createFailed": "Impossible de créer la catégorie.",
@@ -2000,7 +2007,10 @@
       "uploading": "Téléversement...",
       "removing": "Suppression...",
       "confirmRemove": "Supprimer le/la {label} actuel(le) ? Cette action est irréversible.",
-      "toasts": { "updated": "{label} mis à jour avec succès", "removed": "{label} supprimé" },
+      "toasts": {
+        "updated": "{label} mis à jour avec succès",
+        "removed": "{label} supprimé"
+      },
       "errors": {
         "uploadFailed": "Échec du téléversement",
         "removeFailed": "Échec de la suppression",
@@ -2029,7 +2039,16 @@
       "title": "Barème tarifaire ZLECAf",
       "subtitle": "Ajoutez des entrées une par une ou importez un fichier (PDF, XLSX ou CSV). Le système détecte automatiquement le code SH, la description produit et les autres colonnes.",
       "requirementsLink": "Voir les exigences export & import par pays",
-      "table": { "hsCode": "Code SH", "product": "Produit", "category": "Catégorie", "sensitivity": "Sensibilité", "mfn": "NPF %", "phase": "Phase", "years": "Années", "savings": "Économies 10k$" },
+      "table": {
+        "hsCode": "Code SH",
+        "product": "Produit",
+        "category": "Catégorie",
+        "sensitivity": "Sensibilité",
+        "mfn": "NPF %",
+        "phase": "Phase",
+        "years": "Années",
+        "savings": "Économies 10k$"
+      },
       "delete": {
         "title": "Supprimer les données d'un pays",
         "subtitle": "Supprime toutes les entrées de barème ZLECAf et l'historique d'import pour un pays. Le pays n'apparaîtra plus dans l'outil de conformité ni les filtres tarifaires. Action irréversible.",
@@ -2089,16 +2108,25 @@
       "back": "Retour à ZLECAf",
       "loading": "Chargement des exigences…",
       "empty": "Aucune exigence pays configurée.",
-      "regions": { "others": "Autres" },
+      "regions": {
+        "others": "Autres"
+      },
       "sourceExport": "Source (export)",
       "sourceImport": "Source (import)",
       "exportRequirements": "Exigences d'exportation",
       "importRequirements": "Exigences d'importation",
-      "labels": { "documents": "Documents", "regulatory": "Réglementaire", "complianceNotes": "Notes de conformité" },
+      "labels": {
+        "documents": "Documents",
+        "regulatory": "Réglementaire",
+        "complianceNotes": "Notes de conformité"
+      },
       "addItem": "Ajouter un élément",
       "remove": "Supprimer",
       "save": "Enregistrer les modifications",
-      "errors": { "loadFailed": "Échec du chargement des exigences export et import.", "saveFailed": "Échec de l'enregistrement" }
+      "errors": {
+        "loadFailed": "Échec du chargement des exigences export et import.",
+        "saveFailed": "Échec de l'enregistrement"
+      }
     },
     "lawyers": {
       "title": "Annuaire des avocats",
@@ -2117,7 +2145,10 @@
       "optional": "optionnel",
       "empty": "Aucun avocat dans l'annuaire pour l'instant. Ajoutez-en un ou partagez le lien /lawyers/join.",
       "publicForm": "Formulaire public : <strong>/lawyers/join</strong> — les avocats peuvent y soumettre leurs informations.",
-      "source": { "form": "Formulaire", "manual": "Manuel" },
+      "source": {
+        "form": "Formulaire",
+        "manual": "Manuel"
+      },
       "video": {
         "title": "Vidéo d'intégration avocats",
         "description": "MP4 affichée une seule fois à l'ouverture de l'onglet <strong>Trouver un avocat</strong> (<strong>/lawyers</strong>). Relecture possible via le bouton de la section héro.",
@@ -2169,9 +2200,27 @@
         "uploading": "Téléversement…",
         "previewAlt": "Aperçu"
       },
-      "table": { "photo": "Photo", "country": "Pays", "city": "Ville", "expertise": "Expertise", "languages": "Langues", "phone": "Téléphone", "source": "Source", "status": "Statut", "added": "Ajouté" },
-      "filters": { "all": "Tous", "pending": "En attente", "approved": "Approuvés" },
-      "status": { "pending": "En attente", "approved": "Approuvé", "rejected": "Non approuvé" },
+      "table": {
+        "photo": "Photo",
+        "country": "Pays",
+        "city": "Ville",
+        "expertise": "Expertise",
+        "languages": "Langues",
+        "phone": "Téléphone",
+        "source": "Source",
+        "status": "Statut",
+        "added": "Ajouté"
+      },
+      "filters": {
+        "all": "Tous",
+        "pending": "En attente",
+        "approved": "Approuvés"
+      },
+      "status": {
+        "pending": "En attente",
+        "approved": "Approuvé",
+        "rejected": "Non approuvé"
+      },
       "review": {
         "title": "Examiner la candidature",
         "approve": "Approuver",
@@ -2183,7 +2232,12 @@
         "noDocuments": "Aucun document enregistré.",
         "viewFile": "Voir",
         "downloadFile": "Télécharger",
-        "sections": { "contact": "Contact et bureau", "practice": "Exercice", "education": "Formation", "bar": "Barreau" },
+        "sections": {
+          "contact": "Contact et bureau",
+          "practice": "Exercice",
+          "education": "Formation",
+          "bar": "Barreau"
+        },
         "fields": {
           "title": "Titre professionnel",
           "firm": "Cabinet",
@@ -2587,7 +2641,7 @@
     "currentPlan": "Forfait actuel",
     "tier": "Forfait :",
     "paidWith": "Payé avec :",
-    "paymentPawapay": "Mobile money (pawaPay)",
+    "paymentPawapay": "Mobile money (Lomi)",
     "paymentLomi": "Carte et portefeuilles (Lomi)",
     "paymentGrant": "Attribution gratuite",
     "paymentNotRecorded": "Non enregistré",
@@ -2652,7 +2706,7 @@
   },
   "accountRefunds": {
     "requestTitle": "Demander un remboursement",
-    "requestDesc": "Choisissez un achat récent et expliquez pourquoi vous demandez un remboursement. Un administrateur examinera votre demande avant tout remboursement via Lomi ou mobile money (pawaPay).",
+    "requestDesc": "Choisissez un achat récent et expliquez pourquoi vous demandez un remboursement. Un administrateur examinera votre demande avant tout remboursement via Lomi.",
     "noEligible": "Aucun achat éligible trouvé, ou vous avez déjà des demandes en cours.",
     "purchaseLabel": "Achat",
     "selectItem": "Sélectionner un article…",
@@ -3056,11 +3110,10 @@
     "subtitle": "Payez par mobile money ou carte bancaire. Facturation pour institutions. Payez uniquement ce dont vous avez besoin.",
     "monthly": "Mensuel",
     "annual": "Annuel",
-    "savePercent": "Économisez 17 %",
     "choosePlanHint": "Choisissez un forfait ci-dessous, puis finalisez la facturation sur la page de paiement.",
     "perMonth": "/mois",
     "forever": "/à vie",
-    "billedAnnually": "facturé annuellement {total} $/an (économie de {amount} $)",
+    "billedAnnually": "facturé annuellement {total} $/an",
     "currentPlan": "Forfait actuel",
     "contactUs": "Nous contacter",
     "tiers": {
@@ -3268,12 +3321,30 @@
         "fillStartFieldsTitle": "Remplissez tous les champs obligatoires à l'étape Démarrer pour continuer"
       },
       "steps": {
-        "start": { "label": "Démarrer", "sub": "Produit et itinéraire" },
-        "production": { "label": "Production", "sub": "Répartition des coûts" },
-        "origin": { "label": "Origine", "sub": "Règles d'origine" },
-        "ntb": { "label": "Obstacles", "sub": "Obstacles non tarifaires" },
-        "tariff": { "label": "Économies", "sub": "Économies tarifaires" },
-        "checklist": { "label": "Liste", "sub": "Liste finale" }
+        "start": {
+          "label": "Démarrer",
+          "sub": "Produit et itinéraire"
+        },
+        "production": {
+          "label": "Production",
+          "sub": "Répartition des coûts"
+        },
+        "origin": {
+          "label": "Origine",
+          "sub": "Règles d'origine"
+        },
+        "ntb": {
+          "label": "Obstacles",
+          "sub": "Obstacles non tarifaires"
+        },
+        "tariff": {
+          "label": "Économies",
+          "sub": "Économies tarifaires"
+        },
+        "checklist": {
+          "label": "Liste",
+          "sub": "Liste finale"
+        }
       },
       "start": {
         "freeTierTitle": "Lecture seule avec le forfait Gratuit",
