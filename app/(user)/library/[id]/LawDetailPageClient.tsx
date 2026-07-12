@@ -44,14 +44,12 @@ const LawExportPreviewDialog = dynamic(
   { ssr: false }
 );
 import { LawFlagDialog } from "@/components/library/LawFlagDialog";
-import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
 import {
   PaymentMethodPicker,
   defaultCheckoutPaymentProvider,
   isLomiCheckoutAvailable,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
-import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import { PlatformLogo } from "@/components/platform/PlatformLogo";
 import { usePlatformSettings } from "@/components/platform/PlatformSettingsContext";
 import { MarketingDiscountPrice } from "@/components/pricing/MarketingDiscountPrice";
@@ -696,7 +694,22 @@ function splitIntoSections(text: string): Section[] {
     return [{ id: "sec-0", title: "النص الكامل / Full text", body: text.trim() }];
   }
 
-  return sections.map(stripLeadingTitleDuplicate);
+  // Drop empty Summary / Synopsis placeholders (retired AI-summary feature left empty headings).
+  return sections.map(stripLeadingTitleDuplicate).filter((sec) => !isEmptySummaryPlaceholderSection(sec));
+}
+
+/** True when a section is only an empty Summary-style heading (no body to show). */
+function isEmptySummaryPlaceholderSection(sec: Section): boolean {
+  const title = stripInlineMarkdownBoldMarkers(sectionTitle(sec.title) || sec.title)
+    .replace(/^#+\s*/, "")
+    .trim();
+  if (
+    !/^(ai\s+)?summar(y|ies)$/i.test(title) &&
+    !/^(synopsis|abstract|résumé|resume|resumo|sommaire)$/i.test(title)
+  ) {
+    return false;
+  }
+  return !sec.body?.trim();
 }
 
 // Detect if content is primarily Arabic (for RTL display)
@@ -732,7 +745,6 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
   const [printCheckoutProvider, setPrintCheckoutProvider] = useState<CheckoutPaymentProvider>(
     defaultCheckoutPaymentProvider()
   );
-  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
   const { isSignedIn, user, isLoaded } = useAppUser();
   const [signInDialogOpen, setSignInDialogOpen] = useState(false);
   const searchParams = useSearchParams();
@@ -862,7 +874,6 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
     return () => window.clearTimeout(t);
   }, [documentPaymentSuccessVisible]);
 
-  // Check if user has team plan
   const isAdmin = (user?.publicMetadata?.role as string | undefined) === "admin";
 
   const handleFixOcr = async () => {
@@ -1022,7 +1033,6 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
         body: JSON.stringify({
           return_path: `/library/${resolvedId}`,
           provider: printCheckoutProvider,
-          ...(printCheckoutProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
         }),
       });
       const data = await res.json();
@@ -1977,13 +1987,6 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                   void showAlert(tLib("lomiComingSoonMessage"), tCommon("comingSoon"));
                 }}
               />
-              {printCheckoutProvider === "pawapay" && (
-                <PawapayCountrySelect
-                  label={tLib("mobileMoneyCountry")}
-                  value={pawapayPaymentCountry}
-                  onChange={setPawapayPaymentCountry}
-                />
-              )}
             </div>
             <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-border pt-4">
               <Dialog.Close asChild>
