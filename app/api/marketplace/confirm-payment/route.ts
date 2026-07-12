@@ -2,24 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { auth } from "@clerk/nextjs/server";
 import {
-  getDepositStatus,
-  isDepositCompleted,
-  pollPawaPayDepositUntilComplete,
-} from "@/lib/pawapay";
-import {
   getCompletedLomiCheckoutMetadata,
   isLomiConfigured,
   pollCompletedLomiCheckoutMetadata,
 } from "@/lib/lomi-checkout";
 import { LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE } from "@/lib/lomi-marketplace-checkout-cookie";
 import { recordMarketplaceItemPurchase } from "@/lib/marketplace-cart-purchases";
-import { getSupabaseServer } from "@/lib/supabase/server";
 import { capturePaymentConfirmError } from "@/lib/monitoring";
 
-/**
- * After Lomi or pawaPay redirect: confirm payment from session_id and record purchase.
- * Lomi: success URL uses `payment=verify&from_lomi=1` and the real session id is in an HttpOnly cookie (Lomi does not substitute `{CHECKOUT_SESSION_ID}`).
- */
+/** After Lomi redirect: confirm payment from session_id and record purchase. */
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await auth();
@@ -50,75 +41,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const quickPawa = await getDepositStatus(sessionId);
-
     let lomiMd = await getCompletedLomiCheckoutMetadata(sessionId);
-    if (!lomiMd && isLomiConfigured() && !quickPawa) {
+    if (!lomiMd && isLomiConfigured()) {
       lomiMd = await pollCompletedLomiCheckoutMetadata(sessionId);
     }
-    if (lomiMd) {
-      const lomiUser = lomiMd.clerk_user_id ?? lomiMd.CLERK_USER_ID;
-      if (lomiUser !== userId) {
-        const res = NextResponse.json({ error: "Session does not match user" }, { status: 403 });
-        res.cookies.set(LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE, "", { path: "/", maxAge: 0 });
-        return res;
-      }
-      const kind = lomiMd.kind ?? lomiMd.KIND;
-      const marketplaceItemId = lomiMd.marketplace_item_id ?? lomiMd.MARKETPLACE_ITEM_ID;
-      if (kind !== "marketplace" || !marketplaceItemId) {
-        const res = NextResponse.json({ error: "Not a marketplace session" }, { status: 400 });
-        res.cookies.set(LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE, "", { path: "/", maxAge: 0 });
-        return res;
-      }
+    if (!lomiMd) {
+      return NextResponse.json(
+        {
+          error:
+            "We could not confirm payment yet. If you finished checkout, wait a few seconds and refresh this page.",
+          pending: true,
+        },
+        { status: 503 }
+      );
+    }
 
-      await recordMarketplaceItemPurchase({
-        userId,
-        marketplaceItemId,
-        sessionId,
-        bundlePartnerItemId:
-          (lomiMd.checkout_tier ?? lomiMd.CHECKOUT_TIER) === "bundle"
-            ? (lomiMd.bundle_partner_item_id ?? lomiMd.BUNDLE_PARTNER_ITEM_ID)
-            : null,
-      });
-
-      const res = NextResponse.json({ ok: true, marketplace_item_id: marketplaceItemId, provider: "lomi" });
+    const lomiUser = lomiMd.clerk_user_id ?? lomiMd.CLERK_USER_ID;
+    if (lomiUser !== userId) {
+      const res = NextResponse.json({ error: "Session does not match user" }, { status: 403 });
       res.cookies.set(LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE, "", { path: "/", maxAge: 0 });
       return res;
     }
-
-    let deposit = quickPawa;
-    if (!deposit || !isDepositCompleted(deposit.status)) {
-      const polled = await pollPawaPayDepositUntilComplete(sessionId, {
-        maxAttempts: 16,
-        delayMs: 500,
-      });
-      if (!polled.ok) {
-        const status = polled.reason === "pending" ? 503 : 400;
-        let msg = polled.message || "Payment not completed";
-        if (!quickPawa && isLomiConfigured()) {
-          msg +=
-            " If you paid with card (Lomi), wait a few seconds and refresh this page; the charge can show in your bank before Lomi marks the checkout as paid.";
-        }
-        return NextResponse.json(
-          {
-            error: msg,
-            pending: polled.reason === "pending",
-          },
-          { status }
-        );
-      }
-      deposit = polled.deposit;
-    }
-
-    const clerkUserId = deposit.metadata?.clerk_user_id;
-    if (clerkUserId !== userId) {
-      return NextResponse.json({ error: "Session does not match user" }, { status: 403 });
-    }
-
-    const kind = deposit.metadata?.kind;
-    const marketplaceItemId = deposit.metadata?.marketplace_item_id;
+    const kind = lomiMd.kind ?? lomiMd.KIND;
+    const marketplaceItemId = lomiMd.marketplace_item_id ?? lomiMd.MARKETPLACE_ITEM_ID;
     if (kind !== "marketplace" || !marketplaceItemId) {
-      return NextResponse.json({ error: "Not a marketplace session" }, { status: 400 });
+      const res = NextResponse.json({ error: "Not a marketplace session" }, { status: 400 });
+      res.cookies.set(LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE, "", { path: "/", maxAge: 0 });
+      return res;
     }
 
     await recordMarketplaceItemPurchase({
@@ -126,12 +75,12 @@ export async function POST(request: NextRequest) {
       marketplaceItemId,
       sessionId,
       bundlePartnerItemId:
-        deposit.metadata?.checkout_tier === "bundle"
-          ? deposit.metadata?.bundle_partner_item_id
+        (lomiMd.checkout_tier ?? lomiMd.CHECKOUT_TIER) === "bundle"
+          ? (lomiMd.bundle_partner_item_id ?? lomiMd.BUNDLE_PARTNER_ITEM_ID)
           : null,
     });
 
-    const res = NextResponse.json({ ok: true, marketplace_item_id: marketplaceItemId });
+    const res = NextResponse.json({ ok: true, marketplace_item_id: marketplaceItemId, provider: "lomi" });
     res.cookies.set(LOMI_MARKETPLACE_ITEM_CHECKOUT_COOKIE, "", { path: "/", maxAge: 0 });
     return res;
   } catch (err) {
