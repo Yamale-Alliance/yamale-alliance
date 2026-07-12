@@ -29,6 +29,13 @@ const nextConfig = {
       { source: "/api/stripe/:path*", destination: "/api/payments/:path*" },
     ];
   },
+  async redirects() {
+    return [
+      { source: "/afcfta", destination: "/library", permanent: true },
+      { source: "/afcfta/:path*", destination: "/library", permanent: true },
+      { source: "/afcfta-ai-legal-research", destination: "/ai-research", permanent: true },
+    ];
+  },
   experimental: {
     // Load CSS in import order so preloaded chunks are used when needed (reduces "preloaded but not used" warnings)
     cssChunking: "strict",
