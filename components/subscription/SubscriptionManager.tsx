@@ -14,8 +14,6 @@ import {
   isLomiCheckoutAvailable,
   type CheckoutPaymentProvider,
 } from "@/components/checkout/PaymentMethodPicker";
-import { PawapayCountrySelect } from "@/components/checkout/PawapayCountrySelect";
-import { DEFAULT_PAWAPAY_PAYMENT_COUNTRY } from "@/lib/pawapay-payment-countries";
 import type { SubscriptionPublicState } from "@/lib/subscription-state";
 import { getDisplayedBillingWindow } from "@/lib/subscription-billing-window";
 import { localizeAiPricingTiers } from "@/lib/localized-pricing-tiers";
@@ -89,7 +87,6 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
   const [paymentProvider, setPaymentProvider] = useState<CheckoutPaymentProvider>(
     defaultCheckoutPaymentProvider()
   );
-  const [pawapayPaymentCountry, setPawapayPaymentCountry] = useState(DEFAULT_PAWAPAY_PAYMENT_COUNTRY);
 
   const isAnnual = billing === "annual";
   const lomiAvailable = isLomiCheckoutAvailable();
@@ -172,9 +169,8 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
         body: JSON.stringify({
           planId: selectedPlan,
           interval: billing,
-          provider: paymentProvider,
+          provider: "lomi",
           cancelPath: basePath,
-          ...(paymentProvider === "pawapay" ? { paymentCountry: pawapayPaymentCountry } : {}),
         }),
       });
       const data = await res.json();
@@ -319,11 +315,9 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
                   <p>
                     <span className="text-muted-foreground">{t("paidWith")}</span>{" "}
                     <span className="font-medium">
-                      {subState.paymentProvider === "pawapay"
-                        ? t("paymentPawapay")
-                        : subState.paymentProvider === "lomi"
-                          ? t("paymentLomi")
-                          : subState.isSubscriptionGrant
+                      {subState.paymentProvider === "lomi"
+                        ? t("paymentLomi")
+                        : subState.isSubscriptionGrant
                             ? t("paymentGrant")
                             : t("paymentNotRecorded")}
                     </span>
@@ -525,16 +519,6 @@ export function SubscriptionManager({ basePath, compact = false }: SubscriptionM
                 lomiAvailable={lomiAvailable}
                 hideLabel
               />
-              {paymentProvider === "pawapay" && (
-                <div className="mt-4">
-                  <PawapayCountrySelect
-                    id="subscription-pawapay-country"
-                    label={t("mobileMoneyCountry")}
-                    value={pawapayPaymentCountry}
-                    onChange={setPawapayPaymentCountry}
-                  />
-                </div>
-              )}
             </div>
             <button
               type="button"
