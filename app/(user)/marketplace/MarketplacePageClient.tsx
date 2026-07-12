@@ -91,7 +91,7 @@ type Product = MarketplaceBrowseItem;
 
 type FormatTileParam = "all" | ProductCategory | typeof VAULT_BROWSE_FREE | typeof VAULT_BROWSE_SERIES;
 
-type TopicId = "general" | "afcftaTrade" | "tax" | "labour" | "mining" | "compliance" | "corporate";
+type TopicId = "general" | "tax" | "labour" | "mining" | "compliance" | "corporate";
 
 const FORMAT_TILE_DEFS: {
   param: FormatTileParam;
@@ -109,7 +109,7 @@ const FORMAT_TILE_DEFS: {
 
 function inferTopicId(product: Product): TopicId {
   const text = `${product.title} ${product.description ?? ""} ${product.author}`.toLowerCase();
-  if (text.includes("afcfta") || text.includes("origin") || text.includes("customs")) return "afcftaTrade";
+  if (text.includes("origin") || text.includes("customs")) return "compliance";
   if (text.includes("tax") || text.includes("vat")) return "tax";
   if (text.includes("labour") || text.includes("employment")) return "labour";
   if (text.includes("mining") || text.includes("extractive")) return "mining";
