@@ -4,7 +4,6 @@ export const revalidate = 600;
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import {
-  PRICING_AFCFTA_COMING_SOON,
   PRICING_LAWYERS_NETWORK_FEATURE,
   normalizePricingFeatures,
 } from "@/lib/pricing-coming-soon-features";
@@ -41,7 +40,6 @@ const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
     features: [
       "Unlimited browsing of full texts of laws",
       "<strong>Basic level AI queries/month</strong> (limited)",
-      PRICING_AFCFTA_COMING_SOON,
       PRICING_LAWYERS_NETWORK_FEATURE,
       "Browse marketplace",
     ],
@@ -55,7 +53,6 @@ const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
     features: [
       "Unlimited browsing of full texts of laws",
       "<strong>Pro level AI queries/month</strong> (limited)",
-      PRICING_AFCFTA_COMING_SOON,
       PRICING_LAWYERS_NETWORK_FEATURE,
       "Browse marketplace",
       "Download AI conversation",
@@ -70,7 +67,6 @@ const PRICING_FALLBACKS: Record<string, Partial<PricingTier>> = {
     features: [
       "<strong>5 users included</strong>",
       "<strong>Team level AI queries per user/month</strong> (limited)",
-      PRICING_AFCFTA_COMING_SOON,
       PRICING_LAWYERS_NETWORK_FEATURE,
       "Browse marketplace",
       "Download AI conversation",
