@@ -1,13 +1,11 @@
 /** Tier / pricing copy for products not yet publicly available. */
-export const PRICING_AFCFTA_COMING_SOON = "AfCFTA Passport (coming soon)";
 export const PRICING_LAWYERS_NETWORK_FEATURE = "Lawyers network directory search";
 
-/** Rewrites AfCFTA plan bullets from DB or fallbacks to coming-soon lines. */
+/** Removes AfCFTA and other retired product bullets from public pricing copy. */
 export function applyPricingComingSoonFeatures(features: string[]): string[] {
-  return features.map((feature) => {
+  return features.filter((feature) => {
     const plain = feature.replace(/<[^>]*>/g, " ").toLowerCase();
-    if (plain.includes("afcfta")) return PRICING_AFCFTA_COMING_SOON;
-    return feature;
+    return !plain.includes("afcfta");
   });
 }
 
