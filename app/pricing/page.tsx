@@ -28,7 +28,6 @@ import {
 } from "@/components/pricing/MarketingDiscountPrice";
 import { stashPaygAiQueryLomiSessionId } from "@/lib/lomi-payg-ai-query-return";
 import {
-  PRICING_AFCFTA_COMING_SOON,
   PRICING_LAWYERS_NETWORK_FEATURE,
   normalizePricingFeatures,
 } from "@/lib/pricing-coming-soon-features";
@@ -75,7 +74,6 @@ const FALLBACK_TIERS: Tier[] = [
     features: [
       "Unlimited browsing of full texts of laws",
       "<strong>Basic level AI queries/month</strong> (limited)",
-      PRICING_AFCFTA_COMING_SOON,
       PRICING_LAWYERS_NETWORK_FEATURE,
       "Browse The Yamalé Vault",
     ],
@@ -93,7 +91,6 @@ const FALLBACK_TIERS: Tier[] = [
     features: [
       "Unlimited browsing of full texts of laws",
       "<strong>Pro level AI queries/month</strong> (limited)",
-      PRICING_AFCFTA_COMING_SOON,
       PRICING_LAWYERS_NETWORK_FEATURE,
       "Browse The Yamalé Vault",
       "Download AI conversation",
@@ -112,7 +109,6 @@ const FALLBACK_TIERS: Tier[] = [
     features: [
       "<strong>5 user seats included</strong>",
       "<strong>Team level AI queries per user/month</strong> (limited)",
-      PRICING_AFCFTA_COMING_SOON,
       PRICING_LAWYERS_NETWORK_FEATURE,
       "Browse The Yamalé Vault",
       "Download AI conversation",
@@ -203,7 +199,7 @@ export default function PricingPage() {
   };
 
   const handlePayAsYouGoCheckout = async (
-    itemType: "document" | "ai_query" | "afcfta_report",
+    itemType: "document" | "ai_query",
     provider: CheckoutPaymentProvider = paymentProvider
   ) => {
     if (!isLoaded) return;
@@ -218,7 +214,6 @@ export default function PricingPage() {
       const endpointMap = {
         document: "/api/payments/payg/document",
         ai_query: "/api/payments/payg/ai-query",
-        afcfta_report: "/api/payments/payg/afcfta-report",
       };
       const res = await fetch(endpointMap[itemType], {
         method: "POST",
@@ -596,20 +591,6 @@ export default function PricingPage() {
               </div>
               <MarketingDiscountPrice currentCents={dayPassPriceUsdCents} size="hero" suffix={t("payg.dayPass.suffix")} />
             </button>
-
-            <div className="flex min-h-[132px] w-full items-center justify-between rounded-[14px] border border-border bg-card px-6 py-5 text-left">
-              <div className="pr-4 sm:pr-6">
-                <div className="text-xl font-semibold leading-tight text-foreground sm:text-[28px]">
-                  {t("payg.afcftaPassport.title")}
-                </div>
-                <div className="mt-1 text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
-                  {t("payg.afcftaPassport.description")}
-                </div>
-              </div>
-              <span className="shrink-0 rounded-lg border border-amber-300/80 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100">
-                {t("payg.comingSoon")}
-              </span>
-            </div>
 
             <button
               type="button"
