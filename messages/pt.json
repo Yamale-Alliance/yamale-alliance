@@ -169,8 +169,7 @@
       "statFree": "Grátis",
       "statSeries": "Séries",
       "seriesItemsTitle": "Nesta coleção",
-      "seriesItemsHint": "Abra qualquer recurso para pré-visualizar, comprar ou transferir.",
-      "seriesSavings": "Poupe {amount} com a série completa"
+      "seriesItemsHint": "Abra qualquer recurso para pré-visualizar, comprar ou transferir."
     },
     "purchased": "Comprados",
     "cart": "Carrinho",
@@ -252,7 +251,7 @@
     "cartPage": {
       "eyebrow": "O seu carrinho",
       "title": "Rever e pagar",
-      "subtitle": "Reveja o carrinho e escolha como pagar: mobile money com pawaPay ou pagamento alojado com Lomi.",
+      "subtitle": "Reveja o carrinho e escolha como pagar: pagamento alojado com Lomi.",
       "emptyTitle": "O seu carrinho está vazio",
       "emptyHint": "Adicione itens do Yamalé Vault para começar.",
       "browseVault": "Explorar o Yamalé Vault",
@@ -316,7 +315,7 @@
       "includedFormat": "Formato do ficheiro",
       "includedUpdated": "Adicionado ao Vault",
       "aboutResource": "Sobre este recurso",
-      "seriesBundleTitle": "Poupe com {name} completo",
+      "seriesBundleTitle": "Pacote completo {name}",
       "seriesBundleHint": "Obtenha todos os {count} guias por {price} no pagamento",
       "exploreCollectionTitle": "Explorar {name} completo",
       "exploreCollectionHint": "Navegue por todos os guias de país desta coleção — pré-visualize, compre ou transfira.",
@@ -500,7 +499,7 @@
     },
     "refunds": {
       "title": "Pedidos de reembolso",
-      "introBeforeLomi": "Pedidos de reembolso iniciados pelo cliente. A aprovação aciona Lomi ou pawaPay conforme as",
+      "introBeforeLomi": "Pedidos de reembolso iniciados pelo cliente. A aprovação aciona Lomi conforme as",
       "introAfterProviders": "API e revoga o acesso quando o fornecedor confirma a conclusão.",
       "noRequests": "Nenhum pedido de reembolso neste filtro.",
       "adminNotesPlaceholder": "Notas admin (opcional)",
@@ -550,7 +549,7 @@
         "mixAria": "Revenue mix by source",
         "scannedUsers": "Scanned {count} Clerk users for subscription metrics.",
         "detailTitle": "Who paid for what",
-        "detailSubtitle": "Row-level activity in the same date range as the cards above. Payment references are deposit or checkout IDs from pawaPay / Lomi where stored.",
+        "detailSubtitle": "Row-level activity in the same date range as the cards above. Payment references are deposit or checkout IDs from Lomi where stored.",
         "ranges": {
           "today": "Today",
           "this_week": "This week",
@@ -1794,7 +1793,11 @@
         "restored": "Restaurada",
         "noFieldMetadata": "Sem metadados de campo",
         "unknownAdmin": "Admin desconhecido",
-        "table": { "law": "Lei", "changed": "Campos alterados", "updatedBy": "Atualizado por" },
+        "table": {
+          "law": "Lei",
+          "changed": "Campos alterados",
+          "updatedBy": "Atualizado por"
+        },
         "fieldLabels": {
           "title": "Título",
           "category_id": "Categoria",
@@ -1804,7 +1807,9 @@
           "year": "Ano",
           "content": "Conteúdo"
         },
-        "errors": { "loadFailed": "Falha ao carregar leis atualizadas recentemente." }
+        "errors": {
+          "loadFailed": "Falha ao carregar leis atualizadas recentemente."
+        }
       },
       "deleted": {
         "back": "Voltar às leis",
@@ -1841,7 +1846,9 @@
         "delete": "Eliminar",
         "rename": "Renomear",
         "deleteCategoryHint": "Eliminar categoria",
-        "table": { "laws": "Leis" },
+        "table": {
+          "laws": "Leis"
+        },
         "errors": {
           "loadFailed": "Falha ao carregar categorias.",
           "createFailed": "Não foi possível criar a categoria.",
@@ -2000,7 +2007,10 @@
       "uploading": "A carregar...",
       "removing": "A remover...",
       "confirmRemove": "Remover o/a {label} atual? Esta ação não pode ser desfeita.",
-      "toasts": { "updated": "{label} atualizado com sucesso", "removed": "{label} removido" },
+      "toasts": {
+        "updated": "{label} atualizado com sucesso",
+        "removed": "{label} removido"
+      },
       "errors": {
         "uploadFailed": "Falha no carregamento",
         "removeFailed": "Falha na remoção",
@@ -2029,7 +2039,16 @@
       "title": "Tabela tarifária AfCFTA",
       "subtitle": "Adicione entradas uma a uma ou importe de ficheiro (PDF, XLSX ou CSV). O sistema deteta código HS, descrição do produto e outras colunas automaticamente.",
       "requirementsLink": "Ver requisitos de exportação e importação por país",
-      "table": { "hsCode": "Código HS", "product": "Produto", "category": "Categoria", "sensitivity": "Sensibilidade", "mfn": "NMF %", "phase": "Fase", "years": "Anos", "savings": "Poupança 10k$" },
+      "table": {
+        "hsCode": "Código HS",
+        "product": "Produto",
+        "category": "Categoria",
+        "sensitivity": "Sensibilidade",
+        "mfn": "NMF %",
+        "phase": "Fase",
+        "years": "Anos",
+        "savings": "Poupança 10k$"
+      },
       "delete": {
         "title": "Eliminar dados do país",
         "subtitle": "Remove todos os dados de tabela tarifária AfCFTA e histórico de importação de um país. O país deixa de aparecer na ferramenta de conformidade e filtros tarifários. Não pode ser desfeito.",
@@ -2089,16 +2108,25 @@
       "back": "Voltar ao AfCFTA",
       "loading": "A carregar requisitos…",
       "empty": "Nenhum requisito de país configurado.",
-      "regions": { "others": "Outros" },
+      "regions": {
+        "others": "Outros"
+      },
       "sourceExport": "Fonte (exportação)",
       "sourceImport": "Fonte (importação)",
       "exportRequirements": "Requisitos de exportação",
       "importRequirements": "Requisitos de importação",
-      "labels": { "documents": "Documentos", "regulatory": "Regulatório", "complianceNotes": "Notas de conformidade" },
+      "labels": {
+        "documents": "Documentos",
+        "regulatory": "Regulatório",
+        "complianceNotes": "Notas de conformidade"
+      },
       "addItem": "Adicionar item",
       "remove": "Remover",
       "save": "Guardar alterações",
-      "errors": { "loadFailed": "Falha ao carregar requisitos de exportação e importação.", "saveFailed": "Falha ao guardar" }
+      "errors": {
+        "loadFailed": "Falha ao carregar requisitos de exportação e importação.",
+        "saveFailed": "Falha ao guardar"
+      }
     },
     "lawyers": {
       "title": "Diretório de advogados",
@@ -2117,7 +2145,10 @@
       "optional": "opcional",
       "empty": "Ainda sem advogados no diretório. Adicione manualmente ou partilhe o link /lawyers/join.",
       "publicForm": "Formulário público: <strong>/lawyers/join</strong> — os advogados podem submeter os seus dados aí.",
-      "source": { "form": "Formulário", "manual": "Manual" },
+      "source": {
+        "form": "Formulário",
+        "manual": "Manual"
+      },
       "video": {
         "title": "Vídeo de onboarding de advogados",
         "description": "MP4 mostrado uma vez quando alguém abre o separador <strong>Encontrar Advogado</strong> (<strong>/lawyers</strong>). Pode ser reproduzido novamente no botão de vídeo do herói.",
@@ -2169,9 +2200,27 @@
         "uploading": "A carregar…",
         "previewAlt": "Pré-visualização"
       },
-      "table": { "photo": "Foto", "country": "País", "city": "Cidade", "expertise": "Especialização", "languages": "Idiomas", "phone": "Telefone", "source": "Origem", "status": "Estado", "added": "Adicionado" },
-      "filters": { "all": "Todos", "pending": "Pendentes", "approved": "Aprovados" },
-      "status": { "pending": "Em revisão", "approved": "Aprovado", "rejected": "Não aprovado" },
+      "table": {
+        "photo": "Foto",
+        "country": "País",
+        "city": "Cidade",
+        "expertise": "Especialização",
+        "languages": "Idiomas",
+        "phone": "Telefone",
+        "source": "Origem",
+        "status": "Estado",
+        "added": "Adicionado"
+      },
+      "filters": {
+        "all": "Todos",
+        "pending": "Pendentes",
+        "approved": "Aprovados"
+      },
+      "status": {
+        "pending": "Em revisão",
+        "approved": "Aprovado",
+        "rejected": "Não aprovado"
+      },
       "review": {
         "title": "Rever candidatura",
         "approve": "Aprovar",
@@ -2183,7 +2232,12 @@
         "noDocuments": "Sem documentos registados.",
         "viewFile": "Ver",
         "downloadFile": "Transferir",
-        "sections": { "contact": "Contacto e escritório", "practice": "Prática", "education": "Formação", "bar": "Ordem dos advogados" },
+        "sections": {
+          "contact": "Contacto e escritório",
+          "practice": "Prática",
+          "education": "Formação",
+          "bar": "Ordem dos advogados"
+        },
         "fields": {
           "title": "Título profissional",
           "firm": "Escritório",
@@ -2587,7 +2641,7 @@
     "currentPlan": "Plano atual",
     "tier": "Plano:",
     "paidWith": "Pago com:",
-    "paymentPawapay": "Mobile money (pawaPay)",
+    "paymentPawapay": "Mobile money (Lomi)",
     "paymentLomi": "Cartão e carteiras (Lomi)",
     "paymentGrant": "Atribuição gratuita",
     "paymentNotRecorded": "Não registado",
@@ -2652,7 +2706,7 @@
   },
   "accountRefunds": {
     "requestTitle": "Pedir reembolso",
-    "requestDesc": "Escolha uma compra recente e explique por que pede reembolso. Um administrador analisará o pedido antes de qualquer devolução via Lomi ou mobile money (pawaPay).",
+    "requestDesc": "Escolha uma compra recente e explique por que pede reembolso. Um administrador analisará o pedido antes de qualquer devolução via Lomi.",
     "noEligible": "Nenhuma compra elegível encontrada, ou já tem pedidos em aberto.",
     "purchaseLabel": "Compra",
     "selectItem": "Selecionar um item…",
@@ -3056,11 +3110,10 @@
     "subtitle": "Pague com mobile money ou cartão. Faturação para instituições. Pague apenas pelo que precisa.",
     "monthly": "Mensal",
     "annual": "Anual",
-    "savePercent": "Poupe 17%",
     "choosePlanHint": "Escolha um plano abaixo e conclua a faturação na página de pagamento.",
     "perMonth": "/mês",
     "forever": "/para sempre",
-    "billedAnnually": "faturado anualmente ${total}/ano (poupe ${amount})",
+    "billedAnnually": "faturado anualmente ${total}/ano",
     "currentPlan": "Plano atual",
     "contactUs": "Contacte-nos",
     "tiers": {
@@ -3268,12 +3321,30 @@
         "fillStartFieldsTitle": "Preencha todos os campos obrigatórios no passo Início para continuar"
       },
       "steps": {
-        "start": { "label": "Início", "sub": "Produto e rota" },
-        "production": { "label": "Produção", "sub": "Repartição de custos" },
-        "origin": { "label": "Origem", "sub": "Regras de origem" },
-        "ntb": { "label": "Barreiras", "sub": "Barreiras não tarifárias" },
-        "tariff": { "label": "Poupança", "sub": "Poupança tarifária" },
-        "checklist": { "label": "Lista", "sub": "Lista final" }
+        "start": {
+          "label": "Início",
+          "sub": "Produto e rota"
+        },
+        "production": {
+          "label": "Produção",
+          "sub": "Repartição de custos"
+        },
+        "origin": {
+          "label": "Origem",
+          "sub": "Regras de origem"
+        },
+        "ntb": {
+          "label": "Barreiras",
+          "sub": "Barreiras não tarifárias"
+        },
+        "tariff": {
+          "label": "Poupança",
+          "sub": "Poupança tarifária"
+        },
+        "checklist": {
+          "label": "Lista",
+          "sub": "Lista final"
+        }
       },
       "start": {
         "freeTierTitle": "Apenas leitura no plano Gratuito",
