@@ -1318,7 +1318,8 @@
           "recentlyDeleted": "Récemment supprimées",
           "recentlyUpdated": "Récemment mises à jour",
           "ragApproval": "File d'approbation RAG",
-          "addLaw": "Ajouter une loi"
+          "addLaw": "Ajouter une loi",
+          "assignLevel": "Attribuer les niveaux"
         },
         "filters": {
           "country": "Pays",
@@ -1368,7 +1369,9 @@
           "update": "Mettre à jour",
           "deleteTitle": "Supprimer des lois",
           "deleteDescription": "Supprimer {count} lois ? Les favoris et données associées seront supprimés. Action irréversible.",
-          "delete": "Supprimer"
+          "delete": "Supprimer",
+          "updateLevelTitle": "Mettre à jour le niveau",
+          "updateLevelDescription": "Définir le niveau sur « {level} » pour {count} lois ?"
         },
         "errors": {
           "updateFailed": "Échec de la mise à jour.",
@@ -1382,11 +1385,17 @@
           "country": "Pays",
           "category": "Catégorie",
           "treaty": "Traité",
-          "year": "Année"
+          "year": "Année",
+          "level": "Niveau"
         },
         "allCountries": "Tous les pays",
         "empty": "Aucune loi ne correspond aux filtres.",
-        "emptyAddFirst": "Ajouter la première loi"
+        "emptyAddFirst": "Ajouter la première loi",
+        "levelValues": {
+          "national": "National",
+          "regional": "Régional",
+          "international": "International"
+        }
       },
       "add": {
         "back": "Retour aux lois",
@@ -1487,6 +1496,13 @@
           "pleaseWait": "Veuillez patienter…",
           "adding": "Ajout…",
           "addLaw": "Ajouter une loi"
+        },
+        "level": "Niveau",
+        "levelHint": "Loi nationale, instrument régional (ex. CEDEAO, OHADA) ou traité international.",
+        "levelValues": {
+          "national": "National",
+          "regional": "Régional",
+          "international": "International"
         }
       },
       "edit": {
@@ -1605,6 +1621,13 @@
           "errors": {
             "updateFailed": "Échec de la mise à jour du statut d'approbation RAG."
           }
+        },
+        "level": "Niveau",
+        "levelHint": "Loi nationale, instrument régional (ex. CEDEAO, OHADA) ou traité international.",
+        "levelValues": {
+          "national": "National",
+          "regional": "Régional",
+          "international": "International"
         }
       },
       "ragApproval": {
@@ -1882,6 +1905,64 @@
           "massDedupeFailed": "Échec de la déduplication massive.",
           "refreshFailed": "Lois supprimées mais impossible d'actualiser la liste.",
           "networkMassDedupe": "Erreur réseau lors de la déduplication massive."
+        }
+      },
+      "assignLevel": {
+        "back": "Retour aux lois",
+        "eyebrow": "Taxonomie de la bibliothèque",
+        "title": "Attribuer le niveau",
+        "subtitle": "Filtrez par pays et catégorie, sélectionnez les lois (ou tout le jeu filtré), puis attribuez National, Régional ou International.",
+        "steps": {
+          "filter": "Filtrer pays et catégorie",
+          "select": "Sélectionner et appliquer",
+          "assign": "Choisir le niveau"
+        },
+        "filterHeading": "1 · Restreindre le jeu",
+        "filterHint": "Laissez « Tout » pour inclure tous les pays ou catégories.",
+        "country": "Pays",
+        "category": "Catégorie",
+        "allCountries": "Tous les pays",
+        "allCategories": "Toutes les catégories",
+        "search": "Recherche (optionnel)",
+        "searchPlaceholder": "Titre ou source…",
+        "resultsHeading": "3 · Sélectionner les lois",
+        "resultsMeta": "{count} lois dans ce filtre · {selected} sélectionnée(s)",
+        "selectPage": "Sélectionner cette page",
+        "deselectPage": "Désélectionner cette page",
+        "selectAllFiltered": "Sélectionner les {count} du filtre",
+        "clearSelection": "Effacer la sélection",
+        "allFilteredSelected": "Tout le jeu filtré est sélectionné ({count} lois). Le niveau s’appliquera à toutes les correspondances.",
+        "empty": "Aucune loi ne correspond à ces filtres.",
+        "pagination": "Page {page} sur {totalPages}",
+        "prevPage": "Page précédente",
+        "nextPage": "Page suivante",
+        "assignHeading": "2 · Attribuer le niveau",
+        "assignHint": "Choisissez d’abord un niveau, puis sélectionnez les lois ci-dessous et appliquez.",
+        "levels": {
+          "national": "National",
+          "regional": "Régional",
+          "international": "International",
+          "unset": "Sans niveau"
+        },
+        "levelHints": {
+          "national": "Loi ou règlement national d’une juridiction.",
+          "regional": "Instruments de bloc — p. ex. CEDEAO, OHADA, SADC.",
+          "international": "Traités et instruments au-delà d’une seule région."
+        },
+        "selectedLevel": "Sélectionné",
+        "applyButton": "Appliquer à {count} lois",
+        "applyNote": "Les changements sont enregistrés immédiatement et audités.",
+        "confirm": {
+          "title": "Appliquer le niveau",
+          "applySelected": "Définir le niveau sur « {level} » pour {count} lois sélectionnées ?",
+          "applyAllFiltered": "Définir le niveau sur « {level} » pour les {count} lois du filtre actuel ?",
+          "apply": "Appliquer le niveau"
+        },
+        "success": "{count} lois mises à jour vers {level}.",
+        "errors": {
+          "loadFailed": "Impossible de charger les lois.",
+          "updateFailed": "Échec de la mise à jour.",
+          "noneSelected": "Aucune loi sélectionnée."
         }
       }
     },
@@ -3012,7 +3093,8 @@
     "reviewCount": "{count, plural, one {# avis} other {# avis}}",
     "noRatingsYet": "(Pas encore d'avis)",
     "yearsExperience": "Ans d'exp.",
-    "countriesStat": "Pays",
+    "practiceAreaSingularStat": "Domaine",
+    "practiceAreaPluralStat": "Domaines",
     "noContactDetailsOnFile": "Aucune coordonnée enregistrée",
     "unlockContactPrice": "Débloquer les coordonnées — <price></price>",
     "dayPassConfirmPending": "Nous n'avons pas encore pu confirmer votre pass journalier. Si le mobile money a été débité, patientez un instant puis actualisez la page.",

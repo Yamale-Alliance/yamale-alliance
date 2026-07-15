@@ -12,6 +12,7 @@ import {
   LAW_YEAR_MAX,
 } from "@/lib/admin-law-utils";
 import { isLawTreatyType } from "@/lib/law-treaty-type";
+import { DEFAULT_LAW_LEVEL, isLawLevel } from "@/lib/law-level";
 import type { Database } from "@/lib/database.types";
 import { normalizeCategoryIdList, syncLawCategories } from "@/lib/law-categories-sync";
 import { assignLawSlug } from "@/lib/content-slug-assign";
@@ -131,6 +132,7 @@ export async function POST(request: NextRequest) {
     const rawTitle = formData.get("title") as string | null;
     const yearStr = formData.get("year") as string | null;
     const treatyTypeRaw = formData.get("treatyType");
+    const levelRaw = formData.get("level");
     const file = formData.get("file") as File | null;
     const pdfStoragePath = (formData.get("pdfStoragePath") as string | null)?.trim() || "";
     const content = formData.get("content") as string | null;
@@ -141,6 +143,7 @@ export async function POST(request: NextRequest) {
 
     const title = normaliseLawTitle(rawTitle);
     const treatyType = typeof treatyTypeRaw === "string" ? treatyTypeRaw.trim() : "Not a treaty";
+    const level = typeof levelRaw === "string" ? levelRaw.trim() : DEFAULT_LAW_LEVEL;
 
     if (!primaryCategoryId || !title) {
       return NextResponse.json(
@@ -162,6 +165,9 @@ export async function POST(request: NextRequest) {
     }
     if (!isLawTreatyType(treatyType)) {
       return NextResponse.json({ error: "Invalid treaty type" }, { status: 400 });
+    }
+    if (!isLawLevel(level)) {
+      return NextResponse.json({ error: "Invalid level. Use National, Regional, or International." }, { status: 400 });
     }
 
     const year = yearStr?.trim() ? parseInt(yearStr, 10) : null;
@@ -235,6 +241,7 @@ export async function POST(request: NextRequest) {
             source_url: null,
             source_name: null,
             treaty_type: treatyType,
+            level,
             year: year ?? null,
             status: (status ?? "In force").trim(),
             content: contentTrimmed,
@@ -251,6 +258,7 @@ export async function POST(request: NextRequest) {
           source_url: null,
           source_name: null,
           treaty_type: treatyType,
+          level,
           year: year ?? null,
           status: (status ?? "In force").trim(),
           content: contentTrimmed,

@@ -124,6 +124,7 @@ export function PlatformLogo({
           height={height}
           width={width}
           priority={priority}
+          loading={priority ? "eager" : "lazy"}
           className="max-h-full w-auto max-w-full"
           style={{ objectFit: "contain", height: `${height}px`, width: "auto", ...darkSvgStyle }}
           unoptimized

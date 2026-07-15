@@ -8,6 +8,7 @@ import { ArrowLeft, Link2, Loader2, Search, Sparkles, Trash2, ShieldCheck, Check
 import { useConfirm } from "@/components/ui/use-confirm";
 import { LAW_YEAR_MIN, LAW_YEAR_MAX } from "@/lib/admin-law-utils";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
+import { DEFAULT_LAW_LEVEL, LAW_LEVELS, isLawLevel, type LawLevel } from "@/lib/law-level";
 import { lawDetailHref } from "@/lib/law-public-url";
 import { LawLastVerifiedLabel } from "@/components/library/LawLastVerifiedLabel";
 import { AdminLawLanguageSelect } from "@/components/admin/AdminLawLanguageSelect";
@@ -29,6 +30,7 @@ type LawForEdit = {
   year: number | null;
   status: string;
   treaty_type: string;
+  level?: string | null;
   language_code?: string | null;
   content: string | null;
   content_plain: string | null;
@@ -61,6 +63,7 @@ export default function AdminLawEditPage() {
   const [year, setYear] = useState("");
   const [status, setStatus] = useState("In force");
   const [treatyType, setTreatyType] = useState<LawTreatyType>("Not a treaty");
+  const [level, setLevel] = useState<LawLevel>(DEFAULT_LAW_LEVEL);
   const [languageCode, setLanguageCode] = useState("");
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -128,6 +131,7 @@ export default function AdminLawEditPage() {
         setYear(lawData.year != null ? String(lawData.year) : "");
         setStatus(lawData.status ?? "In force");
         setTreatyType((lawData.treaty_type as LawTreatyType) ?? "Not a treaty");
+        setLevel(isLawLevel(lawData.level) ? lawData.level : DEFAULT_LAW_LEVEL);
         setLanguageCode(lawData.language_code ?? "");
         setText(lawData.content_plain ?? lawData.content ?? "");
       })
@@ -350,6 +354,7 @@ export default function AdminLawEditPage() {
         (year.trim() ? Number(year.trim()) : null) !== (law.year ?? null) ||
         (status.trim() || "In force") !== (law.status ?? "In force") ||
         treatyType !== ((law.treaty_type as LawTreatyType) ?? "Not a treaty") ||
+        level !== (isLawLevel(law.level) ? law.level : DEFAULT_LAW_LEVEL) ||
         catSig(categoryIds) !== catSig(origCats);
 
       if (shareableDirty) {
@@ -383,6 +388,7 @@ export default function AdminLawEditPage() {
           year: year.trim() ? Number(year.trim()) : null,
           status: status.trim() || "In force",
           treaty_type: treatyType,
+          level,
           language_code: languageCode || null,
           ...(contentDirty ? { content: text } : {}),
         }),
@@ -755,6 +761,21 @@ export default function AdminLawEditPage() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">{t("level")}</label>
+              <select
+                value={level}
+                onChange={(e) => setLevel(e.target.value as LawLevel)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                {LAW_LEVELS.map((option) => (
+                  <option key={option} value={option}>
+                    {t(`levelValues.${option === "National" ? "national" : option === "Regional" ? "regional" : "international"}`)}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">{t("levelHint")}</p>
             </div>
           </div>
 

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Plus, FileText, Loader2, Trash2, CopyCheck, Trash, History, Download, Scale, Link2, Tags, ShieldCheck, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Plus, FileText, Loader2, Trash2, CopyCheck, Trash, History, Download, Scale, Link2, Tags, ShieldCheck, ChevronLeft, ChevronRight, Search, Layers } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { useAdminRole } from "@/components/admin/AdminRoleProvider";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
@@ -17,6 +17,7 @@ type Law = {
   year: number | null;
   status: string;
   treaty_type?: string | null;
+  level?: string | null;
   country_id: string | null;
   applies_to_all_countries?: boolean;
   category_id: string;
@@ -436,6 +437,13 @@ function AdminLawsPageInner() {
                 {t("actions.categories")}
               </Link>
               <Link
+                href="/admin-panel/laws/assign-level"
+                className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+              >
+                <Layers className="h-4 w-4" />
+                {t("actions.assignLevel")}
+              </Link>
+              <Link
                 href={`/admin-panel/laws/deleted?returnTo=${encodeURIComponent(currentListUrl)}`}
                 className="inline-flex items-center gap-2 rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
               >
@@ -750,6 +758,7 @@ function AdminLawsPageInner() {
                   <th className="text-left p-3 font-medium">{t("table.country")}</th>
                   <th className="text-left p-3 font-medium">{t("table.category")}</th>
                   <th className="text-left p-3 font-medium">{t("table.treaty")}</th>
+                  <th className="text-left p-3 font-medium">{t("table.level")}</th>
                   <th className="text-left p-3 font-medium">{tc("status")}</th>
                   <th className="text-left p-3 font-medium">{t("table.year")}</th>
                 </tr>
@@ -781,6 +790,13 @@ function AdminLawsPageInner() {
                     </td>
                     <td className="p-3 text-muted-foreground">{law.categories?.name ?? "—"}</td>
                     <td className="p-3 text-muted-foreground">{law.treaty_type ?? "—"}</td>
+                    <td className="p-3 text-muted-foreground">
+                      {law.level === "National" || law.level === "Regional" || law.level === "International"
+                        ? t(
+                            `levelValues.${law.level === "National" ? "national" : law.level === "Regional" ? "regional" : "international"}`
+                          )
+                        : (law.level ?? "—")}
+                    </td>
                     <td className="p-3">{law.status}</td>
                     <td className="p-3">{law.year ?? "—"}</td>
                   </tr>

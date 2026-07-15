@@ -10,6 +10,7 @@ import {
 } from "@/lib/uploads/url-validator";
 
 const MAX_PDF_BYTES = 95 * 1024 * 1024;
+const FETCH_TIMEOUT_MS = 30_000;
 
 /** Fetch URL and return buffer if response is a PDF (by Content-Type or %PDF magic). */
 export async function fetchPdfFromUrl(urlStr: string): Promise<{ buffer: Buffer; finalUrl: string }> {
@@ -19,8 +20,8 @@ export async function fetchPdfFromUrl(urlStr: string): Promise<{ buffer: Buffer;
   } catch {
     throw new Error("Invalid URL");
   }
-  if (u.protocol !== "http:" && u.protocol !== "https:") {
-    throw new Error("Only http and https URLs are allowed");
+  if (u.protocol !== "https:") {
+    throw new Error("Only HTTPS URLs are allowed");
   }
   if (!isAllowedLegalSource(urlStr)) {
     throw new Error(LEGAL_SOURCE_DOMAIN_REJECT_MESSAGE);
@@ -28,6 +29,7 @@ export async function fetchPdfFromUrl(urlStr: string): Promise<{ buffer: Buffer;
 
   const res = await fetch(urlStr, {
     redirect: "follow",
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     headers: {
       Accept: "application/pdf,*/*",
       "User-Agent": "YamaleLawImport/1.0 (+https://yamalealliance.org)",
@@ -36,15 +38,18 @@ export async function fetchPdfFromUrl(urlStr: string): Promise<{ buffer: Buffer;
   if (!res.ok) {
     throw new Error(`Failed to fetch URL: HTTP ${res.status}`);
   }
+  if (!isAllowedLegalSource(res.url)) {
+    throw new Error("Redirected URL is not an approved HTTPS legal source");
+  }
 
   const len = res.headers.get("content-length");
   if (len && Number(len) > MAX_PDF_BYTES) {
-    throw new Error("PDF exceeds maximum size (45 MB)");
+    throw new Error("PDF exceeds maximum size (95 MB)");
   }
 
   const ab = await res.arrayBuffer();
   if (ab.byteLength > MAX_PDF_BYTES) {
-    throw new Error("PDF exceeds maximum size (45 MB)");
+    throw new Error("PDF exceeds maximum size (95 MB)");
   }
   const buffer = Buffer.from(ab);
   const ct = (res.headers.get("content-type") || "").toLowerCase();

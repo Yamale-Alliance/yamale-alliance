@@ -19,6 +19,7 @@ const LAWS_ADMIN_BLOCKED_PANEL_SEGMENTS = new Set([
   "fix-ocr",
   "linked",
   "updated",
+  "assign-level",
 ]);
 
 const LEGAL_ADMIN_BLOCKED_LAW_API_SEGMENTS = new Set([

@@ -2,6 +2,12 @@
  * Download a URL for treaty bulk import. Validates size and that the payload looks like a PDF.
  */
 
+import {
+  isAllowedLegalSource,
+  LEGAL_SOURCE_DOMAIN_REJECT_MESSAGE,
+} from "@/lib/uploads/url-validator";
+import { scanFile } from "@/lib/uploads/scanner";
+
 const MAX_PDF_BYTES = 45 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 180_000;
 
@@ -11,10 +17,14 @@ export function bufferLooksLikePdf(buf: Buffer): boolean {
 }
 
 export type FetchPdfResult =
-  | { ok: true; buffer: Buffer; contentType: string }
+  | { ok: true; buffer: Buffer; contentType: string; finalUrl: string }
   | { ok: false; error: string };
 
 export async function fetchPdfFromUrl(urlString: string): Promise<FetchPdfResult> {
+  if (!isAllowedLegalSource(urlString)) {
+    return { ok: false, error: LEGAL_SOURCE_DOMAIN_REJECT_MESSAGE };
+  }
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -29,6 +39,9 @@ export async function fetchPdfFromUrl(urlString: string): Promise<FetchPdfResult
 
     if (!res.ok) {
       return { ok: false, error: `Download failed (${res.status} ${res.statusText})` };
+    }
+    if (!isAllowedLegalSource(res.url)) {
+      return { ok: false, error: "Redirected URL is not an approved HTTPS legal source" };
     }
 
     const rawCt = res.headers.get("content-type") ?? "";
@@ -62,7 +75,12 @@ export async function fetchPdfFromUrl(urlString: string): Promise<FetchPdfResult
       };
     }
 
-    return { ok: true, buffer, contentType };
+    const scan = await scanFile(buffer, res.url);
+    if (!scan.clean) {
+      return { ok: false, error: "File failed malware scan and was rejected." };
+    }
+
+    return { ok: true, buffer, contentType, finalUrl: res.url };
   } catch (e) {
     const name = (e as Error).name;
     if (name === "AbortError") {

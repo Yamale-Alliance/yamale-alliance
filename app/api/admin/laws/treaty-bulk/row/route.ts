@@ -13,6 +13,14 @@ import { fetchPdfFromUrl } from "@/lib/treaty-bulk-pdf-fetch";
 import { extractTextFromPdf } from "@/lib/pdf-extract";
 import type { Database } from "@/lib/database.types";
 import { syncLawCategories } from "@/lib/law-categories-sync";
+import {
+  computeLawContentHash,
+  LAW_RAG_PENDING_STATUS,
+} from "@/lib/laws-rag-integrity";
+import {
+  isAllowedLegalSource,
+  LEGAL_SOURCE_DOMAIN_REJECT_MESSAGE,
+} from "@/lib/uploads/url-validator";
 
 const INTERNATIONAL_TRADE_CATEGORY = "International Trade Laws";
 
@@ -24,10 +32,10 @@ type LawInsert = Database["public"]["Tables"]["laws"]["Insert"];
 /** Minimum extracted characters to accept as a successful import */
 const MIN_EXTRACTED_CHARS = 80;
 
-function parseHttpUrl(link: string): URL | null {
+function parseLegalSourceUrl(link: string): URL | null {
   try {
     const u = new URL(link.trim());
-    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    if (!isAllowedLegalSource(u.toString())) return null;
     return u;
   } catch {
     return null;
@@ -119,10 +127,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const url = parseHttpUrl(linkRaw);
+    const url = parseLegalSourceUrl(linkRaw);
     if (!url) {
       return NextResponse.json(
-        { ok: false, error: "link must be a valid http(s) URL" },
+        { ok: false, error: LEGAL_SOURCE_DOMAIN_REJECT_MESSAGE },
         { status: 400 }
       );
     }
@@ -170,7 +178,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const hostname = url.hostname;
+    const finalUrl = downloaded.finalUrl;
+    const hostname = new URL(finalUrl).hostname;
     // Store extracted text only (no Source line in body); URL remains on source_url / source_name.
     const contentTrimmed = sanitizeLawContent(extractedTrim);
     if (!contentTrimmed) {
@@ -193,13 +202,17 @@ export async function POST(request: NextRequest) {
       country_id: countryRes.id,
       category_id: catRes.id,
       title,
-      source_url: url.toString(),
+      source_url: finalUrl,
       source_name: hostname,
       treaty_type: "Bilateral",
       year,
       status,
       content: contentTrimmed,
       content_plain: contentTrimmed,
+      content_hash: computeLawContentHash(contentTrimmed),
+      ingested_by: admin.userId,
+      ingested_at: new Date().toISOString(),
+      rag_approval_status: LAW_RAG_PENDING_STATUS,
       metadata: {
         source: "treaty_bulk_import",
         force_ocr: forceOcr,

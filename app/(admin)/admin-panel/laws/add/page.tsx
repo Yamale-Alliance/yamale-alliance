@@ -11,6 +11,7 @@ import {
   shouldUseDirectLawPdfUpload,
 } from "@/lib/admin-law-upload-limits";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
+import { DEFAULT_LAW_LEVEL, LAW_LEVELS, type LawLevel } from "@/lib/law-level";
 import {
   AdminVirusScanUploadBanner,
 } from "@/components/admin/AdminVirusScanUploadBanner";
@@ -58,6 +59,7 @@ export default function AdminLawsAddPage() {
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [status, setStatus] = useState("In force");
   const [treatyType, setTreatyType] = useState<LawTreatyType>("Not a treaty");
+  const [level, setLevel] = useState<LawLevel>(DEFAULT_LAW_LEVEL);
   const [title, setTitle] = useState("");
   const [year, setYear] = useState("");
   const [languageCode, setLanguageCode] = useState("");
@@ -228,6 +230,7 @@ export default function AdminLawsAddPage() {
             title: title.trim(),
             status,
             treatyType,
+            level,
             year: (() => {
               if (!year.trim()) return null;
               const y = parseInt(year, 10);
@@ -294,6 +297,7 @@ export default function AdminLawsAddPage() {
     categoryIds.forEach((cid) => formData.append("categoryIds", cid));
     formData.set("status", status);
     formData.set("treatyType", treatyType);
+    formData.set("level", level);
     formData.set("title", title.trim());
     if (year.trim()) formData.set("year", year.trim());
     if (languageCode) formData.set("languageCode", languageCode);
@@ -597,6 +601,22 @@ export default function AdminLawsAddPage() {
               </option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">{t("level")}</label>
+          <select
+            value={level}
+            onChange={(e) => setLevel(e.target.value as LawLevel)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            {LAW_LEVELS.map((option) => (
+              <option key={option} value={option}>
+                {t(`levelValues.${option === "National" ? "national" : option === "Regional" ? "regional" : "international"}`)}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-muted-foreground">{t("levelHint")}</p>
         </div>
 
         <div>

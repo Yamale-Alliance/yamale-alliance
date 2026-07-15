@@ -18,7 +18,7 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
           className="mb-6 inline-flex transition-opacity hover:opacity-90"
           aria-label="Yamalé home"
         >
-          <PlatformLogo height={48} width={180} className="h-12 w-[180px]" />
+          <PlatformLogo priority height={48} width={180} className="h-12 w-[180px]" />
         </Link>
         <h1 className="heading text-2xl font-bold tracking-tight text-foreground">{title}</h1>
         {subtitle ? <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{subtitle}</p> : null}

@@ -1318,7 +1318,8 @@
           "recentlyDeleted": "Eliminadas recentemente",
           "recentlyUpdated": "Atualizadas recentemente",
           "ragApproval": "Fila de aprovação RAG",
-          "addLaw": "Adicionar lei"
+          "addLaw": "Adicionar lei",
+          "assignLevel": "Atribuir níveis"
         },
         "filters": {
           "country": "País",
@@ -1368,7 +1369,9 @@
           "update": "Atualizar",
           "deleteTitle": "Eliminar leis",
           "deleteDescription": "Eliminar {count} leis? Favoritos e dados relacionados serão removidos. Não pode ser desfeito.",
-          "delete": "Eliminar"
+          "delete": "Eliminar",
+          "updateLevelTitle": "Atualizar nível",
+          "updateLevelDescription": "Definir o nível como \"{level}\" em {count} leis?"
         },
         "errors": {
           "updateFailed": "Falha na atualização.",
@@ -1382,11 +1385,17 @@
           "country": "País",
           "category": "Categoria",
           "treaty": "Tratado",
-          "year": "Ano"
+          "year": "Ano",
+          "level": "Nível"
         },
         "allCountries": "Todos os países",
         "empty": "Nenhuma lei corresponde aos filtros.",
-        "emptyAddFirst": "Adicionar a primeira lei"
+        "emptyAddFirst": "Adicionar a primeira lei",
+        "levelValues": {
+          "national": "Nacional",
+          "regional": "Regional",
+          "international": "Internacional"
+        }
       },
       "add": {
         "back": "Voltar às leis",
@@ -1487,6 +1496,13 @@
           "pleaseWait": "Aguarde…",
           "adding": "A adicionar…",
           "addLaw": "Adicionar lei"
+        },
+        "level": "Nível",
+        "levelHint": "Diploma nacional, instrumento regional (ex. CEDEAO, OHADA) ou tratado internacional.",
+        "levelValues": {
+          "national": "Nacional",
+          "regional": "Regional",
+          "international": "Internacional"
         }
       },
       "edit": {
@@ -1605,6 +1621,13 @@
           "errors": {
             "updateFailed": "Falha ao atualizar o estado de aprovação RAG."
           }
+        },
+        "level": "Nível",
+        "levelHint": "Diploma nacional, instrumento regional (ex. CEDEAO, OHADA) ou tratado internacional.",
+        "levelValues": {
+          "national": "Nacional",
+          "regional": "Regional",
+          "international": "Internacional"
         }
       },
       "ragApproval": {
@@ -1882,6 +1905,64 @@
           "massDedupeFailed": "Falha na deduplicação em massa.",
           "refreshFailed": "Leis eliminadas mas não foi possível atualizar a lista.",
           "networkMassDedupe": "Erro de rede durante a deduplicação em massa."
+        }
+      },
+      "assignLevel": {
+        "back": "Voltar às leis",
+        "eyebrow": "Taxonomia da biblioteca",
+        "title": "Atribuir nível das leis",
+        "subtitle": "Filtre por país e categoria, selecione as leis (ou todo o conjunto filtrado) e atribua Nacional, Regional ou Internacional.",
+        "steps": {
+          "filter": "Filtrar país e categoria",
+          "select": "Selecionar leis e aplicar",
+          "assign": "Escolher o nível"
+        },
+        "filterHeading": "1 · Restringir o conjunto",
+        "filterHint": "Deixe “Todos” para incluir todos os países ou categorias.",
+        "country": "País",
+        "category": "Categoria",
+        "allCountries": "Todos os países",
+        "allCategories": "Todas as categorias",
+        "search": "Pesquisar (opcional)",
+        "searchPlaceholder": "Título ou fonte…",
+        "resultsHeading": "3 · Selecionar leis",
+        "resultsMeta": "{count} leis neste filtro · {selected} selecionadas",
+        "selectPage": "Selecionar esta página",
+        "deselectPage": "Desmarcar esta página",
+        "selectAllFiltered": "Selecionar todas as {count} do filtro",
+        "clearSelection": "Limpar seleção",
+        "allFilteredSelected": "Todo o conjunto filtrado está selecionado ({count} leis). O nível será aplicado a todas as correspondências.",
+        "empty": "Nenhuma lei corresponde a estes filtros.",
+        "pagination": "Página {page} de {totalPages}",
+        "prevPage": "Página anterior",
+        "nextPage": "Página seguinte",
+        "assignHeading": "2 · Atribuir nível",
+        "assignHint": "Escolha um nível primeiro, depois selecione as leis abaixo e aplique.",
+        "levels": {
+          "national": "Nacional",
+          "regional": "Regional",
+          "international": "Internacional",
+          "unset": "Sem nível"
+        },
+        "levelHints": {
+          "national": "Estatuto ou regulamento nacional de uma jurisdição.",
+          "regional": "Instrumentos de bloco — p.ex. CEDEAO, OHADA, SADC.",
+          "international": "Tratados e instrumentos para além de uma só região."
+        },
+        "selectedLevel": "Selecionado",
+        "applyButton": "Aplicar a {count} leis",
+        "applyNote": "As alterações são gravadas de imediato e auditadas.",
+        "confirm": {
+          "title": "Aplicar nível",
+          "applySelected": "Definir o nível como “{level}” em {count} leis selecionadas?",
+          "applyAllFiltered": "Definir o nível como “{level}” em todas as {count} leis do filtro atual?",
+          "apply": "Aplicar nível"
+        },
+        "success": "Atualizadas {count} leis para {level}.",
+        "errors": {
+          "loadFailed": "Não foi possível carregar as leis.",
+          "updateFailed": "Falha na atualização.",
+          "noneSelected": "Nenhuma lei selecionada."
         }
       }
     },
@@ -3012,7 +3093,8 @@
     "reviewCount": "{count, plural, one {# avaliação} other {# avaliações}}",
     "noRatingsYet": "(Sem avaliações ainda)",
     "yearsExperience": "Anos exp.",
-    "countriesStat": "Países",
+    "practiceAreaSingularStat": "Área",
+    "practiceAreaPluralStat": "Áreas",
     "noContactDetailsOnFile": "Sem contactos registados",
     "unlockContactPrice": "Desbloquear contacto — <price></price>",
     "dayPassConfirmPending": "Ainda não foi possível confirmar o seu passe diário. Se o mobile money foi cobrado, aguarde um momento e atualize a página.",

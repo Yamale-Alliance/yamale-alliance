@@ -3,13 +3,13 @@ import { getSupabaseServer } from "@/lib/supabase/server";
 import { requireLawsAccess } from "@/lib/admin";
 import { normaliseLawTitle } from "@/lib/admin-law-utils";
 import { isLawTreatyType } from "@/lib/law-treaty-type";
+import { DEFAULT_LAW_LEVEL, isLawLevel } from "@/lib/law-level";
 import {
   processPdfUrlToMarkdown,
   suggestMetadataFromPlain,
   saveLawFromPdfUrlImport,
 } from "@/lib/admin-law-url-import-core";
 import type { CountryOpt, CategoryOpt } from "@/lib/law-url-import";
-import { LEGAL_SOURCE_DOMAIN_REJECT_MESSAGE } from "@/lib/uploads/url-validator";
 import { normalizeLawDocumentLanguageCode } from "@/lib/law-document-language";
 
 export const maxDuration = 300;
@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
     const title = normaliseLawTitle(rawTitle);
     const status = typeof body.status === "string" ? body.status.trim() : "In force";
     const treatyTypeRaw = typeof body.treatyType === "string" ? body.treatyType.trim() : "Not a treaty";
+    const levelRaw = typeof body.level === "string" ? body.level.trim() : DEFAULT_LAW_LEVEL;
     const yearRaw = body.year;
     const languageCodeRaw = body.languageCode ?? body.language_code;
     const languageCode =
@@ -118,6 +119,12 @@ export async function POST(request: NextRequest) {
     if (!isLawTreatyType(treatyTypeRaw)) {
       return NextResponse.json({ error: "Invalid treaty type" }, { status: 400 });
     }
+    if (!isLawLevel(levelRaw)) {
+      return NextResponse.json(
+        { error: "Invalid level. Use National, Regional, or International." },
+        { status: 400 }
+      );
+    }
 
     const supabase = getSupabaseServer();
     const law = await saveLawFromPdfUrlImport({
@@ -133,6 +140,7 @@ export async function POST(request: NextRequest) {
       title,
       status,
       treatyType: treatyTypeRaw,
+      level: levelRaw,
       year: year !== null && !Number.isNaN(year) ? year : null,
       languageCode: languageCode ?? null,
       markdownOverride: markdownOverride.length >= 50 ? markdownOverride : undefined,

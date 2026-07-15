@@ -37,6 +37,7 @@ export type LibraryLawRow = {
   source_name?: string | null;
   status: string;
   treaty_type?: string | null;
+  level?: string | null;
   country_id: string | null;
   applies_to_all_countries: boolean;
   category_id: string;
@@ -75,6 +76,8 @@ type LibraryFilters = {
   yearFrom?: string;
   yearTo?: string;
   treatyType?: string;
+  /** National | Regional | International */
+  level?: string;
   documentType?: string;
   /** Cap rows returned (admin bulk). Ignored when page/pageSize are set. */
   lawsLimit?: number;
@@ -176,7 +179,7 @@ const FETCH_TIMEOUT_MS = 55 * 1000; // large catalogs + enrichment; parallelized
 const CATEGORY_ID_IN_CHUNK = 80;
 
 const LAWS_SELECT_FIELDS =
-  "id, slug, title, source_name, year, status, treaty_type, country_id, applies_to_all_countries, category_id, language_code, created_at, updated_at, last_verified_at, countries(name), categories!laws_category_id_fkey(name)";
+  "id, slug, title, source_name, year, status, treaty_type, level, country_id, applies_to_all_countries, category_id, language_code, created_at, updated_at, last_verified_at, countries(name), categories!laws_category_id_fkey(name)";
 
 let cachedData: LibraryData | null = null;
 let cacheTimestamp = 0;
@@ -196,6 +199,7 @@ function cacheKey(filters?: LibraryFilters): string {
       filters.yearFrom ?? "",
       filters.yearTo ?? "",
       filters.treatyType ?? "",
+      filters.level ?? "",
       filters.documentType ?? "",
     ].join("|");
   }
@@ -208,6 +212,7 @@ function cacheKey(filters?: LibraryFilters): string {
     filters.categoryId ?? "",
     filters.status ?? "",
     (filters.q ?? "").trim(),
+    filters.level ?? "",
     partial,
   ].join("|");
 }
@@ -232,6 +237,9 @@ function applyScalarLibraryFilters(query: any, filters?: LibraryFilters): any {
   if (filters?.treatyType?.trim()) {
     const term = escapeIlikePattern(filters.treatyType.trim());
     q = q.ilike("treaty_type", `%${term}%`);
+  }
+  if (filters?.level?.trim()) {
+    q = q.eq("level", filters.level.trim());
   }
   if (filters?.documentType?.trim()) {
     const term = escapeIlikePattern(filters.documentType.trim().toLowerCase());
@@ -654,6 +662,7 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
         Boolean(filters?.yearFrom) ||
         Boolean(filters?.yearTo) ||
         Boolean(filters?.treatyType) ||
+        Boolean(filters?.level) ||
         Boolean(filters?.documentType);
       let countQuery = excludeInternalCategoryFromLawsQuery(
         supabase.from("laws").select("id", {

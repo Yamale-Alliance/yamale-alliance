@@ -318,8 +318,6 @@ async function resolveModelIdForRequest(
   tier: string,
   requestedModel?: string | null
 ): Promise<string> {
-  if (CLAUDE_MODEL_ENV) return CLAUDE_MODEL_ENV;
-
   const models = approvedModelsCatalog();
   const allowedIds = getAllowedModelIdsForTier(models, tier);
   const sonnet = models.find((m) => m.id.toLowerCase().includes("sonnet"));
@@ -333,6 +331,14 @@ async function resolveModelIdForRequest(
           : allowedIds[0]
         : allowedIds[0];
   const fallback = defaultId ?? sonnet?.id ?? haiku?.id ?? models[0]?.id ?? "claude-sonnet-4-6";
+
+  const envModel = CLAUDE_MODEL_ENV?.trim();
+  if (envModel) {
+    if (isApprovedAnthropicModel(envModel)) {
+      return envModel;
+    }
+    console.warn(`Ignoring unapproved CLAUDE_MODEL "${envModel}". Falling back to approved model "${fallback}".`);
+  }
 
   const requested = requestedModel?.trim();
   if (requested && allowedIds.includes(requested) && isApprovedAnthropicModel(requested)) {
@@ -3524,6 +3530,16 @@ export async function POST(request: NextRequest) {
     const platformGuideMeta = isPlatformGuideMetaQuery(userQuery);
 
     if (!platformGuideMeta && !assistantWorkflowMeta && !isEvalBatch) {
+      const safety = await runAiChatSafetyCheck(userQuery);
+      if (!safety.safe) {
+        return NextResponse.json(
+          { error: safety.reason ?? "This query cannot be processed." },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (!platformGuideMeta && !assistantWorkflowMeta && !isEvalBatch) {
       const dup = await checkDuplicatePrompt(userId, userQuery);
       if (!dup.allowed) {
         return NextResponse.json({ error: dup.reason }, { status: dup.status });
@@ -4151,16 +4167,6 @@ export async function POST(request: NextRequest) {
 
     const modelId = await modelIdPromise;
     perfStep(perf, "pre_stream", { preStreamMs: Date.now() - aiTurnStartedAt, modelId });
-
-    if (!platformGuideMeta && !assistantWorkflowMeta && !isEvalBatch) {
-      const safety = await runAiChatSafetyCheck(userQuery);
-      if (!safety.safe) {
-        return NextResponse.json(
-          { error: safety.reason ?? "This query cannot be processed." },
-          { status: 400 }
-        );
-      }
-    }
 
     const outputCapEnv = Number.parseInt(process.env.AI_CHAT_MAX_OUTPUT_TOKENS ?? "", 10);
     const detailedOutputCap =

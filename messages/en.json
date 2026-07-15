@@ -1318,7 +1318,8 @@
           "recentlyDeleted": "Recently deleted",
           "recentlyUpdated": "Recently updated",
           "ragApproval": "RAG approval queue",
-          "addLaw": "Add law"
+          "addLaw": "Add law",
+          "assignLevel": "Assign levels"
         },
         "filters": {
           "country": "Country",
@@ -1368,7 +1369,9 @@
           "update": "Update",
           "deleteTitle": "Delete laws",
           "deleteDescription": "Delete {count} laws? Bookmarks and related data will be removed. This cannot be undone.",
-          "delete": "Delete"
+          "delete": "Delete",
+          "updateLevelTitle": "Update level",
+          "updateLevelDescription": "Set level to \"{level}\" for {count} laws?"
         },
         "errors": {
           "updateFailed": "Update failed.",
@@ -1382,11 +1385,17 @@
           "country": "Country",
           "category": "Category",
           "treaty": "Treaty",
-          "year": "Year"
+          "year": "Year",
+          "level": "Level"
         },
         "allCountries": "All countries",
         "empty": "No laws match the filters.",
-        "emptyAddFirst": "Add the first law"
+        "emptyAddFirst": "Add the first law",
+        "levelValues": {
+          "national": "National",
+          "regional": "Regional",
+          "international": "International"
+        }
       },
       "add": {
         "back": "Back to laws",
@@ -1487,6 +1496,13 @@
           "pleaseWait": "Please wait…",
           "adding": "Adding…",
           "addLaw": "Add law"
+        },
+        "level": "Level",
+        "levelHint": "National statute, regional instrument (e.g. ECOWAS, OHADA), or international treaty.",
+        "levelValues": {
+          "national": "National",
+          "regional": "Regional",
+          "international": "International"
         }
       },
       "edit": {
@@ -1605,6 +1621,13 @@
           "errors": {
             "updateFailed": "Failed to update RAG approval status."
           }
+        },
+        "level": "Level",
+        "levelHint": "National statute, regional instrument (e.g. ECOWAS, OHADA), or international treaty.",
+        "levelValues": {
+          "national": "National",
+          "regional": "Regional",
+          "international": "International"
         }
       },
       "ragApproval": {
@@ -1882,6 +1905,64 @@
           "massDedupeFailed": "Mass dedupe failed.",
           "refreshFailed": "Deleted laws but could not refresh the list.",
           "networkMassDedupe": "Network error during mass dedupe."
+        }
+      },
+      "assignLevel": {
+        "back": "Back to laws",
+        "eyebrow": "Library taxonomy",
+        "title": "Assign law level",
+        "subtitle": "Filter by country and category, select the laws in that set (or the whole set), then assign National, Regional, or International.",
+        "steps": {
+          "filter": "Filter country & category",
+          "select": "Select laws & apply",
+          "assign": "Choose the level"
+        },
+        "filterHeading": "1 · Narrow the set",
+        "filterHint": "Leave a filter on “All” to include every country or category.",
+        "country": "Country",
+        "category": "Category",
+        "allCountries": "All countries",
+        "allCategories": "All categories",
+        "search": "Search (optional)",
+        "searchPlaceholder": "Title or source…",
+        "resultsHeading": "3 · Select laws",
+        "resultsMeta": "{count} laws in this filter · {selected} selected",
+        "selectPage": "Select this page",
+        "deselectPage": "Deselect this page",
+        "selectAllFiltered": "Select all {count} in filter",
+        "clearSelection": "Clear selection",
+        "allFilteredSelected": "Entire filtered set selected ({count} laws). Level will apply to every matching law.",
+        "empty": "No laws match these filters.",
+        "pagination": "Page {page} of {totalPages}",
+        "prevPage": "Previous page",
+        "nextPage": "Next page",
+        "assignHeading": "2 · Assign level",
+        "assignHint": "Pick a level first, then select the laws below and apply.",
+        "levels": {
+          "national": "National",
+          "regional": "Regional",
+          "international": "International",
+          "unset": "No level"
+        },
+        "levelHints": {
+          "national": "Domestic statute or regulation of one jurisdiction.",
+          "regional": "Bloc instruments — e.g. ECOWAS, OHADA, SADC.",
+          "international": "Treaties and instruments beyond a single region."
+        },
+        "selectedLevel": "Selected",
+        "applyButton": "Apply to {count} laws",
+        "applyNote": "Changes are written immediately and audited.",
+        "confirm": {
+          "title": "Apply level",
+          "applySelected": "Set level to “{level}” for {count} selected laws?",
+          "applyAllFiltered": "Set level to “{level}” for all {count} laws in the current filter?",
+          "apply": "Apply level"
+        },
+        "success": "Updated {count} laws to {level}.",
+        "errors": {
+          "loadFailed": "Could not load laws.",
+          "updateFailed": "Update failed.",
+          "noneSelected": "No laws selected."
         }
       }
     },
@@ -3012,7 +3093,8 @@
     "reviewCount": "{count, plural, one {# review} other {# reviews}}",
     "noRatingsYet": "(No ratings yet)",
     "yearsExperience": "Years exp.",
-    "countriesStat": "Countries",
+    "practiceAreaSingularStat": "Practice area",
+    "practiceAreaPluralStat": "Practice areas",
     "noContactDetailsOnFile": "No contact details on file",
     "unlockContactPrice": "Unlock contact — <price></price>",
     "dayPassConfirmPending": "We could not confirm your day pass yet. If mobile money was charged, wait a moment and refresh.",

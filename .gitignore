@@ -45,9 +45,13 @@ next-env.d.ts
 
 # database backups (may contain sensitive data)
 *.sql
+supabase/migrations/
 backup.sql
 data-only.sql
 supabase_backup_*.sql
+
+# security review notes can contain operational details
+SECURITY_WRAP_UP_IMPLEMENTATION_DETAILS.md
 
 # Sentry Config File
 .env.sentry-build-plugin

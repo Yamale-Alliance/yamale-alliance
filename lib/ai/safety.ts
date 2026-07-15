@@ -10,6 +10,11 @@ export type AiSafetyCheckResult = {
 
 const CLASSIFIER_MODEL = "claude-haiku-4-5-20251001";
 
+function classifierFailClosed(): boolean {
+  const failOpen = process.env.AI_SAFETY_CLASSIFIER_FAIL_OPEN?.trim().toLowerCase();
+  return process.env.NODE_ENV === "production" && failOpen !== "true" && failOpen !== "1";
+}
+
 const INJECTION_PATTERNS: RegExp[] = [
   /ignore\s+(all\s+)?(previous|prior|above)\s+instructions/i,
   /you\s+are\s+now\b/i,
@@ -92,7 +97,12 @@ Mark safe:true for legitimate African legal research questions AND for short fol
 
   if (!res.ok) {
     console.error("AI safety classifier HTTP error:", res.status);
-    return { safe: true };
+    return classifierFailClosed()
+      ? {
+          safe: false,
+          reason: "AI safety validation is temporarily unavailable. Please try again later.",
+        }
+      : { safe: true };
   }
 
   const json = (await res.json()) as {
@@ -112,7 +122,12 @@ Mark safe:true for legitimate African legal research questions AND for short fol
       return { safe: false, reason: "Query blocked by safety classifier." };
     }
   }
-  return { safe: true };
+  return classifierFailClosed()
+    ? {
+        safe: false,
+        reason: "AI safety validation could not verify this request. Please try again later.",
+      }
+    : { safe: true };
 }
 
 /**
@@ -128,13 +143,23 @@ export async function runAiChatSafetyCheck(query: string): Promise<AiSafetyCheck
 
   const apiKey = process.env.CLAUDE_API_KEY?.trim();
   if (!apiKey || apiKey.includes("...")) {
-    return { safe: true };
+    return classifierFailClosed()
+      ? {
+          safe: false,
+          reason: "AI safety validation is not configured. Please try again later.",
+        }
+      : { safe: true };
   }
 
   try {
     return await classifyWithHaiku(query, apiKey);
   } catch (err) {
     console.error("AI safety classifier failed:", err);
-    return { safe: true };
+    return classifierFailClosed()
+      ? {
+          safe: false,
+          reason: "AI safety validation is temporarily unavailable. Please try again later.",
+        }
+      : { safe: true };
   }
 }

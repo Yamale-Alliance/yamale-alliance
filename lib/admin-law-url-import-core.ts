@@ -18,6 +18,7 @@ import {
 import { extractLawMetadataWithClaude, isClaudeConfiguredForImport } from "@/lib/claude-law-metadata";
 import { recordAuditLog } from "@/lib/admin-audit";
 import { isLawTreatyType } from "@/lib/law-treaty-type";
+import { DEFAULT_LAW_LEVEL, isLawLevel } from "@/lib/law-level";
 import type { AdminAuth } from "@/lib/admin";
 import type { Database } from "@/lib/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -27,6 +28,7 @@ import {
   computeLawContentHash,
   LAW_RAG_PENDING_STATUS,
 } from "@/lib/laws-rag-integrity";
+import { scanFile } from "@/lib/uploads/scanner";
 
 export type LawUrlImportAuditSource = "url-import" | "bulk-url-import";
 
@@ -37,6 +39,10 @@ export async function processPdfUrlToMarkdown(
   forceOcr: boolean
 ): Promise<{ markdown: string; plainStripped: string; sourceUrl: string; sourceName: string }> {
   const { buffer, finalUrl } = await fetchPdfFromUrl(url);
+  const scan = await scanFile(buffer, finalUrl);
+  if (!scan.clean) {
+    throw new Error("File failed malware scan and was rejected.");
+  }
   const plain = await extractTextFromPdf(buffer, { forceOcr });
   if (!plain?.trim()) {
     throw new Error("No text could be extracted from the PDF");
@@ -104,6 +110,7 @@ export async function saveLawFromPdfUrlImport(params: {
   title: string;
   status: string;
   treatyType?: string;
+  level?: string;
   year: number | null;
   languageCode?: string | null;
   citationMetadata?: Record<string, unknown> | null;
@@ -123,6 +130,7 @@ export async function saveLawFromPdfUrlImport(params: {
     title,
     status,
     treatyType,
+    level,
     year,
     languageCode,
     citationMetadata,
@@ -154,6 +162,11 @@ export async function saveLawFromPdfUrlImport(params: {
     typeof treatyType === "string" && treatyType.trim() ? treatyType.trim() : "Not a treaty";
   if (!isLawTreatyType(effectiveTreatyType)) {
     throw new Error("Invalid treaty type");
+  }
+  const effectiveLevel =
+    typeof level === "string" && level.trim() ? level.trim() : DEFAULT_LAW_LEVEL;
+  if (!isLawLevel(effectiveLevel)) {
+    throw new Error("Invalid level. Use National, Regional, or International.");
   }
   if (year !== null && (Number.isNaN(year) || !isValidLawYear(year))) {
     throw new Error(`Invalid year (use ${LAW_YEAR_MIN}–${LAW_YEAR_MAX})`);
@@ -200,6 +213,7 @@ export async function saveLawFromPdfUrlImport(params: {
           source_url: sourceUrl,
           source_name: sourceName,
           treaty_type: effectiveTreatyType,
+          level: effectiveLevel,
           year: year ?? null,
           language_code: languageCode ?? null,
           metadata: normalizedCitationMetadata ?? undefined,
@@ -217,6 +231,7 @@ export async function saveLawFromPdfUrlImport(params: {
         source_url: sourceUrl,
         source_name: sourceName,
         treaty_type: effectiveTreatyType,
+        level: effectiveLevel,
         year: year ?? null,
         language_code: languageCode ?? null,
         metadata: normalizedCitationMetadata ?? undefined,

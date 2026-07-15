@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
     const yearFrom = searchParams.get("yearFrom") ?? undefined;
     const yearTo = searchParams.get("yearTo") ?? undefined;
     const treatyType = searchParams.get("treatyType") ?? searchParams.get("classification") ?? undefined;
+    const level = searchParams.get("level") ?? undefined;
     const documentType = searchParams.get("documentType") ?? undefined;
 
     const data = await fetchLibraryData({
@@ -63,6 +64,7 @@ export async function GET(request: NextRequest) {
             yearFrom: yearFrom || undefined,
             yearTo: yearTo || undefined,
             treatyType: treatyType || undefined,
+            level: level || undefined,
             documentType: documentType || undefined,
           }
         : {}),

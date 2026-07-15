@@ -14,6 +14,15 @@ function apiKey(): string | null {
   return key || null;
 }
 
+function allowUnscannedUploads(): boolean {
+  const value = process.env.VIRUSTOTAL_ALLOW_UNSCANNED_UPLOADS?.trim().toLowerCase();
+  return value === "true" || value === "1";
+}
+
+function shouldFailClosed(): boolean {
+  return process.env.NODE_ENV === "production" && !allowUnscannedUploads();
+}
+
 function maxPollMs(): number {
   const raw = process.env.VIRUSTOTAL_MAX_POLL_MS?.trim();
   if (!raw) return DEFAULT_MAX_POLL_MS;
@@ -23,7 +32,7 @@ function maxPollMs(): number {
 
 function failOnTimeout(): boolean {
   const v = process.env.VIRUSTOTAL_FAIL_ON_TIMEOUT?.trim().toLowerCase();
-  return v === "true" || v === "1";
+  return v === "true" || v === "1" || shouldFailClosed();
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -103,40 +112,7 @@ async function pollAnalysis(analysisId: string, key: string, filename: string): 
   return { clean: true, status: "timeout" };
 }
 
-/**
- * Fast scan for trusted admin image uploads (Vault covers, lawyer photos).
- * Uses VT hash lookup only — rejects known malware instantly without uploading
- * the file or polling for minutes. Unknown hashes are allowed; use `scanFile` for PDFs/ZIPs.
- */
-export async function scanAdminImageFile(fileBuffer: Buffer, filename: string): Promise<VirusScanResult> {
-  const key = apiKey();
-  if (!key) {
-    console.warn("VIRUSTOTAL_API_KEY not set — skipping malware scan for", filename);
-    return { clean: true, status: "skipped" };
-  }
-
-  const hash = sha256Hex(fileBuffer);
-  const cached = await lookupByHash(hash, key);
-  if (cached) return cached;
-
-  return { clean: true, status: "hash_miss_allowed" };
-}
-
-/**
- * Scan a file buffer with VirusTotal API v3 before storage/OCR processing.
- * When VIRUSTOTAL_API_KEY is unset, returns clean (dev only — set key in production).
- */
-export async function scanFile(fileBuffer: Buffer, filename: string): Promise<VirusScanResult> {
-  const key = apiKey();
-  if (!key) {
-    console.warn("VIRUSTOTAL_API_KEY not set — skipping malware scan for", filename);
-    return { clean: true, status: "skipped" };
-  }
-
-  const hash = sha256Hex(fileBuffer);
-  const cached = await lookupByHash(hash, key);
-  if (cached) return cached;
-
+async function submitFileForAnalysis(fileBuffer: Buffer, filename: string, key: string): Promise<VirusScanResult> {
   const form = new FormData();
   const blob = new Blob([new Uint8Array(fileBuffer)], { type: "application/octet-stream" });
   form.append("file", blob, filename);
@@ -149,14 +125,56 @@ export async function scanFile(fileBuffer: Buffer, filename: string): Promise<Vi
 
   if (!uploadRes.ok) {
     console.error("VirusTotal upload failed:", uploadRes.status, filename);
-    return { clean: true, status: "upload_error" };
+    return { clean: !shouldFailClosed(), status: "upload_error" };
   }
 
   const uploadJson = (await uploadRes.json()) as { data?: { id?: string } };
   const analysisId = uploadJson.data?.id;
   if (!analysisId) {
-    return { clean: true, status: "no_analysis_id" };
+    return { clean: !shouldFailClosed(), status: "no_analysis_id" };
   }
 
   return pollAnalysis(analysisId, key, filename);
+}
+
+/**
+ * Fast scan for trusted admin image uploads (Vault covers, lawyer photos).
+ * Uses VT hash lookup only — rejects known malware instantly without uploading
+ * the file or polling for minutes. Unknown hashes are allowed; use `scanFile` for PDFs/ZIPs.
+ */
+export async function scanAdminImageFile(fileBuffer: Buffer, filename: string): Promise<VirusScanResult> {
+  const key = apiKey();
+  if (!key) {
+    console.warn("VIRUSTOTAL_API_KEY not set — skipping malware scan for", filename);
+    return { clean: !shouldFailClosed(), status: "skipped" };
+  }
+
+  const hash = sha256Hex(fileBuffer);
+  const cached = await lookupByHash(hash, key);
+  if (cached) return cached;
+
+  if (shouldFailClosed()) {
+    return submitFileForAnalysis(fileBuffer, filename, key);
+  }
+
+  return { clean: true, status: "hash_miss_allowed" };
+}
+
+/**
+ * Scan a file buffer with VirusTotal API v3 before storage/OCR processing.
+ * Production fails closed when scanning is unavailable unless
+ * VIRUSTOTAL_ALLOW_UNSCANNED_UPLOADS=true is explicitly set.
+ */
+export async function scanFile(fileBuffer: Buffer, filename: string): Promise<VirusScanResult> {
+  const key = apiKey();
+  if (!key) {
+    console.warn("VIRUSTOTAL_API_KEY not set — skipping malware scan for", filename);
+    return { clean: !shouldFailClosed(), status: "skipped" };
+  }
+
+  const hash = sha256Hex(fileBuffer);
+  const cached = await lookupByHash(hash, key);
+  if (cached) return cached;
+
+  return submitFileForAnalysis(fileBuffer, filename, key);
 }

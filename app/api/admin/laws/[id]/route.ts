@@ -4,6 +4,7 @@ import { requireAdmin, requireLawsAccess, assertCanEditLaw, assertCanDeleteLaw }
 import { canEditLaw } from "@/lib/admin-roles";
 import { recordAuditLog } from "@/lib/admin-audit";
 import { isLawTreatyType } from "@/lib/law-treaty-type";
+import { DEFAULT_LAW_LEVEL, isLawLevel } from "@/lib/law-level";
 import type { Database } from "@/lib/database.types";
 import { fetchCategoryIdsForLaw, syncLawCategories } from "@/lib/law-categories-sync";
 import { assignLawSlug } from "@/lib/content-slug-assign";
@@ -19,6 +20,10 @@ import {
   expandLawToAdditionalCountries,
   fetchAssignedCountryIdsForLaw,
 } from "@/lib/admin-law-expand-countries";
+import {
+  computeLawContentHash,
+  LAW_RAG_PENDING_STATUS,
+} from "@/lib/laws-rag-integrity";
 
 /** Large laws: country expansion + optional body sync can take several minutes. */
 export const maxDuration = 300;
@@ -29,10 +34,15 @@ const SHAREABLE_UPDATE_KEYS = new Set([
   "year",
   "status",
   "treaty_type",
+  "level",
   "source_url",
   "source_name",
   "content",
   "content_plain",
+  "content_hash",
+  "ingested_by",
+  "ingested_at",
+  "rag_approval_status",
 ]);
 
 type LawRow = Database["public"]["Tables"]["laws"]["Row"];
@@ -54,7 +64,7 @@ export async function GET(
   try {
     const supabase = getSupabaseServer();
     const fullSelect =
-      "id, slug, title, country_id, applies_to_all_countries, category_id, year, status, treaty_type, source_url, source_name, content, content_plain, language_code, last_verified_at, rag_approval_status, ingested_by, ingested_at, content_hash";
+      "id, slug, title, country_id, applies_to_all_countries, category_id, year, status, treaty_type, level, source_url, source_name, content, content_plain, language_code, last_verified_at, rag_approval_status, ingested_by, ingested_at, content_hash";
     const legacySelect =
       "id, slug, title, country_id, applies_to_all_countries, category_id, year, status, source_url, source_name, content, content_plain, language_code, last_verified_at";
 
@@ -65,6 +75,9 @@ export async function GET(
       .single();
 
     if (error) {
+      const missingLevelColumn =
+        error.message?.toLowerCase().includes("level") ||
+        (error.code === "PGRST204" && error.message?.toLowerCase().includes("level"));
       const missingTreatyColumn =
         error.message?.toLowerCase().includes("treaty_type") ||
         error.code === "PGRST204";
@@ -72,9 +85,35 @@ export async function GET(
         error.message?.toLowerCase().includes("rag_approval_status") ||
         error.message?.toLowerCase().includes("ingested_at") ||
         error.message?.toLowerCase().includes("content_hash");
+      if (missingLevelColumn && !missingTreatyColumn) {
+        const withoutLevelSelect =
+          "id, slug, title, country_id, applies_to_all_countries, category_id, year, status, treaty_type, source_url, source_name, content, content_plain, language_code, last_verified_at, rag_approval_status, ingested_by, ingested_at, content_hash";
+        const levelLegacyRes = await supabase.from("laws").select(withoutLevelSelect).eq("id", id).single();
+        const levelLegacyData = levelLegacyRes.data as LawRow | null;
+        if (levelLegacyRes.error || !levelLegacyData) {
+          return NextResponse.json({ error: "Law not found" }, { status: 404 });
+        }
+        const law = {
+          ...levelLegacyData,
+          level: DEFAULT_LAW_LEVEL,
+        };
+        let category_ids: string[] = law.category_id ? [law.category_id] : [];
+        try {
+          category_ids = await fetchCategoryIdsForLaw(supabase, id);
+        } catch {
+          /* law_categories table may not exist yet */
+        }
+        const country_ids = law.applies_to_all_countries
+          ? []
+          : await fetchAssignedCountryIdsForLaw(supabase, id, law);
+        return NextResponse.json({
+          law: { ...law, category_ids, country_ids },
+          warning: "Missing level column; run migration 20260714090000_add_laws_level.",
+        });
+      }
       if (missingRagColumn && !missingTreatyColumn) {
         const ragLegacySelect =
-          "id, slug, title, country_id, applies_to_all_countries, category_id, year, status, treaty_type, source_url, source_name, content, content_plain, language_code, last_verified_at";
+          "id, slug, title, country_id, applies_to_all_countries, category_id, year, status, treaty_type, level, source_url, source_name, content, content_plain, language_code, last_verified_at";
         const ragLegacyRes = await supabase.from("laws").select(ragLegacySelect).eq("id", id).single();
         const ragLegacyData = ragLegacyRes.data as LawRow | null;
         const ragLegacyError = ragLegacyRes.error;
@@ -107,6 +146,7 @@ export async function GET(
         const law = {
           ...legacyData,
           treaty_type: "Not a treaty",
+          level: DEFAULT_LAW_LEVEL,
         };
         let category_ids: string[] = law.category_id ? [law.category_id] : [];
         try {
@@ -271,6 +311,18 @@ export async function PUT(
         updates.treaty_type = treatyType;
       }
     }
+    if (body.level !== undefined) {
+      const level = body.level ? String(body.level).trim() : "";
+      if (!isLawLevel(level)) {
+        return NextResponse.json(
+          { error: "Invalid level. Use National, Regional, or International." },
+          { status: 400 }
+        );
+      }
+      if (level !== String((existingLaw as { level?: string } | null)?.level ?? DEFAULT_LAW_LEVEL)) {
+        updates.level = level;
+      }
+    }
     if (typeof body.source_url === "string") {
       const next = body.source_url.trim() || null;
       const prev = existingLaw?.source_url?.trim() || null;
@@ -298,6 +350,10 @@ export async function PUT(
       if (trimmed !== existingTrim) {
         updates.content = trimmed;
         updates.content_plain = trimmed;
+        updates.content_hash = trimmed ? computeLawContentHash(trimmed) : null;
+        updates.ingested_by = admin.userId;
+        updates.ingested_at = new Date().toISOString();
+        updates.rag_approval_status = LAW_RAG_PENDING_STATUS;
       }
     }
 

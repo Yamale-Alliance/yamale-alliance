@@ -75,10 +75,6 @@ function pseudoYears(name: string): number {
   return (name.length % 14) + 8;
 }
 
-function pseudoCountries(name: string): number {
-  return (name.replace(/\s/g, "").length % 9) + 3;
-}
-
 export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
   const t = useTranslations("lawyers");
   const tCommon = useTranslations("common");
@@ -108,6 +104,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
   const [selectedExpertise, setSelectedExpertise] = useState<string[]>([]);
   const [selectedLanguage, setSelectedLanguage] = useState("all");
   const [hasSearched, setHasSearched] = useState(false);
+  const [searchValidationError, setSearchValidationError] = useState<string | null>(null);
   const [searchPayLoading, setSearchPayLoading] = useState(false);
   const [searchPayError, setSearchPayError] = useState<string | null>(null);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
@@ -375,22 +372,6 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
     ];
   }, [catalogLanguages]);
 
-  const countriesWithLawyers = useMemo(() => {
-    const set = new Set<string>();
-    for (const lawyer of lawyers) {
-      const country = lawyer.country?.trim();
-      if (country) set.add(country);
-    }
-    return set;
-  }, [lawyers]);
-
-  useEffect(() => {
-    if (loading || !selectedCountry) return;
-    if (!countriesWithLawyers.has(selectedCountry)) {
-      setSelectedCountry("");
-    }
-  }, [loading, selectedCountry, countriesWithLawyers]);
-
   const filteredLawyers = useMemo(() => {
     return lawyers.filter((lawyer) => {
       if (selectedCountry && lawyer.country !== selectedCountry) return false;
@@ -439,6 +420,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
     setSelectedExpertise([]);
     setSelectedLanguage("all");
     setHasSearched(false);
+    setSearchValidationError(null);
     setSearchPayError(null);
     clearStoredSearchState();
   };
@@ -446,7 +428,11 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
   const expertiseRequired = selectedExpertise.length === 0;
   const countryRequired = selectedCountry === "";
   const runSearch = () => {
-    if (expertiseRequired || countryRequired) return;
+    if (expertiseRequired || countryRequired) {
+      setSearchValidationError(t("selectCountryAndArea"));
+      return;
+    }
+    setSearchValidationError(null);
     setHasSearched(true);
     persistSearchState({ hasSearched: true });
   };
@@ -524,18 +510,17 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                 <select
                   className="w-full rounded-[6px] border border-white/20 bg-[#13263a] px-3 py-2 text-sm text-white outline-none disabled:opacity-60"
                   value={selectedCountry}
-                  onChange={(e) => setSelectedCountry(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedCountry(e.target.value);
+                    setSearchValidationError(null);
+                  }}
                 >
                   <option value="">{t("selectCountry")}</option>
-                  {AFRICAN_COUNTRIES.map((c) => {
-                    const hasLawyers = countriesWithLawyers.has(c);
-                    const empty = !loading && !hasLawyers;
-                    return (
-                      <option key={c} value={c} disabled={empty} className={empty ? "text-white/40" : undefined}>
-                        {c}
-                      </option>
-                    );
-                  })}
+                  {AFRICAN_COUNTRIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -545,7 +530,10 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                 <LawyerPracticeAreaMultiSelect
                   options={expertiseList}
                   value={selectedExpertise}
-                  onChange={setSelectedExpertise}
+                  onChange={(next) => {
+                    setSelectedExpertise(next);
+                    setSearchValidationError(null);
+                  }}
                   placeholder={t("selectPracticeAreas")}
                   selectedCountLabel={(count) => t("practiceAreasSelected", { count })}
                   formatOption={practiceAreaLabel}
@@ -583,14 +571,18 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                 <button
                   type="button"
                   onClick={runSearch}
-                  disabled={expertiseRequired || countryRequired}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-[6px] bg-[#0D1B2A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#162436] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-[6px] bg-[#0D1B2A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#162436]"
                 >
                   <Search className="h-4 w-4" />
                   {t("search")}
                 </button>
               </div>
             </div>
+            {searchValidationError && (
+              <p className="mt-3 text-xs font-medium text-white/80">
+                {searchValidationError}
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -851,8 +843,10 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                         <div className="text-[10px] text-muted-foreground">{t("yearsExperience")}</div>
                       </div>
                       <div className="rounded-[6px] border border-border bg-background px-2 py-2 text-center">
-                        <div className="text-sm font-bold text-foreground">{pseudoCountries(lawyer.name)}</div>
-                        <div className="text-[10px] text-muted-foreground">{t("countriesStat")}</div>
+                        <div className="text-sm font-bold text-foreground">{expertiseTags.length}</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {expertiseTags.length === 1 ? t("practiceAreaSingularStat") : t("practiceAreaPluralStat")}
+                        </div>
                       </div>
                       <div className="rounded-[6px] border border-border bg-background px-2 py-2 text-center">
                         <div className="text-sm font-bold text-foreground">

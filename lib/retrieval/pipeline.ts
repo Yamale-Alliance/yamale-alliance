@@ -26,6 +26,7 @@ import {
   logRetrievalNotFound,
   type RetrievalConfidenceAssessment,
 } from "@/lib/retrieval/absence-guard";
+import { applyLawRagApprovalFilter } from "@/lib/law-rag-approval";
 
 const LAWS_VECTOR_SELECT =
   "id, title, content, content_plain, year, status, country_id, applies_to_all_countries, countries(name), categories!laws_category_id_fkey(name)";
@@ -87,11 +88,12 @@ async function fetchLawRows(
   lawIds: string[]
 ): Promise<Map<string, Record<string, unknown>>> {
   if (lawIds.length === 0) return new Map();
-  const { data: lawRows, error: lawErr } = await (supabase as any)
+  const lawQuery = (supabase as any)
     .from("laws")
     .select(LAWS_VECTOR_SELECT)
     .in("id", lawIds)
     .neq("status", "Repealed");
+  const { data: lawRows, error: lawErr } = await applyLawRagApprovalFilter(lawQuery);
 
   if (lawErr || !lawRows) return new Map();
 

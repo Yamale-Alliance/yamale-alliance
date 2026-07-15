@@ -15,6 +15,7 @@ import { lawCountryDisplayName } from "@/lib/law-source-display";
 import { lawReadableBodyText } from "@/lib/law-readable-body";
 import { pickContentExcerpt } from "@/lib/ai-law-excerpt";
 import { selectInstrumentContentForReview } from "@/lib/ai-law-full-content";
+import { applyLawRagApprovalFilter } from "@/lib/law-rag-approval";
 
 const LAWS_VECTOR_SELECT =
   "id, title, content, content_plain, year, status, country_id, applies_to_all_countries, countries(name), categories!laws_category_id_fkey(name)";
@@ -129,11 +130,12 @@ export async function searchLawsByVectorSimilarity(
   }
 
   const lawIds = [...bestByLaw.keys()];
-  const { data: lawRows, error: lawErr } = await (supabase as any)
+  const lawQuery = (supabase as any)
     .from("laws")
     .select(LAWS_VECTOR_SELECT)
     .in("id", lawIds)
     .neq("status", "Repealed");
+  const { data: lawRows, error: lawErr } = await applyLawRagApprovalFilter(lawQuery);
 
   if (lawErr || !lawRows) return [];
 

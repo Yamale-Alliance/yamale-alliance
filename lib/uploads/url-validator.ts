@@ -1,3 +1,5 @@
+import net from "node:net";
+
 /** Trusted legal source domains for PDF ingestion (extend as needed). */
 export const LEGAL_SOURCE_DOMAIN_ALLOWLIST = [
   "droit-afrique.com",
@@ -32,6 +34,42 @@ function normalizeHostname(hostname: string): string {
   return hostname.toLowerCase().replace(/^www\./, "");
 }
 
+function isPrivateIpv4(hostname: string): boolean {
+  const parts = hostname.split(".").map((part) => Number.parseInt(part, 10));
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return false;
+  }
+  const [a, b] = parts;
+  return (
+    a === 10 ||
+    a === 127 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    a === 0
+  );
+}
+
+function isPrivateIpv6(hostname: string): boolean {
+  const normalized = hostname.toLowerCase();
+  return (
+    normalized === "::1" ||
+    normalized.startsWith("fc") ||
+    normalized.startsWith("fd") ||
+    normalized.startsWith("fe80:")
+  );
+}
+
+function isPrivateOrLocalHost(hostname: string): boolean {
+  const host = hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  if (host === "localhost" || host.endsWith(".localhost")) return true;
+
+  const ipVersion = net.isIP(host);
+  if (ipVersion === 4) return isPrivateIpv4(host);
+  if (ipVersion === 6) return isPrivateIpv6(host);
+  return false;
+}
+
 /**
  * Returns true when the URL host matches an approved legal source domain
  * (exact match or subdomain of an allowlisted root).
@@ -44,7 +82,11 @@ export function isAllowedLegalSource(url: string): boolean {
     return false;
   }
 
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+  if (parsed.protocol !== "https:") {
+    return false;
+  }
+
+  if (isPrivateOrLocalHost(parsed.hostname)) {
     return false;
   }
 
@@ -56,4 +98,5 @@ export function isAllowedLegalSource(url: string): boolean {
   });
 }
 
-export const LEGAL_SOURCE_DOMAIN_REJECT_MESSAGE = "Domain not in approved sources list";
+export const LEGAL_SOURCE_DOMAIN_REJECT_MESSAGE =
+  "URL must use HTTPS and be on the approved legal source list";

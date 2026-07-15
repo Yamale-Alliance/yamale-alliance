@@ -10,10 +10,15 @@ const SHAREABLE_LAW_COLUMNS = [
   "year",
   "status",
   "treaty_type",
+  "level",
   "source_url",
   "source_name",
   "content",
   "content_plain",
+  "content_hash",
+  "ingested_by",
+  "ingested_at",
+  "rag_approval_status",
   "last_verified_at",
 ] as const;
 
