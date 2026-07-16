@@ -16,11 +16,9 @@ import {
 } from "@/components/layout/prototype-page-styles";
 import {
   buildExpertiseFilterOptions,
-  dedupeExpertiseSegments,
   expertiseMatchesAnySelection,
   formatExpertiseSelection,
   parseExpertiseSelectionInput,
-  parseExpertiseSegments,
 } from "@/lib/lawyer-expertise";
 import { LawyersOnboardingVideo } from "@/components/lawyers/LawyersOnboardingVideo";
 import { LawyerPracticeAreaMultiSelect } from "@/components/lawyers/LawyerPracticeAreaMultiSelect";
@@ -739,7 +737,6 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
             {filteredLawyers.map((lawyer) => {
               const unlocked = isUnlocked(lawyer);
               const contacts = contactsByLawyer[lawyer.id];
-              const expertiseTags = dedupeExpertiseSegments(parseExpertiseSegments(lawyer.expertise));
               const lawyerLanguages = collectLawyerLanguages(lawyer.primaryLanguage, lawyer.otherLanguages);
               const initials = lawyer.name.split(" ").map((n) => n[0]).filter(Boolean).join("");
               const initialsDisplay = lawyer.name.split(" ").map((n) => n[0]).filter(Boolean).join(". ") + ".";
@@ -813,16 +810,6 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                       </div>
                     </div>
 
-                    <div className="mb-3 flex flex-wrap gap-1.5">
-                      {expertiseTags.map((exp) => (
-                        <span
-                          key={exp}
-                          className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-medium text-muted-foreground"
-                        >
-                          {practiceAreaLabel(exp)}
-                        </span>
-                      ))}
-                    </div>
                     {lawyerLanguages.length > 0 ? (
                       <div className="mb-3 flex flex-wrap gap-1.5">
                         {lawyerLanguages.map((language) => (
@@ -835,18 +822,12 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                         ))}
                       </div>
                     ) : null}
-                    <div className="mb-3 grid grid-cols-3 gap-2">
+                    <div className="mb-3 grid grid-cols-2 gap-2">
                       <div className="rounded-[6px] border border-border bg-background px-2 py-2 text-center">
                         <div className="text-sm font-bold text-foreground">
                           {lawyer.yearsExperience ?? pseudoYears(lawyer.name)}
                         </div>
                         <div className="text-[10px] text-muted-foreground">{t("yearsExperience")}</div>
-                      </div>
-                      <div className="rounded-[6px] border border-border bg-background px-2 py-2 text-center">
-                        <div className="text-sm font-bold text-foreground">{expertiseTags.length}</div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {expertiseTags.length === 1 ? t("practiceAreaSingularStat") : t("practiceAreaPluralStat")}
-                        </div>
                       </div>
                       <div className="rounded-[6px] border border-border bg-background px-2 py-2 text-center">
                         <div className="text-sm font-bold text-foreground">
