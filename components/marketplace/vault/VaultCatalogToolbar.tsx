@@ -3,9 +3,17 @@
 import Link from "next/link";
 import { Search, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { VAULT_BROWSE_FREE } from "@/lib/marketplace-vault-categories";
+import { VAULT_BROWSE_FREE, VAULT_BROWSE_SERIES } from "@/lib/marketplace-vault-categories";
 
 type TopicId = "general" | "tax" | "labour" | "mining" | "compliance" | "corporate";
+
+export type VaultBrowseTabParam =
+  | "all"
+  | "course"
+  | "template"
+  | "guidebook"
+  | typeof VAULT_BROWSE_SERIES
+  | typeof VAULT_BROWSE_FREE;
 
 type VaultCatalogToolbarProps = {
   title: string;
@@ -20,6 +28,9 @@ type VaultCatalogToolbarProps = {
   topicOptions: Array<"all" | TopicId>;
   topicLabel: (topic: "all" | TopicId) => string;
   clearHref: string;
+  tabs: { param: VaultBrowseTabParam; label: string }[];
+  activeTab: VaultBrowseTabParam;
+  onTabChange: (param: VaultBrowseTabParam) => void;
   showFreeSeries?: boolean;
   freeSeriesLinks?: { id: string; label: string; href: string; active: boolean; count: number }[];
   allFreeHref?: string;
@@ -40,6 +51,9 @@ export function VaultCatalogToolbar({
   topicOptions,
   topicLabel,
   clearHref,
+  tabs,
+  activeTab,
+  onTabChange,
   showFreeSeries,
   freeSeriesLinks,
   allFreeHref,
@@ -49,25 +63,75 @@ export function VaultCatalogToolbar({
   const t = useTranslations("marketplace");
 
   return (
-    <div className="border-b border-border bg-card">
-      <div className="mx-auto max-w-7xl space-y-5 px-4 py-8 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+    <div>
+      {/* Fixed navy so tabs stay readable in dark mode */}
+      <div className="bg-[color:var(--brand-navy-fixed)] text-white">
+        <div className="mx-auto max-w-[1140px] px-6 pt-6">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <Link
               href={clearHref}
               scroll={false}
-              className="text-sm font-medium text-[#9a632a] hover:underline"
+              className="shrink-0 text-[0.86rem] font-bold text-[color:var(--brand-pale-gold)]/90 transition hover:text-[color:var(--brand-pale-gold)]"
             >
-              {t("landing.backToBrowse")}
+              {t("landing.backToVaultHome")}
             </Link>
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            <h1 className="heading shrink-0 text-[1.25rem] font-bold text-white sm:text-[1.4rem]">
               {title}
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {t("landing.showingCount", { count: resultCount })}
-            </p>
+            <div className="relative ml-auto flex w-full min-w-[200px] max-w-[340px] flex-1 items-center gap-2 rounded-[10px] bg-white py-0.5 pl-3.5 pr-2 sm:w-auto">
+              <Search className="h-3.5 w-3.5 shrink-0 text-[color:var(--brand-copper)]" aria-hidden />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => onSearchChange(e.target.value)}
+                placeholder={t("searchPlaceholder")}
+                className="min-w-0 flex-1 border-0 bg-transparent py-2 text-sm text-[color:var(--brand-navy-fixed)] outline-none placeholder:text-muted-foreground"
+              />
+              {search ? (
+                <button
+                  type="button"
+                  onClick={() => onSearchChange("")}
+                  className="text-muted-foreground hover:text-[color:var(--brand-navy-fixed)]"
+                  aria-label={t("landing.clearSearch")}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+
+          {/* Scroll wrapper — padding keeps tab labels + underline fully visible */}
+          <nav
+            className="mt-5 flex gap-5 overflow-x-auto pb-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            aria-label={t("landing.browseTitle")}
+          >
+            {tabs.map((tab) => {
+              const on = tab.param === activeTab;
+              return (
+                <button
+                  key={tab.param}
+                  type="button"
+                  onClick={() => onTabChange(tab.param)}
+                  className={`shrink-0 whitespace-nowrap border-b-2 px-0.5 pb-3 pt-1 text-[0.88rem] transition ${
+                    on
+                      ? "border-[color:var(--primary)] font-bold text-[color:var(--brand-pale-gold)]"
+                      : "border-transparent text-white/55 hover:text-white/90"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-[1140px] space-y-4 px-6 pt-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-[0.82rem] text-[color:var(--brand-copper)]">
+            {t("landing.showingCount", { count: resultCount })}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
             <label className="sr-only" htmlFor="vault-catalog-sort">
               {t("sort")}
             </label>
@@ -75,7 +139,7 @@ export function VaultCatalogToolbar({
               id="vault-catalog-sort"
               value={vaultSort}
               onChange={(e) => onSortChange(e.target.value)}
-              className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-[#C8922A]"
+              className="rounded-lg border border-[color:var(--border)] bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-[color:var(--primary)]"
             >
               {sortOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -90,7 +154,7 @@ export function VaultCatalogToolbar({
               id="vault-catalog-topic"
               value={selectedTopic}
               onChange={(e) => onTopicChange(e.target.value as "all" | TopicId)}
-              className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-[#C8922A]"
+              className="rounded-lg border border-[color:var(--border)] bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-[color:var(--primary)]"
             >
               {topicOptions.map((topic) => (
                 <option key={topic} value={topic}>
@@ -101,27 +165,6 @@ export function VaultCatalogToolbar({
           </div>
         </div>
 
-        <div className="relative max-w-xl">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder={t("searchPlaceholder")}
-            className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-10 text-sm text-foreground outline-none transition focus:border-[#C8922A]"
-          />
-          {search ? (
-            <button
-              type="button"
-              onClick={() => onSearchChange("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              aria-label={t("landing.clearSearch")}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          ) : null}
-        </div>
-
         {showFreeSeries && freeSeriesLinks && allFreeHref ? (
           <div className="flex flex-wrap gap-2">
             <Link
@@ -129,7 +172,7 @@ export function VaultCatalogToolbar({
               scroll={false}
               className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
                 allFreeActive
-                  ? "bg-[#C8922A] text-white"
+                  ? "bg-[color:var(--primary)] text-white"
                   : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -143,7 +186,7 @@ export function VaultCatalogToolbar({
                 scroll={false}
                 className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
                   series.active
-                    ? "bg-[#C8922A] text-white"
+                    ? "bg-[color:var(--primary)] text-white"
                     : "bg-muted text-muted-foreground hover:text-foreground"
                 }`}
               >
