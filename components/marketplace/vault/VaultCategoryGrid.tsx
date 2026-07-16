@@ -1,114 +1,57 @@
 "use client";
 
-import {
-  BookOpen,
-  GraduationCap,
-  FileText,
-  Gift,
-  LayoutGrid,
-  ArrowRight,
-  Layers,
-} from "lucide-react";
 import { useTranslations } from "next-intl";
-import { VAULT_BROWSE_FREE, VAULT_BROWSE_SERIES } from "@/lib/marketplace-vault-categories";
+import { VaultCoverImage } from "@/components/marketplace/VaultCoverImage";
+import { VAULT_BROWSE_SERIES } from "@/lib/marketplace-vault-categories";
 
-type CategoryParam =
-  | "all"
-  | "book"
-  | "course"
-  | "template"
-  | "guide"
-  | typeof VAULT_BROWSE_FREE
-  | typeof VAULT_BROWSE_SERIES;
+export type VaultDoorParam = "course" | "template" | "guidebook" | typeof VAULT_BROWSE_SERIES;
+
+type VaultDoor = {
+  param: VaultDoorParam;
+  label: string;
+  countLabel: string;
+  imageUrl: string | null;
+};
 
 type VaultCategoryGridProps = {
-  categories: {
-    param: CategoryParam;
-    label: string;
-    blurb: string;
-    count: number;
-  }[];
-  onSelectCategory: (param: CategoryParam) => void;
+  doors: VaultDoor[];
+  onSelectCategory: (param: VaultDoorParam) => void;
 };
 
-const CATEGORY_ACCENTS: Record<string, string> = {
-  free: "from-emerald-500/20 to-emerald-600/5 text-emerald-700 dark:text-emerald-300",
-  series: "from-violet-500/20 to-violet-600/5 text-violet-700 dark:text-violet-300",
-  course: "from-sky-500/20 to-sky-600/5 text-sky-700 dark:text-sky-300",
-  template: "from-slate-500/20 to-slate-600/5 text-slate-700 dark:text-slate-300",
-  book: "from-amber-500/20 to-amber-600/5 text-amber-800 dark:text-amber-300",
-  guide: "from-teal-500/20 to-teal-600/5 text-teal-700 dark:text-teal-300",
-};
-
-function CategoryIcon({ param }: { param: CategoryParam }) {
-  const className = "h-6 w-6";
-  switch (param) {
-    case "all":
-      return <LayoutGrid className={className} />;
-    case VAULT_BROWSE_FREE:
-      return <Gift className={className} />;
-    case VAULT_BROWSE_SERIES:
-      return <Layers className={className} />;
-    case "book":
-    case "guide":
-      return <BookOpen className={className} />;
-    case "course":
-      return <GraduationCap className={className} />;
-    case "template":
-      return <FileText className={className} />;
-    default:
-      return <LayoutGrid className={className} />;
-  }
-}
-
-export function VaultCategoryGrid({ categories, onSelectCategory }: VaultCategoryGridProps) {
+export function VaultCategoryGrid({ doors, onSelectCategory }: VaultCategoryGridProps) {
   const t = useTranslations("marketplace");
 
   return (
-    <section className="border-b border-border/80 bg-gradient-to-b from-card via-card to-transparent">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          {t("landing.exploreCategories")}
+    <section className="border-b border-border/70">
+      <div className="mx-auto max-w-[1140px] px-6 py-10">
+        <h2 className="heading text-[1.4rem] font-bold tracking-tight text-[color:var(--brand-navy)]">
+          {t("landing.whatsInside")}
         </h2>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground sm:text-base">
-          {t("landing.exploreCategoriesHint")}
-        </p>
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {categories
-            .filter((c) => c.param !== "all")
-            .map((category) => {
-              const accent =
-                CATEGORY_ACCENTS[category.param] ??
-                "from-[#C8922A]/20 to-[#C8922A]/5 text-[#9a632a]";
-              return (
-                <button
-                  key={category.param}
-                  type="button"
-                  onClick={() => onSelectCategory(category.param)}
-                  className="group flex w-full items-start gap-4 rounded-2xl border border-border/80 bg-card p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#C8922A]/40 hover:shadow-lg"
-                >
-                  <span
-                    className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${accent}`}
-                  >
-                    <CategoryIcon param={category.param} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="text-base font-semibold text-foreground">{category.label}</span>
-                      <ArrowRight className="h-4 w-4 shrink-0 text-[#C8922A] opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
-                    </span>
-                    <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">
-                      {category.blurb}
-                    </span>
-                    {category.count > 0 && (
-                      <span className="mt-3 inline-flex rounded-full bg-[#C8922A]/10 px-2.5 py-0.5 text-xs font-semibold text-[#9a632a]">
-                        {t("landing.resourceCount", { count: category.count })}
-                      </span>
-                    )}
-                  </span>
-                </button>
-              );
-            })}
+        <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {doors.map((door) => (
+            <button
+              key={door.param}
+              type="button"
+              onClick={() => onSelectCategory(door.param)}
+              className="group relative aspect-[5/4] overflow-hidden rounded-xl text-left"
+            >
+              {door.imageUrl ? (
+                <VaultCoverImage
+                  src={door.imageUrl}
+                  className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                  priority={false}
+                />
+              ) : (
+                <div className="absolute inset-0 bg-[linear-gradient(160deg,var(--brand-navy-fixed),color-mix(in_srgb,var(--brand-navy-fixed)_75%,white))]" />
+              )}
+              <div className="absolute inset-0 flex flex-col justify-end bg-[linear-gradient(to_top,rgba(13,27,42,0.9),rgba(13,27,42,0.25)_55%,transparent)] p-4">
+                <h3 className="heading text-[1.05rem] font-bold text-white">{door.label}</h3>
+                <span className="mt-0.5 text-[0.74rem] text-[color:var(--brand-pale-gold)]">
+                  {door.countLabel}
+                </span>
+              </div>
+            </button>
+          ))}
         </div>
       </div>
     </section>
