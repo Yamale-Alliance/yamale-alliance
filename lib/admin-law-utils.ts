@@ -6,6 +6,12 @@ export const VALID_LAW_STATUSES = ["In force", "Amended", "Repealed"] as const;
 export const LAW_YEAR_MIN = 1800;
 export const LAW_YEAR_MAX = 2100;
 
+/** Reject PDF imports that yield almost no body text (image-only / failed OCR). */
+export const MIN_LAW_CONTENT_CHARS = 80;
+
+export const EMPTY_PDF_EXTRACT_MESSAGE =
+  "No usable text could be extracted from this PDF. It is likely scanned or image-only. Enable “Force OCR” (requires pdftoppm + tesseract on the server), paste the law text, or use a PDF with a real text layer.";
+
 export function isValidLawYear(year: number): boolean {
   return Number.isFinite(year) && year >= LAW_YEAR_MIN && year <= LAW_YEAR_MAX;
 }
@@ -16,6 +22,11 @@ export function sanitizeLawContent(text: string | null): string | null {
     .trim()
     .replace(/\0/g, "")
     .replace(/\\/g, "\\\\");
+}
+
+/** True when sanitized body is long enough to store as a library law. */
+export function hasUsableLawContent(text: string | null | undefined): text is string {
+  return typeof text === "string" && text.trim().length >= MIN_LAW_CONTENT_CHARS;
 }
 
 export function normaliseLawTitle(raw: string | null | undefined): string {
