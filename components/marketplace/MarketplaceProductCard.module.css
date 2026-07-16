@@ -317,3 +317,106 @@
   text-decoration: line-through;
   opacity: 0.75;
 }
+
+/* Browse / catalog row card (prototype .bcard) */
+.cardBrowse {
+  flex-direction: row;
+  gap: 1rem;
+  padding: 0.8rem;
+  border-radius: 12px;
+  border-color: var(--brand-line, var(--border));
+  box-shadow: none;
+}
+
+.cardBrowse:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(13, 27, 42, 0.14);
+}
+
+.cardBrowse .media {
+  width: 120px;
+  height: 120px;
+  aspect-ratio: auto;
+  flex-shrink: 0;
+  border-radius: 10px;
+  border-bottom: none;
+}
+
+.cardBrowse .body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  padding: 0.15rem 0.25rem 0.15rem 0;
+  gap: 0.3rem;
+}
+
+.cardBrowse .title {
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: 0.95rem;
+  margin-bottom: 0.15rem;
+  -webkit-line-clamp: 2;
+}
+
+.desc {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--muted-foreground) 70%, var(--foreground));
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.browseFoot {
+  margin-top: auto;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--brand-copper);
+}
+
+.browsePrice {
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--brand-navy);
+}
+
+.browsePriceFree {
+  color: var(--primary);
+}
+
+.browseMeta {
+  color: var(--brand-copper);
+  white-space: nowrap;
+}
+
+.cardBrowse .priceBadge,
+.cardBrowse .mediaBadges {
+  display: none;
+}
+
+.cardBrowse .actionRow,
+.cardBrowse .btnPrimary,
+.cardBrowse .btnSecondary,
+.cardBrowse .btnSecondaryInCart,
+.cardBrowse .seriesBuyBtn,
+.cardBrowse .collectionCta {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  .cardBrowse {
+    flex-direction: column;
+  }
+
+  .cardBrowse .media {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+  }
+}
