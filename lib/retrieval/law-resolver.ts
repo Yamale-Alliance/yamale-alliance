@@ -1,4 +1,5 @@
 import { isOhadaMemberIso } from "@/lib/retrieval/jurisdiction-codes";
+import { AFRICAN_COUNTRIES } from "@/lib/african-countries";
 
 export type ResolvedLawHit = {
   law_id: string;
@@ -16,12 +17,27 @@ export type LawResolverResult = {
 };
 
 const RESOLVE_LAW_SCOPE_THRESHOLD = 0.4;
+const TRAILING_COUNTRY_PATTERNS = AFRICAN_COUNTRIES.flatMap((country) => {
+  const escaped = country.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const variants = country === "Gambia" ? [escaped, `the\\s+${escaped}`] : [escaped];
+  return variants.map(
+    (variant) => new RegExp(`(?:\\s*,?\\s*|\\s+(?:in|of|for)\\s+)${variant}\\s*$`, "i")
+  );
+});
 
 export function lawResolverScopeThreshold(): number {
   const raw = process.env.RETRIEVAL_LAW_RESOLVE_THRESHOLD?.trim();
   if (!raw) return RESOLVE_LAW_SCOPE_THRESHOLD;
   const n = Number.parseFloat(raw);
   return Number.isFinite(n) ? n : RESOLVE_LAW_SCOPE_THRESHOLD;
+}
+
+function normalizeLawResolverQuery(queryText: string): string {
+  let normalized = queryText.trim().replace(/\s+/g, " ");
+  for (const pattern of TRAILING_COUNTRY_PATTERNS) {
+    normalized = normalized.replace(pattern, "").trim();
+  }
+  return normalized || queryText.trim();
 }
 
 export async function resolveLawByTitle(
@@ -39,7 +55,7 @@ export async function resolveLawByTitle(
 
   try {
     const { data, error } = await supabase.rpc("resolve_law", {
-      query_text: queryText,
+      query_text: normalizeLawResolverQuery(queryText),
       filter_country_id: options?.countryId ?? null,
       include_ohada: includeOhada,
     });
