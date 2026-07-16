@@ -1562,6 +1562,17 @@
           "noneFound": "Nenhuma ocorrência encontrada.",
           "replaced": "{count} ocorrência(s) substituída(s). Guarde para persistir."
         },
+        "pdfImport": {
+          "title": "Substituir texto a partir de um PDF",
+          "hint": "Carregue um PDF para extrair o texto para o campo abaixo. Reveja o resultado e depois guarde as alterações. Para PDFs digitalizados, ative Force OCR.",
+          "extracting": "A extrair texto…",
+          "sizeHint": "São suportados PDFs até {maxMb} MB. Ficheiros com mais de 4 MB são carregados diretamente para o armazenamento. A extração não guarda nada até clicar em Guardar alterações.",
+          "extracted": "Extraídos {count} caracteres para o campo abaixo. Reveja e depois guarde as alterações.",
+          "extractFailed": "Não foi possível extrair texto desse PDF.",
+          "confirmReplaceTitle": "Substituir o texto existente?",
+          "confirmReplaceDescription": "Isto substitui o texto atual da lei no editor pelo texto extraído do PDF. Nada é guardado até clicar em Guardar alterações.",
+          "confirmReplace": "Substituir texto"
+        },
         "lawText": {
           "label": "Texto da lei",
           "hint": "Texto bruto usado pela biblioteca e IA. Edite para corrigir erros ou atualizar conteúdo.",
