@@ -1426,6 +1426,7 @@
           "pdfTooLarge": "Ce PDF est trop volumineux pour un upload navigateur ({sizeMb}MB). Utilisez un fichier plus petit ou le script CLI pour les très grands textes.",
           "pasteRequired": "Collez le contenu de la loi dans la zone de texte, ou passez à \"Téléverser PDF\".",
           "uploadTooLarge": "Upload trop volumineux. Essayez un PDF plus petit, désactivez OCR, ou utilisez le script d'import CLI.",
+          "emptyPdfExtract": "Aucun texte utilisable n'a pu être extrait de ce PDF. Activez « Force OCR » pour les scans, collez le texte, ou utilisez un PDF avec une couche texte sélectionnable.",
           "addFailed": "Échec de l'ajout de la loi",
           "requestTimeout": "La requête a pris trop de temps. Essayez un PDF plus petit ou utilisez \"Coller le contenu\" pour les très longs documents.",
           "serverUnreachable": "Impossible de joindre le serveur. Redémarrez le serveur de dev si vous avez modifié les limites d'upload dans next.config ; pour les gros PDF, utilisez le script CLI.",
@@ -1482,7 +1483,7 @@
         },
         "upload": {
           "label": "Fichier PDF",
-          "hint": "Le texte sera extrait et stocké pour la bibliothèque. Pour les PDF scannés, activez OCR ci-dessous.",
+          "hint": "Le texte sera extrait et stocké pour la bibliothèque. Pour les PDF scannés, activez Force OCR ci-dessous — sinon la loi peut être enregistrée sans texte intégral.",
           "sizeHint": "PDF jusqu'à {maxMb} Mo acceptés. Au-delà de 4 Mo, l'envoi se fait directement vers le stockage pour éviter les limites du serveur.",
           "waitHint": "Les gros PDF ou OCR peuvent prendre 1 à 2 minutes. Veuillez patienter sans actualiser."
         },
