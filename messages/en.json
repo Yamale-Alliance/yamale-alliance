@@ -1562,6 +1562,17 @@
           "noneFound": "No occurrences found.",
           "replaced": "Replaced {count} occurrences. Save changes to persist."
         },
+        "pdfImport": {
+          "title": "Replace text from a PDF",
+          "hint": "Upload a PDF to extract its text into the field below. Review the result, then Save changes to store it. For scanned PDFs, enable Force OCR.",
+          "extracting": "Extracting text…",
+          "sizeHint": "PDFs up to {maxMb} MB are supported. Files over 4 MB upload directly to storage. Extraction does not save until you click Save changes.",
+          "extracted": "Extracted {count} characters into the field below. Review, then Save changes to store it.",
+          "extractFailed": "Could not extract text from that PDF.",
+          "confirmReplaceTitle": "Replace existing text?",
+          "confirmReplaceDescription": "This will overwrite the current law text in the editor with the text extracted from the PDF. Nothing is saved until you click Save changes.",
+          "confirmReplace": "Replace text"
+        },
         "lawText": {
           "label": "Law text",
           "hint": "Raw text used by the library view and AI. Edit to fix typos or update content.",
