@@ -84,6 +84,8 @@ type MarketplaceProductCardProps = {
   coverPriority?: boolean;
   /** When set, appended as `?from=` so item pages can navigate back to the collection. */
   returnTo?: string | null;
+  /** `browse` = horizontal catalog card (prototype vault browse). */
+  variant?: "grid" | "browse";
 };
 
 function CategoryIcon({ type, className }: { type: string; className?: string }) {
@@ -129,10 +131,12 @@ export function MarketplaceProductCard({
   advisoryWorkspacePreview = false,
   coverPriority = false,
   returnTo,
+  variant = "grid",
 }: MarketplaceProductCardProps) {
   const t = useTranslations("marketplace");
   const router = useRouter();
   const [coverFailed, setCoverFailed] = useState(false);
+  const isBrowse = variant === "browse";
 
   const isCollectionCard =
     isCollection || Boolean(collectionHref && collectionCount && collectionLabel);
@@ -217,9 +221,16 @@ export function MarketplaceProductCard({
     e.stopPropagation();
   };
 
+  const browseMeta = [
+    typeBadgeLabel,
+    languageCodes.length > 0 ? languageCodes.join(", ").toUpperCase() : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <article
-      className={`vault-product-card ${styles.card} ${useInlineCollection ? styles.cardCollection : ""} ${useInlineCollection && collectionExpanded ? styles.cardCollectionExpanded : ""}`}
+      className={`vault-product-card ${styles.card} ${isBrowse ? styles.cardBrowse : ""} ${useInlineCollection ? styles.cardCollection : ""} ${useInlineCollection && collectionExpanded ? styles.cardCollectionExpanded : ""}`}
       onClick={handleCardClick}
       onKeyDown={handleCardKeyDown}
       role={useInlineCollection ? "button" : "link"}
@@ -254,23 +265,23 @@ export function MarketplaceProductCard({
             </span>
           </div>
         ) : null}
-        {isOwnedBadge ? (
+        {!isBrowse && isOwnedBadge ? (
           <div className={styles.mediaBadges}>
             <span className={styles.badgeOwned}>
               <Check className="h-3 w-3" aria-hidden />
               {t("owned")}
             </span>
           </div>
-        ) : isCollectionCard ? (
+        ) : !isBrowse && isCollectionCard ? (
           <div className={styles.mediaBadges}>
             <span className={styles.badgeCollection}>{t("collection")}</span>
           </div>
-        ) : product.price_cents === 0 ? (
+        ) : !isBrowse && product.price_cents === 0 ? (
           <div className={styles.mediaBadges}>
             <span className={styles.badgeFree}>{t("free")}</span>
           </div>
         ) : null}
-        {!isOwnedBadge && !isCollectionCard && product.price_cents > 0 ? (
+        {!isBrowse && !isOwnedBadge && !isCollectionCard && product.price_cents > 0 ? (
           <span className={styles.priceBadge}>{priceLabel}</span>
         ) : null}
       </div>
@@ -279,14 +290,33 @@ export function MarketplaceProductCard({
         <h3 className={`vault-product-title ${styles.title}`} title={product.title}>
           {displayTitle}
         </h3>
-        {showLanguageFlairs ? (
+        {isBrowse ? (
+          <>
+            {product.description ? (
+              <p className={styles.desc}>{product.description}</p>
+            ) : (
+              <p className={styles.desc}>{t("cardDescriptionFallback")}</p>
+            )}
+            <div className={styles.browseFoot}>
+              <span
+                className={`${styles.browsePrice} ${product.price_cents === 0 ? styles.browsePriceFree : ""}`}
+              >
+                {isCollectionCard && paidSeriesSummary && !paidSeriesSummary.fullyOwned
+                  ? formatUsd(seriesChargeCents)
+                  : priceLabel}
+              </span>
+              <span className={styles.browseMeta}>{browseMeta || subtitle}</span>
+            </div>
+          </>
+        ) : null}
+        {!isBrowse && showLanguageFlairs ? (
           <div className={styles.languageRow}>
             <VaultLanguageBadges languageCodes={languageCodes} variant="card" />
           </div>
         ) : null}
-        {subtitle ? <p className={styles.subtitle}>{subtitle}</p> : null}
+        {!isBrowse && subtitle ? <p className={styles.subtitle}>{subtitle}</p> : null}
 
-        {showSeriesBuy ? (
+        {!isBrowse && showSeriesBuy ? (
           <button
             type="button"
             onClick={(e) => {
@@ -301,9 +331,9 @@ export function MarketplaceProductCard({
               t("buyFullSeries", { price: formatUsd(seriesChargeCents) })
             )}
           </button>
-        ) : isCollectionCard ? (
+        ) : !isBrowse && isCollectionCard ? (
           <span className={styles.collectionCta}>{t("landing.exploreCollection")}</span>
-        ) : showPurchaseActions ? (
+        ) : !isBrowse && showPurchaseActions ? (
           <div className={styles.actionRow}>
             <button
               type="button"
@@ -357,7 +387,7 @@ export function MarketplaceProductCard({
               </button>
             )}
           </div>
-        ) : showFreeAction ? (
+        ) : !isBrowse && showFreeAction ? (
           <button
             type="button"
             onClick={(e) => {
@@ -368,7 +398,7 @@ export function MarketplaceProductCard({
           >
             {t("getForFree")}
           </button>
-        ) : showOwnedAction ? (
+        ) : !isBrowse && showOwnedAction ? (
           <button
             type="button"
             onClick={(e) => {
