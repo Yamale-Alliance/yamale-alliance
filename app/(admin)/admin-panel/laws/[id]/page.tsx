@@ -4,9 +4,15 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, Link2, Loader2, Search, Sparkles, Trash2, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, FileUp, Link2, Loader2, Search, Sparkles, Trash2, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { LAW_YEAR_MIN, LAW_YEAR_MAX } from "@/lib/admin-law-utils";
+import {
+  ADMIN_LAW_PDF_MAX_MB,
+  isAdminLawPdfTooLarge,
+  shouldUseDirectLawPdfUpload,
+} from "@/lib/admin-law-upload-limits";
+import { uploadLawPdfViaStorage } from "@/lib/admin-law-pdf-client-upload";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
 import { DEFAULT_LAW_LEVEL, LAW_LEVELS, isLawLevel, type LawLevel } from "@/lib/law-level";
 import { lawDetailHref } from "@/lib/law-public-url";
@@ -77,6 +83,9 @@ export default function AdminLawEditPage() {
   const [replaceResult, setReplaceResult] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [fixOcrLoading, setFixOcrLoading] = useState(false);
+  const [pdfExtracting, setPdfExtracting] = useState(false);
+  const [pdfForceOcr, setPdfForceOcr] = useState(false);
+  const [pdfInputKey, setPdfInputKey] = useState(0);
   const [ragApprovalLoading, setRagApprovalLoading] = useState(false);
   const [sharedLinkPeerCount, setSharedLinkPeerCount] = useState(0);
   const [canEdit, setCanEdit] = useState(true);
@@ -203,6 +212,77 @@ export default function AdminLawEditPage() {
     setText(parts.join(replaceValue));
     setReplaceResult(count);
     setStatusMsg(null);
+  };
+
+  const handleExtractFromPdf = async (file: File | null) => {
+    if (!file) return;
+    setPdfInputKey((k) => k + 1);
+    setError(null);
+    setStatusMsg(null);
+
+    if (file.type !== "application/pdf") {
+      setError(tAdd("errors.fileMustBePdf"));
+      return;
+    }
+    if (isAdminLawPdfTooLarge(file.size)) {
+      setError(
+        tAdd("errors.pdfTooLarge", { sizeMb: (file.size / (1024 * 1024)).toFixed(1) })
+      );
+      return;
+    }
+    if (text.trim().length > 0) {
+      const ok = await confirm({
+        title: t("pdfImport.confirmReplaceTitle"),
+        description: t("pdfImport.confirmReplaceDescription"),
+        confirmLabel: t("pdfImport.confirmReplace"),
+        cancelLabel: tc("cancel"),
+        variant: "default",
+      });
+      if (!ok) return;
+    }
+
+    setPdfExtracting(true);
+    try {
+      const formData = new FormData();
+      if (shouldUseDirectLawPdfUpload(file.size)) {
+        try {
+          const storagePath = await uploadLawPdfViaStorage(file);
+          formData.set("pdfStoragePath", storagePath);
+        } catch (uploadErr) {
+          setError(uploadErr instanceof Error ? uploadErr.message : tAdd("errors.uploadTooLarge"));
+          setPdfExtracting(false);
+          return;
+        }
+      } else {
+        formData.set("file", file);
+      }
+      if (pdfForceOcr) formData.set("forceOcr", "true");
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000);
+      const res = await fetch(`${window.location.origin}/api/admin/laws/extract-pdf`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
+      if (!res.ok || typeof data.text !== "string") {
+        setError(data.error ?? t("pdfImport.extractFailed"));
+        return;
+      }
+      setText(data.text);
+      setStatusMsg(t("pdfImport.extracted", { count: data.text.length.toLocaleString() }));
+    } catch (e) {
+      if ((e as Error).name === "AbortError") {
+        setError(tAdd("errors.requestTimeout"));
+      } else {
+        setError(t("errors.networkTryAgain"));
+      }
+    } finally {
+      setPdfExtracting(false);
+    }
   };
 
   const handleFixOcr = async () => {
@@ -827,6 +907,46 @@ export default function AdminLawEditPage() {
                   : t("findReplace.replaced", { count: replaceResult })}
               </p>
             )}
+          </div>
+
+          <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <FileUp className="h-4 w-4" />
+              {t("pdfImport.title")}
+            </div>
+            <p className="text-xs text-muted-foreground">{t("pdfImport.hint")}</p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <input
+                key={pdfInputKey}
+                type="file"
+                accept="application/pdf"
+                disabled={pdfExtracting}
+                onChange={(e) => void handleExtractFromPdf(e.target.files?.[0] ?? null)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:mr-4 file:rounded file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:text-primary-foreground disabled:opacity-60 sm:max-w-md"
+              />
+              {pdfExtracting && (
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  {t("pdfImport.extracting")}
+                </span>
+              )}
+            </div>
+            <label className="flex cursor-pointer items-start gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={pdfForceOcr}
+                disabled={pdfExtracting}
+                onChange={(e) => setPdfForceOcr(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-input"
+              />
+              <span>
+                <span className="font-medium text-foreground">{tAdd("ocr.forceTitle")}</span>{" "}
+                {tAdd("ocr.forceHint")}
+              </span>
+            </label>
+            <p className="text-xs text-muted-foreground">
+              {t("pdfImport.sizeHint", { maxMb: ADMIN_LAW_PDF_MAX_MB })}
+            </p>
           </div>
 
           <div>
