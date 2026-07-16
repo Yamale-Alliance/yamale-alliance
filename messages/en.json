@@ -1426,6 +1426,7 @@
           "pdfTooLarge": "This PDF is too large for browser upload ({sizeMb}MB). Use a smaller file or the CLI script for very large laws.",
           "pasteRequired": "Paste the law content in the text area, or switch to \"Upload PDF\".",
           "uploadTooLarge": "Upload is too large. Try a smaller PDF, disable OCR, or use the CLI import script.",
+          "emptyPdfExtract": "No usable text could be extracted from this PDF. Enable “Force OCR” for scanned files, paste the text, or use a PDF with a selectable text layer.",
           "addFailed": "Failed to add law",
           "requestTimeout": "Request took too long. Try a smaller PDF or use \"Paste content\" for very large documents.",
           "serverUnreachable": "Could not reach the server. Restart the dev server if you changed upload limits in next.config; for very large PDFs use the CLI import script.",
@@ -1482,7 +1483,7 @@
         },
         "upload": {
           "label": "PDF file",
-          "hint": "Text will be extracted and stored for the library. For scanned PDFs, enable OCR below.",
+          "hint": "Text will be extracted and stored for the library. For scanned PDFs, enable Force OCR below — otherwise the law may be saved without full text.",
           "sizeHint": "PDFs up to {maxMb} MB are supported. Files over 4 MB upload directly to storage to avoid server size limits.",
           "waitHint": "Large PDFs or OCR can take 1–2 minutes. Please wait and do not refresh."
         },
