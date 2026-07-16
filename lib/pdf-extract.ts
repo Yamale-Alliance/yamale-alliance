@@ -144,6 +144,11 @@ export async function extractTextFromPdf(
     const qOcr = scoreEmbeddedTextQuality(ocrTrim);
 
     if (!ocrTrim) {
+      if (!embTrim) {
+        throw new Error(
+          "No text could be extracted (embedded text empty and OCR returned nothing). Enable Force OCR, install pdftoppm + tesseract on the server, or paste the law text."
+        );
+      }
       return embedded;
     }
     if (!embTrim) {
@@ -161,7 +166,16 @@ export async function extractTextFromPdf(
     }
     return embedded;
   } catch (e) {
-    console.warn("PDF OCR fallback failed:", (e as Error).message);
+    const msg = (e as Error).message;
+    if (!embTrim && /No text could be extracted/i.test(msg)) {
+      throw e;
+    }
+    console.warn("PDF OCR fallback failed:", msg);
+    if (!embTrim) {
+      throw new Error(
+        `OCR failed and no embedded text was found: ${msg}. Enable Force OCR, install pdftoppm + tesseract, or paste the law text.`
+      );
+    }
     return embedded;
   } finally {
     if (tmpDir) {
