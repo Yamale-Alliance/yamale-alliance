@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useLayoutEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { useClientSearchParams } from "@/lib/use-client-search-params";
@@ -28,6 +27,7 @@ import {
   isVaultSeriesMemberItem,
   labelForVaultSubcategory,
   parseVaultSeriesParam,
+  vaultSeriesUsesPerCountryCovers,
   type VaultSubcategoryId,
 } from "@/lib/marketplace-vault-categories";
 import { vaultSeriesGroupKey, vaultSeriesPageHref } from "@/lib/marketplace-vault-series-display";
@@ -37,9 +37,10 @@ import {
 } from "@/lib/marketplace-series-offers";
 import type { MarketplaceItemPackOffer } from "@/lib/marketplace-item-packs";
 import { VaultLandingHero } from "@/components/marketplace/vault/VaultLandingHero";
-import { VaultCategoryGrid } from "@/components/marketplace/vault/VaultCategoryGrid";
-import { VaultProductSection } from "@/components/marketplace/vault/VaultProductSection";
-import { VaultCatalogToolbar } from "@/components/marketplace/vault/VaultCatalogToolbar";
+import { VaultCategoryGrid, type VaultDoorParam } from "@/components/marketplace/vault/VaultCategoryGrid";
+import { VaultFreeStarterRow } from "@/components/marketplace/vault/VaultFreeStarterRow";
+import { VaultMonthPick } from "@/components/marketplace/vault/VaultMonthPick";
+import { VaultCatalogToolbar, type VaultBrowseTabParam } from "@/components/marketplace/vault/VaultCatalogToolbar";
 import { VaultProductGrid } from "@/components/marketplace/vault/VaultProductGrid";
 import { buildVaultDisplayCards, isStandaloneVaultBrowseItem } from "@/lib/marketplace-vault-display-cards";
 import {
@@ -56,15 +57,15 @@ import type {
 } from "@/lib/marketplace-browse-data";
 import { writeVaultBrowseClientCache } from "@/lib/marketplace-browse-client-cache";
 import type { VaultSeriesRecord } from "@/lib/marketplace-vault-series";
+import { vaultSeriesCoverUrl } from "@/lib/marketplace-vault-series";
 import { collectMarketplaceCoverPreloadUrls } from "@/lib/marketplace-cover-preload";
-
-const LANDING_SECTION_LIMIT = 8;
 
 type ProductCategory = "book" | "course" | "template" | "guide";
 
 type BrowseMode =
   | { kind: "all" }
   | { kind: "type"; type: ProductCategory }
+  | { kind: "guidebook" }
   | { kind: "free"; subcategory: string | null }
   | { kind: "series" };
 
@@ -76,11 +77,17 @@ const HIDE_MEMBER_ITEMS_FROM_CATALOG_SERIES_IDS = new Set<string>([
 function parseBrowseMode(categoryParam: string | null, seriesParam: string | null): BrowseMode {
   if (!categoryParam || categoryParam === "all") return { kind: "all" };
   if (categoryParam === VAULT_BROWSE_SERIES || categoryParam === "series") return { kind: "series" };
+  if (categoryParam === "guidebook") return { kind: "guidebook" };
   if (categoryParam === VAULT_BROWSE_FREE) {
     const sub = parseVaultSeriesParam(seriesParam);
     return { kind: "free", subcategory: sub && !isPaidVaultSubcategory(sub) ? sub : null };
   }
-  if (categoryParam === "book" || categoryParam === "course" || categoryParam === "template" || categoryParam === "guide") {
+  if (
+    categoryParam === "book" ||
+    categoryParam === "course" ||
+    categoryParam === "template" ||
+    categoryParam === "guide"
+  ) {
     return { kind: "type", type: categoryParam };
   }
   return { kind: "all" };
@@ -88,22 +95,58 @@ function parseBrowseMode(categoryParam: string | null, seriesParam: string | nul
 
 type Product = MarketplaceBrowseItem;
 
-type FormatTileParam = "all" | ProductCategory | typeof VAULT_BROWSE_FREE | typeof VAULT_BROWSE_SERIES;
+/** Courses & packages door / tab — includes is_course flag and named packages. */
+function isCourseOrPackageItem(p: Product): boolean {
+  if (!isStandaloneVaultBrowseItem(p)) return false;
+  if (p.type === "course" || isMarketplaceCourseItem(p)) return true;
+  if (!isMarketplaceZip(p)) return false;
+  const title = p.title.toLowerCase();
+  return (
+    title.includes("package") ||
+    title.includes("accelerator") ||
+    title.includes("programme") ||
+    title.includes("program")
+  );
+}
+
+function pickDoorCover(candidates: Array<string | null | undefined>): string | null {
+  for (const url of candidates) {
+    const trimmed = url?.trim();
+    if (trimmed) return trimmed;
+  }
+  return null;
+}
+
+type FormatTileParam =
+  | "all"
+  | ProductCategory
+  | "guidebook"
+  | typeof VAULT_BROWSE_FREE
+  | typeof VAULT_BROWSE_SERIES;
 
 type TopicId = "general" | "tax" | "labour" | "mining" | "compliance" | "corporate";
 
-const FORMAT_TILE_DEFS: {
-  param: FormatTileParam;
-  labelKey: "all" | "free" | "series" | "book" | "course" | "template" | "guide";
-  icon: "all" | ProductCategory | "free" | "series";
+const BROWSE_TAB_DEFS: {
+  param: VaultBrowseTabParam;
+  labelKey: "all" | "course" | "template" | "guidebook" | "series" | "free";
 }[] = [
-  { param: "all", labelKey: "all", icon: "all" },
-  { param: VAULT_BROWSE_FREE, labelKey: "free", icon: "free" },
-  { param: VAULT_BROWSE_SERIES, labelKey: "series", icon: "series" },
-  { param: "book", labelKey: "book", icon: "book" },
-  { param: "course", labelKey: "course", icon: "course" },
-  { param: "template", labelKey: "template", icon: "template" },
-  { param: "guide", labelKey: "guide", icon: "guide" },
+  { param: "all", labelKey: "all" },
+  { param: "course", labelKey: "course" },
+  { param: "template", labelKey: "template" },
+  { param: "guidebook", labelKey: "guidebook" },
+  { param: VAULT_BROWSE_SERIES, labelKey: "series" },
+  { param: VAULT_BROWSE_FREE, labelKey: "free" },
+];
+
+const DOOR_DEFS: {
+  param: VaultDoorParam;
+  labelKey: "course" | "template" | "guidebook" | "series";
+  countKey: "course" | "template" | "guidebook" | "series";
+}[] = [
+  { param: "course", labelKey: "course", countKey: "course" },
+  { param: "template", labelKey: "template", countKey: "template" },
+  { param: "guidebook", labelKey: "guidebook", countKey: "guidebook" },
+  { param: VAULT_BROWSE_SERIES, labelKey: "series", countKey: "series" },
 ];
 
 function inferTopicId(product: Product): TopicId {
@@ -147,6 +190,7 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
   const router = useRouter();
   const searchParams = useClientSearchParams();
   const [search, setSearch] = useState("");
+  const [heroSearchDraft, setHeroSearchDraft] = useState("");
   const [items, setItems] = useState<Product[]>(initialPayload.items);
   const [advisoryWorkspacePreview, setAdvisoryWorkspacePreview] = useState(
     initialPayload.advisoryWorkspacePreview
@@ -187,6 +231,7 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
 
   const categoryQs = searchParams.get("category");
   const seriesQs = searchParams.get("series");
+  const viewQs = searchParams.get("view");
   const vaultSort = parseVaultSortParam(searchParams.get("sort"));
 
   useEffect(() => {
@@ -199,27 +244,37 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
   const browse = parseBrowseMode(activeCategoryParam, seriesQs);
 
   const navigateBrowseCategory = useCallback(
-    (param: FormatTileParam) => {
+    (param: FormatTileParam | VaultDoorParam | VaultBrowseTabParam) => {
       const category = param === "all" ? null : param;
       const qs = buildMarketplaceSearchQuery({
         category,
         series: null,
         sort: vaultSort,
+        catalog: true,
       });
       setPendingCategory(category);
       setSelectedTopic("all");
       setSearch("");
-      router.push(qs ? `/marketplace?${qs}` : "/marketplace", { scroll: false });
+      router.push(qs ? `/marketplace?${qs}` : "/marketplace?view=catalog", { scroll: true });
+      if (typeof window !== "undefined") {
+        window.scrollTo(0, 0);
+      }
     },
     [router, vaultSort]
   );
 
   const marketplaceQuery = useCallback(
-    (overrides?: { category?: string | null; series?: string | null; sort?: typeof vaultSort }) =>
+    (overrides?: {
+      category?: string | null;
+      series?: string | null;
+      sort?: typeof vaultSort;
+      catalog?: boolean;
+    }) =>
       buildMarketplaceSearchQuery({
         category: overrides?.category !== undefined ? overrides.category : activeCategoryParam,
         series: overrides?.series !== undefined ? overrides.series : seriesQs,
         sort: overrides?.sort ?? vaultSort,
+        catalog: overrides?.catalog ?? true,
       }),
     [activeCategoryParam, seriesQs, vaultSort]
   );
@@ -236,12 +291,30 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
     setSearch("");
   }, [categoryQs, seriesQs]);
 
-  const formatTiles = useMemo(
+  useEffect(() => {
+    if (viewQs !== "catalog" && !categoryQs && !seriesQs) {
+      setHeroSearchDraft("");
+    }
+  }, [viewQs, categoryQs, seriesQs]);
+
+  const browseTabs = useMemo(
     () =>
-      FORMAT_TILE_DEFS.map((tile) => ({
-        ...tile,
-        label: t(`formats.${tile.labelKey}`),
+      BROWSE_TAB_DEFS.map((tab) => ({
+        param: tab.param,
+        label: t(`formats.${tab.labelKey}`),
       })),
+    [t]
+  );
+
+  const typeBadge = useCallback(
+    (type: string) =>
+      type === "course"
+        ? t("typeBadges.course")
+        : type === "guide"
+          ? t("typeBadges.guide")
+          : type === "template"
+            ? t("typeBadges.template")
+            : t("typeBadges.book"),
     [t]
   );
 
@@ -288,8 +361,22 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
     if (param === "all") return items.length;
     if (param === VAULT_BROWSE_FREE) return freeItemCount;
     if (param === VAULT_BROWSE_SERIES) return seriesCollectionCount;
+    if (param === "guidebook") {
+      return items.filter(
+        (p) => (p.type === "guide" || p.type === "book") && isStandaloneVaultBrowseItem(p)
+      ).length;
+    }
+    if (param === "course") {
+      return items.filter(isCourseOrPackageItem).length;
+    }
     return items.filter((p) => p.type === param && isStandaloneVaultBrowseItem(p)).length;
   };
+
+  const coverForType = useCallback(
+    (matcher: (p: Product) => boolean) =>
+      items.find((p) => matcher(p) && p.image_url?.trim())?.image_url?.trim() ?? null,
+    [items]
+  );
 
   const freeSeriesCounts = useMemo(() => {
     const m = new Map<string, number>();
@@ -415,12 +502,16 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
           ? true
           : browse.kind === "series"
             ? isVaultSeriesMemberItem(p)
-            : browse.kind === "type"
-              ? p.type === browse.type && isStandaloneVaultBrowseItem(p)
-              : isFreeVaultItem(p.price_cents) &&
-                (browse.subcategory
-                  ? p.vault_subcategory === browse.subcategory
-                  : isStandaloneVaultBrowseItem(p));
+            : browse.kind === "guidebook"
+              ? (p.type === "guide" || p.type === "book") && isStandaloneVaultBrowseItem(p)
+              : browse.kind === "type"
+                ? browse.type === "course"
+                  ? isCourseOrPackageItem(p)
+                  : p.type === browse.type && isStandaloneVaultBrowseItem(p)
+                : isFreeVaultItem(p.price_cents) &&
+                  (browse.subcategory
+                    ? p.vault_subcategory === browse.subcategory
+                    : isStandaloneVaultBrowseItem(p));
       return matchSearch && matchBrowse;
     });
   }, [items, browse, search]);
@@ -443,7 +534,7 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
 
   const catalogCardMode = useMemo(() => {
     if (browse.kind === "series") return "series-only" as const;
-    if (browse.kind === "type") return "standalone" as const;
+    if (browse.kind === "type" || browse.kind === "guidebook") return "standalone" as const;
     if (browse.kind === "free" && !browse.subcategory) return "standalone" as const;
     return "default" as const;
   }, [browse]);
@@ -461,7 +552,12 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
               : browse.kind === "series"
                 ? "series"
                 : "type",
-        type: browse.kind === "type" ? browse.type : undefined,
+        type:
+          browse.kind === "type"
+            ? browse.type
+            : browse.kind === "guidebook"
+              ? "guide"
+              : undefined,
         freeSubcategory,
       },
       t("seriesLabel"),
@@ -474,110 +570,115 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
     !pendingCategory &&
     browse.kind === "all" &&
     !search.trim() &&
-    selectedTopic === "all";
+    selectedTopic === "all" &&
+    viewQs !== "catalog";
 
-  const categoryGridItems = useMemo(
+  const freeStarterItems = useMemo(
     () =>
-      formatTiles.map((tile) => ({
-        param: tile.param,
-        label: tile.label,
-        blurb: t(`formats.${tile.labelKey}Blurb`),
-        count: formatTileCount(tile.param),
-      })),
-    [formatTiles, t, items, freeItemCount, seriesCollectionCount]
+      items
+        .filter((p) => isFreeVaultItem(p.price_cents) && isStandaloneVaultBrowseItem(p))
+        .slice(0, 3),
+    [items]
   );
 
-  const landingSections = useMemo(() => {
-    if (!isLandingMode) return [];
+  const vaultDoors = useMemo(() => {
+    const courseCover = pickDoorCover([
+      // Prefer paid course/package marketing covers
+      ...items
+        .filter((p) => isCourseOrPackageItem(p) && p.price_cents > 0 && p.image_url?.trim())
+        .map((p) => p.image_url),
+      ...items.filter(isCourseOrPackageItem).map((p) => p.image_url),
+    ]);
 
-    const section = (
-      titleKey: string,
-      products: Product[],
-      cardMode: "standalone" | "series-only",
-      viewAllParam: FormatTileParam | null,
-      sortOverride?: typeof vaultSort
-    ) => {
-      const { displayCards: cards, seriesMembersByKey: members } = buildVaultDisplayCards(
-        sortVaultProducts(products, sortOverride ?? vaultSort),
-        { kind: "all" },
-        t("seriesLabel"),
-        cardMode,
-        vaultSeriesList
-      );
-      const qs =
-        viewAllParam === null
-          ? null
-          : marketplaceQuery({
-              category: viewAllParam === "all" ? null : viewAllParam,
-              series: null,
-            });
+    // Series: use collection-level covers, never a single-country tile (e.g. Benin)
+    const seriesRegistryCover = pickDoorCover(
+      vaultSeriesList.map((series) => vaultSeriesCoverUrl(series))
+    );
+    const seriesGenericMemberCover = coverForType(
+      (p) =>
+        isVaultSeriesMemberItem(p) &&
+        !p.focus_country?.trim() &&
+        !vaultSeriesUsesPerCountryCovers(p.vault_subcategory)
+    );
+    const seriesAnyMemberCover = coverForType(
+      (p) => isVaultSeriesMemberItem(p) && !p.focus_country?.trim()
+    );
+    const seriesCover = pickDoorCover([
+      seriesRegistryCover,
+      seriesGenericMemberCover,
+      seriesAnyMemberCover,
+    ]);
+
+    return DOOR_DEFS.map((door) => {
+      const count =
+        door.countKey === "series"
+          ? seriesCollectionCount
+          : door.countKey === "guidebook"
+            ? formatTileCount("guidebook")
+            : formatTileCount(door.countKey);
+      const imageUrl =
+        door.param === VAULT_BROWSE_SERIES
+          ? seriesCover
+          : door.param === "course"
+            ? courseCover
+            : door.param === "guidebook"
+              ? coverForType((p) => p.type === "guide" || p.type === "book")
+              : coverForType((p) => p.type === door.param && isStandaloneVaultBrowseItem(p));
       return {
-        titleKey,
-        displayCards: cards.slice(0, LANDING_SECTION_LIMIT),
-        seriesMembersByKey: members,
-        viewAllHref: qs ? `/marketplace?${qs}` : viewAllParam === null ? undefined : "/marketplace",
+        param: door.param,
+        label: t(`formats.${door.labelKey}`),
+        countLabel:
+          door.countKey === "guidebook"
+            ? t("landing.doorCountGuidebook", { count })
+            : door.countKey === "series"
+              ? t("landing.doorCountSeries", { count })
+              : t("landing.resourceCount", { count }),
+        imageUrl,
       };
-    };
+    });
+  }, [t, items, freeItemCount, seriesCollectionCount, coverForType, vaultSeriesList]);
 
-    return [
-      section(
-        "landing.sectionFeatured",
-        items.filter(isStandaloneVaultBrowseItem),
-        "standalone",
-        null,
-        "recent"
-      ),
-      section(
-        "landing.sectionSeries",
-        items.filter(isVaultSeriesMemberItem),
-        "series-only",
-        VAULT_BROWSE_SERIES
-      ),
-      section(
-        "landing.sectionFree",
-        items.filter((p) => isFreeVaultItem(p.price_cents) && isStandaloneVaultBrowseItem(p)),
-        "standalone",
-        VAULT_BROWSE_FREE
-      ),
-      section(
-        "landing.sectionCourses",
-        items.filter((p) => p.type === "course" && isStandaloneVaultBrowseItem(p)),
-        "standalone",
-        "course"
-      ),
-      section(
-        "landing.sectionTemplates",
-        items.filter((p) => p.type === "template" && isStandaloneVaultBrowseItem(p)),
-        "standalone",
-        "template"
-      ),
-      section(
-        "landing.sectionBooks",
-        items.filter((p) => p.type === "book" && isStandaloneVaultBrowseItem(p)),
-        "standalone",
-        "book"
-      ),
-      section(
-        "landing.sectionGuides",
-        items.filter((p) => p.type === "guide" && isStandaloneVaultBrowseItem(p)),
-        "standalone",
-        "guide"
-      ),
-    ].filter((s) => s.displayCards.length > 0);
-  }, [isLandingMode, items, vaultSort, marketplaceQuery, t, vaultSeriesList]);
+  const monthPick = useMemo(() => {
+    const candidates = items
+      .filter((p) => isStandaloneVaultBrowseItem(p) && p.description?.trim() && p.image_url?.trim())
+      .sort((a, b) => {
+        const ta = a.created_at ? Date.parse(a.created_at) : 0;
+        const tb = b.created_at ? Date.parse(b.created_at) : 0;
+        return tb - ta;
+      });
+    const paid = candidates.find((p) => p.price_cents > 0);
+    return paid ?? candidates[0] ?? null;
+  }, [items]);
+
+  const activeBrowseTab: VaultBrowseTabParam =
+    browse.kind === "all"
+      ? "all"
+      : browse.kind === "series"
+        ? VAULT_BROWSE_SERIES
+        : browse.kind === "free"
+          ? VAULT_BROWSE_FREE
+          : browse.kind === "guidebook"
+            ? "guidebook"
+            : browse.kind === "type"
+              ? browse.type === "book" || browse.type === "guide"
+                ? "guidebook"
+                : browse.type
+              : "all";
 
   const browseTitle =
     browse.kind === "all"
-      ? t("formats.all")
+      ? t("landing.browseTitle")
       : browse.kind === "series"
         ? t("formats.series")
         : browse.kind === "free"
           ? browse.subcategory
             ? (labelForVaultSubcategory(browse.subcategory) ?? t("formats.free"))
             : t("formats.free")
-          : browse.kind === "type"
-            ? (formatTiles.find((tile) => tile.param === browse.type)?.label ?? browse.type)
-            : t("formats.all");
+          : browse.kind === "guidebook"
+            ? t("formats.guidebook")
+            : browse.kind === "type"
+              ? t(`formats.${browse.type}`)
+              : t("formats.all");
 
   const catalogTitle = search.trim()
     ? t("landing.searchResults")
@@ -772,14 +873,30 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
       />
       {isLandingMode ? (
         <VaultLandingHero
-          search={search}
-          onSearchChange={setSearch}
+          search={heroSearchDraft}
+          onSearchChange={setHeroSearchDraft}
+          onSearchSubmit={() => {
+            const q = heroSearchDraft.trim();
+            if (!q) {
+              navigateBrowseCategory("all");
+              return;
+            }
+            setSearch(q);
+            const qs = buildMarketplaceSearchQuery({
+              category: null,
+              series: null,
+              sort: vaultSort,
+              catalog: true,
+            });
+            router.push(qs ? `/marketplace?${qs}` : "/marketplace?view=catalog", { scroll: true });
+            if (typeof window !== "undefined") {
+              window.scrollTo(0, 0);
+            }
+          }}
+          onBrowseAll={() => navigateBrowseCategory("all")}
           isSignedIn={!!isSignedIn}
           cartCount={cartCount}
           ownsLawFirmWorkspace={ownsLawFirmWorkspace}
-          totalResources={items.length}
-          freeResources={freeItemCount}
-          seriesCount={seriesCollectionCount}
           advisoryCourseHref={
             ownedCourseItem
               ? advisoryCourseHref(ownedCourseItem)
@@ -806,38 +923,36 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
 
       {isLandingMode ? (
         <div className="vault-landing-catalog border-t border-border/70">
-          <VaultCategoryGrid
-            categories={categoryGridItems}
-            onSelectCategory={navigateBrowseCategory}
-          />
           {loading ? (
-            <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-[1140px] px-6 py-12">
               <MarketplaceGridSkeleton />
             </div>
           ) : (
-            landingSections.map((section, index) => (
-              <VaultProductSection
-                key={section.titleKey}
-                sectionKey={section.titleKey}
-                title={t(section.titleKey)}
-                viewAllHref={section.viewAllHref}
-                displayCards={section.displayCards}
-                seriesMembersByKey={section.seriesMembersByKey}
-                expandedSeriesKey={expandedSeriesKey}
-                onToggleSeries={toggleSeries}
-                layout="rail"
-                muted={index % 2 === 1}
-                variant={section.titleKey === "landing.sectionSeries" ? "series" : "default"}
-                isSignedIn={!!isSignedIn}
-                cartItemIds={cartItemIds}
-                addingToCart={addingToCart}
-                advisoryWorkspacePreview={advisoryWorkspacePreview}
-                onAddToCart={handleAddToCart}
-                onRemoveFromCart={handleRemoveFromCart}
-                onBuy={(product, e) => openBuyModal(product as Product, e)}
-                onBuySeries={openSeriesBuyModal}
-              />
-            ))
+            <>
+              <VaultFreeStarterRow items={freeStarterItems} typeLabel={typeBadge} />
+              <VaultCategoryGrid doors={vaultDoors} onSelectCategory={navigateBrowseCategory} />
+              {monthPick ? (
+                <VaultMonthPick
+                  item={monthPick}
+                  typeLabel={typeBadge(monthPick.type)}
+                  topicLabel={
+                    monthPick.vault_subcategory
+                      ? labelForVaultSubcategory(monthPick.vault_subcategory)
+                      : null
+                  }
+                  blurb={monthPick.description?.trim() || t("cardDescriptionFallback")}
+                />
+              ) : null}
+              <div className="px-6 pb-14 pt-4 text-center">
+                <button
+                  type="button"
+                  onClick={() => navigateBrowseCategory("all")}
+                  className="inline-flex items-center justify-center rounded-[9px] bg-[linear-gradient(135deg,var(--brand-copper),var(--primary))] px-6 py-3 text-[0.92rem] font-bold text-white transition hover:brightness-105"
+                >
+                  {t("landing.browseAllCta")}
+                </button>
+              </div>
+            </>
           )}
         </div>
       ) : (
@@ -855,6 +970,9 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
             topicOptions={topicOptions}
             topicLabel={topicLabel}
             clearHref="/marketplace"
+            tabs={browseTabs}
+            activeTab={activeBrowseTab}
+            onTabChange={navigateBrowseCategory}
             showFreeSeries={browse.kind === "free"}
             allFreeHref={`/marketplace?${marketplaceQuery({ category: "free", series: null })}`}
             allFreeActive={browse.kind === "free" && !browse.subcategory}
@@ -869,8 +987,8 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
                 count: freeSeriesCounts.get(series.id) ?? 0,
               }))}
           />
-          <section className="pb-16 pt-8">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <section className="pb-16 pt-2">
+            <div className="mx-auto max-w-[1140px] px-6">
               {loading ? (
                 <MarketplaceGridSkeleton />
               ) : displayCards.length === 0 ? (
@@ -885,6 +1003,7 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
                   expandedSeriesKey={expandedSeriesKey}
                   onToggleSeries={toggleSeries}
                   layout="grid"
+                  cardVariant="browse"
                   isSignedIn={!!isSignedIn}
                   cartItemIds={cartItemIds}
                   addingToCart={addingToCart}
