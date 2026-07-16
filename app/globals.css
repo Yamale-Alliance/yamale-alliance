@@ -22,6 +22,11 @@
   --surface: #f4f1eb;
   --brand-navy: #0d1b2a;
   --brand-navy-mid: #162436;
+  --brand-navy-fixed: #0d1b2a;
+  --brand-copper: #9a632a;
+  --brand-pale-gold: #e3ba65;
+  --brand-saddle: #603b1c;
+  --brand-line: #e2d8ca;
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-left: env(safe-area-inset-left, 0px);
@@ -50,6 +55,11 @@
   --surface: #1e3148;
   --brand-navy: #f4f1eb;
   --brand-navy-mid: #e8eef5;
+  --brand-navy-fixed: #0d1b2a;
+  --brand-copper: #e3ba65;
+  --brand-pale-gold: #e8b84b;
+  --brand-saddle: #e3ba65;
+  --brand-line: #2a3f56;
   --color-background-primary: var(--card);
   --color-border-tertiary: var(--border);
   --color-text-primary: var(--foreground);
