@@ -1426,6 +1426,7 @@
           "pdfTooLarge": "Este PDF é demasiado grande para upload no navegador ({sizeMb}MB). Use um ficheiro menor ou o script CLI para leis muito grandes.",
           "pasteRequired": "Cole o conteúdo da lei na área de texto, ou mude para \"Carregar PDF\".",
           "uploadTooLarge": "Upload demasiado grande. Tente um PDF menor, desative OCR, ou use o script CLI.",
+          "emptyPdfExtract": "Não foi possível extrair texto utilizável deste PDF. Ative “Force OCR” para ficheiros digitalizados, cole o texto, ou use um PDF com camada de texto selecionável.",
           "addFailed": "Falha ao adicionar lei",
           "requestTimeout": "Pedido demorou demasiado. Tente um PDF menor ou use \"Colar conteúdo\" para documentos muito grandes.",
           "serverUnreachable": "Não foi possível contactar o servidor. Reinicie o servidor de dev se alterou limites em next.config; para PDFs muito grandes use o script CLI.",
@@ -1482,7 +1483,7 @@
         },
         "upload": {
           "label": "Ficheiro PDF",
-          "hint": "O texto será extraído e guardado para a biblioteca. Para PDFs digitalizados, ative OCR abaixo.",
+          "hint": "O texto será extraído e guardado para a biblioteca. Para PDFs digitalizados, ative Force OCR abaixo — caso contrário a lei pode ser guardada sem texto completo.",
           "sizeHint": "PDFs até {maxMb} MB são suportados. Acima de 4 MB, o envio vai diretamente para o armazenamento para evitar limites do servidor.",
           "waitHint": "PDFs grandes ou OCR podem demorar 1–2 minutos. Aguarde e não atualize."
         },
