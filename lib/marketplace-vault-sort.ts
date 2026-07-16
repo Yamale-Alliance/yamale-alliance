@@ -71,6 +71,8 @@ export function buildMarketplaceSearchQuery(options: {
   category?: string | null;
   series?: string | null;
   sort?: VaultSortMode;
+  /** When true, show the catalog browse view even for "all" with an empty search. */
+  catalog?: boolean;
 }): string {
   const params = new URLSearchParams();
   const category = options.category?.trim();
@@ -79,5 +81,6 @@ export function buildMarketplaceSearchQuery(options: {
   if (category && category !== "all") params.set("category", category);
   if (series) params.set("series", series);
   if (sort !== DEFAULT_VAULT_SORT) params.set("sort", sort);
+  if (options.catalog) params.set("view", "catalog");
   return params.toString();
 }
