@@ -16,38 +16,12 @@ import {
   AdminVirusScanUploadBanner,
 } from "@/components/admin/AdminVirusScanUploadBanner";
 import { AdminLawLanguageSelect } from "@/components/admin/AdminLawLanguageSelect";
+import { uploadLawPdfViaStorage } from "@/lib/admin-law-pdf-client-upload";
 
 type Country = { id: string; name: string };
 type Category = { id: string; name: string };
 
 type InputMode = "upload" | "paste" | "url";
-
-async function uploadLawPdfViaStorage(file: File): Promise<string> {
-  const metaRes = await fetch(`${window.location.origin}/api/admin/laws/pdf-upload-url`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sizeBytes: file.size, filename: file.name }),
-  });
-  const meta = (await metaRes.json().catch(() => ({}))) as {
-    error?: string;
-    signedUrl?: string;
-    path?: string;
-  };
-  if (!metaRes.ok || !meta.signedUrl || !meta.path) {
-    throw new Error(meta.error ?? "Could not prepare large PDF upload");
-  }
-
-  const putRes = await fetch(meta.signedUrl, {
-    method: "PUT",
-    headers: { "Content-Type": "application/pdf" },
-    body: file,
-  });
-  if (!putRes.ok) {
-    throw new Error("Direct PDF upload failed. Check Supabase storage configuration.");
-  }
-  return meta.path;
-}
 
 export default function AdminLawsAddPage() {
   const t = useTranslations("admin.laws.add");
