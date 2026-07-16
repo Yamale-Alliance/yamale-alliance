@@ -23,6 +23,8 @@ type VaultProductGridProps = {
   expandedSeriesKey: string | null;
   onToggleSeries: (seriesKey: string) => void;
   layout?: "grid" | "rail";
+  /** Catalog browse uses horizontal 2-col cards. */
+  cardVariant?: "grid" | "browse";
   isSignedIn: boolean;
   cartItemIds: Set<string>;
   addingToCart: string | null;
@@ -39,6 +41,7 @@ export function VaultProductGrid({
   expandedSeriesKey,
   onToggleSeries,
   layout = "grid",
+  cardVariant = "grid",
   isSignedIn,
   cartItemIds,
   addingToCart,
@@ -134,6 +137,7 @@ export function VaultProductGrid({
             : undefined
         }
         coverPriority={cardIndex < 8 && !opts?.iconOnlyMedia}
+        variant={cardVariant}
       />
     );
   };
@@ -141,7 +145,9 @@ export function VaultProductGrid({
   const containerClass =
     layout === "rail"
       ? "flex gap-5 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-thin"
-      : "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+      : cardVariant === "browse"
+        ? "grid grid-cols-1 gap-3.5 sm:grid-cols-2"
+        : "grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
 
   const itemClass =
     layout === "rail"
@@ -195,7 +201,7 @@ export function VaultProductGrid({
           return (
             <div
               key={seriesKey}
-              className="col-span-full grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              className="col-span-full grid grid-cols-1 gap-3.5 sm:grid-cols-2"
             >
               {renderProductCard(card.product, card, cardIndex)}
               {members.map((member) =>
