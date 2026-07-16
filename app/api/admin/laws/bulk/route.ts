@@ -10,6 +10,8 @@ import {
   isValidLawYear,
   LAW_YEAR_MIN,
   LAW_YEAR_MAX,
+  EMPTY_PDF_EXTRACT_MESSAGE,
+  hasUsableLawContent,
 } from "@/lib/admin-law-utils";
 import type { Database } from "@/lib/database.types";
 import { syncLawCategories } from "@/lib/law-categories-sync";
@@ -166,6 +168,10 @@ export async function POST(request: NextRequest) {
       }
 
       const contentTrimmed = sanitizeLawContent(text) || null;
+      if (!hasUsableLawContent(contentTrimmed)) {
+        failed.push({ index: i, title, error: EMPTY_PDF_EXTRACT_MESSAGE });
+        continue;
+      }
 
       const row = {
         country_id: countryId,
@@ -177,7 +183,7 @@ export async function POST(request: NextRequest) {
         status,
         content: contentTrimmed,
         content_plain: contentTrimmed,
-        content_hash: contentTrimmed ? computeLawContentHash(contentTrimmed) : null,
+        content_hash: computeLawContentHash(contentTrimmed),
         ingested_by: admin.userId,
         ingested_at: new Date().toISOString(),
         rag_approval_status: LAW_RAG_PENDING_STATUS,
