@@ -10,6 +10,8 @@ import {
   isValidLawYear,
   LAW_YEAR_MIN,
   LAW_YEAR_MAX,
+  EMPTY_PDF_EXTRACT_MESSAGE,
+  hasUsableLawContent,
 } from "@/lib/admin-law-utils";
 import { isLawTreatyType } from "@/lib/law-treaty-type";
 import { DEFAULT_LAW_LEVEL, isLawLevel } from "@/lib/law-level";
@@ -220,7 +222,20 @@ export async function POST(request: NextRequest) {
     }
 
     const contentTrimmed = sanitizeLawContent(text) || null;
-    const contentHash = contentTrimmed ? computeLawContentHash(contentTrimmed) : null;
+    const uploadedViaPdf = Boolean((file && file.size > 0) || pdfStoragePath);
+    if (uploadedViaPdf && !hasUsableLawContent(contentTrimmed)) {
+      return NextResponse.json({ error: EMPTY_PDF_EXTRACT_MESSAGE }, { status: 400 });
+    }
+    if (!hasUsableLawContent(contentTrimmed)) {
+      return NextResponse.json(
+        {
+          error:
+            "Law content is empty or too short. Paste the full text, or upload a PDF with extractable text.",
+        },
+        { status: 400 }
+      );
+    }
+    const contentHash = computeLawContentHash(contentTrimmed);
     const ingestedAt = new Date().toISOString();
     const integrityFields = {
       content_hash: contentHash,
