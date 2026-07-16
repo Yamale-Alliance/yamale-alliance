@@ -8,6 +8,9 @@ import {
   VALID_LAW_STATUSES,
   normaliseLawTitle,
   isValidLawYear,
+  MIN_LAW_CONTENT_CHARS,
+  EMPTY_PDF_EXTRACT_MESSAGE,
+  hasUsableLawContent,
 } from "@/lib/admin-law-utils";
 import { fetchPdfFromUrl } from "@/lib/treaty-bulk-pdf-fetch";
 import { extractTextFromPdf } from "@/lib/pdf-extract";
@@ -28,9 +31,6 @@ const INTERNATIONAL_TRADE_CATEGORY = "International Trade Laws";
 export const maxDuration = 300;
 
 type LawInsert = Database["public"]["Tables"]["laws"]["Insert"];
-
-/** Minimum extracted characters to accept as a successful import */
-const MIN_EXTRACTED_CHARS = 80;
 
 function parseLegalSourceUrl(link: string): URL | null {
   try {
@@ -168,11 +168,11 @@ export async function POST(request: NextRequest) {
     }
 
     const extractedTrim = extracted.trim();
-    if (extractedTrim.length < MIN_EXTRACTED_CHARS) {
+    if (extractedTrim.length < MIN_LAW_CONTENT_CHARS) {
       return NextResponse.json(
         {
           ok: false,
-          error: `Extracted text is too short (${extractedTrim.length} chars). The PDF may be image-only and OCR unavailable on the server, or the file is not a real treaty PDF.`,
+          error: `${EMPTY_PDF_EXTRACT_MESSAGE} (got ${extractedTrim.length} chars).`,
         },
         { status: 400 }
       );
@@ -182,8 +182,8 @@ export async function POST(request: NextRequest) {
     const hostname = new URL(finalUrl).hostname;
     // Store extracted text only (no Source line in body); URL remains on source_url / source_name.
     const contentTrimmed = sanitizeLawContent(extractedTrim);
-    if (!contentTrimmed) {
-      return NextResponse.json({ ok: false, error: "Sanitized content is empty" }, { status: 400 });
+    if (!hasUsableLawContent(contentTrimmed)) {
+      return NextResponse.json({ ok: false, error: EMPTY_PDF_EXTRACT_MESSAGE }, { status: 400 });
     }
 
     const supabase = getSupabaseServer();
