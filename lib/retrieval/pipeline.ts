@@ -270,14 +270,13 @@ export async function runChunkRetrievalPipeline(options: {
 
     lawResolverResult = lawResolverResult ?? fallbackResolver;
 
-    await logRetrievalNotFound(options.supabase, {
-      query: options.userQuery,
-      jurisdiction: jurisdictionIso ?? options.searchCountry ?? null,
-      interpreted_law_name: fallbackName,
-      resolver_results: fallbackResolver.hits,
-    });
+    let resolvedConfidently = false;
 
-    if (fallbackResolver.top_hit && !scopedLawId) {
+    if (shouldScopeRetrievalToResolvedLaw(fallbackResolver.top_hit)) {
+      resolvedConfidently = true;
+    }
+
+    if (resolvedConfidently && fallbackResolver.top_hit && !scopedLawId) {
       scopedLawId = fallbackResolver.top_hit.law_id;
       try {
         const retryChunks = await runHybridPasses(options.supabase, queryText, {
@@ -294,6 +293,15 @@ export async function runChunkRetrievalPipeline(options: {
       } catch {
         // keep original chunks
       }
+    }
+
+    if (!resolvedConfidently) {
+      await logRetrievalNotFound(options.supabase, {
+        query: options.userQuery,
+        jurisdiction: jurisdictionIso ?? options.searchCountry ?? null,
+        interpreted_law_name: fallbackName,
+        resolver_results: fallbackResolver.hits,
+      });
     }
   }
 
