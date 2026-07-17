@@ -1,6 +1,6 @@
 /** Shared validation and sanitization for admin law create APIs. */
 
-export const VALID_LAW_STATUSES = ["In force", "Amended", "Repealed"] as const;
+export { VALID_LAW_STATUSES, type LawStatus } from "@/lib/law-status";
 
 /** Earliest enactment years in the library (colonial-era statutes). */
 export const LAW_YEAR_MIN = 1800;
