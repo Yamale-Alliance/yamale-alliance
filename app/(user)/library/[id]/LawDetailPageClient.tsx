@@ -74,7 +74,7 @@ const lawSerif = Source_Serif_4({
   display: "swap",
 });
 
-type LawStatus = "In force" | "Amended" | "Repealed";
+type LawStatus = "In force" | "Amended" | "Repealed" | "Superseded";
 
 type LawDetail = {
   id: string;
