@@ -38,7 +38,7 @@ export async function fetchLawIdsForCountryScope(
 }
 
 /**
- * Scope IDs that still point at a public, non-repealed law row.
+ * Scope IDs that still point at a public, non-repealed / non-superseded law row.
  * Drops orphaned `law_country_scopes` rows and internal-category instruments.
  */
 export async function fetchValidLawIdsForCountryScope(
@@ -51,7 +51,7 @@ export async function fetchValidLawIdsForCountryScope(
 
   const valid = new Set<string>();
   for (const chunk of chunkIds(rawIds, SCOPE_ID_VALIDATE_CHUNK)) {
-    let q = supabase.from("laws").select("id").in("id", chunk).neq("status", "Repealed");
+    let q = supabase.from("laws").select("id").in("id", chunk).neq("status", "Repealed").neq("status", "Superseded");
     if (internalCategoryId) {
       q = q.neq("category_id", internalCategoryId);
     }
