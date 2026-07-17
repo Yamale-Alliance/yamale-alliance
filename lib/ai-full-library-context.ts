@@ -77,7 +77,7 @@ export async function fetchFullLibraryLawRows(
           .from("laws")
           .select(FULL_LIBRARY_LAWS_SELECT)
           .or(LAW_HAS_BODY_OR_FILTER)
-          .neq("status", "Repealed")
+          .neq("status", "Repealed").neq("status", "Superseded")
       )
         .order("title", { ascending: true })
         .range(offset, offset + PAGE_SIZE - 1),
