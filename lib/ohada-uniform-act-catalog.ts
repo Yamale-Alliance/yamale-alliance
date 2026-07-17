@@ -303,7 +303,7 @@ export async function fetchOhadaUniformActCatalogCandidates(
       .from("laws")
       .select(lawsAiSelect)
       .or(LAW_HAS_BODY_OR_FILTER)
-      .neq("status", "Repealed")
+      .neq("status", "Repealed").neq("status", "Superseded")
       .or(orParts.join(","))
   ).limit(400);
 
