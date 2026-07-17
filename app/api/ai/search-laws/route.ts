@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
           "id, title, content, content_plain, year, status, country_id, category_id, countries(name), categories!laws_category_id_fkey(name)"
         )
         .not("content", "is", null)
-        .neq("status", "Repealed")
+        .neq("status", "Repealed").neq("status", "Superseded")
         .limit(Math.min((limit || 20) * 10, 250)),
       internalCategoryId
     );
