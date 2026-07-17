@@ -228,7 +228,7 @@ function baseLawsQuery(
         .from("laws")
         .select(lawsSelect)
         .or(LAW_HAS_BODY_OR_FILTER)
-        .neq("status", "Repealed")
+        .neq("status", "Repealed").neq("status", "Superseded")
     ),
     internalCategoryId ?? null
   );
