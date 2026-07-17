@@ -171,7 +171,7 @@ export async function fetchCountryBilateralTreatyInventory(
       "id, title, year, status, source_name, applies_to_all_countries, country_id, countries(name), categories!laws_category_id_fkey(name)"
     )
     .or(scopeOr)
-    .neq("status", "Repealed")
+    .neq("status", "Repealed").neq("status", "Superseded")
     .order("title", { ascending: true })
     .limit(500);
 
@@ -236,7 +236,7 @@ export async function fetchCountryBilateralTreatyTitleCandidates(
     .select(lawsAiSelect)
     .in("id", ids)
     .not("content", "is", null)
-    .neq("status", "Repealed");
+    .neq("status", "Repealed").neq("status", "Superseded");
 
   if (error) {
     console.error("[AI RAG] Country bilateral body fetch:", error.message ?? error);
