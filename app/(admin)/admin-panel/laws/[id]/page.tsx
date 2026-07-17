@@ -826,6 +826,7 @@ export default function AdminLawEditPage() {
                 <option value="In force">{t("statusValues.inForce")}</option>
                 <option value="Amended">{t("statusValues.amended")}</option>
                 <option value="Repealed">{t("statusValues.repealed")}</option>
+                <option value="Superseded">{t("statusValues.superseded")}</option>
               </select>
             </div>
             <div>
