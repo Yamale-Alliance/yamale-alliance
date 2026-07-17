@@ -27,7 +27,7 @@ export async function fastCountryScopedLawFallback(
     .filter((w) => w.length >= 3 && w.length <= 22);
 
   let q = applyLawRagApprovalFilter(
-    supabase.from("laws").select(LAWS_LIST_SELECT).or(LAW_HAS_BODY_OR_FILTER).neq("status", "Repealed")
+    supabase.from("laws").select(LAWS_LIST_SELECT).or(LAW_HAS_BODY_OR_FILTER).neq("status", "Repealed").neq("status", "Superseded")
   );
 
   if (words.length > 0 || opts.countryScopeOr) {
