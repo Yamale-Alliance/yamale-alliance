@@ -6,7 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type LawStatus = "In force" | "Amended" | "Repealed";
+export type LawStatus = "In force" | "Amended" | "Repealed" | "Superseded";
 
 export interface Database {
   public: {
