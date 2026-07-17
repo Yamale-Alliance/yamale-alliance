@@ -1174,7 +1174,7 @@ async function listTrademarkLawTitlesByCountry(
       .from("laws")
       .select("title, year")
       .eq("country_id", countryId)
-      .neq("status", "Repealed")
+      .neq("status", "Repealed").neq("status", "Superseded")
       .or(
         "title.ilike.%trademark%,title.ilike.%trademarks%,title.ilike.%madrid%,title.ilike.%industrial property%,title.ilike.%intellectual property act%"
       )
@@ -1507,7 +1507,8 @@ function filterLegalLibraryDocsForCountryLock<
 
 function normalizeLawStatus(status: string | undefined | null): "in force" | "amended" | "repealed" | "other" {
   const s = String(status ?? "").trim().toLowerCase();
-  if (s.includes("repeal")) return "repealed";
+  // Superseded is treated like repealed for AI: excluded from the live corpus.
+  if (s.includes("repeal") || s.includes("supersed")) return "repealed";
   if (s.includes("amend")) return "amended";
   if (s.includes("force") || s === "in force") return "in force";
   return "other";
@@ -1547,7 +1548,7 @@ async function fetchSuccessorForAmendedLaw(supabase: any, law: any): Promise<any
   const succId = getSuccessorIdFromMetadata(law.metadata);
   if (succId) {
     const { data } = await applyLawRagApprovalFilter(
-      supabase.from("laws").select(LAWS_AI_SELECT).eq("id", succId).neq("status", "Repealed")
+      supabase.from("laws").select(LAWS_AI_SELECT).eq("id", succId).neq("status", "Repealed").neq("status", "Superseded")
     ).maybeSingle();
     if (data && normalizeLawStatus(data.status) !== "repealed") return data;
   }
@@ -1859,7 +1860,7 @@ async function searchLegalLibrary(
               .from("laws")
               .select(LAWS_AI_SELECT)
               .or(LAW_HAS_BODY_OR_FILTER)
-              .neq("status", "Repealed")
+              .neq("status", "Repealed").neq("status", "Superseded")
               .or(orParts.join(","))
           ).limit(80);
           return (data ?? []) as any[];
@@ -1873,7 +1874,7 @@ async function searchLegalLibrary(
     if (isBilateralOrMultiCountryQuery) {
       // First try: title contains ALL named entities (true bilateral instrument).
       let bilateralQuery = applyLawRagApprovalFilter(
-        supabase.from("laws").select(LAWS_AI_SELECT).or(LAW_HAS_BODY_OR_FILTER).neq("status", "Repealed")
+        supabase.from("laws").select(LAWS_AI_SELECT).or(LAW_HAS_BODY_OR_FILTER).neq("status", "Repealed").neq("status", "Superseded")
       );
       for (const t of bilateralTitleTokens.slice(0, 3)) {
         bilateralQuery = bilateralQuery.ilike("title", `%${escapeIlikePattern(t)}%`);
@@ -1892,7 +1893,7 @@ async function searchLegalLibrary(
               .from("laws")
               .select(LAWS_AI_SELECT)
               .or(LAW_HAS_BODY_OR_FILTER)
-              .neq("status", "Repealed")
+              .neq("status", "Repealed").neq("status", "Superseded")
               .or(orParts.join(","))
           ).limit(60);
           if (anyRows?.length) titleMatchedLaws.push(...(anyRows as any[]));
@@ -2014,7 +2015,7 @@ async function searchLegalLibrary(
           .from("laws")
           .select(LAWS_AI_SELECT)
           .or(LAW_HAS_BODY_OR_FILTER)
-          .neq("status", "Repealed")
+          .neq("status", "Repealed").neq("status", "Superseded")
           .limit(250),
         internalCategoryId
       );
@@ -2191,7 +2192,7 @@ async function searchLegalLibrary(
     ) {
       const g = lawsGlobalTextIlikeOrTerms(tokenEscList.slice(0, 4));
       const { data: fb2, error: fb2Err } = await applyLawRagApprovalFilter(
-        supabase.from("laws").select(LAWS_AI_SELECT).or(LAW_HAS_BODY_OR_FILTER).neq("status", "Repealed").or(g)
+        supabase.from("laws").select(LAWS_AI_SELECT).or(LAW_HAS_BODY_OR_FILTER).neq("status", "Repealed").neq("status", "Superseded").or(g)
       ).limit(200);
       if (!fb2Err && fb2?.length) {
         lawsRows = fb2 as any[];
@@ -2270,7 +2271,7 @@ async function searchLegalLibrary(
                     .from("laws")
                     .select(LAWS_AI_SELECT)
                     .or(LAW_HAS_BODY_OR_FILTER)
-                    .neq("status", "Repealed")
+                    .neq("status", "Repealed").neq("status", "Superseded")
                     .or(lawsCountryOrGlobalWithAnyEscapedTerms(countryId, supEsc))
                 ).limit(36);
                 return r.error ? [] : ((r.data ?? []) as any[]);
@@ -2278,7 +2279,7 @@ async function searchLegalLibrary(
               const gOr = lawsGlobalTextIlikeOrTerms(supEsc);
               if (!gOr) return [] as any[];
               const r = await applyLawRagApprovalFilter(
-                supabase.from("laws").select(LAWS_AI_SELECT).or(LAW_HAS_BODY_OR_FILTER).neq("status", "Repealed").or(gOr)
+                supabase.from("laws").select(LAWS_AI_SELECT).or(LAW_HAS_BODY_OR_FILTER).neq("status", "Repealed").neq("status", "Superseded").or(gOr)
               ).limit(36);
               return r.error ? [] : ((r.data ?? []) as any[]);
             })()
@@ -3018,7 +3019,7 @@ async function searchLegalLibraryQuickFallback(
       .find((t) => t.length >= 5 && !AI_SEARCH_NOISE_TOKENS.has(t));
     const escaped = tok ? escapeIlikePattern(tok) : "";
     let q = applyLawRagApprovalFilter(
-      supabase.from("laws").select(LAWS_AI_SELECT).or(LAW_HAS_BODY_OR_FILTER).neq("status", "Repealed")
+      supabase.from("laws").select(LAWS_AI_SELECT).or(LAW_HAS_BODY_OR_FILTER).neq("status", "Repealed").neq("status", "Superseded")
     ).limit(40);
     let resolvedCountryId: string | undefined;
     if (country?.trim()) {
