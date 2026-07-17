@@ -169,7 +169,7 @@ export async function fetchLatinAmericaTreatyTitleCandidates(
     .from("laws")
     .select(lawsAiSelect)
     .not("content", "is", null)
-    .neq("status", "Repealed")
+    .neq("status", "Repealed").neq("status", "Superseded")
     .or(orParts.join(","))
     .limit(380);
 
