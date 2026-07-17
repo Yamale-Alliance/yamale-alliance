@@ -134,7 +134,7 @@ export async function searchLawsByVectorSimilarity(
     .from("laws")
     .select(LAWS_VECTOR_SELECT)
     .in("id", lawIds)
-    .neq("status", "Repealed");
+    .neq("status", "Repealed").neq("status", "Superseded");
   const { data: lawRows, error: lawErr } = await applyLawRagApprovalFilter(lawQuery);
 
   if (lawErr || !lawRows) return [];
