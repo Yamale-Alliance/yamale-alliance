@@ -260,7 +260,7 @@ async function backfillMandatorySlotsByTitleIlike(
         .from("laws")
         .select(LAWS_AI_SELECT)
         .or(LAW_HAS_BODY_OR_FILTER)
-        .neq("status", "Repealed")
+        .neq("status", "Repealed").neq("status", "Superseded")
         .ilike("title", pattern)
         .limit(6);
       q = countryScopeOr ? q.or(countryScopeOr) : q.or(lawsOrGlobalForCountry(countryId));
@@ -314,7 +314,7 @@ export async function fetchCountryIntentTitleCandidates(
     .from("laws")
     .select(LAWS_AI_SELECT)
     .or(LAW_HAS_BODY_OR_FILTER)
-    .neq("status", "Repealed")
+    .neq("status", "Repealed").neq("status", "Superseded")
     .limit(Math.max(maxLaws, 32));
   q = applyCountryScopedTitleSearch(q, countryId, countryScopeOr, titleTerms);
 
@@ -556,7 +556,7 @@ export async function fetchMandatoryIntentSlotLaws(
     .from("laws")
     .select(LAWS_AI_SELECT)
     .or(LAW_HAS_BODY_OR_FILTER)
-    .neq("status", "Repealed")
+    .neq("status", "Repealed").neq("status", "Superseded")
     .limit(64);
   q = applyCountryScopedTitleSearch(q, countryId, countryScopeOr, searchTerms);
 
