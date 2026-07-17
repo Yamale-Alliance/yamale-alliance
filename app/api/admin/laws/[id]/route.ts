@@ -16,6 +16,7 @@ import {
   toSharedLawUpdates,
 } from "@/lib/law-shared-groups";
 import { normalizeLawDocumentLanguageCode } from "@/lib/law-document-language";
+import { VALID_LAW_STATUSES } from "@/lib/law-status";
 import {
   expandLawToAdditionalCountries,
   fetchAssignedCountryIdsForLaw,
@@ -300,6 +301,12 @@ export async function PUT(
     }
     if (typeof body.status === "string") {
       const nextStatus = body.status.trim() || "In force";
+      if (!VALID_LAW_STATUSES.includes(nextStatus as (typeof VALID_LAW_STATUSES)[number])) {
+        return NextResponse.json(
+          { error: `Invalid status. Use one of: ${VALID_LAW_STATUSES.join(", ")}` },
+          { status: 400 }
+        );
+      }
       if (nextStatus !== (existingLaw?.status ?? "In force")) updates.status = nextStatus;
     }
     if (body.treaty_type !== undefined) {
