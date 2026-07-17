@@ -158,7 +158,7 @@ export async function fetchOhadaCommercialCompaniesInstrumentLaws(
       .from("laws")
       .select(LAWS_AI_SELECT)
       .or(LAW_HAS_BODY_OR_FILTER)
-      .neq("status", "Repealed")
+      .neq("status", "Repealed").neq("status", "Superseded")
       .ilike("title", `%${esc}%`)
       .limit(12);
     if (error) continue;
