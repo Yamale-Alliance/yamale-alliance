@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/admin";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 /**
- * GET country × category law counts (non-repealed) for coverage KPIs (audit 1.1).
+ * GET country × category law counts (non-repealed / non-superseded) for coverage KPIs (audit 1.1).
  */
 export async function GET() {
   const admin = await requireAdmin();
@@ -12,7 +12,7 @@ export async function GET() {
   const supabase = getSupabaseServer();
 
   const [{ data: laws, error: lawsErr }, { data: countries }, { data: categories }] = await Promise.all([
-    supabase.from("laws").select("country_id, category_id").neq("status", "Repealed"),
+    supabase.from("laws").select("country_id, category_id").neq("status", "Repealed").neq("status", "Superseded"),
     supabase.from("countries").select("id, name").order("name"),
     supabase.from("categories").select("id, name").order("name"),
   ]);
