@@ -2,11 +2,10 @@
 
 import { useLayoutEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Layers } from "lucide-react";
+import { ArrowLeft, Layers, Loader2, Zap } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import { VaultCoverImage } from "@/components/marketplace/VaultCoverImage";
-import { MarketplaceProductCard } from "@/components/marketplace/MarketplaceProductCard";
 import type { MarketplaceProductCardProduct } from "@/components/marketplace/MarketplaceProductCard";
 import {
   MarketplaceVaultCheckoutDialog,
@@ -18,12 +17,9 @@ import {
 } from "@/components/checkout/PaymentMethodPicker";
 import { computeSeriesOfferFromBrowseItems } from "@/lib/marketplace-series-offers";
 import type { MarketplaceItemPackOffer } from "@/lib/marketplace-item-packs";
-import { notifyMarketplaceCartUpdated } from "@/lib/marketplace-cart-events";
-import { useMarketplaceCart } from "@/lib/use-marketplace-cart";
 import {
   isFreeVaultItem,
   isPaidVaultSubcategory,
-  labelForVaultSubcategory,
   setVaultSeriesRegistry,
   vaultSubcategoryMeta,
   type VaultSubcategoryId,
@@ -36,7 +32,15 @@ import {
   vaultSeriesRecordFromList,
 } from "@/lib/marketplace-vault-series-display";
 import { sortVaultProducts } from "@/lib/marketplace-vault-sort";
-import type { MarketplaceBrowseItem, MarketplaceBrowsePayload } from "@/lib/marketplace-browse-data";
+import {
+  appendMarketplaceReturnToHref,
+  marketplaceItemDetailHref,
+  sanitizeMarketplaceReturnPath,
+} from "@/lib/marketplace-public-url";
+import { useClientSearchParams } from "@/lib/use-client-search-params";
+import { displayVaultProductTitle } from "@/lib/marketplace-display";
+import type { MarketplaceBrowsePayload } from "@/lib/marketplace-browse-data";
+import styles from "@/components/marketplace/MarketplaceItemPage.module.css";
 
 type VaultSeriesPageClientProps = {
   seriesId: string;
@@ -54,10 +58,12 @@ export function VaultSeriesPageClient({
   initialPayload,
 }: VaultSeriesPageClientProps) {
   const t = useTranslations("marketplace");
+  const tItem = useTranslations("marketplace.itemPage");
   const { isSignedIn } = useAppUser();
+  const searchParams = useClientSearchParams();
+  const backHref =
+    sanitizeMarketplaceReturnPath(searchParams.get("from")) ?? "/marketplace";
   const [items] = useState(initialPayload.items);
-  const [addingToCart, setAddingToCart] = useState<string | null>(null);
-  const { itemIds: cartItemIds, refresh: refreshCart } = useMarketplaceCart(!!isSignedIn);
   const [buyModalOpen, setBuyModalOpen] = useState(false);
   const [buyModalProduct, setBuyModalProduct] = useState<MarketplaceProductCardProduct | null>(null);
   const [buyModalPackOffer, setBuyModalPackOffer] = useState<MarketplaceItemPackOffer | null>(null);
@@ -93,8 +99,12 @@ export function VaultSeriesPageClient({
   );
 
   const seriesReturnPath = useMemo(
-    () => vaultSeriesPageHref(seriesId, focusCountry),
-    [seriesId, focusCountry]
+    () =>
+      appendMarketplaceReturnToHref(
+        vaultSeriesPageHref(seriesId, focusCountry),
+        backHref === "/marketplace" ? null : backHref
+      ),
+    [seriesId, focusCountry, backHref]
   );
 
   const meta = vaultSeriesRecordFromList(seriesId, vaultSeries) ?? vaultSubcategoryMeta(seriesId);
@@ -111,55 +121,17 @@ export function VaultSeriesPageClient({
     return computeSeriesOfferFromBrowseItems(seriesId as VaultSubcategoryId, members);
   }, [seriesId, members]);
 
+  const separateTotalCents = useMemo(
+    () => members.reduce((sum, m) => sum + Math.max(0, m.price_cents), 0),
+    [members]
+  );
+
   const closeBuyModal = () => {
     setBuyModalOpen(false);
     setBuyModalProduct(null);
     setBuyModalPackOffer(null);
     setCheckoutChoice("series");
     setBuyCheckoutLoading(false);
-  };
-
-  const handleAddToCart = async (productId: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!isSignedIn) {
-      window.location.href = `/sign-in?redirect_url=${encodeURIComponent(window.location.pathname + window.location.search)}`;
-      return;
-    }
-    setAddingToCart(productId);
-    try {
-      const res = await fetch("/api/cart", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ marketplace_item_id: productId, quantity: 1 }),
-      });
-      if (res.ok) {
-        await refreshCart();
-        notifyMarketplaceCartUpdated();
-      }
-    } finally {
-      setAddingToCart(null);
-    }
-  };
-
-  const handleRemoveFromCart = async (productId: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!isSignedIn) return;
-    setAddingToCart(productId);
-    try {
-      const res = await fetch(`/api/cart?item_id=${productId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (res.ok) {
-        await refreshCart();
-        notifyMarketplaceCartUpdated();
-      }
-    } finally {
-      setAddingToCart(null);
-    }
   };
 
   const openBuySeries = () => {
@@ -171,27 +143,6 @@ export function VaultSeriesPageClient({
     setBuyModalPackOffer(null);
     setCheckoutChoice("series");
     setBuyModalOpen(true);
-  };
-
-  const openBuyProduct = (product: MarketplaceProductCardProduct, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!isSignedIn) {
-      window.location.href = `/sign-in?redirect_url=${encodeURIComponent(window.location.pathname + window.location.search)}`;
-      return;
-    }
-    setBuyModalProduct(product);
-    setBuyModalPackOffer(null);
-    setCheckoutChoice("item");
-    setBuyModalOpen(true);
-    if (product.price_cents > 0) {
-      fetch(`/api/marketplace/${product.id}/pack-offer`, { credentials: "include" })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((data: { offer?: MarketplaceItemPackOffer } | null) => {
-          setBuyModalPackOffer(data?.offer ?? null);
-        })
-        .catch(() => setBuyModalPackOffer(null));
-    }
   };
 
   const submitBuyCheckout = async () => {
@@ -237,6 +188,20 @@ export function VaultSeriesPageClient({
   const showBundleCta = offer && !offer.fullyOwned;
   const bundlePrice =
     offer && offer.ownedCount > 0 ? offer.chargeCents : (offer?.bundleCents ?? offer?.chargeCents ?? 0);
+  const bundleDisplayCents = offer?.bundleCents ?? bundlePrice;
+  const saveCents = Math.max(0, separateTotalCents - bundleDisplayCents);
+  const savePct =
+    separateTotalCents > 0 && saveCents > 0
+      ? Math.round((saveCents / separateTotalCents) * 100)
+      : 0;
+  const allFree = members.length > 0 && members.every((member) => isFreeVaultItem(member.price_cents));
+  const priceDisplay = allFree
+    ? t("free")
+    : showBundleCta
+      ? formatUsd(bundlePrice)
+      : offer?.fullyOwned
+        ? t("owned")
+        : formatUsd(separateTotalCents);
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -258,120 +223,174 @@ export function VaultSeriesPageClient({
         onCheckout={() => void submitBuyCheckout()}
       />
 
-      <section className="relative overflow-hidden bg-[#0c1628] text-white">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0c1628] via-[#132038] to-[#1a2d4a]" />
-        {coverUrl ? (
-          <div className="absolute inset-0 opacity-35">
-            <VaultCoverImage src={coverUrl} className="h-full w-full object-cover" priority />
-          </div>
-        ) : null}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0c1628] via-[#0c1628]/80 to-transparent" />
-
-        <div className="relative mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
-          <Link
-            href="/marketplace"
-            className="inline-flex items-center gap-2 text-sm font-medium text-white/75 transition hover:text-white"
-          >
-            <ArrowLeft className="h-4 w-4" />
+      <div className={styles.vdetail}>
+        <div className={styles.vdetailInner}>
+          <Link href={backHref} className={styles.vbacklink}>
+            <ArrowLeft className="h-3.5 w-3.5 shrink-0" aria-hidden />
             {t("landing.backToBrowse")}
           </Link>
 
-          <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
+          <div className={styles.vdCols}>
             <div>
-              <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/85">
-                <Layers className="h-3.5 w-3.5" />
-                {t("collection")}
-              </p>
-              <h1 className="heading mt-4 text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
-                {title}
-              </h1>
-              {blurb ? (
-                <p className="mt-4 max-w-2xl text-base leading-relaxed text-white/78 sm:text-lg">
-                  {blurb}
-                </p>
-              ) : null}
-              <p className="mt-4 text-sm font-medium text-white/65">
+              <div className={styles.fmtRow}>
+                <span className={styles.fmtPill}>{t("collection")}</span>
+                {allFree ? <span className={styles.fmtPill}>{t("free")}</span> : null}
+                {offer?.fullyOwned ? <span className={styles.fmtPill}>{t("owned")}</span> : null}
+              </div>
+
+              <h1 className={styles.vdTitle}>{title}</h1>
+              <p className={styles.vdByline}>
                 {t("landing.resourceCount", { count: members.length })}
               </p>
-            </div>
 
-            {coverUrl ? (
-              <div className="hidden overflow-hidden rounded-2xl border border-white/15 shadow-2xl lg:block">
-                <VaultCoverImage src={coverUrl} className="aspect-[4/5] w-full object-cover" priority />
+              <div className={styles.includedProto}>
+                <div className={styles.includedProtoCell}>
+                  <b>{tItem("protoSeriesCount", { count: members.length })}</b>
+                  {tItem("protoDownloadHint")}
+                </div>
+                <div className={styles.includedProtoCell}>
+                  <b>{tItem("protoKeepTitle")}</b>
+                  {tItem("protoKeepHint")}
+                </div>
+                <div className={styles.includedProtoCell}>
+                  <b>{tItem("protoDraftedTitle")}</b>
+                  {tItem("protoDraftedHint")}
+                </div>
+                <div className={styles.includedProtoCell}>
+                  <b>{t("landing.oneTimePurchase")}</b>
+                  {tItem("checkoutOneTime")}
+                </div>
               </div>
-            ) : null}
+
+              {blurb ? (
+                <>
+                  <h2 className={styles.vdSectionTitle}>{tItem("aboutResource")}</h2>
+                  <p className={styles.vdDesc}>{blurb}</p>
+                </>
+              ) : null}
+
+              <h2 className={styles.vdSectionTitle}>{t("landing.seriesItemsTitle")}</h2>
+              <p className="mb-3 text-sm text-muted-foreground">{t("landing.seriesItemsHint")}</p>
+
+              {members.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border px-8 py-12 text-center">
+                  <p className="text-muted-foreground">{t("emptyHint")}</p>
+                </div>
+              ) : (
+                <>
+                  <div className={styles.seriesList}>
+                    {members.map((product) => {
+                      const free = isFreeVaultItem(product.price_cents);
+                      return (
+                        <Link
+                          key={product.id}
+                          href={marketplaceItemDetailHref(product, {
+                            returnTo: seriesReturnPath,
+                          })}
+                          className={styles.seriesItem}
+                        >
+                          {product.image_url ? (
+                            <VaultCoverImage
+                              src={product.image_url}
+                              className={styles.seriesItemThumb}
+                              variant="thumb"
+                            />
+                          ) : (
+                            <span className={styles.seriesItemThumbPlaceholder}>
+                              <Layers className="h-4 w-4" aria-hidden />
+                            </span>
+                          )}
+                          <span className={styles.seriesItemTitle}>
+                            {displayVaultProductTitle(product.title)}
+                          </span>
+                          <span className={styles.seriesItemPrice}>
+                            {free ? t("free") : formatUsd(product.price_cents)}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                  {showBundleCta && saveCents > 0 ? (
+                    <p className={styles.seriesSave}>
+                      {t("landing.seriesSaveHint", {
+                        separate: formatUsd(separateTotalCents),
+                        bundle: formatUsd(bundleDisplayCents),
+                        save: formatUsd(saveCents),
+                        pct: savePct,
+                      })}
+                    </p>
+                  ) : null}
+                </>
+              )}
+            </div>
+
+            <div className={styles.buyCol}>
+              <div className={styles.buyCover}>
+                {coverUrl ? (
+                  <VaultCoverImage src={coverUrl} className={styles.buyCoverImg} priority />
+                ) : (
+                  <div className={styles.buyCoverPlaceholder}>
+                    <Layers className="h-8 w-8" aria-hidden />
+                  </div>
+                )}
+              </div>
+
+              <section className={styles.checkoutSection} aria-label={tItem("checkoutSectionLabel")}>
+                <div className={styles.checkoutHeader}>
+                  <div>
+                    <p className={styles.checkoutEyebrow}>{tItem("checkoutEyebrow")}</p>
+                    <p
+                      className={`${styles.checkoutPrice} ${allFree || offer?.fullyOwned ? styles.checkoutPriceFree : ""}`}
+                    >
+                      {priceDisplay}
+                    </p>
+                  </div>
+                  <p className={styles.checkoutHint}>
+                    {offer?.fullyOwned
+                      ? t("owned")
+                      : allFree
+                        ? tItem("getInstantAccess")
+                        : tItem("checkoutOneTime")}
+                  </p>
+                </div>
+
+                {showBundleCta ? (
+                  <div className={styles.checkoutActions}>
+                    <button
+                      type="button"
+                      onClick={openBuySeries}
+                      disabled={buyCheckoutLoading}
+                      className={styles.purchaseBtnPrimary}
+                    >
+                      {buyCheckoutLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Zap className="h-4 w-4" />
+                          {offer!.ownedCount > 0
+                            ? t("buyRemaining", { price: formatUsd(bundlePrice) })
+                            : t("buyFullSeries", { price: formatUsd(bundlePrice) })}
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ) : null}
+
+                {!allFree && showBundleCta ? (
+                  <>
+                    <p className={styles.secureNote}>{t("cartPage.secureCheckout")}</p>
+                    <div className={styles.payMethods}>
+                      <span className={styles.payMethodChip}>{t("landing.payMethodCard")}</span>
+                      <span className={styles.payMethodChip}>{t("landing.payMethodMobileMoney")}</span>
+                      <span className={styles.payMethodChip}>{t("landing.payMethodWallets")}</span>
+                    </div>
+                  </>
+                ) : null}
+              </section>
+            </div>
           </div>
-
-          {showBundleCta ? (
-            <div className="mt-8 flex flex-wrap items-center gap-4">
-              <button
-                type="button"
-                onClick={openBuySeries}
-                className="inline-flex items-center rounded-lg bg-[#C8922A] px-6 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-[#b07d22]"
-              >
-                {offer!.ownedCount > 0
-                  ? t("buyRemaining", { price: formatUsd(bundlePrice) })
-                  : t("buyFullSeries", { price: formatUsd(bundlePrice) })}
-              </button>
-            </div>
-          ) : members.every((member) => isFreeVaultItem(member.price_cents)) ? (
-            <p className="mt-8 inline-flex rounded-full bg-emerald-500/20 px-4 py-2 text-sm font-semibold text-emerald-200">
-              {t("free")}
-            </p>
-          ) : offer?.fullyOwned ? (
-            <p className="mt-8 inline-flex rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white">
-              {t("owned")}
-            </p>
-          ) : null}
         </div>
-      </section>
-
-      <section className="pb-16 pt-10">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-xl font-bold text-foreground sm:text-2xl">
-            {t("landing.seriesItemsTitle")}
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t("landing.seriesItemsHint")}</p>
-
-          {members.length === 0 ? (
-            <div className="mt-10 rounded-xl border border-dashed border-border px-8 py-12 text-center">
-              <p className="text-muted-foreground">{t("emptyHint")}</p>
-            </div>
-          ) : (
-            <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {members.map((product, index) => (
-                <MarketplaceProductCard
-                  key={product.id}
-                  product={product}
-                  typeBadgeLabel={
-                    product.type === "course"
-                      ? t("typeBadges.course")
-                      : product.type === "guide"
-                        ? t("typeBadges.guide")
-                        : product.type === "template"
-                          ? t("typeBadges.template")
-                          : t("typeBadges.book")
-                  }
-                  seriesLabel={
-                    isFreeVaultItem(product.price_cents)
-                      ? labelForVaultSubcategory(product.vault_subcategory)
-                      : null
-                  }
-                  isSignedIn={!!isSignedIn}
-                  cartItemIds={cartItemIds}
-                  addingToCart={addingToCart}
-                  onAddToCart={handleAddToCart}
-                  onRemoveFromCart={handleRemoveFromCart}
-                  onBuy={openBuyProduct}
-                  advisoryWorkspacePreview={initialPayload.advisoryWorkspacePreview}
-                  coverPriority={index < 8}
-                  returnTo={seriesReturnPath}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
+      </div>
     </div>
   );
 }
