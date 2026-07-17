@@ -181,7 +181,7 @@ export async function fetchAiMethodologyContext(
         .or(
           `title.ilike.%${escapeIlikePattern(countryHint)}%,title.ilike.%Legal System Deep Dive%`
         )
-        .neq("status", "Repealed")
+        .neq("status", "Repealed").neq("status", "Superseded")
         .limit(8)
     : Promise.resolve({ data: [] as unknown[], error: null });
 
@@ -197,7 +197,7 @@ export async function fetchAiMethodologyContext(
     .from("laws")
     .select(METHODOLOGY_SELECT)
     .eq("category_id", categoryId)
-    .neq("status", "Repealed")
+    .neq("status", "Repealed").neq("status", "Superseded")
     .limit(40);
   if (tokenOrParts.length > 0) {
     candidateQuery = candidateQuery.or(tokenOrParts.join(","));
@@ -227,7 +227,7 @@ export async function fetchAiMethodologyContext(
       .select(METHODOLOGY_SELECT)
       .eq("category_id", categoryId)
       .ilike("title", "%contextual brain%")
-      .neq("status", "Repealed")
+      .neq("status", "Repealed").neq("status", "Superseded")
       .limit(12);
 
     const pickedBrains = pickContextualBrainRows(
