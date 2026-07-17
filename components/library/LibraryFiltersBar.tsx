@@ -12,6 +12,7 @@ const STATUSES = [
   { value: "In force", key: "inForce" },
   { value: "Amended", key: "amended" },
   { value: "Repealed", key: "repealed" },
+  { value: "Superseded", key: "superseded" },
 ] as const;
 
 const DOCUMENT_TYPES = [
