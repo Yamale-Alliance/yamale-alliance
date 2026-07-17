@@ -31,6 +31,7 @@ import {
   type VaultSubcategoryId,
 } from "@/lib/marketplace-vault-categories";
 import { vaultSeriesGroupKey, vaultSeriesPageHref } from "@/lib/marketplace-vault-series-display";
+import { appendMarketplaceReturnToHref } from "@/lib/marketplace-public-url";
 import {
   computeSeriesOfferFromBrowseItems,
   type MarketplaceSeriesOffer,
@@ -539,9 +540,14 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
     return "default" as const;
   }, [browse]);
 
+  const catalogReturnPath = useMemo(() => {
+    const qs = marketplaceQuery();
+    return qs ? `/marketplace?${qs}` : "/marketplace?view=catalog";
+  }, [marketplaceQuery]);
+
   const { displayCards, seriesMembersByKey } = useMemo(() => {
     const freeSubcategory = browse.kind === "free" ? browse.subcategory : null;
-    return buildVaultDisplayCards(
+    const built = buildVaultDisplayCards(
       sortedProducts,
       {
         kind:
@@ -564,7 +570,21 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
       catalogCardMode,
       vaultSeriesList
     );
-  }, [browse, sortedProducts, t, catalogCardMode, vaultSeriesList]);
+    return {
+      ...built,
+      displayCards: built.displayCards.map((card) =>
+        card.collectionHref
+          ? {
+              ...card,
+              collectionHref: appendMarketplaceReturnToHref(
+                card.collectionHref,
+                catalogReturnPath
+              ),
+            }
+          : card
+      ),
+    };
+  }, [browse, sortedProducts, t, catalogCardMode, vaultSeriesList, catalogReturnPath]);
 
   const isLandingMode =
     !pendingCategory &&
