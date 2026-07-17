@@ -69,7 +69,7 @@ const SEARCH_DEBOUNCE_MS = 200;
 /** Sync search to the address bar without triggering a Next.js server navigation. */
 const SEARCH_URL_SYNC_MS = 700;
 const DOCUMENT_TYPES: DocumentType[] = ["Law", "Decree", "Regulation", "Code", "Directive", "Treaty", "Agreement", "Other"];
-type LawStatus = "In force" | "Amended" | "Repealed";
+type LawStatus = "In force" | "Amended" | "Repealed" | "Superseded";
 
 type Law = {
   id: string;
@@ -92,7 +92,7 @@ type Law = {
   language_code?: string | null;
 };
 
-const STATUSES: LawStatus[] = ["In force", "Amended", "Repealed"];
+const STATUSES: LawStatus[] = ["In force", "Amended", "Repealed", "Superseded"];
 
 function isRecent(dateStr: string | undefined, days: number): boolean {
   if (!dateStr) return false;
@@ -155,11 +155,13 @@ function StatusBadge({ status }: { status: LawStatus }) {
     "In force": "bg-green-500/15 text-green-700 dark:text-green-400",
     Amended: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
     Repealed: "bg-red-500/15 text-red-700 dark:text-red-400",
+    Superseded: "bg-slate-500/15 text-slate-700 dark:text-slate-300",
   };
   const statusKey: Record<LawStatus, string> = {
     "In force": t("statuses.inForce"),
     Amended: t("statuses.amended"),
     Repealed: t("statuses.repealed"),
+    Superseded: t("statuses.superseded"),
   };
   const resolved = STATUSES.includes(status as LawStatus) ? (status as LawStatus) : "In force";
   return (
