@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { VaultCoverImage } from "@/components/marketplace/VaultCoverImage";
 import { coverObjectPosition, readItemCoverFocal } from "@/lib/marketplace-cover-framing";
-import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, ArrowRight, Eye, Star, ShoppingCart, Zap, X, Download, Globe, Layers, ShieldCheck, CheckCircle2, Scale, Sparkles } from "lucide-react";
+import { BookOpen, GraduationCap, FileText, Loader2, ArrowLeft, ArrowRight, Eye, Star, ShoppingCart, Zap, X, Layers, ShieldCheck } from "lucide-react";
 import { useAppUser } from "@/components/auth/AppAuthProvider";
 import {
   PaymentMethodPicker,
@@ -38,7 +38,7 @@ import {
   seriesIdFromMarketplaceReturnPath,
 } from "@/lib/marketplace-public-url";
 import { displayVaultProductTitle, displayVaultPublisher } from "@/lib/marketplace-display";
-import { isPaidVaultSubcategory, labelForVaultSubcategory, vaultSubcategoryMeta, type VaultSubcategoryId } from "@/lib/marketplace-vault-categories";
+import { isPaidVaultSubcategory, labelForVaultSubcategory, type VaultSubcategoryId } from "@/lib/marketplace-vault-categories";
 import { vaultSeriesPageHref } from "@/lib/marketplace-vault-series-display";
 import type { MarketplaceSeriesOffer } from "@/lib/marketplace-series-offers";
 import type { MarketplaceItemPackOffer } from "@/lib/marketplace-item-packs";
@@ -601,8 +601,6 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
   const landingHtml = item.landing_page_html?.trim();
   const seriesId = item.vault_subcategory?.trim() ?? null;
   const seriesName = seriesId ? labelForVaultSubcategory(seriesId) : null;
-  const seriesMeta = seriesId ? vaultSubcategoryMeta(seriesId) : null;
-  const seriesBlurb = seriesMeta?.blurb ?? seriesMeta?.description ?? null;
   const typeLabel = typeBadgeLabel(item.type, t);
   const formatLabel = formatFileFormatLabel(item.file_format);
   const languageCount = displayLanguageCodes.length;
@@ -676,59 +674,56 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
       </div>
     ) : null;
 
+  const downloadCellTitle =
+    item.type === "course"
+      ? tItem("protoOnlineCourse")
+      : item.has_file
+        ? formatLabel
+          ? formatLabel
+          : tItem("protoPdfDownload")
+        : typeLabel;
+
+  const langsLabel =
+    languageCount > 0
+      ? displayLanguageCodes.map((c) => c.toUpperCase()).join(", ")
+      : null;
+
   const whatsIncludedSection = (
-    <div className={styles.heroIncluded}>
-      <h2 className={styles.heroSectionTitle}>{tItem("whatsIncluded")}</h2>
-      <div className={styles.includedGrid}>
-        {item.has_file ? (
-          <div className={styles.includedCard}>
-            <div className={styles.includedIconWrap}>
-              <Download className="h-4 w-4" aria-hidden />
-            </div>
-            <div>
-              <p className={styles.includedLabel}>{tItem("includedDownload")}</p>
-              <p className={styles.includedDesc}>{tItem("includedDownloadDesc")}</p>
-            </div>
-          </div>
-        ) : null}
-        {languageCount > 0 ? (
-          <div className={styles.includedCard}>
-            <div className={styles.includedIconWrap}>
-              <Globe className="h-4 w-4" aria-hidden />
-            </div>
-            <div>
-              <p className={styles.includedLabel}>{tItem("includedLanguages")}</p>
-              <p className={styles.includedDesc}>
-                <VaultLanguageBadges languageCodes={displayLanguageCodes} variant="card" />
-              </p>
-            </div>
-          </div>
-        ) : null}
-        {formatLabel ? (
-          <div className={styles.includedCard}>
-            <div className={styles.includedIconWrap}>
-              <FileText className="h-4 w-4" aria-hidden />
-            </div>
-            <div>
-              <p className={styles.includedLabel}>{tItem("includedFormat")}</p>
-              <p className={styles.includedDesc}>{formatLabel}</p>
-            </div>
-          </div>
-        ) : null}
-        {addedDate ? (
-          <div className={styles.includedCard}>
-            <div className={styles.includedIconWrap}>
-              <CheckCircle2 className="h-4 w-4" aria-hidden />
-            </div>
-            <div>
-              <p className={styles.includedLabel}>{tItem("includedUpdated")}</p>
-              <p className={styles.includedDesc}>{addedDate}</p>
-            </div>
-          </div>
-        ) : null}
+    <div className={styles.includedProto}>
+      <div className={styles.includedProtoCell}>
+        <b>{downloadCellTitle}</b>
+        {tItem("protoDownloadHint")}
+      </div>
+      <div className={styles.includedProtoCell}>
+        <b>
+          {langsLabel
+            ? tItem("protoLangsTitle", { langs: langsLabel })
+            : tItem("includedLanguages")}
+        </b>
+        {tItem("protoLangsHint")}
+      </div>
+      <div className={styles.includedProtoCell}>
+        <b>{tItem("protoKeepTitle")}</b>
+        {tItem("protoKeepHint")}
+      </div>
+      <div className={styles.includedProtoCell}>
+        <b>{tItem("protoDraftedTitle")}</b>
+        {tItem("protoDraftedHint")}
       </div>
     </div>
   );
+
+  const bylineText =
+    item.author && addedDate
+      ? tItem("byAuthorAdded", {
+          author: displayVaultPublisher(item.author),
+          date: addedDate,
+        })
+      : item.author
+        ? tItem("byAuthor", { author: displayVaultPublisher(item.author) })
+        : addedDate
+          ? tItem("addedOnly", { date: addedDate })
+          : null;
 
   const purchasePanel = (
     <section className={styles.checkoutSection} aria-label={tItem("checkoutSectionLabel")}>
@@ -825,10 +820,17 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
             )}
           </div>
           {!free ? (
-            <p className={styles.secureNote}>
-              <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-              {t("cartPage.secureCheckout")}
-            </p>
+            <>
+              <p className={styles.secureNote}>
+                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                {t("cartPage.secureCheckout")}
+              </p>
+              <div className={styles.payMethods}>
+                <span className={styles.payMethodChip}>{t("landing.payMethodCard")}</span>
+                <span className={styles.payMethodChip}>{t("landing.payMethodMobileMoney")}</span>
+                <span className={styles.payMethodChip}>{t("landing.payMethodWallets")}</span>
+              </div>
+            </>
           ) : null}
           {seriesOffer && !seriesOffer.fullyOwned && seriesName ? (
             <p className={styles.bundleUpsell}>
@@ -885,90 +887,7 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
             </span>
           </div>
         </div>
-      ) : (
-        <section className={styles.hero}>
-          <div className={styles.heroBaseGradient} aria-hidden />
-          {item.image_url ? (
-            <div className={styles.heroBgCover} aria-hidden>
-              <VaultCoverImage
-                src={item.image_url}
-                className={styles.heroBgCoverImage}
-                objectPosition={coverFocalPosition}
-                priority
-              />
-            </div>
-          ) : null}
-          <div className={styles.heroScrim} aria-hidden />
-          <div className={styles.heroInner}>
-            <Link href={backLinkWithItem.href} className={styles.backLink}>
-              <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
-              {backLinkWithItem.label}
-            </Link>
-            <div className={styles.heroLayout}>
-              <div className={styles.heroMain}>
-                <div className={styles.badgeRow}>
-                  <span className={styles.typeBadge}>{typeLabel}</span>
-                  {owned ? (
-                    <span className={styles.ownedBadge}>
-                      <CheckCircle2 className="h-3 w-3" aria-hidden />
-                      {t("owned")}
-                    </span>
-                  ) : free ? (
-                    <span className={styles.typeBadge}>{t("free")}</span>
-                  ) : null}
-                </div>
-                <h1 className={`vault-product-title ${styles.heroTitle}`} title={item.title}>
-                  {displayVaultProductTitle(item.title)}
-                </h1>
-                {item.author ? (
-                  <p className={styles.heroAuthor}>
-                    {tItem("byAuthor", { author: displayVaultPublisher(item.author) })}
-                  </p>
-                ) : null}
-                {reviews.totalReviews > 0 && reviews.averageRating !== null ? (
-                  <div className={styles.ratingRow}>
-                    <Star className="h-4 w-4 text-yellow-500 fill-current" aria-hidden />
-                    <span className="text-sm font-semibold">{reviews.averageRating.toFixed(1)}</span>
-                    <span className="text-sm text-white/65">
-                      ({tItem("reviews", { count: reviews.totalReviews })})
-                    </span>
-                  </div>
-                ) : null}
-                {seriesId && seriesName ? (
-                  <Link href={vaultSeriesPageHref(seriesId)} className={styles.seriesLink}>
-                    <Layers className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                    {tItem("partOfCollection", { name: seriesName })}
-                  </Link>
-                ) : null}
-                {whatsIncludedSection}
-              </div>
-              <div className={styles.heroAside}>
-                <div
-                  className={styles.heroCoverCard}
-                  style={
-                    item.image_url
-                      ? undefined
-                      : { background: `linear-gradient(135deg, ${BRAND.gradientStart}, ${BRAND.gradientEnd})` }
-                  }
-                >
-                  {item.image_url ? (
-                    <VaultCoverImage
-                      src={item.image_url}
-                      className={styles.heroCoverCardImage}
-                      objectPosition={coverFocalPosition}
-                      priority
-                    />
-                  ) : (
-                    <div className={styles.heroCoverPlaceholder}>
-                      <TypeIcon type={item.type} />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
+      ) : null}
 
       {landingHtml ? <MarketplaceLandingIframe html={landingHtml} title={item.title} /> : null}
 
@@ -982,8 +901,13 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
           ) : null}
         </div>
       ) : (
-        <section className={styles.lowerBand}>
-          <div className={styles.lowerInner}>
+        <div className={styles.vdetail}>
+          <div className={styles.vdetailInner}>
+            <Link href={backLinkWithItem.href} className={styles.vbacklink}>
+              <ArrowLeft className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              {backLinkWithItem.label}
+            </Link>
+
             {paymentVerifyInProgress ? (
               <div className={`${styles.alert} border border-border bg-muted text-foreground`}>
                 {tCommon("confirmingPayment")}
@@ -1005,101 +929,123 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
               </div>
             ) : null}
 
-            {seriesId && seriesName ? (
-              <Link href={vaultSeriesPageHref(seriesId)} className={styles.exploreCard}>
-                <div className={styles.exploreIconWrap}>
-                  <Layers className="h-5 w-5" aria-hidden />
+            <div className={styles.vdCols}>
+              <div>
+                <div className={styles.fmtRow}>
+                  <span className={styles.fmtPill}>{typeLabel}</span>
+                  {seriesName ? <span className={styles.fmtPill}>{seriesName}</span> : null}
+                  {owned ? (
+                    <span className={styles.fmtPill}>{t("owned")}</span>
+                  ) : free ? (
+                    <span className={styles.fmtPill}>{t("free")}</span>
+                  ) : null}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className={styles.exploreEyebrow}>{t("collection")}</p>
-                  <h2 className={styles.exploreTitle}>{tItem("exploreCollectionTitle", { name: seriesName })}</h2>
-                  <p className={styles.exploreDesc}>
-                    {seriesBlurb ?? tItem("exploreCollectionHint")}
-                  </p>
+
+                <h1 className={`vault-product-title ${styles.vdTitle}`} title={item.title}>
+                  {displayVaultProductTitle(item.title)}
+                </h1>
+
+                {bylineText ? <p className={styles.vdByline}>{bylineText}</p> : null}
+
+                {reviews.totalReviews > 0 && reviews.averageRating !== null ? (
+                  <div className={styles.vdMetaRow}>
+                    <span className={styles.vdRating}>
+                      <Star className="h-4 w-4 text-yellow-500 fill-current" aria-hidden />
+                      <span className="font-semibold text-foreground">
+                        {reviews.averageRating.toFixed(1)}
+                      </span>
+                      <span>({tItem("reviews", { count: reviews.totalReviews })})</span>
+                    </span>
+                  </div>
+                ) : null}
+
+                {whatsIncludedSection}
+
+                <h2 className={styles.vdSectionTitle}>{tItem("aboutResource")}</h2>
+                <p className={styles.vdDesc}>
+                  {item.description?.trim() || t("cardDescriptionFallback")}
+                </p>
+
+                {seriesId && seriesName ? (
+                  <Link href={vaultSeriesPageHref(seriesId)} className={styles.seriesLinkInline}>
+                    <Layers className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    {tItem("partOfCollection", { name: seriesName })}
+                    <ArrowRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  </Link>
+                ) : null}
+
+                {getYouTubeEmbedUrl(item.video_url ?? null) && (free || owned) ? (
+                  <section>
+                    <h2 className={styles.vdSectionTitle}>{tItem("productVideo")}</h2>
+                    <div className="overflow-hidden rounded-xl border border-border bg-black">
+                      <div className="relative w-full pt-[56.25%]">
+                        <iframe
+                          src={getYouTubeEmbedUrl(item.video_url ?? null) ?? ""}
+                          title={tItem("productVideo")}
+                          className="absolute inset-0 h-full w-full"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                        />
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
+
+                {owned ? (
+                  <section>
+                    <h2 className={styles.vdSectionTitle}>{tItem("rateProduct")}</h2>
+                    <p className="mb-3 text-sm text-muted-foreground">{tItem("rateProductHint")}</p>
+                    <div className="flex items-center gap-2">
+                      {[1, 2, 3, 4, 5].map((value) => {
+                        const active = (hoverRating ?? myRating ?? 0) >= value;
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            onMouseEnter={() => setHoverRating(value)}
+                            onMouseLeave={() => setHoverRating(null)}
+                            onClick={() => handleSetRating(value)}
+                            disabled={savingRating}
+                            className="p-0.5 text-yellow-500 disabled:opacity-50"
+                            aria-label={tItem("rateStars", { count: value })}
+                          >
+                            <Star className={`h-6 w-6 ${active ? "fill-current" : "stroke-current"}`} />
+                          </button>
+                        );
+                      })}
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {myRating ? tItem("youRated", { rating: myRating }) : tItem("clickToRate")}
+                      </span>
+                    </div>
+                    {ratingError ? (
+                      <p className="mt-1 text-xs text-destructive">{ratingError}</p>
+                    ) : null}
+                  </section>
+                ) : null}
+
+                {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
+              </div>
+
+              <div className={styles.buyCol}>
+                <div className={styles.buyCover}>
+                  {item.image_url ? (
+                    <VaultCoverImage
+                      src={item.image_url}
+                      className={styles.buyCoverImg}
+                      objectPosition={coverFocalPosition}
+                      priority
+                    />
+                  ) : (
+                    <div className={styles.buyCoverPlaceholder}>
+                      <TypeIcon type={item.type} />
+                    </div>
+                  )}
                 </div>
-                <ArrowRight className="h-5 w-5 shrink-0 text-[#e8b84b]" aria-hidden />
-              </Link>
-            ) : null}
-
-            <section className={styles.contentSection}>
-              <h2 className={styles.lowerSectionTitle}>{tItem("aboutResource")}</h2>
-              <div className={styles.lowerSectionBody}>
-                {item.description?.trim() || t("cardDescriptionFallback")}
-              </div>
-            </section>
-
-            <div className={styles.valueGrid}>
-              <div className={styles.valueCard}>
-                <Scale className="h-5 w-5 text-[#e8b84b]" aria-hidden />
-                <p className={styles.valueLabel}>{tItem("valueExpertTitle")}</p>
-                <p className={styles.valueDesc}>{tItem("valueExpertDesc")}</p>
-              </div>
-              <div className={styles.valueCard}>
-                <Globe className="h-5 w-5 text-[#e8b84b]" aria-hidden />
-                <p className={styles.valueLabel}>{tItem("valueLanguagesTitle")}</p>
-                <p className={styles.valueDesc}>{tItem("valueLanguagesDesc")}</p>
-              </div>
-              <div className={styles.valueCard}>
-                <Sparkles className="h-5 w-5 text-[#e8b84b]" aria-hidden />
-                <p className={styles.valueLabel}>{tItem("valueAccessTitle")}</p>
-                <p className={styles.valueDesc}>{tItem("valueAccessDesc")}</p>
+                {purchasePanel}
               </div>
             </div>
-
-            {purchasePanel}
-
-            {getYouTubeEmbedUrl(item.video_url ?? null) && (free || owned) ? (
-              <section className={styles.contentSection}>
-                <h2 className={styles.lowerSectionTitle}>{tItem("productVideo")}</h2>
-                <div className="overflow-hidden rounded-xl border border-border bg-black">
-                  <div className="relative w-full pt-[56.25%]">
-                    <iframe
-                      src={getYouTubeEmbedUrl(item.video_url ?? null) ?? ""}
-                      title={tItem("productVideo")}
-                      className="absolute inset-0 h-full w-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      allowFullScreen
-                    />
-                  </div>
-                </div>
-              </section>
-            ) : null}
-
-            {owned ? (
-              <section className={styles.contentSection}>
-                <h2 className={styles.lowerSectionTitle}>{tItem("rateProduct")}</h2>
-                <p className="mb-3 text-sm text-muted-foreground">{tItem("rateProductHint")}</p>
-                <div className="flex items-center gap-2">
-                  {[1, 2, 3, 4, 5].map((value) => {
-                    const active = (hoverRating ?? myRating ?? 0) >= value;
-                    return (
-                      <button
-                        key={value}
-                        type="button"
-                        onMouseEnter={() => setHoverRating(value)}
-                        onMouseLeave={() => setHoverRating(null)}
-                        onClick={() => handleSetRating(value)}
-                        disabled={savingRating}
-                        className="p-0.5 text-yellow-500 disabled:opacity-50"
-                        aria-label={tItem("rateStars", { count: value })}
-                      >
-                        <Star className={`h-6 w-6 ${active ? "fill-current" : "stroke-current"}`} />
-                      </button>
-                    );
-                  })}
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    {myRating ? tItem("youRated", { rating: myRating }) : tItem("clickToRate")}
-                  </span>
-                </div>
-                {ratingError ? (
-                  <p className="mt-1 text-xs text-destructive">{ratingError}</p>
-                ) : null}
-              </section>
-            ) : null}
-
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
           </div>
-        </section>
+        </div>
       )}
 
       {viewerUrl && item && !shouldUseVaultPackagePage(item) ? (
