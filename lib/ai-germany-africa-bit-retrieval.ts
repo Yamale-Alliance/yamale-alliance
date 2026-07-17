@@ -74,7 +74,7 @@ export async function fetchGermanyAfricaBitInventory(
     .from("laws")
     .select("id, title, status, countries(name)")
     .ilike("title", `%${escapeIlikePattern("germany")}%`)
-    .neq("status", "Repealed")
+    .neq("status", "Repealed").neq("status", "Superseded")
     .order("title", { ascending: true })
     .limit(120);
 
@@ -108,7 +108,7 @@ export async function fetchGermanyAfricaBitTitleCandidates(
     .select(lawsAiSelect)
     .in("id", ids)
     .not("content", "is", null)
-    .neq("status", "Repealed");
+    .neq("status", "Repealed").neq("status", "Superseded");
 
   if (error) {
     console.error("[AI RAG] Germany–Africa BIT body fetch:", error.message ?? error);
