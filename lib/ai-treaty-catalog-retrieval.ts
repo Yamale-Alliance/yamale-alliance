@@ -108,7 +108,7 @@ export async function fetchGlobalTreatyCatalogCandidates(
         .select(lawsAiSelect)
         .eq("category_id", catRow.id)
         .not("content", "is", null)
-        .neq("status", "Repealed")
+        .neq("status", "Repealed").neq("status", "Superseded")
     ).limit(400);
     const rows = (primaryRows ?? []) as unknown[];
     return rows.filter((r) => titleLooksLikeCrossBorderTreatyTitle(String((r as any).title ?? "")));
@@ -119,7 +119,7 @@ export async function fetchGlobalTreatyCatalogCandidates(
   const merged: unknown[] = [];
   for (const idChunk of chunkIds(capped, 120)) {
     const { data, error } = await applyLawRagApprovalFilter(
-      db.from("laws").select(lawsAiSelect).in("id", idChunk).not("content", "is", null).neq("status", "Repealed")
+      db.from("laws").select(lawsAiSelect).in("id", idChunk).not("content", "is", null).neq("status", "Repealed").neq("status", "Superseded")
     );
     if (error) {
       console.error("[AI RAG] Global treaty catalog chunk fetch:", error.message ?? error);
