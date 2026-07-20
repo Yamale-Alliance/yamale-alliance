@@ -1,4 +1,5 @@
 import { expertiseMatchesSelection } from "@/lib/lawyer-expertise";
+import { lawyerCountryMatches } from "@/lib/lawyer-countries";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
 
@@ -157,9 +158,8 @@ export async function getUnlockedLawyerIdsFromSearchGrants(userId: string): Prom
     if (!lawyersError && lawyers?.length) {
       const rows2 = lawyers as Array<{ id: string; country: string | null; expertise: string }>;
       for (const lawyer of rows2) {
-        const lawyerCountry = lawyer.country ?? "";
         for (const criteria of searchCriteria) {
-          const countryMatch = criteria.country === "all" || lawyerCountry === criteria.country;
+          const countryMatch = lawyerCountryMatches(lawyer.country, criteria.country);
           const expertiseMatch = expertiseMatchesSelection(lawyer.expertise ?? "", criteria.expertise);
           if (countryMatch && expertiseMatch) {
             ids.push(lawyer.id);
@@ -190,9 +190,8 @@ export async function getUnlockedLawyerIdsFromSearchCriteria(userId: string): Pr
   const ids: string[] = [];
   const rows = lawyers as Array<{ id: string; country: string | null; expertise: string }>;
   for (const lawyer of rows) {
-    const lawyerCountry = lawyer.country ?? "";
     for (const u of unlockRows as Array<{ country: string; expertise: string }>) {
-      const countryMatch = u.country === "all" || lawyerCountry === u.country;
+      const countryMatch = lawyerCountryMatches(lawyer.country, u.country);
       const expertiseMatch = expertiseMatchesSelection(lawyer.expertise ?? "", u.expertise);
       if (countryMatch && expertiseMatch) {
         ids.push(lawyer.id);
