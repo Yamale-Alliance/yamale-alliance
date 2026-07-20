@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { expertiseMatchesSelection } from "@/lib/lawyer-expertise";
+import { lawyerCountryMatches } from "@/lib/lawyer-countries";
 import { getSupabaseServer } from "@/lib/supabase/server";
-
-/** Sanitize for use inside PostgREST ilike pattern (avoid % / _ injection). */
-function sanitizeIlikeFragment(s: string): string {
-  return s.trim().slice(0, 200).replace(/[%_\\]/g, "");
-}
 
 /**
  * GET ?country=Ghana&expertise=Corporate Law
- * Returns count of approved lawyers in that country whose expertise string matches (case-insensitive).
+ * Returns count of approved lawyers in that country whose expertise matches.
+ * Country fields may list multiple countries (comma-separated).
  */
 export async function GET(req: NextRequest) {
   const country = req.nextUrl.searchParams.get("country")?.trim() ?? "";
@@ -17,24 +15,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "country and expertise are required" }, { status: 400 });
   }
 
-  const pattern = `%${sanitizeIlikeFragment(expertise)}%`;
-  if (pattern === "%%") {
-    return NextResponse.json({ count: 0 });
-  }
-
   try {
     const supabase = getSupabaseServer();
-    const { count, error } = await (supabase.from("lawyers") as any)
-      .select("*", { count: "exact", head: true })
-      .eq("approved", true)
-      .eq("country", country)
-      .ilike("expertise", pattern);
+    const { data, error } = await (supabase.from("lawyers") as any)
+      .select("country, expertise")
+      .eq("approved", true);
 
     if (error) {
       console.error("lawyers match-count:", error);
       return NextResponse.json({ error: "Failed to count lawyers" }, { status: 500 });
     }
-    return NextResponse.json({ count: count ?? 0 });
+
+    const rows = (data ?? []) as Array<{ country: string | null; expertise: string }>;
+    const count = rows.filter(
+      (row) =>
+        lawyerCountryMatches(row.country, country) &&
+        expertiseMatchesSelection(row.expertise ?? "", expertise)
+    ).length;
+
+    return NextResponse.json({ count });
   } catch (e) {
     console.error("lawyers match-count:", e);
     return NextResponse.json({ error: "Failed to count lawyers" }, { status: 500 });
