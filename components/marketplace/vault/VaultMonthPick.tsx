@@ -70,7 +70,7 @@ export function VaultMonthPick({ item, typeLabel, topicLabel, blurb }: VaultMont
             <h3 className="heading mt-1.5 text-[1.15rem] font-bold leading-snug text-[color:var(--brand-navy)] sm:text-[1.25rem]">
               {displayVaultProductTitle(item.title)}
             </h3>
-            <p className="mt-2 max-w-[46rem] text-[0.88rem] leading-relaxed text-[color:var(--muted-foreground)]">
+            <p className="mt-2 line-clamp-2 max-w-[46rem] text-[0.88rem] leading-relaxed text-[color:var(--muted-foreground)]">
               {blurb}
             </p>
             <p className="mt-3 font-bold text-[color:var(--brand-copper)]">
