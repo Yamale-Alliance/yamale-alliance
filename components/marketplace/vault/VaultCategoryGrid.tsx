@@ -23,11 +23,11 @@ export function VaultCategoryGrid({ doors, onSelectCategory }: VaultCategoryGrid
 
   return (
     <section className="border-b border-border/70">
-      <div className="mx-auto max-w-[1140px] px-6 py-10">
+      <div className="mx-auto max-w-[1140px] px-6 py-14">
         <h2 className="heading text-[1.4rem] font-bold tracking-tight text-[color:var(--brand-navy)]">
           {t("landing.whatsInside")}
         </h2>
-        <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
           {doors.map((door) => (
             <button
               key={door.param}
