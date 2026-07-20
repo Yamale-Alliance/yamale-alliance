@@ -1,0 +1,32 @@
+.section {
+  margin-bottom: 2.75rem;
+}
+
+.section:last-child {
+  margin-bottom: 0;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--brand-copper) 40%, var(--border));
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: color-mix(in srgb, var(--brand-navy) 88%, #4a3224);
+}
+
+.count {
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  color: var(--brand-copper);
+}

@@ -625,7 +625,8 @@ body:has(.marketplace-package-page) {
 }
 
 /* Vault browse landing — warm catalog canvas in light mode */
-:root:not(.dark) .vault-landing-catalog {
+:root:not(.dark) .vault-landing-catalog,
+:root:not(.dark) .vault-catalog-browse {
   background: linear-gradient(180deg, #faf7f2 0%, #f6f2eb 45%, #faf7f2 100%);
 }
 

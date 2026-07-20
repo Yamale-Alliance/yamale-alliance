@@ -42,8 +42,13 @@ import { VaultCategoryGrid, type VaultDoorParam } from "@/components/marketplace
 import { VaultFreeStarterRow } from "@/components/marketplace/vault/VaultFreeStarterRow";
 import { VaultMonthPick } from "@/components/marketplace/vault/VaultMonthPick";
 import { VaultCatalogToolbar, type VaultBrowseTabParam } from "@/components/marketplace/vault/VaultCatalogToolbar";
+import { VaultCatalogBrowseSection } from "@/components/marketplace/vault/VaultCatalogBrowseSection";
 import { VaultProductGrid } from "@/components/marketplace/vault/VaultProductGrid";
 import { buildVaultDisplayCards, isStandaloneVaultBrowseItem } from "@/lib/marketplace-vault-display-cards";
+import {
+  groupVaultCatalogSections,
+  isCourseOrPackageVaultItem,
+} from "@/lib/marketplace-vault-catalog-sections";
 import {
   VAULT_SORT_OPTIONS,
   buildMarketplaceSearchQuery,
@@ -98,16 +103,7 @@ type Product = MarketplaceBrowseItem;
 
 /** Courses & packages door / tab — includes is_course flag and named packages. */
 function isCourseOrPackageItem(p: Product): boolean {
-  if (!isStandaloneVaultBrowseItem(p)) return false;
-  if (p.type === "course" || isMarketplaceCourseItem(p)) return true;
-  if (!isMarketplaceZip(p)) return false;
-  const title = p.title.toLowerCase();
-  return (
-    title.includes("package") ||
-    title.includes("accelerator") ||
-    title.includes("programme") ||
-    title.includes("program")
-  );
+  return isCourseOrPackageVaultItem(p);
 }
 
 function pickDoorCover(candidates: Array<string | null | undefined>): string | null {
@@ -161,7 +157,24 @@ function inferTopicId(product: Product): TopicId {
   return "general";
 }
 
-function MarketplaceGridSkeleton() {
+function MarketplaceGridSkeleton({ browse = false }: { browse?: boolean }) {
+  if (browse) {
+    return (
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+        {Array.from({ length: 6 }, (_, i) => (
+          <div key={i} className="flex gap-4 rounded-xl border border-border bg-card p-3">
+            <div className="h-[120px] w-[120px] shrink-0 animate-pulse rounded-[10px] bg-muted" />
+            <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 py-1">
+              <div className="h-4 w-full animate-pulse rounded bg-muted" />
+              <div className="h-3 w-full animate-pulse rounded bg-muted" />
+              <div className="mt-auto h-3 w-2/3 animate-pulse rounded bg-muted" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {Array.from({ length: 6 }, (_, i) => (
@@ -586,6 +599,14 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
     };
   }, [browse, sortedProducts, t, catalogCardMode, vaultSeriesList, catalogReturnPath]);
 
+  const showGroupedCatalog =
+    browse.kind === "all" && !search.trim() && selectedTopic === "all";
+
+  const catalogSections = useMemo(
+    () => (showGroupedCatalog ? groupVaultCatalogSections(displayCards) : []),
+    [showGroupedCatalog, displayCards]
+  );
+
   const isLandingMode =
     !pendingCategory &&
     browse.kind === "all" &&
@@ -994,6 +1015,7 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
             activeTab={activeBrowseTab}
             onTabChange={navigateBrowseCategory}
             showFreeSeries={browse.kind === "free"}
+            showFilterControls={!showGroupedCatalog}
             allFreeHref={`/marketplace?${marketplaceQuery({ category: "free", series: null })}`}
             allFreeActive={browse.kind === "free" && !browse.subcategory}
             allFreeCount={freeItemCount}
@@ -1007,15 +1029,34 @@ export function MarketplacePageClient({ initialPayload }: MarketplacePageClientP
                 count: freeSeriesCounts.get(series.id) ?? 0,
               }))}
           />
-          <section className="pb-16 pt-2">
+          <section className="vault-catalog-browse pb-16">
             <div className="mx-auto max-w-[1140px] px-6">
               {loading ? (
-                <MarketplaceGridSkeleton />
+                <MarketplaceGridSkeleton browse />
               ) : displayCards.length === 0 ? (
                 <div className="rounded-[10px] border border-dashed border-border bg-card px-8 py-12 text-center">
                   <h3 className="text-xl font-semibold text-foreground">{t("emptyTitle")}</h3>
                   <p className="mt-2 text-sm text-muted-foreground">{t("emptyHint")}</p>
                 </div>
+              ) : showGroupedCatalog ? (
+                catalogSections.map((section) => (
+                  <VaultCatalogBrowseSection
+                    key={section.id}
+                    sectionId={section.id}
+                    displayCards={section.cards}
+                    seriesMembersByKey={seriesMembersByKey}
+                    expandedSeriesKey={expandedSeriesKey}
+                    onToggleSeries={toggleSeries}
+                    isSignedIn={!!isSignedIn}
+                    cartItemIds={cartItemIds}
+                    addingToCart={addingToCart}
+                    advisoryWorkspacePreview={advisoryWorkspacePreview}
+                    onAddToCart={handleAddToCart}
+                    onRemoveFromCart={handleRemoveFromCart}
+                    onBuy={(product, e) => openBuyModal(product as Product, e)}
+                    onBuySeries={openSeriesBuyModal}
+                  />
+                ))
               ) : (
                 <VaultProductGrid
                   displayCards={displayCards}

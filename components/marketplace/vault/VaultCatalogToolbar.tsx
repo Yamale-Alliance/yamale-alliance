@@ -36,6 +36,8 @@ type VaultCatalogToolbarProps = {
   allFreeHref?: string;
   allFreeActive?: boolean;
   allFreeCount?: number;
+  /** Hide sort/topic controls (catalog “All” overview). */
+  showFilterControls?: boolean;
 };
 
 export function VaultCatalogToolbar({
@@ -59,6 +61,7 @@ export function VaultCatalogToolbar({
   allFreeHref,
   allFreeActive,
   allFreeCount,
+  showFilterControls = true,
 }: VaultCatalogToolbarProps) {
   const t = useTranslations("marketplace");
 
@@ -126,43 +129,46 @@ export function VaultCatalogToolbar({
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1140px] space-y-4 px-6 pt-6">
+      <div className="vault-catalog-browse">
+        <div className="mx-auto max-w-[1140px] space-y-4 px-6 pt-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-[0.82rem] text-[color:var(--brand-copper)]">
             {t("landing.showingCount", { count: resultCount })}
           </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="sr-only" htmlFor="vault-catalog-sort">
-              {t("sort")}
-            </label>
-            <select
-              id="vault-catalog-sort"
-              value={vaultSort}
-              onChange={(e) => onSortChange(e.target.value)}
-              className="rounded-lg border border-[color:var(--border)] bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-[color:var(--primary)]"
-            >
-              {sortOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <label className="sr-only" htmlFor="vault-catalog-topic">
-              {t("topic")}
-            </label>
-            <select
-              id="vault-catalog-topic"
-              value={selectedTopic}
-              onChange={(e) => onTopicChange(e.target.value as "all" | TopicId)}
-              className="rounded-lg border border-[color:var(--border)] bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-[color:var(--primary)]"
-            >
-              {topicOptions.map((topic) => (
-                <option key={topic} value={topic}>
-                  {topicLabel(topic)}
-                </option>
-              ))}
-            </select>
-          </div>
+          {showFilterControls ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="sr-only" htmlFor="vault-catalog-sort">
+                {t("sort")}
+              </label>
+              <select
+                id="vault-catalog-sort"
+                value={vaultSort}
+                onChange={(e) => onSortChange(e.target.value)}
+                className="rounded-lg border border-[color:var(--border)] bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-[color:var(--primary)]"
+              >
+                {sortOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <label className="sr-only" htmlFor="vault-catalog-topic">
+                {t("topic")}
+              </label>
+              <select
+                id="vault-catalog-topic"
+                value={selectedTopic}
+                onChange={(e) => onTopicChange(e.target.value as "all" | TopicId)}
+                className="rounded-lg border border-[color:var(--border)] bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-[color:var(--primary)]"
+              >
+                {topicOptions.map((topic) => (
+                  <option key={topic} value={topic}>
+                    {topicLabel(topic)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
         </div>
 
         {showFreeSeries && freeSeriesLinks && allFreeHref ? (
@@ -196,6 +202,7 @@ export function VaultCatalogToolbar({
             ))}
           </div>
         ) : null}
+        </div>
       </div>
     </div>
   );
