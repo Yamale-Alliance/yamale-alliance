@@ -67,6 +67,23 @@ export async function PATCH(request: NextRequest) {
         ? (body.documentNotes as Record<string, string | null>)
         : undefined;
 
+    const lessonActivity =
+      body.lessonActivity && typeof body.lessonActivity === "object"
+        ? (body.lessonActivity as {
+            documentId?: string;
+            type?: string;
+            payload?: Record<string, unknown>;
+          })
+        : undefined;
+
+    const validLessonTypes = new Set([
+      "video_progress",
+      "video_complete",
+      "reading_progress",
+      "quiz_submit",
+      "checklist_toggle",
+    ]);
+
     const profile =
       body.profile && typeof body.profile === "object"
         ? (body.profile as {
@@ -106,6 +123,21 @@ export async function PATCH(request: NextRequest) {
         : undefined,
       documentStatus,
       documentNotes,
+      lessonActivity:
+        lessonActivity?.documentId?.trim() &&
+        lessonActivity.type &&
+        validLessonTypes.has(lessonActivity.type)
+          ? {
+              documentId: lessonActivity.documentId.trim(),
+              type: lessonActivity.type as
+                | "video_progress"
+                | "video_complete"
+                | "reading_progress"
+                | "quiz_submit"
+                | "checklist_toggle",
+              payload: lessonActivity.payload,
+            }
+          : undefined,
       milestone: milestone
         ? milestone.action === "create"
           ? {

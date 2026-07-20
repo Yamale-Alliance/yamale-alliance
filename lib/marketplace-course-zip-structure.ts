@@ -3,6 +3,7 @@ import type {
   AdvisoryDocument,
   AdvisoryPhase,
 } from "@/lib/law-firm-development/types";
+import { inferLessonKindFromSourcePath } from "@/lib/course-platform";
 import { moduleKeyFromZipPath, titleFromZipPath } from "@/lib/marketplace-course";
 
 export type ZipCourseFile = {
@@ -208,7 +209,7 @@ function documentFromZipFile(
     code: documentCodeFromFilename(fileName, index),
     categoryId,
     phaseId: phaseSlug,
-    kind: "template",
+    kind: inferLessonKindFromSourcePath(file.sourcePath),
     title: file.title,
     description: `Package file: ${file.sourcePath}`,
     estimatedMinutes: 20,

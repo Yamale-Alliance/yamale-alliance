@@ -741,9 +741,9 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
         </p>
       </div>
 
-      {!owned ? (
+      {!owned && !free ? (
         <>
-          {!free && lomiAvailable ? (
+          {lomiAvailable ? (
             <div className={styles.checkoutPayment}>
               <PaymentMethodPicker
                 value={paymentProvider}
@@ -755,83 +755,65 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
             </div>
           ) : null}
           <div className={styles.checkoutActions}>
-            {free ? (
+            <button
+              type="button"
+              onClick={handlePurchase}
+              disabled={purchasing}
+              className={styles.purchaseBtnPrimary}
+              style={{ background: `linear-gradient(to right, ${BRAND.gradientStart}, ${BRAND.gradientEnd})` }}
+            >
+              {purchasing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Zap className="h-4 w-4" />
+                  {t("buyNow")}
+                </>
+              )}
+            </button>
+            {isInCart ? (
               <button
                 type="button"
-                onClick={handleGetFree}
-                disabled={purchasing}
-                className={styles.purchaseBtnPrimary}
-                style={{ background: `linear-gradient(to right, ${BRAND.gradientStart}, ${BRAND.gradientEnd})` }}
+                onClick={handleRemoveFromCart}
+                disabled={addingToCart}
+                className={styles.purchaseBtnRemove}
               >
-                {purchasing ? <Loader2 className="h-4 w-4 animate-spin" /> : t("getForFree")}
+                {addingToCart ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <X className="h-4 w-4" />
+                    {t("removeFromCart")}
+                  </>
+                )}
               </button>
             ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={handlePurchase}
-                  disabled={purchasing}
-                  className={styles.purchaseBtnPrimary}
-                  style={{ background: `linear-gradient(to right, ${BRAND.gradientStart}, ${BRAND.gradientEnd})` }}
-                >
-                  {purchasing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <>
-                      <Zap className="h-4 w-4" />
-                      {t("buyNow")}
-                    </>
-                  )}
-                </button>
-                {isInCart ? (
-                  <button
-                    type="button"
-                    onClick={handleRemoveFromCart}
-                    disabled={addingToCart}
-                    className={styles.purchaseBtnRemove}
-                  >
-                    {addingToCart ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <X className="h-4 w-4" />
-                        {t("removeFromCart")}
-                      </>
-                    )}
-                  </button>
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                disabled={addingToCart}
+                className={styles.purchaseBtnSecondary}
+              >
+                {addingToCart ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <button
-                    type="button"
-                    onClick={handleAddToCart}
-                    disabled={addingToCart}
-                    className={styles.purchaseBtnSecondary}
-                  >
-                    {addingToCart ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <ShoppingCart className="h-4 w-4" />
-                        {t("addToCart")}
-                      </>
-                    )}
-                  </button>
+                  <>
+                    <ShoppingCart className="h-4 w-4" />
+                    {t("addToCart")}
+                  </>
                 )}
-              </>
+              </button>
             )}
           </div>
-          {!free ? (
-            <>
-              <p className={styles.secureNote}>
-                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                {t("cartPage.secureCheckout")}
-              </p>
-              <div className={styles.payMethods}>
-                <span className={styles.payMethodChip}>{t("landing.payMethodCard")}</span>
-                <span className={styles.payMethodChip}>{t("landing.payMethodMobileMoney")}</span>
-                <span className={styles.payMethodChip}>{t("landing.payMethodWallets")}</span>
-              </div>
-            </>
-          ) : null}
+          <p className={styles.secureNote}>
+            <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+            {t("cartPage.secureCheckout")}
+          </p>
+          <div className={styles.payMethods}>
+            <span className={styles.payMethodChip}>{t("landing.payMethodCard")}</span>
+            <span className={styles.payMethodChip}>{t("landing.payMethodMobileMoney")}</span>
+            <span className={styles.payMethodChip}>{t("landing.payMethodWallets")}</span>
+          </div>
           {seriesOffer && !seriesOffer.fullyOwned && seriesName ? (
             <p className={styles.bundleUpsell}>
               <strong>{tItem("seriesBundleTitle", { name: seriesName })}</strong>
@@ -843,6 +825,20 @@ export default function MarketplaceItemPageClient({ slugOrId }: { slugOrId: stri
             </p>
           ) : null}
         </>
+      ) : null}
+
+      {free && !owned && !item.has_file ? (
+        <div className={styles.checkoutActions}>
+          <button
+            type="button"
+            onClick={handleGetFree}
+            disabled={purchasing}
+            className={styles.purchaseBtnPrimary}
+            style={{ background: `linear-gradient(to right, ${BRAND.gradientStart}, ${BRAND.gradientEnd})` }}
+          >
+            {purchasing ? <Loader2 className="h-4 w-4 animate-spin" /> : t("getForFree")}
+          </button>
+        </div>
       ) : null}
 
       {(owned || free) && item.has_file ? (

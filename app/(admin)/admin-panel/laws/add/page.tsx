@@ -17,8 +17,11 @@ import {
 } from "@/components/admin/AdminVirusScanUploadBanner";
 import { AdminLawLanguageSelect } from "@/components/admin/AdminLawLanguageSelect";
 import { uploadLawPdfViaStorage } from "@/lib/admin-law-pdf-client-upload";
+import { AdminLawCountryChecklist } from "@/components/admin/AdminLawCountryChecklist";
+import type { LibraryCountry } from "@/lib/library-data";
+import { isRegionalBodyCountry, regionalBodyByCode } from "@/lib/regional-bodies";
 
-type Country = { id: string; name: string };
+type Country = LibraryCountry;
 type Category = { id: string; name: string };
 
 type InputMode = "upload" | "paste" | "url";
@@ -26,6 +29,7 @@ type InputMode = "upload" | "paste" | "url";
 export default function AdminLawsAddPage() {
   const t = useTranslations("admin.laws.add");
   const tc = useTranslations("admin.common");
+  const tLibrary = useTranslations("library");
   const [countries, setCountries] = useState<Country[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [countryIds, setCountryIds] = useState<string[]>([]);
@@ -63,6 +67,18 @@ export default function AdminLawsAddPage() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (appliesToAll || countryIds.length === 0) return;
+    const selected = countries.filter((c) => countryIds.includes(c.id));
+    if (selected.length === 0) return;
+    const allRegional = selected.every((c) => isRegionalBodyCountry(c));
+    if (!allRegional) return;
+    const hasInternational = selected.some(
+      (c) => (regionalBodyByCode(c.code)?.defaultLevel ?? "Regional") === "International"
+    );
+    setLevel(hasInternational ? "International" : "Regional");
+  }, [appliesToAll, countryIds, countries]);
 
   const handleAddCategory = async () => {
     const name = newCategoryName.trim();
@@ -473,29 +489,14 @@ export default function AdminLawsAddPage() {
                 </button>
               )}
             </div>
-            <div className="space-y-2">
-              {countries.map((c) => {
-                const checked = countryIds.includes(c.id);
-                return (
-                  <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={appliesToAll}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setCountryIds((prev) => (prev.includes(c.id) ? prev : [...prev, c.id]));
-                        } else {
-                          setCountryIds((prev) => prev.filter((id) => id !== c.id));
-                        }
-                      }}
-                      className="h-4 w-4 rounded border-input"
-                    />
-                    <span>{c.name}</span>
-                  </label>
-                );
-              })}
-            </div>
+            <AdminLawCountryChecklist
+              countries={countries}
+              selectedIds={countryIds}
+              disabled={appliesToAll}
+              regionalGroupLabel={tLibrary("regionalBodiesGroup")}
+              sovereignGroupLabel={tLibrary("sovereignStatesGroup")}
+              onChange={setCountryIds}
+            />
           </div>
           {!appliesToAll && <p className="mt-1 text-xs text-muted-foreground">{t("countries.selectedCount", { count: countryIds.length })}</p>}
         </div>

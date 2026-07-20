@@ -18,9 +18,11 @@ import { DEFAULT_LAW_LEVEL, LAW_LEVELS, isLawLevel, type LawLevel } from "@/lib/
 import { lawDetailHref } from "@/lib/law-public-url";
 import { LawLastVerifiedLabel } from "@/components/library/LawLastVerifiedLabel";
 import { AdminLawLanguageSelect } from "@/components/admin/AdminLawLanguageSelect";
+import { AdminLawCountryChecklist } from "@/components/admin/AdminLawCountryChecklist";
 import { useAdminRole } from "@/components/admin/AdminRoleProvider";
+import type { LibraryCountry } from "@/lib/library-data";
 
-type Country = { id: string; name: string };
+type Country = LibraryCountry;
 type Category = { id: string; name: string };
 
 type LawForEdit = {
@@ -49,6 +51,7 @@ export default function AdminLawEditPage() {
   const t = useTranslations("admin.laws.edit");
   const tAdd = useTranslations("admin.laws.add");
   const tc = useTranslations("admin.common");
+  const tLibrary = useTranslations("library");
   const params = useParams();
   const id = params?.id as string;
   const searchParams = useSearchParams();
@@ -707,35 +710,24 @@ export default function AdminLawEditPage() {
                   )}
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {countries.map((c) => {
-                    const isAssigned = assignedCountryIds.includes(c.id);
-                    const checked = countryIds.includes(c.id);
-                    return (
-                      <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={appliesToAll || isAssigned}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setCountryIds((prev) => (prev.includes(c.id) ? prev : [...prev, c.id]));
-                            } else if (!isAssigned) {
-                              setCountryIds((prev) => prev.filter((x) => x !== c.id));
-                            }
-                          }}
-                          className="h-4 w-4 rounded border-input disabled:opacity-60"
-                        />
-                        <span className={isAssigned ? "text-muted-foreground" : undefined}>
-                          {c.name}
-                          {isAssigned ? (
-                            <span className="ms-1.5 text-[10px] uppercase tracking-wide text-primary/80">
-                              ({t("countries.assigned")})
-                            </span>
-                          ) : null}
+                  <AdminLawCountryChecklist
+                    countries={countries}
+                    selectedIds={countryIds}
+                    disabled={appliesToAll}
+                    lockedIds={assignedCountryIds}
+                    regionalGroupLabel={tLibrary("regionalBodiesGroup")}
+                    sovereignGroupLabel={tLibrary("sovereignStatesGroup")}
+                    renderItemSuffix={(c) =>
+                      assignedCountryIds.includes(c.id) ? (
+                        <span className="ms-1.5 text-[10px] uppercase tracking-wide text-primary/80">
+                          ({t("countries.assigned")})
                         </span>
-                      </label>
-                    );
-                  })}
+                      ) : null
+                    }
+                    onChange={(ids) =>
+                      setCountryIds(Array.from(new Set([...assignedCountryIds, ...ids])))
+                    }
+                  />
                 </div>
               </div>
               {!appliesToAll && (

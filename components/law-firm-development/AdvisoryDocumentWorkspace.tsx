@@ -18,6 +18,8 @@ import {
   AdvisoryDocumentExpandedPreview,
   ExpandPreviewButton,
 } from "@/components/law-firm-development/AdvisoryDocumentExpandedPreview";
+import { CourseLessonPreview } from "@/components/law-firm-development/CourseLessonPreview";
+import type { CourseLessonProgress } from "@/lib/course-platform";
 
 type Props = {
   marketplaceItemId: string;
@@ -27,6 +29,11 @@ type Props = {
   saving: boolean;
   notesSaved: boolean;
   onDraftDirty?: () => void;
+  lessonProgress?: CourseLessonProgress;
+  onLessonActivity?: (event: {
+    type: "video_progress" | "video_complete" | "reading_progress";
+    payload: Record<string, unknown>;
+  }) => void;
 };
 
 export function AdvisoryDocumentWorkspace({
@@ -37,6 +44,8 @@ export function AdvisoryDocumentWorkspace({
   saving,
   notesSaved,
   onDraftDirty,
+  lessonProgress,
+  onLessonActivity,
 }: Props) {
   const { zip, loading, error } = useMarketplaceZipArchive(marketplaceItemId);
   const { preview, reload } = useZipEntryPreview(zip, sourcePath);
@@ -189,9 +198,11 @@ export function AdvisoryDocumentWorkspace({
             preview.kind !== "error" &&
             preview.kind !== "docx" &&
             preview.kind !== "idle" && (
-              <p className="text-sm text-white/55">
-                This file type cannot be edited in the browser. Download the package to open it locally.
-              </p>
+              <CourseLessonPreview
+                preview={preview}
+                lessonProgress={lessonProgress}
+                onLessonActivity={onLessonActivity}
+              />
             )}
         </div>
       </section>

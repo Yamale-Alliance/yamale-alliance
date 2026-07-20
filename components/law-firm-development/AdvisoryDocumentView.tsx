@@ -19,7 +19,7 @@ type Props = { document: AdvisoryDocument };
 
 export function AdvisoryDocumentView({ document: doc }: Props) {
   const { courseQuery, courseId, getPhaseById, getCategory } = useAdvisoryCatalogContext();
-  const { statuses, ready, setDocumentStatus, setDocumentNotes, saving, snapshot } =
+  const { statuses, ready, setDocumentStatus, setDocumentNotes, reportLessonActivity, saving, snapshot } =
     useAdvisoryProgress();
   const status = getDocumentStatus(statuses, doc.id);
   const [notes, setNotes] = useState("");
@@ -68,6 +68,8 @@ export function AdvisoryDocumentView({ document: doc }: Props) {
             marketplaceItemId={courseId}
             sourcePath={doc.sourcePath}
             notes={notes}
+            lessonProgress={snapshot?.lessonProgress?.[doc.id]}
+            onLessonActivity={(event) => void reportLessonActivity(doc.id, event)}
             onSaveNotes={(encoded) =>
               setDocumentNotes(doc.id, encoded).then(() => {
                 setNotes(encoded);

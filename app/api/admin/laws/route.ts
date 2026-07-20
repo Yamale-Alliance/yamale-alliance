@@ -16,6 +16,7 @@ import { isLawTreatyType } from "@/lib/law-treaty-type";
 import { DEFAULT_LAW_LEVEL, isLawLevel } from "@/lib/law-level";
 import type { Database } from "@/lib/database.types";
 import { normalizeCategoryIdList, syncLawCategories } from "@/lib/law-categories-sync";
+import { syncLawCountryScopesForLaw } from "@/lib/law-country-scopes-sync";
 import { assignLawSlug } from "@/lib/content-slug-assign";
 import {
   computeLawContentHash,
@@ -225,7 +226,7 @@ export async function POST(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: insertError, data } = await (supabase.from("laws") as any)
       .insert(rows)
-      .select("id, title");
+      .select("id, title, country_id, applies_to_all_countries");
 
     if (insertError) {
       return NextResponse.json(
@@ -235,8 +236,23 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      for (const row of (data ?? []) as Array<{ id: string; title?: string }>) {
+      for (const row of (data ?? []) as Array<{
+        id: string;
+        title?: string;
+        country_id: string | null;
+        applies_to_all_countries?: boolean;
+      }>) {
         await syncLawCategories(supabase, row.id, categoryIds);
+        try {
+          await syncLawCountryScopesForLaw(
+            supabase,
+            row.id,
+            row.country_id,
+            appliesToAll || row.applies_to_all_countries === true
+          );
+        } catch (scopeErr) {
+          console.error("Admin laws: law_country_scopes sync failed:", scopeErr);
+        }
         try {
           const { data: slugRow } = await supabase
             .from("laws")

@@ -292,6 +292,9 @@
       "title": "Articles achetés",
       "subtitle": "Tout ce que vous possédez dans le Yamalé Vault. Ouvrez un article pour les détails, fichiers ou téléchargements."
     },
+    "item": {
+      "viewAndDownload": "Voir et télécharger"
+    },
     "itemPage": {
       "itemNotFound": "Article introuvable",
       "failedToLoad": "Échec du chargement",
@@ -2522,6 +2525,8 @@
     "category": "Catégorie",
     "status": "Statut",
     "allCountries": "Tous les pays",
+    "regionalBodiesGroup": "Organisations régionales",
+    "sovereignStatesGroup": "Pays",
     "allCategories": "Toutes les catégories",
     "allStatuses": "Tous les statuts",
     "documentType": "Type de document",
@@ -2645,6 +2650,9 @@
       "backToLibraryTitle": "Retour à la bibliothèque juridique africaine",
       "library": "Bibliothèque",
       "contents": "Sommaire",
+      "tocSectionsOnly": "Sections uniquement",
+      "tocAllHeadings": "Tous les titres",
+      "closeContents": "Fermer le sommaire",
       "exitReadingMode": "Quitter le mode lecture",
       "readingMode": "Mode lecture",
       "findInDocument": "Rechercher dans ce document",

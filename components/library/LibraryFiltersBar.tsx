@@ -7,6 +7,7 @@ import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import type { LibraryCategory, LibraryCountry } from "@/lib/library-data";
 import { useLawCategoryLabel } from "@/lib/i18n/use-catalog-labels";
+import { LibraryCountrySelectOptions } from "@/components/library/LibraryCountrySelectOptions";
 
 const STATUSES = [
   { value: "In force", key: "inForce" },
@@ -206,12 +207,12 @@ export function LibraryFiltersBar({
                 aria-label={t("country")}
                 className="min-w-[10rem] max-w-[14rem] flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
               >
-                <option value="">{t("allCountries")}</option>
-                {countries.map((c) => (
-                  <option key={c.id} value={c.name}>
-                    {c.name}
-                  </option>
-                ))}
+                <LibraryCountrySelectOptions
+                  countries={countries}
+                  allLabel={t("allCountries")}
+                  regionalGroupLabel={t("regionalBodiesGroup")}
+                  sovereignGroupLabel={t("sovereignStatesGroup")}
+                />
               </select>
               <select
                 value={category}
@@ -341,12 +342,12 @@ export function LibraryFiltersBar({
                   onChange={(e) => onCountryChange(e.target.value)}
                   className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm"
                 >
-                  <option value="">{t("allCountries")}</option>
-                  {countries.map((c) => (
-                    <option key={c.id} value={c.name}>
-                      {c.name}
-                    </option>
-                  ))}
+                  <LibraryCountrySelectOptions
+                    countries={countries}
+                    allLabel={t("allCountries")}
+                    regionalGroupLabel={t("regionalBodiesGroup")}
+                    sovereignGroupLabel={t("sovereignStatesGroup")}
+                  />
                 </select>
               </label>
               <label className="block space-y-1">

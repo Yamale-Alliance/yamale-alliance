@@ -4,6 +4,11 @@ import type {
   AdvisoryMilestone,
   AdvisoryProgressSnapshot,
 } from "@/lib/law-firm-development/types";
+import {
+  applyLessonActivity,
+  parseCourseLessonProgress,
+  type CourseLessonProgress,
+} from "@/lib/course-platform";
 
 type ProfileRow = {
   user_id: string;
@@ -16,9 +21,37 @@ type ProfileRow = {
 type ProgressRow = {
   document_id: string;
   status: AdvisoryDocumentStatus;
-  section_progress: Record<string, number> | null;
+  section_progress: Record<string, unknown> | null;
   notes: string | null;
 };
+
+function sectionProgressFromRows(rows: ProgressRow[]): Record<string, number> | undefined {
+  const sectionProgress: Record<string, number> = {};
+  for (const row of rows) {
+    const parsed = parseCourseLessonProgress(row.section_progress);
+    if (parsed?.video?.watchedPercent != null) {
+      sectionProgress[`${row.document_id}:video`] = parsed.video.watchedPercent;
+    }
+    if (parsed?.reading?.scrollPercent != null) {
+      sectionProgress[`${row.document_id}:reading`] = parsed.reading.scrollPercent;
+    }
+    if (parsed?.quiz?.score != null) {
+      sectionProgress[`${row.document_id}:quiz`] = parsed.quiz.score;
+    }
+  }
+  return Object.keys(sectionProgress).length > 0 ? sectionProgress : undefined;
+}
+
+function documentLessonProgressFromRows(
+  rows: ProgressRow[]
+): Record<string, CourseLessonProgress> | undefined {
+  const out: Record<string, CourseLessonProgress> = {};
+  for (const row of rows) {
+    const parsed = parseCourseLessonProgress(row.section_progress);
+    if (parsed) out[row.document_id] = parsed;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
 
 type MilestoneRow = {
   id: string;
@@ -31,6 +64,8 @@ type MilestoneRow = {
 export type AdvisoryWorkspacePayload = AdvisoryProgressSnapshot & {
   milestones: AdvisoryMilestone[];
   programmeStartedAt: string | null;
+  /** Full lesson activity payloads keyed by document id. */
+  lessonProgress?: Record<string, CourseLessonProgress>;
 };
 
 function formatDueLabel(dueAt: string | null): string {
@@ -81,23 +116,18 @@ export async function loadAdvisoryWorkspace(userId: string): Promise<AdvisoryWor
   const milestoneRows = (milestonesRes.data ?? []) as MilestoneRow[];
 
   const documentStatus: Record<string, AdvisoryDocumentStatus> = {};
-  const sectionProgress: Record<string, number> = {};
   const documentNotes: Record<string, string> = {};
 
   for (const row of progressRows) {
     documentStatus[row.document_id] = row.status;
-    if (row.section_progress && typeof row.section_progress === "object") {
-      for (const [k, v] of Object.entries(row.section_progress)) {
-        if (typeof v === "number") sectionProgress[`${row.document_id}:${k}`] = v;
-      }
-    }
     if (row.notes?.trim()) documentNotes[row.document_id] = row.notes.trim();
   }
 
   return {
     documentStatus,
-    sectionProgress: Object.keys(sectionProgress).length > 0 ? sectionProgress : undefined,
+    sectionProgress: sectionProgressFromRows(progressRows),
     documentNotes: Object.keys(documentNotes).length > 0 ? documentNotes : undefined,
+    lessonProgress: documentLessonProgressFromRows(progressRows),
     firmName: profile?.firm_name ?? undefined,
     firmLocation: profile?.firm_location ?? undefined,
     subscriptionLabel: profile?.subscription_label ?? undefined,
@@ -121,6 +151,11 @@ export async function patchAdvisoryWorkspace(
     profile?: Partial<Pick<AdvisoryProgressSnapshot, "firmName" | "firmLocation" | "subscriptionLabel">>;
     documentStatus?: Record<string, AdvisoryDocumentStatus>;
     documentNotes?: Record<string, string | null>;
+    lessonActivity?: {
+      documentId: string;
+      type: "video_progress" | "video_complete" | "reading_progress" | "quiz_submit" | "checklist_toggle";
+      payload?: Record<string, unknown>;
+    };
     milestone?: {
       action: "create";
       title: string;
@@ -169,7 +204,7 @@ export async function patchAdvisoryWorkspace(
     for (const [documentId, notes] of Object.entries(patch.documentNotes)) {
       const { data: existing } = await supabase
         .from("advisory_document_progress")
-        .select("status")
+        .select("status, section_progress")
         .eq("user_id", userId)
         .eq("document_id", documentId)
         .maybeSingle();
@@ -181,12 +216,57 @@ export async function patchAdvisoryWorkspace(
           document_id: documentId,
           status,
           notes: notes?.trim() || null,
+          section_progress: (existing as { section_progress?: Record<string, unknown> } | null)?.section_progress ?? null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "user_id,document_id" }
       );
       if (error) throw error;
     }
+  }
+
+  if (patch.lessonActivity?.documentId?.trim()) {
+    const documentId = patch.lessonActivity.documentId.trim();
+    const { data: existing } = await supabase
+      .from("advisory_document_progress")
+      .select("status, section_progress")
+      .eq("user_id", userId)
+      .eq("document_id", documentId)
+      .maybeSingle();
+
+    const prevRow = existing as { status?: AdvisoryDocumentStatus; section_progress?: unknown } | null;
+    const prevProgress = parseCourseLessonProgress(prevRow?.section_progress);
+    const nextProgress = applyLessonActivity(prevProgress, {
+      type: patch.lessonActivity.type,
+      payload: patch.lessonActivity.payload,
+    });
+
+    let status = prevRow?.status ?? "not_started";
+    if (
+      status === "not_started" &&
+      (patch.lessonActivity.type === "video_progress" ||
+        patch.lessonActivity.type === "reading_progress")
+    ) {
+      status = "in_progress";
+    }
+    if (
+      patch.lessonActivity.type === "video_complete" ||
+      (nextProgress.video?.completed && patch.lessonActivity.type === "video_progress")
+    ) {
+      status = "complete";
+    }
+
+    const { error } = await (supabase.from("advisory_document_progress") as any).upsert(
+      {
+        user_id: userId,
+        document_id: documentId,
+        status,
+        section_progress: nextProgress,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,document_id" }
+    );
+    if (error) throw error;
   }
 
   if (patch.milestone?.action === "create") {

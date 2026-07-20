@@ -67,6 +67,8 @@ import {
 } from "@/lib/law-document-search-highlight";
 import { buildLawAnchorIndex, linkifyLawRichText } from "@/lib/library/law-reader-linkify";
 import { useLawSectionScrollSpy } from "@/lib/library/use-law-section-scroll-spy";
+import { LawSubheading } from "@/components/library/LawSubheading";
+import { getMarkdownOutlineSubItems, isLikelyMarkdown, stripInlineMarkdownBoldMarkers } from "@/lib/library/law-structure";
 
 const lawSerif = Source_Serif_4({
   subsets: ["latin"],
@@ -242,10 +244,15 @@ function getBodyItems(sec: Section): BodyItem[] {
 type OutlineItem = { id: string; title: string; level: "section" | "sub" };
 function getOutlineItems(sections: Section[]): OutlineItem[] {
   return sections.flatMap((sec) => {
-    const bodyItems = getBodyItems(sec);
-    const subHeads = bodyItems
-      .filter((i): i is { type: "h3"; text: string; id: string } => i.type === "h3")
-      .map((i) => ({ id: i.id, title: i.text, level: "sub" as const }));
+    const subHeads = isLikelyMarkdown(sec.body)
+      ? getMarkdownOutlineSubItems(sec.id, sec.body)
+      : getBodyItems(sec)
+          .filter((i): i is { type: "h3"; text: string; id: string } => i.type === "h3")
+          .map((i) => ({
+            id: i.id,
+            title: sectionTitle(i.text) || i.text,
+            level: "sub" as const,
+          }));
     return [
       { id: sec.id, title: sectionTitle(sec.title) || sec.title, level: "section" as const },
       ...subHeads.map((h) => ({
@@ -264,89 +271,10 @@ const COMPANIES_ACT_TABLE_HEADERS = [
   "COMPANIES BILL, 2018",
 ];
 
-// Heuristic: content looks like Markdown (headings, bold, lists, etc.)
-function isLikelyMarkdown(text: string): boolean {
-  if (!text?.trim()) return false;
-  const sample = text.slice(0, 4000);
-  // # or ## or ### at start of line
-  if (/^#{1,6}\s+\S/m.test(sample)) return true;
-  // ** or __ for bold
-  if (/\*\*[^*]+\*\*|__[^_]+__/.test(sample)) return true;
-  // - or * list at line start
-  if (/^\s*[-*]\s+\S/m.test(sample)) return true;
-  // ``` code fence
-  if (/^```/m.test(sample)) return true;
-  // [text](url) links
-  if (/\[[^\]]+\]\([^)]+\)/.test(sample)) return true;
-  return false;
-}
-
-/** Remove OCR/markdown `**bold**` / `__bold__` markers for plain display (used before heading regex). */
-function stripInlineMarkdownBoldMarkers(text: string): string {
-  return text.replace(/\*\*([^*]+)\*\*/g, "$1").replace(/__([^_]+)__/g, "$1");
-}
-
-/** Remove leading markdown heading markers like `## ` for display/matching. */
-function stripLeadingMarkdownHeadingMarkers(text: string): string {
-  return text.replace(/^\s*#{1,6}\s+/, "");
-}
-
-/** Whole line is only `**text**` / `__text__` (common in OCR; must not start a new section when it is an Article/Title subtitle). */
+/** Whole line is only `**text**` / `__text__` (common in OCR). */
 function isBoldOnlyWrappedLine(line: string): boolean {
   const s = line.trim();
   return /^\*\*[^*]+\*\*\s*$/.test(s) || /^__[^_]+__\s*$/.test(s);
-}
-
-/** When heading is "Article 2: …" or "Chapter 1: …", show label on first line and title indented beneath. */
-function toTitleCaseHeading(text: string): string {
-  const lower = text.toLowerCase();
-  return lower.replace(/(^|[\s\u2014\u2013\-(])(\p{L})/gu, (_m, sep: string, ch: string) => sep + ch.toUpperCase());
-}
-
-// Turn URLs and in-document citations into links (e.g. Section 12 → #sec-3).
-function renderLawSubheading(
-  text: string,
-  variant: "h2" | "h3",
-  anchorIndex: Map<string, string>
-): ReactNode {
-  const plain = stripLeadingMarkdownHeadingMarkers(stripInlineMarkdownBoldMarkers(text).trim());
-  const m = plain.match(
-    /^(Article\s+\d+|Chapter\s+\d+|Chapitre\s+[\dIVXLCDMivxlcdm]+|Section\s+[\dIVXLCDMivxlcdm]+|Art\.\s*\d+|Part\s+[A-Z]|Titre\s+[\dIVXLCDMivxlcdm]+|Title\s+[\dIVXLCDMivxlcdm]+|TITLE\s+[\dIVXLCDM]+|Ingingo\s+(?:ya\s+)?\d+)\s*:\s*(.+)$/i
-  );
-  if (m) {
-    const label = m[1];
-    const subtitle = m[2].trim();
-    const subtitleDisplay = subtitle === subtitle.toUpperCase() ? toTitleCaseHeading(subtitle) : subtitle;
-    if (variant === "h2") {
-      return (
-        <>
-          <span className="block text-base font-extrabold uppercase tracking-[0.03em] text-foreground break-words sm:text-2xl sm:tracking-[0.04em] sm:text-[1.65rem]">{linkifyLawRichText(label, anchorIndex)}</span>
-          <span className="mt-1.5 block break-words text-sm font-semibold leading-snug text-foreground/90 sm:mt-2.5 sm:text-xl">{linkifyLawRichText(subtitleDisplay, anchorIndex)}</span>
-        </>
-      );
-    }
-    return (
-      <>
-        <span className="block text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-primary/85">{linkifyLawRichText(label, anchorIndex)}</span>
-        <span className="mt-1.5 block text-[1.35rem] font-semibold leading-snug tracking-tight text-foreground sm:text-[1.5rem]">{linkifyLawRichText(subtitleDisplay, anchorIndex)}</span>
-      </>
-    );
-  }
-  if (variant === "h2") {
-    return (
-      <span className="block text-base font-extrabold uppercase tracking-[0.03em] text-foreground break-words sm:text-2xl sm:tracking-[0.04em] sm:text-[1.65rem]">{linkifyLawRichText(plain, anchorIndex)}</span>
-    );
-  }
-  const articleMatch = plain.match(/^(Article\s+\d+|Chapter\s+\d+|Chapitre\s+[\dIVXLCDMivxlcdm]+|Section\s+[\dIVXLCDMivxlcdm]+|Art\.\s*\d+|Part\s+[A-Z]|Titre\s+[\dIVXLCDMivxlcdm]+|Title\s+[\dIVXLCDMivxlcdm]+|TITLE\s+[\dIVXLCDM]+|Ingingo\s+(?:ya\s+)?\d+)\s*$/i);
-  if (articleMatch) {
-    const labelText = toTitleCaseHeading(articleMatch[1]);
-    return (
-      <span className="block text-[1.5rem] font-semibold leading-snug tracking-tight text-foreground sm:text-[1.7rem]">{linkifyLawRichText(labelText, anchorIndex)}</span>
-    );
-  }
-  return (
-    <span className="block text-[1.35rem] font-semibold leading-snug tracking-tight text-foreground sm:text-[1.5rem]">{linkifyLawRichText(plain, anchorIndex)}</span>
-  );
 }
 
 // Major headings start a new section (new card). Section and Article stay in the flow as sub-headings so the doc doesn’t fragment.
@@ -429,34 +357,6 @@ function isLoneHeadingLabelLine(trimmed: string): boolean {
     /^Title\s+[\dIVXLCDMivxlcdm]+[.:]?\s*$/i.test(t) ||
     /^TITLE\s+[\dIVXLCDM]+[.:]?\s*$/.test(t)
   );
-}
-
-/** Merge Article/Chapter + subtitle across blank lines (markdown body never ran mergeSubheadingContinuationLines). */
-function preprocessMarkdownBodyForHeadingMerge(body: string): string {
-  if (!body.trim() || body.includes("```")) return body;
-  const rawLines = body.replace(/\r\n/g, "\n").split("\n");
-  const merged: string[] = [];
-  let i = 0;
-  while (i < rawLines.length) {
-    const line = rawLines[i];
-    if (!line.trim()) {
-      merged.push(line);
-      i++;
-      continue;
-    }
-    let j = i + 1;
-    while (j < rawLines.length && !rawLines[j].trim()) j++;
-    const nextLine = j < rawLines.length ? rawLines[j] : undefined;
-    const trimmed = stripInlineMarkdownBoldMarkers(line.trim());
-    if (nextLine !== undefined && isLoneHeadingLabelLine(trimmed) && shouldMergeSubtitleLine(nextLine)) {
-      merged.push(`${trimmed}: ${stripInlineMarkdownBoldMarkers(nextLine.trim())}`);
-      i = j + 1;
-      continue;
-    }
-    merged.push(line);
-    i++;
-  }
-  return merged.join("\n");
 }
 
 /** Merge lone Chapter / Chapitre / Titre / Title / TITLE line + next subtitle into one section h2. */
@@ -1607,10 +1507,10 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                     >
                       {/* Level 1: Section / Chapter – big, bold, primary accent */}
                       <h2 className="law-section-heading heading mb-5 mt-8 break-words border-s-[3px] border-primary/80 bg-primary/[0.06] py-2.5 ps-4 text-lg font-semibold tracking-tight text-foreground first:mt-0 sm:mb-6 sm:mt-10 sm:text-xl sm:py-3 sm:ps-5 print:mt-8 print:mb-4 print:border-s-2 print:border-neutral-900 print:bg-transparent print:py-2 print:ps-4">
-                        {renderLawSubheading(sec.title, "h2", lawAnchorIndex)}
+                        <LawSubheading text={sec.title} variant="h2" anchorIndex={lawAnchorIndex} />
                       </h2>
                       {isLikelyMarkdown(sec.body) ? (
-                        <LawSectionMarkdown body={sec.body} />
+                        <LawSectionMarkdown body={sec.body} sectionId={sec.id} anchorIndex={lawAnchorIndex} />
                       ) : (
                         <>
                           {getBodyItems(sec).map((item, bi) =>
@@ -1649,15 +1549,11 @@ export default function LawDetailPageClient({ slugOrId }: { slugOrId: string }) 
                                 </table>
                               </div>
                             ) : item.type === "h3" ? (
-                              <h3
-                                key={bi}
-                                id={item.id}
-                                className="mt-12 mb-5 scroll-mt-24 border-t border-border/60 pt-7 first:mt-0 first:border-t-0 first:pt-0 print:mt-8 print:mb-4 print:border-neutral-300 print:pt-5"
-                              >
-                                {renderLawSubheading(item.text, "h3", lawAnchorIndex)}
+                              <h3 key={bi} id={item.id} className="law-article-block">
+                                <LawSubheading text={item.text} variant="h3" anchorIndex={lawAnchorIndex} />
                               </h3>
                             ) : (
-                              <p className="mb-5 break-words text-left text-[1.125rem] leading-[1.85] text-foreground/90 last:mb-0" key={bi}>
+                              <p className="law-body-paragraph" key={bi}>
                                 {linkifyLawRichText(item.text, lawAnchorIndex)}
                               </p>
                             )

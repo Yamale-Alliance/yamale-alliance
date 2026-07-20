@@ -21,6 +21,7 @@ import {
   expandLawToAdditionalCountries,
   fetchAssignedCountryIdsForLaw,
 } from "@/lib/admin-law-expand-countries";
+import { syncLawCountryScopesForLaw } from "@/lib/law-country-scopes-sync";
 import {
   computeLawContentHash,
   LAW_RAG_PENDING_STATUS,
@@ -469,6 +470,22 @@ export async function PUT(
     const country_ids = lawRow.applies_to_all_countries
       ? []
       : await fetchAssignedCountryIdsForLaw(supabase, id, lawRow);
+
+    try {
+      await syncLawCountryScopesForLaw(
+        supabase,
+        id,
+        lawRow.country_id,
+        lawRow.applies_to_all_countries === true
+      );
+      if (country_expansion?.created.length) {
+        for (const created of country_expansion.created) {
+          await syncLawCountryScopesForLaw(supabase, created.id, created.country_id, false);
+        }
+      }
+    } catch (scopeErr) {
+      console.error("Admin law PUT: law_country_scopes sync failed:", scopeErr);
+    }
 
     const slugFieldsChanged =
       updates.title !== undefined ||

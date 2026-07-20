@@ -16,12 +16,16 @@ export interface Database {
           id: string;
           name: string;
           region: string | null;
+          kind: string | null;
+          code: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           name: string;
           region?: string | null;
+          kind?: string | null;
+          code?: string | null;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["countries"]["Insert"]>;

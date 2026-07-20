@@ -5,7 +5,8 @@ export type AdvisoryDocumentKind =
   | "policy"
   | "framework"
   | "checklist"
-  | "tool";
+  | "tool"
+  | "video";
 
 export type AdvisoryDocumentSection = {
   title: string;

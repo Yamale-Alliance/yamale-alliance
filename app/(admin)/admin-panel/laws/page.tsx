@@ -8,8 +8,10 @@ import { Plus, FileText, Loader2, Trash2, CopyCheck, Trash, History, Download, S
 import { useConfirm } from "@/components/ui/use-confirm";
 import { useAdminRole } from "@/components/admin/AdminRoleProvider";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
+import { LibraryCountrySelectOptions } from "@/components/library/LibraryCountrySelectOptions";
+import type { LibraryCountry } from "@/lib/library-data";
 
-type Country = { id: string; name: string; region: string | null };
+type Country = LibraryCountry;
 type Category = { id: string; name: string; slug: string | null };
 type Law = {
   id: string;
@@ -119,6 +121,7 @@ function LawsPaginationBar({
 function AdminLawsPageInner() {
   const t = useTranslations("admin.laws.list");
   const tc = useTranslations("admin.common");
+  const tLibrary = useTranslations("library");
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -490,11 +493,13 @@ function AdminLawsPageInner() {
             className="rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
             <option value="">{tc("all")}</option>
-            {countries.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
+            <LibraryCountrySelectOptions
+              countries={countries}
+              allLabel=""
+              regionalGroupLabel={tLibrary("regionalBodiesGroup")}
+              sovereignGroupLabel={tLibrary("sovereignStatesGroup")}
+              valueField="id"
+            />
           </select>
         </div>
         <div>

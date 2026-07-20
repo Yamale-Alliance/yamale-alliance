@@ -27,7 +27,13 @@ export type LibrarySortOption = "title-asc" | "title-desc" | "country" | "catego
 /** PostgREST returns at most 1000 rows per request unless max-rows is raised server-side. */
 const POSTGREST_PAGE_SIZE = 1000;
 
-export type LibraryCountry = { id: string; name: string };
+export type LibraryCountry = {
+  id: string;
+  name: string;
+  kind?: string | null;
+  code?: string | null;
+  region?: string | null;
+};
 export type LibraryCategory = { id: string; name: string };
 export type LibraryLawRow = {
   id: string;
@@ -83,6 +89,8 @@ type LibraryFilters = {
   lawsLimit?: number;
   /** Skip law_categories + shared-link lookups (faster; used by admin list). */
   skipEnrichment?: boolean;
+  /** Member-country scoped law IDs (for cache fallback when filtering by country). */
+  scopedLawIds?: string[];
   /** Admin-only linked-law flair; skips extra DB round-trips on public library loads. */
   includeLinkedLawFlairs?: boolean;
 };
@@ -90,10 +98,15 @@ type LibraryFilters = {
 const ENRICHMENT_ID_CHUNK = 500;
 
 function sortCountriesAlphabetically(countries: LibraryCountry[]): LibraryCountry[] {
-  return [...countries].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
-  );
+  return [...countries].sort((a, b) => {
+    const aRegional = a.kind === "regional_body" ? 0 : 1;
+    const bRegional = b.kind === "regional_body" ? 0 : 1;
+    if (aRegional !== bRegional) return aRegional - bRegional;
+    return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  });
 }
+
+const LIBRARY_COUNTRY_SELECT = "id, name, region, kind, code";
 
 function reconcilePaginatedLawCount(
   lawCount: number,
@@ -139,9 +152,14 @@ function applyFiltersToCachedData(
     return { ...publicBase, laws: [], lawCount: 0 };
   }
   const searchPlan = filters.q?.trim() ? librarySearchMatchPlan(filters.q) : null;
+  const scopedIds = filters.scopedLawIds ?? [];
+  const scopedSet = scopedIds.length > 0 ? new Set(scopedIds) : null;
   const filteredLaws = publicBase.laws.filter((law) => {
     const matchCountry =
-      !filters.countryId || law.country_id === filters.countryId || law.applies_to_all_countries;
+      !filters.countryId ||
+      law.country_id === filters.countryId ||
+      law.applies_to_all_countries ||
+      (scopedSet?.has(law.id) ?? false);
     if (!matchCountry) return false;
     const matchCategory =
       !filters.categoryId ||
@@ -560,7 +578,7 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
     const internalCategoryId = await resolveInternalLibraryCategoryId(supabase);
     if (filters?.categoryId && internalCategoryId && filters.categoryId === internalCategoryId) {
       const [countriesRes, categoriesRes] = await Promise.all([
-        supabase.from("countries").select("id, name, region").order("name"),
+        supabase.from("countries").select("id, name, region, kind, code").order("name"),
         supabase.from("categories").select("id, name, slug").order("name"),
       ]);
       if (countriesRes.error) throw countriesRes.error;
@@ -594,7 +612,7 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
       }
       if (!useLegacyCategoryColumn && categoryLawIds !== null && categoryLawIds.length === 0) {
         const [countriesRes, categoriesRes] = await Promise.all([
-          supabase.from("countries").select("id, name, region").order("name"),
+          supabase.from("countries").select("id, name, region, kind, code").order("name"),
           supabase.from("categories").select("id, name, slug").order("name"),
         ]);
         if (countriesRes.error) throw countriesRes.error;
@@ -616,7 +634,7 @@ function doFetch(filters: Parameters<typeof fetchLibraryData>[0]): Promise<Libra
     const useJunctionIdChunks =
       Boolean(categoryLawIds && categoryLawIds.length > 0 && !useLegacyCategoryColumn);
 
-    const countriesPromise = supabase.from("countries").select("id, name, region").order("name");
+    const countriesPromise = supabase.from("countries").select("id, name, region, kind, code").order("name");
     const categoriesPromise = supabase.from("categories").select("id, name, slug").order("name");
 
     let countriesRes: Awaited<typeof countriesPromise>;
@@ -815,7 +833,20 @@ export async function fetchLibraryData(filters?: LibraryFilters): Promise<Librar
     // For filtered requests, gracefully degrade to in-memory filtering from the
     // most recent unfiltered cache instead of throwing a 500.
     if (key !== "__initial__" && cachedData) {
-      return applyFiltersToCachedData(cachedData, resolvedFilters, internalCategoryId);
+      let filtersForCache = resolvedFilters;
+      if (resolvedFilters?.countryId && !resolvedFilters.scopedLawIds?.length) {
+        try {
+          const scopedLawIds = await fetchValidLawIdsForCountryScope(
+            supabase,
+            resolvedFilters.countryId,
+            internalCategoryId
+          );
+          filtersForCache = { ...resolvedFilters, scopedLawIds };
+        } catch {
+          /* use cache without scoped IDs */
+        }
+      }
+      return applyFiltersToCachedData(cachedData, filtersForCache, internalCategoryId);
     }
     if (key === "__initial__" && cachedData) {
       return sanitizeLibraryDataForPublic(cachedData, internalCategoryId);
@@ -837,7 +868,7 @@ export async function fetchLibraryMeta(): Promise<Pick<LibraryData, "countries" 
   }
   const supabase = getSupabaseServer();
   const [countriesRes, categoriesRes] = await Promise.all([
-    supabase.from("countries").select("id, name, region").order("name"),
+    supabase.from("countries").select("id, name, region, kind, code").order("name"),
     supabase.from("categories").select("id, name, slug").order("name"),
   ]);
   if (countriesRes.error) throw countriesRes.error;

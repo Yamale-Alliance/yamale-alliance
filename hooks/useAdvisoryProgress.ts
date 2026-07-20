@@ -15,10 +15,12 @@ import type {
   AdvisoryMilestone,
   AdvisoryProgressSnapshot,
 } from "@/lib/law-firm-development/types";
+import type { CourseLessonProgress } from "@/lib/course-platform";
 
 type WorkspaceResponse = AdvisoryProgressSnapshot & {
   milestones: AdvisoryMilestone[];
   programmeStartedAt: string | null;
+  lessonProgress?: Record<string, CourseLessonProgress>;
 };
 
 export function useAdvisoryProgress() {
@@ -111,6 +113,25 @@ export function useAdvisoryProgress() {
     [patch]
   );
 
+  const reportLessonActivity = useCallback(
+    async (
+      docId: string,
+      activity: {
+        type: "video_progress" | "video_complete" | "reading_progress" | "quiz_submit" | "checklist_toggle";
+        payload?: Record<string, unknown>;
+      }
+    ) => {
+      await patch({
+        lessonActivity: {
+          documentId: docId,
+          type: activity.type,
+          payload: activity.payload,
+        },
+      });
+    },
+    [patch]
+  );
+
   const updateProfile = useCallback(
     async (profile: {
       firmName?: string;
@@ -161,6 +182,7 @@ export function useAdvisoryProgress() {
     documentsComplete,
     setDocumentStatus,
     setDocumentNotes,
+    reportLessonActivity,
     updateProfile,
     createMilestone,
     completeMilestone,

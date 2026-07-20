@@ -292,6 +292,9 @@
       "title": "Purchased items",
       "subtitle": "Everything you own from The Yamalé Vault. Open an item for details, files, or downloads."
     },
+    "item": {
+      "viewAndDownload": "View & download"
+    },
     "itemPage": {
       "itemNotFound": "Item not found",
       "failedToLoad": "Failed to load",
@@ -1523,7 +1526,7 @@
         "content": {
           "label": "Law content",
           "placeholder": "Paste the full text of the law here. You can use plain text or Markdown (headings, lists, etc.).",
-          "hint": "Plain text or Markdown. The library will detect and render Markdown when viewing.",
+          "hint": "Plain text or Markdown. Use ## for chapters or parts and #### for articles — the library builds a table of contents from these headings.",
           "urlReadySuffix": "Edits here are saved when you click Add law."
         },
         "submit": {
@@ -2522,6 +2525,8 @@
     "category": "Category",
     "status": "Status",
     "allCountries": "All countries",
+    "regionalBodiesGroup": "Regional bodies",
+    "sovereignStatesGroup": "Countries",
     "allCategories": "All categories",
     "allStatuses": "All statuses",
     "documentType": "Document type",
@@ -2645,6 +2650,9 @@
       "backToLibraryTitle": "Back to the African Legal Library",
       "library": "Library",
       "contents": "Contents",
+      "tocSectionsOnly": "Sections only",
+      "tocAllHeadings": "All headings",
+      "closeContents": "Close contents",
       "exitReadingMode": "Exit reading mode",
       "readingMode": "Reading mode",
       "findInDocument": "Find in this document",

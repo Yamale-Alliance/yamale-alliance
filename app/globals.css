@@ -251,6 +251,13 @@ mark.law-doc-search-hit-active {
   --law-fab-gutter: 0px;
   --law-reading-measure: 44rem;
   --law-layout-max: 52rem;
+  --law-body-size: 1.125rem;
+  --law-body-leading: 1.82;
+  --law-chapter-size: clamp(1.05rem, 2.5vw, 1.65rem);
+  --law-chapter-subtitle-size: clamp(0.95rem, 2vw, 1.25rem);
+  --law-article-label-size: 0.7rem;
+  --law-article-title-size: clamp(1.15rem, 2.2vw, 1.5rem);
+  --law-article-title-solo-size: clamp(1.25rem, 2.4vw, 1.7rem);
 }
 
 @media (min-width: 640px) {
@@ -363,9 +370,130 @@ mark.law-doc-search-hit-active {
   margin-left: auto;
   margin-right: auto;
   font-family: var(--font-law-serif), Georgia, "Times New Roman", serif;
-  font-size: 1.125rem;
-  line-height: 1.82;
+  font-size: var(--law-body-size);
+  line-height: var(--law-body-leading);
   letter-spacing: 0.01em;
+}
+
+.law-page-root .law-chapter-heading__label {
+  display: block;
+  font-size: var(--law-chapter-size);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  line-height: 1.25;
+  color: var(--foreground);
+  overflow-wrap: anywhere;
+}
+
+.law-page-root .law-chapter-heading__subtitle {
+  display: block;
+  margin-top: 0.375rem;
+  font-size: var(--law-chapter-subtitle-size);
+  font-weight: 600;
+  line-height: 1.35;
+  color: color-mix(in srgb, var(--foreground) 90%, transparent);
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 640px) {
+  .law-page-root .law-chapter-heading__label {
+    letter-spacing: 0.04em;
+  }
+
+  .law-page-root .law-chapter-heading__subtitle {
+    margin-top: 0.625rem;
+  }
+}
+
+.law-page-root .law-article-block {
+  margin-top: 3rem;
+  margin-bottom: 1.25rem;
+  padding-top: 1.75rem;
+  scroll-margin-top: 6rem;
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.law-page-root .law-article-block:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.law-page-root .law-article-heading__label {
+  display: block;
+  font-size: var(--law-article-label-size);
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--primary) 85%, var(--foreground));
+}
+
+.law-page-root .law-article-heading__title {
+  display: block;
+  margin-top: 0.375rem;
+  font-size: var(--law-article-title-size);
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+  overflow-wrap: anywhere;
+}
+
+.law-page-root .law-article-heading__title--solo {
+  font-size: var(--law-article-title-solo-size);
+}
+
+.law-page-root .law-body-paragraph {
+  margin-bottom: 1.25rem;
+  font-size: var(--law-body-size);
+  line-height: var(--law-body-leading);
+  text-align: left;
+  color: color-mix(in srgb, var(--foreground) 90%, transparent);
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+
+.law-page-root .law-body-paragraph:last-child {
+  margin-bottom: 0;
+}
+
+.law-page-root .law-markdown-body {
+  max-width: none;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+
+.law-page-root .law-markdown-body p,
+.law-page-root .law-markdown-body li {
+  font-size: var(--law-body-size);
+  line-height: var(--law-body-leading);
+  text-align: left;
+  color: color-mix(in srgb, var(--foreground) 90%, transparent);
+  hyphens: auto;
+}
+
+.law-page-root .law-markdown-body p {
+  margin-bottom: 1.25rem;
+}
+
+.law-page-root .law-markdown-body ul,
+.law-page-root .law-markdown-body ol {
+  margin-bottom: 1.25rem;
+  padding-left: 1.5rem;
+}
+
+.law-page-root .law-markdown-body h1,
+.law-page-root .law-markdown-body h2,
+.law-page-root .law-markdown-body h3,
+.law-page-root .law-markdown-body h4 {
+  text-wrap: balance;
+}
+
+.law-page-root .law-markdown-body table {
+  margin: 1.5rem 0;
 }
 
 .law-page-root .law-doc-search-root .prose {
@@ -450,7 +578,7 @@ html.law-reading-mode-active .yamale-site-footer {
   padding-right: 1.5rem;
   padding-top: 2rem;
   padding-bottom: 2.5rem;
-  font-size: 1.125rem;
+  font-size: var(--law-body-size);
   line-height: 1.85;
 }
 
@@ -465,18 +593,11 @@ html.law-reading-mode-active .yamale-site-footer {
 @media (max-width: 639px) {
   .law-page-root {
     --law-reading-measure: min(100%, 36rem);
-  }
-
-  .law-page-root .law-doc-search-root {
-    font-size: 1rem;
-    line-height: 1.75;
-  }
-
-  .law-page-root .law-doc-search-root .prose h1,
-  .law-page-root .law-doc-search-root .prose h2,
-  .law-page-root .law-doc-search-root .prose h3 {
-    font-size: 1.05rem;
-    line-height: 1.35;
+    --law-body-size: 1rem;
+    --law-body-leading: 1.75;
+    --law-chapter-size: clamp(1rem, 4vw, 1.35rem);
+    --law-article-title-size: clamp(1.05rem, 3.5vw, 1.25rem);
+    --law-article-title-solo-size: clamp(1.1rem, 3.8vw, 1.35rem);
   }
 }
 
