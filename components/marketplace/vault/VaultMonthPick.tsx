@@ -42,14 +42,14 @@ export function VaultMonthPick({ item, typeLabel, topicLabel, blurb }: VaultMont
 
   return (
     <section className="border-b border-border/70">
-      <div className="mx-auto max-w-[1140px] px-6 py-10">
+      <div className="mx-auto max-w-[1140px] px-6 py-14">
         <h2 className="heading text-[1.4rem] font-bold tracking-tight text-[color:var(--brand-navy)]">
           {t("landing.sectionMonthPick")}
         </h2>
         <button
           type="button"
           onClick={() => router.push(href, { scroll: true })}
-          className="mt-5 grid w-full items-stretch overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--muted)] text-left transition hover:shadow-[0_6px_18px_rgba(13,27,42,0.14)] md:grid-cols-[200px_1fr]"
+          className="mt-6 grid w-full items-stretch overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--muted)] text-left transition hover:shadow-[0_6px_18px_rgba(13,27,42,0.14)] md:grid-cols-[200px_1fr]"
         >
           {/* Whole cover visible (object-contain), image column stretches to text height */}
           <div className="relative min-h-[200px] bg-[color:var(--brand-navy-fixed)] md:h-full">
