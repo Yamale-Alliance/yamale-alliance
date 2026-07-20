@@ -16,10 +16,13 @@ import {
 } from "@/components/layout/prototype-page-styles";
 import {
   buildExpertiseFilterOptions,
+  dedupeExpertiseSegments,
   expertiseMatchesAnySelection,
   formatExpertiseSelection,
+  parseExpertiseSegments,
   parseExpertiseSelectionInput,
 } from "@/lib/lawyer-expertise";
+import { lawyerCountryMatches } from "@/lib/lawyer-countries";
 import { LawyersOnboardingVideo } from "@/components/lawyers/LawyersOnboardingVideo";
 import { LawyerPracticeAreaMultiSelect } from "@/components/lawyers/LawyerPracticeAreaMultiSelect";
 import { lawyerUnlockedForViewer } from "@/lib/lawyers-admin-presentation";
@@ -164,7 +167,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
       return;
     }
     if (!userLoaded || !isSignedIn) {
-      setSearchPayError(t("signInToUnlock"));
+      promptSignInToUnlock();
       return;
     }
     setSearchPayLoading(true);
@@ -196,6 +199,15 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
     } finally {
       setSearchPayLoading(false);
     }
+  };
+
+  const authReturnPath = "/lawyers?restore_search=1";
+  const signInHref = `/sign-in?redirect_url=${encodeURIComponent(authReturnPath)}`;
+  const signUpHref = `/sign-up?redirect_url=${encodeURIComponent(authReturnPath)}`;
+
+  const promptSignInToUnlock = () => {
+    persistSearchState({ hasSearched: true });
+    window.location.href = signInHref;
   };
 
   const clearStoredSearchState = () => {
@@ -254,10 +266,19 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
     const returnExpertise = searchParams.get("expertise");
     const returnLanguage = searchParams.get("language");
     const fromAiResearch = searchParams.get("from") === "ai-research";
+    const restoreSearch = searchParams.get("restore_search") === "1";
     const hasStaleFilterParams =
       !sessionId &&
       !fromAiResearch &&
+      !restoreSearch &&
       (returnCountry != null || returnExpertise != null || returnCity != null || returnLanguage != null);
+
+    // After sign-in/sign-up: restore the search the guest was viewing.
+    if (restoreSearch) {
+      restoreStoredSearchState();
+      window.history.replaceState({}, "", "/lawyers");
+      return;
+    }
 
     // Default landing: fresh search. Drop bookmarked ?country=&expertise= from a past purchase.
     if (hasStaleFilterParams) {
@@ -372,7 +393,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
 
   const filteredLawyers = useMemo(() => {
     return lawyers.filter((lawyer) => {
-      if (selectedCountry && lawyer.country !== selectedCountry) return false;
+      if (selectedCountry && !lawyerCountryMatches(lawyer.country, selectedCountry)) return false;
       if (selectedCity.trim()) {
         const q = selectedCity.trim().toLowerCase();
         const city = lawyer.city.toLowerCase();
@@ -385,6 +406,12 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
       return true;
     });
   }, [lawyers, selectedCountry, selectedCity, selectedExpertise, selectedLanguage]);
+
+  /** Lawyers in the selected country ignoring practice-area / other filters (for empty-state copy). */
+  const lawyersInSelectedCountryCount = useMemo(() => {
+    if (!selectedCountry) return lawyers.length;
+    return lawyers.filter((lawyer) => lawyerCountryMatches(lawyer.country, selectedCountry)).length;
+  }, [lawyers, selectedCountry]);
 
   // Fetch reviews for displayed lawyers
   useEffect(() => {
@@ -670,28 +697,55 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                 <p className="text-sm font-semibold text-foreground">
                   {t("lawyersMatchCriteria", { count: filteredLawyers.length })}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-                  {t.rich("payToUnlockSearch", {
-                    ...richTags,
-                    count: filteredLawyers.length,
-                    country: selectedCountry,
-                    areas: selectedExpertise.map(practiceAreaLabel).join(", "),
-                  })}
-                </p>
+                {userLoaded && !isSignedIn ? (
+                  <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                    {t("signInToUnlockBody")}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                    {t.rich("payToUnlockSearch", {
+                      ...richTags,
+                      count: filteredLawyers.length,
+                      country: selectedCountry,
+                      areas: selectedExpertise.map(practiceAreaLabel).join(", "),
+                    })}
+                  </p>
+                )}
               </div>
               <div className="flex flex-col items-end gap-2">
                 {searchPayError && <p className="text-xs text-red-600 sm:text-sm">{searchPayError}</p>}
-                <button
-                  type="button"
-                  onClick={() => void handlePayForSearch()}
-                  disabled={searchPayLoading || !lomiAvailable}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#635BFF]/50 bg-[#635BFF]/10 px-4 py-2 text-xs font-semibold text-[#635BFF] transition hover:bg-[#635BFF]/20 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
-                >
-                  {searchPayLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                  {t("paymentCard")}
-                </button>
-                {!lomiAvailable && (
-                  <p className="text-xs text-amber-700 dark:text-amber-400">{t("cardCheckoutUnavailable")}</p>
+                {userLoaded && !isSignedIn ? (
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <Link
+                      href={signInHref}
+                      onClick={() => persistSearchState({ hasSearched: true })}
+                      className="inline-flex items-center justify-center rounded-xl border border-border bg-background px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-muted sm:text-sm"
+                    >
+                      {t("signInCta")}
+                    </Link>
+                    <Link
+                      href={signUpHref}
+                      onClick={() => persistSearchState({ hasSearched: true })}
+                      className="inline-flex items-center justify-center rounded-xl border border-primary/70 bg-primary/10 px-4 py-2 text-xs font-semibold text-foreground transition hover:bg-primary/20 sm:text-sm"
+                    >
+                      {t("signUpCta")}
+                    </Link>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => void handlePayForSearch()}
+                      disabled={searchPayLoading || !lomiAvailable || !userLoaded}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#635BFF]/50 bg-[#635BFF]/10 px-4 py-2 text-xs font-semibold text-[#635BFF] transition hover:bg-[#635BFF]/20 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
+                    >
+                      {searchPayLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                      {t("paymentCard")}
+                    </button>
+                    {!lomiAvailable && (
+                      <p className="text-xs text-amber-700 dark:text-amber-400">{t("cardCheckoutUnavailable")}</p>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -717,12 +771,18 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
           <div className="rounded-2xl border border-dashed border-border/80 bg-card/90 p-12 text-center shadow-sm">
             <div className="mb-4 text-5xl">🔍</div>
             <h3 className="text-xl font-semibold text-foreground">
-              {selectedCountry ? t("noLawyersInCountry") : t("noLawyersFound")}
+              {selectedCountry && lawyersInSelectedCountryCount === 0
+                ? t("noLawyersInCountry")
+                : selectedCountry
+                  ? t("noLawyersForPracticeAreas")
+                  : t("noLawyersFound")}
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              {selectedCountry
+              {selectedCountry && lawyersInSelectedCountryCount === 0
                 ? t("noLawyersInCountryHint", { country: selectedCountry })
-                : t("adjustFiltersHint")}
+                : selectedCountry
+                  ? t("noLawyersForPracticeAreasHint", { country: selectedCountry })
+                  : t("adjustFiltersHint")}
             </p>
             <button
               type="button"
@@ -738,6 +798,7 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
               const unlocked = isUnlocked(lawyer);
               const contacts = contactsByLawyer[lawyer.id];
               const lawyerLanguages = collectLawyerLanguages(lawyer.primaryLanguage, lawyer.otherLanguages);
+              const practiceAreas = dedupeExpertiseSegments(parseExpertiseSegments(lawyer.expertise));
               const initials = lawyer.name.split(" ").map((n) => n[0]).filter(Boolean).join("");
               const initialsDisplay = lawyer.name.split(" ").map((n) => n[0]).filter(Boolean).join(". ") + ".";
 
@@ -810,6 +871,19 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                       </div>
                     </div>
 
+                    {practiceAreas.length > 0 ? (
+                      <div className="mb-3 mt-3 flex flex-wrap gap-1.5">
+                        {practiceAreas.map((area) => (
+                          <span
+                            key={area}
+                            className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-[10px] font-medium text-foreground"
+                          >
+                            {practiceAreaLabel(area)}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+
                     {lawyerLanguages.length > 0 ? (
                       <div className="mb-3 flex flex-wrap gap-1.5">
                         {lawyerLanguages.map((language) => (
@@ -849,10 +923,22 @@ export function LawyersPageClient({ isAdmin }: { isAdmin: boolean }) {
                             <div>{t("noContactDetailsOnFile")}</div>
                           )}
                         </div>
+                      ) : userLoaded && !isSignedIn ? (
+                        <button
+                          type="button"
+                          onClick={promptSignInToUnlock}
+                          className="w-full rounded-[6px] bg-[#0D1B2A] px-3 py-2 text-center text-[12px] font-semibold text-white transition hover:bg-[#162436]"
+                        >
+                          {t("signInToUnlockTitle")}
+                        </button>
                       ) : (
-                        <div className="rounded-[6px] bg-[#0D1B2A] px-3 py-2 text-center text-[12px] font-semibold text-white">
+                        <button
+                          type="button"
+                          onClick={() => void handlePayForSearch()}
+                          className="w-full rounded-[6px] bg-[#0D1B2A] px-3 py-2 text-center text-[12px] font-semibold text-white transition hover:bg-[#162436]"
+                        >
                           {t.rich("unlockContactPrice", richTags)}
-                        </div>
+                        </button>
                       )}
                     </div>
                   </div>
