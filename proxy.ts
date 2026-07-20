@@ -47,6 +47,7 @@ const isPublicRoute = createRouteMatcher([
   "/african-legal-library-ai(.*)",
   "/marketplace(.*)",
   "/lawyers(.*)",
+  "/api/lawyers(.*)", // public directory list/catalog; unlock/payment routes still check auth in-handler
   "/api/pricing", // public pricing data for pricing page
   "/api/marketplace(.*)", // public marketplace list and detail
   "/api/lomi/webhook", // Lomi (X-Lomi-Signature) + Lomi callbacks — public; do not require Clerk or X-API-Key here
