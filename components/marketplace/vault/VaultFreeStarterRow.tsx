@@ -21,11 +21,11 @@ export function VaultFreeStarterRow({ items, typeLabel }: VaultFreeStarterRowPro
 
   return (
     <section className="border-b border-border/70">
-      <div className="mx-auto max-w-[1140px] px-6 pb-2 pt-10">
+      <div className="mx-auto max-w-[1140px] px-6 py-14">
         <h2 className="heading text-[1.4rem] font-bold tracking-tight text-[color:var(--brand-navy)]">
           {t("landing.sectionFreeStart")}
         </h2>
-        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {items.slice(0, 3).map((item) => {
             const href = marketplaceItemDetailHref({
               id: item.id,
