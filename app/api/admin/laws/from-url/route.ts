@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin-law-url-import-core";
 import type { CountryOpt, CategoryOpt } from "@/lib/law-url-import";
 import { normalizeLawDocumentLanguageCode } from "@/lib/law-document-language";
+import { isVirusScanRejectedError } from "@/lib/uploads/virus-scan-rejected";
 
 export const maxDuration = 300;
 
@@ -149,6 +150,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true, ...law });
   } catch (err) {
+    if (isVirusScanRejectedError(err)) {
+      return NextResponse.json(
+        { error: err.message, code: err.code, reason: err.reason },
+        { status: 422 }
+      );
+    }
     const message = err instanceof Error ? err.message : "Import failed";
     console.error("Admin laws from-url:", err);
     return NextResponse.json({ error: message }, { status: 400 });
