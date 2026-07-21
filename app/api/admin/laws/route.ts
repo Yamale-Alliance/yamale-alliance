@@ -23,6 +23,7 @@ import {
   LAW_RAG_PENDING_STATUS,
 } from "@/lib/laws-rag-integrity";
 import { normalizeLawDocumentLanguageCode } from "@/lib/law-document-language";
+import { isVirusScanRejectedError } from "@/lib/uploads/virus-scan-rejected";
 import { extractLawTextFromPdfUpload } from "@/lib/admin-law-pdf-extract";
 
 // Allow up to 5 minutes for PDF extraction and OCR (large or scanned PDFs)
@@ -140,6 +141,9 @@ export async function POST(request: NextRequest) {
             { error: "Provide either a PDF file or paste the law content in the text area." },
             { status: 400 }
           );
+        }
+        if (isVirusScanRejectedError(err)) {
+          return NextResponse.json({ error: err.message, code: err.code, reason: err.reason }, { status: 422 });
         }
         if (err.message === "MALWARE") {
           return NextResponse.json(
