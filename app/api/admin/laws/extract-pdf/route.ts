@@ -6,6 +6,7 @@ import {
   hasUsableLawContent,
   EMPTY_PDF_EXTRACT_MESSAGE,
 } from "@/lib/admin-law-utils";
+import { isVirusScanRejectedError } from "@/lib/uploads/virus-scan-rejected";
 
 // Allow up to 5 minutes for PDF extraction and OCR (large or scanned PDFs)
 export const maxDuration = 300;
@@ -61,6 +62,12 @@ export async function POST(request: NextRequest) {
     const err = e as Error;
     if (err.message === "MISSING_PDF") {
       return NextResponse.json({ error: "Provide a PDF file to extract." }, { status: 400 });
+    }
+    if (isVirusScanRejectedError(err)) {
+      return NextResponse.json(
+        { error: err.message, code: err.code, reason: err.reason },
+        { status: 422 }
+      );
     }
     if (err.message === "MALWARE") {
       return NextResponse.json(
