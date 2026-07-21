@@ -1513,15 +1513,15 @@
         },
         "ocr": {
           "forceTitle": "Forcer OCR",
-          "forceHint": "À utiliser si le PDF est scanné ou contient peu de texte sélectionnable.",
+          "forceHint": "À utiliser si le PDF est scanné ou contient peu de texte sélectionnable. Nécessite pdftoppm + tesseract sur le serveur (indisponible sur Vercel en production).",
           "uploadTitle": "Ce fichier nécessite OCR",
-          "uploadHint": "Cochez si le PDF est scanné ou contient peu de texte extractible. OCR utilise Tesseract et peut prendre plus de temps."
+          "uploadHint": "Cochez pour les PDF scannés. L'OCR ne fonctionne que si pdftoppm + tesseract sont installés — en production, utilisez plutôt Coller le contenu."
         },
         "upload": {
           "label": "Fichier PDF",
-          "hint": "Le texte sera extrait et stocké pour la bibliothèque. Pour les PDF scannés, activez Force OCR ci-dessous — sinon la loi peut être enregistrée sans texte intégral.",
+          "hint": "Les PDF avec couche texte s'extraient automatiquement. Les PDF scannés nécessitent généralement Coller le contenu en production (outils OCR non installés sur le serveur).",
           "sizeHint": "PDF jusqu'à {maxMb} Mo acceptés. Au-delà de 4 Mo, l'envoi se fait directement vers le stockage pour éviter les limites du serveur.",
-          "waitHint": "Les gros PDF ou OCR peuvent prendre 1 à 2 minutes. Veuillez patienter sans actualiser."
+          "waitHint": "Les gros PDF ou l'analyse antimalware peuvent prendre 1 à 2 minutes. Ne rafraîchissez pas. Si l'analyse expire, attendez une minute et réessayez le même fichier."
         },
         "content": {
           "label": "Contenu de la loi",
