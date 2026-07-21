@@ -19,7 +19,7 @@ import {
   computeLawContentHash,
   LAW_RAG_PENDING_STATUS,
 } from "@/lib/laws-rag-integrity";
-import { scanFile } from "@/lib/uploads/scanner";
+import { scanFile, virusScanRejectMessage, virusScanRejectReason } from "@/lib/uploads/scanner";
 
 /** Large PDF batches can take several minutes. */
 export const maxDuration = 300;
@@ -150,11 +150,14 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(await file.arrayBuffer());
         const scan = await scanFile(buffer, file.name);
         if (!scan.clean) {
+          const reason = virusScanRejectReason(scan);
           console.error("Admin laws bulk upload rejected by VirusTotal:", {
             filename: file.name,
             detections: scan.detections,
+            status: scan.status,
+            reason,
           });
-          failed.push({ index: i, title, error: "File failed malware scan and was rejected." });
+          failed.push({ index: i, title, error: virusScanRejectMessage(reason) });
           continue;
         }
         text = await extractTextFromPdf(buffer, { forceOcr });
