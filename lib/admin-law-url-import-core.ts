@@ -28,7 +28,8 @@ import {
   computeLawContentHash,
   LAW_RAG_PENDING_STATUS,
 } from "@/lib/laws-rag-integrity";
-import { scanFile } from "@/lib/uploads/scanner";
+import { scanFile, virusScanRejectMessage, virusScanRejectReason } from "@/lib/uploads/scanner";
+import { VirusScanRejectedError } from "@/lib/uploads/virus-scan-rejected";
 
 export type LawUrlImportAuditSource = "url-import" | "bulk-url-import";
 
@@ -41,7 +42,11 @@ export async function processPdfUrlToMarkdown(
   const { buffer, finalUrl } = await fetchPdfFromUrl(url);
   const scan = await scanFile(buffer, finalUrl);
   if (!scan.clean) {
-    throw new Error("File failed malware scan and was rejected.");
+    const reason = virusScanRejectReason(scan);
+    throw new VirusScanRejectedError(reason, virusScanRejectMessage(reason), {
+      detections: scan.detections,
+      status: scan.status,
+    });
   }
   const plain = await extractTextFromPdf(buffer, { forceOcr });
   if (!plain?.trim()) {
