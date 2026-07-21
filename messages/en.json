@@ -1513,15 +1513,15 @@
         },
         "ocr": {
           "forceTitle": "Force OCR",
-          "forceHint": "Use if the PDF is scanned or has little selectable text.",
+          "forceHint": "Use if the PDF is scanned or has little selectable text. Requires pdftoppm + tesseract on the server (not available on Vercel production).",
           "uploadTitle": "This file needs OCR",
-          "uploadHint": "Check if the PDF is scanned or has little extractable text. OCR uses Tesseract and may take longer."
+          "uploadHint": "Check for scanned PDFs. OCR only works when pdftoppm + tesseract are installed on the host — on production, use Paste content instead."
         },
         "upload": {
           "label": "PDF file",
-          "hint": "Text will be extracted and stored for the library. For scanned PDFs, enable Force OCR below — otherwise the law may be saved without full text.",
+          "hint": "Text-layer PDFs extract automatically. Scanned image PDFs usually need Paste content on production (server OCR tools are not installed).",
           "sizeHint": "PDFs up to {maxMb} MB are supported. Files over 4 MB upload directly to storage to avoid server size limits.",
-          "waitHint": "Large PDFs or OCR can take 1–2 minutes. Please wait and do not refresh."
+          "waitHint": "Large PDFs or malware scanning can take 1–2 minutes. Please wait and do not refresh. If the scan times out, wait a minute and try the same file again."
         },
         "content": {
           "label": "Law content",
