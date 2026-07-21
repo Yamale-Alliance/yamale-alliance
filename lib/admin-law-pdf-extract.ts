@@ -1,6 +1,11 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { extractTextFromPdf } from "@/lib/pdf-extract";
-import { scanFile } from "@/lib/uploads/scanner";
+import {
+  scanFile,
+  virusScanRejectMessage,
+  virusScanRejectReason,
+} from "@/lib/uploads/scanner";
+import { VirusScanRejectedError } from "@/lib/uploads/virus-scan-rejected";
 import {
   deleteAdminLawPdfImport,
   downloadAdminLawPdfBuffer,
@@ -17,7 +22,7 @@ export type ExtractLawPdfOptions = {
 /**
  * Extract text from an uploaded law PDF (direct file or a Supabase storage path).
  * Malware-scans the buffer, runs extraction/OCR, and cleans up any temp storage import.
- * Throws with a `MISSING_PDF`, `MALWARE`, or "File must be a PDF" message for the caller to map.
+ * Throws with a `MISSING_PDF`, `VirusScanRejectedError`, or "File must be a PDF" message for the caller to map.
  */
 export async function extractLawTextFromPdfUpload(
   options: ExtractLawPdfOptions
@@ -47,11 +52,17 @@ export async function extractLawTextFromPdfUpload(
 
   const scan = await scanFile(buffer, filename);
   if (!scan.clean) {
+    const reason = virusScanRejectReason(scan);
     console.error("Admin law PDF upload rejected by VirusTotal:", {
       filename,
       detections: scan.detections,
+      status: scan.status,
+      reason,
     });
-    throw new Error("MALWARE");
+    throw new VirusScanRejectedError(reason, virusScanRejectMessage(reason), {
+      detections: scan.detections,
+      status: scan.status,
+    });
   }
 
   try {
