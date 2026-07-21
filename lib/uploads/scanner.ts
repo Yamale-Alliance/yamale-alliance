@@ -6,6 +6,41 @@ export type VirusScanResult = {
   status?: string;
 };
 
+/** Thrown / mapped when a scan rejects a file — status distinguishes real malware from timeouts. */
+export type VirusScanRejectReason =
+  | "malware"
+  | "timeout"
+  | "unavailable"
+  | "upload_error";
+
+export function virusScanRejectReason(scan: VirusScanResult): VirusScanRejectReason {
+  const status = scan.status ?? "";
+  if (status === "timeout") return "timeout";
+  if (status === "skipped" || status === "no_analysis_id") return "unavailable";
+  if (status === "upload_error") return "upload_error";
+  if ((scan.detections ?? 0) > 0) return "malware";
+  // Fail-closed rejects without detections (e.g. unknown status) — treat as unavailable, not malware.
+  if (!scan.clean && (scan.detections ?? 0) === 0) {
+    if (status === "completed" || status === "hash_lookup") return "malware";
+    return "unavailable";
+  }
+  return "malware";
+}
+
+export function virusScanRejectMessage(reason: VirusScanRejectReason): string {
+  switch (reason) {
+    case "timeout":
+      return "Malware scan timed out before VirusTotal finished analyzing this file. Wait a minute and try again (the second attempt is usually faster), or use Paste content.";
+    case "upload_error":
+      return "Malware scan could not upload the file to VirusTotal. Try again shortly, or use Paste content.";
+    case "unavailable":
+      return "Malware scan is temporarily unavailable. Try again shortly, or use Paste content.";
+    case "malware":
+    default:
+      return "File failed malware scan and was rejected.";
+  }
+}
+
 const POLL_INTERVAL_MS = 3_000;
 const DEFAULT_MAX_POLL_MS = 120_000;
 
