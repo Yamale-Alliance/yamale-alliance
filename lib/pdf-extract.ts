@@ -11,9 +11,37 @@ import { promisify } from "util";
 
 const execFileAsync = promisify(execFile);
 
+const OCR_TOOLS_MISSING_MESSAGE =
+  "This PDF has no selectable text (typical for scans), and OCR tools (pdftoppm + tesseract) are not available on this server. Use Paste content, or run OCR locally / via the CLI import script, then paste or re-upload a text-layer PDF.";
+
+const OCR_EMPTY_MESSAGE =
+  "No text could be extracted (embedded text empty and OCR returned nothing). For scanned PDFs, ensure pdftoppm + tesseract are installed on the host, or use Paste content.";
+
 async function runCommand(cmd: string, args: string[]): Promise<string> {
   const { stdout } = await execFileAsync(cmd, args);
   return (stdout as string)?.toString?.() ?? "";
+}
+
+function isCommandMissingError(err: unknown): boolean {
+  const e = err as NodeJS.ErrnoException & { message?: string };
+  if (e?.code === "ENOENT") return true;
+  const msg = e?.message ?? "";
+  return /ENOENT|not found|spawn .* ENOENT/i.test(msg);
+}
+
+let ocrToolsCached: boolean | null = null;
+
+/** True when both pdftoppm and tesseract are executable on PATH. */
+export async function areOcrToolsAvailable(): Promise<boolean> {
+  if (ocrToolsCached != null) return ocrToolsCached;
+  try {
+    await execFileAsync("pdftoppm", ["-v"]);
+    await execFileAsync("tesseract", ["--version"]);
+    ocrToolsCached = true;
+  } catch {
+    ocrToolsCached = false;
+  }
+  return ocrToolsCached;
 }
 
 /** Score 0–1; low = likely garbled embedded font / broken text layer (common in gazettes). */
@@ -59,6 +87,10 @@ export async function ocrPdfBuffer(pdfPath: string): Promise<string> {
     try {
       await execFileAsync("pdftoppm", ["-r", "300", "-png", pdfPath, prefix]);
     } catch (e) {
+      if (isCommandMissingError(e)) {
+        console.warn("pdftoppm not available on this host");
+        return "";
+      }
       console.warn("pdftoppm failed:", (e as Error).message);
       return "";
     }
@@ -134,6 +166,15 @@ export async function extractTextFromPdf(
     return embedded;
   }
 
+  const toolsOk = await areOcrToolsAvailable();
+  if (!toolsOk) {
+    if (!embTrim) {
+      throw new Error(OCR_TOOLS_MISSING_MESSAGE);
+    }
+    // Prefer whatever embedded text we have when OCR cannot run on this host.
+    return embedded;
+  }
+
   let tmpDir: string | undefined;
   try {
     tmpDir = await mkdtemp(join(tmpdir(), "pdf-"));
@@ -145,9 +186,7 @@ export async function extractTextFromPdf(
 
     if (!ocrTrim) {
       if (!embTrim) {
-        throw new Error(
-          "No text could be extracted (embedded text empty and OCR returned nothing). Enable Force OCR, install pdftoppm + tesseract on the server, or paste the law text."
-        );
+        throw new Error(OCR_EMPTY_MESSAGE);
       }
       return embedded;
     }
@@ -167,13 +206,21 @@ export async function extractTextFromPdf(
     return embedded;
   } catch (e) {
     const msg = (e as Error).message;
-    if (!embTrim && /No text could be extracted/i.test(msg)) {
+    if (
+      !embTrim &&
+      (/No text could be extracted/i.test(msg) ||
+        /OCR tools \(pdftoppm/i.test(msg) ||
+        msg === OCR_TOOLS_MISSING_MESSAGE)
+    ) {
       throw e;
     }
     console.warn("PDF OCR fallback failed:", msg);
     if (!embTrim) {
+      if (isCommandMissingError(e) || /pdftoppm|tesseract/i.test(msg)) {
+        throw new Error(OCR_TOOLS_MISSING_MESSAGE);
+      }
       throw new Error(
-        `OCR failed and no embedded text was found: ${msg}. Enable Force OCR, install pdftoppm + tesseract, or paste the law text.`
+        `OCR failed and no embedded text was found: ${msg}. Use Paste content, or install pdftoppm + tesseract on the host.`
       );
     }
     return embedded;
