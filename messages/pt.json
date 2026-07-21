@@ -1513,15 +1513,15 @@
         },
         "ocr": {
           "forceTitle": "Forçar OCR",
-          "forceHint": "Use se o PDF estiver digitalizado ou tiver pouco texto selecionável.",
+          "forceHint": "Use se o PDF estiver digitalizado ou tiver pouco texto selecionável. Requer pdftoppm + tesseract no servidor (indisponível no Vercel em produção).",
           "uploadTitle": "Este ficheiro precisa de OCR",
-          "uploadHint": "Marque se o PDF estiver digitalizado ou com pouco texto extraível. OCR usa Tesseract e pode demorar mais."
+          "uploadHint": "Marque para PDFs digitalizados. OCR só funciona com pdftoppm + tesseract instalados — em produção, use Colar conteúdo."
         },
         "upload": {
           "label": "Ficheiro PDF",
-          "hint": "O texto será extraído e guardado para a biblioteca. Para PDFs digitalizados, ative Force OCR abaixo — caso contrário a lei pode ser guardada sem texto completo.",
+          "hint": "PDFs com camada de texto extraem-se automaticamente. PDFs digitalizados geralmente precisam de Colar conteúdo em produção (ferramentas OCR não estão instaladas no servidor).",
           "sizeHint": "PDFs até {maxMb} MB são suportados. Acima de 4 MB, o envio vai diretamente para o armazenamento para evitar limites do servidor.",
-          "waitHint": "PDFs grandes ou OCR podem demorar 1–2 minutos. Aguarde e não atualize."
+          "waitHint": "PDFs grandes ou a análise antimalware podem demorar 1–2 minutos. Aguarde e não atualize. Se a análise expirar, espere um minuto e tente o mesmo ficheiro novamente."
         },
         "content": {
           "label": "Conteúdo da lei",
