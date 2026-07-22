@@ -8,7 +8,6 @@ import { LAW_YEAR_MIN, LAW_YEAR_MAX } from "@/lib/admin-law-utils";
 import {
   ADMIN_LAW_PDF_MAX_MB,
   isAdminLawPdfTooLarge,
-  shouldUseDirectLawPdfUpload,
 } from "@/lib/admin-law-upload-limits";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
 import { DEFAULT_LAW_LEVEL, LAW_LEVELS, type LawLevel } from "@/lib/law-level";
@@ -51,7 +50,10 @@ export default function AdminLawsAddPage() {
   const [previewingUrl, setPreviewingUrl] = useState(false);
   const [urlImportReady, setUrlImportReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const lawUploadActive = submitting && mode === "upload";
+  /** True only while the PDF bytes are uploading to storage (not during background extract). */
+  const [uploadingPdfBytes, setUploadingPdfBytes] = useState(false);
+  const [ingestStatusLabel, setIngestStatusLabel] = useState<string | null>(null);
+  const lawUploadActive = uploadingPdfBytes && mode === "upload";
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -278,6 +280,165 @@ export default function AdminLawsAddPage() {
     }
 
     setSubmitting(true);
+
+    if (mode === "upload" && file) {
+      let storagePath: string;
+      try {
+        setUploadingPdfBytes(true);
+        setIngestStatusLabel(null);
+        setSuccessMessage(t("messages.uploadingPdf"));
+        storagePath = await uploadLawPdfViaStorage(file);
+      } catch (uploadErr) {
+        setError(uploadErr instanceof Error ? uploadErr.message : t("errors.uploadTooLarge"));
+        setSubmitting(false);
+        setUploadingPdfBytes(false);
+        setSuccessMessage(null);
+        return;
+      } finally {
+        setUploadingPdfBytes(false);
+      }
+
+      try {
+        setSuccessMessage(t("messages.queuedIngest"));
+        setIngestStatusLabel(t("messages.queuedIngest"));
+        const queueRes = await fetch(`${window.location.origin}/api/admin/laws/ingest`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pdfStoragePath: storagePath,
+            appliesToAll: appliesToAll,
+            countryIds: appliesToAll ? [] : countryIds,
+            categoryIds,
+            title: title.trim(),
+            status,
+            treatyType,
+            level,
+            year: year.trim() || null,
+            languageCode: languageCode || null,
+            forceOcr,
+          }),
+        });
+        const queueData = (await queueRes.json().catch(() => ({}))) as {
+          error?: string;
+          jobId?: string;
+          phaseMessage?: string;
+        };
+        if (!queueRes.ok || !queueData.jobId) {
+          setError(queueData.error ?? t("errors.addFailed"));
+          setSubmitting(false);
+          setIngestStatusLabel(null);
+          setSuccessMessage(null);
+          return;
+        }
+
+        const jobId = queueData.jobId;
+        // Start processing immediately (in addition to server after()).
+        void fetch(`${window.location.origin}/api/admin/laws/ingest/${jobId}/run`, {
+          method: "POST",
+          credentials: "include",
+        }).catch(() => {});
+
+        const startedAt = Date.now();
+        const pollDeadlineMs = 12 * 60 * 1000;
+        let kickedRunAgain = false;
+
+        const finishSuccess = () => {
+          setSuccessMessage(t("messages.addedSuccess"));
+          setIngestStatusLabel(null);
+          setCategoryIds([]);
+          setTitle("");
+          setYear("");
+          setPastedContent("");
+          setFile(null);
+          setFileInputKey((k) => k + 1);
+          setSubmitting(false);
+          if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+        };
+
+        while (Date.now() - startedAt < pollDeadlineMs) {
+          const statusRes = await fetch(
+            `${window.location.origin}/api/admin/laws/ingest/${jobId}?t=${Date.now()}`,
+            {
+              credentials: "include",
+              cache: "no-store",
+              headers: { "Cache-Control": "no-cache" },
+            }
+          );
+          const statusData = (await statusRes.json().catch(() => ({}))) as {
+            error?: string;
+            status?: string;
+            phaseMessage?: string;
+            recordsCreated?: number;
+            lawIds?: string[];
+          };
+
+          if (!statusRes.ok) {
+            setError(statusData.error ?? t("errors.addFailed"));
+            setSubmitting(false);
+            setIngestStatusLabel(null);
+            setSuccessMessage(null);
+            return;
+          }
+
+          if (statusData.phaseMessage) {
+            setSuccessMessage(statusData.phaseMessage);
+            setIngestStatusLabel(statusData.phaseMessage);
+          }
+
+          if (
+            statusData.status === "completed" ||
+            (Array.isArray(statusData.lawIds) && statusData.lawIds.length > 0)
+          ) {
+            finishSuccess();
+            return;
+          }
+
+          if (statusData.status === "failed") {
+            setError(statusData.error ?? t("errors.addFailed"));
+            setSubmitting(false);
+            setIngestStatusLabel(null);
+            setSuccessMessage(null);
+            return;
+          }
+
+          // Retry kick if still queued after a few seconds.
+          if (
+            !kickedRunAgain &&
+            statusData.status === "queued" &&
+            Date.now() - startedAt > 8_000
+          ) {
+            kickedRunAgain = true;
+            void fetch(`${window.location.origin}/api/admin/laws/ingest/${jobId}/run`, {
+              method: "POST",
+              credentials: "include",
+            }).catch(() => {});
+          }
+
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+
+        setError(t("errors.requestTimeout"));
+        setSubmitting(false);
+        setIngestStatusLabel(null);
+        setSuccessMessage(null);
+        return;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "";
+        const looksLikeNetwork =
+          /failed to fetch|load failed|networkerror|network request failed/i.test(msg);
+        setError(
+          looksLikeNetwork
+            ? t("errors.serverUnreachable")
+            : msg || t("errors.generic")
+        );
+        setSubmitting(false);
+        setIngestStatusLabel(null);
+        setSuccessMessage(null);
+        return;
+      }
+    }
+
     const formData = new FormData();
     if (appliesToAll) {
       formData.set("appliesToAll", "true");
@@ -291,28 +452,11 @@ export default function AdminLawsAddPage() {
     formData.set("title", title.trim());
     if (year.trim()) formData.set("year", year.trim());
     if (languageCode) formData.set("languageCode", languageCode);
-
-    if (mode === "upload" && file) {
-      if (shouldUseDirectLawPdfUpload(file.size)) {
-        try {
-          const storagePath = await uploadLawPdfViaStorage(file);
-          formData.set("pdfStoragePath", storagePath);
-        } catch (uploadErr) {
-          setError(uploadErr instanceof Error ? uploadErr.message : t("errors.uploadTooLarge"));
-          setSubmitting(false);
-          return;
-        }
-      } else {
-        formData.set("file", file);
-      }
-      if (forceOcr) formData.set("forceOcr", "true");
-    } else {
-      formData.set("content", pastedContent.trim());
-    }
+    formData.set("content", pastedContent.trim());
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 min for PDF/OCR
+      const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000);
       const res = await fetch(`${window.location.origin}/api/admin/laws`, {
         method: "POST",
         credentials: "include",
@@ -711,6 +855,21 @@ export default function AdminLawsAddPage() {
                 fileName={file?.name ?? null}
                 className="mt-2"
               />
+              {ingestStatusLabel && !lawUploadActive ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="mt-2 flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2.5 text-sm"
+                >
+                  <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-primary" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground">{ingestStatusLabel}</p>
+                    {file?.name ? (
+                      <p className="mt-0.5 text-xs text-muted-foreground">{file.name}</p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
             </div>
             <div className="flex items-start gap-3 rounded-lg border border-input bg-muted/30 px-4 py-3">
               <input
