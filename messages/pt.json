@@ -1850,7 +1850,7 @@
         "safetyCap": "A lista foi truncada no limite de segurança ({count} leis).",
         "viewLinkedGroups": "Ver grupos ligados",
         "search": "Pesquisar grupos",
-        "searchPlaceholder": "Filtrar por título, país (ex.: ECOWAS, COMESA, EAC, OIC), ou estado…",
+        "searchPlaceholder": "Filtrar por título, país (ex.: ECOWAS, COMESA, EAC, OHADA), ou estado…",
         "empty": "Nenhum grupo encontrado com o mesmo título em dois ou mais registos de lei.",
         "emptySearch": "Nenhum grupo corresponde à sua pesquisa.",
         "groupsSummary": "{count} grupos{matching} · ordenados A-Z por título",
