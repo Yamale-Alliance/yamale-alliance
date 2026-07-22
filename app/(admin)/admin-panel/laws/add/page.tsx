@@ -333,15 +333,22 @@ export default function AdminLawsAddPage() {
         }
 
         const jobId = queueData.jobId;
+        const kickRun = () => {
+          void fetch(`${window.location.origin}/api/admin/laws/ingest/${jobId}/run`, {
+            method: "POST",
+            credentials: "include",
+          }).catch(() => {});
+        };
         // Start processing immediately (in addition to server after()).
-        void fetch(`${window.location.origin}/api/admin/laws/ingest/${jobId}/run`, {
-          method: "POST",
-          credentials: "include",
-        }).catch(() => {});
+        kickRun();
 
         const startedAt = Date.now();
-        const pollDeadlineMs = 12 * 60 * 1000;
-        let kickedRunAgain = false;
+        // Scanned PDFs: malware scan + cloud OCR page-by-page can exceed one serverless window;
+        // we re-kick /run when progress stalls so work can continue across invocations.
+        const pollDeadlineMs = 30 * 60 * 1000;
+        let lastPhaseMessage = queueData.phaseMessage ?? "";
+        let lastProgressAt = Date.now();
+        let lastKickAt = Date.now();
 
         const finishSuccess = () => {
           setSuccessMessage(t("messages.addedSuccess"));
@@ -384,6 +391,10 @@ export default function AdminLawsAddPage() {
           if (statusData.phaseMessage) {
             setSuccessMessage(statusData.phaseMessage);
             setIngestStatusLabel(statusData.phaseMessage);
+            if (statusData.phaseMessage !== lastPhaseMessage) {
+              lastPhaseMessage = statusData.phaseMessage;
+              lastProgressAt = Date.now();
+            }
           }
 
           if (
@@ -402,17 +413,22 @@ export default function AdminLawsAddPage() {
             return;
           }
 
-          // Retry kick if still queued after a few seconds.
+          const stalledMs = Date.now() - lastProgressAt;
+          const sinceKickMs = Date.now() - lastKickAt;
+          const stillWorking =
+            statusData.status === "queued" ||
+            statusData.status === "scanning" ||
+            statusData.status === "extracting" ||
+            statusData.status === "saving";
+
+          // Re-kick when queued, or when progress stalls (serverless worker likely timed out).
           if (
-            !kickedRunAgain &&
-            statusData.status === "queued" &&
-            Date.now() - startedAt > 8_000
+            stillWorking &&
+            sinceKickMs > 45_000 &&
+            (statusData.status === "queued" || stalledMs > 90_000)
           ) {
-            kickedRunAgain = true;
-            void fetch(`${window.location.origin}/api/admin/laws/ingest/${jobId}/run`, {
-              method: "POST",
-              credentials: "include",
-            }).catch(() => {});
+            lastKickAt = Date.now();
+            kickRun();
           }
 
           await new Promise((r) => setTimeout(r, 2000));
