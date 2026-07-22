@@ -11,9 +11,6 @@ import {
 } from "@/lib/admin-law-upload-limits";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
 import { DEFAULT_LAW_LEVEL, LAW_LEVELS, type LawLevel } from "@/lib/law-level";
-import {
-  AdminVirusScanUploadBanner,
-} from "@/components/admin/AdminVirusScanUploadBanner";
 import { AdminLawLanguageSelect } from "@/components/admin/AdminLawLanguageSelect";
 import { uploadLawPdfViaStorage } from "@/lib/admin-law-pdf-client-upload";
 import { AdminLawCountryChecklist } from "@/components/admin/AdminLawCountryChecklist";
@@ -53,7 +50,6 @@ export default function AdminLawsAddPage() {
   /** True only while the PDF bytes are uploading to storage (not during background extract). */
   const [uploadingPdfBytes, setUploadingPdfBytes] = useState(false);
   const [ingestStatusLabel, setIngestStatusLabel] = useState<string | null>(null);
-  const lawUploadActive = uploadingPdfBytes && mode === "upload";
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -343,7 +339,7 @@ export default function AdminLawsAddPage() {
         kickRun();
 
         const startedAt = Date.now();
-        // Scanned PDFs: malware scan + cloud OCR page-by-page can exceed one serverless window;
+        // Scanned PDFs: cloud OCR page-by-page can exceed one serverless window;
         // we re-kick /run when progress stalls so work can continue across invocations.
         const pollDeadlineMs = 30 * 60 * 1000;
         let lastPhaseMessage = queueData.phaseMessage ?? "";
@@ -866,12 +862,22 @@ export default function AdminLawsAddPage() {
               <p className="mt-1 text-xs text-amber-600 dark:text-amber-500">
                 {t("upload.waitHint")}
               </p>
-              <AdminVirusScanUploadBanner
-                active={lawUploadActive}
-                fileName={file?.name ?? null}
-                className="mt-2"
-              />
-              {ingestStatusLabel && !lawUploadActive ? (
+              {uploadingPdfBytes ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="mt-2 flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2.5 text-sm"
+                >
+                  <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-primary" aria-hidden />
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground">{t("messages.uploadingPdf")}</p>
+                    {file?.name ? (
+                      <p className="mt-0.5 text-xs text-muted-foreground">{file.name}</p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+              {ingestStatusLabel && !uploadingPdfBytes ? (
                 <div
                   role="status"
                   aria-live="polite"
