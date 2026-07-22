@@ -21,6 +21,8 @@ export type AuditAction =
   | "marketplace_item.add"
   | "marketplace_item.update"
   | "marketplace_item.delete"
+  | "marketplace_purchase.grant"
+  | "marketplace_purchase.revoke"
   | "vault_series.create"
   | "vault_series.update"
   | "vault_series.delete"
