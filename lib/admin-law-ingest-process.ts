@@ -21,12 +21,7 @@ function phaseMessageFromExtract(
 ): { status: LawIngestJob["status"]; phaseMessage: string } {
   switch (update.phase) {
     case "downloading":
-      return { status: "scanning", phaseMessage: "Downloading PDF from storage…" };
-    case "scanning":
-      return {
-        status: "scanning",
-        phaseMessage: "Scanning PDF for malware (large files can take a few minutes)…",
-      };
+      return { status: "extracting", phaseMessage: "Downloading PDF from storage…" };
     case "extracting":
       return { status: "extracting", phaseMessage: "Extracting text from PDF…" };
     case "cloud_ocr":
