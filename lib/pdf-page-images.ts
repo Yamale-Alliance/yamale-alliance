@@ -18,27 +18,30 @@ type NodeCanvasPair = {
 };
 
 /**
- * Minimal canvas factory matching pdfjs Node expectations.
- * Typed loosely: pdfjs DocumentInitParameters.CanvasFactory is `Object`.
+ * pdfjs calls `new CanvasFactory({ enableHWA })` — must be a constructor, not a plain object.
  */
-function createNodeCanvasFactory() {
-  return {
-    create(width: number, height: number): NodeCanvasPair {
-      const canvas = createCanvas(Math.max(1, Math.floor(width)), Math.max(1, Math.floor(height)));
-      return {
-        canvas,
-        context: canvas.getContext("2d"),
-      };
-    },
-    reset(canvasAndContext: NodeCanvasPair, width: number, height: number): void {
-      canvasAndContext.canvas.width = Math.max(1, Math.floor(width));
-      canvasAndContext.canvas.height = Math.max(1, Math.floor(height));
-    },
-    destroy(canvasAndContext: NodeCanvasPair): void {
-      canvasAndContext.canvas.width = 0;
-      canvasAndContext.canvas.height = 0;
-    },
-  };
+class NapiCanvasFactory {
+  // pdfjs passes options; we ignore enableHWA (napi-rs canvas has no HWA flag).
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  constructor(_options?: { enableHWA?: boolean }) {}
+
+  create(width: number, height: number): NodeCanvasPair {
+    const canvas = createCanvas(Math.max(1, Math.floor(width)), Math.max(1, Math.floor(height)));
+    return {
+      canvas,
+      context: canvas.getContext("2d"),
+    };
+  }
+
+  reset(canvasAndContext: NodeCanvasPair, width: number, height: number): void {
+    canvasAndContext.canvas.width = Math.max(1, Math.floor(width));
+    canvasAndContext.canvas.height = Math.max(1, Math.floor(height));
+  }
+
+  destroy(canvasAndContext: NodeCanvasPair): void {
+    canvasAndContext.canvas.width = 0;
+    canvasAndContext.canvas.height = 0;
+  }
 }
 
 function parsePositiveInt(raw: string | undefined, fallback: number): number {
@@ -74,11 +77,12 @@ export async function mapPdfPagesToPng<T>(
 
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const data = new Uint8Array(pdfBuffer);
-  const canvasFactory = createNodeCanvasFactory();
+  const canvasFactory = new NapiCanvasFactory();
 
   const loadingTask = pdfjs.getDocument({
     data,
-    CanvasFactory: canvasFactory,
+    // Class (constructor), not an instance — pdfjs does `new CanvasFactory(...)`.
+    CanvasFactory: NapiCanvasFactory,
     disableFontFace: true,
     isEvalSupported: false,
     useSystemFonts: true,
