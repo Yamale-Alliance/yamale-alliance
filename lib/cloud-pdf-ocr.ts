@@ -114,10 +114,23 @@ export type CloudOcrResult = {
   truncated: boolean;
 };
 
+export type CloudOcrProgress = {
+  pageNumber: number;
+  totalPages: number;
+  pagesProcessed: number;
+};
+
+export type CloudOcrOptions = {
+  onProgress?: (progress: CloudOcrProgress) => void | Promise<void>;
+};
+
 /**
  * OCR a PDF buffer via Claude Vision (rasterize pages with pdfjs, then read each image).
  */
-export async function cloudOcrPdfBuffer(pdfBuffer: Buffer): Promise<CloudOcrResult> {
+export async function cloudOcrPdfBuffer(
+  pdfBuffer: Buffer,
+  options: CloudOcrOptions = {}
+): Promise<CloudOcrResult> {
   if (!isCloudOcrConfigured()) {
     throw new Error(
       "Cloud OCR is not configured. Set CLAUDE_API_KEY (and leave LAW_CLOUD_OCR_DISABLED unset)."
@@ -133,6 +146,13 @@ export async function cloudOcrPdfBuffer(pdfBuffer: Buffer): Promise<CloudOcrResu
     pdfBuffer,
     async (page, meta) => {
       lastPage = page.pageNumber;
+      if (options.onProgress) {
+        await options.onProgress({
+          pageNumber: page.pageNumber,
+          totalPages: meta.totalPages,
+          pagesProcessed: page.pageNumber,
+        });
+      }
       try {
         const text = await ocrPngWithClaude({
           png: page.png,
