@@ -19,6 +19,14 @@ const nextConfig = {
     "@napi-rs/canvas",
     "pdfjs-dist",
   ],
+  // Ensure pdfjs worker (and canvas natives) are present in Vercel serverless traces.
+  // Without this, cloud OCR fails with "Cannot find module .../pdf.worker.mjs".
+  outputFileTracingIncludes: {
+    "/api/**/*": [
+      "./node_modules/pdfjs-dist/legacy/build/**/*",
+      "./node_modules/@napi-rs/canvas/**/*",
+    ],
+  },
   turbopack: {
     resolveAlias: {
       "next-intl/config": "./i18n/request.ts",
