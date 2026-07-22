@@ -136,11 +136,12 @@ export async function claimLawIngestJob(
   }
 
   const ageMs = Date.now() - new Date(job.updatedAt).getTime();
+  // Vercel /run maxDuration is 300s — allow reclaim shortly after a killed worker stops heartbeating.
   const ownedByOther =
     Boolean(job.workerId) &&
     job.workerId !== workerId &&
     (job.status === "scanning" || job.status === "extracting" || job.status === "saving") &&
-    ageMs < 5 * 60 * 1000;
+    ageMs < 2 * 60 * 1000;
 
   if (ownedByOther) {
     return null;
