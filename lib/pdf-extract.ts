@@ -1,6 +1,7 @@
 /**
- * Extract text from a PDF buffer. Supports optional Tesseract OCR for scanned PDFs.
- * Used by the admin "Add law" API when uploading PDFs.
+ * Extract text from a PDF buffer.
+ * Prefer embedded text; when OCR is needed, try local Tesseract (pdftoppm) first,
+ * then Claude Vision cloud OCR (production/Vercel).
  */
 
 import { readdir, mkdtemp, rm, writeFile } from "fs/promises";
@@ -8,14 +9,18 @@ import { join } from "path";
 import { tmpdir } from "os";
 import { execFile } from "child_process";
 import { promisify } from "util";
+import { cloudOcrPdfBuffer, isCloudOcrConfigured } from "@/lib/cloud-pdf-ocr";
 
 const execFileAsync = promisify(execFile);
 
-const OCR_TOOLS_MISSING_MESSAGE =
-  "This PDF has no selectable text (typical for scans), and OCR tools (pdftoppm + tesseract) are not available on this server. Use Paste content, or run OCR locally / via the CLI import script, then paste or re-upload a text-layer PDF.";
+const OCR_UNAVAILABLE_MESSAGE =
+  "This PDF has no selectable text (typical for scans), and OCR is not available. " +
+  "On production, set CLAUDE_API_KEY to enable cloud OCR, or install pdftoppm + tesseract on the host, " +
+  "or upload a text-layer PDF.";
 
 const OCR_EMPTY_MESSAGE =
-  "No text could be extracted (embedded text empty and OCR returned nothing). For scanned PDFs, ensure pdftoppm + tesseract are installed on the host, or use Paste content.";
+  "No text could be extracted (embedded text empty and OCR returned nothing). " +
+  "Try Force OCR, a clearer scan, or a PDF with a selectable text layer.";
 
 async function runCommand(cmd: string, args: string[]): Promise<string> {
   const { stdout } = await execFileAsync(cmd, args);
@@ -128,15 +133,37 @@ export async function ocrPdfBuffer(pdfPath: string): Promise<string> {
   }
 }
 
+function pickBetterText(params: {
+  embedded: string;
+  ocrText: string;
+  forceOcr: boolean;
+}): string {
+  const embTrim = params.embedded.trim();
+  const ocrTrim = params.ocrText.trim();
+  const qEmb = scoreEmbeddedTextQuality(embTrim);
+  const qOcr = scoreEmbeddedTextQuality(ocrTrim);
+
+  if (!ocrTrim) return params.embedded;
+  if (!embTrim) return params.ocrText;
+  if (params.forceOcr) return params.ocrText;
+  if (qOcr.score > qEmb.score + 0.06 || (qEmb.suspicious && qOcr.score >= qEmb.score)) {
+    return params.ocrText;
+  }
+  if (ocrTrim.length > embTrim.length * 1.25 && qOcr.score >= qEmb.score - 0.05) {
+    return params.ocrText;
+  }
+  return params.embedded;
+}
+
 export type ExtractPdfOptions = {
-  /** When true, always run Tesseract OCR instead of relying on embedded text. */
+  /** When true, prefer OCR output over embedded text when OCR succeeds. */
   forceOcr?: boolean;
 };
 
 /**
  * Extract text from a PDF buffer. Uses pdf-parse first; if forceOcr is true,
  * embedded text is missing/short, or embedded text looks garbled (bad text layer),
- * runs Tesseract OCR and picks the better result.
+ * runs local Tesseract and/or cloud OCR and picks the better result.
  */
 export async function extractTextFromPdf(
   buffer: Buffer,
@@ -167,70 +194,53 @@ export async function extractTextFromPdf(
   }
 
   const toolsOk = await areOcrToolsAvailable();
-  if (!toolsOk) {
-    if (!embTrim) {
-      throw new Error(OCR_TOOLS_MISSING_MESSAGE);
+  if (toolsOk) {
+    let tmpDir: string | undefined;
+    try {
+      tmpDir = await mkdtemp(join(tmpdir(), "pdf-"));
+      const tmpFile = join(tmpDir, "doc.pdf");
+      await writeFile(tmpFile, buffer);
+      const ocrText = await ocrPdfBuffer(tmpFile);
+      if (ocrText.trim()) {
+        return pickBetterText({ embedded, ocrText, forceOcr });
+      }
+    } catch (e) {
+      console.warn("Local PDF OCR failed:", (e as Error).message);
+    } finally {
+      if (tmpDir) {
+        try {
+          await rm(tmpDir, { recursive: true, force: true });
+        } catch {
+          // ignore
+        }
+      }
     }
-    // Prefer whatever embedded text we have when OCR cannot run on this host.
-    return embedded;
   }
 
-  let tmpDir: string | undefined;
-  try {
-    tmpDir = await mkdtemp(join(tmpdir(), "pdf-"));
-    const tmpFile = join(tmpDir, "doc.pdf");
-    await writeFile(tmpFile, buffer);
-    const ocrText = await ocrPdfBuffer(tmpFile);
-    const ocrTrim = ocrText?.trim() ?? "";
-    const qOcr = scoreEmbeddedTextQuality(ocrTrim);
-
-    if (!ocrTrim) {
+  if (isCloudOcrConfigured()) {
+    try {
+      console.info("Running cloud OCR for scanned/low-text PDF…");
+      const cloud = await cloudOcrPdfBuffer(buffer);
+      if (cloud.text.trim()) {
+        return pickBetterText({ embedded, ocrText: cloud.text, forceOcr });
+      }
       if (!embTrim) {
         throw new Error(OCR_EMPTY_MESSAGE);
       }
       return embedded;
-    }
-    if (!embTrim) {
-      return ocrText;
-    }
-    if (forceOcr) {
-      return ocrText;
-    }
-
-    if (qOcr.score > qEmb.score + 0.06 || (qEmb.suspicious && qOcr.score >= qEmb.score)) {
-      return ocrText;
-    }
-    if (ocrTrim.length > embTrim.length * 1.25 && qOcr.score >= qEmb.score - 0.05) {
-      return ocrText;
-    }
-    return embedded;
-  } catch (e) {
-    const msg = (e as Error).message;
-    if (
-      !embTrim &&
-      (/No text could be extracted/i.test(msg) ||
-        /OCR tools \(pdftoppm/i.test(msg) ||
-        msg === OCR_TOOLS_MISSING_MESSAGE)
-    ) {
-      throw e;
-    }
-    console.warn("PDF OCR fallback failed:", msg);
-    if (!embTrim) {
-      if (isCommandMissingError(e) || /pdftoppm|tesseract/i.test(msg)) {
-        throw new Error(OCR_TOOLS_MISSING_MESSAGE);
+    } catch (e) {
+      const msg = (e as Error).message;
+      if (!embTrim) {
+        if (msg === OCR_EMPTY_MESSAGE) throw e;
+        throw new Error(`Cloud OCR failed and no embedded text was found: ${msg}`);
       }
-      throw new Error(
-        `OCR failed and no embedded text was found: ${msg}. Use Paste content, or install pdftoppm + tesseract on the host.`
-      );
-    }
-    return embedded;
-  } finally {
-    if (tmpDir) {
-      try {
-        await rm(tmpDir, { recursive: true, force: true });
-      } catch {
-        // ignore
-      }
+      console.warn("Cloud OCR failed; using embedded text:", msg);
+      return embedded;
     }
   }
+
+  if (!embTrim) {
+    throw new Error(OCR_UNAVAILABLE_MESSAGE);
+  }
+  return embedded;
 }
