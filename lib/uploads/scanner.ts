@@ -11,13 +11,15 @@ export type VirusScanRejectReason =
   | "malware"
   | "timeout"
   | "unavailable"
-  | "upload_error";
+  | "upload_error"
+  | "too_large";
 
 export function virusScanRejectReason(scan: VirusScanResult): VirusScanRejectReason {
   const status = scan.status ?? "";
   if (status === "timeout") return "timeout";
   if (status === "skipped" || status === "no_analysis_id") return "unavailable";
   if (status === "upload_error") return "upload_error";
+  if (status === "too_large") return "too_large";
   if ((scan.detections ?? 0) > 0) return "malware";
   // Fail-closed rejects without detections (e.g. unknown status) — treat as unavailable, not malware.
   if (!scan.clean && (scan.detections ?? 0) === 0) {
@@ -33,6 +35,8 @@ export function virusScanRejectMessage(reason: VirusScanRejectReason): string {
       return "Malware scan timed out before VirusTotal finished analyzing this file. Wait a minute and try again (the second attempt is usually faster), or use Paste content.";
     case "upload_error":
       return "Malware scan could not upload the file to VirusTotal. Try again shortly, or use Paste content.";
+    case "too_large":
+      return "This PDF is too large for the malware scanner (max about 200MB). Use a smaller file or Paste content.";
     case "unavailable":
       return "Malware scan is temporarily unavailable. Try again shortly, or use Paste content.";
     case "malware":
@@ -147,19 +151,76 @@ async function pollAnalysis(analysisId: string, key: string, filename: string): 
   return { clean: true, status: "timeout" };
 }
 
+/** VirusTotal POST /files accepts up to 32MB; larger files need /files/upload_url first. */
+const VT_DIRECT_UPLOAD_MAX_BYTES = 32 * 1024 * 1024;
+/** Hard ceiling for VT large uploads (docs: up to 650MB; >200MB often unreliable). */
+const VT_LARGE_UPLOAD_MAX_BYTES = 200 * 1024 * 1024;
+
+async function resolveVirusTotalUploadUrl(
+  fileSize: number,
+  key: string
+): Promise<{ url: string } | { error: "too_large" | "upload_url_error"; detail: string }> {
+  if (fileSize > VT_LARGE_UPLOAD_MAX_BYTES) {
+    return {
+      error: "too_large",
+      detail: `File is ${(fileSize / (1024 * 1024)).toFixed(1)}MB; VirusTotal large upload limit is ${VT_LARGE_UPLOAD_MAX_BYTES / (1024 * 1024)}MB`,
+    };
+  }
+
+  if (fileSize <= VT_DIRECT_UPLOAD_MAX_BYTES) {
+    return { url: "https://www.virustotal.com/api/v3/files" };
+  }
+
+  const urlRes = await fetch("https://www.virustotal.com/api/v3/files/upload_url", {
+    headers: { "x-apikey": key, Accept: "application/json" },
+  });
+  if (!urlRes.ok) {
+    const body = (await urlRes.text()).slice(0, 300);
+    return {
+      error: "upload_url_error",
+      detail: `HTTP ${urlRes.status}: ${body}`,
+    };
+  }
+
+  const json = (await urlRes.json()) as { data?: string };
+  if (!json.data || typeof json.data !== "string") {
+    return { error: "upload_url_error", detail: "upload_url response missing data URL" };
+  }
+  return { url: json.data };
+}
+
 async function submitFileForAnalysis(fileBuffer: Buffer, filename: string, key: string): Promise<VirusScanResult> {
+  const sizeMb = (fileBuffer.length / (1024 * 1024)).toFixed(1);
+  const uploadTarget = await resolveVirusTotalUploadUrl(fileBuffer.length, key);
+
+  if ("error" in uploadTarget) {
+    console.error("VirusTotal upload URL failed:", uploadTarget.error, filename, sizeMb + "MB", uploadTarget.detail);
+    if (uploadTarget.error === "too_large") {
+      return { clean: !shouldFailClosed(), status: "too_large" };
+    }
+    return { clean: !shouldFailClosed(), status: "upload_error" };
+  }
+
+  if (fileBuffer.length > VT_DIRECT_UPLOAD_MAX_BYTES) {
+    console.info(
+      `VirusTotal large-file upload (${sizeMb}MB > 32MB) via upload_url for`,
+      filename
+    );
+  }
+
   const form = new FormData();
   const blob = new Blob([new Uint8Array(fileBuffer)], { type: "application/octet-stream" });
   form.append("file", blob, filename);
 
-  const uploadRes = await fetch("https://www.virustotal.com/api/v3/files", {
+  const uploadRes = await fetch(uploadTarget.url, {
     method: "POST",
     headers: { "x-apikey": key },
     body: form,
   });
 
   if (!uploadRes.ok) {
-    console.error("VirusTotal upload failed:", uploadRes.status, filename);
+    const body = (await uploadRes.text()).slice(0, 300);
+    console.error("VirusTotal upload failed:", uploadRes.status, filename, sizeMb + "MB", body);
     return { clean: !shouldFailClosed(), status: "upload_error" };
   }
 
