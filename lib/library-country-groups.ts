@@ -1,5 +1,5 @@
 import type { LibraryCountry } from "@/lib/library-data";
-import { isRegionalBodyCountry } from "@/lib/regional-bodies";
+import { isRegionalBodyCountry, regionalBodySortIndex } from "@/lib/regional-bodies";
 
 export type GroupedLibraryCountries = {
   regional: LibraryCountry[];
@@ -16,11 +16,12 @@ export function groupLibraryCountries(countries: LibraryCountry[]): GroupedLibra
     else sovereign.push(country);
   }
 
-  const collator = (a: LibraryCountry, b: LibraryCountry) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-
-  regional.sort(collator);
-  sovereign.sort(collator);
+  regional.sort((a, b) => {
+    const byCatalog = regionalBodySortIndex(a.code) - regionalBodySortIndex(b.code);
+    if (byCatalog !== 0) return byCatalog;
+    return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  });
+  sovereign.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
 
   return { regional, sovereign };
 }
