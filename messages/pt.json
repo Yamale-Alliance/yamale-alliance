@@ -770,6 +770,9 @@
           "networkErrorDuringCourseSync": "Network error during course sync",
           "failedToDelete": "Failed to delete",
           "failedToRevokePurchase": "Failed to revoke purchase",
+          "failedToGrantAccess": "Falha ao conceder acesso ao Vault",
+          "grantItemRequired": "Selecione um item do Vault para conceder.",
+          "grantUserRequired": "Introduza o e-mail ou o ID Clerk do utilizador.",
           "couldNotReadHtmlFile": "Não foi possível ler o ficheiro HTML"
         },
         "notices": {
@@ -796,6 +799,8 @@
           "edit": "Edit",
           "revoking": "A revogar…",
           "revoke": "Revogar",
+          "grantAccess": "Conceder acesso",
+          "granting": "A conceder…",
           "uploadNewFile": "Carregar novo ficheiro",
           "replaceFile": "Substituir ficheiro",
           "syncModulesFromZip": "Sincronizar módulos do ZIP",
@@ -860,8 +865,19 @@
         },
         "purchases": {
           "title": "Purchases",
-          "subtitle": "View which users currently own items from The Yamalé Vault. You can revoke a purchase so that the user can purchase again.",
+          "subtitle": "Veja que utilizadores possuem itens do Vault. Pode conceder acesso gratuito ou revogar uma compra para que possam comprar novamente.",
           "empty": "No purchases recorded yet.",
+          "grantTitle": "Conceder acesso gratuito",
+          "grantHint": "Dê a um utilizador acesso a um item pago do Vault sem checkout. Se o item for um pack multi-itens, os parceiros do pack são incluídos.",
+          "grantEmail": "E-mail do utilizador",
+          "grantEmailPlaceholder": "user@example.com",
+          "grantUserId": "Ou ID Clerk",
+          "grantUserIdPlaceholder": "user_…",
+          "grantItem": "Item do Vault",
+          "grantItemPlaceholder": "Selecionar um item…",
+          "grantReason": "Motivo (opcional)",
+          "grantReasonPlaceholder": "ex. demo de parceiro, bolsa, gesto de suporte",
+          "grantSuccess": "Concedido “{item}” a {buyer} ({count, plural, one {# item} other {# itens}}).",
           "columns": {
             "buyer": "Buyer",
             "purchasedAt": "Purchased at"
@@ -1443,7 +1459,9 @@
           "previewLoaded": "Pré-visualização carregada. O índice foi removido. Reveja título, país e categoria, e depois guarde.",
           "previewNeedsManual": "Se país ou categoria estiver em falta, selecione manualmente antes de guardar.",
           "addedFromUrl": "Lei adicionada a partir de importação por URL.",
-          "addedSuccess": "Lei adicionada com sucesso. Pode adicionar outra abaixo."
+          "addedSuccess": "Lei adicionada com sucesso. Pode adicionar outra abaixo.",
+          "uploadingPdf": "A carregar o PDF para o armazenamento…",
+          "queuedIngest": "PDF carregado. A iniciar análise antimalware e extração de texto…"
         },
         "errors": {
           "createCategory": "Não foi possível criar a categoria.",
@@ -1463,7 +1481,7 @@
           "uploadTooLarge": "Upload demasiado grande. Tente um PDF menor, desative OCR, ou use o script CLI.",
           "emptyPdfExtract": "Não foi possível extrair texto utilizável deste PDF. Ative “Force OCR” para ficheiros digitalizados, cole o texto, ou use um PDF com camada de texto selecionável.",
           "addFailed": "Falha ao adicionar lei",
-          "requestTimeout": "Pedido demorou demasiado. Tente um PDF menor ou use \"Colar conteúdo\" para documentos muito grandes.",
+          "requestTimeout": "O processamento está a demorar mais do que o esperado. Mantenha esta página aberta e tente novamente dentro de um minuto — se a análise antimalware já tiver terminado, a nova tentativa costuma ser bem mais rápida. Não precisa de colar o documento.",
           "serverUnreachable": "Não foi possível contactar o servidor. Reinicie o servidor de dev se alterou limites em next.config; para PDFs muito grandes use o script CLI.",
           "generic": "Algo correu mal. Tente novamente."
         },
@@ -1513,15 +1531,15 @@
         },
         "ocr": {
           "forceTitle": "Forçar OCR",
-          "forceHint": "Use se o PDF estiver digitalizado ou tiver pouco texto selecionável. Requer pdftoppm + tesseract no servidor (indisponível no Vercel em produção).",
+          "forceHint": "Use se o PDF estiver digitalizado ou tiver pouco texto selecionável. Usa OCR na nuvem em produção (Claude) ou Tesseract local quando instalado.",
           "uploadTitle": "Este ficheiro precisa de OCR",
-          "uploadHint": "Marque para PDFs digitalizados. OCR só funciona com pdftoppm + tesseract instalados — em produção, use Colar conteúdo."
+          "uploadHint": "Marque para PDFs digitalizados. Em produção, o OCR na nuvem usa Claude; em servidores locais, pdftoppm + tesseract se instalados. Digitalizações grandes são processadas página a página e podem demorar vários minutos."
         },
         "upload": {
           "label": "Ficheiro PDF",
-          "hint": "PDFs com camada de texto extraem-se automaticamente. PDFs digitalizados geralmente precisam de Colar conteúdo em produção (ferramentas OCR não estão instaladas no servidor).",
-          "sizeHint": "PDFs até {maxMb} MB são suportados. Acima de 4 MB, o envio vai diretamente para o armazenamento para evitar limites do servidor.",
-          "waitHint": "PDFs grandes ou a análise antimalware podem demorar 1–2 minutos. Aguarde e não atualize. Se a análise expirar, espere um minuto e tente o mesmo ficheiro novamente."
+          "hint": "PDFs grandes são suportados — o ficheiro carrega primeiro para o armazenamento e depois é analisado e extraído em segundo plano. PDFs digitalizados usam OCR na nuvem automaticamente quando necessário.",
+          "sizeHint": "PDFs até {maxMb} MB são suportados.",
+          "waitHint": "PDFs grandes podem demorar vários minutos (análise antimalware + extração/OCR). Mantenha esta página aberta; o progresso aparece acima."
         },
         "content": {
           "label": "Conteúdo da lei",
