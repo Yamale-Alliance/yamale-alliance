@@ -1,12 +1,6 @@
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { extractTextFromPdf } from "@/lib/pdf-extract";
 import {
-  scanFile,
-  virusScanRejectMessage,
-  virusScanRejectReason,
-} from "@/lib/uploads/scanner";
-import { VirusScanRejectedError } from "@/lib/uploads/virus-scan-rejected";
-import {
   deleteAdminLawPdfImport,
   downloadAdminLawPdfBuffer,
   isAllowedAdminLawImportPath,
@@ -14,7 +8,6 @@ import {
 
 export type ExtractLawPdfPhase =
   | { phase: "downloading" }
-  | { phase: "scanning" }
   | { phase: "extracting" }
   | {
       phase: "cloud_ocr";
@@ -33,8 +26,9 @@ export type ExtractLawPdfOptions = {
 
 /**
  * Extract text from an uploaded law PDF (direct file or a Supabase storage path).
- * Malware-scans the buffer, runs extraction/OCR, and cleans up any temp storage import.
- * Throws with a `MISSING_PDF`, `VirusScanRejectedError`, or "File must be a PDF" message for the caller to map.
+ * Runs extraction/OCR and cleans up any temp storage import.
+ * VirusTotal malware scanning is disabled for law PDFs (too slow on large files).
+ * Throws with a `MISSING_PDF` or "File must be a PDF" message for the caller to map.
  */
 export async function extractLawTextFromPdfUpload(
   options: ExtractLawPdfOptions
@@ -42,7 +36,6 @@ export async function extractLawTextFromPdfUpload(
   const { file, pdfStoragePath, adminUserId, forceOcr, onPhase } = options;
   const supabase = getSupabaseServer();
   let buffer: Buffer;
-  let filename: string;
   let cleanupPath: string | null = null;
 
   if (pdfStoragePath) {
@@ -51,32 +44,14 @@ export async function extractLawTextFromPdfUpload(
     }
     await onPhase?.({ phase: "downloading" });
     buffer = await downloadAdminLawPdfBuffer(supabase, pdfStoragePath);
-    filename = pdfStoragePath.split("/").pop() ?? "upload.pdf";
     cleanupPath = pdfStoragePath;
   } else if (file && file.size > 0) {
     if (file.type !== "application/pdf") {
       throw new Error("File must be a PDF");
     }
     buffer = Buffer.from(await file.arrayBuffer());
-    filename = file.name || "upload.pdf";
   } else {
     throw new Error("MISSING_PDF");
-  }
-
-  await onPhase?.({ phase: "scanning" });
-  const scan = await scanFile(buffer, filename);
-  if (!scan.clean) {
-    const reason = virusScanRejectReason(scan);
-    console.error("Admin law PDF upload rejected by VirusTotal:", {
-      filename,
-      detections: scan.detections,
-      status: scan.status,
-      reason,
-    });
-    throw new VirusScanRejectedError(reason, virusScanRejectMessage(reason), {
-      detections: scan.detections,
-      status: scan.status,
-    });
   }
 
   try {
