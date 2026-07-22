@@ -9,7 +9,7 @@ import { useConfirm } from "@/components/ui/use-confirm";
 import { useAdminRole } from "@/components/admin/AdminRoleProvider";
 import { LAW_TREATY_TYPES, type LawTreatyType } from "@/lib/law-treaty-type";
 import { LibraryCountrySelectOptions } from "@/components/library/LibraryCountrySelectOptions";
-import type { LibraryCountry } from "@/lib/library-data";
+import type { LibraryCountry, LibrarySortOption } from "@/lib/library-data";
 
 type Country = LibraryCountry;
 type Category = { id: string; name: string; slug: string | null };
@@ -29,9 +29,24 @@ type Law = {
 
 const LAWS_PAGE_SIZE = 25;
 
+const ADMIN_LAW_SORT_OPTIONS: LibrarySortOption[] = [
+  "newest",
+  "title-asc",
+  "title-desc",
+  "country",
+  "category",
+];
+
 function parsePage(raw: string | null): number {
   const n = Number.parseInt(raw ?? "1", 10);
   return Number.isFinite(n) && n >= 1 ? n : 1;
+}
+
+function parseAdminLawSort(raw: string | null): LibrarySortOption {
+  if (raw && ADMIN_LAW_SORT_OPTIONS.includes(raw as LibrarySortOption)) {
+    return raw as LibrarySortOption;
+  }
+  return "newest";
 }
 
 function LawsPaginationBar({
@@ -130,6 +145,7 @@ function AdminLawsPageInner() {
   const categoryId = searchParams.get("categoryId") ?? "";
   const status = searchParams.get("status") ?? "";
   const q = searchParams.get("q") ?? "";
+  const sort = parseAdminLawSort(searchParams.get("sort"));
   const page = parsePage(searchParams.get("page"));
   const currentListUrl = (() => {
     const qs = searchParams.toString();
@@ -153,7 +169,7 @@ function AdminLawsPageInner() {
   );
 
   const setFilter = useCallback(
-    (key: "countryId" | "categoryId" | "status", value: string) => {
+    (key: "countryId" | "categoryId" | "status" | "sort", value: string) => {
       setUrlParams({ [key]: value || null });
     },
     [setUrlParams]
@@ -198,6 +214,7 @@ function AdminLawsPageInner() {
     if (categoryId) params.set("categoryId", categoryId);
     if (status) params.set("status", status);
     if (q.trim()) params.set("q", q.trim());
+    params.set("sort", sort);
     setLoading(true);
     setDeleteError(null);
     setBulkTreatyError(null);
@@ -216,7 +233,7 @@ function AdminLawsPageInner() {
         setLawCount(0);
       })
       .finally(() => setLoading(false));
-  }, [countryId, categoryId, status, q, page]);
+  }, [countryId, categoryId, status, q, sort, page]);
 
   useEffect(() => {
     void loadLaws();
@@ -233,7 +250,7 @@ function AdminLawsPageInner() {
 
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [countryId, categoryId, status, q, page]);
+  }, [countryId, categoryId, status, q, sort, page]);
 
   useEffect(() => {
     setSearchDraft(q);
@@ -531,6 +548,20 @@ function AdminLawsPageInner() {
             <option value="Superseded">{t("statusValues.superseded")}</option>
           </select>
         </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">{t("filters.sort")}</label>
+          <select
+            value={sort}
+            onChange={(e) => setFilter("sort", e.target.value)}
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="newest">{t("sortValues.newest")}</option>
+            <option value="title-asc">{t("sortValues.titleAsc")}</option>
+            <option value="title-desc">{t("sortValues.titleDesc")}</option>
+            <option value="country">{t("sortValues.country")}</option>
+            <option value="category">{t("sortValues.category")}</option>
+          </select>
+        </div>
         <div className="self-end">
           <button
             type="button"
@@ -538,7 +569,7 @@ function AdminLawsPageInner() {
               setSearchDraft("");
               router.replace(pathname, { scroll: false });
             }}
-            disabled={!countryId && !categoryId && !status && !q}
+            disabled={!countryId && !categoryId && !status && !q && sort === "newest"}
             className="rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50"
           >
             {t("filters.clear")}
