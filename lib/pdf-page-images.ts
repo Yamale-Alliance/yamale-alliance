@@ -3,6 +3,8 @@
  * Used by cloud OCR when pdftoppm is not available (e.g. Vercel).
  */
 
+import { createRequire } from "module";
+import { pathToFileURL } from "url";
 import { createCanvas, type Canvas, type SKRSContext2D } from "@napi-rs/canvas";
 
 export type PdfPagePng = {
@@ -63,6 +65,30 @@ export function cloudOcrRenderScale(): number {
   return Number.isFinite(n) && n >= 1 && n <= 3 ? n : 1.75;
 }
 
+type PdfjsModule = typeof import("pdfjs-dist/legacy/build/pdf.mjs");
+
+/**
+ * Wire the pdfjs worker for Node/serverless.
+ * Vercel file tracing often omits `pdf.worker.mjs` unless we import it and set an absolute path;
+ * setting `globalThis.pdfjsWorker` lets the in-process fake worker skip the broken relative import.
+ */
+async function configurePdfjsForNode(pdfjs: PdfjsModule): Promise<void> {
+  // Worker build has no types in pdfjs-dist; runtime export is WorkerMessageHandler.
+  const worker = (await import(
+    /* webpackIgnore: true */
+    "pdfjs-dist/legacy/build/pdf.worker.mjs"
+  )) as { WorkerMessageHandler?: unknown };
+  (globalThis as typeof globalThis & { pdfjsWorker?: unknown }).pdfjsWorker = worker;
+
+  try {
+    const require = createRequire(import.meta.url);
+    const workerPath = require.resolve("pdfjs-dist/legacy/build/pdf.worker.mjs");
+    pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(workerPath).href;
+  } catch {
+    pdfjs.GlobalWorkerOptions.workerSrc = "pdfjs-dist/legacy/build/pdf.worker.mjs";
+  }
+}
+
 /**
  * Open a PDF once and invoke `onPage` for each rasterized page (up to maxPages).
  * Frees each canvas before the next page to limit peak memory.
@@ -76,6 +102,8 @@ export async function mapPdfPagesToPng<T>(
   const scale = options?.scale ?? cloudOcrRenderScale();
 
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  await configurePdfjsForNode(pdfjs);
+
   const data = new Uint8Array(pdfBuffer);
   const canvasFactory = new NapiCanvasFactory();
 
