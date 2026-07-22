@@ -770,6 +770,9 @@
           "networkErrorDuringCourseSync": "Network error during course sync",
           "failedToDelete": "Failed to delete",
           "failedToRevokePurchase": "Failed to revoke purchase",
+          "failedToGrantAccess": "Failed to grant vault access",
+          "grantItemRequired": "Select a vault item to grant.",
+          "grantUserRequired": "Enter the user’s email or Clerk user ID.",
           "couldNotReadHtmlFile": "Could not read HTML file"
         },
         "notices": {
@@ -796,6 +799,8 @@
           "edit": "Edit",
           "revoking": "Revoking…",
           "revoke": "Revoke",
+          "grantAccess": "Grant access",
+          "granting": "Granting…",
           "uploadNewFile": "Upload new file",
           "replaceFile": "Replace file",
           "syncModulesFromZip": "Sync modules from ZIP",
@@ -860,8 +865,19 @@
         },
         "purchases": {
           "title": "Purchases",
-          "subtitle": "View which users currently own items from The Yamalé Vault. You can revoke a purchase so that the user can purchase again.",
+          "subtitle": "View which users currently own items from The Yamalé Vault. You can grant complimentary access or revoke a purchase so the user can buy again.",
           "empty": "No purchases recorded yet.",
+          "grantTitle": "Grant free access",
+          "grantHint": "Give a user access to a paid vault item without checkout. If the item is a multi-item pack, partner items in the pack are included.",
+          "grantEmail": "User email",
+          "grantEmailPlaceholder": "user@example.com",
+          "grantUserId": "Or Clerk user ID",
+          "grantUserIdPlaceholder": "user_…",
+          "grantItem": "Vault item",
+          "grantItemPlaceholder": "Select an item…",
+          "grantReason": "Reason (optional)",
+          "grantReasonPlaceholder": "e.g. Partner demo, scholarship, support goodwill",
+          "grantSuccess": "Granted “{item}” to {buyer} ({count, plural, one {# item} other {# items}}).",
           "columns": {
             "buyer": "Buyer",
             "purchasedAt": "Purchased at"
@@ -1435,7 +1451,7 @@
       "add": {
         "back": "Back to laws",
         "title": "Add law",
-        "subtitle": "Upload a PDF, paste content, or import from a PDF URL. The importer removes table-of-contents blocks, converts to Markdown, and can suggest title and jurisdiction.",
+        "subtitle": "Upload a PDF (including large files), paste content, or import from a PDF URL. PDFs upload to storage first, then process in the background so long scans do not time out in the browser.",
         "messages": {
           "categoryAlreadySelected": "Category \"{name}\" already existed and was selected.",
           "categoryCreated": "Category \"{name}\" created and selected.",
@@ -1443,7 +1459,9 @@
           "previewLoaded": "Preview loaded. Table of contents was removed. Review title, country, and category, then save.",
           "previewNeedsManual": "If country or category is missing, select them manually before saving.",
           "addedFromUrl": "Law added from URL import.",
-          "addedSuccess": "Law added successfully. You can add another below."
+          "addedSuccess": "Law added successfully. You can add another below.",
+          "uploadingPdf": "Uploading PDF to storage…",
+          "queuedIngest": "PDF uploaded. Starting malware scan and text extraction…"
         },
         "errors": {
           "createCategory": "Could not create category.",
@@ -1458,13 +1476,13 @@
           "saveFailed": "Save failed.",
           "selectPdf": "Please select a PDF file, or switch to \"Paste content\" to enter text.",
           "fileMustBePdf": "File must be a PDF.",
-          "pdfTooLarge": "This PDF is too large for browser upload ({sizeMb}MB). Use a smaller file or the CLI script for very large laws.",
+          "pdfTooLarge": "This PDF is too large for browser upload ({sizeMb}MB). Maximum is about 95MB.",
           "pasteRequired": "Paste the law content in the text area, or switch to \"Upload PDF\".",
-          "uploadTooLarge": "Upload is too large. Try a smaller PDF, disable OCR, or use the CLI import script.",
-          "emptyPdfExtract": "No usable text could be extracted from this PDF. Enable “Force OCR” for scanned files, paste the text, or use a PDF with a selectable text layer.",
+          "uploadTooLarge": "Upload is too large. Try a smaller PDF or check your connection.",
+          "emptyPdfExtract": "No usable text could be extracted from this PDF. Scanned image PDFs need a text layer (or paste text). Force OCR only works when pdftoppm + tesseract are installed on the server.",
           "addFailed": "Failed to add law",
-          "requestTimeout": "Request took too long. Try a smaller PDF or use \"Paste content\" for very large documents.",
-          "serverUnreachable": "Could not reach the server. Restart the dev server if you changed upload limits in next.config; for very large PDFs use the CLI import script.",
+          "requestTimeout": "Processing is taking longer than expected. Leave this page open and try again in a minute — if the malware scan finished, a retry is usually much faster. You do not need to paste the document.",
+          "serverUnreachable": "Could not reach the server. Check your connection and try again.",
           "generic": "Something went wrong. Please try again."
         },
         "mode": {
@@ -1513,15 +1531,15 @@
         },
         "ocr": {
           "forceTitle": "Force OCR",
-          "forceHint": "Use if the PDF is scanned or has little selectable text. Requires pdftoppm + tesseract on the server (not available on Vercel production).",
+          "forceHint": "Use if the PDF is scanned or has little selectable text. Uses cloud OCR on production (Claude) or local Tesseract when installed.",
           "uploadTitle": "This file needs OCR",
-          "uploadHint": "Check for scanned PDFs. OCR only works when pdftoppm + tesseract are installed on the host — on production, use Paste content instead."
+          "uploadHint": "Check for scanned PDFs. Production uses cloud OCR via Claude; local servers can use pdftoppm + tesseract when installed. Large scans process page-by-page and may take several minutes."
         },
         "upload": {
           "label": "PDF file",
-          "hint": "Text-layer PDFs extract automatically. Scanned image PDFs usually need Paste content on production (server OCR tools are not installed).",
-          "sizeHint": "PDFs up to {maxMb} MB are supported. Files over 4 MB upload directly to storage to avoid server size limits.",
-          "waitHint": "Large PDFs or malware scanning can take 1–2 minutes. Please wait and do not refresh. If the scan times out, wait a minute and try the same file again."
+          "hint": "Large PDFs are supported — the file uploads to storage first, then scans and extracts in the background. Scanned PDFs use cloud OCR automatically when needed.",
+          "sizeHint": "PDFs up to {maxMb} MB are supported.",
+          "waitHint": "Large PDFs can take several minutes (malware scan + extraction/OCR). Keep this page open; progress updates appear above."
         },
         "content": {
           "label": "Law content",
