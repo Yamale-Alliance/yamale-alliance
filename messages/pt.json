@@ -1461,7 +1461,7 @@
           "addedFromUrl": "Lei adicionada a partir de importação por URL.",
           "addedSuccess": "Lei adicionada com sucesso. Pode adicionar outra abaixo.",
           "uploadingPdf": "A carregar o PDF para o armazenamento…",
-          "queuedIngest": "PDF carregado. A iniciar análise antimalware e extração de texto…"
+          "queuedIngest": "PDF carregado. A iniciar extração de texto…"
         },
         "errors": {
           "createCategory": "Não foi possível criar a categoria.",
@@ -1481,7 +1481,7 @@
           "uploadTooLarge": "Upload demasiado grande. Tente um PDF menor, desative OCR, ou use o script CLI.",
           "emptyPdfExtract": "Não foi possível extrair texto utilizável deste PDF. Ative “Force OCR” para ficheiros digitalizados, cole o texto, ou use um PDF com camada de texto selecionável.",
           "addFailed": "Falha ao adicionar lei",
-          "requestTimeout": "Este PDF ainda está a processar após 30 minutos (análise antimalware + OCR podem demorar em digitalizações grandes). Mantenha esta página aberta e clique novamente em Adicionar lei com o mesmo ficheiro — uma nova tentativa costuma retomar mais depressa. Não precisa de colar o documento.",
+          "requestTimeout": "Este PDF ainda está a processar após 30 minutos (OCR pode demorar em digitalizações grandes). Mantenha esta página aberta e clique novamente em Adicionar lei com o mesmo ficheiro — uma nova tentativa costuma retomar mais depressa. Não precisa de colar o documento.",
           "serverUnreachable": "Não foi possível contactar o servidor. Reinicie o servidor de dev se alterou limites em next.config; para PDFs muito grandes use o script CLI.",
           "generic": "Algo correu mal. Tente novamente."
         },
@@ -1539,7 +1539,7 @@
           "label": "Ficheiro PDF",
           "hint": "PDFs grandes são suportados — o ficheiro carrega primeiro para o armazenamento e depois é analisado e extraído em segundo plano. PDFs digitalizados usam OCR na nuvem automaticamente quando necessário.",
           "sizeHint": "PDFs até {maxMb} MB são suportados.",
-          "waitHint": "PDFs grandes podem demorar vários minutos (análise antimalware + extração/OCR). Mantenha esta página aberta; o progresso aparece acima."
+          "waitHint": "PDFs grandes podem demorar vários minutos (extração/OCR). Mantenha esta página aberta; o progresso aparece acima."
         },
         "content": {
           "label": "Conteúdo da lei",
