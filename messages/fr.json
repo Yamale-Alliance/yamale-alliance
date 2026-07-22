@@ -1374,7 +1374,15 @@
         "filters": {
           "country": "Pays",
           "category": "Catégorie",
+          "sort": "Trier",
           "clear": "Effacer les filtres sélectionnés"
+        },
+        "sortValues": {
+          "newest": "Plus récents d'abord",
+          "titleAsc": "Titre (A–Z)",
+          "titleDesc": "Titre (Z–A)",
+          "country": "Pays",
+          "category": "Catégorie"
         },
         "search": {
           "label": "Recherche",
