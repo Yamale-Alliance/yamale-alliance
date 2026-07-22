@@ -15,6 +15,7 @@ import {
   filterPublicLibraryLawRows,
   resolveInternalLibraryCategoryId,
 } from "@/lib/internal-library-categories";
+import { regionalBodySortIndex } from "@/lib/regional-bodies";
 
 /** Max laws returned in one response (admin bulk / legacy API without pagination). */
 const LAWS_LIMIT = 20_000;
@@ -102,6 +103,10 @@ function sortCountriesAlphabetically(countries: LibraryCountry[]): LibraryCountr
     const aRegional = a.kind === "regional_body" ? 0 : 1;
     const bRegional = b.kind === "regional_body" ? 0 : 1;
     if (aRegional !== bRegional) return aRegional - bRegional;
+    if (a.kind === "regional_body" && b.kind === "regional_body") {
+      const byCatalog = regionalBodySortIndex(a.code) - regionalBodySortIndex(b.code);
+      if (byCatalog !== 0) return byCatalog;
+    }
     return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
   });
 }
