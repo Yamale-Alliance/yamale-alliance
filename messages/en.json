@@ -1481,7 +1481,7 @@
           "uploadTooLarge": "Upload is too large. Try a smaller PDF or check your connection.",
           "emptyPdfExtract": "No usable text could be extracted from this PDF. Scanned image PDFs need a text layer (or paste text). Force OCR only works when pdftoppm + tesseract are installed on the server.",
           "addFailed": "Failed to add law",
-          "requestTimeout": "Processing is taking longer than expected. Leave this page open and try again in a minute — if the malware scan finished, a retry is usually much faster. You do not need to paste the document.",
+          "requestTimeout": "This PDF is still processing after 30 minutes (malware scan + OCR can be slow on large scans). Keep this page open and click Add law again with the same file — a retry often resumes faster. You do not need to paste the document.",
           "serverUnreachable": "Could not reach the server. Check your connection and try again.",
           "generic": "Something went wrong. Please try again."
         },
