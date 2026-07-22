@@ -16,6 +16,8 @@ const nextConfig = {
     "require-in-the-middle",
     "@sentry/nextjs",
     "@sentry/node",
+    "@napi-rs/canvas",
+    "pdfjs-dist",
   ],
   turbopack: {
     resolveAlias: {
