@@ -1461,7 +1461,7 @@
           "addedFromUrl": "Law added from URL import.",
           "addedSuccess": "Law added successfully. You can add another below.",
           "uploadingPdf": "Uploading PDF to storage…",
-          "queuedIngest": "PDF uploaded. Starting malware scan and text extraction…"
+          "queuedIngest": "PDF uploaded. Starting text extraction…"
         },
         "errors": {
           "createCategory": "Could not create category.",
@@ -1481,7 +1481,7 @@
           "uploadTooLarge": "Upload is too large. Try a smaller PDF or check your connection.",
           "emptyPdfExtract": "No usable text could be extracted from this PDF. Scanned image PDFs need a text layer (or paste text). Force OCR only works when pdftoppm + tesseract are installed on the server.",
           "addFailed": "Failed to add law",
-          "requestTimeout": "This PDF is still processing after 30 minutes (malware scan + OCR can be slow on large scans). Keep this page open and click Add law again with the same file — a retry often resumes faster. You do not need to paste the document.",
+          "requestTimeout": "This PDF is still processing after 30 minutes (OCR can be slow on large scans). Keep this page open and click Add law again with the same file — a retry often resumes faster. You do not need to paste the document.",
           "serverUnreachable": "Could not reach the server. Check your connection and try again.",
           "generic": "Something went wrong. Please try again."
         },
@@ -1539,7 +1539,7 @@
           "label": "PDF file",
           "hint": "Large PDFs are supported — the file uploads to storage first, then scans and extracts in the background. Scanned PDFs use cloud OCR automatically when needed.",
           "sizeHint": "PDFs up to {maxMb} MB are supported.",
-          "waitHint": "Large PDFs can take several minutes (malware scan + extraction/OCR). Keep this page open; progress updates appear above."
+          "waitHint": "Large PDFs can take several minutes (text extraction/OCR). Keep this page open; progress updates appear above."
         },
         "content": {
           "label": "Law content",
