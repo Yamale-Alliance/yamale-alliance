@@ -258,10 +258,19 @@ export async function scanAdminImageFile(fileBuffer: Buffer, filename: string): 
 
 /**
  * Scan a file buffer with VirusTotal API v3 before storage/OCR processing.
+ *
+ * Disabled by default — VT uploads made large law PDF ingest too slow.
+ * Set VIRUSTOTAL_SCAN_FILES=1 to re-enable for PDFs/ZIPs.
  * Production fails closed when scanning is unavailable unless
  * VIRUSTOTAL_ALLOW_UNSCANNED_UPLOADS=true is explicitly set.
  */
 export async function scanFile(fileBuffer: Buffer, filename: string): Promise<VirusScanResult> {
+  const enabled =
+    process.env.VIRUSTOTAL_SCAN_FILES === "1" || process.env.VIRUSTOTAL_SCAN_FILES === "true";
+  if (!enabled) {
+    return { clean: true, status: "skipped" };
+  }
+
   const key = apiKey();
   if (!key) {
     console.warn("VIRUSTOTAL_API_KEY not set — skipping malware scan for", filename);
