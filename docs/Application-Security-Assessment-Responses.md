@@ -104,7 +104,7 @@ Inbound webhooks: Lomi (`/api/lomi/webhook`), pawaPay callbacks, legacy Stripe p
 - **Languages:** TypeScript (primary), SQL (Supabase migrations), shell/scripts for batch jobs.
 - **Runtime:** Node.js (Next.js 16.1.6).
 - **UI:** React 19, Tailwind CSS, Radix UI.
-- **PDF/OCR:** `pdf-parse`, `unpdf`, optional **Tesseract** (`eng+afr`) for scanned PDFs.
+- **PDF/OCR:** `pdf-parse`, `unpdf`, optional local **Tesseract** (`eng+afr`), and **Claude Vision** cloud OCR when local tools are unavailable (e.g. Vercel).
 - **Other:** XLSX parsing for treaty bulk import; JSZip for marketplace bundles.
 
 ---
@@ -344,10 +344,11 @@ Extension and MIME allowlists are enforced server-side; not all types are scanne
 **Answer:** **Yes, for PDFs** (admin law ingestion):
 
 - Embedded text extraction via PDF libraries.
-- Optional **Tesseract OCR** (`eng+afr`) when `forceOcr` is set or text is insufficient.
+- Optional local **Tesseract OCR** (`eng+afr` via `pdftoppm`) when tools are on PATH and `forceOcr` is set or text is insufficient.
+- Optional **Claude Vision** cloud OCR (page rasterization via pdfjs + `@napi-rs/canvas`) when local tools are missing and `CLAUDE_API_KEY` is set.
 - Optional **Claude** batch cleanup for noisy OCR (`scripts/fix-law-ocr-with-ai.ts`, admin Fix OCR).
 
-OCR runs **server-side** on the application host (subprocess), not on the client.
+OCR runs **server-side** on the application host (local subprocess and/or Anthropic API), not on the client.
 
 ---
 
