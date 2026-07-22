@@ -24,7 +24,7 @@ const MAX_LAWS_HARD_CAP = 250_000;
 
 /**
  * GET: laws grouped by identical normalized title where the group has ≥2 rows.
- * Includes regional blocs (ECOWAS, COMESA, EAC, OIC), “all countries”, and member-state
+ * Includes regional blocs (ECOWAS, COMESA, EAC, OHADA), “all countries”, and member-state
  * duplicates — no minimum distinct-jurisdiction filter.
  */
 export async function GET() {
