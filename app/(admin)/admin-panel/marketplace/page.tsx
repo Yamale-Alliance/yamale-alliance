@@ -161,6 +161,12 @@ export default function AdminMarketplacePage() {
   const [purchases, setPurchases] = useState<PurchaseRow[]>([]);
   const [loadingPurchases, setLoadingPurchases] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [grantEmail, setGrantEmail] = useState("");
+  const [grantUserId, setGrantUserId] = useState("");
+  const [grantItemId, setGrantItemId] = useState("");
+  const [grantReason, setGrantReason] = useState("");
+  const [granting, setGranting] = useState(false);
+  const [grantSuccess, setGrantSuccess] = useState<string | null>(null);
   const [syncingCourseId, setSyncingCourseId] = useState<string | null>(null);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
@@ -676,8 +682,63 @@ export default function AdminMarketplacePage() {
       setPurchases((prev) => prev.filter((p) => p.id !== id));
     } catch {
       setError(tp("errors.failedToRevokePurchase"));
+    } finally {
+      setRevokingId(null);
     }
-    setRevokingId(null);
+  };
+
+  const handleGrantAccess = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setGrantSuccess(null);
+    if (!grantItemId.trim()) {
+      setError(tp("errors.grantItemRequired"));
+      return;
+    }
+    if (!grantEmail.trim() && !grantUserId.trim()) {
+      setError(tp("errors.grantUserRequired"));
+      return;
+    }
+    setGranting(true);
+    try {
+      const res = await fetch(`${origin}/api/admin/marketplace/purchases`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          marketplaceItemId: grantItemId.trim(),
+          email: grantEmail.trim() || undefined,
+          userId: grantUserId.trim() || undefined,
+          reason: grantReason.trim() || undefined,
+          includePackPartners: true,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        buyerName?: string;
+        itemTitle?: string;
+        itemIds?: string[];
+      };
+      if (!res.ok) {
+        setError(data.error ?? tp("errors.failedToGrantAccess"));
+        return;
+      }
+      setGrantSuccess(
+        tp("purchases.grantSuccess", {
+          buyer: data.buyerName ?? "",
+          item: data.itemTitle ?? "",
+          count: data.itemIds?.length ?? 1,
+        })
+      );
+      setGrantEmail("");
+      setGrantUserId("");
+      setGrantReason("");
+      fetchPurchases();
+    } catch {
+      setError(tp("errors.failedToGrantAccess"));
+    } finally {
+      setGranting(false);
+    }
   };
 
   const isItemFormView = adding || Boolean(editing);
@@ -1299,6 +1360,88 @@ export default function AdminMarketplacePage() {
           </button>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">{tp("purchases.subtitle")}</p>
+
+        <form
+          onSubmit={handleGrantAccess}
+          className="mt-4 rounded-md border border-border bg-muted/30 p-4"
+        >
+          <h3 className="text-sm font-semibold text-foreground">{tp("purchases.grantTitle")}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">{tp("purchases.grantHint")}</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                {tp("purchases.grantEmail")}
+              </label>
+              <input
+                type="email"
+                value={grantEmail}
+                onChange={(e) => setGrantEmail(e.target.value)}
+                placeholder={tp("purchases.grantEmailPlaceholder")}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                autoComplete="off"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                {tp("purchases.grantUserId")}
+              </label>
+              <input
+                type="text"
+                value={grantUserId}
+                onChange={(e) => setGrantUserId(e.target.value)}
+                placeholder={tp("purchases.grantUserIdPlaceholder")}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
+                autoComplete="off"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                {tp("purchases.grantItem")}
+              </label>
+              <select
+                value={grantItemId}
+                onChange={(e) => setGrantItemId(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                required
+              >
+                <option value="">{tp("purchases.grantItemPlaceholder")}</option>
+                {items.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.title}
+                    {item.price_cents > 0
+                      ? ` ($${(item.price_cents / 100).toFixed(2)})`
+                      : ` (${tp("table.free")})`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                {tp("purchases.grantReason")}
+              </label>
+              <input
+                type="text"
+                value={grantReason}
+                onChange={(e) => setGrantReason(e.target.value)}
+                placeholder={tp("purchases.grantReasonPlaceholder")}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                maxLength={500}
+              />
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <button
+              type="submit"
+              disabled={granting}
+              className="inline-flex items-center rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {granting ? tp("actions.granting") : tp("actions.grantAccess")}
+            </button>
+            {grantSuccess ? (
+              <p className="text-sm text-emerald-700 dark:text-emerald-400">{grantSuccess}</p>
+            ) : null}
+          </div>
+        </form>
 
         {loadingPurchases ? (
           <div className="flex items-center justify-center py-6">
