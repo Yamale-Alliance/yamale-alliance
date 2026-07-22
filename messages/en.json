@@ -1374,7 +1374,15 @@
         "filters": {
           "country": "Country",
           "category": "Category",
+          "sort": "Sort",
           "clear": "Clear selected filters"
+        },
+        "sortValues": {
+          "newest": "Newest first",
+          "titleAsc": "Title (A–Z)",
+          "titleDesc": "Title (Z–A)",
+          "country": "Country",
+          "category": "Category"
         },
         "search": {
           "label": "Search",
