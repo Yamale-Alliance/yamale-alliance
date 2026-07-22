@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AdminAuth } from "@/lib/admin";
 import { createLawsFromContent } from "@/lib/admin-law-create-from-content";
-import { extractLawTextFromPdfUpload } from "@/lib/admin-law-pdf-extract";
+import { extractLawTextFromPdfUpload, type ExtractLawPdfPhase } from "@/lib/admin-law-pdf-extract";
 import {
   claimLawIngestJob,
   readLawIngestJob,
@@ -15,6 +15,29 @@ import {
   sanitizeLawContent,
 } from "@/lib/admin-law-utils";
 import { isVirusScanRejectedError } from "@/lib/uploads/virus-scan-rejected";
+
+function phaseMessageFromExtract(
+  update: ExtractLawPdfPhase
+): { status: LawIngestJob["status"]; phaseMessage: string } {
+  switch (update.phase) {
+    case "downloading":
+      return { status: "scanning", phaseMessage: "Downloading PDF from storage…" };
+    case "scanning":
+      return {
+        status: "scanning",
+        phaseMessage: "Scanning PDF for malware (large files can take a few minutes)…",
+      };
+    case "extracting":
+      return { status: "extracting", phaseMessage: "Extracting text from PDF…" };
+    case "cloud_ocr":
+      return {
+        status: "extracting",
+        phaseMessage: `Cloud OCR: page ${update.pageNumber} of ${update.totalPages}…`,
+      };
+    default:
+      return { status: "extracting", phaseMessage: "Processing PDF…" };
+  }
+}
 
 /**
  * Run malware scan + PDF extract + law insert for an async ingest job.
@@ -42,17 +65,19 @@ export async function processLawIngestJob(
   let job = claimed;
 
   try {
-    job = await updateLawIngestJob(supabase, job, {
-      workerId,
-      status: "extracting",
-      phaseMessage: "Extracting text from PDF…",
-    });
-
     const text = await extractLawTextFromPdfUpload({
       file: null,
       pdfStoragePath: job.payload.pdfStoragePath,
       adminUserId: admin.userId,
       forceOcr: job.payload.forceOcr,
+      onPhase: async (update) => {
+        const next = phaseMessageFromExtract(update);
+        job = await updateLawIngestJob(supabase, job, {
+          workerId,
+          status: next.status,
+          phaseMessage: next.phaseMessage,
+        });
+      },
     });
 
     const contentTrimmed = sanitizeLawContent(text) || null;
