@@ -158,6 +158,12 @@ function pickBetterText(params: {
 export type ExtractPdfOptions = {
   /** When true, prefer OCR output over embedded text when OCR succeeds. */
   forceOcr?: boolean;
+  /** Called during cloud OCR so long jobs can report page progress. */
+  onCloudOcrProgress?: (progress: {
+    pageNumber: number;
+    totalPages: number;
+    pagesProcessed: number;
+  }) => void | Promise<void>;
 };
 
 /**
@@ -169,7 +175,7 @@ export async function extractTextFromPdf(
   buffer: Buffer,
   options: ExtractPdfOptions = {}
 ): Promise<string> {
-  const { forceOcr = false } = options;
+  const { forceOcr = false, onCloudOcrProgress } = options;
 
   let embedded = "";
   try {
@@ -220,7 +226,9 @@ export async function extractTextFromPdf(
   if (isCloudOcrConfigured()) {
     try {
       console.info("Running cloud OCR for scanned/low-text PDF…");
-      const cloud = await cloudOcrPdfBuffer(buffer);
+      const cloud = await cloudOcrPdfBuffer(buffer, {
+        onProgress: onCloudOcrProgress,
+      });
       if (cloud.text.trim()) {
         return pickBetterText({ embedded, ocrText: cloud.text, forceOcr });
       }
