@@ -770,6 +770,9 @@
           "networkErrorDuringCourseSync": "Network error during course sync",
           "failedToDelete": "Failed to delete",
           "failedToRevokePurchase": "Failed to revoke purchase",
+          "failedToGrantAccess": "Échec de l'octroi d'accès Vault",
+          "grantItemRequired": "Sélectionnez un article Vault à octroyer.",
+          "grantUserRequired": "Saisissez l'e-mail ou l'ID Clerk de l'utilisateur.",
           "couldNotReadHtmlFile": "Impossible de lire le fichier HTML"
         },
         "notices": {
@@ -796,6 +799,8 @@
           "edit": "Edit",
           "revoking": "Révocation…",
           "revoke": "Révoquer",
+          "grantAccess": "Octroyer l'accès",
+          "granting": "Octroi…",
           "uploadNewFile": "Téléverser un nouveau fichier",
           "replaceFile": "Remplacer le fichier",
           "syncModulesFromZip": "Synchroniser les modules depuis ZIP",
@@ -860,8 +865,19 @@
         },
         "purchases": {
           "title": "Purchases",
-          "subtitle": "View which users currently own items from The Yamalé Vault. You can revoke a purchase so that the user can purchase again.",
+          "subtitle": "Voir quels utilisateurs possèdent des articles du Vault. Vous pouvez octroyer un accès gratuit ou révoquer un achat pour qu'ils puissent racheter.",
           "empty": "No purchases recorded yet.",
+          "grantTitle": "Octroyer un accès gratuit",
+          "grantHint": "Donner accès à un article Vault payant sans paiement. Si l'article est un pack multi-articles, les partenaires du pack sont inclus.",
+          "grantEmail": "E-mail utilisateur",
+          "grantEmailPlaceholder": "user@example.com",
+          "grantUserId": "Ou ID Clerk",
+          "grantUserIdPlaceholder": "user_…",
+          "grantItem": "Article Vault",
+          "grantItemPlaceholder": "Sélectionner un article…",
+          "grantReason": "Motif (facultatif)",
+          "grantReasonPlaceholder": "ex. démo partenaire, bourse, geste support",
+          "grantSuccess": "« {item} » octroyé à {buyer} ({count, plural, one {# article} other {# articles}}).",
           "columns": {
             "buyer": "Buyer",
             "purchasedAt": "Purchased at"
@@ -1443,7 +1459,9 @@
           "previewLoaded": "Aperçu chargé. La table des matières a été retirée. Vérifiez le titre, le pays et la catégorie, puis enregistrez.",
           "previewNeedsManual": "Si le pays ou la catégorie manque, sélectionnez-les manuellement avant d'enregistrer.",
           "addedFromUrl": "Loi ajoutée depuis l'import URL.",
-          "addedSuccess": "Loi ajoutée avec succès. Vous pouvez en ajouter une autre ci-dessous."
+          "addedSuccess": "Loi ajoutée avec succès. Vous pouvez en ajouter une autre ci-dessous.",
+          "uploadingPdf": "Téléversement du PDF vers le stockage…",
+          "queuedIngest": "PDF téléversé. Démarrage de l'analyse antimalware et de l'extraction…"
         },
         "errors": {
           "createCategory": "Impossible de créer la catégorie.",
@@ -1463,7 +1481,7 @@
           "uploadTooLarge": "Upload trop volumineux. Essayez un PDF plus petit, désactivez OCR, ou utilisez le script d'import CLI.",
           "emptyPdfExtract": "Aucun texte utilisable n'a pu être extrait de ce PDF. Activez « Force OCR » pour les scans, collez le texte, ou utilisez un PDF avec une couche texte sélectionnable.",
           "addFailed": "Échec de l'ajout de la loi",
-          "requestTimeout": "La requête a pris trop de temps. Essayez un PDF plus petit ou utilisez \"Coller le contenu\" pour les très longs documents.",
+          "requestTimeout": "Le traitement prend plus longtemps que prévu. Laissez cette page ouverte et réessayez dans une minute — si l'analyse antimalware est terminée, une nouvelle tentative est en général bien plus rapide. Vous n'avez pas besoin de coller le document.",
           "serverUnreachable": "Impossible de joindre le serveur. Redémarrez le serveur de dev si vous avez modifié les limites d'upload dans next.config ; pour les gros PDF, utilisez le script CLI.",
           "generic": "Une erreur est survenue. Veuillez réessayer."
         },
@@ -1513,15 +1531,15 @@
         },
         "ocr": {
           "forceTitle": "Forcer OCR",
-          "forceHint": "À utiliser si le PDF est scanné ou contient peu de texte sélectionnable. Nécessite pdftoppm + tesseract sur le serveur (indisponible sur Vercel en production).",
+          "forceHint": "À utiliser si le PDF est scanné ou contient peu de texte sélectionnable. Utilise l'OCR cloud en production (Claude) ou Tesseract local s'il est installé.",
           "uploadTitle": "Ce fichier nécessite OCR",
-          "uploadHint": "Cochez pour les PDF scannés. L'OCR ne fonctionne que si pdftoppm + tesseract sont installés — en production, utilisez plutôt Coller le contenu."
+          "uploadHint": "Cochez pour les PDF scannés. En production, l'OCR cloud passe par Claude ; en local, pdftoppm + tesseract si installés. Les gros scans sont traités page par page et peuvent prendre plusieurs minutes."
         },
         "upload": {
           "label": "Fichier PDF",
-          "hint": "Les PDF avec couche texte s'extraient automatiquement. Les PDF scannés nécessitent généralement Coller le contenu en production (outils OCR non installés sur le serveur).",
-          "sizeHint": "PDF jusqu'à {maxMb} Mo acceptés. Au-delà de 4 Mo, l'envoi se fait directement vers le stockage pour éviter les limites du serveur.",
-          "waitHint": "Les gros PDF ou l'analyse antimalware peuvent prendre 1 à 2 minutes. Ne rafraîchissez pas. Si l'analyse expire, attendez une minute et réessayez le même fichier."
+          "hint": "Les gros PDF sont pris en charge — le fichier est d'abord envoyé vers le stockage, puis analysé et extrait en arrière-plan. Les PDF scannés utilisent automatiquement l'OCR cloud si besoin.",
+          "sizeHint": "PDF jusqu'à {maxMb} Mo acceptés.",
+          "waitHint": "Les gros PDF peuvent prendre plusieurs minutes (analyse antimalware + extraction/OCR). Gardez cette page ouverte ; la progression s'affiche ci-dessus."
         },
         "content": {
           "label": "Contenu de la loi",
