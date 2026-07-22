@@ -1461,7 +1461,7 @@
           "addedFromUrl": "Loi ajoutée depuis l'import URL.",
           "addedSuccess": "Loi ajoutée avec succès. Vous pouvez en ajouter une autre ci-dessous.",
           "uploadingPdf": "Téléversement du PDF vers le stockage…",
-          "queuedIngest": "PDF téléversé. Démarrage de l'analyse antimalware et de l'extraction…"
+          "queuedIngest": "PDF téléversé. Démarrage de l'extraction du texte…"
         },
         "errors": {
           "createCategory": "Impossible de créer la catégorie.",
@@ -1481,7 +1481,7 @@
           "uploadTooLarge": "Upload trop volumineux. Essayez un PDF plus petit, désactivez OCR, ou utilisez le script d'import CLI.",
           "emptyPdfExtract": "Aucun texte utilisable n'a pu être extrait de ce PDF. Activez « Force OCR » pour les scans, collez le texte, ou utilisez un PDF avec une couche texte sélectionnable.",
           "addFailed": "Échec de l'ajout de la loi",
-          "requestTimeout": "Ce PDF est encore en cours après 30 minutes (analyse antimalware + OCR peuvent être lents sur les gros scans). Gardez cette page ouverte et cliquez à nouveau sur Ajouter une loi avec le même fichier — une nouvelle tentative reprend souvent plus vite. Pas besoin de coller le document.",
+          "requestTimeout": "Ce PDF est encore en cours après 30 minutes (l'OCR peut être lent sur les gros scans). Gardez cette page ouverte et cliquez à nouveau sur Ajouter une loi avec le même fichier — une nouvelle tentative reprend souvent plus vite. Pas besoin de coller le document.",
           "serverUnreachable": "Impossible de joindre le serveur. Redémarrez le serveur de dev si vous avez modifié les limites d'upload dans next.config ; pour les gros PDF, utilisez le script CLI.",
           "generic": "Une erreur est survenue. Veuillez réessayer."
         },
@@ -1539,7 +1539,7 @@
           "label": "Fichier PDF",
           "hint": "Les gros PDF sont pris en charge — le fichier est d'abord envoyé vers le stockage, puis analysé et extrait en arrière-plan. Les PDF scannés utilisent automatiquement l'OCR cloud si besoin.",
           "sizeHint": "PDF jusqu'à {maxMb} Mo acceptés.",
-          "waitHint": "Les gros PDF peuvent prendre plusieurs minutes (analyse antimalware + extraction/OCR). Gardez cette page ouverte ; la progression s'affiche ci-dessus."
+          "waitHint": "Les gros PDF peuvent prendre plusieurs minutes (extraction/OCR). Gardez cette page ouverte ; la progression s'affiche ci-dessus."
         },
         "content": {
           "label": "Contenu de la loi",
