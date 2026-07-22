@@ -12,11 +12,23 @@ import {
   isAllowedAdminLawImportPath,
 } from "@/lib/admin-law-pdf-import";
 
+export type ExtractLawPdfPhase =
+  | { phase: "downloading" }
+  | { phase: "scanning" }
+  | { phase: "extracting" }
+  | {
+      phase: "cloud_ocr";
+      pageNumber: number;
+      totalPages: number;
+      pagesProcessed: number;
+    };
+
 export type ExtractLawPdfOptions = {
   file: File | null;
   pdfStoragePath: string | null;
   adminUserId: string;
   forceOcr: boolean;
+  onPhase?: (update: ExtractLawPdfPhase) => void | Promise<void>;
 };
 
 /**
@@ -27,7 +39,7 @@ export type ExtractLawPdfOptions = {
 export async function extractLawTextFromPdfUpload(
   options: ExtractLawPdfOptions
 ): Promise<string> {
-  const { file, pdfStoragePath, adminUserId, forceOcr } = options;
+  const { file, pdfStoragePath, adminUserId, forceOcr, onPhase } = options;
   const supabase = getSupabaseServer();
   let buffer: Buffer;
   let filename: string;
@@ -37,6 +49,7 @@ export async function extractLawTextFromPdfUpload(
     if (!isAllowedAdminLawImportPath(pdfStoragePath, adminUserId)) {
       throw new Error("Invalid uploaded PDF path");
     }
+    await onPhase?.({ phase: "downloading" });
     buffer = await downloadAdminLawPdfBuffer(supabase, pdfStoragePath);
     filename = pdfStoragePath.split("/").pop() ?? "upload.pdf";
     cleanupPath = pdfStoragePath;
@@ -50,6 +63,7 @@ export async function extractLawTextFromPdfUpload(
     throw new Error("MISSING_PDF");
   }
 
+  await onPhase?.({ phase: "scanning" });
   const scan = await scanFile(buffer, filename);
   if (!scan.clean) {
     const reason = virusScanRejectReason(scan);
@@ -66,7 +80,18 @@ export async function extractLawTextFromPdfUpload(
   }
 
   try {
-    const text = await extractTextFromPdf(buffer, { forceOcr });
+    await onPhase?.({ phase: "extracting" });
+    const text = await extractTextFromPdf(buffer, {
+      forceOcr,
+      onCloudOcrProgress: async (progress) => {
+        await onPhase?.({
+          phase: "cloud_ocr",
+          pageNumber: progress.pageNumber,
+          totalPages: progress.totalPages,
+          pagesProcessed: progress.pagesProcessed,
+        });
+      },
+    });
     if (cleanupPath) {
       await deleteAdminLawPdfImport(supabase, cleanupPath).catch((err) => {
         console.warn("Admin laws: failed to delete temp PDF import:", err);
