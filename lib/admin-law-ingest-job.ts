@@ -1,4 +1,11 @@
+/**
+ * Async admin law ingest job store.
+ * Prefer Upstash Redis (reliable across Vercel isolates). Fall back to in-memory
+ * (same isolate only) and Supabase Storage with read-after-write verification.
+ */
+
 import { randomUUID } from "crypto";
+import { Redis } from "@upstash/redis";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ADMIN_LAW_IMPORT_BUCKET } from "@/lib/admin-law-upload-limits";
 import { ensureAdminLawImportBucket } from "@/lib/admin-law-pdf-import";
@@ -42,22 +49,139 @@ export type LawIngestJob = {
 };
 
 const JOB_PREFIX = "jobs";
-const JOB_CACHE_CONTROL = "no-store";
+const JOB_TTL_SECONDS = 6 * 60 * 60;
+const memoryJobs = new Map<string, LawIngestJob>();
+
+let redisClient: Redis | null | undefined;
+
+function getRedis(): Redis | null {
+  if (redisClient !== undefined) return redisClient;
+  const url =
+    process.env.UPSTASH_REDIS_REST_URL?.trim() || process.env.KV_REST_API_URL?.trim();
+  const token =
+    process.env.UPSTASH_REDIS_REST_TOKEN?.trim() || process.env.KV_REST_API_TOKEN?.trim();
+  if (!url || !token) {
+    redisClient = null;
+    return null;
+  }
+  redisClient = new Redis({ url, token });
+  return redisClient;
+}
 
 function jobPath(adminUserId: string, jobId: string): string {
   return `${JOB_PREFIX}/${adminUserId}/${jobId}.json`;
 }
 
-async function writeJobJson(supabase: SupabaseClient, job: LawIngestJob): Promise<void> {
+function memoryKey(adminUserId: string, jobId: string): string {
+  return `${adminUserId}:${jobId}`;
+}
+
+function redisKey(adminUserId: string, jobId: string): string {
+  return `law-ingest-job:${adminUserId}:${jobId}`;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseJob(raw: unknown, adminUserId: string, jobId: string): LawIngestJob | null {
+  try {
+    const job =
+      typeof raw === "string"
+        ? (JSON.parse(raw) as LawIngestJob)
+        : (raw as LawIngestJob);
+    if (!job || typeof job !== "object") return null;
+    if (job.adminUserId !== adminUserId || job.id !== jobId) return null;
+    return job;
+  } catch {
+    return null;
+  }
+}
+
+async function writeJobToStorage(supabase: SupabaseClient, job: LawIngestJob): Promise<void> {
+  await ensureAdminLawImportBucket(supabase);
   const path = jobPath(job.adminUserId, job.id);
-  const { error } = await supabase.storage.from(ADMIN_LAW_IMPORT_BUCKET).upload(path, JSON.stringify(job), {
+  const body = new Blob([JSON.stringify(job)], { type: "application/json" });
+  const { error } = await supabase.storage.from(ADMIN_LAW_IMPORT_BUCKET).upload(path, body, {
     contentType: "application/json",
     upsert: true,
-    cacheControl: JOB_CACHE_CONTROL,
+    cacheControl: "0",
   });
   if (error) {
-    throw new Error(error.message || "Could not write ingest job");
+    throw new Error(error.message || "Could not write ingest job to storage");
   }
+}
+
+async function readJobFromStorage(
+  supabase: SupabaseClient,
+  adminUserId: string,
+  jobId: string
+): Promise<LawIngestJob | null> {
+  const path = jobPath(adminUserId, jobId);
+  const { data, error } = await supabase.storage.from(ADMIN_LAW_IMPORT_BUCKET).download(path);
+  if (error || !data) {
+    if (error) {
+      console.warn("Ingest job storage download failed:", path, error.message);
+    }
+    return null;
+  }
+  try {
+    return parseJob(await data.text(), adminUserId, jobId);
+  } catch {
+    return null;
+  }
+}
+
+async function persistJob(supabase: SupabaseClient, job: LawIngestJob): Promise<void> {
+  memoryJobs.set(memoryKey(job.adminUserId, job.id), job);
+
+  const redis = getRedis();
+  if (redis) {
+    await redis.set(redisKey(job.adminUserId, job.id), job, { ex: JOB_TTL_SECONDS });
+  }
+
+  // Best-effort durable backup — do not fail the request if storage is flaky when Redis worked.
+  try {
+    await writeJobToStorage(supabase, job);
+  } catch (err) {
+    if (!redis) throw err;
+    console.warn("Ingest job storage backup write failed (Redis ok):", (err as Error).message);
+  }
+}
+
+async function loadJob(
+  supabase: SupabaseClient,
+  adminUserId: string,
+  jobId: string
+): Promise<LawIngestJob | null> {
+  const mem = memoryJobs.get(memoryKey(adminUserId, jobId));
+  if (mem) return mem;
+
+  const redis = getRedis();
+  if (redis) {
+    try {
+      const raw = await redis.get<LawIngestJob | string>(redisKey(adminUserId, jobId));
+      const parsed = parseJob(raw, adminUserId, jobId);
+      if (parsed) {
+        memoryJobs.set(memoryKey(adminUserId, jobId), parsed);
+        return parsed;
+      }
+    } catch (err) {
+      console.warn("Ingest job Redis read failed:", (err as Error).message);
+    }
+  }
+
+  // Storage can lag briefly after upload — retry a few times.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const fromStorage = await readJobFromStorage(supabase, adminUserId, jobId);
+    if (fromStorage) {
+      memoryJobs.set(memoryKey(adminUserId, jobId), fromStorage);
+      return fromStorage;
+    }
+    await sleep(150 * (attempt + 1));
+  }
+
+  return null;
 }
 
 export async function createLawIngestJob(
@@ -65,7 +189,6 @@ export async function createLawIngestJob(
   adminUserId: string,
   payload: LawIngestJobPayload
 ): Promise<LawIngestJob> {
-  await ensureAdminLawImportBucket(supabase);
   const now = new Date().toISOString();
   const job: LawIngestJob = {
     id: randomUUID(),
@@ -78,8 +201,18 @@ export async function createLawIngestJob(
     createdAt: now,
     updatedAt: now,
   };
-  await writeJobJson(supabase, job);
-  return job;
+
+  await persistJob(supabase, job);
+
+  // Fail closed if we cannot read back what we just wrote (avoids silent "Job not found" polls).
+  const verified = await loadJob(supabase, adminUserId, job.id);
+  if (!verified) {
+    throw new Error(
+      "Could not persist ingest job status. Set UPSTASH_REDIS_REST_URL/TOKEN (or KV_REST_API_*) in production, or check admin-law-imports storage."
+    );
+  }
+
+  return verified;
 }
 
 export async function readLawIngestJob(
@@ -87,17 +220,7 @@ export async function readLawIngestJob(
   adminUserId: string,
   jobId: string
 ): Promise<LawIngestJob | null> {
-  const path = jobPath(adminUserId, jobId);
-  const { data, error } = await supabase.storage.from(ADMIN_LAW_IMPORT_BUCKET).download(path);
-  if (error || !data) return null;
-  try {
-    const text = await data.text();
-    const job = JSON.parse(text) as LawIngestJob;
-    if (job.adminUserId !== adminUserId || job.id !== jobId) return null;
-    return job;
-  } catch {
-    return null;
-  }
+  return loadJob(supabase, adminUserId, jobId);
 }
 
 export async function updateLawIngestJob(
@@ -115,7 +238,7 @@ export async function updateLawIngestJob(
     ...patch,
     updatedAt: new Date().toISOString(),
   };
-  await writeJobJson(supabase, next);
+  await persistJob(supabase, next);
   return next;
 }
 
@@ -149,8 +272,8 @@ export async function claimLawIngestJob(
 
   const claimed = await updateLawIngestJob(supabase, job, {
     workerId,
-    status: "scanning",
-    phaseMessage: "Scanning PDF for malware (large files can take a few minutes)…",
+    status: "extracting",
+    phaseMessage: "Extracting text from PDF…",
     error: undefined,
   });
 
@@ -171,5 +294,14 @@ export async function deleteLawIngestJob(
   adminUserId: string,
   jobId: string
 ): Promise<void> {
+  memoryJobs.delete(memoryKey(adminUserId, jobId));
+  const redis = getRedis();
+  if (redis) {
+    try {
+      await redis.del(redisKey(adminUserId, jobId));
+    } catch {
+      // ignore
+    }
+  }
   await supabase.storage.from(ADMIN_LAW_IMPORT_BUCKET).remove([jobPath(adminUserId, jobId)]);
 }
