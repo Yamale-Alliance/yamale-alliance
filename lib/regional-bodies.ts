@@ -14,7 +14,10 @@ export type RegionalBodyDefinition = {
 
 const ALL_AU_MEMBERS = AFRICAN_COUNTRY_DB_NAMES;
 
-/** User-requested regional bodies (plus standard member lists aligned to AU RECs). */
+/**
+ * Platform regional bodies (order matches the product catalog):
+ * AU, AfCFTA, OHADA, ECOWAS, EAC, SADC, COMESA, ECCAS, UEMOA, CEMAC, SACU.
+ */
 export const REGIONAL_BODY_DEFINITIONS: RegionalBodyDefinition[] = [
   {
     code: "AU",
@@ -23,32 +26,32 @@ export const REGIONAL_BODY_DEFINITIONS: RegionalBodyDefinition[] = [
     defaultLevel: "International",
   },
   {
-    code: "EAC",
-    name: "East African Community (EAC)",
-    memberCountries: [
-      "Burundi",
-      "DR Congo",
-      "Kenya",
-      "Rwanda",
-      "Somalia",
-      "South Sudan",
-      "Tanzania",
-      "Uganda",
-    ],
-    defaultLevel: "Regional",
+    code: "AFCFTA",
+    name: "AfCFTA",
+    memberCountries: ALL_AU_MEMBERS,
+    defaultLevel: "International",
   },
   {
-    code: "IGAD",
-    name: "IGAD",
+    code: "OHADA",
+    name: "OHADA",
     memberCountries: [
-      "Djibouti",
-      "Eritrea",
-      "Ethiopia",
-      "Kenya",
-      "Somalia",
-      "South Sudan",
-      "Sudan",
-      "Uganda",
+      "Benin",
+      "Burkina Faso",
+      "Cameroon",
+      "Central African Republic",
+      "Chad",
+      "Comoros",
+      "Congo Republic",
+      "Côte d'Ivoire",
+      "DR Congo",
+      "Equatorial Guinea",
+      "Gabon",
+      "Guinea",
+      "Guinea-Bissau",
+      "Mali",
+      "Niger",
+      "Senegal",
+      "Togo",
     ],
     defaultLevel: "Regional",
   },
@@ -75,48 +78,17 @@ export const REGIONAL_BODY_DEFINITIONS: RegionalBodyDefinition[] = [
     defaultLevel: "Regional",
   },
   {
-    code: "WAEMU",
-    name: "WAEMU (UEMOA)",
+    code: "EAC",
+    name: "East African Community (EAC)",
     memberCountries: [
-      "Benin",
-      "Burkina Faso",
-      "Côte d'Ivoire",
-      "Guinea-Bissau",
-      "Mali",
-      "Niger",
-      "Senegal",
-      "Togo",
-    ],
-    defaultLevel: "Regional",
-  },
-  {
-    code: "ECCAS",
-    name: "ECCAS",
-    memberCountries: [
-      "Angola",
       "Burundi",
-      "Cameroon",
-      "Central African Republic",
-      "Chad",
-      "Congo Republic",
       "DR Congo",
-      "Equatorial Guinea",
-      "Gabon",
+      "Kenya",
       "Rwanda",
-      "São Tomé and Príncipe",
-    ],
-    defaultLevel: "Regional",
-  },
-  {
-    code: "CEMAC",
-    name: "CEMAC",
-    memberCountries: [
-      "Cameroon",
-      "Central African Republic",
-      "Chad",
-      "Congo Republic",
-      "Equatorial Guinea",
-      "Gabon",
+      "Somalia",
+      "South Sudan",
+      "Tanzania",
+      "Uganda",
     ],
     defaultLevel: "Regional",
   },
@@ -141,18 +113,6 @@ export const REGIONAL_BODY_DEFINITIONS: RegionalBodyDefinition[] = [
       "Zambia",
       "Zimbabwe",
     ],
-    defaultLevel: "Regional",
-  },
-  {
-    code: "SACU",
-    name: "SACU",
-    memberCountries: ["Botswana", "Eswatini", "Lesotho", "Namibia", "South Africa"],
-    defaultLevel: "Regional",
-  },
-  {
-    code: "AMU",
-    name: "Arab Maghreb Union (AMU)",
-    memberCountries: ["Algeria", "Libya", "Mauritania", "Morocco", "Tunisia"],
     defaultLevel: "Regional",
   },
   {
@@ -184,54 +144,95 @@ export const REGIONAL_BODY_DEFINITIONS: RegionalBodyDefinition[] = [
     defaultLevel: "Regional",
   },
   {
-    code: "CEN_SAD",
-    name: "CEN-SAD",
+    code: "ECCAS",
+    name: "ECCAS",
     memberCountries: [
-      "Benin",
-      "Burkina Faso",
+      "Angola",
+      "Burundi",
+      "Cameroon",
       "Central African Republic",
       "Chad",
-      "Comoros",
-      "Côte d'Ivoire",
-      "Djibouti",
-      "Egypt",
-      "Eritrea",
-      "Gambia",
-      "Ghana",
-      "Guinea",
-      "Kenya",
-      "Liberia",
-      "Libya",
-      "Mali",
-      "Mauritania",
-      "Morocco",
-      "Niger",
-      "Nigeria",
-      "Senegal",
-      "Sierra Leone",
-      "Somalia",
-      "Sudan",
-      "Togo",
-      "Tunisia",
-      "Uganda",
+      "Congo Republic",
+      "DR Congo",
+      "Equatorial Guinea",
+      "Gabon",
+      "Rwanda",
+      "São Tomé and Príncipe",
     ],
     defaultLevel: "Regional",
   },
+  {
+    code: "UEMOA",
+    name: "UEMOA",
+    memberCountries: [
+      "Benin",
+      "Burkina Faso",
+      "Côte d'Ivoire",
+      "Guinea-Bissau",
+      "Mali",
+      "Niger",
+      "Senegal",
+      "Togo",
+    ],
+    defaultLevel: "Regional",
+  },
+  {
+    code: "CEMAC",
+    name: "CEMAC",
+    memberCountries: [
+      "Cameroon",
+      "Central African Republic",
+      "Chad",
+      "Congo Republic",
+      "Equatorial Guinea",
+      "Gabon",
+    ],
+    defaultLevel: "Regional",
+  },
+  {
+    code: "SACU",
+    name: "SACU",
+    memberCountries: ["Botswana", "Eswatini", "Lesotho", "Namibia", "South Africa"],
+    defaultLevel: "Regional",
+  },
 ];
+
+/** Legacy codes that map onto a current catalog entry (DB may still store the old code). */
+const CODE_ALIASES: Record<string, string> = {
+  WAEMU: "UEMOA",
+  AFCTA: "AFCFTA",
+};
 
 export type CountryKind = "sovereign" | "regional_body";
 
 export const REGIONAL_BODY_CODES = new Set(REGIONAL_BODY_DEFINITIONS.map((b) => b.code));
 
+/** Catalog display order (AU → … → SACU). Unknown codes sort after. */
+export function regionalBodySortIndex(code: string | null | undefined): number {
+  const body = regionalBodyByCode(code);
+  if (!body) return REGIONAL_BODY_DEFINITIONS.length + 1;
+  return REGIONAL_BODY_DEFINITIONS.findIndex((b) => b.code === body.code);
+}
+
 export function regionalBodyByCode(code: string | null | undefined): RegionalBodyDefinition | null {
-  const key = code?.trim().toUpperCase().replace(/-/g, "_");
-  if (!key) return null;
+  const raw = code?.trim().toUpperCase().replace(/-/g, "_");
+  if (!raw) return null;
+  const key = CODE_ALIASES[raw] ?? raw;
   return REGIONAL_BODY_DEFINITIONS.find((b) => b.code === key) ?? null;
 }
 
 export function regionalBodyByName(name: string | null | undefined): RegionalBodyDefinition | null {
   const n = name?.trim().toLowerCase();
   if (!n) return null;
+  if (n === "waemu" || n === "waemu (uemoa)" || n.includes("uemoa")) {
+    return regionalBodyByCode("UEMOA");
+  }
+  if (n === "afcfta" || n.includes("continental free trade")) {
+    return regionalBodyByCode("AFCFTA");
+  }
+  if (n === "ohada" || n.includes("ohada")) {
+    return regionalBodyByCode("OHADA");
+  }
   return (
     REGIONAL_BODY_DEFINITIONS.find(
       (b) => b.name.toLowerCase() === n || b.code.toLowerCase() === n
@@ -245,6 +246,8 @@ export function isRegionalBodyCountry(row: {
   name?: string | null;
 }): boolean {
   if (row.kind === "regional_body") return true;
-  if (row.code && REGIONAL_BODY_CODES.has(row.code.toUpperCase())) return true;
+  if (row.code && (REGIONAL_BODY_CODES.has(row.code.toUpperCase()) || regionalBodyByCode(row.code))) {
+    return true;
+  }
   return regionalBodyByName(row.name) != null;
 }
