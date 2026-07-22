@@ -25,7 +25,7 @@ Canonical path from raw source to a searchable, AI-retrievable law row.
 
 ## 3. Edge cases
 
-- **Scanned PDFs** — Force OCR where supported; prefer manual cleanup via Admin Fix OCR (`app/(admin)/admin-panel/laws/fix-ocr/`).
+- **Scanned PDFs** — Local OCR (`pdftoppm` + Tesseract) when available; otherwise Claude Vision cloud OCR (`CLAUDE_API_KEY`, see `LAW_CLOUD_OCR_*` in `.env.example`). Prefer manual cleanup via Admin Fix OCR (`app/(admin)/admin-panel/laws/fix-ocr/`).
 - **French / Arabic / Portuguese** — No separate language column yet (planned in audit response); store authoritative text in `content`/`content_plain`; retrieval uses lexical ILIKE + intent boosts.
 - **Supranational instruments** — Often duplicated per signatory country in DB; AI retrieval dedupes by title and applies framework quotas; long-term fix is `law_country_scopes` junction (see audit report).
 
